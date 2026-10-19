@@ -46,6 +46,7 @@ class MenuLogic extends BaseLogic
     {
         $admin = Admin::findOrEmpty($adminId);
         self::removeTutorialMenu();
+        \app\common\service\point_alert\AlertMenus::sync(0, true);
 
         $where = [];
         $where[] = ['type', 'in', ['M', 'C']];

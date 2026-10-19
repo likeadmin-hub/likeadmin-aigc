@@ -73,6 +73,10 @@ class AccountLogLogic extends BaseLogic
             'remark' => $remark,
             'extra' => $extra ? json_encode($extra, JSON_UNESCAPED_UNICODE) : '',
         ];
-        return UserAccountLog::create($data);
+        $log = UserAccountLog::create($data);
+        if ($changeObject === AccountLogEnum::UM) {
+            \app\common\service\point_alert\AlertService::touch((int)$user->tenant_id, (int)$userId);
+        }
+        return $log;
     }
 }

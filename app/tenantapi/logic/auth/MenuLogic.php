@@ -58,6 +58,7 @@ class MenuLogic extends BaseLogic
             self::ensurePcNoticeMenu($tenantId);
             self::ensureLatestNewsMenu($tenantId);
             self::ensureTutorialMenu($tenantId);
+            \app\common\service\point_alert\AlertMenus::sync($tenantId);
         }
 
         $where = [];

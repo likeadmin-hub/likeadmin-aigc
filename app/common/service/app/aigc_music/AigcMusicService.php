@@ -65,7 +65,8 @@ class AigcMusicService
             'config_json' => self::DEFAULT_CONFIG_JSON,
         ] : $config->toArray();
         $data['config_json'] = self::normalizeConfigJson($data['config_json'] ?? []);
-        $data['option_config'] = AigcMusicChannelService::userConfig($tenantId);
+        $data['option_config'] = AigcMusicMarketService::config($tenantId);
+        $data['price_source'] = 'power_market_app_api';
         $data['styles'] = self::styleLists($tenantId, ['status' => 1, 'page_size' => 100])['lists'];
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
@@ -95,18 +96,23 @@ class AigcMusicService
     public static function estimate(int $tenantId, array $params): array
     {
         self::normalizeSubmit($params, false);
-        return AigcMusicChannelService::estimate($tenantId, $params);
+        return AigcMusicMarketService::estimate($tenantId, $params);
     }
 
     public static function generate(int $tenantId, int $userId, array $params): array
     {
         $payload = self::normalizeSubmit($params, true);
         if ($payload['reference_asset_id'] > 0) {
-            self::assertAsset($tenantId, $payload['reference_asset_id'], $userId);
+            $reference = self::assertAsset($tenantId, $payload['reference_asset_id'], $userId);
+            $payload['audio_url'] = FileService::getFileUrlByStorage((string)$reference['uri'], (string)$reference['storage_scope'], (string)$reference['storage_engine'], (string)$reference['storage_domain']);
         }
         self::recordSafetyAudit($tenantId, $userId, 'task', 0, 'prompt_review', 'passed', $payload['prompt'] . ' ' . $payload['lyrics']);
         $agent=\app\common\service\app\aigc_llm\agent\AgentToolContext::music($tenantId,$userId);
         $frozen=$agent??\app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE,$tenantId,$userId);
+        if ($frozen === null || ($frozen['selection']['channel']['provider'] ?? '') === AigcMusicMarketService::PROVIDER) {
+            return AigcMusicMarketService::generate($tenantId, $userId, $params, $payload, $frozen);
+        }
+        // Accepted historical Agent/API snapshots retain their original billing owner.
         $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, $params);
         $selection['resource_bindings']??=self::referenceBindings($tenantId,$userId,$params);
         $estimate = $frozen['quote']??AigcMusicChannelService::estimateSelection($selection,$params);
@@ -350,6 +356,10 @@ class AigcMusicService
             'channel' => $task['channel'],
             'quality' => $task['quality'],
             'duration' => $task['duration'],
+            'market_product_id' => $task['market_product_id'] ?? 0,
+            'market_sku_id' => $task['market_sku_id'] ?? 0,
+            'custom' => $task['provider_payload']['generation']['custom'] ?? false,
+            'instrumental' => $task['provider_payload']['generation']['instrumental'] ?? false,
         ]);
     }
 
@@ -819,6 +829,11 @@ class AigcMusicService
         $tasks = $query->limit(10)->select();
         foreach ($tasks as $task) {
             try {
+                if ($task['provider'] === AigcMusicMarketService::PROVIDER) {
+                    \app\common\service\power\MarketMusicAppRuntimeService::refresh((int)$task['consumption_id']);
+                    AigcMusicMarketService::syncConsumption((int)$task['consumption_id'], (int)$task['id']);
+                    continue;
+                }
                 if ($task['provider'] === 'market_music_operation') {
                     \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$task['consumption_id']);
                     continue;
@@ -935,6 +950,11 @@ class AigcMusicService
             // Auxiliary operations produce text, references or exports, not song rows.
             return array_replace($task, \app\common\service\power\MarketMusicOperationRuntimeService::taskData($task)) + ['results' => []];
         }
+        if ($task['provider'] === AigcMusicMarketService::PROVIDER) {
+            AigcMusicMarketService::syncConsumption((int)$task['consumption_id'], (int)$task['id']);
+            $task = AigcMusicTask::findOrEmpty((int)$task['id'])->toArray();
+        }
+        $task['task_id'] = (int)$task['id'];
         $task['results'] = self::existingResultRows($tenantId, $userId, (int)$task['id']);
         return $task;
     }

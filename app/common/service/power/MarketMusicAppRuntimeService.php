@@ -96,7 +96,7 @@ class MarketMusicAppRuntimeService
                 }
                 $tenantPrice = $tenant->isEmpty()
                     ? (float)$sku['sale_points']
-                    : (float)$tenant['sale_points'];
+                    : max((float)$sku['sale_points'], (float)$tenant['sale_points']);
                 $duration = (int)($locked['duration'] ?? $locked['seconds'] ?? 0);
 
                 $options[] = [
@@ -168,10 +168,11 @@ class MarketMusicAppRuntimeService
         array $request,
         string $appCode = self::APP_CODE,
         string $actionCode = 'bgm_audio',
-        string $businessTable = 'aigc_short_drama_generation_task'
+        string $businessTable = 'aigc_short_drama_generation_task',
+        ?array $acceptedSnapshot = null
     ): array
     {
-        if (MarketAppGateService::requiresGate($appCode)) {
+        if ($appCode !== 'aigc_music' && MarketAppGateService::requiresGate($appCode)) {
             MarketAppGateService::requireMarket($tenantId, $userId, $appCode, (string)($request['idempotency_key'] ?? $businessTaskId));
         }
         $idempotencyKey = self::reservationKey($tenantId, $appCode, $actionCode, $businessTaskId);
@@ -180,12 +181,18 @@ class MarketMusicAppRuntimeService
             return $existing;
         }
         $market = self::resolve($tenantId, $selection);
-        $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
+        if ($acceptedSnapshot !== null) {
+            if ((int)($acceptedSnapshot['sku_id'] ?? 0) !== (int)$market['sku']['id'] || (int)($acceptedSnapshot['product_id'] ?? 0) !== (int)$market['product']['id'] || ($acceptedSnapshot['app_code'] ?? '') !== self::UPSTREAM_APP_CODE) throw new Exception('音乐价格快照与所选规格不一致');
+            $market['sku']['sale_points'] = $acceptedSnapshot['platform_price'];
+            $market['tenant_price'] = $acceptedSnapshot['tenant_price'];
+        }
+        $snapshot = $acceptedSnapshot ?? self::snapshot($market);
+        $deferredUsage = MarketUsageSettlementService::isActualUsageSku($snapshot);
         $tenantCost = $deferredUsage ? 0 : self::points((float)$market['sku']['sale_points']);
         $userPrice = $deferredUsage ? 0 : self::points((float)$market['tenant_price']);
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
-        return Db::transaction(function () use ($tenantId, $userId, $businessTaskId, $request, $market, $tenantCost, $userPrice, $deferredUsage, $appCode, $actionCode, $businessTable, $idempotencyKey) {
+        return Db::transaction(function () use ($tenantId, $userId, $businessTaskId, $request, $market, $tenantCost, $userPrice, $deferredUsage, $appCode, $actionCode, $businessTable, $idempotencyKey, $snapshot) {
             $existing = self::existingReservation($tenantId, $idempotencyKey, true);
             if ($existing !== null) {
                 return $existing;
@@ -208,8 +215,8 @@ class MarketMusicAppRuntimeService
                 'app_code' => $appCode, 'action_code' => $actionCode, 'resource_type' => 'app_api',
                 'product_id' => (int)$market['product']['id'], 'sku_id' => (int)$market['sku']['id'],
                 'model_code' => '', 'api_code' => self::CREATE_API_CODE, 'protocol' => 'application_api', 'provider' => 'power_market',
-                'upstream_request_id' => '', 'upstream_task_id' => '', 'quantity' => $deferredUsage ? 0 : 1, 'usage_unit' => (string)$market['sku']['usage_unit'],
-                'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'], 'price_snapshot' => self::snapshot($market), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
+                'upstream_request_id' => '', 'upstream_task_id' => '', 'quantity' => $deferredUsage ? 0 : 1, 'usage_unit' => (string)$snapshot['usage_unit'],
+                'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'], 'price_snapshot' => $snapshot, 'request_summary' => self::requestSummary($request), 'response_summary' => [],
                 'run_status' => 'reserved', 'billing_status' => $deferredUsage ? 'pending_usage' : 'reserved',
                 'reserved_tenant_cost' => $tenantCost, 'reserved_user_price' => $userPrice, 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
                 'tenant_point_sn' => $consumeNo . '-reserve', 'user_point_sn' => $consumeNo . '-reserve',
@@ -218,7 +225,7 @@ class MarketMusicAppRuntimeService
             ]);
             if (!$deferredUsage) PointService::reserveBusinessAmountsInCurrentTransaction($tenantId, $userId, $tenantCost, $userPrice, $consumeNo . '-reserve', self::taskLabel($appCode) . '预占', self::extra($appTask, $consumption, 'reserved'));
             self::event((int)$consumption['id'], 'reserve', 'success', ['settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved']);
-            return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::snapshot($market)];
+            return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => $snapshot];
         });
     }
 
@@ -266,12 +273,19 @@ class MarketMusicAppRuntimeService
         if ($context === null) throw new Exception('市场音乐消耗记录不存在');
         $consumption = $context['consumption'];
         if ((string)$consumption['run_status'] !== 'reserved') return self::response($consumption->toArray());
+        $claimed = Db::transaction(function () use ($consumptionId) {
+            $ctx = self::context($consumptionId, true);
+            if ($ctx === null || $ctx['consumption']['run_status'] !== 'reserved') return false;
+            $ctx['consumption']->save(['run_status' => 'submitting', 'update_time' => time()]);
+            return true;
+        });
+        if (!$claimed) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
             $response = self::request('POST', self::endpoint((string)$snapshot['app_code'], self::CREATE_API_CODE), self::payload($snapshot, $request, (string)$consumption['consume_no']));
             $taskId = self::taskId($response);
-            if ($taskId === '') throw new Exception('音乐生成应用未返回任务 ID');
+            if ($taskId === '') throw new Exception('音乐生成应用未返回任务 ID', 502);
             $requestId = self::requestId($response);
             Db::transaction(function () use ($consumptionId, $taskId, $requestId) {
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
@@ -282,6 +296,11 @@ class MarketMusicAppRuntimeService
             AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
+            if ($e->getCode() >= 500 || preg_match('/timeout|timed out|connection|curl|超时|连接|网络|格式|未返回/iu', $e->getMessage())) {
+                AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'submitting')->update(['run_status' => 'pending_confirmation', 'error_code' => 'pending_confirmation', 'error_message' => '上游受理状态待确认', 'update_time' => time()]);
+                return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
             if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('音乐生成应用提交失败');
@@ -293,6 +312,7 @@ class MarketMusicAppRuntimeService
         $context = self::context($consumptionId, false);
         if ($context === null) throw new Exception('市场音乐消耗记录不存在');
         $consumption = $context['consumption'];
+        if (in_array((string)$consumption['run_status'], ['submitting', 'pending_confirmation'], true) && (string)$consumption['upstream_task_id'] === '') return self::response($consumption->toArray());
         if (\app\common\service\open_platform\OpenSubmission::pending($consumption->toArray())) return self::response($consumption->toArray());
         if (!in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($consumption->toArray());
         // AppBaseModel formats timestamps as date strings on read. A direct
@@ -311,7 +331,7 @@ class MarketMusicAppRuntimeService
         try {
             $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
             $response = self::request('GET', self::endpoint((string)$snapshot['app_code'], 'query') . '?task_id=' . rawurlencode($taskId));
-            $items = self::items($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
+            $items = self::items($response, (int)$consumption['tenant_id'], (int)$consumption['user_id'], $consumptionId);
             if ($items !== []) {
                 self::settle($consumptionId, $items, self::requestId($response), $taskId, $response);
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'items' => $items];
@@ -389,10 +409,11 @@ class MarketMusicAppRuntimeService
             $skus = PowerMarketSku::where(['product_id' => (int)$product['id'], 'status' => 1, 'sale_status' => 1])->order('id', 'asc')->select()->toArray();
             foreach ($skus as $sku) {
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
-                if (($skuId > 0 && (int)$sku['id'] !== $skuId) || ($skuId <= 0 && (string)($locked['type'] ?? '') !== self::GENERATE_TYPE)) continue;
+                if (($skuId > 0 && (int)$sku['id'] !== $skuId) || (string)($locked['type'] ?? '') !== self::GENERATE_TYPE) continue;
+                if (!empty($selection['market_product_id']) && (int)$selection['market_product_id'] !== (int)$product['id']) continue;
                 $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-                return ['product' => $product, 'sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']];
+                return ['product' => $product, 'sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : max((float)$sku['sale_points'], (float)$tenant['sale_points'])];
             }
         }
         throw new Exception('暂无租户已上架的音乐生成应用 API');
@@ -424,6 +445,10 @@ class MarketMusicAppRuntimeService
             'instruments' => trim((string)($request['instruments'] ?? '')), 'duration' => max(5, min(600, $duration)),
             'idempotency_key' => $idempotencyKey,
         ]);
+        foreach (['audio_id', 'provider_persona_id'] as $field) {
+            if (!empty($request[$field])) $payload[$field === 'provider_persona_id' ? 'persona_id' : $field] = $request[$field];
+        }
+        if (!empty($request['audio_url']) && isset($fields['audio_urls'])) $payload['audio_urls'] = [(string)$request['audio_url']];
         // New catalogues declare the wire fields. Legacy snapshots keep their
         // former duration/genre behavior, including short-drama BGM defaults.
         if ($fields !== []) {
@@ -434,39 +459,80 @@ class MarketMusicAppRuntimeService
         return array_filter($payload, static fn($value) => $value !== '' && $value !== null && $value !== []);
     }
 
-    private static function items(array $data, int $tenantId, int $userId): array
+    private static function items(array $data, int $tenantId, int $userId, int $consumptionId = 0): array
     {
-        $root = self::arrayValue($data['data'] ?? $data);
-        $candidates = [
-            $root,
-            $root['results'] ?? [],
-            $root['audios'] ?? [],
-            $root['data'] ?? [],
-            $root['output'] ?? [],
-            $root['result'] ?? [],
-            $root['result']['results'] ?? [],
-            $root['result']['data'] ?? [],
-            $root['result']['output'] ?? [],
-        ];
-        $urls = AiTaskResultUrlService::collect($data);
-        foreach ($candidates as $rows) foreach ((array)$rows as $row) { $url = is_string($row) ? $row : (string)($row['audio_url'] ?? $row['file_url'] ?? $row['url'] ?? $row['audio'] ?? ''); if ($url !== '') $urls[] = $url; }
+        $rows = [];
+        $collect = static function ($value) use (&$collect, &$rows): void {
+            if (!is_array($value)) return;
+            foreach (['audio_url', 'file_url', 'url', 'audio'] as $key) {
+                if (is_string($value[$key] ?? null) && preg_match('#^https?://#i', $value[$key])) {
+                    $rows[$value[$key]] = $value;
+                    return;
+                }
+            }
+            foreach (['data', 'result', 'results', 'audios', 'output', 'items', 'songs'] as $key) {
+                if (isset($value[$key])) $collect($value[$key]);
+            }
+            if (array_is_list($value)) foreach ($value as $row) $collect($row);
+        };
+        $collect($data);
+        if ($rows === []) foreach (AiTaskResultUrlService::collect($data) as $url) $rows[$url] = [];
         $items = [];
-        foreach (array_values(array_unique($urls)) as $url) {
+        $transferFailed = false;
+        $pending = $consumptionId > 0 ? (array)(AiConsumptionLog::findOrEmpty($consumptionId)['response_summary']['pending_music_items'] ?? []) : [];
+        foreach ($rows as $url => $row) {
+            $cacheKey = hash('sha256', $url);
+            if (isset($pending[$cacheKey])) { $items[] = $pending[$cacheKey]; continue; }
             try {
                 $stored = AigcMusicAssetService::persistGeneratedAudio($url, $tenantId, $userId);
-                $items[] = ['audio_uri' => (string)$stored['uri'], 'audio_url' => (string)($stored['url'] ?? ''), 'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($stored['storage_engine'] ?? ''), 'storage_domain' => (string)($stored['storage_domain'] ?? ''), 'mime_type' => (string)($stored['mime_type'] ?? ''), 'file_size' => (int)($stored['file_size'] ?? 0), 'duration' => (float)($stored['duration'] ?? 0)];
-                break;
-            } catch (\Throwable) {
-                // Providers may return an expired secondary preview URL alongside
-                // the durable generated file. Keep every result that persisted.
+                $items[] = [
+                    'title' => (string)($row['title'] ?? ''), 'lyrics' => (string)($row['lyrics'] ?? $row['lyric'] ?? $row['prompt'] ?? ''),
+                    'timing_json' => (array)($row['timing_json'] ?? []), 'raw' => $row,
+                    'audio_uri' => (string)$stored['uri'], 'audio_url' => (string)($stored['url'] ?? ''),
+                    'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'),
+                    'storage_engine' => (string)($stored['storage_engine'] ?? ''), 'storage_domain' => (string)($stored['storage_domain'] ?? ''),
+                    'mime_type' => (string)($stored['mime_type'] ?? ''), 'file_size' => (int)($stored['file_size'] ?? 0),
+                    'duration' => (float)($stored['duration'] ?: ($row['duration'] ?? 0)),
+                ];
+                if ($consumptionId > 0) Db::transaction(function () use ($consumptionId, $cacheKey, $items) {
+                    $c = AiConsumptionLog::where('id', $consumptionId)->lock(true)->findOrEmpty();
+                    if ($c->isEmpty() || in_array($c['billing_status'], ['settled', 'refunded'], true)) return;
+                    $summary = (array)$c['response_summary'];
+                    $summary['pending_music_items'][$cacheKey] = $items[array_key_last($items)];
+                    $c->save(['response_summary' => $summary, 'update_time' => time()]);
+                });
+                // A generation SKU is charged once even if it returns several songs.
+            } catch (\Throwable $error) {
+                \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($error);
+                $transferFailed = true;
+                // Keep successful transfers cached and retry missing songs before settlement.
             }
         }
+        if ($transferFailed) throw new Exception('音乐结果文件转存未完成，稍后重试');
         return $items;
     }
 
     private static function endpoint(string $appCode, string $apiCode): string { return self::origin() . '/api/v1/apps/' . rawurlencode($appCode ?: self::UPSTREAM_APP_CODE) . '/' . rawurlencode($apiCode); }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); $host = (string)($parts['host'] ?? ''); if ($host === '') throw new Exception('音乐生成应用 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $host . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
-    private static function request(string $method, string $url, array $payload = []): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('音乐生成应用 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '音乐生成应用网络请求失败'); $data = json_decode((string)$body, true); if ($method === 'POST' && is_array($data)) \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== ''); if (!is_array($data)) throw new Exception('音乐生成应用响应格式错误'); if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) throw new Exception(self::error($data)); return $data; }
+    private static function request(string $method, string $url, array $payload = []): array
+    {
+        $source = UpdateSourceClient::getSource();
+        $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
+        if ($key === '') throw new Exception('音乐生成应用 API 暂不可用');
+        $ch = curl_init();
+        curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120,
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'],
+            CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]);
+        if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
+        $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        if ($errno) throw new Exception($error ?: '音乐生成应用网络请求失败', 502);
+        $data = json_decode((string)$body, true);
+        if ($method === 'POST' && is_array($data)) \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== '');
+        if (!is_array($data)) throw new Exception('音乐生成应用响应格式错误', 502);
+        if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) throw new Exception(self::error($data), $http >= 400 ? $http : 400);
+        return $data;
+    }
+
     private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'params_schema' => self::arrayValue(self::metadata($product)['params_schema'] ?? []), 'default_params' => self::arrayValue(self::metadata($product)['default_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price']]; }
     private static function marketContext(array $snapshot): array { $skuKey = trim((string)($snapshot['sku_key'] ?? '')); $skuId = (int)($snapshot['sku_id'] ?? 0); return ['market_product_id' => (int)($snapshot['product_id'] ?? 0), 'market_sku_id' => $skuId, 'sku_id' => $skuId, 'market_sku_key' => $skuKey, 'sku_key' => $skuKey, 'pricing_sku_key' => $skuKey, 'price_source' => 'power_market_app_api']; }
     private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'duration' => (int)($request['duration'] ?? 0), 'instrumental' => filter_var($request['instrumental'] ?? true, FILTER_VALIDATE_BOOLEAN), 'custom' => filter_var($request['custom'] ?? false, FILTER_VALIDATE_BOOLEAN)]; }
@@ -485,7 +551,7 @@ class MarketMusicAppRuntimeService
     private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
     private static function context(int $consumptionId, bool $lock): ?array { $query = AiConsumptionLog::where('id', $consumptionId); if ($lock) $query->lock(true); $consumption = $query->findOrEmpty(); if ($consumption->isEmpty()) return null; if ((self::arrayValue($consumption['price_snapshot'])['runtime_adapter'] ?? '') === 'music_operation') throw new Exception('Music operations must use their registered runtime'); $taskQuery = AiAppTask::where('id', (int)$consumption['app_task_id']); if ($lock) $taskQuery->lock(true); $task = $taskQuery->findOrEmpty(); return $task->isEmpty() ? null : ['consumption' => $consumption, 'app_task' => $task]; }
     private static function event(int $consumptionId, string $type, string $status, array $summary): void { AiConsumptionEvent::create(['consumption_id' => $consumptionId, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => 0, 'create_time' => time()]); }
-    private static function taskLabel(string $appCode): string { return $appCode === self::APP_CODE ? '短剧背景音乐' : '无限画布音乐生成'; }
+    private static function taskLabel(string $appCode): string { return match ($appCode) { self::APP_CODE => '短剧背景音乐', 'aigc_music' => 'AI音乐生成', default => '无限画布音乐生成' }; }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)($task['app_code'] ?? self::APP_CODE), 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
     private static function metadata(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); return self::arrayValue($source['market_metadata'] ?? []); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; if (is_string($value) && $value !== '') { $decoded = json_decode($value, true); return is_array($decoded) ? $decoded : []; } return []; }
