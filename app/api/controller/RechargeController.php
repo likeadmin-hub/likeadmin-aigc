@@ -65,6 +65,7 @@ class RechargeController extends BaseApiController
             'terminal' => $this->getUserTerminal(),
             'tenant_id' => $this->userInfo['tenant_id'],
         ]);
+        $params['request_id'] = (string)$this->request->post('request_id', '');
         $result = RechargeLogic::recharge($params);
         if (false === $result) {
             return $this->fail(RechargeLogic::getError());

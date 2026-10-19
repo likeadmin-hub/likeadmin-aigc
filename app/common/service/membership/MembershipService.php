@@ -196,10 +196,10 @@ class MembershipService
         }));
     }
 
-    public static function createOrder(int $tenantId, int $userId, int $terminal, int $planId, string $cycle, string $quoteHash = ''): array
+    public static function createOrder(int $tenantId, int $userId, int $terminal, int $planId, string $cycle, string $quoteHash = '', string $requestId = ''): array
     {
         return \app\common\service\promotion\PackagePricingService::create(
-            $tenantId, $userId, $terminal, 'membership', $planId, $cycle, $quoteHash
+            $tenantId, $userId, $terminal, 'membership', $planId, $cycle, $quoteHash, $requestId
         );
     }
 
@@ -213,6 +213,7 @@ class MembershipService
             if ((int)$order['pay_status'] === PayEnum::ISPAID) {
                 return;
             }
+            \app\common\service\pay\CashCheckoutService::claimReceipt($order->toArray(), 'membership', $orderSn, $extra);
             $snapshot = \app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'], 'membership', (int)$order['id']);
             if ($snapshot) {
                 User::where(['tenant_id'=>(int)$order['tenant_id'],'id'=>(int)$order['user_id']])->lock(true)->findOrEmpty();

@@ -151,7 +151,7 @@ class TenantBrandService
         if ($quotaPrice < 0) {
             throw new RuntimeException('额度进货价异常');
         }
-        $orderSn = generate_sn(TenantBrandQuotaOrder::class, 'order_sn');
+        $orderSn = \app\common\service\pay\CashCheckoutService::number('tenant_brand_quota');
         $amount = $quotaPrice * $quantity;
         $order = TenantBrandQuotaOrder::create([
             'tenant_id' => $tenantId,
@@ -238,7 +238,7 @@ class TenantBrandService
             }
         }
 
-        $orderSn = generate_sn(TenantBrandOrder::class, 'order_sn');
+        $orderSn = \app\common\service\pay\CashCheckoutService::number('tenant_brand_order');
         $now = time();
         $order = Db::transaction(function () use ($tenantId, $userId, $terminal, $packageId, $package, $price, $targetTenantId, $tenantName, $domainAlias, $account, $password, $orderSn, $now) {
             self::reserveQuota($tenantId, $packageId, 1, $orderSn);
