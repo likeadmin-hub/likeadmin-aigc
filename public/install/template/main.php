@@ -251,9 +251,9 @@ $oemEscape = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
                                             <tbody>
                                             <tr>
                                                 <td>PHP版本</td>
-                                                <td>大于8.0</td>
+                                                <td>PHP 8.2 或更高版本</td>
                                                 <?php echo $modelInstall->correctOrFail($modelInstall->checkPHP()) ?>
-                                                <td>建议使用PHP8.0.8版本</td>
+                                                <td>网站、任务进程和计划任务须使用满足要求的 PHP 版本。</td>
                                             </tr>
                                             <tr>
                                                 <td>PDO_MYSQL</td>

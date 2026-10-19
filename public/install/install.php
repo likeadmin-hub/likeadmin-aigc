@@ -61,6 +61,12 @@ if (is_file($projectConfigPath)) {
     }
 }
 
+// Direct step submissions must obey the same PHP requirement as the environment page.
+if ($step === 4 && $modelInstall->checkPHP() !== 'ok') {
+    http_response_code(422);
+    exit('当前环境不满足安装要求：系统要求 PHP 8.2 或更高版本，请切换网站 PHP 版本后重新安装。');
+}
+
 // 检查数据库正确性
 if ($step == 4) {
     $canNext = true;
