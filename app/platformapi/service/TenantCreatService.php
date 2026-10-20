@@ -190,6 +190,19 @@ class TenantCreatService
         }
 
         $this->dbh->exec('USE `' . str_replace('`', '``', env('database.database', 'likeadmin_saas')) . '`');
+        // The SQL above is an initial seed, not a tenant customization. Mark it
+        // so the first tenant-context template read can install the current
+        // preset into this tenant's own sharded decoration table.
+        $pageTable = env('database.prefix', 'la_') . 'decorate_page_' . $tenantSn;
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $pageTable)) throw new Exception('Invalid tenant decoration table');
+        $select = $this->dbh->prepare('SELECT id,meta FROM `' . $pageTable . '` WHERE tenant_id=? AND type=1 LIMIT 1');
+        $select->execute([(int)$tenantId]);
+        if ($home = $select->fetch(PDO::FETCH_ASSOC)) {
+            $meta = json_decode((string)$home['meta'], true) ?: [];
+            $meta[0]['content']['initial_preset'] = 'logic-ai';
+            $update = $this->dbh->prepare('UPDATE `' . $pageTable . '` SET meta=? WHERE id=? AND tenant_id=?');
+            $update->execute([json_encode($meta, JSON_UNESCAPED_UNICODE), (int)$home['id'], (int)$tenantId]);
+        }
         \app\common\service\OemBrandService::initialize($this->dbh, env('database.prefix', 'la_'), (int)$tenantId, null, true, (string)$tenantSn);
 
         return true;

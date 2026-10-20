@@ -182,7 +182,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -622,7 +624,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -1115,6 +1119,27 @@
             }
           ],
           "help": "仅有图轮播：0隐藏，1显示；未设置保留旧端行为（共享有文案/公开无文案）。文字主视觉标题与说明不受影响。"
+        },
+        "indicator_bottom": {
+          "key": "indicator_bottom",
+          "label": "指示器底边距",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 12,
+          "unit": "rpx",
+          "min": 0,
+          "max": 950,
+          "help": "不设置保留旧位置；显式值以rpx计。"
+        },
+        "border_radius": {
+          "key": "border_radius",
+          "label": "轮播圆角",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 14,
+          "unit": "rpx",
+          "min": 0,
+          "max": 100
         }
       },
       "style_fields": {
@@ -1230,7 +1255,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -1819,7 +1846,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -2379,7 +2408,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -2952,7 +2983,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -3512,7 +3545,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -3931,6 +3966,14 @@
           "max": 48,
           "help": "主标题的逻辑px字号，不使用HTML标题标签推断大小。"
         },
+        "more_text": {
+          "key": "more_text",
+          "label": "右侧链接文字",
+          "type": "text",
+          "value_type": "string",
+          "default": "",
+          "help": "填写文字并设置跳转链接后显示，如全部。"
+        },
         "sub_font_size": {
           "key": "sub_font_size",
           "label": "副标题字号",
@@ -4090,7 +4133,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -4246,7 +4291,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "unsupported: content.link."
+        "Optional more_text plus link renders a right-aligned navigation action; empty more_text preserves the original heading."
       ],
       "compatibility": {
         "unknown_fields": "preserve",
@@ -4503,7 +4548,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -4853,7 +4900,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -5223,6 +5272,46 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "crop_x": {
+          "key": "crop_x",
+          "label": "裁切左位置",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        "crop_y": {
+          "key": "crop_y",
+          "label": "裁切上位置",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        "crop_width": {
+          "key": "crop_width",
+          "label": "裁切宽度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 100,
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        "crop_height": {
+          "key": "crop_height",
+          "label": "裁切高度",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 100,
+          "unit": "%",
+          "min": 0,
+          "max": 100
         }
       },
       "style_fields": {
@@ -5338,7 +5427,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -5874,7 +5965,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -6418,7 +6511,9 @@
           "type": "number",
           "value_type": "number",
           "default": 12,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -6748,7 +6843,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -7132,7 +7229,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -7649,7 +7748,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -8220,7 +8321,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -8773,7 +8876,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -9328,7 +9433,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -9900,7 +10007,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -10627,7 +10736,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -11142,11 +11253,38 @@
         },
         "active": {
           "key": "active",
-          "label": "active",
-          "type": "number",
+          "label": "初始标签序号",
+          "type": "stepper",
           "value_type": "number",
           "default": 0,
-          "unit": ""
+          "unit": "",
+          "min": 0,
+          "max": 49
+        },
+        "variant": {
+          "key": "variant",
+          "label": "标签样式",
+          "type": "select",
+          "value_type": "string",
+          "default": "",
+          "options": [
+            {
+              "label": "沿用旧样式",
+              "value": ""
+            },
+            {
+              "label": "下划线",
+              "value": "underline"
+            }
+          ]
+        },
+        "filter_group": {
+          "key": "filter_group",
+          "label": "本页筛选组",
+          "type": "text",
+          "value_type": "string",
+          "default": "",
+          "help": "与本页分类标签使用相同组名；标签按每行filter_key筛选case-feed/gallery行的category或app_code。留空保留跳转。"
         }
       },
       "style_fields": {
@@ -11262,7 +11400,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -11417,44 +11557,9 @@
               "value_type": "string",
               "default": "视频"
             },
-            "name": {
-              "key": "name",
-              "label": "名称",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "image": {
-              "key": "image",
-              "label": "图片",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "cover": {
-              "key": "cover",
-              "label": "封面",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "description": {
-              "key": "description",
-              "label": "描述",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "sub_title": {
-              "key": "sub_title",
-              "label": "副标题",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "tag": {
-              "key": "tag",
-              "label": "标签",
+            "filter_key": {
+              "key": "filter_key",
+              "label": "筛选标识",
               "type": "text",
               "value_type": "string",
               "default": ""
@@ -11495,44 +11600,9 @@
               "value_type": "string",
               "default": ""
             },
-            "name": {
-              "key": "name",
-              "label": "名称",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "image": {
-              "key": "image",
-              "label": "图片",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "cover": {
-              "key": "cover",
-              "label": "封面",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "description": {
-              "key": "description",
-              "label": "描述",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "sub_title": {
-              "key": "sub_title",
-              "label": "副标题",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "tag": {
-              "key": "tag",
-              "label": "标签",
+            "filter_key": {
+              "key": "filter_key",
+              "label": "筛选标识",
               "type": "text",
               "value_type": "string",
               "default": ""
@@ -11583,7 +11653,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "active is initial style; clicks navigate rather than change the current page content.",
+        "Optional variant=underline. filter_group enables local page filtering: row.filter_key matches category or app_code of case-feed/gallery widgets in the same group. Empty/all/* shows all; without a group clicks retain navigation.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -11877,7 +11947,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -12492,7 +12564,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -13172,7 +13246,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -13722,7 +13798,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -14294,7 +14372,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -14858,7 +14938,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -15453,7 +15535,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -16017,7 +16101,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -16562,7 +16648,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -17158,7 +17246,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -17730,7 +17820,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -18329,7 +18421,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -18774,6 +18868,31 @@
           "type": "text",
           "value_type": "string",
           "default": "精选案例"
+        },
+        "layout": {
+          "key": "layout",
+          "label": "组件布局",
+          "type": "select",
+          "value_type": "string",
+          "default": "",
+          "options": [
+            {
+              "label": "沿用旧布局",
+              "value": ""
+            },
+            {
+              "label": "自然高度双列瀑布流",
+              "value": "masonry"
+            }
+          ]
+        },
+        "filter_group": {
+          "key": "filter_group",
+          "label": "本页筛选组",
+          "type": "text",
+          "value_type": "string",
+          "default": "",
+          "help": "与本页分类标签使用相同组名；标签按每行filter_key筛选case-feed/gallery行的category或app_code。留空保留跳转。"
         }
       },
       "style_fields": {
@@ -18889,7 +19008,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -19044,13 +19165,6 @@
               "value_type": "string",
               "default": ""
             },
-            "name": {
-              "key": "name",
-              "label": "名称",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
             "image": {
               "key": "image",
               "label": "图片",
@@ -19058,30 +19172,46 @@
               "value_type": "string",
               "default": ""
             },
-            "cover": {
-              "key": "cover",
-              "label": "封面",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "description": {
-              "key": "description",
-              "label": "描述",
+            "model_name": {
+              "key": "model_name",
+              "label": "模型名称",
               "type": "text",
               "value_type": "string",
               "default": ""
             },
-            "sub_title": {
-              "key": "sub_title",
-              "label": "副标题",
+            "meta": {
+              "key": "meta",
+              "label": "案例说明",
               "type": "text",
               "value_type": "string",
               "default": ""
             },
-            "tag": {
-              "key": "tag",
-              "label": "标签",
+            "heart_count": {
+              "key": "heart_count",
+              "label": "喜欢数",
+              "type": "number",
+              "value_type": "number",
+              "default": 0,
+              "min": 0,
+              "help": "可选互动数；手动和备用内容明确显示为示例，缺省不显示。真实数值仅来自业务数据源。"
+            },
+            "is_example": {
+              "key": "is_example",
+              "label": "示例数据",
+              "type": "switch",
+              "value_type": "boolean",
+              "default": false
+            },
+            "category": {
+              "key": "category",
+              "label": "分类标识",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "app_code": {
+              "key": "app_code",
+              "label": "应用代码",
               "type": "text",
               "value_type": "string",
               "default": ""
@@ -19122,13 +19252,6 @@
               "value_type": "string",
               "default": ""
             },
-            "name": {
-              "key": "name",
-              "label": "名称",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
             "image": {
               "key": "image",
               "label": "图片",
@@ -19136,30 +19259,46 @@
               "value_type": "string",
               "default": ""
             },
-            "cover": {
-              "key": "cover",
-              "label": "封面",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "description": {
-              "key": "description",
-              "label": "描述",
+            "model_name": {
+              "key": "model_name",
+              "label": "模型名称",
               "type": "text",
               "value_type": "string",
               "default": ""
             },
-            "sub_title": {
-              "key": "sub_title",
-              "label": "副标题",
+            "meta": {
+              "key": "meta",
+              "label": "案例说明",
               "type": "text",
               "value_type": "string",
               "default": ""
             },
-            "tag": {
-              "key": "tag",
-              "label": "标签",
+            "heart_count": {
+              "key": "heart_count",
+              "label": "喜欢数",
+              "type": "number",
+              "value_type": "number",
+              "default": 0,
+              "min": 0,
+              "help": "可选互动数；手动和备用内容明确显示为示例，缺省不显示。真实数值仅来自业务数据源。"
+            },
+            "is_example": {
+              "key": "is_example",
+              "label": "示例数据",
+              "type": "switch",
+              "value_type": "boolean",
+              "default": false
+            },
+            "category": {
+              "key": "category",
+              "label": "分类标识",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "app_code": {
+              "key": "app_code",
+              "label": "应用代码",
               "type": "text",
               "value_type": "string",
               "default": ""
@@ -19221,7 +19360,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Fixed two columns; no writable columns. Empty content.title adds no default block heading. Row descriptions/tags are not shown.",
+        "Optional layout=masonry uses two independent natural-image-height columns with dark copy panels, title/model_name/meta/heart_count. Manual/fallback engagement counts are explicitly labeled examples. Legacy layout remains fixed two columns. filter_group connects page-local tabs.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -19528,7 +19667,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -20707,7 +20848,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -21616,7 +21759,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -22577,7 +22722,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -23031,6 +23178,78 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "layout": {
+          "key": "layout",
+          "label": "组件布局",
+          "type": "select",
+          "value_type": "string",
+          "default": "",
+          "options": [
+            {
+              "label": "沿用旧布局",
+              "value": ""
+            },
+            {
+              "label": "头像资料",
+              "value": "profile"
+            }
+          ]
+        },
+        "default_avatar": {
+          "key": "default_avatar",
+          "label": "默认头像",
+          "type": "image",
+          "value_type": "string",
+          "default": ""
+        },
+        "guest_name": {
+          "key": "guest_name",
+          "label": "未登录文案",
+          "type": "text",
+          "value_type": "string",
+          "default": "点击登录"
+        },
+        "login_link": {
+          "key": "login_link",
+          "label": "登录链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {
+            "path": "/pages/login/login"
+          }
+        },
+        "settings_link": {
+          "key": "settings_link",
+          "label": "设置链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {
+            "path": "/pages/user_set/user_set"
+          }
+        },
+        "bind_link": {
+          "key": "bind_link",
+          "label": "绑定手机链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {
+            "path": "/pages/bind_mobile/bind_mobile"
+          }
+        },
+        "bind_label": {
+          "key": "bind_label",
+          "label": "绑定提示",
+          "type": "text",
+          "value_type": "string",
+          "default": "绑定手机号"
+        },
+        "bound_label": {
+          "key": "bound_label",
+          "label": "已绑定提示",
+          "type": "text",
+          "value_type": "string",
+          "default": "已绑定手机号"
         }
       },
       "style_fields": {
@@ -23146,7 +23365,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -23475,7 +23696,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Generic source rows, not an automatic profile hero; source must provide standard title/image/description.",
+        "Optional layout=profile maps only real user_profile to avatar/name/mobile and settings/bind links. Guests use default_avatar/guest_name/login_link; no extra default block title. Absent layout retains generic rows.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -23707,7 +23928,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -24283,7 +24506,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -24757,6 +24982,79 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "layout": {
+          "key": "layout",
+          "label": "组件布局",
+          "type": "select",
+          "value_type": "string",
+          "default": "",
+          "options": [
+            {
+              "label": "沿用旧布局",
+              "value": ""
+            },
+            {
+              "label": "三列真实资产",
+              "value": "assets"
+            }
+          ]
+        },
+        "detail_label": {
+          "key": "detail_label",
+          "label": "明细文字",
+          "type": "text",
+          "value_type": "string",
+          "default": "资产明细"
+        },
+        "detail_link": {
+          "key": "detail_link",
+          "label": "明细链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {}
+        },
+        "quota_label": {
+          "key": "quota_label",
+          "label": "点数文字",
+          "type": "text",
+          "value_type": "string",
+          "default": "可用点数"
+        },
+        "quota_link": {
+          "key": "quota_link",
+          "label": "点数链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {}
+        },
+        "avatar_label": {
+          "key": "avatar_label",
+          "label": "形象文字",
+          "type": "text",
+          "value_type": "string",
+          "default": "我的形象"
+        },
+        "avatar_link": {
+          "key": "avatar_link",
+          "label": "形象链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {}
+        },
+        "voice_label": {
+          "key": "voice_label",
+          "label": "声音文字",
+          "type": "text",
+          "value_type": "string",
+          "default": "我的声音"
+        },
+        "voice_link": {
+          "key": "voice_link",
+          "label": "声音链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {}
         }
       },
       "style_fields": {
@@ -24872,7 +25170,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -25193,7 +25493,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Fixed four-column standard rows; arbitrary user_profile properties are not automatically mapped.",
+        "Optional layout=assets displays quota/avatar_count/voice_count from real user_profile in one three-column row. Missing and guest values show an em dash, never static fallback counts. Labels and links are configurable. Absent layout retains generic rows.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -25415,7 +25715,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -25852,6 +26154,67 @@
           "type": "array",
           "value_type": "array",
           "default": []
+        },
+        "layout": {
+          "key": "layout",
+          "label": "组件布局",
+          "type": "select",
+          "value_type": "string",
+          "default": "",
+          "options": [
+            {
+              "label": "沿用旧布局",
+              "value": ""
+            },
+            {
+              "label": "作品画廊",
+              "value": "gallery"
+            }
+          ]
+        },
+        "filter_group": {
+          "key": "filter_group",
+          "label": "本页筛选组",
+          "type": "text",
+          "value_type": "string",
+          "default": "",
+          "help": "与本页分类标签使用相同组名；标签按每行filter_key筛选case-feed/gallery行的category或app_code。留空保留跳转。"
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示区块标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": ""
+        },
+        "empty_image": {
+          "key": "empty_image",
+          "label": "空态图片",
+          "type": "image",
+          "value_type": "string",
+          "default": ""
+        },
+        "empty_text": {
+          "key": "empty_text",
+          "label": "空态文字",
+          "type": "text",
+          "value_type": "string",
+          "default": "暂无作品"
+        },
+        "empty_action_name": {
+          "key": "empty_action_name",
+          "label": "空态按钮文字",
+          "type": "text",
+          "value_type": "string",
+          "default": ""
+        },
+        "empty_action_link": {
+          "key": "empty_action_link",
+          "label": "空态按钮链接",
+          "type": "link",
+          "value_type": "object",
+          "default": {}
         }
       },
       "style_fields": {
@@ -25967,7 +26330,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -26122,13 +26487,6 @@
               "value_type": "string",
               "default": ""
             },
-            "name": {
-              "key": "name",
-              "label": "名称",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
             "image": {
               "key": "image",
               "label": "图片",
@@ -26136,30 +26494,16 @@
               "value_type": "string",
               "default": ""
             },
-            "cover": {
-              "key": "cover",
-              "label": "封面",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "description": {
-              "key": "description",
-              "label": "描述",
+            "category": {
+              "key": "category",
+              "label": "分类标识",
               "type": "text",
               "value_type": "string",
               "default": ""
             },
-            "sub_title": {
-              "key": "sub_title",
-              "label": "副标题",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "tag": {
-              "key": "tag",
-              "label": "标签",
+            "app_code": {
+              "key": "app_code",
+              "label": "应用代码",
               "type": "text",
               "value_type": "string",
               "default": ""
@@ -26200,13 +26544,6 @@
               "value_type": "string",
               "default": ""
             },
-            "name": {
-              "key": "name",
-              "label": "名称",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
             "image": {
               "key": "image",
               "label": "图片",
@@ -26214,30 +26551,16 @@
               "value_type": "string",
               "default": ""
             },
-            "cover": {
-              "key": "cover",
-              "label": "封面",
-              "type": "image",
-              "value_type": "string",
-              "default": ""
-            },
-            "description": {
-              "key": "description",
-              "label": "描述",
+            "category": {
+              "key": "category",
+              "label": "分类标识",
               "type": "text",
               "value_type": "string",
               "default": ""
             },
-            "sub_title": {
-              "key": "sub_title",
-              "label": "副标题",
-              "type": "text",
-              "value_type": "string",
-              "default": ""
-            },
-            "tag": {
-              "key": "tag",
-              "label": "标签",
+            "app_code": {
+              "key": "app_code",
+              "label": "应用代码",
               "type": "text",
               "value_type": "string",
               "default": ""
@@ -26299,7 +26622,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "Fixed four-column source rows with full-row empty state; no writable columns/font settings.",
+        "Optional layout=gallery uses natural image cards and a centered empty_image/empty_text/empty_action_name/empty_action_link state. show_title controls the block heading; filter_group connects page-local tabs. Absent layout retains generic rows.",
         "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
       ],
       "compatibility": {
@@ -26593,7 +26916,9 @@
           "type": "number",
           "value_type": "number",
           "default": 20,
-          "unit": "rpx"
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
         },
         "margin_bottom": {
           "key": "margin_bottom",
@@ -27613,5 +27938,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "667741b3ceaf3725073d41e25d1bbadbc646e00be2077cf6c9ecfcbaf0b8b7fa"
+  "hash": "bf9f8d79b21286fe91cb1f698cb721e506b4d43186af182f446781fb23231aa8"
 }
