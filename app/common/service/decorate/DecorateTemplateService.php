@@ -607,6 +607,13 @@ class DecorateTemplateService
         if ($channel !== self::CHANNEL_COMMON) {
             $data = self::mergeChannelOverlay($data, $tenantId, (int)$template['id'], $terminal, $pageCode, $channel, $preview);
         }
+        if ($preview && $terminal === self::TERMINAL_MOBILE) {
+            $settings = self::decodeJson((string)$template['draft_settings'], self::defaultSettings());
+            $data['preview_settings'] = [
+                'mobile_style' => $settings['mobile_style'] ?? [],
+                'mobile_tabbar' => $settings['mobile_tabbar'] ?? [],
+            ];
+        }
         return DecorateDataSourceService::applyToPage($data, self::decorateContext($tenantId, $terminal, $context));
     }
 
