@@ -19480,6 +19480,15 @@
           "value_type": "string",
           "default": "AI 应用"
         },
+        "show_heading": {
+          "key": "show_heading",
+          "label": "显示区块标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "仅控制组件区块标题，不影响每个入口的标题文字。"
+        },
         "columns": {
           "key": "columns",
           "label": "每行数量",
@@ -20668,6 +20677,15 @@
           "type": "text",
           "value_type": "string",
           "default": "开始创作"
+        },
+        "show_heading": {
+          "key": "show_heading",
+          "label": "显示区块标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "仅控制组件区块标题，不影响每个入口的标题文字。"
         },
         "columns": {
           "key": "columns",
@@ -26737,6 +26755,15 @@
           "value_type": "array",
           "default": []
         },
+        "show_heading": {
+          "key": "show_heading",
+          "label": "显示区块标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "仅控制组件区块标题，不影响每个入口的标题文字。"
+        },
         "columns": {
           "key": "columns",
           "label": "每行数量",
@@ -27938,5 +27965,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "bf9f8d79b21286fe91cb1f698cb721e506b4d43186af182f446781fb23231aa8"
+  "hash": "9fafee065260e4214745f7e6edcbf27e82de06be8f8cb87e8138c423ca2e836c"
 }
