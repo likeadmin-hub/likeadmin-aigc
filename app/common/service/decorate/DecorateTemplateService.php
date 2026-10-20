@@ -1157,10 +1157,8 @@ class DecorateTemplateService
             }
             $data = self::encodeJson($definition['data']);
             $meta = self::encodeJson($definition['meta']);
-            $update = ['name' => $definition['name'], 'draft_data' => $data, 'draft_meta' => $meta];
-            if ($published) {
-                $update += ['published_data' => $data, 'published_meta' => $meta, 'data' => $data, 'meta' => $meta];
-            }
+            $update = ['name' => $definition['name'], 'draft_data' => $data, 'draft_meta' => $meta,
+                'published_data' => $data, 'published_meta' => $meta, 'data' => $data, 'meta' => $meta];
             $page->save($update);
         }
         // addPage marks drafts dirty. A new tenant's initial published snapshot
