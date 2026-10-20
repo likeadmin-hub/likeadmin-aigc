@@ -1836,6 +1836,7 @@
             "bg_type": 2,
             "bg_color": "#f3f5f7",
             "text_color": "2",
+            "commerce_entries_v1": 1,
             "bg_image": "/resource/image/decoration/logic-ai/user-background-v2.png",
             "bg_image_size": "cover",
             "bg_image_repeat": "no-repeat"
