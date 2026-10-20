@@ -46,7 +46,7 @@ try {
     // Reproduce the new-tenant SQL seed path: old legacy rows already exist.
     $fixtureTenant = 214700001;
     check(Db::name('decorate_template')->where('tenant_id', $fixtureTenant)->count() === 0, 'fixture id already used');
-    Db::name('decorate_page')->insert(['tenant_id' => $fixtureTenant, 'template_id' => 0, 'type' => 1, 'name' => 'initial SQL seed', 'data' => '[]', 'meta' => '[]']);
+    Db::name('decorate_page')->insert(['tenant_id' => $fixtureTenant, 'template_id' => 0, 'type' => 1, 'name' => 'initial SQL seed', 'data' => '[]', 'meta' => '[]', 'create_time' => time(), 'update_time' => time()]);
     Templates::ensureDefaultTemplate($fixtureTenant, true);
     $fresh = Templates::detail($fixtureTenant, 0, 'mobile');
     check($fresh['settings']['mobile_tabbar']['style']['icon_atlas'] === '/resource/image/decoration/logic-ai/tab-icons.png', 'SQL seed blocked new-tenant preset');
