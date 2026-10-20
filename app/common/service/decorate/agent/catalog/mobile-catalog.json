@@ -5162,20 +5162,20 @@
           "default": 1,
           "unit": ""
         },
-        "mode": {
-          "key": "mode",
-          "label": "图片模式",
+        "height_mode": {
+          "key": "height_mode",
+          "label": "图片高度",
           "type": "radio",
           "value_type": "string",
-          "default": "standard",
+          "default": "auto",
           "options": [
             {
-              "label": "标准",
-              "value": "standard"
+              "label": "原图比例",
+              "value": "auto"
             },
             {
-              "label": "高级热区",
-              "value": "advanced"
+              "label": "指定高度",
+              "value": "fixed"
             }
           ]
         },
@@ -5193,8 +5193,8 @@
           "value_type": "number",
           "default": 200,
           "unit": "rpx",
-          "min": 80,
-          "max": 950
+          "min": 1,
+          "max": 2000
         },
         "fit": {
           "key": "fit",
@@ -5222,16 +5222,7 @@
           "label": "areas",
           "type": "array",
           "value_type": "array",
-          "default": [
-            {
-              "name": "热区",
-              "left": 0,
-              "top": 0,
-              "width": 50,
-              "height": 50,
-              "link": {}
-            }
-          ]
+          "default": []
         }
       },
       "style_fields": {
@@ -5478,7 +5469,7 @@
           "min_items": 0,
           "max_items": 30,
           "limit_scope": "save",
-          "initial_items": 1,
+          "initial_items": 0,
           "fields": {
             "id": {
               "key": "id",
@@ -5486,6 +5477,13 @@
               "type": "text",
               "value_type": "string",
               "default": ""
+            },
+            "name": {
+              "key": "name",
+              "label": "名称",
+              "type": "text",
+              "value_type": "string",
+              "default": "热区"
             },
             "left": {
               "key": "left",
@@ -5512,7 +5510,7 @@
               "label": "宽度",
               "type": "number",
               "value_type": "number",
-              "default": 50,
+              "default": 20,
               "unit": "%",
               "min": 0,
               "max": 100
@@ -5522,10 +5520,42 @@
               "label": "高度",
               "type": "number",
               "value_type": "number",
-              "default": 50,
+              "default": 20,
               "unit": "%",
               "min": 0,
               "max": 100
+            },
+            "type": {
+              "key": "type",
+              "label": "type",
+              "type": "select",
+              "value_type": "string",
+              "default": "link",
+              "options": [
+                {
+                  "label": "跳转页面",
+                  "value": "link"
+                },
+                {
+                  "label": "返回顶部",
+                  "value": "back_top"
+                },
+                {
+                  "label": "联系客服",
+                  "value": "customer_service"
+                },
+                {
+                  "label": "拨打电话",
+                  "value": "phone"
+                }
+              ]
+            },
+            "phone": {
+              "key": "phone",
+              "label": "phone",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
             },
             "link": {
               "key": "link",
@@ -5533,13 +5563,6 @@
               "type": "link",
               "value_type": "object",
               "default": {}
-            },
-            "name": {
-              "key": "name",
-              "label": "名称",
-              "type": "text",
-              "value_type": "string",
-              "default": "热区"
             }
           }
         }
@@ -5573,7 +5596,7 @@
         "max_depth": 4
       },
       "runtime_notes": [
-        "unsupported: mode/fit; main image remains cover, areas use percentage coordinates."
+        "Single image with transparent percentage click areas. New images use original aspect ratio; legacy height remains fixed in rpx. Editor-only outlines. Area actions: link, back_top, phone, customer_service (WeChat contact; H5 configured fallback link)."
       ],
       "compatibility": {
         "unknown_fields": "preserve",
@@ -5587,20 +5610,11 @@
         "title": "图片热区",
         "content": {
           "enabled": 1,
-          "mode": "standard",
+          "height_mode": "auto",
           "image": "",
           "height": 200,
           "fit": "cover",
-          "areas": [
-            {
-              "name": "热区",
-              "left": 0,
-              "top": 0,
-              "width": 50,
-              "height": 50,
-              "link": {}
-            }
-          ]
+          "areas": []
         },
         "styles": {
           "background": "transparent",
@@ -27599,5 +27613,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "7f982a80e7c53ea4df889835250b8f33e6a91d5cd5112bc7d939c2845f88b4bc"
+  "hash": "667741b3ceaf3725073d41e25d1bbadbc646e00be2077cf6c9ecfcbaf0b8b7fa"
 }
