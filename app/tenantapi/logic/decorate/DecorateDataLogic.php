@@ -115,7 +115,7 @@ class DecorateDataLogic extends BaseLogic
 
         // The template service owns tenant-scoped page creation. Calling it
         // first makes repeated tenant initialization idempotent.
-        DecorateTemplateService::ensureDefaultTemplate($tenantId);
+        DecorateTemplateService::ensureDefaultTemplate($tenantId, true);
 
         // Keep the legacy tabbar table in sync for existing endpoints, but
         // only seed it once for a tenant.
