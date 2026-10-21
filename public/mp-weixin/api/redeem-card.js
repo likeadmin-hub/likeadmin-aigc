@@ -1,0 +1,1 @@
+"use strict";const e=require("../utils/request/index.js");exports.redeemCard=function(r){return e.request.post({url:"/redeem_card/redeem",data:r},{isAuth:!0,isTransformResponse:!1,retryCount:0,ignoreCancel:!0})};

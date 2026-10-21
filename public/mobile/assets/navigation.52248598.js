@@ -1,0 +1,1 @@
+import{K as a,m as s,aR as t,aS as l,aT as n,aU as i,a8 as e}from"./index-a24aa246.js";const r="/pages/index/index";function o(o=r){const u=a(),d=u[u.length-2],f=String((null==d?void 0:d.route)||""),p=()=>{o===r?n({url:i({path:r})||e[0],fail:()=>l({url:r})}):t({url:o,fail:()=>l({url:r})})};d&&f&&!/(^|\/)404(?:\/|$)/.test(f)?s({delta:1,fail:p}):p()}export{o as n};

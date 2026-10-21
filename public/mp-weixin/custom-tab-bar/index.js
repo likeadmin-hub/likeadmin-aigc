@@ -1,5 +1,5 @@
 Component({
-    data: { items: [], selected: 0, color: '#999999', selectedColor: '#2f80ed', backgroundColor: '#ffffff' },
+    data: { items: [], selected: 0, color: '#999999', selectedColor: '#2f80ed', backgroundColor: '#ffffff', iconAtlas: '', barHeight: 100, iconSize: 44 },
     lifetimes: {
         attached: function () {
             var app = getApp()
@@ -22,7 +22,15 @@ Component({
             var pages = getCurrentPages()
             var current = pages[pages.length - 1]
             var match = /pages\/decoration-tab\/tab-(\d)$/.exec(current && current.route || '')
-            this.setData({ items: model.tabs, color: model.style.color, selectedColor: model.style.selectedColor, backgroundColor: model.style.backgroundColor, selected: match ? Number(match[1]) : this.data.selected })
+            var selected = match ? Number(match[1]) : this.data.selected
+            var style = model.style || {}
+            var active = style.iconAtlas ? model.tabs[selected] || {} : {}
+            var items = model.tabs.map(function (item, index) {
+                var column = item.atlasIndex == null ? index : Number(item.atlasIndex)
+                return Object.assign({}, item, { hasAtlas: column >= 0 && column < 4 && Math.floor(column) === column, atlasLeft: (-column * 100) + '%', atlasTop: selected === index ? '-100%' : '0%' })
+            })
+            this.setData({ items: items, color: style.color, selectedColor: active.selected_color || style.selectedColor, backgroundColor: active.background_color || style.backgroundColor, selected: selected,
+                iconAtlas: style.iconAtlas || '', barHeight: style.iconAtlas ? style.barHeight || 122 : 100, iconSize: style.iconAtlas ? style.iconSize || 72 : 44 })
         },
         select: function (event) {
             var index = Number(event.currentTarget.dataset.index)

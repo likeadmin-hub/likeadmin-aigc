@@ -1,6 +1,9 @@
-<view wx:if="{{items.length}}" class="decoration-tabbar" style="background-color:{{backgroundColor}}">
+<view wx:if="{{items.length}}" class="decoration-tabbar {{iconAtlas ? 'has-atlas' : ''}}" style="background-color:{{backgroundColor}};height:{{barHeight}}rpx">
   <view wx:for="{{items}}" wx:key="index" class="decoration-tabbar__item" data-index="{{index}}" bindtap="select" style="color:{{selected === index ? selectedColor : color}}">
-    <image class="decoration-tabbar__icon" src="{{selected === index ? item.selectedIconPath : item.iconPath}}" mode="aspectFit" />
+    <view wx:if="{{iconAtlas && item.hasAtlas}}" class="decoration-tabbar__atlas" style="width:{{iconSize}}rpx;height:{{iconSize}}rpx">
+      <image class="decoration-tabbar__sheet" src="{{iconAtlas}}" mode="scaleToFill" style="left:{{item.atlasLeft}};top:{{item.atlasTop}}" />
+    </view>
+    <image wx:else class="decoration-tabbar__icon" style="width:{{iconSize}}rpx;height:{{iconSize}}rpx" src="{{selected === index ? item.selectedIconPath : item.iconPath}}" mode="aspectFit" />
     <text class="decoration-tabbar__label">{{item.text}}</text>
   </view>
 </view>

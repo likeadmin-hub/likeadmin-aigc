@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
-    "u-tabbar": "../../uni_modules/vk-uview-ui/components/u-tabbar/u-tabbar"
+    "u-tabbar": "../../uni_modules/vk-uview-ui/components/u-tabbar/u-tabbar",
+    "atlas-tabbar": "./atlas-tabbar"
   }
 }
