@@ -57,7 +57,7 @@ try {
     $sku->save(['usage_unit'=>'input_second']);
     rejected(fn()=>Market::quote($tenant),'unsupported billing unit cannot masquerade as fixed price');
     $sku->save(['usage_unit'=>'per_call']);
-    $extra=$sku->toArray(); unset($extra['id']); $extra['sku_key']='voice-price-test-'.bin2hex(random_bytes(4));
+    $extra=$sku->toArray(); unset($extra['id']); $extra['create_time']=time(); $extra['update_time']=time(); $extra['sku_key']='voice-price-test-'.bin2hex(random_bytes(4));
     $duplicate=Sku::create($extra);
     rejected(fn()=>Market::quote($tenant),'ambiguous market SKUs fail closed');
     $duplicate->delete();
