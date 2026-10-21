@@ -18,6 +18,8 @@ use app\common\service\MediaDurationService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\SubmitLockService;
+use app\common\service\app\aigc_digital_human\AigcDigitalHumanPricingService;
+use app\common\service\app\aigc_digital_human\AvatarClonePricingService;
 use Exception;
 use think\facade\Db;
 
@@ -37,6 +39,7 @@ class ImageHumanService
             'model' => $config['model'],
             'status' => $config['status'],
             'config_json' => $config['config_json'],
+            'pricing' => array_merge(self::pricing($tenantId), ['avatar_clone' => AvatarClonePricingService::price($tenantId, self::APP_CODE)]),
             'base_config' => self::baseConfig($tenantId),
             'option_config' => [
                 'modes' => [
@@ -44,7 +47,7 @@ class ImageHumanService
                     ['value' => 'standard', 'label' => '标准模式', 'description' => '适合正式成片，稳定性优先'],
                 ],
                 'defaults' => ['mode' => 'fast'],
-                'pricing' => self::pricing($tenantId),
+                'pricing' => array_merge(self::pricing($tenantId), ['avatar_clone' => AigcDigitalHumanPricingService::estimateAvatar($tenantId, self::APP_CODE)]),
             ],
         ]);
     }
@@ -84,6 +87,7 @@ class ImageHumanService
         } else {
             $configJson['pricing'] = self::normalizePricing(array_merge($currentPricing, $incomingPricing));
         }
+        $configJson['pricing']['avatar_clone'] = AvatarClonePricingService::forSave($tenantId, self::APP_CODE, $incomingPricing);
         if (isset($params['provider_config']) && is_array($params['provider_config'])) {
             $configJson['provider'] = self::normalizeProviderConfig((array)$params['provider_config']);
         } else {
@@ -126,6 +130,7 @@ class ImageHumanService
         $incomingConfigJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : [];
         $incomingPricing = (array)($params['pricing'] ?? ($incomingConfigJson['pricing'] ?? []));
         $configJson['pricing'] = self::tenantPricingOverrides($incomingPricing, self::normalizePricing((array)($current['config_json']['pricing'] ?? [])));
+        $configJson['pricing']['avatar_clone'] = AvatarClonePricingService::forSave($tenantId, self::APP_CODE, $incomingPricing);
         if (isset($params['base_config']) && is_array($params['base_config'])) {
             $configJson['base_config'] = self::normalizeBaseConfig($params['base_config']);
         } elseif (isset($incomingConfigJson['base_config']) && is_array($incomingConfigJson['base_config'])) {
@@ -257,7 +262,7 @@ class ImageHumanService
         $row->save(['delete_time' => time(), 'update_time' => time()]);
     }
 
-    public static function saveAvatar(int $tenantId, int $userId, array $params): array
+    public static function saveAvatar(int $tenantId, int $userId, array $params, string $appCode = self::APP_CODE): array
     {
         $name = self::normalizeAssetText((string)($params['name'] ?? '我的图片形象'), '我的图片形象', 80);
         $id = (int)($params['id'] ?? 0);
@@ -274,28 +279,38 @@ class ImageHumanService
             throw new Exception('请上传人物图片');
         }
         $storage = StorageConfigService::getEffectiveConfig($tenantId);
-        $row = ImageHumanAvatar::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'name' => $name,
-            'source' => 'mine',
-            'gender' => self::normalizeAssetText((string)($params['gender'] ?? ''), '', 20),
-            'scene' => self::normalizeAssetText((string)($params['scene'] ?? ''), '', 50),
-            'cover_uri' => $coverUri,
-            'image_uri' => $imageUri,
-            'media_uri' => $imageUri,
-            'media_type' => 'image',
-            'storage_scope' => $storage['scope'],
-            'storage_engine' => $storage['default'],
-            'storage_domain' => StorageConfigService::getEffectiveDomain($tenantId),
-            'provider' => (string)($params['provider'] ?? 'xhadmin'),
-            'provider_asset_id' => trim((string)($params['provider_asset_id'] ?? '')),
-            'status' => 'ready',
-            'sort' => 0,
-            'create_time' => time(),
-            'update_time' => time(),
-            'delete_time' => 0,
-        ]);
+        $estimate = AigcDigitalHumanPricingService::estimateAvatar($tenantId, $appCode, $params);
+        PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+        Db::startTrans();
+        try {
+            $row = ImageHumanAvatar::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'name' => $name,
+                'source' => 'mine',
+                'gender' => self::normalizeAssetText((string)($params['gender'] ?? ''), '', 20),
+                'scene' => self::normalizeAssetText((string)($params['scene'] ?? ''), '', 50),
+                'cover_uri' => $coverUri,
+                'image_uri' => $imageUri,
+                'media_uri' => $imageUri,
+                'media_type' => 'image',
+                'storage_scope' => $storage['scope'],
+                'storage_engine' => $storage['default'],
+                'storage_domain' => StorageConfigService::getEffectiveDomain($tenantId),
+                'provider' => (string)($params['provider'] ?? 'xhadmin'),
+                'provider_asset_id' => trim((string)($params['provider_asset_id'] ?? '')),
+                'status' => 'ready',
+                'sort' => 0,
+                'create_time' => time(),
+                'update_time' => time(),
+                'delete_time' => 0,
+            ]);
+            AigcDigitalHumanService::consumeCloneBilling($tenantId, $userId, $estimate['billing_type'], $estimate, (int)$row['id']);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            throw $e;
+        }
         return self::formatAvatar($row->toArray());
     }
 

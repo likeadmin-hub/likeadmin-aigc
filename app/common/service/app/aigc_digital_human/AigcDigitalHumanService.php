@@ -50,9 +50,8 @@ class AigcDigitalHumanService
         // Use the same resolved tenant price as voice-clone settlement.
         $clonePricing = AigcDigitalHumanPricingService::config($tenantId);
         $data['pricing'] = is_array($data['config_json']['pricing'] ?? null) ? $data['config_json']['pricing'] : [];
-        $data['pricing']['voice_clone'] = [
-            'tenant_unit_price' => $clonePricing[AigcDigitalHumanPricingService::TYPE_VOICE_CLONE]['tenant_unit_price'],
-        ];
+        $data['pricing']['avatar_clone'] = $clonePricing[AigcDigitalHumanPricingService::TYPE_AVATAR_CLONE];
+        $data['pricing']['voice_clone'] = $clonePricing[AigcDigitalHumanPricingService::TYPE_VOICE_CLONE];
 
         try {
             $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
@@ -262,7 +261,7 @@ class AigcDigitalHumanService
         if ($mediaUri === '') {
             throw new Exception('请上传形象素材');
         }
-        $estimate = AigcDigitalHumanPricingService::estimateClone($tenantId, AigcDigitalHumanPricingService::TYPE_AVATAR_CLONE);
+        $estimate = AigcDigitalHumanPricingService::estimateAvatar($tenantId, self::APP_CODE, $params);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
         $storage = StorageConfigService::getEffectiveConfig($tenantId);
         Db::startTrans();
@@ -324,7 +323,6 @@ class AigcDigitalHumanService
             throw new Exception('请上传音频样本');
         }
         $duration = self::validateVoiceCloneDuration($audioUri, $params, $tenantId);
-        $estimate = AigcDigitalHumanPricingService::estimateClone($tenantId, AigcDigitalHumanPricingService::TYPE_VOICE_CLONE);
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? ''));
         $storage = StorageConfigService::getEffectiveConfig($tenantId);
         $status = $providerAssetId !== '' ? 'ready' : 'running';
@@ -336,6 +334,7 @@ class AigcDigitalHumanService
                 Db::commit();
                 return self::formatVoice($duplicateVoice->toArray());
             }
+            $estimate = AigcDigitalHumanPricingService::estimateClone($tenantId, AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, $params);
             PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
             $row = AigcDigitalHumanVoice::create([
                 'tenant_id' => $tenantId,
@@ -3179,12 +3178,17 @@ class AigcDigitalHumanService
         return preg_match('/^https?:\/\//i', $host) ? $host : 'http://' . $host;
     }
 
-    private static function consumeCloneBilling(int $tenantId, int $userId, string $type, array $estimate, int $avatarId = 0, int $voiceId = 0): void
+    public static function consumeCloneBilling(int $tenantId, int $userId, string $type, array $estimate, int $avatarId = 0, int $voiceId = 0): void
     {
         $sourceSn = $type . '-' . $userId . '-' . ($avatarId ?: $voiceId) . '-' . time();
-        $remark = $type === AigcDigitalHumanPricingService::TYPE_AVATAR_CLONE ? '数字人形象克隆消费' : '数字人音色克隆消费';
+        $remark = match ($type) {
+            AigcDigitalHumanPricingService::TYPE_AVATAR_CLONE => '对口型数字人形象克隆消费',
+            AigcDigitalHumanPricingService::TYPE_IMAGE_AVATAR_CLONE => '全驱动数字人形象克隆消费',
+            AigcDigitalHumanPricingService::TYPE_PICTURE_AVATAR_CLONE => '图片数字人形象克隆消费',
+            default => '数字人音色克隆消费',
+        };
         PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points'], $sourceSn, $remark, [
-            'app_code' => self::APP_CODE,
+            'app_code' => $estimate['app_code'] ?? self::APP_CODE,
             'billing_type' => $type,
             'avatar_id' => $avatarId,
             'voice_id' => $voiceId,
@@ -3208,6 +3212,8 @@ class AigcDigitalHumanService
             'tenant_point_sn' => $sourceSn,
             'user_point_sn' => $sourceSn,
             'extra_json' => [
+                'app_code' => $estimate['app_code'] ?? self::APP_CODE,
+                'pricing_snapshot' => $estimate,
                 'avatar_id' => $avatarId,
                 'voice_id' => $voiceId,
             ],

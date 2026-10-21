@@ -4,7 +4,7 @@
   "version": "1.0.8",
   "require_core": ">=1.0.0",
   "description": "基于人物图片和参考音频生成全驱数字人视频，首版提供PC端创作、任务轮询和作品展示。",
-  "changelog": "1. 新增全驱数字人移动端创作、素材选择与作品管理入口。\n2. 支持移动端查看合成进度、预览作品和再次创作。",
+  "changelog": "1. 支持在工具管理中独立设置形象克隆价格。\\n2. 保存形象前展示当前价格，编辑已有形象不重复收费。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
