@@ -27,6 +27,12 @@ try {
     check((float)Digital::config($tenant)['pricing']['avatar_clone']['tenant_unit_price']===7.0,'lip-sync public config agrees with settlement');
     check((float)ClonePricing::price($tenant,'image_human')['tenant_unit_price']===4.25,'full-drive price survives normalization');
     check((float)ClonePricing::price($tenant,'aigc_pic_lipsync')['tenant_unit_price']===6.5,'picture price remains independent of shared image assets');
+    $imageConfig=Image::config($tenant);
+    $pictureConfig=Picture::config($tenant);
+    foreach (['billing_unit', 'modes'] as $field) {
+        check($imageConfig['pricing'][$field]===$imageConfig['option_config']['pricing'][$field], "full-drive generation pricing remains available: $field");
+        check($pictureConfig['pricing'][$field]===$imageConfig['option_config']['pricing'][$field], "picture shared generation pricing remains available: $field");
+    }
     $other=987654321;
     check((float)Pricing::estimateAvatar($other,'aigc_digital_human')['user_charge_points']===9.0,'unconfigured tenant inherits platform lip-sync price');
     check((float)ClonePricing::price($other,'image_human')['tenant_unit_price']!==4.25,'tenant override does not leak');

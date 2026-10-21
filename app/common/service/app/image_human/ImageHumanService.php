@@ -39,7 +39,7 @@ class ImageHumanService
             'model' => $config['model'],
             'status' => $config['status'],
             'config_json' => $config['config_json'],
-            'pricing' => ['avatar_clone' => AvatarClonePricingService::price($tenantId, self::APP_CODE)],
+            'pricing' => array_merge(self::pricing($tenantId), ['avatar_clone' => AvatarClonePricingService::price($tenantId, self::APP_CODE)]),
             'base_config' => self::baseConfig($tenantId),
             'option_config' => [
                 'modes' => [
