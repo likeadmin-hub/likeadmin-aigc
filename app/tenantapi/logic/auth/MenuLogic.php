@@ -135,7 +135,8 @@ class MenuLogic extends BaseLogic
                     ->count() > 0;
             }
         }
-        if ($hasPackage && $hasDistributionTree && !$hasLegacyDistributionDirect) {
+        $hasRedeemCard = TenantSystemMenu::where(['tenant_id'=>$tenantId,'source_menu_key'=>'core_tenant_redeem_card'])->count() > 0;
+        if ($hasPackage && $hasDistributionTree && !$hasLegacyDistributionDirect && $hasRedeemCard) {
             return;
         }
 

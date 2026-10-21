@@ -59,6 +59,7 @@ class AccountLogEnum
     const UM_INC_MEMBERSHIP_BONUS = 202;
     const UM_INC_REGISTER_BONUS = 203;
     const UM_INC_APP_REFUND = 204;
+    const UM_INC_REDEEM_CARD = 205;
 
 
     /**
@@ -80,6 +81,7 @@ class AccountLogEnum
         self::UM_INC_MEMBERSHIP_BONUS,
         self::UM_INC_REGISTER_BONUS,
         self::UM_INC_APP_REFUND,
+        self::UM_INC_REDEEM_CARD,
     ];
 
 
@@ -120,6 +122,7 @@ class AccountLogEnum
             self::UM_INC_RECHARGE => '充值增加' . PointUnitService::unit(),
             self::UM_INC_MEMBERSHIP_BONUS => '会员套餐赠送' . PointUnitService::unit(),
             self::UM_INC_REGISTER_BONUS => '新用户注册赠送' . PointUnitService::unit(),
+            self::UM_INC_REDEEM_CARD => '卡密兑换增加' . PointUnitService::unit(),
             self::UM_INC_APP_REFUND => '应用消费退回' . PointUnitService::unit(),
             self::UM_DEC_RECHARGE_REFUND => '充值订单退款减少' . PointUnitService::unit(),
             self::UM_DEC_APP_CONSUME => '应用消费扣减' . PointUnitService::unit(),
