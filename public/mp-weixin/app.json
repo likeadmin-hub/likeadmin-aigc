@@ -299,6 +299,7 @@
       }
     ]
   },
+  "entryPagePath": "pages/decoration-tab/tab-0",
   "__usePrivacyCheck__": true,
   "usingComponents": {}
 }
