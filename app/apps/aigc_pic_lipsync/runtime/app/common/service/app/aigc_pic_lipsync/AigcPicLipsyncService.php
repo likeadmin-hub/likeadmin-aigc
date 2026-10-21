@@ -34,6 +34,7 @@ class AigcPicLipsyncService
         $data['options'] = self::marketOptions($tenantId);
         $sharedConfig = \app\common\service\app\image_human\ImageHumanService::config($tenantId);
         $data['pricing'] = $sharedConfig['pricing'] ?? $sharedConfig['option_config']['pricing'] ?? [];
+        $data['pricing']['avatar_clone'] = \app\common\service\app\aigc_digital_human\AigcDigitalHumanPricingService::estimateAvatar($tenantId, self::APP_CODE);
         $data['base_config'] = array_merge($sharedConfig['base_config'] ?? [], ['script_max_length' => 10000, 'prompt_max_length' => 2000]);
         $data['input_type'] = 'image_audio';
         $data['drive_modes'] = ['audio', 'text'];
@@ -52,7 +53,10 @@ class AigcPicLipsyncService
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $row = AigcPicLipsyncConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        $incomingPricing = (array)($params['pricing'] ?? $params['config_json']['pricing'] ?? []);
+        $clonePrice = \app\common\service\app\aigc_digital_human\AvatarClonePricingService::forSave($tenantId, self::APP_CODE, $incomingPricing);
         $payload = ['tenant_id' => $tenantId, 'status' => array_key_exists('status', $params) ? ((int)$params['status'] === 1 ? 1 : 0) : (int)($row['status'] ?? 1), 'config_json' => is_array($params['config_json'] ?? null) ? $params['config_json'] : ($row['config_json'] ?? []), 'update_time' => time()];
+        $payload['config_json']['pricing']['avatar_clone'] = $clonePrice;
         if ($row->isEmpty()) { $payload['create_time'] = time(); AigcPicLipsyncConfig::create($payload); } else $row->save($payload);
     }
 
