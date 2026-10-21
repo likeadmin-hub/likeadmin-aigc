@@ -1796,7 +1796,7 @@
             "layout": "gallery",
             "filter_group": "works",
             "show_title": 0,
-            "empty_image": "/resource/image/decoration/logic-ai/works-empty-v2.png",
+            "empty_image": "/resource/image/decoration/logic-ai/works-empty-simple-v5.png",
             "empty_text": "暂无作品",
             "empty_action_name": "",
             "empty_action_link": {},
@@ -2071,6 +2071,51 @@
             "radius_right": 0,
             "radius_bottom": 0,
             "radius_left": 0,
+            "opacity": 100,
+            "grid_column": 0
+          }
+        },
+        {
+          "id": "logic_ai_2127dfb9cc61",
+          "name": "list-nav",
+          "title": "列表导航",
+          "content": {
+            "enabled": 1,
+            "data": [
+              {
+                "image": "/resource/image/decoration/logic-ai/redeem-entry-v4.png",
+                "name": "卡密兑换",
+                "desc": "兑换点数或会员权益",
+                "is_show": "1",
+                "link": {
+                  "path": "/pages/redeem/redeem",
+                  "type": "shop",
+                  "canTab": false,
+                  "query": {}
+                }
+              }
+            ]
+          },
+          "styles": {
+            "background": "transparent",
+            "background_color": "#fff",
+            "color": "#1b2025",
+            "border_color": "",
+            "background_gradient": "",
+            "background_image": "",
+            "appearance": "default",
+            "shadow": "",
+            "item_gap": 0,
+            "padding_top": 0,
+            "padding_bottom": 0,
+            "padding_horizontal": 0,
+            "margin_horizontal": 31,
+            "margin_top": 20,
+            "margin_bottom": 0,
+            "radius_top": 20,
+            "radius_right": 20,
+            "radius_bottom": 20,
+            "radius_left": 20,
             "opacity": 100,
             "grid_column": 0
           }
@@ -2466,5 +2511,5 @@
     }
   ],
   "preset_code": "logic-ai",
-  "version": 1
+  "version": 2
 }

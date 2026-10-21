@@ -35,4 +35,16 @@ class WorkbenchController extends BaseAdminController
         $result = WorkbenchLogic::index();
         return $this->data($result);
     }
+
+    public function operations()
+    {
+        if (!\app\common\service\workbench\OperationsAccess::allowed($this->adminInfo, true)) {
+            return $this->fail('权限不足，无法查看运营统计');
+        }
+        try {
+            return $this->data(\app\common\service\workbench\OperationsDashboard::build(0, $this->request->get()));
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
 }

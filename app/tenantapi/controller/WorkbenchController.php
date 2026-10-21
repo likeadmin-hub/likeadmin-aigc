@@ -35,4 +35,17 @@ class WorkbenchController extends BaseAdminController
         $result = WorkbenchLogic::index($this->tenantId);
         return $this->data($result);
     }
+
+    public function operations()
+    {
+        if ($this->tenantId <= 0 || !\app\common\service\workbench\OperationsAccess::allowed($this->adminInfo, false)) {
+            return $this->fail('权限不足，无法查看运营统计');
+        }
+        try {
+            // Recipient scope is derived only from the authenticated administrator.
+            return $this->data(\app\common\service\workbench\OperationsDashboard::build($this->tenantId, $this->request->get()));
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
 }

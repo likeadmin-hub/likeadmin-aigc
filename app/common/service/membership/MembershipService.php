@@ -289,9 +289,9 @@ class MembershipService
      *
      * @return array{plan_id:int, plan_name:string, expire_time:int}
      */
-    public static function assignPlan(int $tenantId, int $userId, int $planId): array
+    public static function assignPlan(int $tenantId, int $userId, int $planId, array $grant = []): array
     {
-        return Db::transaction(function () use ($tenantId, $userId, $planId) {
+        return Db::transaction(function () use ($tenantId, $userId, $planId, $grant) {
             $user = User::where([
                 'tenant_id' => $tenantId,
                 'id' => $userId,
@@ -300,12 +300,13 @@ class MembershipService
                 throw new RuntimeException('用户不存在');
             }
 
+            $snapshot = $grant['snapshot'] ?? null;
             $plan = MembershipPlan::where([
                 'tenant_id' => $tenantId,
                 'id' => $planId,
                 'status' => self::STATUS_ENABLED,
             ])->findOrEmpty();
-            if ($plan->isEmpty()) {
+            if (!$snapshot && $plan->isEmpty()) {
                 throw new RuntimeException('会员套餐不存在或已下架');
             }
 
@@ -313,10 +314,12 @@ class MembershipService
                 'tenant_id' => $tenantId,
                 'plan_id' => $planId,
             ])->column('app_code');
+            if ($snapshot) $plan = $snapshot;
+            if ($snapshot) $appCodes = (array)($snapshot['app_codes'] ?? []);
             $now = time();
-            $durationMonths = max(1, (int)($plan['duration_months'] ?? 1));
+            $durationMonths = max(1, (int)($grant['duration_months'] ?? $plan['duration_months'] ?? 1));
             $expireTime = self::calcExpire($now, $durationMonths);
-            $sourceSn = 'admin_membership_' . $tenantId . '_' . $userId . '_' . $now . '_' . random_int(1000, 9999);
+            $sourceSn = $grant['source_sn'] ?? ('admin_membership_' . $tenantId . '_' . $userId . '_' . $now . '_' . random_int(1000, 9999));
 
             $membershipData = [
                 'tenant_id' => $tenantId,
@@ -335,6 +338,21 @@ class MembershipService
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
             ])->lock(true)->findOrEmpty();
+            if (!empty($grant['redeem_card'])) {
+                $before = $membership->isEmpty() ? 0 : (int)$membership['expire_time'];
+                if (!$membership->isEmpty() && (string)$membership['source_order_sn'] === (string)$sourceSn) {
+                    return ['plan_id' => $planId, 'plan_name' => (string)$membership['plan_name'], 'expire_time' => $before];
+                }
+                $defaultFree = !$membership->isEmpty() && $before >= self::PERMANENT_EXPIRE_TIME
+                    && str_starts_with((string)$membership['source_order_sn'], 'register_free_');
+                if (!$membership->isEmpty() && (int)$membership['status'] === self::STATUS_ENABLED && $before > $now
+                    && !$defaultFree && ($before >= self::PERMANENT_EXPIRE_TIME || (int)$membership['plan_id'] !== $planId)) {
+                    throw new \app\common\service\redeem\RedeemCardException('membership_conflict', '当前仍有其他会员套餐权益，请到期后再兑换此会员卡');
+                }
+                $memberDataBase = !$defaultFree && !$membership->isEmpty() && (int)$membership['status'] === self::STATUS_ENABLED && (int)$membership['plan_id'] === $planId ? $before : $now;
+                $expireTime = self::calcExpire($memberDataBase, $durationMonths);
+                $membershipData['expire_time'] = $expireTime;
+            }
             if ($membership->isEmpty()) {
                 $membershipData['create_time'] = $now;
                 UserMembership::create($membershipData);
@@ -348,8 +366,8 @@ class MembershipService
                     $userId,
                     $bonusPoints,
                     $sourceSn,
-                    '后台设置会员套餐赠送' . PointUnitService::unit(),
-                    ['plan_id' => $planId, 'plan_name' => (string)$plan['name'], 'source' => 'admin_assign']
+                    (!empty($grant['redeem_card']) ? '卡密会员赠送' : '后台设置会员套餐赠送') . PointUnitService::unit(),
+                    ['plan_id' => $planId, 'plan_name' => (string)$plan['name'], 'source' => !empty($grant['redeem_card']) ? 'redeem_card' : 'admin_assign']
                 );
             }
 
