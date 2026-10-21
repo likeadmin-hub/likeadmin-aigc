@@ -11,7 +11,7 @@ use Exception;
 class AssetController extends BaseApiController
 {
     public function images() { return $this->success('获取成功', ImageHumanService::avatarLists((int)$this->request->tenantId, $this->userId, (string)$this->request->get('source', ''))); }
-    public function save_image() { try { return $this->success('保存成功', ImageHumanService::saveAvatar((int)$this->request->tenantId, $this->userId, $this->request->post())); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
+    public function save_image() { try { return $this->success('保存成功', ImageHumanService::saveAvatar((int)$this->request->tenantId, $this->userId, $this->request->post(), 'aigc_pic_lipsync')); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function delete_image() { try { ImageHumanService::deleteAvatar((int)$this->request->tenantId, $this->userId, (int)$this->request->post('id', 0)); return $this->success('删除成功'); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function audios() {
         $rows = AigcMusicAsset::where(['tenant_id' => (int)$this->request->tenantId, 'user_id' => $this->userId, 'asset_type' => 'pic_lipsync_audio', 'delete_time' => 0])->order('id','desc')->limit(100)->select()->toArray();
@@ -22,7 +22,7 @@ class AssetController extends BaseApiController
     public function upload_image() {
         try {
             $file = UploadService::image(0, $this->userId, FileEnum::SOURCE_USER);
-            $row = ImageHumanService::saveAvatar((int)$this->request->tenantId, $this->userId, ['name' => $file['name'] ?? '我的图片形象', 'image_uri' => $file['url']]);
+            $row = ImageHumanService::saveAvatar((int)$this->request->tenantId, $this->userId, array_merge(['name' => $file['name'] ?? '我的图片形象', 'image_uri' => $file['url']], array_intersect_key($this->request->post(), ['expected_clone_price' => true])), 'aigc_pic_lipsync');
             return $this->success('上传成功', $row);
         } catch (Exception $e) { return $this->fail($e->getMessage()); }
     }
