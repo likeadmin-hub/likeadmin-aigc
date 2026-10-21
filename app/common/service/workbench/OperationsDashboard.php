@@ -104,9 +104,14 @@ final class OperationsDashboard
             }
             $this->metric('cash_received','已支付订单金额',round($current['cash_received'],2),round($previous['cash_received'],2),'元','payments');
             $this->metric('paid_orders','外部支付订单数',(int)$current['paid_orders'],(int)$previous['paid_orders'],'笔','payments');
+            $this->metric('order_average','付费客单价',
+                $current['paid_orders']>0?round($current['cash_received']/$current['paid_orders'],2):null,
+                $previous['paid_orders']>0?round($previous['cash_received']/$previous['paid_orders'],2):null,
+                '元/笔','payments');
+            $this->metrics['order_average']['note']='所选期间已支付订单金额÷外部支付订单数，未扣退款；无付费订单时不计算。';
             $this->series[]=['key'=>'cash_received','label'=>'已支付订单金额','unit'=>'元','data'=>array_map(fn($v)=>round($v,2),$line)];
             $this->distributions[]=['key'=>'cash_sources','label'=>'收款来源','unit'=>'元','status'=>'ready','data'=>$pie];
-        },['cash_received'=>['已支付订单金额','元'],'paid_orders'=>['外部支付订单数','笔']]);
+        },['cash_received'=>['已支付订单金额','元'],'paid_orders'=>['外部支付订单数','笔'],'order_average'=>['付费客单价','元/笔']]);
 
         $this->source('refunds','已确认退款',$this->tenant?'合并充值/会员传统成功退款及虚拟支付已确认全额退款；同一虚拟订单优先使用确认回执，兼容退款记录不重复累加。传统退款按最后更新时间，虚拟退款按首次确认回执时间；重复或未入订单收款的交易退款不计入。':'仅贴牌额度采购的原订单已确认退款；重复支付退款不冲减订单收款，算力商城和合约未有统一退款账本，因此不能将此值视为全部平台退款。',function () {
             if ($this->tenant) {

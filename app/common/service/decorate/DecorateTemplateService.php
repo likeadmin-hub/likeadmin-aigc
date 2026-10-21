@@ -20,10 +20,9 @@ class DecorateTemplateService
     public static function lists(int $tenantId): array
     {
         self::ensureDefaultTemplate($tenantId);
-        return DecorateTemplate::where('tenant_id', $tenantId)
-            ->order(['is_active' => 'desc', 'id' => 'desc'])
-            ->select()
-            ->toArray();
+        $rows = DecorateTemplate::where('tenant_id', $tenantId)
+            ->order(['is_active' => 'desc', 'id' => 'desc'])->select()->toArray();
+        return array_map(static fn(array $row): array => DecorationPortableAssets::refreshTemplate($row,$tenantId),$rows);
     }
 
     public static function detail(int $tenantId, int $templateId = 0, string $terminal = self::TERMINAL_MOBILE): array
@@ -32,8 +31,8 @@ class DecorateTemplateService
         self::ensureTemplatePages((int)$template['id'], $tenantId);
 
         return [
-            'template' => $template->toArray(),
-            'settings' => self::decodeJson($template['draft_settings'], self::defaultSettings()),
+            'template' => DecorationPortableAssets::refreshTemplate($template->toArray(),$tenantId),
+            'settings' => DecorationPortableAssets::refreshValue(self::decodeJson($template['draft_settings'], self::defaultSettings()),$tenantId),
             'pages' => self::pageLists($tenantId, (int)$template['id'], $terminal),
         ];
     }
@@ -69,7 +68,7 @@ class DecorateTemplateService
             $data['name'] = trim((string)$params['name']);
         }
         if (isset($params['cover'])) {
-            $data['cover'] = (string)$params['cover'];
+            $data['cover'] = (string)DecorationPortableAssets::normalizeValue(['cover'=>(string)$params['cover']],$tenantId)['cover'];
         }
         if ($data) {
             $template->save($data);
@@ -197,11 +196,12 @@ class DecorateTemplateService
     {
         self::assertTerminal($terminal);
         self::ensureTemplatePages($templateId, $tenantId);
-        return DecoratePage::where([
+        $rows = DecoratePage::where([
             'tenant_id' => $tenantId,
             'template_id' => $templateId,
             'terminal' => $terminal,
         ])->where('draft_deleted', 0)->order(['is_home' => 'desc', 'sort' => 'asc', 'id' => 'asc'])->select()->toArray();
+        return array_map(static fn(array $row): array => DecorationPortableAssets::refreshPage($row,$tenantId),$rows);
     }
 
     public static function pageDetail(int $tenantId, array $params): array
@@ -250,7 +250,7 @@ class DecorateTemplateService
             ])
         );
         $data['resolved_sources'] = $resolved['resolved_sources'] ?? [];
-        return $data;
+        return DecorationPortableAssets::refreshPage($data,$tenantId);
     }
 
     public static function savePage(int $tenantId, array $params): array
@@ -269,6 +269,8 @@ class DecorateTemplateService
         $draftData = (string)($params['data'] ?? $params['draft_data'] ?? '[]');
         $draftMeta = (string)($params['meta'] ?? $params['draft_meta'] ?? '');
         $draftData = self::repairExtraClosingBracket($draftData, $draftMeta);
+        $normalized=DecorationPortableAssets::normalizePage(['data'=>$draftData,'meta'=>$draftMeta],$tenantId);
+        $draftData=$normalized['data'];$draftMeta=$normalized['meta'];
         self::validatePagePayload($draftData, $draftMeta);
         self::assertExpectedUpdateTime($page, $params);
         $draftData = self::normalizeSourceGraphicsData($draftData, (string)($page['draft_data'] ?: $page['data'] ?: '[]'), $tenantId);
@@ -615,7 +617,7 @@ class DecorateTemplateService
                 'mobile_tabbar' => $settings['mobile_tabbar'] ?? [],
             ];
         }
-        return DecorateDataSourceService::applyToPage($data, self::decorateContext($tenantId, $terminal, $context));
+        return DecorationPortableAssets::refreshPage(DecorateDataSourceService::applyToPage($data, self::decorateContext($tenantId, $terminal, $context)),$tenantId);
     }
 
     /**
@@ -752,7 +754,7 @@ class DecorateTemplateService
         $template = self::activeTemplate($tenantId);
         $settings = self::decodeJson($template['published_settings'], []);
         if (!empty($settings['mobile_tabbar'])) {
-            return $settings['mobile_tabbar'];
+            return DecorationPortableAssets::refreshValue($settings['mobile_tabbar'],$tenantId);
         }
         return [
             'style' => ConfigService::get('tabbar', 'style', config('project.decorate.tabbar_style')),
@@ -771,20 +773,21 @@ class DecorateTemplateService
         }
         // Imported and older templates may contain only the two theme colors.
         // The mobile theme renderer also requires a button text color.
-        return array_replace([
+        return DecorationPortableAssets::refreshValue(array_replace([
             'themeColorId' => 1,
             'topTextColor' => 'white',
             'navigationBarColor' => $style['themeColor1'] ?? '#2F80ED',
             'themeColor1' => '#2F80ED',
             'themeColor2' => '#56CCF2',
             'buttonColor' => 'white',
-        ], $style);
+        ], $style),$tenantId);
     }
 
     public static function saveSettings(int $tenantId, int $templateId, array $settings): void
     {
         $template = self::getTemplate($tenantId, $templateId);
         $old = self::decodeJson($template['draft_settings'], self::defaultSettings());
+        $settings=DecorationPortableAssets::normalizeValue($settings,$tenantId);
         $template->save([
             'draft_settings' => self::encodeJson(self::mergeSettings($old, $settings)),
             'publish_status' => 'draft',
@@ -832,7 +835,6 @@ class DecorateTemplateService
             throw new RuntimeException('请开启 PHP zip 扩展后再导出模板');
         }
         $template = self::getTemplate($tenantId, $templateId);
-        self::ensureTemplatePages((int)$template['id'], $tenantId);
         $pages = DecoratePage::where([
                 'tenant_id' => $tenantId,
                 'template_id' => (int)$template['id'],
@@ -854,123 +856,58 @@ class DecorateTemplateService
                 'name' => (string)$template['name'],
                 'cover' => (string)$template['cover'],
                 'settings' => self::decodeJson($template['draft_settings'] ?: $template['published_settings'], self::defaultSettings()),
+                'draft_settings' => (string)$template['draft_settings'],
+                'published_settings' => (string)$template['published_settings'],
+                // Keep the last published structure, including draft-deleted pages.
+                'published_pages' => array_map(static function(array $item) use ($pages): array {
+                    $ids=array_column($pages,'id');$position=array_search((int)($item['id']??0),array_map('intval',$ids),true);
+                    if($position===false)throw new RuntimeException('模板发布页面结构不完整');
+                    unset($item['id']);$item['package_page_id']=$position+1;return $item;
+                },self::decodeJson((string)($template['published_pages']??''),[])),
             ],
-            'pages' => array_map(function ($page) {
+            'pages' => array_map(function ($page, $position) {
+                $page['package_page_id']=$position+1;
                 unset($page['id'], $page['tenant_id'], $page['template_id'], $page['create_time'], $page['update_time'], $page['delete_time']);
                 return $page;
-            }, $pages),
+            }, $pages, array_keys($pages)),
         ];
+        $portable=DecorationPortableAssets::export($payload,$tenantId);
+        $payload=$portable['payload'];
+        $manifest['asset_count']=$portable['resources']['count'];
+        $manifest['asset_manifest']='assets/resources.json';
 
         $dir = runtime_path() . 'decorate_export/';
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
-        $filename = 'decorate_template_' . date('YmdHis') . '.ladtpl.zip';
+        $filename = 'decorate_template_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.ladtpl.zip';
         $path = $dir . $filename;
         $zip = new ZipArchive();
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw new RuntimeException('模板包创建失败');
         }
+        $uncompressed=strlen(self::encodeJson($manifest))+strlen(self::encodeJson($payload))+strlen(self::encodeJson($portable['resources']));
+        foreach($portable['files'] as $bytes)$uncompressed+=strlen($bytes);
+        if($uncompressed>20*1024*1024){$zip->close();@unlink($path);throw new RuntimeException('私有素材与模板合计不能超过20MB');}
         $zip->addFromString('manifest.json', self::encodeJson($manifest));
         $zip->addFromString('template.json', self::encodeJson($payload));
-        $zip->addFromString('assets/.keep', '');
+        $zip->addFromString('assets/resources.json', self::encodeJson($portable['resources']));
+        foreach($portable['files'] as $entry=>$bytes)$zip->addFromString($entry,$bytes);
         $zip->close();
+        try { $content=base64_encode((string)file_get_contents($path)); } finally { @unlink($path); }
 
         return [
             'filename' => $filename,
             'mime' => 'application/zip',
-            'content' => base64_encode((string)file_get_contents($path)),
+            'content' => $content,
+            'asset_count' => $manifest['asset_count'],
         ];
     }
 
     public static function importPackage(int $tenantId, string $base64, string $filename = ''): array
     {
-        if (!class_exists(ZipArchive::class)) {
-            throw new RuntimeException('请开启 PHP zip 扩展后再导入模板');
-        }
-        if ($base64 === '') {
-            throw new RuntimeException('请上传模板包');
-        }
-        $raw = base64_decode(preg_replace('/^data:.*?;base64,/', '', $base64), true);
-        if ($raw === false || strlen($raw) > 20 * 1024 * 1024) {
-            throw new RuntimeException('模板包无效或超过20MB');
-        }
-        $dir = runtime_path() . 'decorate_import/';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-        $path = $dir . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.zip';
-        file_put_contents($path, $raw);
-
-        $zip = new ZipArchive();
-        if ($zip->open($path) !== true) {
-            throw new RuntimeException('模板包读取失败');
-        }
-        self::assertSafeTemplateZip($zip);
-        $manifest = json_decode((string)$zip->getFromName('manifest.json'), true);
-        $payload = json_decode((string)$zip->getFromName('template.json'), true);
-        $zip->close();
-
-        if (($manifest['package_type'] ?? '') !== 'likeadmin.decorate.template' || ($manifest['schema_version'] ?? '') !== '1.0') {
-            throw new RuntimeException('模板包版本不支持');
-        }
-        if (!is_array($payload) || empty($payload['template']) || !is_array($payload['pages'] ?? null)) {
-            throw new RuntimeException('模板包数据不完整');
-        }
-
-        $allowedWidgets = self::allowedWidgetNames();
-        foreach ((array)$payload['pages'] as $page) {
-            $terminal = (string)($page['terminal'] ?? '');
-            if (!in_array($terminal, [self::TERMINAL_MOBILE, self::TERMINAL_PC], true)) {
-                throw new RuntimeException('模板包终端无效');
-            }
-            foreach (self::decodeJson((string)($page['data'] ?? $page['draft_data'] ?? '[]'), []) as $widget) {
-                $name = (string)($widget['name'] ?? '');
-                if ($name !== '' && !in_array($name, $allowedWidgets, true)) {
-                    throw new RuntimeException('模板包包含未知组件：' . $name);
-                }
-            }
-        }
-
-        return Db::transaction(function () use ($tenantId, $payload, $filename) {
-            $settings = (array)($payload['template']['settings'] ?? self::defaultSettings());
-            $template = DecorateTemplate::create([
-                'tenant_id' => $tenantId,
-                'name' => trim((string)($payload['template']['name'] ?? '导入模板')) ?: ('导入模板 ' . date('mdHis')),
-                'cover' => (string)($payload['template']['cover'] ?? ''),
-                'status' => 1,
-                'is_active' => 0,
-                'publish_status' => 'draft',
-                'draft_settings' => self::encodeJson(array_replace_recursive(self::defaultSettings(), $settings)),
-                'published_settings' => self::encodeJson(array_replace_recursive(self::defaultSettings(), $settings)),
-            ]);
-
-            foreach ((array)$payload['pages'] as $page) {
-                $pageCode = self::normalizePageCode((string)($page['page_code'] ?? 'page_' . uniqid()));
-                DecoratePage::create([
-                    'tenant_id' => $tenantId,
-                    'template_id' => (int)$template['id'],
-                    'terminal' => (string)($page['terminal'] ?? self::TERMINAL_MOBILE),
-                    'channel' => (string)($page['channel'] ?? self::CHANNEL_COMMON),
-                    'page_code' => $pageCode,
-                    'page_type' => (string)($page['page_type'] ?? 'custom'),
-                    'route_path' => (string)($page['route_path'] ?? ''),
-                    'is_home' => (int)($page['is_home'] ?? 0),
-                    'is_system' => (int)($page['is_system'] ?? 0),
-                    'status' => (int)($page['status'] ?? 1),
-                    'sort' => (int)($page['sort'] ?? 0),
-                    'type' => (int)($page['type'] ?? 0),
-                    'name' => (string)($page['name'] ?? '装修页面'),
-                    'data' => (string)($page['data'] ?? $page['draft_data'] ?? '[]'),
-                    'meta' => (string)($page['meta'] ?? $page['draft_meta'] ?? ''),
-                    'draft_data' => (string)($page['draft_data'] ?? $page['data'] ?? '[]'),
-                    'draft_meta' => (string)($page['draft_meta'] ?? $page['meta'] ?? ''),
-                    'published_data' => (string)($page['published_data'] ?? $page['data'] ?? '[]'),
-                    'published_meta' => (string)($page['published_meta'] ?? $page['meta'] ?? ''),
-                ]);
-            }
-            self::ensureTemplatePages((int)$template['id'], $tenantId);
-            return $template->toArray();
+        return DecorationPortablePackage::import($tenantId, $base64, self::defaultSettings(), static function(string $data, string $meta): void {
+            self::validatePagePayload($data, $meta);
         });
     }
 

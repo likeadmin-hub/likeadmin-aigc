@@ -48,6 +48,8 @@ interface Operations {
 - 平台：`tenant_new`、`active_tenants`。
 - 租户：`user_new`、`points_issued`、`points_consumed`、`points_returned`。
 
+财务核心另提供 `order_average`（付费客单价，元/笔）：所选期间 `cash_received / paid_orders`，使用相同外部已支付订单口径，未扣退款；没有付费订单或支付来源不可用时为null。上期也按同口径计算，不从点数或任务价格推算收入。
+
 图表：`task_status`、`cash_sources`、`point_issuance`（租户）。排行：`apps_by_tasks`、`apps_by_points`（value为租户结算点数，secondary_value为用户结算点数）、`tenants_by_points`（平台）、`users_by_tasks`（租户），最多10条。除快照和成功率外，各期间指标有趋势。
 
 ## 来源口径与边界

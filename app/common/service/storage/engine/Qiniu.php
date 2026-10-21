@@ -7,6 +7,7 @@ use Exception;
 use Qiniu\Auth;
 use Qiniu\Storage\UploadManager;
 use Qiniu\Storage\BucketManager;
+use app\common\service\storage\StorageOperationTimeout;
 
 /**
  * 七牛云存储引擎
@@ -52,7 +53,12 @@ class Qiniu extends Server
         try {
             // 调用 UploadManager 的 putFile 方法进行文件的上传
             $key = $save_dir . '/' . $this->fileName;
-            list(, $error) = $uploadMgr->putFile($token, $key, $realPath, null, !empty($this->fileInfo['mime']) ? $this->fileInfo['mime'] : null);
+            $options=StorageOperationTimeout::qiniu($this->config);
+            if($options!==null){
+                $sdkConfig=new \Qiniu\Config();$sdkConfig->useHTTPS=true;$sdkConfig->backupUcHostsRetryTimes=0;$sdkConfig->setBackupQueryRegionHosts([]);
+                $uploadMgr=new UploadManager($sdkConfig,$options);
+                list(,$error)=$uploadMgr->put($token,$key,file_get_contents($realPath),null,$this->fileInfo['mime']??'application/octet-stream',basename($realPath));
+            }else list(, $error) = $uploadMgr->putFile($token, $key, $realPath, null, !empty($this->fileInfo['mime']) ? $this->fileInfo['mime'] : null);
 
             if ($error !== null) {
                 $this->error = $error->message();
@@ -114,6 +120,13 @@ class Qiniu extends Server
         $bucketMgr = new BucketManager($auth);
 
         try {
+            $options=StorageOperationTimeout::qiniu($this->config,true);
+            if($options!==null){
+                // BucketManager has no RequestOptions entry point. Use the same SDK delete protocol with bounded Client options.
+                $url='https://'.\Qiniu\Config::RS_HOST.'/delete/'.\Qiniu\entry($this->config['bucket'],$fileName);
+                $response=\Qiniu\Http\Client::post($url,null,$auth->authorization($url),$options);
+                if(!$response->ok()&&$response->statusCode!==612){$this->error='素材清理请求失败';return false;}return true;
+            }
             list($res, $error) = $bucketMgr->delete($this->config['bucket'], $fileName);
             if ($error !== null) {
                 $this->error = $error->message();

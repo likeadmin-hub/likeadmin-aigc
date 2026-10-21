@@ -39,6 +39,8 @@ try {
     check(metric($data,'task_success_rate')['value']==50,'terminal-only success denominator');
     check(metric($data,'task_total')['previous']==1,'previous equal elapsed window');
     check(metric($data,'cash_received')['value']==30 && metric($data,'paid_orders')['value']==2,'pay-time cash only, deleted financial orders retained, foreign tenant excluded');
+    check(metric($data,'order_average')['value']==15 && metric($data,'order_average')['previous']===null,'average uses the same real paid-order scope; no previous orders is undefined');
+    check(metric(D::build($tenant,['range'=>'custom','start_date'=>'2025-01-01','end_date'=>'2025-01-01'],$now),'order_average')['value']===null,'no paid orders must not create a zero average');
     check(metric($data,'refund_amount')['value']==3,'refunds scoped across OR order branches');
     check(metric($data,'settled_tenant_points')['value']==5 && metric($data,'settled_user_points')['value']==7,'settlement source truth by finish time');
     check(metric($data,'points_issued')['value']==30 && metric($data,'points_consumed')['value']==7 && metric($data,'points_returned')['value']==2,'point issuance, usage, returns separate');
@@ -57,6 +59,7 @@ try {
     $virtualData=D::build($tenant,$params,$now);
     check($virtualData['status']==='ready',json_encode($virtualData['sources']));
     check(metric($virtualData,'cash_received')['value']==130,'virtual paid orders included once');
+    check(metric($virtualData,'order_average')['value']==32.5,'average weights real order totals across payment sources and excludes point payments');
     check(metric($virtualData,'refund_amount')['value']==103 && metric($virtualData,'refund_amount')['previous']==0,'full virtual refunds merge once per order, traditional duplicate mappings excluded across periods');
     check(array_sum(array_column($virtualData['trend']['series'],null,'key')['refund_amount']['data'])==103,'virtual refunds appear in confirmed-time trend');
     echo "PASS operations virtual recharge/membership full refunds, receipt and traditional mapping deduplication\n";

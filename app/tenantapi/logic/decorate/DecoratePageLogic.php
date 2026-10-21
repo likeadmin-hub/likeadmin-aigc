@@ -18,6 +18,7 @@ use app\common\logic\BaseLogic;
 use app\common\model\decorate\DecoratePage;
 use app\common\model\decorate\DecorateTemplate;
 use app\common\service\decorate\DecorateTemplateService;
+use app\common\service\decorate\DecorationPortableAssets;
 
 
 /**
@@ -50,7 +51,7 @@ class DecoratePageLogic extends BaseLogic
         // for installations that predate draft/published columns.
         $page['data'] = $page['draft_data'] ?: $page['data'] ?: '[]';
         $page['meta'] = $page['draft_meta'] ?: $page['meta'] ?: '';
-        return $page;
+        return DecorationPortableAssets::refreshPage($page,(int)(request()->tenantId??0));
     }
 
 
@@ -95,8 +96,9 @@ class DecoratePageLogic extends BaseLogic
         $pageData->type = $type;
         // Legacy routes remain available, but edits must stay in the draft
         // snapshot until the owning template is explicitly published.
-        $pageData->draft_data = $params['data'];
-        $pageData->draft_meta = $params['meta'] ?? '';
+        $normalized=DecorationPortableAssets::normalizePage(['data'=>(string)$params['data'],'meta'=>(string)($params['meta']??'')],$tenantId);
+        $pageData->draft_data = $normalized['data'];
+        $pageData->draft_meta = $normalized['meta'];
         $pageData->save();
         if ((int)($pageData['template_id'] ?? 0) > 0) {
             DecorateTemplateService::markDraft($tenantId, (int)$pageData['template_id']);

@@ -276,7 +276,7 @@ final class DecorationAgentAssetReferences
     {
         $row=Db::name('tenant_file')->where(['id'=>$id,'tenant_id'=>$tenant,'source'=>FileEnum::SOURCE_ADMIN,'type'=>FileEnum::IMAGE_TYPE])->find();
         if(!$row||!empty($row['delete_time']))return null;
-        return self::storageAsset(['image_uri'=>$row['uri'],'storage_scope'=>$row['storage_scope']??'','storage_engine'=>$row['storage_engine']??'','storage_domain'=>$row['storage_domain']??'']);
+        return self::storageAsset(['image_uri'=>$row['uri'],'storage_scope'=>$row['storage_scope']??'','storage_engine'=>$row['storage_engine']??'','storage_domain'=>$row['storage_domain']??''],$tenant);
     }
 
     /** System decoration generations are shareable authoring assets; ordinary USER files are not. */
@@ -324,14 +324,17 @@ final class DecorationAgentAssetReferences
         return null;
     }
 
-    private static function storageAsset(array $image): ?array
+    private static function storageAsset(array $image,int $portableTenant=0): ?array
     {
         $uri=$image['image_uri']??null;$scope=$image['storage_scope']??null;$engine=$image['storage_engine']??null;$domain=$image['storage_domain']??'';
         if(!is_string($uri)||!is_string($domain)||!in_array($scope,['tenant','platform'],true)||!in_array($engine,['local','qiniu','aliyun','qcloud'],true))return null;
         // Stored keys only. Provider URLs, signatures, traversal and alternate separators are not identities.
         if($uri===''||preg_match('~[\\\\\x00-\x20?#]|^[a-z][a-z0-9+.-]*:|^//~i',$uri))return null;
         $key=ltrim($uri,'/');
-        if(!str_starts_with($key,'uploads/')||preg_match('~(?:^|/)(?:\.|\.\.)(?:/|$)|%~',$key)||!preg_match('/\.(?:png|jpe?g|webp|gif)$/i',$key))return null;
+        // Only file() can supply a verified tenant image row. These exact keys are
+        // created after DecorationPortableMedia validates/sanitizes imported bytes.
+        $portable=$portableTenant>0&&preg_match('~^uploads/decoration/'.$portableTenant.'/[a-f0-9]{24}/[a-f0-9]{64}\.(?:svg|avif|ico)$~D',$key);
+        if(!str_starts_with($key,'uploads/')||preg_match('~(?:^|/)(?:\.|\.\.)(?:/|$)|%~',$key)||(!preg_match('/\.(?:png|jpe?g|webp|gif)$/i',$key)&&!$portable))return null;
         return ['uri'=>$key,'stable'=>'/'.$key,'scope'=>$scope,'engine'=>$engine,'domain'=>$domain,'asset'=>$image];
     }
 
