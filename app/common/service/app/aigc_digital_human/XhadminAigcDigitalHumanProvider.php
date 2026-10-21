@@ -9,7 +9,7 @@ use Exception;
 class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterface
 {
     private const TTS_PATH = '/api/v1/apps/voice_tts/tts_live';
-    private const CLONE_VOICE_PATH = '/api/v1/apps/voice_tts/clone_voice';
+    private const CLONE_VOICE_PATH = '/api/v1/apps/' . VoiceCloneMarketPricingService::UPSTREAM_APP . '/' . VoiceCloneMarketPricingService::UPSTREAM_API;
     private const LIPSYNC_PATH = '/api/v1/apps/lipsync/submit';
     private const TASK_PATH = '/api/v1/tasks/{task_id}';
 
