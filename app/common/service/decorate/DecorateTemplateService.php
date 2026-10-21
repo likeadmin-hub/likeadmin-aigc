@@ -764,18 +764,21 @@ class DecorateTemplateService
     {
         $template = self::activeTemplate($tenantId);
         $settings = self::decodeJson($template['published_settings'], []);
-        if (!empty($settings['mobile_style'])) {
-            return $settings['mobile_style'];
+        $style = $settings['mobile_style'] ?? [];
+        if (empty($style)) {
+            $legacy = self::legacySettings($tenantId);
+            $style = $legacy['mobile_style'] ?? [];
         }
-        $legacy = self::legacySettings($tenantId);
-        return $legacy['mobile_style'] ?: [
+        // Imported and older templates may contain only the two theme colors.
+        // The mobile theme renderer also requires a button text color.
+        return array_replace([
             'themeColorId' => 1,
             'topTextColor' => 'white',
-            'navigationBarColor' => '#2F80ED',
+            'navigationBarColor' => $style['themeColor1'] ?? '#2F80ED',
             'themeColor1' => '#2F80ED',
             'themeColor2' => '#56CCF2',
             'buttonColor' => 'white',
-        ];
+        ], $style);
     }
 
     public static function saveSettings(int $tenantId, int $templateId, array $settings): void

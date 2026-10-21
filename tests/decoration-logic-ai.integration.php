@@ -30,12 +30,23 @@ $walk = function($value) use (&$walk, $root) {
     if (is_string($value) && str_starts_with($value, '/resource/')) check(is_file($root . '/public' . $value), 'shipped asset missing: ' . $value);
 };$walk($preset);
 $before = hash('sha256', json_encode(Templates::detail(1, 46, 'mobile')));
+$activeTemplateIds = Db::name('decorate_template')->where('tenant_id', 1)->where('is_active', 1)->column('id');
 Db::startTrans();
 try {
     $template = Templates::add(1, ['name' => 'logic-ai rollback fixture']);
     $detail = Templates::detail(1, (int)$template['id'], 'mobile');
     check((int)$detail['template']['is_active'] === 0, 'new template is draft');
     check(count($detail['settings']['mobile_tabbar']['list']) === 4, 'four default bottom tabs');
+    Db::name('decorate_template')->where('tenant_id', 1)->update(['is_active' => 0]);
+    Db::name('decorate_template')->where('id', $template['id'])->update([
+        'is_active' => 1,
+        'published_settings' => json_encode(['mobile_style' => ['themeColor1' => '#80f0c4', 'themeColor2' => '#48d5e8', 'custom_field' => 'retained']]),
+    ]);
+    $theme = Templates::activeMobileStyle(1);
+    check($theme['buttonColor'] === 'white' && $theme['topTextColor'] === 'white', 'partial theme lacks required text colors');
+    check($theme['themeColor1'] === '#80f0c4' && $theme['navigationBarColor'] === '#80f0c4' && $theme['custom_field'] === 'retained', 'theme defaults changed configured colors/extensions');
+    Db::name('decorate_template')->where('id', $template['id'])->update(['is_active' => 0]);
+    Db::name('decorate_template')->whereIn('id', $activeTemplateIds)->update(['is_active' => 1]);
     foreach($preset['pages'] as $definition) {
         $found = array_values(array_filter($detail['pages'], fn($p) => $p['page_code'] === $definition['code']));
         check(count($found) === 1, 'default root missing/duplicated');

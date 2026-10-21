@@ -2,6 +2,10 @@
   "name": "逻辑帧AI · logic-ai 默认移动端",
   "settings": {
     "mobile_style": {
+      "themeColorId": 7,
+      "topTextColor": "white",
+      "navigationBarColor": "#0d0d0d",
+      "buttonColor": "white",
       "themeColor1": "#80f0c4",
       "themeColor2": "#48d5e8",
       "theme": 1
