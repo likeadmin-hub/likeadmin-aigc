@@ -24,16 +24,18 @@ class AigcDigitalHumanPricingService
     public static function config(int $tenantId = 0): array
     {
         $platform = self::pricingFromConfig(0);
+        $platform[self::TYPE_VOICE_CLONE] = VoiceCloneMarketPricingService::config(0);
         if ($tenantId <= 0) {
             return self::withGenerateModels($platform, 0);
         }
         $tenant = self::pricingFromConfig($tenantId, $platform);
-        foreach (self::CLONE_TYPES as $type) {
+        foreach ([self::TYPE_AVATAR_CLONE] as $type) {
             $tenant[$type]['platform_unit_cost'] = $platform[$type]['platform_unit_cost'];
             if (!isset($tenant[$type]['tenant_unit_price']) || (float)$tenant[$type]['tenant_unit_price'] < (float)$platform[$type]['platform_unit_cost']) {
                 $tenant[$type]['tenant_unit_price'] = $platform[$type]['tenant_unit_price'];
             }
         }
+        $tenant[self::TYPE_VOICE_CLONE] = VoiceCloneMarketPricingService::config($tenantId);
         $platform = self::withGenerateModels($platform, 0);
         $tenant = self::withGenerateModels($tenant, $tenantId);
         $tenantModels = array_column($tenant['generate_models'], null, 'code');
@@ -63,8 +65,9 @@ class AigcDigitalHumanPricingService
         self::savePricing($tenantId, $params, false);
     }
 
-    public static function estimateClone(int $tenantId, string $type): array
+    public static function estimateClone(int $tenantId, string $type, array $params = []): array
     {
+        if ($type === self::TYPE_VOICE_CLONE) return VoiceCloneMarketPricingService::quote($tenantId, $params);
         $config = self::config($tenantId);
         $row = $config[$type] ?? [];
         return [
@@ -188,7 +191,17 @@ class AigcDigitalHumanPricingService
         // Keep historical rates for unfinished legacy tasks; new tasks quote the market.
         $pricing['generate_models'] = $origin['generate_models'] ?? [];
         $pricing[self::TYPE_GENERATE] = $origin[self::TYPE_GENERATE] ?? self::defaults()[self::TYPE_GENERATE];
-        foreach (self::CLONE_TYPES as $type) {
+        // Voice cost and platform defaults are owned by the market. Preserve old config for history.
+        if (isset($config['pricing'][self::TYPE_VOICE_CLONE])) $pricing[self::TYPE_VOICE_CLONE] = $config['pricing'][self::TYPE_VOICE_CLONE];
+        if (!$platform && array_key_exists(self::TYPE_VOICE_CLONE, $params)) {
+            $input = $params[self::TYPE_VOICE_CLONE];
+            if (!is_array($input) || !array_key_exists('tenant_unit_price', $input)) throw new Exception('音色克隆价格格式不正确');
+            $quote = VoiceCloneMarketPricingService::quote($tenantId);
+            $price = VoiceCloneMarketPricingService::amount($input['tenant_unit_price']);
+            if ((float)$price < (float)$quote['platform_unit_cost']) throw new Exception('音色克隆用户售价不能低于算力市场成本');
+            $pricing[self::TYPE_VOICE_CLONE] = ['tenant_unit_price' => $price];
+        }
+        foreach ([self::TYPE_AVATAR_CLONE] as $type) {
             $input = $params[$type] ?? [];
             if (!is_array($input)) throw new Exception('克隆价格格式不正确');
             foreach (['tenant_unit_price', ...($platform ? ['platform_unit_cost'] : [])] as $field) {

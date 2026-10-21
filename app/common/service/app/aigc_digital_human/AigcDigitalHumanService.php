@@ -51,9 +51,7 @@ class AigcDigitalHumanService
         $clonePricing = AigcDigitalHumanPricingService::config($tenantId);
         $data['pricing'] = is_array($data['config_json']['pricing'] ?? null) ? $data['config_json']['pricing'] : [];
         $data['pricing']['avatar_clone'] = $clonePricing[AigcDigitalHumanPricingService::TYPE_AVATAR_CLONE];
-        $data['pricing']['voice_clone'] = [
-            'tenant_unit_price' => $clonePricing[AigcDigitalHumanPricingService::TYPE_VOICE_CLONE]['tenant_unit_price'],
-        ];
+        $data['pricing']['voice_clone'] = $clonePricing[AigcDigitalHumanPricingService::TYPE_VOICE_CLONE];
 
         try {
             $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
@@ -325,7 +323,6 @@ class AigcDigitalHumanService
             throw new Exception('请上传音频样本');
         }
         $duration = self::validateVoiceCloneDuration($audioUri, $params, $tenantId);
-        $estimate = AigcDigitalHumanPricingService::estimateClone($tenantId, AigcDigitalHumanPricingService::TYPE_VOICE_CLONE);
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? ''));
         $storage = StorageConfigService::getEffectiveConfig($tenantId);
         $status = $providerAssetId !== '' ? 'ready' : 'running';
@@ -337,6 +334,7 @@ class AigcDigitalHumanService
                 Db::commit();
                 return self::formatVoice($duplicateVoice->toArray());
             }
+            $estimate = AigcDigitalHumanPricingService::estimateClone($tenantId, AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, $params);
             PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
             $row = AigcDigitalHumanVoice::create([
                 'tenant_id' => $tenantId,
