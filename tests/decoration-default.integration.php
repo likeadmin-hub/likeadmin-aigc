@@ -25,7 +25,7 @@ try {
     $template = Templates::add(1, ['name' => 'neutral decoration rollback fixture']);
     $detail = Templates::detail(1, (int)$template['id'], 'mobile');
     check((int)$detail['template']['is_active'] === 0, 'new template is draft');
-    check(count($detail['settings']['mobile_tabbar']['list']) === 4, 'four default bottom tabs');
+    check(!str_contains(json_encode($detail['settings']['mobile_tabbar']), 'logic-ai') && !str_contains(json_encode($detail['settings']['mobile_tabbar']), 'logic_ai_'), 'new template uses example navigation');
     Db::name('decorate_template')->where('tenant_id', 1)->update(['is_active' => 0]);
     Db::name('decorate_template')->where('id', $template['id'])->update([
         'is_active' => 1,
