@@ -69,9 +69,9 @@ final class OperationsDashboard
                 $rate[]=(int)($v['terminal']??0)>0?round(100*(int)$v['success']/(int)$v['terminal'],2):null;
             }
             $this->metric('task_success_rate','已结束任务成功率',$rate[0],$rate[1],'%', 'tasks');
-            $names=['success'=>'成功','partial_success'=>'部分成功','failed'=>'失败','canceled'=>'已取消','cancelled'=>'已取消'];
+            $names=['success'=>'成功','partial_success'=>'部分成功','failed'=>'失败','canceled'=>'已取消','cancelled'=>'已取消','running'=>'进行中','pending'=>'等待中','queued'=>'排队中','waiting'=>'等待中','waiting_continue'=>'待继续'];
             $rows=$this->window(clone $q,'create_time')->fieldRaw('status,COUNT(*) value')->group('status')->select()->toArray();
-            $this->distributions[]=['key'=>'task_status','label'=>'任务状态分布','unit'=>'个','status'=>'ready','data'=>array_map(fn($r)=>['key'=>$r['status'],'name'=>$names[$r['status']]??'进行中（'.$r['status'].'）','value'=>(int)$r['value']],$rows)];
+            $this->distributions[]=['key'=>'task_status','label'=>'任务状态分布','unit'=>'个','status'=>'ready','data'=>array_map(fn($r)=>['key'=>$r['status'],'name'=>$names[$r['status']]??'其他状态','value'=>(int)$r['value']],$rows)];
             $appRows=$this->window(clone $q,'create_time')->fieldRaw('app_code,COUNT(*) value')->group('app_code')->order('value','desc')->limit(10)->select()->toArray();
             $this->ranking('apps_by_tasks','应用任务排行','个',$appRows,'app_code');
             if ($this->tenant) {
