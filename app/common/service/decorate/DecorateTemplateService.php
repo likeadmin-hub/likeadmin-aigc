@@ -56,7 +56,6 @@ class DecorateTemplateService
             'published_settings' => self::encodeJson($settings),
         ]);
         self::ensureTemplatePages((int)$template['id'], $tenantId, true);
-        self::seedMobilePreset($tenantId, $template, false);
         return $template->toArray();
     }
 
