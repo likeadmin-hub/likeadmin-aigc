@@ -2,6 +2,7 @@
 /** Local integration test: no upstream calls; all database fixtures are rolled back. */
 require dirname(__DIR__) . '/vendor/autoload.php';
 (new \think\App(dirname(__DIR__) . '/'))->initialize();
+set_exception_handler(static function (Throwable $e): void { fwrite(STDERR, $e->getMessage()."\n".$e->getTraceAsString()."\n"); exit(1); });
 use think\facade\Db;
 use app\common\model\power\PowerMarketProduct as Product;
 use app\common\model\power\PowerMarketSku as Sku;
@@ -25,9 +26,11 @@ try {
     $product=Product::where(['upstream_app_code'=>'voice_tts','upstream_api_code'=>'clone_voice'])->findOrEmpty();
     if ($product->isEmpty()) throw new RuntimeException('Sync the local voice clone market fixture first');
     Product::where(['upstream_app_code'=>'voice_tts','upstream_api_code'=>'clone_voice'])->update(['status'=>0]);
-    $product->save(['status'=>1]);
+    Product::where('id',$product['id'])->update(['status'=>1]);
+    $product=Product::find($product['id']);
     $sku=Sku::where('product_id',$product['id'])->findOrEmpty();
     Sku::where('product_id',$product['id'])->update(['sale_status'=>0]);
+    $sku=Sku::find($sku['id']);
     $sku->save(['sale_points'=>200,'usage_unit'=>'per_call','usage_unit_size'=>1,'status'=>1,'sale_status'=>1,'locked_params'=>[]]);
     TenantPrice::where(['tenant_id'=>$tenant,'sku_id'=>$sku['id']])->delete();
     $tenantConfig=Config::where('tenant_id',$tenant)->findOrEmpty();
