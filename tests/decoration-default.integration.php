@@ -6,34 +6,23 @@ require $root . '/runtime-loader.php';
 use app\common\service\decorate\DecorateTemplateService as Templates;
 use app\common\service\decorate\DecorateDataSourceService as Sources;
 use app\common\service\decorate\DecorateWorkSourceService as Works;
-use app\common\service\decorate\MobilePresetService;
 use app\common\model\user\User;
 use think\facade\Db;
 $config = config('database.connections.mysql');
 if (($config['hostname'] ?? '') !== '127.0.0.1' || ($config['database'] ?? '') !== 'z_cn') throw new RuntimeException('Local development database required');
 $checks = 0;
 function check($condition, $message) { global $checks; if (!$condition) throw new RuntimeException($message); ++$checks; }
-$preset = MobilePresetService::logicAi();
-check(array_column($preset['pages'], 'code') === ['home', 'logic_ai_inspiration', 'logic_ai_works', 'user'], 'four independent page roots');
 $validate = new ReflectionMethod(Templates::class, 'validatePagePayload');$validate->setAccessible(true);
-foreach ($preset['pages'] as $page) {
-    $validate->invoke(null, json_encode($page['data']), json_encode($page['meta']));
-    ++$checks;
-}
 foreach ([-481, -1] as $value) {
     $invalid = ['name' => 'spacer', 'content' => ['height' => 20], 'styles' => [$value === -481 ? 'margin_top' : 'padding_top' => $value]];
     try { $validate->invoke(null, json_encode([$invalid]), '[]'); throw new LogicException('invalid numeric style accepted'); }
     catch (RuntimeException $e) { ++$checks; }
 }
-$walk = function($value) use (&$walk, $root) {
-    if (is_array($value)) { foreach($value as $v) $walk($v); return; }
-    if (is_string($value) && str_starts_with($value, '/resource/')) check(is_file($root . '/public' . $value), 'shipped asset missing: ' . $value);
-};$walk($preset);
 $before = hash('sha256', json_encode(Templates::detail(1, 46, 'mobile')));
 $activeTemplateIds = Db::name('decorate_template')->where('tenant_id', 1)->where('is_active', 1)->column('id');
 Db::startTrans();
 try {
-    $template = Templates::add(1, ['name' => 'logic-ai rollback fixture']);
+    $template = Templates::add(1, ['name' => 'neutral decoration rollback fixture']);
     $detail = Templates::detail(1, (int)$template['id'], 'mobile');
     check((int)$detail['template']['is_active'] === 0, 'new template is draft');
     check(count($detail['settings']['mobile_tabbar']['list']) === 4, 'four default bottom tabs');
@@ -47,11 +36,7 @@ try {
     check($theme['themeColor1'] === '#80f0c4' && $theme['navigationBarColor'] === '#80f0c4' && $theme['custom_field'] === 'retained', 'theme defaults changed configured colors/extensions');
     Db::name('decorate_template')->where('id', $template['id'])->update(['is_active' => 0]);
     Db::name('decorate_template')->whereIn('id', $activeTemplateIds)->update(['is_active' => 1]);
-    foreach($preset['pages'] as $definition) {
-        $found = array_values(array_filter($detail['pages'], fn($p) => $p['page_code'] === $definition['code']));
-        check(count($found) === 1, 'default root missing/duplicated');
-        check(json_decode($found[0]['draft_data'], true) === $definition['data'], 'editable preset payload changed');
-    }
+    check(count(array_filter($detail['pages'], fn($page) => str_starts_with($page['page_code'], 'logic_ai_'))) === 0, 'new template contains a tenant example');
     Templates::ensureDefaultTemplate(1, true);
     check(hash('sha256', json_encode(Templates::detail(1, 46, 'mobile'))) === $before, 'existing tenant template changed');
     // Reproduce the new-tenant SQL seed path: old legacy rows already exist.
@@ -60,11 +45,11 @@ try {
     Db::name('decorate_page')->insert(['tenant_id' => $fixtureTenant, 'template_id' => 0, 'type' => 1, 'name' => 'initial SQL seed', 'data' => '[]', 'meta' => '[]', 'create_time' => time(), 'update_time' => time()]);
     Templates::ensureDefaultTemplate($fixtureTenant, true);
     $fresh = Templates::detail($fixtureTenant, 0, 'mobile');
-    check($fresh['settings']['mobile_tabbar']['style']['icon_atlas'] === '/resource/image/decoration/logic-ai/tab-icons.png', 'SQL seed blocked new-tenant preset');
-    check(count(array_filter($fresh['pages'], fn($p) => in_array($p['page_code'], ['home','user','logic_ai_inspiration','logic_ai_works']))) === 4, 'fresh tenant roots incomplete');
+    check(!str_contains(json_encode($fresh), 'logic-ai') && !str_contains(json_encode($fresh), 'logic_ai_'), 'new tenant automatically received example template');
+    check(count(array_filter($fresh['pages'], fn($page) => in_array($page['page_code'], ['home','user','service'], true))) === 3, 'neutral system roots incomplete');
     $workUser = 214700002;
     $taskId = Db::name('aigc_image_task')->insertGetId(['tenant_id'=>1,'user_id'=>$workUser,'status'=>'success','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
-    $baseResult = ['tenant_id'=>1,'user_id'=>$workUser,'task_id'=>$taskId,'image_uri'=>'/resource/image/decoration/logic-ai/hero-v2.png','storage_scope'=>'platform','storage_engine'=>'local','create_time'=>time(),'delete_time'=>0];
+    $baseResult = ['tenant_id'=>1,'user_id'=>$workUser,'task_id'=>$taskId,'image_uri'=>'/resource/image/common/menu_generator.png','storage_scope'=>'platform','storage_engine'=>'local','create_time'=>time(),'delete_time'=>0];
     Db::name('aigc_image_result')->insert($baseResult);
     Db::name('aigc_image_result')->insert(array_replace($baseResult, ['delete_time'=>time()]));
     Db::name('aigc_image_result')->insert(array_replace($baseResult, ['tenant_id'=>2]));
@@ -92,4 +77,4 @@ try {
     }
 } finally { Db::rollback(); }
 check(hash('sha256', json_encode(Templates::detail(1,46,'mobile'))) === $before, 'fixture rollback changed draft');
-echo "PASS logic-ai mobile preset/private source: $checks checks; database fixtures rolled back\n";
+echo "PASS neutral decoration defaults/private source: $checks checks; database fixtures rolled back\n";

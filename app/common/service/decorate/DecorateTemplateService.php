@@ -1059,12 +1059,7 @@ class DecorateTemplateService
         if (!$exists->isEmpty()) {
             return;
         }
-        // Existing tenants may still have a customized pre-template decoration.
-        // Preserve that migration path; only a genuinely new tenant gets the preset.
-        $hasLegacy = DecoratePage::where('tenant_id', $tenantId)->whereIn('type', [1, 2, 5])->count() > 0
-            || count(DecorateTabbar::getTabbarLists($tenantId)) > 0;
-        $legacyHome = DecoratePage::where(['tenant_id' => $tenantId, 'type' => 1])->findOrEmpty();
-        $newTenant = $newTenant || (!$legacyHome->isEmpty() && (self::decodeJson((string)$legacyHome['meta'], [])[0]['content']['initial_preset'] ?? '') === 'logic-ai');
+        // Start from the tenant's existing decoration or the neutral system pages.
         $settings = self::legacySettings($tenantId);
         $template = DecorateTemplate::create([
             'tenant_id' => $tenantId,
@@ -1077,36 +1072,7 @@ class DecorateTemplateService
             'published_settings' => self::encodeJson($settings),
         ]);
         self::ensureTemplatePages((int)$template['id'], $tenantId, true);
-        if ($newTenant || !$hasLegacy) {
-            self::seedMobilePreset($tenantId, $template, true);
-        }
         self::syncLegacyPublishedData($tenantId, (int)$template['id']);
-    }
-
-    /** Called only immediately after creating a template, never on saved templates. */
-    private static function seedMobilePreset(int $tenantId, DecorateTemplate $template, bool $published): void
-    {
-        $preset = MobilePresetService::logicAi();
-        $settings = array_replace(self::defaultSettings(), $preset['settings']);
-        $template->save(['draft_settings' => self::encodeJson($settings), 'published_settings' => self::encodeJson($settings)]);
-        foreach ($preset['pages'] as $definition) {
-            $page = DecoratePage::where(['tenant_id' => $tenantId, 'template_id' => (int)$template['id'], 'page_code' => $definition['code']])->findOrEmpty();
-            if ($page->isEmpty()) {
-                $created = self::addPage($tenantId, ['template_id' => (int)$template['id'], 'terminal' => self::TERMINAL_MOBILE, 'page_code' => $definition['code'], 'name' => $definition['name']]);
-                $page = DecoratePage::where(['tenant_id' => $tenantId, 'id' => (int)$created['id']])->findOrEmpty();
-            }
-            $data = self::encodeJson($definition['data']);
-            $meta = self::encodeJson($definition['meta']);
-            $update = ['name' => $definition['name'], 'draft_data' => $data, 'draft_meta' => $meta,
-                'published_data' => $data, 'published_meta' => $meta, 'data' => $data, 'meta' => $meta];
-            $page->save($update);
-        }
-        // addPage marks drafts dirty. A new tenant's initial published snapshot
-        // contains all four roots, rather than an empty custom-page structure.
-        if ($published) {
-            $pages = DecoratePage::where(['tenant_id' => $tenantId, 'template_id' => (int)$template['id']])->select();
-            $template->save(['publish_status' => 'published', 'published_pages' => self::encodeJson(self::publishedPageStructure($pages))]);
-        }
     }
 
     private static function ensureTemplatePages(int $templateId, int $tenantId, bool $forceCreate = false): void

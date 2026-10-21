@@ -24,8 +24,9 @@ test('resource traversal and directory references fail closed',t=>{
 test('symlinks cannot escape the release source',t=>{
  const root=fixture(t);write(root,'secret','private');fs.mkdirSync(path.join(root,'public/resource'),{recursive:true});fs.symlinkSync(path.join(root,'secret'),path.join(root,'public/resource/link.png'));write(root,preset,JSON.stringify({image:'/resource/link.png'}));assert.throws(()=>decorationPresetAssets(root),/symlink/)
 })
-test('current product preset has a complete local dependency set and keeps tenant artwork untouched',()=>{
- const result=decorationPresetAssets(server);assert.ok(result.presets.some(p=>p.endsWith('/logic-ai.json')));assert.ok(result.assets.length>=15);assert.ok(result.assets.includes('public/resource/image/decoration/logic-ai/redeem-entry-v4.png'));assert.ok(result.assets.includes('public/resource/image/decoration/logic-ai/works-empty-simple-v5.png'));assert.ok(result.assets.includes('public/resource/image/decoration/logic-ai/tab-icons.png'));assert.ok(result.assets.includes('public/resource/image/decoration/logic-ai/user-background-v2.png'));assert.ok(!result.assets.some(p=>p.includes('tab-icons-v4')||p.includes('user-background-v4')))
+test('product ships no tenant decoration example or artwork',()=>{
+ assert.deepEqual(decorationPresetAssets(server),{presets:[],assets:[]})
+ assert.ok(!fs.existsSync(path.join(server,'app/common/service/decorate/MobilePresetService.php')))
 })
 test('official staging includes unchanged images on an unrelated next-step update',t=>{
  const root=fixture(t),repo=path.join(root,'repo'),out=path.join(root,'staged');fs.mkdirSync(repo)
