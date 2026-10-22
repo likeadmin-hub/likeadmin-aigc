@@ -25,7 +25,7 @@ class AppController extends BaseAdminController
 
     public function lists()
     {
-        $lists = App::order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
+        $lists = (new AppPackageUpdateService())->localCatalog(App::order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
         foreach ($lists as &$item) {
             if (!DefaultAppService::isDefaultApp((string)($item['code'] ?? ''))) {
                 $item['is_builtin'] = 0;
@@ -181,8 +181,9 @@ class AppController extends BaseAdminController
     {
         try {
             $appCode = (string)$this->request->post('app_code', '');
-            $manifest = AppRegistryService::installFromLocal($appCode);
-            return $this->success('安装成功', $manifest, 1, 1);
+            $service=new AppPackageUpdateService();
+            if((int)$this->request->post('prepare_only',0)===1)return $this->success('本地应用包已准备',$service->prepareLocalPackage($appCode));
+            return $this->success('安装成功', $service->installLocal($appCode), 1, 1);
         } catch (Exception $e) {
             return $this->packageFailure($e);
         }

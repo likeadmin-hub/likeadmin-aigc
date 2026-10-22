@@ -24,6 +24,7 @@ if(($argv[1]??'')!=='--operation') {
         appWrite($dir.'/signature.json',json_encode(['sha256'=>appHashes($dir)]));
         $archive=$dir.'.tar';$tar=new PharData($archive);$tar->buildFromDirectory($dir);unset($tar);$packages[$suffix][$version]=$archive;
     }
+    appChild($site,'bundled-local');
     appChild($site,'preflight-rejections',['archive'=>$packages['a']['1.0.0'],'code'=>'aigc_fixture_a']);
     $initial=appChild($site,'snapshot');$pointer=$initial['generation'];$canonical=$pointer===rtrim($site,'/');$generations=[];
     foreach(glob($site.'/.composer-runtime/generations/*') as $path)if(is_dir($path))$generations[$path]=appHashes($path);
@@ -77,6 +78,26 @@ if($action==='apply' || $action==='retry') {
     finally {if(!empty($data['precheck_fail']))Db::execute('ALTER TABLE la_app_version ENGINE=InnoDB');}
     $result=Db::name('update_package')->where('id',$id)->find();$task=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->order('id','desc')->find();
     appCheck($task['status']===(empty($data['fail']) && empty($data['precheck_fail'])?'success':'failed'),'App task status inconsistent');
+} elseif($action==='bundled-local') {
+    $codes=['aigc_music','smart_clip','aigc_short_drama'];$business=appBusiness($site);
+    Db::name('app')->whereIn('code',['aigc_music','smart_clip'])->delete();
+    Db::name('app')->where('code','aigc_short_drama')->update(['current_version'=>'1.0.3']);
+    $before=Db::name('app')->count();$catalog=$service->localCatalog(Db::name('app')->select()->toArray());
+    appCheck(Db::name('app')->count()===$before,'Read catalog installed apps');
+    $byCode=array_column($catalog,null,'code');appCheck($byCode['aigc_music']['status']==='not_installed' && $byCode['aigc_music']['local_install_available'],'Bundled missing app not discoverable');
+    foreach($codes as $code){
+        $oldCode=appHashes(base_path().'apps/'.$code);unset($oldCode['signature.json']);
+        $service->installLocal($code);
+        $manifest=AppRegistryService::getManifest($code);
+        appCheck(Db::name('app')->where('code',$code)->value('current_version')===$manifest['version'],'Local registration did not use disk version');
+        $afterCode=appHashes(base_path().'apps/'.$code);unset($afterCode['signature.json']);appCheck($afterCode===$oldCode,'Bundled installation changed code bytes');
+    }
+    $method=new ReflectionMethod($service,'assertVersionAllowed');$method->setAccessible(true);
+    try{$method->invoke($service,['code'=>'aigc_music','version'=>'1.0.2'],'upload');throw new LogicException('Disk downgrade allowed');}catch(RuntimeException $e){appCheck(str_contains($e->getMessage(),'低于本站现有代码'),'Wrong downgrade rejection');}
+    appCheck(appBusiness($site)===$business,'Bundled install modified business/tenant entitlement state');
+    appCheck(Db::name('app_migration')->whereIn('app_code',$codes)->where('error','like','baseline-adopted:%')->count()>0,'Bundled historical SQL not safely adopted');
+    echo 'PASS bundled local install: missing registry, stale version, three real apps, disk downgrade rejection, code and business preservation'.PHP_EOL;
+    $result=['passed'=>true];
 } elseif($action==='preflight-rejections') {
     $package=$service->saveUploadedPackage($data['archive'],'tar');
     Db::execute('ALTER TABLE la_app_version ENGINE=MyISAM');
