@@ -46,6 +46,8 @@ class OperationLog
         }
 
         $params = $request->param();
+        $isRedeemCard = str_contains(strtolower($request->controller()), 'redeemcard') || str_contains(strtolower($request->controller()), 'redeem_card');
+        if ($isRedeemCard) $params = \app\common\service\redeem\RedeemCardPolicy::redact($params);
 
         //过滤密码参数
         if (isset($params['password'])) {
@@ -67,11 +69,16 @@ class OperationLog
         $systemLog->admin_name = $request->adminInfo['name'] ?? '';
         $systemLog->action = $notes;
         $systemLog->account = $request->adminInfo['account'] ?? '';
-        $systemLog->url = $request->url(true);
+        $systemLog->url = $isRedeemCard ? strtok($request->url(true), '?') : $request->url(true);
         $systemLog->type = $request->isGet() ? 'GET' : 'POST';
         $systemLog->params = json_encode($params, true);
         $systemLog->ip = $request->ip();
-        $systemLog->result = $this->formatResult($response->getContent());
+        $resultContent = $response->getContent();
+        if ($isRedeemCard) {
+            $decoded = json_decode($resultContent, true);
+            $resultContent = is_array($decoded) ? json_encode(\app\common\service\redeem\RedeemCardPolicy::redact($decoded), JSON_UNESCAPED_UNICODE) : '[REDACTED]';
+        }
+        $systemLog->result = $this->formatResult($resultContent);
         try {
             return $systemLog->save();
         } catch (\Throwable $e) {

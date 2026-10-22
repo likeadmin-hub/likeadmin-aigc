@@ -5,6 +5,7 @@ namespace app\common\service\storage\engine;
 use app\common\service\storage\engine\Server;
 use OSS\OssClient;
 use OSS\Core\OssException;
+use app\common\service\storage\StorageOperationTimeout;
 
 /**
  * 阿里云存储引擎 (OSS)
@@ -40,6 +41,7 @@ class Aliyun extends Server
                 $this->config['domain'],
                 true
             );
+            StorageOperationTimeout::oss($ossClient,$this->config);
             $ossClient->uploadFile(
                 $this->config['bucket'],
                 $save_dir . '/' . $this->fileName,
@@ -69,6 +71,7 @@ class Aliyun extends Server
                 $this->config['domain'],
                 true
             );
+            StorageOperationTimeout::oss($ossClient,$this->config);
 
             $content = file_get_contents($url);
             $ossClient->putObject(
@@ -97,6 +100,7 @@ class Aliyun extends Server
                 $this->config['domain'],
                 true
             );
+            StorageOperationTimeout::oss($ossClient,$this->config);
             $ossClient->deleteObject($this->config['bucket'], $fileName);
         } catch (OssException $e) {
             $this->error = $e->getMessage();

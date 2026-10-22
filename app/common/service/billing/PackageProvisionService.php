@@ -149,6 +149,15 @@ class PackageProvisionService
             'source_menu_key' => 'core_tenant_finance',
         ]);
 
+        $redeemId = self::upsertMenu($table, $tenantId, [
+            'pid'=>$financeId, 'type'=>'C', 'name'=>'卡密管理', 'icon'=>'el-icon-Tickets', 'sort'=>90,
+            'paths'=>'redeem_card', 'component'=>'finance/redeem_card', 'perms'=>'finance.redeem_card/lists',
+            'source_menu_key'=>'core_tenant_redeem_card',
+        ]);
+        foreach (['generate'=>'生成卡密','batches'=>'批次列表','records'=>'兑换记录','disable'=>'停用卡密','options'=>'权益选项'] as $action=>$label) {
+            self::upsertMenu($table,$tenantId,['pid'=>$redeemId,'type'=>'A','name'=>$label,'perms'=>'finance.redeem_card/'.$action,'source_menu_key'=>'core_tenant_redeem_card_'.$action,'is_show'=>0]);
+        }
+
         $packageId = self::upsertMenu($table, $tenantId, [
             'pid' => $financeId,
             'type' => 'M',
@@ -482,6 +491,7 @@ class PackageProvisionService
             return (int)Db::name($table)->insertGetId($data);
         }
 
+        if (str_starts_with((string)$data['source_menu_key'], 'core_tenant_redeem_card') && ($row['source'] ?? '') === 'tenant') return (int)$row['id'];
         Db::name($table)->where('id', (int)$row['id'])->update($data);
         return (int)$row['id'];
     }

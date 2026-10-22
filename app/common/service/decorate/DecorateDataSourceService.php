@@ -4,6 +4,8 @@ namespace app\common\service\decorate;
 
 use app\common\model\article\Article;
 use app\common\model\ai\AiAppTask;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanAvatar;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice;
 use app\common\model\user\User;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppFrontendManifestService;
@@ -28,6 +30,7 @@ class DecorateDataSourceService
             ['key' => 'membership_summary', 'name' => '会员摘要', 'terminal' => ['mobile'], 'params' => []],
             ['key' => 'account_summary', 'name' => '账户额度', 'terminal' => ['mobile'], 'params' => []],
             ['key' => 'user_assets', 'name' => '用户资产', 'terminal' => ['mobile'], 'params' => ['limit']],
+            ['key' => 'user_works', 'name' => '已完成作品', 'terminal' => ['mobile'], 'params' => ['limit']],
         ];
     }
 
@@ -101,6 +104,7 @@ class DecorateDataSourceService
             'membership_summary' => self::membershipSummary($tenantId, (int)($context['user_id'] ?? 0)),
             'account_summary' => self::accountSummary($tenantId, (int)($context['user_id'] ?? 0)),
             'user_assets' => self::userAssets($tenantId, (int)($context['user_id'] ?? 0), $limit),
+            'user_works' => DecorateWorkSourceService::lists($tenantId, (int)($context['user_id'] ?? 0), $limit),
             default => [],
         };
     }
@@ -333,7 +337,7 @@ class DecorateDataSourceService
         if ($userId <= 0) {
             return [];
         }
-        $user = User::field('id,nickname,avatar,user_money')->where(['id' => $userId, 'tenant_id' => $tenantId])->findOrEmpty();
+        $user = User::field('id,nickname,avatar,user_money,mobile')->where(['id' => $userId, 'tenant_id' => $tenantId])->findOrEmpty();
         if ($user->isEmpty()) {
             return [];
         }
@@ -344,7 +348,21 @@ class DecorateDataSourceService
             'name' => (string)($row['nickname'] ?: '用户'),
             'image' => (string)($row['avatar'] ?? ''),
             'quota' => (string)($row['user_money'] ?? '0'),
+            'masked_mobile' => empty($row['mobile']) ? '' : preg_replace('/^(\d{3})\d+(\d{4})$/', '$1****$2', (string)$row['mobile']),
+            'avatar_count' => self::personalAssetCount(AigcDigitalHumanAvatar::class, $tenantId, $userId),
+            'voice_count' => self::personalAssetCount(AigcDigitalHumanVoice::class, $tenantId, $userId),
         ]];
+    }
+
+    private static function personalAssetCount(string $model, int $tenantId, int $userId): ?int
+    {
+        try {
+            return $model::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'source' => 'mine', 'delete_time' => 0])->count();
+        } catch (\Throwable $e) {
+            // An uninstalled app has no personal asset table; never present a
+            // guessed zero as an actual business count.
+            return null;
+        }
     }
 
     private static function membershipSummary(int $tenantId, int $userId): array

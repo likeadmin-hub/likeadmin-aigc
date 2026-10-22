@@ -5,6 +5,7 @@ namespace app\common\service\storage\engine;
 use app\common\service\storage\engine\Server;
 use Exception;
 use Qcloud\Cos\Client;
+use app\common\service\storage\StorageOperationTimeout;
 
 /**
  * 腾讯云存储引擎 (COS)
@@ -34,7 +35,7 @@ class Qcloud extends Server
      */
     private function createCosClient()
     {
-        $this->cosClient = new Client([
+        $this->cosClient = new Client(StorageOperationTimeout::cos($this->config)+[
             'region' => $this->config['region'],
             'credentials' => [
                 'secretId' => $this->config['access_key'],

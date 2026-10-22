@@ -127,8 +127,8 @@ class UserPointService
             return;
         }
         $user->user_money = number_format((float)$user['user_money'] + $points, 2, '.', '');
-        $user->save();
-        AccountLogLogic::add(
+        if (false === $user->save()) throw new RuntimeException('会员赠点入账失败');
+        $log = AccountLogLogic::add(
             $userId,
             AccountLogEnum::UM_INC_MEMBERSHIP_BONUS,
             AccountLogEnum::INC,
@@ -137,6 +137,22 @@ class UserPointService
             $remark,
             $extra
         );
+        if (false === $log) throw new RuntimeException('会员赠点流水记录失败');
+    }
+
+    /** Card issuance is tenant credit, not a paid recharge/refund or provider expense. */
+    public static function grantRedeemCard(int $tenantId, int $userId, float $points, string $sourceSn, array $extra = []): void
+    {
+        if ($points <= 0 || $sourceSn === '') throw new RuntimeException('卡密点数或来源无效');
+        $user = User::where(['tenant_id' => $tenantId, 'id' => $userId])->lock(true)->findOrEmpty();
+        if ($user->isEmpty()) throw new RuntimeException('用户不存在');
+        $exists = UserAccountLog::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'change_type' => AccountLogEnum::UM_INC_REDEEM_CARD, 'source_sn' => $sourceSn])->findOrEmpty();
+        if (!$exists->isEmpty()) return;
+        $user->user_money = number_format((float)$user['user_money'] + $points, 2, '.', '');
+        if (false === $user->save()) throw new RuntimeException('卡密点数入账失败');
+        if (false === AccountLogLogic::add($userId, AccountLogEnum::UM_INC_REDEEM_CARD, AccountLogEnum::INC, $points, $sourceSn, '卡密兑换', $extra)) {
+            throw new RuntimeException('卡密点数流水记录失败');
+        }
     }
 
     private static function hasLog(int $userId, int $changeType, int $action, string $sourceSn, string $remark = ''): bool

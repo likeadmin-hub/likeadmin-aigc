@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "卡密兑换",
+  "navigationBarBackgroundColor": "#f4f7f6",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
+    "page-content": "./redeem-content"
+  }
+}

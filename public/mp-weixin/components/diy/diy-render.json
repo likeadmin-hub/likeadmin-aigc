@@ -10,6 +10,7 @@
     "w-user-info": "../widgets/user-info/user-info",
     "w-my-service": "../widgets/my-service/my-service",
     "w-user-banner": "../widgets/user-banner/user-banner",
-    "diy-node": "./diy-node"
+    "diy-node": "./diy-node",
+    "diy-hotspot": "./diy-hotspot"
   }
 }

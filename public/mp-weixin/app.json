@@ -1,11 +1,11 @@
 {
   "pages": [
-    "pages/point_alert/index",
     "pages/decoration-tab/tab-0",
     "pages/decoration-tab/tab-1",
     "pages/decoration-tab/tab-2",
     "pages/decoration-tab/tab-3",
     "pages/decoration-tab/tab-4",
+    "pages/point_alert/index",
     "pages/index/index",
     "pages/news/news",
     "pages/user/user",
@@ -23,6 +23,7 @@
     "pages/agreement/agreement",
     "pages/change_password/change_password",
     "pages/user_data/user_data",
+    "pages/redeem/redeem",
     "pages/search/search",
     "pages/webview/webview",
     "pages/bind_mobile/bind_mobile",
@@ -298,6 +299,7 @@
       }
     ]
   },
+  "entryPagePath": "pages/decoration-tab/tab-0",
   "__usePrivacyCheck__": true,
   "usingComponents": {}
 }

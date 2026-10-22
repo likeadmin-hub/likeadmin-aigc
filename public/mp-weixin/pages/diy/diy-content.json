@@ -4,6 +4,7 @@
     "tabbar": "../../components/tabbar/tabbar",
     "diy-page-loading": "../../components/diy/diy-page-loading",
     "diy-page-nav": "../../components/diy/diy-page-nav",
-    "diy-render": "../../components/diy/diy-render"
+    "diy-render": "../../components/diy/diy-render",
+    "diy-preview-tabs": "../../components/diy/diy-preview-tabs"
   }
 }

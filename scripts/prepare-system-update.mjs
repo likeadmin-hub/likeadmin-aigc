@@ -5,6 +5,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { decorationPresetAssets } from './decoration-preset-assets.mjs'
 const args=process.argv.slice(2)
 const option=(key,fallback='')=>{const i=args.indexOf(key);return i<0?fallback:args[i+1]}
 const repo=path.resolve(option('--repo',path.join(path.dirname(fileURLToPath(import.meta.url)),'..')))
@@ -125,6 +126,20 @@ try {
         }
     }
     if(!bridge){
+        // Never deliver a default template without its built-in imagery. Copy
+        // individual dependencies rather than replacing public/resource, which
+        // can also contain tenant-managed files on historical installations.
+        const presetDependencies=decorationPresetAssets(repo)
+        for(const relative of [...presetDependencies.presets,...presetDependencies.assets]){
+            copy(relative,'files/'+relative)
+            if(!coverage.some(row=>row.path===relative))coverage.push({path:relative,delivery:'decoration-preset-dependency'})
+        }
+        // Future customer-side builds must retain the same dependency guard.
+        if(presetDependencies.presets.length){
+            const guard='scripts/decoration-preset-assets.mjs'
+            copy(guard,'files/'+guard)
+            if(!coverage.some(row=>row.path===guard))coverage.push({path:guard,delivery:'decoration-preset-packaging-guard'})
+        }
         // App-owned SQL is deferred by this service. The archive guard needs
         // its exact current bytes even when it did not change since the base.
         const appUpdater='app/common/service/update/SystemPackageUpdateService.php'

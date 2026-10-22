@@ -34,8 +34,32 @@ final class OpenPolicy
     }
     public static function isPublicIp(string $ip): bool
     {
-        if (str_starts_with(strtolower($ip), '::ffff:')) return self::isPublicIp(substr($ip, 7));
-        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
+        if (str_contains($ip, "\0")) return false;
+        $packed = @inet_pton($ip);
+        if ($packed === false) return false;
+        // Compare binary identities: expanded and hexadecimal mapped forms must
+        // inherit exactly the same restrictions as their embedded IPv4 address.
+        if (strlen($packed) === 16 && substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") {
+            return self::isPublicIp(inet_ntop(substr($packed, 12)));
+        }
+        // Keep all existing PHP exclusions, then close its special-use gaps.
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) return false;
+        if (strlen($packed) === 4) {
+            return !self::ipAllowed($ip, [
+                '0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8',
+                '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.0.2.0/24',
+                '192.88.99.0/24', '192.168.0.0/16', '198.18.0.0/15', '198.51.100.0/24',
+                '203.0.113.0/24', '224.0.0.0/4', '240.0.0.0/4',
+                // Cloud platform virtual-service endpoint; not an ordinary remote asset host.
+                '168.63.129.16/32',
+            ]);
+        }
+        // Support native global unicast only (IANA special-purpose registries).
+        // This also rejects local, multicast, discard and translation prefixes;
+        // Teredo/6to4 cannot conceal an embedded private IPv4 destination.
+        return self::ipAllowed($ip, ['2000::/3']) && !self::ipAllowed($ip, [
+            '2001::/23', '2001:db8::/32', '2002::/16', '3fff::/20',
+        ]);
     }
     public static function validateInput(array $input, int $depth = 0): void
     {
