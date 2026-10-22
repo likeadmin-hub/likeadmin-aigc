@@ -13484,3 +13484,18 @@ INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,pat
 INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time) SELECT p.tenant_id,p.id,'A','兑换记录','',0,'finance.redeem_card/records','','','','',0,0,0,'','core','core_tenant_redeem_card_records',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.perms='finance.redeem_card/lists' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.perms='finance.redeem_card/records');
 INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time) SELECT p.tenant_id,p.id,'A','停用卡密','',0,'finance.redeem_card/disable','','','','',0,0,0,'','core','core_tenant_redeem_card_disable',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.perms='finance.redeem_card/lists' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.perms='finance.redeem_card/disable');
 INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time) SELECT p.tenant_id,p.id,'A','权益选项','',0,'finance.redeem_card/options','','','','',0,0,0,'','core','core_tenant_redeem_card_options',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu` p WHERE p.perms='finance.redeem_card/lists' AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu` e WHERE e.tenant_id=p.tenant_id AND e.perms='finance.redeem_card/options');
+
+-- Two-level market pricing. Tenant rules are lazily initialized and explicitly tenant-scoped.
+CREATE TABLE IF NOT EXISTS `la_power_market_price_rule` (
+ `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+ `owner_id` int unsigned NOT NULL DEFAULT 0 COMMENT '0平台，其他租户ID',
+ `scope_type` varchar(12) NOT NULL DEFAULT 'global',
+ `scope_id` int unsigned NOT NULL DEFAULT 0,
+ `mode` varchar(12) NOT NULL DEFAULT 'inherit',
+ `value` decimal(16,6) NOT NULL DEFAULT 0,
+ `revision` bigint unsigned NOT NULL DEFAULT 0,
+ `follow_apps` tinyint unsigned NOT NULL DEFAULT 0,
+ `create_time` int unsigned NOT NULL DEFAULT 0,
+ `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_owner_scope` (`owner_id`,`scope_type`,`scope_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='算力市场两级溢价规则';
