@@ -47,6 +47,7 @@ class UpdateCustomerMessage
         ];
         if (isset($protocolMessages[$errorCode])) return $protocolMessages[$errorCode];
         $rules = [
+            '/历史迁移字节已改变/' => '此应用包与当前系统不兼容，请使用本地安装或同步本地版本，或联系平台获取适配当前系统的应用包。',
             '/当前 PHP 缺少运行时扩展|Composer 依赖缺少 PHP 扩展/' => '服务器缺少更新所需的运行组件，请联系服务器管理员安装所需组件后重试。',
             '/PHP CLI|proc_open/' => '服务器无法启动更新检查程序，请联系服务器管理员检查运行环境和程序执行权限后重试。',
             '/已有.*(?:升级|更新).*执行/' => '已有更新任务正在执行，请等待完成后再操作。若长时间没有进展，请稍后检查更新记录或联系技术支持。',

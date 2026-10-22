@@ -17,6 +17,54 @@ use Throwable;
 
 class AppPackageUpdateService
 {
+    /** Read-only catalog: files on disk do not imply installation or tenant entitlement. */
+    public function localCatalog(array $registered): array
+    {
+        $byCode=[];foreach($registered as $row)$byCode[$row['code']]=$row;
+        $builder=new BundledAppPackageService(root_path(),dirname(rtrim(base_path(),'/')));
+        foreach(glob(base_path().'apps/*/manifest.json')?:[] as $file){
+            $code=basename(dirname($file));
+            try{$manifest=$builder->manifest($code);AppRegistryService::validateRuntimeMigrations($code);$available=true;}
+            catch(Throwable $error){continue;}
+            if(!$manifest)continue;
+            $row=$byCode[$code]??['code'=>$code,'name'=>$manifest['name']??$code,'description'=>$manifest['description']??'','icon'=>$manifest['icon']??'','category'=>$manifest['category']??'','sort'=>$manifest['sort']??0,'client_tags'=>implode(',',(array)($manifest['frontends']??[])),'status'=>'not_installed','current_version'=>''];
+            $row['disk_version']=$manifest['version'];$row['local_install_available']=$available;
+            $byCode[$code]=$row;
+        }
+        return array_values($byCode);
+    }
+
+    public function prepareLocalPackage(string $appCode): array
+    {
+        AppRegistryService::assertValidCode($appCode);
+        AppRegistryService::assertCoreCompatible(AppRegistryService::getManifest($appCode));
+        AppRegistryService::validateRuntimeMigrations($appCode);
+        $current=(string)(App::where('code',$appCode)->value('current_version')?:'');
+        $builder=new BundledAppPackageService(root_path(),dirname(rtrim(base_path(),'/')));
+        $manifest=$builder->manifest($appCode);
+        if($current!==''&&version_compare((string)$manifest['version'],$current,'<'))throw new RuntimeException('本地应用版本落后于已安装版本，请先同步系统文件');
+        $snapshot=$builder->create($appCode);
+        return $this->recordPackage(['package_id'=>'local_'.$appCode.'_'.bin2hex(random_bytes(8)),'app_code'=>$appCode,'version'=>$manifest['version'],'manifest'=>$manifest],$snapshot,'local');
+    }
+
+    public function installLocal(string $appCode): array
+    {
+        $package=$this->prepareLocalPackage($appCode);
+        $preflight=$this->preflight((int)$package['id'],$appCode);
+        if(!$preflight['passed'])throw new RuntimeException(implode('；',$preflight['errors']));
+        return $this->apply((int)$package['id']);
+    }
+
+    private function assertVersionAllowed(array $manifest, string $source): void
+    {
+        $code=(string)$manifest['code'];$app=App::where('code',$code)->findOrEmpty();
+        $registered=$app->isEmpty()?'':(string)$app['current_version'];
+        $disk=is_file(AppRegistryService::manifestPath($code))?AppRegistryService::getManifest($code):[];
+        $floor=BundledAppPackageService::versionFloor($registered,(string)($disk['version']??''));
+        if($floor!==''&&version_compare((string)$manifest['version'],$floor,'<'))throw new RuntimeException('应用包版本低于本站现有代码，请使用本地安装或同步本地版本');
+        if(!$app->isEmpty()&&$app['status']!==AppRegistryService::STATUS_REMOVED&&$registered!==''&&version_compare((string)$manifest['version'],$registered,'<=')&&$source!=='local')throw new RuntimeException('应用包版本必须大于当前版本');
+    }
+
     public function cloudLists(array $params = []): array
     {
         return (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/lists'), $params);
@@ -37,7 +85,10 @@ class AppPackageUpdateService
         if (!in_array($action, ['install', 'update'], true)) {
             throw new RuntimeException('应用包操作类型不支持');
         }
-        $current = App::where('code', $appCode)->value('current_version') ?: '';
+        $this->assertVersionAllowed(['code'=>$appCode,'version'=>$targetVersion], 'cloud');
+        $registered=(string)(App::where('code',$appCode)->value('current_version')?:'');
+        $disk=is_file(AppRegistryService::manifestPath($appCode))?AppRegistryService::getManifest($appCode):[];
+        $current=BundledAppPackageService::versionFloor($registered,(string)($disk['version']??''));
         $data = (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/package'), [
             'app_code' => $appCode,
             'target_version' => $targetVersion,
@@ -105,12 +156,7 @@ class AppPackageUpdateService
             if (!empty($package['version']) && $manifest['version'] !== $package['version']) {
                 throw new RuntimeException('应用包版本与下载接口不一致');
             }
-            $installedApp = App::where('code', (string)$manifest['code'])->findOrEmpty();
-            $current = !$installedApp->isEmpty() ? (string)($installedApp['current_version'] ?? '') : '';
-            $status = !$installedApp->isEmpty() ? (string)($installedApp['status'] ?? '') : '';
-            if ($status !== AppRegistryService::STATUS_REMOVED && $current !== '' && version_compare((string)$manifest['version'], (string)$current, '<=')) {
-                throw new RuntimeException('应用包版本必须大于当前版本');
-            }
+            $this->assertVersionAllowed($manifest, (string)$package['source']);
             AppRegistryService::assertCoreCompatible($manifest);
             $direct = new DirectSiteUpdateService(root_path(), PHP_SAPI==='cli' ? PHP_BINARY : PHP_BINDIR.'/php');
             $preflight['environment']['runtime'] = $direct->assertRuntimeAvailable();
@@ -160,7 +206,7 @@ class AppPackageUpdateService
             throw new RuntimeException('已有应用安装/更新任务正在执行，请稍后再试');
         }
         try {
-            if ($package['status'] !== 'preflight_success') {
+            {
                 $this->preflight($packageId, (string)$package['app_code']);
                 $package = $this->getPackage($packageId);
             }
@@ -251,7 +297,7 @@ class AppPackageUpdateService
             $impact=ProjectUpdateProcessGate::inspectUpdate(root_path(),$stage,$next);
             $result=$direct->apply($stage,$next,[
                 'binding'=>$binding,'repeatable'=>true,'replace_dirs'=>['app/apps/'.$code],'watch_paths'=>array_values(array_unique($watch)),
-                'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(root_path(),$impact),
+                'before_sql'=>function()use($manifest,$package,$impact):void{$this->assertVersionAllowed($manifest,(string)$package['source']);ProjectUpdateProcessGate::assertUpdateAllowed(root_path(),$impact);},
                 'validate_sql'=>fn(string $site)=>$direct->child(['--app-runtime-check',$site,$extractPath,$encoded]),
                 'sql'=>fn(string $site)=>$direct->child(['--app-runtime-prepare',$site,$extractPath,$encoded]),
                 'complete'=>fn(string $site)=>$direct->child(['--app-runtime-complete',$site,$extractPath,$encoded])['completion'],
@@ -323,6 +369,7 @@ class AppPackageUpdateService
         $manager=new ComposerRuntimeUpdateService(rtrim(root_path(),'/'));
         $result=$manager->apply($stage,$next,[
             'immutable_code'=>true,'bootstrap_context'=>$binding,
+            'before_sql'=>fn()=>$this->assertVersionAllowed($manifest,(string)$package['source']),
             'validate_sql'=>fn(string $generation)=>$manager->bootstrapChild(['--app-runtime-check',$generation,$extractPath,$encoded]),
             'sql'=>fn(string $generation)=>$manager->bootstrapChild(['--app-runtime-prepare',$generation,$extractPath,$encoded]),
             'files'=>fn()=>null,'finalize'=>fn()=>[],'marker'=>fn()=>null,
