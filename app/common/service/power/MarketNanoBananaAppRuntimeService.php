@@ -560,7 +560,7 @@ class MarketNanoBananaAppRuntimeService
         foreach (PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->select()->toArray() as $sku) {
             $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
             if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-            $result[] = ['sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']];
+            $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
         }
         return $result;
     }

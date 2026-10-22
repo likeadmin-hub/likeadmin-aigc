@@ -55,7 +55,7 @@ class MarketPicLipsyncAppRuntimeService
                     continue;
                 }
                 if (!static::acceptsSku(self::arrayValue($sku['locked_params'] ?? []))) continue;
-                $tenantPrice = $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'];
+                $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $options[] = [
                     'id' => static::selectionId((int)$product['id'], (int)$sku['id']),
                     'value' => static::selectionId((int)$product['id'], (int)$sku['id']),
@@ -477,7 +477,7 @@ class MarketPicLipsyncAppRuntimeService
         return [
             'product' => $product->toArray(),
             'sku' => $sku->toArray(),
-            'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'],
+            'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant),
         ];
     }
 

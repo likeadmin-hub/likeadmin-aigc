@@ -9,6 +9,13 @@ final class OpenMarketBilling
 {
     public static function quote(int $tenantId,array $operation,array $params): array
     {
+        $quote = self::rawQuote($tenantId, $operation, $params);
+        $quote['snapshot'] = \app\common\service\power\MarketPriceRuleService::captureSnapshot($tenantId, $quote['snapshot']);
+        return $quote;
+    }
+
+    private static function rawQuote(int $tenantId,array $operation,array $params): array
+    {
         if(!empty($operation['history']))return ['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$operation]];
         $global=OpenStore::settings(0);$config=OpenStore::requireEnabled($tenantId);$productId=(int)($operation['product_id']??0);
         if(!in_array((string)$productId,$config['models'],true)||!in_array((string)$productId,$global['models'],true))throw new OpenException('permission_denied','该商城能力未开放',403);

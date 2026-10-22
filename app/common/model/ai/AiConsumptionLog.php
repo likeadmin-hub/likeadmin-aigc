@@ -12,6 +12,9 @@ class AiConsumptionLog extends AppBaseModel
     public static function onBeforeInsert($model): void
     {
         parent::onBeforeInsert($model);
+        $priceSnapshot = $model['price_snapshot'];
+        if (!is_array($priceSnapshot)) $priceSnapshot = json_decode((string)$priceSnapshot, true) ?: [];
+        $model['price_snapshot'] = \app\common\service\power\MarketPriceRuleService::captureSnapshot((int)$model['tenant_id'], $priceSnapshot);
         $requestId = \app\common\service\open_platform\OpenCallContext::id();
         if ($requestId !== '') {
             $snapshot = \app\common\service\open_platform\OpenStore::json($model['price_snapshot']);

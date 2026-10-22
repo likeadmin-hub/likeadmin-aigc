@@ -566,7 +566,7 @@ class AigcFittingService
         }
         $quantity = max(1, (int)($prepared['image_payload']['quantity'] ?? 1));
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0), (bool)($imageEstimate['follow_market_prices'] ?? false));
         return array_merge($imageEstimate, [
             'mode' => $prepared['mode'],
             'mode_label' => self::MODE_LABELS[$prepared['mode']] ?? '单图',

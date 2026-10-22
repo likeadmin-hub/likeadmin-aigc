@@ -64,7 +64,7 @@ class MarketGenericImageAppRuntimeService
                     'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
                     'query_path' => (string)($metadata['query_path'] ?? $metadata['capabilities']['query_path'] ?? ''),
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
-                    'tenant_unit_price' => self::points($tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']),
+                    'tenant_unit_price' => self::points(\app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)),
                     'usage_unit' => (string)$sku['usage_unit'],
                     'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                     'settlement_mode' => MarketUsageSettlementService::isActualUsageSku($sku) ? 'actual_usage' : 'reserved',
@@ -186,7 +186,7 @@ class MarketGenericImageAppRuntimeService
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => PowerMarketService::TYPE_APP_API, 'upstream_app_code' => self::UPSTREAM_APP_CODE, 'upstream_api_code' => self::UPSTREAM_API_CODE, 'status' => 1])->findOrEmpty(); if ($product->isEmpty()) throw new Exception('所选短视频去水印应用 API 已下架');
         $sku = PowerMarketSku::where(['id' => $skuId, 'product_id' => $productId, 'status' => 1, 'sale_status' => 1])->findOrEmpty(); if ($sku->isEmpty()) throw new Exception('所选短视频去水印规格已下架');
         $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('所选短视频去水印规格暂不可用');
-        return ['product' => $product->toArray(), 'sku' => $sku->toArray(), 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']];
+        return ['product' => $product->toArray(), 'sku' => $sku->toArray(), 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
     }
 
     private static function snapshot(array $market): array { $p = $market['product']; $s = $market['sku']; $m = self::metadata($p); return ['product_id' => (int)$p['id'], 'sku_id' => (int)$s['id'], 'sku_key' => (string)$s['sku_key'], 'app_code' => (string)$p['upstream_app_code'], 'api_code' => (string)$p['upstream_api_code'], 'runtime_adapter' => 'watermark_removal', 'locked_params' => self::arrayValue($s['locked_params'] ?? []), 'params_schema' => self::arrayValue($m['params_schema'] ?? []), 'query_path' => (string)($m['query_path'] ?? $m['capabilities']['query_path'] ?? '/api/v1/tasks/{task_id}'), 'query_method' => 'GET', 'usage_unit' => (string)$s['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($s), 'upstream_price' => (float)$s['upstream_price'], 'platform_price' => (float)$s['sale_points'], 'tenant_price' => (float)$market['tenant_price']]; }
