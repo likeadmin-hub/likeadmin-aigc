@@ -24,7 +24,8 @@ final class AgentTranscriptionTool
             $price=Db::name('tenant_power_market_sku_price')->where(['tenant_id'=>$tenant,'sku_id'=>$sku['id']])->find();
             if($price&&(int)$price['sale_status']!==1)continue;
             if(AgentStore::json($sku['locked_params'])||AgentStore::json($sku['selectable_params']))continue;
-            return ['tenant'=>(float)$sku['sale_points'],'user'=>(float)($price['sale_points']??$sku['sale_points']),'snapshot'=>['product_id'=>(int)$sku['product_id'],'sku_id'=>(int)$sku['id'],'usage_unit'=>'per_call','usage_unit_size'=>1,'api_code'=>'stt']];
+            $quote=\app\common\service\power\MarketPriceRuleService::tenant($tenant,$sku,$price?:null);if(!$quote['valid'])continue;$sku['sale_points']=(float)$quote['platform']['price'];$userPrice=(float)$quote['tenant']['price'];
+            return ['tenant'=>(float)$sku['sale_points'],'user'=>$userPrice,'snapshot'=>['product_id'=>(int)$sku['product_id'],'sku_id'=>(int)$sku['id'],'usage_unit'=>'per_call','usage_unit_size'=>1,'api_code'=>'stt']];
         }
         throw new \InvalidArgumentException('语音转文字接口暂不可用');
     }

@@ -874,13 +874,13 @@ class MarketVideoRuntimeService
     {
         $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
         if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该视频规格');
-        return ['product' => $product, 'sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']];
+        return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
     }
 
     private static function availableSkus(int $tenantId, int $productId): array
     {
         $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(); $result = [];
-        foreach ($rows as $sku) { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue; $result[] = ['sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']]; }
+        foreach ($rows as $sku) { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue; $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)]; }
         return $result;
     }
 

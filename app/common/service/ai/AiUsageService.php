@@ -710,7 +710,7 @@ class AiUsageService
                 'usage_unit' => (string)$sku['usage_unit'],
                 'upstream_price' => (float)$sku['upstream_price'],
                 'platform_price' => (float)$sku['sale_points'],
-                'tenant_price' => $tenantPrice->isEmpty() ? (float)$sku['sale_points'] : (float)$tenantPrice['sale_points'],
+                'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenantPrice),
             ];
         }
         $product = PowerMarketProduct::where(['resource_type' => 'model', 'model_type' => 'image', 'status' => 1])
@@ -734,7 +734,7 @@ class AiUsageService
                 'usage_unit' => (string)$sku['usage_unit'],
                 'upstream_price' => (float)$sku['upstream_price'],
                 'platform_price' => (float)$sku['sale_points'],
-                'tenant_price' => $tenantPrice->isEmpty() ? (float)$sku['sale_points'] : (float)$tenantPrice['sale_points'],
+                'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenantPrice),
             ];
         }
         return [];

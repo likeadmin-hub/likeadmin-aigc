@@ -112,6 +112,7 @@ class AigcImageService
             'market_sku_id' => (int)$quote['market_sku_id'],
             'settlement_mode' => (string)$quote['settlement_mode'],
             'price_source' => (string)$quote['price_source'],
+            'follow_market_prices' => (bool)($quote['follow_market_prices'] ?? false),
         ];
     }
 

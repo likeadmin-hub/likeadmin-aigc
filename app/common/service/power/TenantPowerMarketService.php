@@ -267,7 +267,7 @@ class TenantPowerMarketService
         foreach (PowerMarketSku::where('product_id', $productId)->select()->toArray() as $sku) {
             $skuById[(int)$sku['id']] = $sku;
         }
-        Db::transaction(function () use ($tenantId, $prices, $skuById): void {
+        Db::transaction(function () use ($tenantId, $productId, $prices, $skuById): void {
             foreach ($prices as $price) {
                 $skuId = (int)($price['sku_id'] ?? $price['id'] ?? 0);
                 if ($skuId <= 0 || !isset($skuById[$skuId])) {
@@ -282,6 +282,7 @@ class TenantPowerMarketService
                 if ($sale < $cost) {
                     throw new Exception('租户售价不能低于平台成本价');
                 }
+                if (($price['manual_override'] ?? true) !== false) MarketPriceRuleService::manual($tenantId, $productId, $skuId, $sale);
                 $row = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->findOrEmpty();
                 $data = [
                     'tenant_id' => $tenantId,
@@ -424,7 +425,8 @@ class TenantPowerMarketService
                 }
                 $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 $platformPrice = max(0, (float)($sku['sale_points'] ?? 0));
-                $price = max($platformPrice, (float)($tenantPrice['sale_points'] ?? $platformPrice));
+                $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $tenantPrice);
+                $price = (float)$resolved['tenant']['price'];
                 $stats[$id]['min_price'] = isset($stats[$id]['min_price']) ? min($stats[$id]['min_price'], $price) : $price;
             }
         }
@@ -456,11 +458,14 @@ class TenantPowerMarketService
             $price = $bySku[(int)$sku['id']] ?? null;
             $platformSale = max(0, (float)($sku['sale_points'] ?? 0));
             $platformEnabled = self::isPlatformAvailableSku($sku);
-            $tenantSale = $price === null ? $platformSale : max($platformSale, (float)($price['sale_points'] ?? 0));
+            $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $price);
+            $tenantSale = (float)$resolved['tenant']['price'];
+            $sku['tenant_price_rule'] = $resolved['tenant'];
+            $sku['pricing_valid'] = $resolved['valid'];
             $sku['platform_sale_points'] = $platformSale;
             $sku['sale_points'] = $tenantSale;
             $sku['platform_sale_status'] = $platformEnabled ? 1 : 0;
-            $sku['sale_status'] = $platformEnabled && (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0;
+            $sku['sale_status'] = $resolved['valid'] && $platformEnabled && (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0;
             $sku['gross_margin_points'] = round($tenantSale - $platformSale, 6);
         }
         unset($sku);

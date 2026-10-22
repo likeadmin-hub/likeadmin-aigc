@@ -270,7 +270,7 @@ class CanvasModelRouterService
         return [
             'product' => $product,
             'sku' => $sku,
-            'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'],
+            'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant),
         ];
     }
 

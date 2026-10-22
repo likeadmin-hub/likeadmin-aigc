@@ -94,9 +94,7 @@ class MarketMusicAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
-                $tenantPrice = $tenant->isEmpty()
-                    ? (float)$sku['sale_points']
-                    : max((float)$sku['sale_points'], (float)$tenant['sale_points']);
+                $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $duration = (int)($locked['duration'] ?? $locked['seconds'] ?? 0);
 
                 $options[] = [
@@ -413,7 +411,7 @@ class MarketMusicAppRuntimeService
                 if (!empty($selection['market_product_id']) && (int)$selection['market_product_id'] !== (int)$product['id']) continue;
                 $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-                return ['product' => $product, 'sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : max((float)$sku['sale_points'], (float)$tenant['sale_points'])];
+                return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
             }
         }
         throw new Exception('暂无租户已上架的音乐生成应用 API');

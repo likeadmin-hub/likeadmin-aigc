@@ -429,7 +429,7 @@ class AigcOneClickCleanupService
     {
         $quantity = max(1, count($prepared['source_images']));
         $platformUnitCost = round((float)($singleEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0));
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0), (bool)($singleEstimate['follow_market_prices'] ?? false));
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
             'image_count' => $quantity,

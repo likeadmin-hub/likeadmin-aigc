@@ -42,6 +42,27 @@ final class MarketPriceRuleService
         return (bool)Db::name('power_market_price_rule')->where(['owner_id' => $owner, 'scope_type' => 'global', 'scope_id' => 0])->value('follow_apps');
     }
 
+    /** Capture provenance once, before a new consumption can cross the supplier boundary. */
+    public static function captureSnapshot(int $owner, array $snapshot): array
+    {
+        if (isset($snapshot['pricing_rules'])) return $snapshot;
+        foreach ($snapshot as $key => $value) if (is_array($value) && !in_array($key, ['pricing_rules', 'contract', 'market_metadata', 'pricing_attributes'], true)) $snapshot[$key] = self::captureSnapshot($owner, $value);
+        $id = (int)($snapshot['sku_id'] ?? $snapshot['market_sku_id'] ?? 0);
+        if ($id <= 0) return $snapshot;
+        $sku = Db::name('power_market_sku')->where('id', $id)->find();
+        if (!$sku) throw new RuntimeException('计费规格不存在');
+        $configured = Db::name('tenant_power_market_sku_price')->where(['tenant_id' => $owner, 'sku_id' => $id])->find();
+        $quote = self::tenant($owner, $sku, $configured ?: null);
+        if (!$quote['valid']) throw new RuntimeException('当前手动售价低于进货价，请先调整价格或恢复价格');
+        foreach (['platform_price' => 'platform', 'tenant_price' => 'tenant'] as $field => $level) {
+            if (!array_key_exists($field, $snapshot)) continue;
+            if ($level === 'tenant' && !empty($snapshot['_tenant_admin_image_quantity'])) continue;
+            if (MarketPricePolicy::amount($snapshot[$field]) !== $quote[$level]['price']) throw new RuntimeException('价格已更新，请刷新报价后重新提交');
+        }
+        $snapshot['pricing_rules'] = ['platform' => $quote['platform'], 'tenant' => $quote['tenant']];
+        return $snapshot;
+    }
+
     public static function settings(int $owner): array
     {
         return ['rules' => self::rules($owner), 'follow_apps' => self::followsApps($owner)];
@@ -149,6 +170,7 @@ final class MarketPriceRuleService
         $token = bin2hex(random_bytes(24));
         Cache::set('market_price_preview:'.$token, ['owner' => $owner, 'admin' => $admin, 'params' => $params, 'fingerprint' => $view['fingerprint']], 300);
         unset($view['next_rules'], $view['fingerprint']);
+        $view['rows'] = array_slice($view['rows'], 0, 200);
         return $view + ['token' => $token, 'expires_in' => 300, 'action' => $params['action']];
     }
 

@@ -25,9 +25,9 @@ class AppSalePriceService
             ? $row['unit_price'] : ($row['tenant_unit_price'] ?? null));
     }
 
-    public static function resolve(mixed $price, float $marketPrice): float
+    public static function resolve(mixed $price, float $marketPrice, bool $followMarket = false): float
     {
-        return self::normalize($price) ?? $marketPrice;
+        return $followMarket ? $marketPrice : (self::normalize($price) ?? $marketPrice);
     }
 
     public static function imageOverride(mixed $price): array

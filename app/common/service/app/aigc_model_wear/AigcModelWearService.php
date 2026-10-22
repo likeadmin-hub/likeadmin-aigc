@@ -337,7 +337,7 @@ class AigcModelWearService
             throw new Exception('Model wear only supports fixed-price market image SKUs');
         }
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0), (bool)($imageEstimate['follow_market_prices'] ?? false));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
