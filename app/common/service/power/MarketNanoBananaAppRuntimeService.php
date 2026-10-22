@@ -135,8 +135,8 @@ class MarketNanoBananaAppRuntimeService
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
-        $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity);
-        return self::quoteMarket($market, $quantity);
+        $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity, $tenantId);
+        return self::quoteMarket($market, $quantity) + ['follow_market_prices' => MarketPriceRuleService::followsApps($tenantId)];
     }
 
     /** Private market details are returned only to the server-side admission service. */
@@ -166,8 +166,10 @@ class MarketNanoBananaAppRuntimeService
         ];
     }
 
-    private static function applyRetailBinding(array $market, array $billingOverride, int $quantity): array
+    private static function applyRetailBinding(array $market, array $billingOverride, int $quantity, int $tenantId = 0): array
     {
+        $market['market_tenant_price'] = $market['tenant_price'];
+        if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
         if ($billingOverride === []) return $market;
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
         $quantity = max(1, $quantity);
@@ -200,7 +202,7 @@ class MarketNanoBananaAppRuntimeService
         }
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
-        $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity);
+        $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity, $tenantId);
         $quantity = max(1, $quantity);
         self::assertReferences($market, $request);
         self::assertDocumentedRatio($market, $request);
@@ -560,7 +562,8 @@ class MarketNanoBananaAppRuntimeService
         foreach (PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->select()->toArray() as $sku) {
             $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
             if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-            $result[] = ['sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']];
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
+            $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
         }
         return $result;
     }
@@ -621,7 +624,7 @@ class MarketNanoBananaAppRuntimeService
     }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); $host = (string)($parts['host'] ?? ''); if ($host === '') throw new Exception('nano-banana 应用 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $host . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function request(string $method, string $url, array $payload = []): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('nano-banana 应用 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: 'nano-banana 应用网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('nano-banana 应用响应格式错误'); if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) { if ($method === 'POST') \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== ''); throw new Exception(self::error($data)); } return $data; }
-    private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'model_code' => (string)$market['model'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)$market['reference_limit']]; }
+    private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'model_code' => (string)$market['model'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'market_tenant_price' => (float)($market['market_tenant_price'] ?? $market['tenant_price']), 'max_reference_images' => (int)$market['reference_limit']]; }
     private static function marketContext(array $snapshot): array { $skuKey = trim((string)($snapshot['sku_key'] ?? '')); $skuId = (int)($snapshot['sku_id'] ?? 0); return ['market_product_id' => (int)($snapshot['product_id'] ?? 0), 'market_sku_id' => $skuId, 'sku_id' => $skuId, 'market_sku_key' => $skuKey, 'sku_key' => $skuKey, 'pricing_sku_key' => $skuKey, 'price_source' => 'power_market_app_api']; }
     private static function selectionId(int $productId, string $model): string { return 'market_nano_banana:' . $productId . ':' . base64_encode($model); }
     /** @return array{0:int,1:string} */ private static function selection(array $selection): array { $nested = self::arrayValue($selection['params'] ?? []); foreach ([$selection['model_id'] ?? '', $selection['image_model_id'] ?? '', $selection['channel'] ?? '', $selection['channel_code'] ?? '', $nested['model_id'] ?? ''] as $value) if (is_string($value) && preg_match('/^market_nano_banana:(\\d+):(.+)$/', $value, $match)) return [(int)$match[1], (string)base64_decode($match[2], true)]; return [0, '']; }

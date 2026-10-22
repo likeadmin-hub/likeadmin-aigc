@@ -29,11 +29,12 @@ final class AgentSpeechTool
                 if($retail&&(int)$retail['sale_status']!==1)continue;
                 // Only a deterministic supplier-default voice contract is exposed.
                 if(AgentStore::json($sku['selectable_params'])||AgentStore::json($sku['locked_params']))continue;
+            $quote=\app\common\service\power\MarketPriceRuleService::tenant($tenant,$sku,$retail?:null);if(!$quote['valid'])continue;$sku['sale_points']=(float)$quote['platform']['price'];$userPrice=(float)$quote['tenant']['price'];
                 try{$config=OpenCharacterInputPricing::configuration($product);$effective=OpenCharacterInputPricing::transportParameters($config,['text'=>'验收','format'=>'mp3']);
                     if(($effective['format']??'')!=='mp3')continue;
-                    OpenCharacterInputPricing::quote($product,$sku,(float)($retail['sale_points']??$sku['sale_points']),['text'=>'验收','format'=>'mp3'],16384,strlen(AgentStore::encode($effective)),$config);
+                    OpenCharacterInputPricing::quote($product,$sku,$userPrice,['text'=>'验收','format'=>'mp3'],16384,strlen(AgentStore::encode($effective)),$config);
                 }catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){continue;}
-                $out['speech_sku:'.$sku['id']]=['product'=>$product,'sku'=>$sku,'retail'=>(float)($retail['sale_points']??$sku['sale_points']),'config'=>$config];
+                $out['speech_sku:'.$sku['id']]=['product'=>$product,'sku'=>$sku,'retail'=>$userPrice,'config'=>$config];
             }
         }
         return $out;

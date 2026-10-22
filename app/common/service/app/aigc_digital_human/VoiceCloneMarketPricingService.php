@@ -56,9 +56,10 @@ final class VoiceCloneMarketPricingService
             if ((int)$tenantPrice['sale_status'] !== 1) throw new Exception('当前租户已下架音色克隆接口');
             $default = self::amount(max((float)$cost, (float)self::amount($tenantPrice['sale_points'])));
         }
+        $default = self::amount(\app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenantPrice));
         $price = $default;
         $source = 'market_default';
-        if ($tenantId > 0) {
+        if ($tenantId > 0 && !\app\common\service\power\MarketPriceRuleService::followsApps($tenantId)) {
             $config = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
             $override = $config->isEmpty() ? null : ($config['config_json']['pricing']['voice_clone']['tenant_unit_price'] ?? null);
             if ($override !== null && is_numeric($override) && is_finite((float)$override) && (float)$override >= (float)$cost) {

@@ -34,10 +34,10 @@ final class DecorationPortableAssets
         $this->directory='uploads/decoration/'.$tenant.'/'.bin2hex(random_bytes(12));
     }
 
-    public static function export(array $payload,int $tenant): array
+    public static function export(array $payload,int $tenant,?callable $progress=null): array
     {
         $managed=self::managedAssets($payload,$tenant);$resources=[];$cache=[];$files=[];$bytes=0;$deadline=microtime(true)+self::MAX_SECONDS;
-        $payload=DecorationPortableDocument::rewrite($payload,function(string $value,string $location)use($tenant,$managed,&$resources,&$cache,&$files,&$bytes,$deadline):string{
+        $payload=DecorationPortableDocument::rewrite($payload,function(string $value,string $location)use($tenant,$managed,&$resources,&$cache,&$files,&$bytes,$deadline,$progress):string{
             if(isset($cache[$value])){$url=$cache[$value];$resources[$url]['locations'][]=$location;return $url;}
             if(isset($managed[$value])){
                 $asset=$managed[$value];$url=FileService::getFileUrlByStorage($asset['image_uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']??'').self::fragment($value);
@@ -58,6 +58,7 @@ final class DecorationPortableAssets
             if(!preg_match('~^https?://~i',$url))throw new RuntimeException('素材无法转换为完整URL，请检查站点域名');
             if(!isset($resources[$url])){
                 if(count($resources)>=self::MAX_FILES)throw new RuntimeException('模板素材数量不能超过128个');
+                $progress && $progress('正在整理第'.(count($resources)+1).'个素材');
                 $resources[$url]=['id'=>'asset_'.(count($resources)+1),'url'=>$url,'locations'=>[]];
                 if(($asset&&self::privateAsset($asset,$tenant))||self::signedQuery($url)){
                     $remaining=$deadline-microtime(true);if($remaining<4)throw new RuntimeException('私有素材导出超时');
@@ -72,10 +73,16 @@ final class DecorationPortableAssets
         return ['payload'=>$payload,'resources'=>['version'=>1,'count'=>count($resources),'items'=>array_values($resources)],'files'=>$files];
     }
 
-    public function localize(array $payload): array
+    public function localize(array $payload,?callable $progress=null): array
     {
-        $payload=DecorationPortableDocument::rewrite($payload,function(string $url,string $location):string{
-            try{return $this->copy($url);}catch(\Throwable $e){throw new RuntimeException('素材导入失败（'.$location.'）：'.$e->getMessage(),0,$e);}
+        $payload=DecorationPortableDocument::rewrite($payload,function(string $url,string $location)use($progress):string{
+            try{
+                $fresh=!isset($this->sources[$url]);
+                if($fresh)$progress && $progress('正在处理第'.(count($this->sources)+1).'个素材');
+                $copied=$this->copy($url);
+                if($fresh)$progress && $progress('已处理'.count($this->sources).'个素材，已保存'.count($this->hashes).'个独立文件');
+                return $copied;
+            }catch(\Throwable $e){throw new RuntimeException('素材导入失败（'.$location.'）：'.$e->getMessage(),0,$e);}
         });
         // Fresh file identities are attached only to schema-declared image positions.
         foreach($payload['pages'] as &$page){

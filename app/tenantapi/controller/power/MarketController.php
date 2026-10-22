@@ -48,6 +48,25 @@ class MarketController extends BaseAdminController
         ));
     }
 
+    public function pricingRules()
+    {
+        return $this->success('获取成功', \app\common\service\power\MarketPriceRuleService::settings((int)$this->adminInfo['tenant_id']));
+    }
+
+    public function previewPricing()
+    {
+        try {
+            return $this->success('预览成功', \app\common\service\power\MarketPriceRuleService::preview((int)$this->adminInfo['tenant_id'], $this->adminId, $this->request->post()));
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+
+    public function applyPricing()
+    {
+        try {
+            return $this->success('价格已更新', \app\common\service\power\MarketPriceRuleService::apply((int)$this->adminInfo['tenant_id'], $this->adminId, (string)$this->request->post('token', '')), 1, 1);
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+
     public function savePrices()
     {
         try {

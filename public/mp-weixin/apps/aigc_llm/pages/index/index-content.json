@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "app-membership-notice": "../../../../components/app-membership-notice/app-membership-notice",
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
     "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
   }

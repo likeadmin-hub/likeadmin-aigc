@@ -1,0 +1,1 @@
+<view wx:if="{{a}}" class="membership-notice data-v-63fd5f4d" role="status"><text class="data-v-63fd5f4d">{{b}}</text><button wx:if="{{c}}" class="data-v-63fd5f4d" bindtap="{{d}}">重试</button><button wx:elif="{{e}}" class="data-v-63fd5f4d" bindtap="{{f}}">查看会员套餐</button></view>

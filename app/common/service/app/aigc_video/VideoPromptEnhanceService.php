@@ -46,7 +46,7 @@ PROMPT;
             throw new Exception('请输入1至6000字的视频提示词');
         }
         foreach (['aigc_video', 'aigc_llm'] as $app) {
-            if (AppAccessService::assertTenantCanUse($tenantId, $app) !== null) {
+            if (AppAccessService::assertTenantAvailable($tenantId, $app) !== null) {
                 throw new Exception('视频或对话应用未开通，暂无法增强提示词');
             }
         }

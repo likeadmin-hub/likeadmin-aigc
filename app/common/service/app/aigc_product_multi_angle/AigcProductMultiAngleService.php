@@ -411,10 +411,10 @@ class AigcProductMultiAngleService
 
     private static function assertAvailable(int $tenantId, bool $readOnly = false): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE, 0, true, !$readOnly) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::APP_CODE, !$readOnly) !== null) {
             throw new Exception('商品多角度应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE, 0, true, !$readOnly) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::IMAGE_APP_CODE, !$readOnly) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
         $config = self::config($tenantId, $readOnly);
@@ -478,7 +478,7 @@ class AigcProductMultiAngleService
     {
         $quantity = max(1, count($prepared['views']));
         $platformUnitCost = round((float)($singleEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0));
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0), (bool)($singleEstimate['follow_market_prices'] ?? false));
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
             'view_count' => $quantity,

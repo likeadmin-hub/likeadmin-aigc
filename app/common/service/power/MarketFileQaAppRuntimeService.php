@@ -215,7 +215,7 @@ class MarketFileQaAppRuntimeService
         if ($sku->isEmpty() || !MarketUsageSettlementService::isActualUsageSku($sku->toArray())) throw new Exception('剧本解析 Token 规格暂不可用');
         $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->findOrEmpty();
         if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('剧本解析规格暂不可用');
-        return ['product' => $product->toArray(), 'sku' => $sku->toArray(), 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']];
+        return ['product' => $product->toArray(), 'sku' => $sku->toArray(), 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
     }
 
     private static function snapshot(array $market): array { $p = $market['product']; $s = $market['sku']; return ['product_id' => (int)$p['id'], 'sku_id' => (int)$s['id'], 'app_code' => self::UPSTREAM_APP_CODE, 'api_code' => self::PARSE_API_CODE, 'runtime_adapter' => 'file_qa', 'query_path' => '/api/v1/tasks/{task_id}', 'usage_unit' => (string)$s['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($s), 'platform_price' => (float)$s['sale_points'], 'tenant_price' => (float)$market['tenant_price']]; }

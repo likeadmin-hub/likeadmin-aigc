@@ -97,6 +97,7 @@ class PowerMarketService
                 if ($sale < $cost) {
                     throw new Exception('租户成本价不能低于上游结算价');
                 }
+                if (($price['manual_override'] ?? true) !== false) MarketPriceRuleService::manual(0, $productId, $skuId, $sale);
                 PowerMarketSku::where('id', $skuId)->update([
                     'sale_points' => $sale,
                     'sale_status' => (int)($price['sale_status'] ?? $price['status'] ?? 1) === 1 ? 1 : 0,
@@ -1321,9 +1322,7 @@ class PowerMarketService
         }
         // Existing tenant prices are preserved, except when an upstream cost
         // increase would make the configured platform-to-tenant price invalid.
-        if ((float)($row['sale_points'] ?? 0) < (float)$data['upstream_price']) {
-            $data['sale_points'] = $data['upstream_price'];
-        }
+        // Price rules are resolved on read. Never turn a stale manual price into a silent new price.
         $row->save($data);
     }
 
