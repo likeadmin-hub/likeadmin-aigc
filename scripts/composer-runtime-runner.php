@@ -69,14 +69,15 @@ try {
             if((string)config('project.version')!==$expected||($marker['version']??'')!==$expected)throw new RuntimeException('已提交版本标记不一致，保留现场等待恢复');
         }
         echo json_encode(['passed'=>true,'committed'=>(bool)$committed,'completion'=>$completion],JSON_THROW_ON_ERROR);
-    } elseif (in_array($mode,['--bootstrap-prepare','--bootstrap-complete','--bootstrap-recover'],true)) {
+    } elseif (in_array($mode,['--bootstrap-check','--bootstrap-prepare','--bootstrap-complete','--bootstrap-recover'],true)) {
         $GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']=$argv[2]??'';
         $binding=json_decode($argv[4]??'{}',true,512,JSON_THROW_ON_ERROR);
         foreach($binding['context']??[] as $name=>$value)$_SERVER[$name]=$value;
         require (is_file(($argv[2]??'').'/runtime-loader.php') ? $argv[2].'/runtime-loader.php' : $siteRoot.'/runtime-loader.php');
         $app=new AigcRuntimeApp($siteRoot);$app->initialize();
         $service=new \app\common\service\update\SystemPackageUpdateService();
-        if($mode==='--bootstrap-prepare')$result=['passed'=>true,'prepared'=>$service->prepareBootstrapSql($argv[3],$binding)];
+        if($mode==='--bootstrap-check')$result=['passed'=>true,'checked'=>$service->checkBootstrapMigrations($argv[3],$binding)];
+        elseif($mode==='--bootstrap-prepare')$result=['passed'=>true,'prepared'=>$service->prepareBootstrapSql($argv[3],$binding)];
         elseif($mode==='--bootstrap-complete')$result=['passed'=>true,'completion'=>$service->completeBootstrap($argv[3],$binding)];
         else {
             $package=\app\common\model\update\UpdatePackage::find((int)$binding['package_id']);

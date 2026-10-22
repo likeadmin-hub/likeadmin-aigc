@@ -482,6 +482,7 @@ class SystemPackageUpdateService
                 $result=$direct->apply($extractPath,$manifest,[
                     'binding'=>$binding,'watch_paths'=>array_values(array_unique($watch)),
                     'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
+                    'validate_sql'=>fn(string $site)=>$direct->child(['--bootstrap-check',$site,$extractPath,$encoded]),
                     'sql'=>fn(string $site)=>$direct->child(['--bootstrap-prepare',$site,$extractPath,$encoded]),
                     'complete'=>fn(string $site)=>$direct->child(['--bootstrap-complete',$site,$extractPath,$encoded])['completion'],
                     'confirm'=>function(string $site,array $context)use($direct):?array{
@@ -494,6 +495,7 @@ class SystemPackageUpdateService
             $installation = $runtimeInstaller->apply($extractPath, $manifest, [
                 'immutable_code'=>true,'bootstrap_context'=>$binding,
                 'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
+                'validate_sql'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-check',$generation,$extractPath,$encoded]),
                 'sql'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-prepare',$generation,$extractPath,$encoded]),
                 'files'=>fn()=> (new SystemRuntimeBootstrapService())->copySharedFiles($extractPath,$manifest),
                 'finalize'=>fn()=>[],
@@ -530,6 +532,19 @@ class SystemPackageUpdateService
     {
         ini_set('max_execution_time', (string)self::UPDATE_EXECUTION_TIMEOUT);
         set_time_limit(self::UPDATE_EXECUTION_TIMEOUT);
+    }
+
+    public function checkBootstrapMigrations(string $extractPath,array $binding=[]): array
+    {
+        if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('自举迁移预检必须在隔离进程执行');
+        $manifest=$this->readUpdateManifest($extractPath);
+        if (($binding['runtime_metadata_unchanged']??false)===true) return [];
+        $checked=[];
+        foreach ($this->packagedBuiltinAppCodes($extractPath) as $code) {
+            AppRegistryService::assertRuntimeMigrationsReady($code);
+            $checked[]=$code;
+        }
+        return $checked;
     }
 
     public function prepareBootstrapSql(string $extractPath,array $binding=[]): array

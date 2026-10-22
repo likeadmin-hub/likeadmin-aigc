@@ -45,7 +45,7 @@ if (($argv[1] ?? '') !== '--run') {
     verify(getenv('SYSTEM_SERVICE_DISPOSABLE') === '1', 'Only disposable database execution is allowed');
     $case = $argv[1] ?? '';
     $plainCase=preg_replace('/^(?:canonical|legacy402)-/','',$case);
-    verify(in_array($plainCase, ['success','dependency-failure','finalize-failure','metadata-failure','commit-reply-failure','precommit-exit','confirm-failure'], true), 'Unknown fixture case');
+    verify(in_array($plainCase, ['success','dependency-failure','finalize-failure','metadata-failure','commit-reply-failure','precommit-exit','confirm-failure','recovery412'], true), 'Unknown fixture case');
     $site = sys_get_temp_dir() . '/system-service-' . bin2hex(random_bytes(6));
     $baseline=($migration || (str_starts_with($case,'canonical-') && is_file('/baseline/config/project.php')))?'/baseline':'/repo';
     foreach (['app','config','extend','route','scripts'] as $dir) copyFixture($baseline.'/' . $dir, $site . '/' . $dir);
@@ -186,6 +186,25 @@ Db::name('system_package_grant')->insert(['package_id'=>$id,'context_key'=>Syste
     'response_json'=>SignedLicenseProtocol::json($response),'create_time'=>$now,'update_time'=>$now]);
 $runtime = new ComposerRuntimeUpdateService($site);if(!$canonical)$runtime->ensureBaseline();
 $pointer = $canonical?null:file_get_contents($site . '/.composer-runtime/current.json');
+if ($case==='recovery412') {
+    verify($canonical && getenv('FIXTURE_OFFICIAL_ARCHIVE') && $from==='1.0.411' && $to==='1.0.412','Recovery fixture needs original canonical 411 to 412');
+    $fixtureDir='/repo/tests/runtime-updater/fixtures/completed-412/';
+    foreach(['zz_20260727_canvas_legacy_schema_repair.sql','zz_20260727_canvas_skill_release_status.sql'] as $key) copyFixture($fixtureDir.$key,$site.'/app/apps/aigc_canvas/migrations/'.$key);
+    $currentBaseline=require $site.'/config/runtime_migration_baseline.php';
+    $official=new ZipArchive();verify($official->open(getenv('FIXTURE_OFFICIAL_ARCHIVE'))===true,'Original archive unavailable');
+    $migrationFiles=[];
+    foreach(glob($site.'/app/apps/*/migrations/*.sql')?:[] as $path)$migrationFiles[substr($path,strlen($site)+1)]=true;
+    for($i=0;$i<$official->numFiles;$i++){
+        $path=$official->getNameIndex($i);
+        if(preg_match('#^files/(app/apps/[^/]+/migrations/[^/]+\.sql)$#D',$path,$match))$migrationFiles[$match[1]]=true;
+    }
+    $official->close();
+    foreach(array_keys($migrationFiles) as $path){
+        if(isset($currentBaseline[$path]))continue;
+        $parts=explode('/',$path);$key=basename($path);$code=$parts[2];
+        Db::name('app_migration')->insert(['scope'=>'platform','app_code'=>$code,'tenant_id'=>0,'version'=>'1.6.13','migration_key'=>$key,'batch'=>'20260727','status'=>'success','error'=>'','create_time'=>100,'update_time'=>100]);
+    }
+}
 $original = []; foreach (['app/FixtureVersion.php','app/common/service/app/AppRegistryService.php','config/project.php','upgrade/version.json','.env','public/uploads/business.bin','runtime/task-lease.json'] as $path)
     $original[$path] = file_get_contents($site . '/' . $path);
 $service = new SystemPackageUpdateService(); $preflight = $service->preflight($id);
@@ -202,6 +221,33 @@ if ($case === 'metadata-failure') {
 }
 $failure = null;
 try { $result = $service->apply($id); } catch (Throwable $e) { $failure = $e; }
+if ($case==='recovery412') {
+    verify($failure && str_contains($failure->getMessage(),'新迁移不支持会话变量或动态 SQL'),'Original release did not reproduce OPC failure: '.($failure?->getMessage()??''));
+    $failed=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply','status'=>'failed'])->order('id','desc')->find();
+    verify((bool)$failed,'Original failure task missing');
+    $beforeRule=Db::name('power_market_price_rule')->order('id')->select()->toArray();
+    verify(count($beforeRule)>0,'Original system SQL did not complete before app error');
+    require_once '/repo/app/common/service/update/System412RecoveryService.php';
+    $recovery=\app\common\service\update\System412RecoveryService::class;
+    $proof=$recovery::inspect((int)$id,(int)$failed['id']);
+    verify($proof['system_sql_complete']===true && $proof['app_sql_pending']===false,'Recovery proof incomplete');
+    verify(json_decode(file_get_contents($proof['receipt']),true)['sql_state']==='running','Original ambiguous receipt not retained');
+    $recovered=$recovery::recover((int)$id,(int)$failed['id']);
+    verify($recovered['sql_replayed']===false,'Recovery replayed SQL');
+    foreach(['zz_20260727_canvas_legacy_schema_repair.sql','zz_20260727_canvas_skill_release_status.sql'] as $key) {
+        verify(!is_file($site.'/app/apps/aigc_canvas/migrations/'.$key),'Completed retired SQL remains active');
+        verify(is_file($proof['directory'].'/retired/'.$key),'Completed SQL backup missing');
+    }
+    verify(Db::name('power_market_price_rule')->order('id')->select()->toArray()===$beforeRule,'Recovery changed price data');
+    verify(Db::name('update_task')->where('id',$failed['id'])->value('status')==='failed','Recovery rewrote original failure');
+    $service->apply($id);
+    verify(Db::name('update_package')->where('id',$id)->value('status')==='applied','Original archive retry did not complete');
+    verify(Db::name('power_market_price_rule')->order('id')->select()->toArray()===$beforeRule,'Retry replayed or changed price rules');
+    verify((string)config('project.version')==='1.0.411' && json_decode(file_get_contents($site.'/upgrade/version.json'),true)['version']==='1.0.412','Retry version marker mismatch');
+    foreach($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray()===$rows,'Recovery altered business records: '.$table);
+    echo 'PASS real SystemPackageUpdateService canonical-recovery412: reproduced original failure, verified completed SQL, preserved evidence, resumed original archive without replay, protected business data',"\n";
+    exit(0);
+}
 if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
     if($case==='confirm-failure')verify($failure!==null && is_file($site.'/runtime/direct-update-active.json'),'Unknown confirmation was not preserved');
     else verify($failure === null, 'Real apply failed: ' . ($failure?->getMessage() ?? ''));
