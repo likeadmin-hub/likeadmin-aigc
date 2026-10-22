@@ -112,6 +112,17 @@ class AppPackageUpdateService
                 throw new RuntimeException('应用包版本必须大于当前版本');
             }
             AppRegistryService::assertCoreCompatible($manifest);
+            $direct = new DirectSiteUpdateService(root_path(), PHP_SAPI==='cli' ? PHP_BINARY : PHP_BINDIR.'/php');
+            $preflight['environment']['runtime'] = $direct->assertRuntimeAvailable();
+            \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+            AppRegistryService::assertRuntimeMigrationsReady((string)$manifest['code'], $extract['path'].'/migrations');
+            if (!is_file(root_path().'.composer-runtime/current.json') || DirectSiteUpdateService::enabled(root_path())) {
+                $stage=runtime_path().'update_workspace/canonical-preflight-'.bin2hex(random_bytes(8));
+                try {
+                    $this->stageCanonicalPackage($extract['path'], $manifest, $stage);
+                    $direct->assertPackageRetryable($stage, UpdateSourceClient::currentCoreVersion());
+                } finally { $this->removeCanonicalStage($stage); }
+            }
             $result = [
                 'passed' => true,
                 'errors' => [],
@@ -231,17 +242,7 @@ class AppPackageUpdateService
         if(!preg_match('/^[a-z][a-z0-9_]*$/D',$code))throw new RuntimeException('应用编码无效');
         $stage=runtime_path().'update_workspace/canonical-app-'.bin2hex(random_bytes(8));
         try {
-            $this->copyDirectory($extractPath,$stage.'/files/app/apps/'.$code);
-            $watch=['public/admin/index.html','public/pc/index.html'];
-            foreach((array)($manifest['public_assets']??[]) as $asset){
-                $source=(string)($asset['source']??'');$target=(string)($asset['target']??'');
-                foreach([$source,$target] as $relative)if($relative===''||str_starts_with($relative,'/')||str_contains($relative,'\\')||str_contains($relative,chr(0))||array_intersect(explode('/',$relative),['.','..','']))throw new RuntimeException('应用资源路径不安全');
-                if(!is_file($extractPath.'/'.$source))throw new RuntimeException('应用资源缺失');
-                $this->copyDirectoryFile($extractPath.'/'.$source,$stage.'/files/'.$target);
-                $watch[]=$target;
-            }
-            $hashes=[];foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($stage,\FilesystemIterator::SKIP_DOTS)) as $file)$hashes[substr($file->getPathname(),strlen($stage)+1)]=hash_file('sha256',$file->getPathname());
-            file_put_contents($stage.'/signature.json',json_encode(['sha256'=>$hashes],JSON_THROW_ON_ERROR));
+            $watch=$this->stageCanonicalPackage($extractPath,$manifest,$stage);
             $version=UpdateSourceClient::currentCoreVersion();
             $next=['version'=>$version,'base_version'=>$version,'package_mode'=>'incremental','full_replace_dirs'=>[],'delete_files'=>[],'sql_order'=>[]];
             $binding=['kind'=>'app','core_version'=>(string)config('project.version'),'package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'archive_sha256'=>(string)$package['sha256'],'deployment_generation'=>rtrim(root_path(),'/'),'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
@@ -251,6 +252,7 @@ class AppPackageUpdateService
             $result=$direct->apply($stage,$next,[
                 'binding'=>$binding,'repeatable'=>true,'replace_dirs'=>['app/apps/'.$code],'watch_paths'=>array_values(array_unique($watch)),
                 'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(root_path(),$impact),
+                'validate_sql'=>fn(string $site)=>$direct->child(['--app-runtime-check',$site,$extractPath,$encoded]),
                 'sql'=>fn(string $site)=>$direct->child(['--app-runtime-prepare',$site,$extractPath,$encoded]),
                 'complete'=>fn(string $site)=>$direct->child(['--app-runtime-complete',$site,$extractPath,$encoded])['completion'],
                 'confirm'=>function(string $site,array $context)use($direct):?array{
@@ -260,6 +262,23 @@ class AppPackageUpdateService
             ]);
             return $result['completion'];
         } finally { $this->removeCanonicalStage($stage); }
+    }
+
+    private function stageCanonicalPackage(string $extractPath, array $manifest, string $stage): array
+    {
+        $code=(string)$manifest['code'];
+        $this->copyDirectory($extractPath,$stage.'/files/app/apps/'.$code);
+        $watch=['public/admin/index.html','public/pc/index.html'];
+        foreach((array)($manifest['public_assets']??[]) as $asset){
+            $source=(string)($asset['source']??'');$target=(string)($asset['target']??'');
+            foreach([$source,$target] as $relative)if($relative===''||str_starts_with($relative,'/')||str_contains($relative,'\\')||str_contains($relative,chr(0))||array_intersect(explode('/',$relative),['.','..','']))throw new RuntimeException('应用资源路径不安全');
+            if(!is_file($extractPath.'/'.$source))throw new RuntimeException('应用资源缺失');
+            $this->copyDirectoryFile($extractPath.'/'.$source,$stage.'/files/'.$target);
+            $watch[]=$target;
+        }
+        $hashes=[];foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($stage,\FilesystemIterator::SKIP_DOTS)) as $file)$hashes[substr($file->getPathname(),strlen($stage)+1)]=hash_file('sha256',$file->getPathname());
+        file_put_contents($stage.'/signature.json',json_encode(['sha256'=>$hashes],JSON_THROW_ON_ERROR));
+        return $watch;
     }
 
     private function copyDirectoryFile(string $source,string $target):void
@@ -304,11 +323,22 @@ class AppPackageUpdateService
         $manager=new ComposerRuntimeUpdateService(rtrim(root_path(),'/'));
         $result=$manager->apply($stage,$next,[
             'immutable_code'=>true,'bootstrap_context'=>$binding,
+            'validate_sql'=>fn(string $generation)=>$manager->bootstrapChild(['--app-runtime-check',$generation,$extractPath,$encoded]),
             'sql'=>fn(string $generation)=>$manager->bootstrapChild(['--app-runtime-prepare',$generation,$extractPath,$encoded]),
             'files'=>fn()=>null,'finalize'=>fn()=>[],'marker'=>fn()=>null,
             'complete'=>fn(string $generation)=>$manager->bootstrapChild(['--app-runtime-complete',$generation,$extractPath,$encoded])['completion'],
         ]);
         return $result['completion'];
+    }
+
+    /** Read-only checks run in the candidate interpreter before SQL is marked running. */
+    public function checkRuntimeAppPackage(string $extractPath, array $binding): array
+    {
+        if(PHP_SAPI!=='cli'||empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']))throw new RuntimeException('应用运行时只能由隔离更新进程检查');
+        \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+        $manifest=$this->readManifest($extractPath);
+        AppRegistryService::assertRuntimeMigrationsReady((string)$manifest['code']);
+        return ['checked'=>true];
     }
 
     public function prepareRuntimeAppPackage(string $extractPath, array $binding): array
