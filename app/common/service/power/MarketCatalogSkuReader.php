@@ -27,7 +27,9 @@ final class MarketCatalogSkuReader
             $groups[$id]['platform_count'] = ($groups[$id]['platform_count'] ?? 0) + 1;
             $price = $prices[(int)$sku['id']] ?? null;
             if ($price !== null && (int)$price['sale_status'] !== 1) continue;
-            $groups[$id]['available'][] = ['sku' => $sku, 'tenant_price' => MarketPriceRuleService::tenantPrice($tenantId, $sku, $price)];
+            $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $price);
+            if (!$resolved['valid']) continue;
+            $groups[$id]['available'][] = ['sku' => $sku, 'tenant_price' => (float)$resolved['tenant']['price']];
         }
         return $groups;
     }
