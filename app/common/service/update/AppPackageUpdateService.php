@@ -247,13 +247,12 @@ class AppPackageUpdateService
         $result = AppRegistryService::installFromLocal($appCode);
         foreach ($tenantStates as $row) {
             if (DefaultAppService::isDefaultApp($appCode)) continue;
-            TenantApp::where(['tenant_id' => $row['tenant_id'], 'app_code' => $appCode])->update([
-                'buy_status' => $row['buy_status'],
-                'enable_status' => $row['enable_status'],
-                'shelf_status' => $row['shelf_status'],
-                'expire_time' => $row['expire_time'],
-                'update_time' => time(),
-            ]);
+            $where=['tenant_id'=>$row['tenant_id'],'app_code'=>$appCode];
+            $current=TenantApp::where($where)->findOrEmpty();
+            $restore=array_intersect_key($row,array_flip(['buy_status','enable_status','shelf_status','expire_time']));
+            $changed=$current->isEmpty();
+            foreach($restore as $key=>$value)if((string)$current[$key] !== (string)$value)$changed=true;
+            if($changed)TenantApp::where($where)->update($restore+['update_time'=>$row['update_time']]);
         }
         if (!$installed->isEmpty()) {
             if (DefaultAppService::isDefaultApp($appCode)) {

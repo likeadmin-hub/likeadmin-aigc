@@ -94,7 +94,7 @@ if($action==='apply' || $action==='retry') {
     }
     $method=new ReflectionMethod($service,'assertVersionAllowed');$method->setAccessible(true);
     try{$method->invoke($service,['code'=>'aigc_music','version'=>'1.0.2'],'upload');throw new LogicException('Disk downgrade allowed');}catch(RuntimeException $e){appCheck(str_contains($e->getMessage(),'低于本站现有代码'),'Wrong downgrade rejection');}
-    appCheck(appBusiness($site)===$business,'Bundled install modified business/tenant entitlement state');
+    $afterBusiness=appBusiness($site);$changedKeys=[];foreach($business as $key=>$value)if(($afterBusiness[$key]??null)!==$value)$changedKeys[]=$key;appCheck(!$changedKeys,'Bundled install modified business/tenant entitlement state: '.implode(',',$changedKeys));
     appCheck(Db::name('app_migration')->whereIn('app_code',$codes)->where('error','like','baseline-adopted:%')->count()>0,'Bundled historical SQL not safely adopted');
     echo 'PASS bundled local install: missing registry, stale version, three real apps, disk downgrade rejection, code and business preservation'.PHP_EOL;
     $result=['passed'=>true];
