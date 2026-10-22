@@ -243,17 +243,8 @@ class AppPackageUpdateService
             $this->runSqlMigrations($target . '/migrations', $appCode, (string)$manifest['version']);
         }
         $installed = App::where('code', $appCode)->findOrEmpty();
-        $tenantStates = TenantApp::where('app_code', $appCode)->select()->toArray();
+        $tenantStates = Db::name('tenant_app')->where('app_code', $appCode)->select()->toArray();
         $result = AppRegistryService::installFromLocal($appCode);
-        foreach ($tenantStates as $row) {
-            if (DefaultAppService::isDefaultApp($appCode)) continue;
-            $where=['tenant_id'=>$row['tenant_id'],'app_code'=>$appCode];
-            $current=TenantApp::where($where)->findOrEmpty();
-            $restore=array_intersect_key($row,array_flip(['buy_status','enable_status','shelf_status','expire_time']));
-            $changed=$current->isEmpty();
-            foreach($restore as $key=>$value)if((string)$current[$key] !== (string)$value)$changed=true;
-            if($changed)TenantApp::where($where)->update($restore+['update_time'=>$row['update_time']]);
-        }
         if (!$installed->isEmpty()) {
             if (DefaultAppService::isDefaultApp($appCode)) {
                 App::where('code', $appCode)->update([
@@ -270,6 +261,15 @@ class AppPackageUpdateService
             }
         }
         if (DefaultAppService::isDefaultApp($appCode)) DefaultAppService::syncAllTenants($appCode);
+        // Installation may provision new defaults, but must retain existing purchased/disabled grants byte-for-byte.
+        foreach($tenantStates as $row){
+            $where=['tenant_id'=>$row['tenant_id'],'app_code'=>$appCode];
+            $current=Db::name('tenant_app')->where($where)->find();
+            if(!$current)throw new RuntimeException('应用安装改变了已有租户授权记录');
+            $restore=array_intersect_key($row,array_flip(['version','buy_status','enable_status','shelf_status','expire_time','update_time']));
+            $changed=false;foreach($restore as $key=>$value)if((string)$current[$key] !== (string)$value)$changed=true;
+            if($changed)Db::name('tenant_app')->where($where)->update($restore);
+        }
         AppVersion::where(['app_code' => $appCode, 'version' => $manifest['version']])->update(['package_path' => $package['local_path']]);
         $package->save(['status' => 'applied', 'error' => '', 'update_time' => time()]);
         $this->finishTask($task, 'success', $result);
