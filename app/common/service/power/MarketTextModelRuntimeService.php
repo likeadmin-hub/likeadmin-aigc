@@ -208,10 +208,10 @@ class MarketTextModelRuntimeService
         $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
         $businessId = (int)($params['business_id'] ?? 0);
         $homeAgent = in_array($appCode, ['aigc_llm', 'aigc_canvas'], true) && $businessTable === 'aigc_llm_agent_run';
+        // Check both payers for every text entry before creating a task or calling upstream.
+        // Actual token quantities still come only from the provider receipt.
+        self::assertAgentBalance($tenantId, $userId, $model);
         if ($homeAgent) {
-            // Admission only: keep actual-usage pricing and zero reservation unchanged.
-            // A paid payer needs at least the wallet's smallest unit; free sides stay free.
-            self::assertAgentBalance($tenantId, $userId, $model);
             \app\common\service\app\aigc_llm\agent\AgentTextReceipt::prepare();
         }
         $requestSummary = [

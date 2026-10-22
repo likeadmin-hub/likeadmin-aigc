@@ -54,5 +54,9 @@ try {
  for($i=0;$i<2;$i++)Db::transaction(fn()=>Points::settleReservedBusinessAmountsInCurrentTransaction($t,$u,0.345678,0.456789,0.115226,0.234567,'markup-fraction-settle','小数溢价验收'));
  check((float)Db::name('tenant')->where('id',$t)->value('point_balance')===975.88,'fractional tenant settlement matches actual account precision');
  check((float)Db::name('user')->where('id',$u)->value('user_money')===969.77,'fractional user settlement and duplicate refund match precision');
+ $models=app\common\service\power\MarketTextModelRuntimeService::textOptions($t);
+ if($models){$before=Db::name('ai_consumption_log')->where('tenant_id',$t)->count();Db::name('user')->where('id',$u)->update(['user_money'=>0]);$denied=false;
+ try{app\common\service\power\MarketTextModelRuntimeService::generate($t,$u,['content'=>'本地余额不足验收，不应发送上游','model_selection'=>$models[0]['id'],'max_tokens'=>16,'_disable_model_fallback'=>true]);}catch(app\common\service\power\TextAdmissionRejected $e){$denied=true;}
+ check($denied&&Db::name('ai_consumption_log')->where('tenant_id',$t)->count()===$before,'all text entries reject insufficient user balance before task or upstream');}
  echo "PASS $n actual ORM / account / log / snapshot / refund assertions (rolled back)\n";
 } finally {Db::rollback();}
