@@ -62,6 +62,30 @@ class DirectSiteUpdateService
         unset($GLOBALS['AIGC_DIRECT_READER']);
     }
 
+    /** Read-only dependency/CLI probe; never labels a failed process launch as executed SQL. */
+    public function assertRuntimeAvailable(): array
+    {
+        foreach (['proc_open', 'proc_get_status', 'proc_close', 'proc_terminate', 'stream_set_blocking'] as $function) {
+            if (!function_exists($function)) throw new RuntimeException('应用安装需要 PHP CLI 子进程支持，请启用 '.$function);
+        }
+        if (!is_executable($this->php)) throw new RuntimeException('应用安装找不到可执行的 PHP CLI，请核对当前 PHP 版本的命令行程序');
+        $runner = $this->runner ?: $this->root.'/scripts/composer-runtime-runner.php';
+        if (!is_file($runner) || !is_readable($runner)) throw new RuntimeException('应用安装运行程序缺失或不可读，请先修复系统文件');
+        return $this->child(['--probe', $this->root, json_encode(['min_php'=>'8.0.0', 'required_extensions'=>['pdo_mysql','mbstring','openssl'], 'probe_classes'=>['think\\App']], JSON_THROW_ON_ERROR)]);
+    }
+
+    /** Same signed digest as apply, including old receipts that predate operation bindings. */
+    public function assertPackageRetryable(string $extract, string $version): void
+    {
+        $digest = hash('sha256', (string)file_get_contents($extract.'/signature.json').'|'.$version);
+        if (!is_file($this->receipt($digest))) return;
+        $previous = $this->json($this->receipt($digest));
+        if (($previous['sql_state'] ?? '') === 'running') {
+            $detail = trim((string)($previous['error'] ?? ''));
+            throw new RuntimeException('上次 SQL 执行结果未知，禁止自动重放'.($detail !== '' ? '；首次失败原因：'.$detail : '；请查看首次安装失败任务的错误详情并核对数据库'));
+        }
+    }
+
     public function apply(string $extract, array $manifest, array $callbacks): array
     {
         self::releaseRequestReader();
@@ -75,7 +99,7 @@ class DirectSiteUpdateService
             $receipt = $this->receipt($digest);
             if (is_file($receipt)) {
                 $previous = $this->json($receipt);
-                if (($previous['sql_state'] ?? '') === 'running') throw new RuntimeException('上次 SQL 执行结果未知，禁止自动重放');
+                $this->assertPackageRetryable($extract, $version);
                 if (($previous['status'] ?? '') === 'committed' && empty($callbacks['repeatable'])) return ['completion' => $previous['completion'], 'recovered' => true];
             }
             if (isset($manifest['base_version'])) {
@@ -89,6 +113,7 @@ class DirectSiteUpdateService
                 if (isset($callbacks['before_sql'])) ($callbacks['before_sql'])();
                 $this->install($state);
                 if ($state['sql_state'] !== 'done') {
+                    if (isset($callbacks['validate_sql'])) ($callbacks['validate_sql'])($this->root);
                     $state['sql_state'] = 'running'; $this->save($state);
                     if (isset($callbacks['sql'])) ($callbacks['sql'])($this->root);
                     $state['sql_state'] = 'done'; $this->save($state);
@@ -105,6 +130,7 @@ class DirectSiteUpdateService
                     catch (Throwable $unknown) { throw new RuntimeException('更新完成状态待确认，已保留恢复资料：' . $unknown->getMessage(), 0, $failure); }
                     if (is_array($confirmed)) return $this->commit($state, $confirmed);
                 }
+                $state['error'] = $failure->getMessage();
                 $this->rollback($state);
                 throw $failure;
             }
@@ -314,7 +340,7 @@ class DirectSiteUpdateService
                 if (!rename($backup, $target)) throw new RuntimeException('恢复文件失败: ' . $path);
             } else $this->remove($target);
         }
-        $this->atomicJson($this->receipt($state['digest']), ['schema'=>1,'status'=>'rolled_back','version'=>$state['version'],'sql_state'=>$state['sql_state']]);
+        $this->atomicJson($this->receipt($state['digest']), ['schema'=>1,'status'=>'rolled_back','version'=>$state['version'],'sql_state'=>$state['sql_state'],'error'=>$state['error']??'','binding'=>$state['binding']??[]]);
         $this->finish($state);
     }
 

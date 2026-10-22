@@ -602,6 +602,32 @@ class AppRegistryService
         return $entries;
     }
 
+    /** Validate every file before any DDL or running migration marker is written. */
+    public static function validateRuntimeMigrations(string $appCode, ?string $directory = null): array
+    {
+        self::assertValidCode($appCode);
+        $baseline = config('runtime_migration_baseline') ?: [];
+        $entries = [];
+        foreach (glob(($directory ?? base_path().'apps/'.$appCode.'/migrations').'/*.sql') ?: [] as $file) {
+            $key = basename($file);
+            $relative = 'app/apps/'.$appCode.'/migrations/'.$key;
+            $hash = hash_file('sha256', $file);
+            $historical = isset($baseline[$relative]);
+            if ($historical && !hash_equals((string)$baseline[$relative], $hash)) throw new RuntimeException('历史迁移字节已改变，必须使用新的迁移文件: '.$relative);
+            $entries[$key] = ['hash'=>$hash, 'historical'=>$historical, 'plan'=>$historical ? null : \app\common\service\database\RuntimeMigrationPlan::build((string)file_get_contents($file))];
+        }
+        return $entries;
+    }
+
+    public static function assertRuntimeMigrationsReady(string $appCode, ?string $directory = null): void
+    {
+        foreach (self::validateRuntimeMigrations($appCode, $directory) as $key => $entry) {
+            $row = \app\common\model\app\AppMigration::where(['scope'=>'platform','app_code'=>$appCode,'tenant_id'=>0,'migration_key'=>$key])->findOrEmpty();
+            if (!$row->isEmpty() && $row['status'] === 'running' && !$entry['historical']) throw new RuntimeException('迁移执行结果不确定，禁止自动重放: '.$key);
+            if (!$row->isEmpty() && $row['status'] === 'prepared' && $row['error'] !== 'prepared:'.$entry['hash']) throw new RuntimeException('已准备迁移内容改变: '.$key);
+        }
+    }
+
     /** Updater executes durable DDL before beginning metadata-only finalization. */
     public static function prepareRuntimeMigrations(string $appCode, string $version): array
     {
@@ -611,23 +637,21 @@ class AppRegistryService
 
     private static function runRuntimeMigrations(string $appCode, string $version, bool $prepare): array
     {
-        $baseline = config('runtime_migration_baseline') ?: [];
+        $entries = self::validateRuntimeMigrations($appCode);
         $result = [];
-        foreach (glob(base_path().'apps/'.$appCode.'/migrations/*.sql') ?: [] as $file) {
-            $key = basename($file);
+        foreach ($entries as $key => $entry) {
             $relative = 'app/apps/'.$appCode.'/migrations/'.$key;
-            $hash = hash_file('sha256', $file);
+            $hash = $entry['hash'];
             $where = ['scope'=>'platform','app_code'=>$appCode,'tenant_id'=>0,'migration_key'=>$key];
             $migration = \app\common\model\app\AppMigration::where($where)->findOrEmpty();
             if (!$migration->isEmpty() && $migration['status'] === 'success') continue;
-            $historical = isset($baseline[$relative]);
-            if ($historical && !hash_equals((string)$baseline[$relative], $hash)) throw new RuntimeException('历史迁移字节已改变，必须使用新的迁移文件: '.$relative);
+            $historical = $entry['historical'];
             if ($historical) {
                 // Source identity comes from the signed genuine-390 Git baseline. Never replay its SQL.
                 if ($prepare) continue;
                 $data = ['version'=>$version,'batch'=>date('YmdHis'),'status'=>'success','error'=>'baseline-adopted:'.$hash,'update_time'=>time()];
             } else {
-                $plan = \app\common\service\database\RuntimeMigrationPlan::build((string)file_get_contents($file));
+                $plan = $entry['plan'];
                 if ($prepare && !$migration->isEmpty() && $migration['status'] === 'prepared') {
                     if ($migration['error'] !== 'prepared:'.$hash) throw new RuntimeException('已准备迁移内容改变: '.$relative);
                     continue;

@@ -24,6 +24,7 @@ if(($argv[1]??'')!=='--operation') {
         appWrite($dir.'/signature.json',json_encode(['sha256'=>appHashes($dir)]));
         $archive=$dir.'.tar';$tar=new PharData($archive);$tar->buildFromDirectory($dir);unset($tar);$packages[$suffix][$version]=$archive;
     }
+    appChild($site,'preflight-rejections',['archive'=>$packages['a']['1.0.0'],'code'=>'aigc_fixture_a']);
     $initial=appChild($site,'snapshot');$pointer=$initial['generation'];$canonical=$pointer===rtrim($site,'/');$generations=[];
     foreach(glob($site.'/.composer-runtime/generations/*') as $path)if(is_dir($path))$generations[$path]=appHashes($path);
     $a=appChild($site,'apply',['archive'=>$packages['a']['1.0.0'],'code'=>'aigc_fixture_a']);appCheck($a['status']==='applied','A install metadata missing');
@@ -37,7 +38,10 @@ if(($argv[1]??'')!=='--operation') {
     $seen=appChild($site,'observe',['a'=>'1.0.0','b'=>'1.0.1']);appCheck($canonical?$seen['generation']===$pointer:$seen['generation']!==$beforeReinstall['generation'],'Same-ZIP reinstall selected an obsolete runtime');
     appCheck($seen['b_app']===$beforeReinstall['b_app'],'A reinstall changed B metadata');
     $beforeFailure=appChild($site,'snapshot');
-    $failed=appChild($site,'apply',['archive'=>$packages['a']['1.0.1'],'code'=>'aigc_fixture_a','fail'=>true]);appCheck($failed['status']==='apply_failed','App failure metadata missing');
+    $blocked=appChild($site,'apply',['archive'=>$packages['a']['1.0.1'],'code'=>'aigc_fixture_a','precheck_fail'=>true]);
+    appCheck($blocked['status']==='apply_failed','Candidate validation failure not recorded');
+    appCheck(appChild($site,'snapshot')===$beforeFailure,'Read-only candidate validation failure changed app/business state');
+    $failed=appChild($site,'retry',['id'=>$blocked['id'],'fail'=>true]);appCheck($failed['status']==='apply_failed','App failure metadata missing');
     $afterFailure=appChild($site,'snapshot');appCheck($beforeFailure===$afterFailure,'App final metadata failure changed pointer, app/version/tenant/menu metadata');
     appChild($site,'observe',['a'=>'1.0.0','b'=>'1.0.1']);
     $retry=appChild($site,'retry',['id'=>$failed['id']]);appCheck($retry['status']==='applied','App retry not completed');
@@ -45,7 +49,7 @@ if(($argv[1]??'')!=='--operation') {
     $counts=appChild($site,'migration-counts');appCheck($counts===['a'=>1,'b'=>1],'App SQL migrations replayed during update/reinstall/retry');
     foreach($generations as $path=>$hashes)appCheck(appHashes($path)===$hashes,'Initial immutable generation mutated: '.$path);
     $final=appChild($site,'business');appCheck($final===$initial['business'],'App operations modified protected business records/site bytes');
-    echo "PASS actual AppPackage APIs: A install/remove/same-ZIP reinstall, intervening B update retained, fresh canary code and menus, new package/task success, metadata failure rollback/retry, migrations once, protected business state intact\n";exit(0);
+    echo "PASS actual AppPackage APIs: A install/remove/same-ZIP reinstall, intervening B update retained, fresh canary code and menus, new package/task success, preflight rejection, candidate validation safe retry, metadata failure rollback/retry, migrations once, protected business state intact\n";exit(0);
 }
 $site=$argv[2];$action=$argv[3];$data=json_decode($argv[4]??'{}',true,512,JSON_THROW_ON_ERROR);
 $GLOBALS['app_operation_completed']=false;register_shutdown_function(static function(){if(empty($GLOBALS['app_operation_completed'])){fwrite(STDERR,"App operation did not complete\n");exit(1);}});
@@ -65,12 +69,23 @@ function appBusiness(string $site):array {
 $service=new AppPackageUpdateService();$result=[];
 if($action==='apply' || $action==='retry') {
     if($action==='apply'){$package=$service->saveUploadedPackage($data['archive'],'tar');$id=(int)$package['id'];$preflight=$service->preflight($id,$data['code']);appCheck($preflight['passed'],'Canary preflight failed: '.json_encode($preflight['errors']));}
-    else {$id=(int)$data['id'];Db::execute('DROP TRIGGER fixture_app_metadata_failure');}
+    else {$id=(int)$data['id'];Db::execute('DROP TRIGGER IF EXISTS fixture_app_metadata_failure');}
     if(!empty($data['fail']))Db::execute("CREATE TRIGGER fixture_app_metadata_failure BEFORE UPDATE ON la_update_task FOR EACH ROW BEGIN IF NEW.type='app' AND NEW.action='apply' AND NEW.status='success' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture app final metadata failure'; END IF; END");
-    try{$service->apply($id);appCheck(empty($data['fail']),'App failure trigger was bypassed');}
-    catch(Throwable $error){appCheck(!empty($data['fail']) && str_contains($error->getMessage(),'fixture app final metadata failure'),'Wrong app apply failure: '.$error->getMessage());}
+    if(!empty($data['precheck_fail']))Db::execute('ALTER TABLE la_app_version ENGINE=MyISAM');
+    try{$service->apply($id);appCheck(empty($data['fail']) && empty($data['precheck_fail']),'App failure gate was bypassed');}
+    catch(Throwable $error){appCheck((!empty($data['fail']) && str_contains($error->getMessage(),'fixture app final metadata failure')) || (!empty($data['precheck_fail']) && str_contains($error->getMessage(),'InnoDB')),'Wrong app apply failure: '.$error->getMessage());}
+    finally {if(!empty($data['precheck_fail']))Db::execute('ALTER TABLE la_app_version ENGINE=InnoDB');}
     $result=Db::name('update_package')->where('id',$id)->find();$task=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->order('id','desc')->find();
-    appCheck($task['status']===(empty($data['fail'])?'success':'failed'),'App task status inconsistent');
+    appCheck($task['status']===(empty($data['fail']) && empty($data['precheck_fail'])?'success':'failed'),'App task status inconsistent');
+} elseif($action==='preflight-rejections') {
+    $package=$service->saveUploadedPackage($data['archive'],'tar');
+    Db::execute('ALTER TABLE la_app_version ENGINE=MyISAM');
+    try {
+        $preflight=$service->preflight((int)$package['id'],$data['code']);
+        appCheck(!$preflight['passed'] && str_contains(implode(';',$preflight['errors']),'InnoDB'),'Nontransactional metadata was green in preflight');
+        appCheck(Db::name('app_migration')->where('app_code',$data['code'])->count()===0,'Preflight wrote migration markers');
+    } finally {Db::execute('ALTER TABLE la_app_version ENGINE=InnoDB');}
+    $result=['passed'=>true];
 } elseif($action==='remove'){AppRegistryService::uninstall($data['code'],false);appCheck(Db::name('app')->where('code',$data['code'])->value('status')==='removed','App remove failed');}
 elseif($action==='snapshot') {
     $result=['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION'],'business'=>appBusiness($site)];
