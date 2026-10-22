@@ -477,10 +477,10 @@ class AigcProductSuiteService
 
     private static function assertAvailable(int $tenantId): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::APP_CODE) !== null) {
             throw new Exception('AI商品套图应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::IMAGE_APP_CODE) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
         $config = self::config($tenantId);
@@ -1133,7 +1133,7 @@ class AigcProductSuiteService
 
     private static function generatePromptText(int $tenantId, int $userId, string $content): array
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::LLM_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::LLM_APP_CODE) !== null) {
             throw new Exception('AIGC对话应用未开通，暂无法使用AI优化');
         }
         $result = AigcLlmService::generateText($tenantId, $userId, [

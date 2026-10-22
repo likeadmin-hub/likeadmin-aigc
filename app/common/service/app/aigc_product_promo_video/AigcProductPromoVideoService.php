@@ -377,10 +377,10 @@ class AigcProductPromoVideoService
 
     private static function assertAvailable(int $tenantId): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::APP_CODE) !== null) {
             throw new Exception('产品宣传视频应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::VIDEO_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::VIDEO_APP_CODE) !== null) {
             throw new Exception('AIGC生视频应用未开通或未上架');
         }
         $config = self::config($tenantId);
@@ -1102,7 +1102,7 @@ class AigcProductPromoVideoService
 
     private static function generatePromptText(int $tenantId, int $userId, string $content): array
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::LLM_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::LLM_APP_CODE) !== null) {
             throw new Exception('AIGC对话应用未开通，暂无法使用AI帮写');
         }
         $result = AigcLlmService::generateText($tenantId, $userId, [

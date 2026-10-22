@@ -421,7 +421,7 @@ class AigcMusicCoverService
 
     private static function assertAvailable(int $tenantId): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::APP_CODE) !== null) {
             throw new Exception('音乐翻唱应用未开通或未上架');
         }
         $config = self::config($tenantId);

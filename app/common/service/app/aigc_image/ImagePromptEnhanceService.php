@@ -45,7 +45,7 @@ PROMPT;
             throw new Exception('请输入1至6000字的图片提示词');
         }
         foreach (['aigc_image', 'aigc_llm'] as $app) {
-            if (AppAccessService::assertTenantCanUse($tenantId, $app) !== null) {
+            if (AppAccessService::assertTenantAvailable($tenantId, $app) !== null) {
                 throw new Exception('图片或对话应用未开通，暂无法增强提示词');
             }
         }

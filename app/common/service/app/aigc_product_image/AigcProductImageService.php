@@ -480,10 +480,10 @@ class AigcProductImageService
 
     private static function assertAvailable(int $tenantId): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::APP_CODE) !== null) {
             throw new Exception('AI商品图应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::IMAGE_APP_CODE) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
         $config = self::config($tenantId);

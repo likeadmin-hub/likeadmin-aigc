@@ -167,17 +167,15 @@ class MembershipService
 
     public static function deletePlan(int $tenantId, int $planId): void
     {
-        $plan = MembershipPlan::where(['tenant_id' => $tenantId, 'id' => $planId])->findOrEmpty();
-        if ($plan->isEmpty()) {
-            throw new RuntimeException('套餐不存在');
-        }
-        $used = MembershipOrder::where(['tenant_id' => $tenantId, 'plan_id' => $planId])->count();
-        if ($used > 0) {
+        Db::transaction(function () use ($tenantId, $planId) {
+            // Serialize deletion with checkout; orders and purchased rights are immutable snapshots.
+            $plan = MembershipPlan::where(['tenant_id' => $tenantId, 'id' => $planId])->lock(true)->findOrEmpty();
+            if ($plan->isEmpty()) {
+                throw new RuntimeException('套餐不存在');
+            }
             $plan->save(['status' => self::STATUS_DISABLED, 'update_time' => time()]);
-            return;
-        }
-        MembershipPlanApp::where(['tenant_id' => $tenantId, 'plan_id' => $planId])->delete();
-        $plan->delete();
+            $plan->delete();
+        });
     }
 
     public static function tenantOpenedApps(int $tenantId): array
@@ -223,7 +221,7 @@ class MembershipService
                 \app\common\service\promotion\PackagePricingService::consume((int)$order['tenant_id'], 'membership', (int)$order['id']);
             } else {
                 // Historical orders retain their original delivery contract.
-                $plan = MembershipPlan::where(['tenant_id' => (int)$order['tenant_id'], 'id' => (int)$order['plan_id']])->findOrEmpty();
+                $plan = MembershipPlan::withTrashed()->where(['tenant_id' => (int)$order['tenant_id'], 'id' => (int)$order['plan_id']])->findOrEmpty();
                 if ($plan->isEmpty()) throw new RuntimeException('会员套餐不存在');
                 $features = (array)($plan['features'] ?? []);
                 $appCodes = MembershipPlanApp::where(['tenant_id' => (int)$order['tenant_id'], 'plan_id' => (int)$order['plan_id']])->column('app_code');
@@ -423,10 +421,12 @@ class MembershipService
         $needMembership = self::appRequiresMembership($tenantId, $appCode);
         $status = $userId > 0 ? self::status($tenantId, $userId) : self::status($tenantId, 0);
         $allowed = !$needMembership || in_array($appCode, (array)$status['member_apps'], true);
+        $available = \app\common\service\app\AppAccessService::tenantCanUse($tenantId, $appCode, false);
         return [
+            'available' => $available ? 1 : 0,
             'app_code' => $appCode,
             'need_membership' => $needMembership ? 1 : 0,
-            'allowed' => $allowed ? 1 : 0,
+            'allowed' => $available && $allowed ? 1 : 0,
             'member_status' => $status['member_status'],
         ];
     }
@@ -440,7 +440,9 @@ class MembershipService
             ->join('membership_plan mp', 'mp.id = mpa.plan_id')
             ->where('mpa.tenant_id', $tenantId)
             ->where('mpa.app_code', $appCode)
+            ->where('mp.tenant_id', $tenantId)
             ->where('mp.status', self::STATUS_ENABLED)
+            ->whereNull('mp.delete_time')
             ->count() > 0;
     }
 
