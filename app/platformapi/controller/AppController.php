@@ -33,7 +33,7 @@ class AppController extends BaseAdminController
             }
             $item['is_builtin'] = 1;
             $item['expire_policy'] = AppPlanService::EXPIRE_ALLOW;
-            $item['status'] = AppRegistryService::STATUS_INSTALLED;
+            if(($item['status']??'')!=='not_installed')$item['status'] = AppRegistryService::STATUS_INSTALLED;
         }
         return $this->success('获取成功', $lists);
     }
