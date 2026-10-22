@@ -56,6 +56,8 @@ class AuthMiddleware
 
         // 当前访问路径
         $accessUri = strtolower($request->controller() . '/' . $request->action());
+        // Vault generation changes the same tenant payment configuration and uses its save permission.
+        if ($accessUri === 'finance.virtualpay/generatevault') $accessUri = 'finance.virtualpay/save';
         // 全部路由
         $allUri = $this->formatUrl($adminAuthCache->getAllUri());
 

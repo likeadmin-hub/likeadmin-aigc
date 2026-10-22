@@ -22,14 +22,14 @@ final class VirtualPayConfigService
         if($app==='')throw new \RuntimeException('请先配置或授权微信小程序');
         return ['app_id'=>$app,'authorizer_id'=>(int)($row['id']??0),'func_info'=>$row['func_info']??'[]'];
     }
-    public static function requireVault(): void
+    public static function requireVault(int $tenant): void
     {
-        Cipher::requireKey();
+        Cipher::requireKey($tenant);
     }
     public static function secret(array $version,string $field): string
     {
         if(!in_array($field,['app_key','token','aes_key','mini_secret'],true))throw new \InvalidArgumentException('凭据字段不正确');
-        self::requireVault();$plain=Cipher::decrypt($version[$field]??'');if($plain==='')throw new \RuntimeException('支付密钥无法读取，请联系管理员核对加密配置');return $plain;
+        $plain=Cipher::decrypt($version[$field]??'',(int)$version['tenant_id']);if($plain==='')throw new \RuntimeException('支付密钥无法读取，请联系管理员核对加密配置');return $plain;
     }
     public static function version(int $tenant,int $id): array
     {
@@ -59,20 +59,28 @@ final class VirtualPayConfigService
     {
         VirtualPayPolicy::environment($env);$i=self::identity($tenant);$c=Db::name('virtual_pay_config')->where(['tenant_id'=>$tenant,'app_id'=>$i['app_id'],'env'=>$env])->find();
         $v=$c&&!empty($c['version_id'])?self::version($tenant,(int)$c['version_id']):[];
-        $push=['token'=>'','aes_key'=>''];$vaultReady=true;
+        $push=['token'=>'','aes_key'=>''];$vaultReady=false;$generated=Cipher::hasTenantKey($tenant);
         try {
-            self::requireVault();
+            if ($generated) { self::requireVault($tenant); $vaultReady=true; }
             if ($v) {
                 self::secret($v, 'app_key');
                 if (!$i['authorizer_id']) foreach (array_keys($push) as $k) $push[$k]=self::secret($v,$k);
+                $vaultReady=true;
             }
         } catch (\RuntimeException $e) { $vaultReady=false; $push=['token'=>'','aes_key'=>'']; }
         $notify=request()->domain().'/wechat/virtual-pay/'.$tenant.'/'.rawurlencode($i['app_id']).'/callback';
         if ($i['authorizer_id']) $notify=str_replace('$APPID$', $i['app_id'], (string)(\app\common\service\wechat\OpenPlatformService::config()['message_callback_url_display']??''));
-        return ['vault_ready'=>$vaultReady,'app_id'=>$i['app_id'],'mode'=>$i['authorizer_id']?'authorized':'manual','env'=>$env,'enabled'=>(int)($c['enabled']??0),'enabled_platforms'=>self::enabledPlatforms($c?:[]),'offer_id'=>(string)($v['offer_id']??''),'key_configured'=>!empty($v['app_key']),
+        return ['vault_generated'=>$generated,'vault_ready'=>$vaultReady,'app_id'=>$i['app_id'],'mode'=>$i['authorizer_id']?'authorized':'manual','env'=>$env,'enabled'=>(int)($c['enabled']??0),'enabled_platforms'=>self::enabledPlatforms($c?:[]),'offer_id'=>(string)($v['offer_id']??''),'key_configured'=>!empty($v['app_key']),
             'token'=>$push['token'],'aes_key'=>$push['aes_key'],'message_mode'=>$v['message_mode']??'safe','version_id'=>(int)($v['id']??0),
             'notify_url'=>$notify,
             'products'=>Db::name('virtual_pay_product')->where(['tenant_id'=>$tenant,'app_id'=>$i['app_id'],'env'=>$env])->select()->toArray()];
+    }
+    public static function generateVault(int $tenant,int $env,array $input=[]): array
+    {
+        VirtualPayPolicy::environment($env);$identity=self::identity($tenant);
+        if (!empty($input['app_id']) && $input['app_id']!==$identity['app_id']) throw new \RuntimeException('小程序身份已变化，请刷新配置');
+        Cipher::generate($tenant);
+        return self::detail($tenant,$env);
     }
     public static function save(int $tenant,int $env,array $input): array
     {
@@ -81,6 +89,7 @@ final class VirtualPayConfigService
             if(!is_array($input['enabled_platforms']))throw new \RuntimeException('请选择 iOS 或 Android 作为虚拟支付启用范围');
             foreach($input['enabled_platforms'] as $platform)if(!in_array($platform,['ios','android'],true))throw new \RuntimeException('请选择 iOS 或 Android 作为虚拟支付启用范围');
         }
+        if (!empty($input['enabled_platforms']) || !empty($input['enabled']) || !empty($input['offer_id']) || !empty($input['app_key'])) Cipher::generate($tenant);
         return Db::transaction(function()use($tenant,$env,$input,$i){
             $scope=['tenant_id'=>$tenant,'app_id'=>$i['app_id'],'env'=>$env];Db::name('virtual_pay_config')->extra('IGNORE')->insert($scope);
             $c=Db::name('virtual_pay_config')->where($scope)->lock(true)->find();$v=$c['version_id']?self::version($tenant,(int)$c['version_id']):[];
@@ -88,16 +97,16 @@ final class VirtualPayConfigService
             $platforms=array_key_exists('enabled_platforms',$input)?array_values(array_intersect(['ios','android'],$input['enabled_platforms'])):(!empty($input['enabled'])?(self::enabledPlatforms(array_merge($c,['enabled'=>1]))?:['ios','android']):[]);
             $enabled=(int)!empty($platforms);$switch=['enabled'=>$enabled,'enabled_platforms'=>implode(',',$platforms),'update_time'=>time()];
             if(!$enabled&&empty($input['offer_id'])&&empty($input['app_key'])){Db::name('virtual_pay_config')->where('id',$c['id'])->update($switch);return self::detail($tenant,$env);}
-            self::requireVault();$offer=trim((string)($input['offer_id']??($v['offer_id']??'')));if(!preg_match('/^\d{1,32}$/D',$offer))throw new \RuntimeException('请填写正确的 OfferID');
-            $keys=[];foreach(['app_key','token','aes_key'] as $field){$raw=trim((string)($input[$field]??''));if($raw!==''&&str_contains($raw,'*'))throw new \RuntimeException('请填写完整密钥，留空表示保持不变');$keys[$field]=$raw!==''?Cipher::encrypt($raw):(string)($v[$field]??'');}
-            if($keys['token']==='')$keys['token']=Cipher::encrypt(bin2hex(random_bytes(16)));
-            if($keys['aes_key']==='')$keys['aes_key']=Cipher::encrypt(rtrim(base64_encode(random_bytes(32)),'='));
-            if ($keys['app_key'] !== '' && strlen(Cipher::decrypt($keys['app_key'])) < 16) throw new \RuntimeException('请填写完整的当前环境 AppKey');
+            self::requireVault($tenant);$offer=trim((string)($input['offer_id']??($v['offer_id']??'')));if(!preg_match('/^\d{1,32}$/D',$offer))throw new \RuntimeException('请填写正确的 OfferID');
+            $keys=[];foreach(['app_key','token','aes_key'] as $field){$raw=trim((string)($input[$field]??''));if($raw!==''&&str_contains($raw,'*'))throw new \RuntimeException('请填写完整密钥，留空表示保持不变');$old=(string)($v[$field]??'');$plain=$raw!==''?$raw:($old!==''?self::secret($v,$field):'');$keys[$field]=Cipher::encrypt($plain,$tenant);}
+            if($keys['token']==='')$keys['token']=Cipher::encrypt(bin2hex(random_bytes(16)),$tenant);
+            if($keys['aes_key']==='')$keys['aes_key']=Cipher::encrypt(rtrim(base64_encode(random_bytes(32)),'='),$tenant);
+            if ($keys['app_key'] !== '' && strlen(Cipher::decrypt($keys['app_key'],$tenant)) < 16) throw new \RuntimeException('请填写完整的当前环境 AppKey');
             if($keys['app_key']==='')throw new \RuntimeException('首次配置请填写当前环境的 AppKey');
-            if(!preg_match('/^[A-Za-z0-9+\/]{43}$/D',Cipher::decrypt($keys['aes_key'])))throw new \RuntimeException('EncodingAESKey 应为43位');
+            if(!preg_match('/^[A-Za-z0-9+\/]{43}$/D',Cipher::decrypt($keys['aes_key'],$tenant)))throw new \RuntimeException('EncodingAESKey 应为43位');
             $mode=$input['message_mode']??($v['message_mode']??'safe');if(!in_array($mode,['plain','compatible','safe'],true))throw new \RuntimeException('消息加密模式不正确');
             if($enabled&&$i['authorizer_id']){ $permissions=json_decode($i['func_info'],true)?:[];if(!in_array(157,array_map(static fn($p)=>(int)($p['funcscope_category']['id']??0),$permissions),true))throw new \RuntimeException('请重新授权小程序并授予虚拟支付权限'); }
-            $id=Db::name('virtual_pay_config_version')->insertGetId($scope+$keys+['mini_secret'=>$i['authorizer_id']?'':Cipher::encrypt(self::manual($tenant,'app_secret')),'config_id'=>$c['id'],'authorizer_id'=>$i['authorizer_id'],'offer_id'=>$offer,'message_mode'=>$mode,'created_at'=>time()]);
+            $id=Db::name('virtual_pay_config_version')->insertGetId($scope+$keys+['mini_secret'=>$i['authorizer_id']?'':Cipher::encrypt(self::manual($tenant,'app_secret'),$tenant),'config_id'=>$c['id'],'authorizer_id'=>$i['authorizer_id'],'offer_id'=>$offer,'message_mode'=>$mode,'created_at'=>time()]);
             Db::name('virtual_pay_config')->where('id',$c['id'])->update(['version_id'=>$id]+$switch);return self::detail($tenant,$env);
         });
     }

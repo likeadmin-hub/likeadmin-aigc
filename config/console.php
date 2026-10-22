@@ -12,7 +12,6 @@ return [
         'home-agent:health' => 'app\\common\\command\\HomeAgentHealth',
         'home-agent:worker' => 'app\\common\\command\\HomeAgentWorker',
 
-        'virtualpay:key' => 'app\\common\\command\\VirtualPayKey',
         'virtualpay:maintain' => 'app\\common\\command\\VirtualPayMaintain',
         'brand:worker' => 'app\\common\\command\\BrandWorker',
         'brand:maintain' => 'app\\common\\command\\BrandMaintain',

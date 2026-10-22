@@ -16,6 +16,11 @@ class VirtualPayController extends BaseAdminController
             return $this->data(Config::save($this->tenantId,(int)$this->request->post('env',0),$this->request->post()));
         }catch(\Exception $e){return $this->fail(\app\common\service\virtualpay\VirtualPayPolicy::error($e));}
     }
+    public function generateVault()
+    {
+        try { return $this->data(Config::generateVault($this->tenantId, (int)$this->request->post('env', 0), $this->request->post())); }
+        catch (\Exception $e) { return $this->fail(\app\common\service\virtualpay\VirtualPayPolicy::error($e)); }
+    }
     public function saveProduct()
     {
         try{Config::saveProduct($this->tenantId,(int)$this->request->post('env',0),$this->request->post());return $this->success('道具绑定已保存，请确认已在微信平台发布');}
