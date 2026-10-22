@@ -828,7 +828,7 @@ class DecorateTemplateService
         ])->update(['publish_status' => 'draft']);
     }
 
-    public static function exportPackage(int $tenantId, int $templateId): array
+    public static function exportPackage(int $tenantId, int $templateId, ?callable $progress = null): array
     {
         if (!class_exists(ZipArchive::class)) {
             throw new RuntimeException('请开启 PHP zip 扩展后再导出模板');
@@ -842,6 +842,7 @@ class DecorateTemplateService
             ->select()
             ->toArray();
 
+        $progress && $progress('已读取模板及'.count($pages).'个页面，开始整理素材');
         $manifest = [
             'schema_version' => '1.0',
             'package_type' => 'likeadmin.decorate.template',
@@ -870,11 +871,12 @@ class DecorateTemplateService
                 return $page;
             }, $pages, array_keys($pages)),
         ];
-        $portable=DecorationPortableAssets::export($payload,$tenantId);
+        $portable=DecorationPortableAssets::export($payload,$tenantId,$progress);
         $payload=$portable['payload'];
         $manifest['asset_count']=$portable['resources']['count'];
         $manifest['asset_manifest']='assets/resources.json';
 
+        $progress && $progress('素材清单已整理，正在生成 ZIP 模板包');
         $dir = runtime_path() . 'decorate_export/';
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
@@ -903,11 +905,11 @@ class DecorateTemplateService
         ];
     }
 
-    public static function importPackage(int $tenantId, string $base64, string $filename = ''): array
+    public static function importPackage(int $tenantId, string $base64, string $filename = '', ?callable $progress = null): array
     {
         return DecorationPortablePackage::import($tenantId, $base64, self::defaultSettings(), static function(string $data, string $meta): void {
             self::validatePagePayload($data, $meta);
-        });
+        }, $progress);
     }
 
     private static function getTemplate(int $tenantId, int $templateId = 0): DecorateTemplate

@@ -10,9 +10,11 @@ use ZipArchive;
 /** Package parsing and creation are separate from media transport and document traversal. */
 final class DecorationPortablePackage
 {
-    public static function import(int $tenant,string $base64,array $defaults,callable $validate): array
+    public static function import(int $tenant,string $base64,array $defaults,callable $validate,?callable $progress=null): array
     {
+        $progress && $progress('正在解压模板包，校验文件路径、大小及素材完整性');
         $package=self::read($base64);$payload=$package['payload'];
+        $progress && $progress('模板包校验通过，正在检查页面和组件');
         if(!is_array($payload['template']??null)||!is_array($payload['pages']??null)||count($payload['pages'])>256)throw new RuntimeException('模板包数据不完整或页面过多');
         $identities=[];
         foreach($payload['pages'] as $i=>&$page){
@@ -22,10 +24,12 @@ final class DecorationPortablePackage
             $key=self::identity($page);if(isset($identities[$key]))throw new RuntimeException('模板包包含重复页面标识');$identities[$key]=true;
             foreach(['data','draft_data','published_data'] as $field){$meta=str_replace('data','meta',$field);$validate((string)($page[$field]??$page['data']??'[]'),(string)($page[$meta]??$page['meta']??''));}
         }unset($page);
+        $progress && $progress('已校验'.count($payload['pages']).'个页面，开始下载并保存素材');
         $assets=new DecorationPortableAssets($tenant,$package['embedded']);
         try{
-            return Db::transaction(function()use($tenant,$payload,$defaults,$assets){
-                $payload=$assets->localize($payload);
+            return Db::transaction(function()use($tenant,$payload,$defaults,$assets,$progress){
+                $payload=$assets->localize($payload,$progress);
+                $progress && $progress('素材转存完成，正在创建模板草稿');
                 $settings=(array)($payload['template']['settings']??$defaults);
                 $draft=self::settings($payload['template']['draft_settings']??null,$settings,$defaults);
                 $published=self::settings($payload['template']['published_settings']??null,$settings,$defaults);
@@ -37,6 +41,7 @@ final class DecorationPortablePackage
                     $created=DecoratePage::create($data);$id=(int)$created['id'];
                     $package=(int)($page['package_page_id']??($position+1));if(isset($byPackage[$package]))throw new RuntimeException('模板包页面关联重复');
                     $byPackage[$package]=$id;$byIdentity[self::identity($page)]=$id;
+                    $progress && $progress('已保存页面 '.($position+1).'/'.count($payload['pages']));
                 }
                 if(isset($payload['template']['published_pages'])){
                     if(!is_array($payload['template']['published_pages']))throw new RuntimeException('模板发布结构无效');
@@ -52,6 +57,7 @@ final class DecorationPortablePackage
                 return $template->toArray()+['asset_import'=>$assets->summary()];
             });
         }catch(\Throwable $error){
+            $progress && $progress('导入未完成，正在回滚本次新增素材和模板');
             try{$assets->rollback();}catch(\Throwable $cleanup){throw new RuntimeException($cleanup->getMessage(),0,$error);}
             throw $error instanceof RuntimeException?$error:new RuntimeException('模板导入失败，已回滚本次新素材与模板',0,$error);
         }
