@@ -79,6 +79,14 @@ if($action==='apply' || $action==='retry') {
     $result=Db::name('update_package')->where('id',$id)->find();$task=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->order('id','desc')->find();
     appCheck($task['status']===(empty($data['fail']) && empty($data['precheck_fail'])?'success':'failed'),'App task status inconsistent');
 } elseif($action==='bundled-local') {
+    // This case tests three sequential local registrations. Hold the separate
+    // maintenance-dispatch lease so an asynchronous legacy collector cannot
+    // race their writer acquisition; collector concurrency has its own tests.
+    $cleanupLease=null;
+    if(is_dir($site.'/.composer-runtime')) {
+        $cleanupLease=fopen($site.'/.composer-runtime/retention-dispatch.lock','c+');
+        appCheck($cleanupLease!==false && flock($cleanupLease,LOCK_EX),'Cannot isolate legacy maintenance dispatch');
+    }
     $codes=['aigc_music','smart_clip','aigc_short_drama'];
     if(!Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'smart_clip'])->find())Db::name('tenant_app')->insert(['tenant_id'=>901,'app_code'=>'smart_clip','version'=>'1.0.0','buy_status'=>'paid','enable_status'=>'disabled','shelf_status'=>'off','expire_time'=>2147483647,'create_time'=>123456,'update_time'=>123456]);
     $business=appBusiness($site);
@@ -98,6 +106,7 @@ if($action==='apply' || $action==='retry') {
     try{$method->invoke($service,['code'=>'aigc_music','version'=>'1.0.2'],'upload');throw new LogicException('Disk downgrade allowed');}catch(RuntimeException $e){appCheck(str_contains($e->getMessage(),'低于本站现有代码'),'Wrong downgrade rejection');}
     $afterBusiness=appBusiness($site);$changedKeys=[];foreach($business as $key=>$value)if(($afterBusiness[$key]??null)!==$value)$changedKeys[]=$key;appCheck(!$changedKeys,'Bundled install modified business/tenant entitlement state: '.implode(',',$changedKeys));
     appCheck(Db::name('app_migration')->whereIn('app_code',$codes)->where('error','like','baseline-adopted:%')->count()>0,'Bundled historical SQL not safely adopted');
+    if(is_resource($cleanupLease)){flock($cleanupLease,LOCK_UN);fclose($cleanupLease);}
     echo 'PASS bundled local install: missing registry, stale version, three real apps, disk downgrade rejection, code and business preservation'.PHP_EOL;
     $result=['passed'=>true];
 } elseif($action==='preflight-rejections') {
