@@ -133,6 +133,16 @@ class YxEnv
 
         $envLine = array_merge($defaultEnv, $this->data, $applyDbEnv);
 
+        // Private per-installation vault key. Re-running installation must never rotate an existing key.
+        require_once dirname(__DIR__, 2) . '/app/common/service/virtualpay/VirtualPayKeySetup.php';
+        try {
+            $envLine['VIRTUALPAY.CREDENTIAL_KEY'] = \app\common\service\virtualpay\VirtualPayKeySetup::installationKey(
+                $envFilePath, (string)(getenv('PHP_VIRTUALPAY_CREDENTIAL_KEY') ?: '')
+            );
+        } catch (\Throwable $error) {
+            return false;
+        }
+
         $content = '';
         $lastPrefix = '';
 
