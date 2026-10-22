@@ -24,7 +24,7 @@ class AppPackageUpdateService
         $builder=new BundledAppPackageService(root_path(),dirname(rtrim(base_path(),'/')));
         foreach(glob(base_path().'apps/*/manifest.json')?:[] as $file){
             $code=basename(dirname($file));
-            try{$manifest=$builder->manifest($code);AppRegistryService::validateRuntimeMigrations($code);$available=true;}
+            try{$manifest=$builder->manifest($code);AppRegistryService::assertRuntimeMigrationsReady($code);$available=true;}
             catch(Throwable $error){continue;}
             if(!$manifest)continue;
             $row=$byCode[$code]??['code'=>$code,'name'=>$manifest['name']??$code,'description'=>$manifest['description']??'','icon'=>$manifest['icon']??'','category'=>$manifest['category']??'','sort'=>$manifest['sort']??0,'client_tags'=>implode(',',(array)($manifest['frontends']??[])),'status'=>'not_installed','current_version'=>''];
@@ -38,7 +38,7 @@ class AppPackageUpdateService
     {
         AppRegistryService::assertValidCode($appCode);
         AppRegistryService::assertCoreCompatible(AppRegistryService::getManifest($appCode));
-        AppRegistryService::validateRuntimeMigrations($appCode);
+        AppRegistryService::assertRuntimeMigrationsReady($appCode);
         $current=(string)(App::where('code',$appCode)->value('current_version')?:'');
         $builder=new BundledAppPackageService(root_path(),dirname(rtrim(base_path(),'/')));
         $manifest=$builder->manifest($appCode);
