@@ -24,25 +24,25 @@
 ### Task 1: Policy and database administration
 **Files:** `app/common/service/power/MarketPricePolicy.php`, `MarketPriceRuleService.php`, `tests/market-markup/*`, install SQL and both upgrade directories.
 **Interfaces:** `MarketPricePolicy::resolve(base,legacy,rules,productId,skuId):array`; `MarketPriceRuleService::preview(owner,admin,params):array`, `apply(owner,admin,token):array`, `tenantPrice(owner,sku,configured):float`.
-- [ ] Write failing policy tests for 10 -> 12 -> 15, unit add, precedence, restore zero, bounds and below-cost manual.
-- [ ] Implement policy, rule persistence, revisioned preview/apply and migration parity; run policy tests and DB fixture tests.
-- [ ] Commit and merge local develop; run local migration before runtime acceptance.
+- [x] Write failing policy tests for 10 -> 12 -> 15, unit add, precedence, restore zero, bounds and below-cost manual.
+- [x] Implement policy, rule persistence, revisioned preview/apply and migration parity; run policy tests and DB fixture tests.
+- [x] Commit and merge local develop; run local migration before runtime acceptance.
 
 ### Task 2: Runtime and controller integration
 **Files:** PowerMarketSku, market controllers, market runtimes, AppSalePriceService, AiConsumptionLog, permission middleware.
 **Interfaces:** Controller `pricingRules`, `previewPricing`, `applyPricing`; read requires market access, mutations reuse savePrices authorization.
-- [ ] Test and integrate all model/application/catalog/native API prices; include rule snapshots and preserve existing settlement/refund idempotency.
-- [ ] Add explicit follow-market application configuration with no destructive legacy rewrite.
-- [ ] Commit and merge local develop, execute actual reservation/settlement/refund fixtures and external live smoke with configured local tenant.
+- [x] Test and integrate all model/application/catalog/native API prices; include rule snapshots and preserve existing settlement/refund idempotency.
+- [x] Add explicit follow-market application configuration with no destructive legacy rewrite.
+- [x] Commit and merge local develop, execute actual reservation/settlement/refund fixtures and external live smoke with configured local tenant.
 
 ### Task 3: Shared administration UI
 **Files:** shared market pricing component and workflow, platform/tenant market pages and APIs.
 **Interfaces:** configuration by global/product/SKU and selected products, server preview token required for apply, refresh after success.
-- [ ] Test configuration/restore preview state, stale/error retention and duplicate prevention.
-- [ ] Add global, selected, product and SKU entry points, clear units, source and restore confirmation.
-- [ ] Commit and merge local develop; build both frontends and accept via real browser and authenticated backend.
+- [x] Test configuration/restore preview state, stale/error retention and duplicate prevention.
+- [x] Add global, selected, product and SKU entry points, clear units, source and restore confirmation.
+- [x] Commit and merge local develop; build both frontends and accept via real browser and authenticated backend.
 
 ### Task 4: Acceptance and review
-- [ ] Run policy, DB, relevant existing regression suites, real upstream settlement and browser acceptance; retain evidence in runtime/market-markup.
-- [ ] Fresh reviewer checks whole changes, fix important findings and rerun focused checks.
-- [ ] Report only verified outcomes and exact uncompleted boundaries; publish only upon explicit request.
+- [x] Run policy, DB, relevant existing regression suites, real upstream settlement and browser acceptance; retain evidence in runtime/market-markup.
+- [x] Fresh reviewer checks whole changes, fix important findings and rerun focused checks.
+- [x] Report only verified outcomes and exact uncompleted boundaries; publish only upon explicit request.
