@@ -169,6 +169,10 @@ class AppPackageUpdateService
                     $direct->assertPackageRetryable($stage, UpdateSourceClient::currentCoreVersion());
                 } finally { $this->removeCanonicalStage($stage); }
             }
+            // Long-lived workers hold the site reader lease even for a metadata-only local install.
+            // Fail preflight before presenting an executable action; never discover this only at the writer lock.
+            ProjectUpdateProcessGate::assertDrained(root_path());
+            $preflight['environment']['app_worker_gate'] = 'ready';
             $result = [
                 'passed' => true,
                 'errors' => [],
