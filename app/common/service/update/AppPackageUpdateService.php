@@ -28,7 +28,7 @@ class AppPackageUpdateService
             catch(Throwable $error){continue;}
             if(!$manifest)continue;
             $row=$byCode[$code]??['code'=>$code,'name'=>$manifest['name']??$code,'description'=>$manifest['description']??'','icon'=>$manifest['icon']??'','category'=>$manifest['category']??'','sort'=>$manifest['sort']??0,'client_tags'=>implode(',',(array)($manifest['frontends']??[])),'status'=>'not_installed','current_version'=>''];
-            $row['disk_version']=$manifest['version'];$row['local_install_available']=$available;
+            $row['disk_version']=$manifest['version'];$row['effective_version']=BundledAppPackageService::versionFloor((string)$row['current_version'],(string)$manifest['version']);$row['local_install_available']=$available;
             $byCode[$code]=$row;
         }
         return array_values($byCode);
