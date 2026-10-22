@@ -40,6 +40,7 @@ class MarketGeoAppRuntimeService
                 if (!$tenantPrice->isEmpty() && (int)$tenantPrice['sale_status'] !== 1) {
                     continue;
                 }
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenantPrice)) continue;
                 $options[] = [
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'value' => self::selectionId((int)$product['id'], (int)$sku['id']),

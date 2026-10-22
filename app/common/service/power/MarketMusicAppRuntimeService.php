@@ -94,6 +94,7 @@ class MarketMusicAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
                 $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $duration = (int)($locked['duration'] ?? $locked['seconds'] ?? 0);
 
@@ -411,6 +412,7 @@ class MarketMusicAppRuntimeService
                 if (!empty($selection['market_product_id']) && (int)$selection['market_product_id'] !== (int)$product['id']) continue;
                 $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
                 return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
             }
         }
