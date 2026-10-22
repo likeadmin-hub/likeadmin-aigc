@@ -62,7 +62,7 @@ appCheck(root_path()===$site.'/' && str_starts_with((string)config('database.con
 request()->withServer(array_merge(request()->server(),['HTTP_HOST'=>'system.fixture','SERVER_NAME'=>'system.fixture']));
 function appBusiness(string $site):array {
     $result=[];foreach(['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_generation_task'] as $table)$result[$table]=Db::name($table)->order('id')->select()->toArray();
-    $result['paid_nondefault_app']=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->find();
+    $result['paid_nondefault_app']=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'smart_clip'])->find();
     $state=is_file('/fixture/state.json')?json_decode(file_get_contents('/fixture/state.json'),true,512,JSON_THROW_ON_ERROR):['customer_configuration'=>[]];
     foreach($state['customer_configuration'] as $table=>$rows)$result['customer_configuration'][$table]=Db::name($table)->whereIn('id',array_column($rows,'id'))->order('id')->select()->toArray();
     foreach(['.env','config/install.lock','upgrade/version.json','public/uploads/business.bin','runtime/task-lease.json','oem/brand.json'] as $path)$result[$path]=is_file($site.'/'.$path)?hash_file('sha256',$site.'/'.$path):null;return $result;
@@ -79,7 +79,9 @@ if($action==='apply' || $action==='retry') {
     $result=Db::name('update_package')->where('id',$id)->find();$task=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->order('id','desc')->find();
     appCheck($task['status']===(empty($data['fail']) && empty($data['precheck_fail'])?'success':'failed'),'App task status inconsistent');
 } elseif($action==='bundled-local') {
-    $codes=['aigc_music','smart_clip','aigc_short_drama'];$business=appBusiness($site);
+    $codes=['aigc_music','smart_clip','aigc_short_drama'];
+    if(!Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'smart_clip'])->find())Db::name('tenant_app')->insert(['tenant_id'=>901,'app_code'=>'smart_clip','version'=>'1.0.0','buy_status'=>'paid','enable_status'=>'disabled','shelf_status'=>'off','expire_time'=>2147483647,'create_time'=>123456,'update_time'=>123456]);
+    $business=appBusiness($site);
     Db::name('app')->whereIn('code',['aigc_music','smart_clip'])->delete();
     Db::name('app')->where('code','aigc_short_drama')->update(['current_version'=>'1.0.3']);
     $before=Db::name('app')->count();$catalog=$service->localCatalog(Db::name('app')->select()->toArray());
