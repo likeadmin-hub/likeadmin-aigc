@@ -50,5 +50,11 @@ try {
  Db::name('aigc_action_transfer_config')->insert(['tenant_id'=>77,'price_matrix'=>json_encode(['fast'=>99,'standard'=>0])]);
  $inventory=S::preview(77,22,['mode'=>'percent','value'=>20,'follow_apps'=>true]);
  ok(count($inventory['application_overrides'])===1&&$inventory['application_overrides'][0]['count']===2&&$inventory['application_overrides'][0]['free_count']===1,'preview lists legacy independent and free app prices without exposing configs');
+ $p0=S::preview(0,11,['mode'=>'percent','value'=>20]);S::apply(0,11,$p0['token']);
+ ok(S::tenantPrice(0,Db::name('power_market_sku')->where('id',$sku)->find())===13.2,'platform operator has no second tenant markup layer');
+ $qp=Db::name('power_market_product')->insertGetId(['name'=>'query fixture','product_code'=>'query_fixture','upstream_resource_key'=>'query_fixture','resource_type'=>'app_api','upstream_api_code'=>'query','status'=>1]);
+ $qs=Db::name('power_market_sku')->insertGetId(['product_id'=>$qp,'sku_key'=>'query','title'=>'查询','upstream_price'=>0,'sale_points'=>0,'sale_status'=>1,'status'=>1,'usage_unit'=>'per_call','usage_unit_size'=>1]);
+ $p0=S::preview(0,11,['mode'=>'add','value'=>2]);S::apply(0,11,$p0['token']);$p77=S::preview(77,22,['mode'=>'add','value'=>3,'replace_descendants'=>true]);S::apply(77,22,$p77['token']);
+ ok(S::tenantPrice(77,Db::name('power_market_sku')->where('id',$qs)->find())===0.0,'free lifecycle queries do not acquire per-poll surcharges');
  echo "PASS $n real SQL rule / preview / restore / isolation assertions\n";
 } finally {foreach(array_reverse($created) as $table)Db::execute("DROP TABLE IF EXISTS `$table`");}

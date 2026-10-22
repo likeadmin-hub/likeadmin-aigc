@@ -13,17 +13,27 @@ final class MarketPriceRuleService
         return MarketCatalogReadScope::remember('market_price_rules:'.$owner, static fn(): array => Db::name('power_market_price_rule')->where('owner_id', $owner)->order('id')->select()->toArray());
     }
 
+    private static function freeLifecycle(array $sku): bool
+    {
+        if ((float)($sku['upstream_price'] ?? 0) !== 0.0) return false;
+        $productId = (int)($sku['product_id'] ?? 0);
+        $product = MarketCatalogReadScope::remember('market_price_product:'.$productId, static fn(): array => Db::name('power_market_product')->where('id', $productId)->field('resource_type,upstream_api_code')->find() ?: []);
+        return ($product['resource_type'] ?? '') === 'app_api' && preg_match('/(?:^|[_-])(query|status|poll)(?:$|[_-])/i', (string)($product['upstream_api_code'] ?? '')) === 1;
+    }
+
     public static function platform(array $sku, ?array $rules = null): array
     {
+        $rules = self::freeLifecycle($sku) ? [] : ($rules ?? self::rules(0));
         return MarketPricePolicy::resolve($sku['upstream_price'] ?? 0, $sku['upstream_price'] ?? 0,
-            $rules ?? self::rules(0), (int)$sku['product_id'], (int)$sku['id']);
+            $rules, (int)$sku['product_id'], (int)$sku['id']);
     }
 
     public static function tenant(int $owner, array $sku, ?array $configured = null, ?array $rules = null, ?array $platformRules = null): array
     {
         $platform = self::platform($sku, $platformRules);
+        $rules = $owner <= 0 || self::freeLifecycle($sku) ? [] : ($rules ?? self::rules($owner));
         $tenant = MarketPricePolicy::resolve($platform['price'], $platform['price'],
-            $rules ?? self::rules($owner), (int)$sku['product_id'], (int)$sku['id']);
+            $rules, (int)$sku['product_id'], (int)$sku['id']);
         return ['platform' => $platform, 'tenant' => $tenant, 'valid' => $platform['valid'] && $tenant['valid']];
     }
 
