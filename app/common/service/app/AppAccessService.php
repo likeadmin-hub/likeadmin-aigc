@@ -87,11 +87,19 @@ class AppAccessService
         return null;
     }
 
-    public static function assertTenantCanUse(int $tenantId, string $appCode, int $userId = 0, bool $checkMembership = true, bool $initialize = true): ?Response
+    /** Tenant availability is distinct from a specific user's subscription. */
+    public static function assertTenantAvailable(int $tenantId, string $appCode, bool $initialize = true): ?Response
     {
         if (!self::tenantCanUse($tenantId, $appCode, $initialize)) {
             return JsonService::fail('应用未购买、未上架或已过期', [], 0, 1);
         }
+        return null;
+    }
+
+    public static function assertTenantCanUse(int $tenantId, string $appCode, int $userId = 0, bool $checkMembership = true, bool $initialize = true): ?Response
+    {
+        $unavailable = self::assertTenantAvailable($tenantId, $appCode, $initialize);
+        if ($unavailable) return $unavailable;
         if ($checkMembership && !MembershipService::userCanUseApp($tenantId, $userId, $appCode)) {
             if ($userId <= 0) {
                 return JsonService::fail('该应用需登录后使用', [
@@ -99,7 +107,7 @@ class AppAccessService
                     'app_code' => $appCode,
                 ], 0, 1);
             }
-            return JsonService::fail('该应用需开通会员后使用', [
+            return JsonService::fail('当前会员需订阅包含此应用的套餐后使用', [
                 'need_membership' => 1,
                 'app_code' => $appCode,
             ], 0, 1);
