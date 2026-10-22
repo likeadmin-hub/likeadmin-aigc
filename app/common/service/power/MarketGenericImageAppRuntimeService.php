@@ -40,6 +40,7 @@ class MarketGenericImageAppRuntimeService
             foreach (PowerMarketSku::where(['product_id' => (int)$product['id'], 'status' => 1, 'sale_status' => 1])->order('id', 'asc')->select()->toArray() as $sku) {
                 $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $options[] = [
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),

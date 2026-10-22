@@ -54,6 +54,7 @@ class MarketPicLipsyncAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
                 if (!static::acceptsSku(self::arrayValue($sku['locked_params'] ?? []))) continue;
                 $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $options[] = [

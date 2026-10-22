@@ -10,7 +10,7 @@ final class MarketPriceRuleService
 {
     public static function rules(int $owner): array
     {
-        return Db::name('power_market_price_rule')->where('owner_id', $owner)->order('id')->select()->toArray();
+        return MarketCatalogReadScope::remember('market_price_rules:'.$owner, static fn(): array => Db::name('power_market_price_rule')->where('owner_id', $owner)->order('id')->select()->toArray());
     }
 
     public static function platform(array $sku, ?array $rules = null): array
@@ -25,6 +25,13 @@ final class MarketPriceRuleService
         $tenant = MarketPricePolicy::resolve($platform['price'], $platform['price'],
             $rules ?? self::rules($owner), (int)$sku['product_id'], (int)$sku['id']);
         return ['platform' => $platform, 'tenant' => $tenant, 'valid' => $platform['valid'] && $tenant['valid']];
+    }
+
+    public static function available(int $owner, mixed $sku, mixed $configured = null): bool
+    {
+        if (!is_array($sku)) $sku = $sku->toArray();
+        if ($configured !== null && !is_array($configured)) $configured = $configured->isEmpty() ? null : $configured->toArray();
+        return self::tenant($owner, $sku, $configured)['valid'];
     }
 
     public static function tenantPrice(int $owner, mixed $sku, mixed $configured = null): float
@@ -64,6 +71,33 @@ final class MarketPriceRuleService
         }
         $snapshot['pricing_rules'] = ['platform' => $quote['platform'], 'tenant' => $quote['tenant']];
         return $snapshot;
+    }
+
+    /** Return only independent-price counts, never application config or provider secrets. */
+    private static function applicationOverrides(int $owner): array
+    {
+        $apps = ['action_transfer'=>'动作迁移', 'person_replacement'=>'人物替换', 'product_image'=>'商品图', 'background_removal'=>'背景移除', 'photo_restore'=>'照片修复', 'model_wear'=>'模特试衣', 'image_translate'=>'图片翻译', 'one_click_cleanup'=>'一键消除', 'local_redraw'=>'局部重绘', 'style_transfer'=>'风格转换', 'outpaint'=>'图片扩展', 'fitting'=>'AI试衣', 'fashion_lookbook'=>'穿搭写真', 'product_multi_angle'=>'商品多角度', 'product_suite'=>'商品套图'];
+        $tables = array_column(Db::query('SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()'), 'name');
+        $result = [];
+        foreach ($apps as $app => $label) {
+            $query = Db::name('aigc_'.$app.'_config');
+            if (!in_array($query->getTable(), $tables, true)) continue;
+            $row = $query->where('tenant_id', $owner)->find();
+            if (!$row) continue;
+            $count = 0; $free = 0;
+            $walk = static function ($value, bool $matrix = false) use (&$walk, &$count, &$free): void {
+                if (is_string($value)) $value = json_decode($value, true);
+                if (!is_array($value)) return;
+                foreach ($value as $key => $item) {
+                    if (($matrix || in_array($key, ['unit_price', 'tenant_unit_price', 'sale_points'], true)) && is_numeric($item) && (float)$item >= 0) {
+                        $count++; if ((float)$item === 0.0) $free++;
+                    } elseif (is_array($item) || is_string($item)) $walk($item, $key === 'price_matrix');
+                }
+            };
+            foreach (['price_matrix', 'price_config', 'config_json'] as $field) if (array_key_exists($field, $row)) $walk($row[$field], $field === 'price_matrix');
+            if ($count) $result[] = ['app_code' => 'aigc_'.$app, 'name' => $label, 'count' => $count, 'free_count' => $free];
+        }
+        return $result;
     }
 
     public static function settings(int $owner): array
@@ -164,7 +198,9 @@ final class MarketPriceRuleService
                 'usage_unit' => $sku['usage_unit'], 'usage_unit_size' => $sku['usage_unit_size'], 'base_price' => $after['base'],
                 'before' => $before['price'], 'after' => $after['price'], 'valid' => $after['valid'], 'rule' => $after['rule']];
         }
-        return ['fingerprint' => hash('sha256', json_encode([$rows, $platformRules, $ownRules, $tenantPrices])),
+        $newByKey = []; foreach ($newRules as $rule) $newByKey[$rule['scope_type'].':'.$rule['scope_id']] = $rule;
+        $overrides = 0; foreach ($ownRules as $rule) { $new = $newByKey[$rule['scope_type'].':'.$rule['scope_id']] ?? null; if ($rule['scope_type'] !== 'global' && (!$new || $new['mode'] !== $rule['mode'] || (string)$new['value'] !== (string)$rule['value'])) $overrides++; }
+        return ['replaced_overrides' => $overrides, 'fingerprint' => hash('sha256', json_encode([$rows, $platformRules, $ownRules, $tenantPrices])),
             'rows' => $preview, 'total' => count($rows), 'changed' => $changed, 'invalid' => $invalid,
             'next_rules' => $newRules, 'follow_apps' => $params['follow_apps']];
     }
@@ -177,6 +213,7 @@ final class MarketPriceRuleService
         Cache::set('market_price_preview:'.$token, ['owner' => $owner, 'admin' => $admin, 'params' => $params, 'fingerprint' => $view['fingerprint']], 300);
         unset($view['next_rules'], $view['fingerprint']);
         $view['rows'] = array_slice($view['rows'], 0, 200);
+        $view['application_overrides'] = $owner > 0 && $params['scope'] === 'global' && $params['follow_apps'] ? self::applicationOverrides($owner) : [];
         return $view + ['token' => $token, 'expires_in' => 300, 'action' => $params['action']];
     }
 

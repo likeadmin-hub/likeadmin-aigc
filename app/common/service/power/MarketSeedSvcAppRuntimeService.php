@@ -54,6 +54,7 @@ class MarketSeedSvcAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
                 $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $options[] = [
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),

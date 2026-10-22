@@ -10,6 +10,11 @@ final class MarketCatalogSkuReader
 {
     public static function forProducts(int $tenantId, array $productIds, array $order = []): array
     {
+        return MarketCatalogReadScope::run(static fn(): array => self::read($tenantId, $productIds, $order));
+    }
+
+    private static function read(int $tenantId, array $productIds, array $order): array
+    {
         if ($productIds === []) return [];
         $query = PowerMarketSku::whereIn('product_id', $productIds)->where(['status' => 1, 'sale_status' => 1]);
         if ($order !== []) $query->order($order);
