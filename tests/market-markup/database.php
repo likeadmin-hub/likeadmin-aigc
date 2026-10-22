@@ -7,7 +7,7 @@ $n=0;function ok($v,$m){global $n;if(!$v)throw new RuntimeException($m);$n++;}
 $c=config('database.connections.mysql');if($c['hostname']!=='127.0.0.1'||$c['database']!=='z_cn')throw new RuntimeException('Local fixture DB only');
 $prefix='markup_fixture_'.bin2hex(random_bytes(5)).'_';$created=[];
 try {
- foreach(['power_market_product','power_market_sku','tenant_power_market_sku_price'] as $name){Db::execute("CREATE TABLE `$prefix$name` LIKE `la_$name`");$created[]=$prefix.$name;}
+ foreach(['power_market_product','power_market_sku','tenant_power_market_sku_price','aigc_action_transfer_config'] as $name){Db::execute("CREATE TABLE `$prefix$name` LIKE `la_$name`");$created[]=$prefix.$name;}
  $sql=file_get_contents(dirname(__DIR__,2).'/upgrade/20261022_market_price_rules.sql');$ddl=substr($sql,0,strpos($sql,';')+1);Db::execute(str_replace('la_power_market_price_rule',$prefix.'power_market_price_rule',$ddl));$created[]=$prefix.'power_market_price_rule';
  $settings=config('database');$settings['connections']['markup_fixture']=$c;$settings['connections']['markup_fixture']['prefix']=$prefix;$settings['default']='markup_fixture';Config::set($settings,'database');
  $p=Db::name('power_market_product')->insertGetId(['name'=>'验收图片模型','product_code'=>'fixture','resource_type'=>'model','model_type'=>'image','status'=>1]);
@@ -47,5 +47,8 @@ try {
  $migration=str_replace('la_',$prefix,file_get_contents(dirname(__DIR__,2).'/upgrade/20261022_market_price_rules.sql'));
  foreach([1,2] as $repeat)foreach(explode(';',$migration) as $statement)if(trim($statement)!=='')Db::execute($statement);
  ok($beforeMigration===[S::rules(0),S::rules(77)],'repeated upgrade cannot resurrect restored legacy manual prices');
+ Db::name('aigc_action_transfer_config')->insert(['tenant_id'=>77,'price_matrix'=>json_encode(['fast'=>99,'standard'=>0])]);
+ $inventory=S::preview(77,22,['mode'=>'percent','value'=>20,'follow_apps'=>true]);
+ ok(count($inventory['application_overrides'])===1&&$inventory['application_overrides'][0]['count']===2&&$inventory['application_overrides'][0]['free_count']===1,'preview lists legacy independent and free app prices without exposing configs');
  echo "PASS $n real SQL rule / preview / restore / isolation assertions\n";
 } finally {foreach(array_reverse($created) as $table)Db::execute("DROP TABLE IF EXISTS `$table`");}
