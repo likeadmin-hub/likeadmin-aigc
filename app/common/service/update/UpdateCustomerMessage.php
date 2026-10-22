@@ -47,6 +47,7 @@ class UpdateCustomerMessage
         ];
         if (isset($protocolMessages[$errorCode])) return $protocolMessages[$errorCode];
         $rules = [
+            '/本项目.*(?:启动脚本|任务|cron).*仍运行/' => '请等待当前任务结束，在宝塔暂停本站任务守护后重新预检，安装完成后恢复守护。',
             '/历史迁移字节已改变/' => '此应用包与当前系统不兼容，请使用本地安装或同步本地版本，或联系平台获取适配当前系统的应用包。',
             '/当前 PHP 缺少运行时扩展|Composer 依赖缺少 PHP 扩展/' => '服务器缺少更新所需的运行组件，请联系服务器管理员安装所需组件后重试。',
             '/PHP CLI|proc_open/' => '服务器无法启动更新检查程序，请联系服务器管理员检查运行环境和程序执行权限后重试。',
