@@ -543,10 +543,10 @@ class AigcStyleTransferService
 
     private static function assertAvailable(int $tenantId): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::APP_CODE) !== null) {
             throw new Exception('图片风格化应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::IMAGE_APP_CODE) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
         $config = self::config($tenantId);
@@ -621,7 +621,7 @@ class AigcStyleTransferService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0));
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0), (bool)($imageEstimate['follow_market_prices'] ?? false));
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],

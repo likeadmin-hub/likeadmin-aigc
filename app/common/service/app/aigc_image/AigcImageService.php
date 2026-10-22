@@ -77,6 +77,7 @@ class AigcImageService
                 'variant' => (string)($spec['variant'] ?? $params['variant'] ?? ''),
                 'market_sku_id' => (int)($spec['market_sku_id'] ?? $params['market_sku_id'] ?? 0),
             ]), (int)($estimate['quantity'] ?? 1));
+            $estimate['follow_market_prices'] = (bool)($quote['follow_market_prices'] ?? false);
             $estimate['platform_unit_cost'] = $quote['tenant_unit_points'];
             $estimate['tenant_unit_price'] = $quote['user_unit_points'];
             $estimate['tenant_cost_points'] = $quote['tenant_cost_points'];
@@ -112,6 +113,7 @@ class AigcImageService
             'market_sku_id' => (int)$quote['market_sku_id'],
             'settlement_mode' => (string)$quote['settlement_mode'],
             'price_source' => (string)$quote['price_source'],
+            'follow_market_prices' => (bool)($quote['follow_market_prices'] ?? false),
         ];
     }
 

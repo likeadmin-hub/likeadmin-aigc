@@ -10,6 +10,11 @@ final class MarketCatalogSkuReader
 {
     public static function forProducts(int $tenantId, array $productIds, array $order = []): array
     {
+        return MarketCatalogReadScope::run(static fn(): array => self::read($tenantId, $productIds, $order));
+    }
+
+    private static function read(int $tenantId, array $productIds, array $order): array
+    {
         if ($productIds === []) return [];
         $query = PowerMarketSku::whereIn('product_id', $productIds)->where(['status' => 1, 'sale_status' => 1]);
         if ($order !== []) $query->order($order);
@@ -27,7 +32,9 @@ final class MarketCatalogSkuReader
             $groups[$id]['platform_count'] = ($groups[$id]['platform_count'] ?? 0) + 1;
             $price = $prices[(int)$sku['id']] ?? null;
             if ($price !== null && (int)$price['sale_status'] !== 1) continue;
-            $groups[$id]['available'][] = ['sku' => $sku, 'tenant_price' => $price === null ? (float)$sku['sale_points'] : (float)$price['sale_points']];
+            $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $price);
+            if (!$resolved['valid']) continue;
+            $groups[$id]['available'][] = ['sku' => $sku, 'tenant_price' => (float)$resolved['tenant']['price']];
         }
         return $groups;
     }

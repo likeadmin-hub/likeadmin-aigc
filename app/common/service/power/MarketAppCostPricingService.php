@@ -80,8 +80,14 @@ class MarketAppCostPricingService
         $unitSize = max(1, (float)($sku['usage_unit_size'] ?? 1));
         $quantity = self::quantity($sku, $selection);
         $platformUnitCost = self::points((float)($sku['sale_points'] ?? 0));
+        $tenantId = (int)($selection['tenant_id'] ?? 0);
+        $followMarket = $tenantId > 0 && MarketPriceRuleService::followsApps($tenantId);
+        $retail = $followMarket ? MarketPriceRuleService::tenantPrice($tenantId, $sku, null) : $platformUnitCost;
 
         return [
+            'follow_market_prices' => $followMarket,
+            'tenant_unit_price' => $retail,
+            'user_charge_points' => self::points($retail * $quantity / $unitSize),
             'price_source' => 'power_market_sku',
             'market_product_id' => (int)($product['id'] ?? 0),
             'market_sku_id' => (int)($sku['id'] ?? 0),
@@ -100,6 +106,8 @@ class MarketAppCostPricingService
                 'usage_unit' => (string)($sku['usage_unit'] ?? 'per_call'),
                 'usage_unit_size' => $unitSize,
                 'platform_price' => $platformUnitCost,
+                'tenant_price' => $retail,
+                'follow_market_prices' => $followMarket,
                 'quantity' => $quantity,
             ],
         ];

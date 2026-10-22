@@ -477,10 +477,10 @@ class AigcProductSuiteService
 
     private static function assertAvailable(int $tenantId): void
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::APP_CODE) !== null) {
             throw new Exception('AI商品套图应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::IMAGE_APP_CODE) !== null) {
             throw new Exception('AIGC生图应用未开通或未上架');
         }
         $config = self::config($tenantId);
@@ -556,7 +556,7 @@ class AigcProductSuiteService
     {
         $quantity = max(1, count($prepared['modules']));
         $platformUnitCost = round((float)($singleEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0));
+        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0), (bool)($singleEstimate['follow_market_prices'] ?? false));
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
             'module_count' => $quantity,
@@ -1133,7 +1133,7 @@ class AigcProductSuiteService
 
     private static function generatePromptText(int $tenantId, int $userId, string $content): array
     {
-        if (AppAccessService::assertTenantCanUse($tenantId, self::LLM_APP_CODE) !== null) {
+        if (AppAccessService::assertTenantAvailable($tenantId, self::LLM_APP_CODE) !== null) {
             throw new Exception('AIGC对话应用未开通，暂无法使用AI优化');
         }
         $result = AigcLlmService::generateText($tenantId, $userId, [

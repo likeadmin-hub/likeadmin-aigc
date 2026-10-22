@@ -97,14 +97,15 @@ try {
             $result=['passed'=>true,'committed'=>(bool)$committed,'completion'=>$completion];
         }
         echo json_encode($result,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
-    } elseif(in_array($mode,['--app-runtime-prepare','--app-runtime-complete','--app-runtime-recover'],true)) {
+    } elseif(in_array($mode,['--app-runtime-check','--app-runtime-prepare','--app-runtime-complete','--app-runtime-recover'],true)) {
         $GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']=$argv[2]??'';
         $binding=json_decode($argv[4]??'{}',true,512,JSON_THROW_ON_ERROR);
         foreach($binding['context']??[] as $name=>$value)$_SERVER[$name]=$value;
         require (is_file(($argv[2]??'').'/runtime-loader.php') ? $argv[2].'/runtime-loader.php' : $siteRoot.'/runtime-loader.php');
         $app=new AigcRuntimeApp($siteRoot);$app->initialize();
         $service=new \app\common\service\update\AppPackageUpdateService();
-        if($mode==='--app-runtime-prepare')$result=['passed'=>true,'prepared'=>$service->prepareRuntimeAppPackage($argv[3],$binding)];
+        if($mode==='--app-runtime-check')$result=['passed'=>true,'checked'=>$service->checkRuntimeAppPackage($argv[3],$binding)];
+        elseif($mode==='--app-runtime-prepare')$result=['passed'=>true,'prepared'=>$service->prepareRuntimeAppPackage($argv[3],$binding)];
         elseif($mode==='--app-runtime-complete')$result=['passed'=>true,'completion'=>$service->completeRuntimeAppPackage($argv[3],$binding)];
         else {
             $package=\app\common\model\update\UpdatePackage::find((int)$binding['package_id']);

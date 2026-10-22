@@ -56,11 +56,15 @@ class AuthMiddleware
 
         // 当前访问路径
         $accessUri = strtolower($request->controller() . '/' . $request->action());
+        $marketPricingAction = in_array($accessUri, ['power.market/pricingrules', 'power.market/previewpricing', 'power.market/applypricing'], true);
+        if ($marketPricingAction) $accessUri = 'power.market/saveprices';
+        // Vault generation changes the same tenant payment configuration and uses its save permission.
+        if ($accessUri === 'finance.virtualpay/generatevault') $accessUri = 'finance.virtualpay/save';
         // 全部路由
         $allUri = $this->formatUrl($adminAuthCache->getAllUri());
 
         // 判断该当前访问的uri是否存在，不存在无需验证
-        if (!in_array($accessUri, $allUri)) {
+        if (!$marketPricingAction && !in_array($accessUri, $allUri)) {
             return $next($request);
         }
 

@@ -33,3 +33,6 @@
 - Final: Ruling: inherited typecheck/premium audit findings are documented, not repaired in unrelated modules — focused regressions and builds pass — cost if wrong: hidden unrelated type regressions require separate baseline cleanup.
 
 - Final: Ruling: production credentials/cron/migrations are not executed — user explicitly prohibits publication — cost if wrong: deployment remains an operator task before online readiness.
+
+
+2026-10-22 superseding decision (explicit owner correction): provision payment vault keys per tenant from the tenant UI, with first-save automatic generation. Use encrypted tenant configuration under the existing channel credential protection mechanism; never ask tenants to edit deployment files. The installation-wide virtualpay.credential_key is read only for old ciphertext compatibility. Existing tenant keys are immutable/idempotent, concurrent initialization is serialized, and historical config versions/sessions remain readable without rewriting history. No change to the WeChat credential root or payment/signing/accounting semantics.

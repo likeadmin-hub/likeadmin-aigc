@@ -54,7 +54,8 @@ class MarketSeedSvcAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
-                $tenantPrice = $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'];
+                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
+                $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $options[] = [
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'value' => self::selectionId((int)$product['id'], (int)$sku['id']),
@@ -478,7 +479,7 @@ class MarketSeedSvcAppRuntimeService
         return [
             'product' => $product->toArray(),
             'sku' => $sku->toArray(),
-            'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'],
+            'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant),
         ];
     }
 
