@@ -60,7 +60,13 @@ final class VirtualPayConfigService
         VirtualPayPolicy::environment($env);$i=self::identity($tenant);$c=Db::name('virtual_pay_config')->where(['tenant_id'=>$tenant,'app_id'=>$i['app_id'],'env'=>$env])->find();
         $v=$c&&!empty($c['version_id'])?self::version($tenant,(int)$c['version_id']):[];
         $push=['token'=>'','aes_key'=>''];$vaultReady=true;
-        if ($v && !$i['authorizer_id']) { try { foreach (array_keys($push) as $k) $push[$k]=self::secret($v,$k); } catch (\RuntimeException $e) { $vaultReady=false; } }
+        try {
+            self::requireVault();
+            if ($v) {
+                self::secret($v, 'app_key');
+                if (!$i['authorizer_id']) foreach (array_keys($push) as $k) $push[$k]=self::secret($v,$k);
+            }
+        } catch (\RuntimeException $e) { $vaultReady=false; $push=['token'=>'','aes_key'=>'']; }
         $notify=request()->domain().'/wechat/virtual-pay/'.$tenant.'/'.rawurlencode($i['app_id']).'/callback';
         if ($i['authorizer_id']) $notify=str_replace('$APPID$', $i['app_id'], (string)(\app\common\service\wechat\OpenPlatformService::config()['message_callback_url_display']??''));
         return ['vault_ready'=>$vaultReady,'app_id'=>$i['app_id'],'mode'=>$i['authorizer_id']?'authorized':'manual','env'=>$env,'enabled'=>(int)($c['enabled']??0),'enabled_platforms'=>self::enabledPlatforms($c?:[]),'offer_id'=>(string)($v['offer_id']??''),'key_configured'=>!empty($v['app_key']),
