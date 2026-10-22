@@ -336,13 +336,18 @@ class AigcPersonReplacementService
     {
         $unitPrice = (float)($prepared['config']['price_matrix'][$prepared['mode']] ?? self::MODES[$prepared['mode']]['price'] ?? 1);
         $duration = max(0.01, (float)$prepared['duration']);
-        $userPoints = round($unitPrice * $duration, 2);
+        $followMarket = !empty($marketQuote['follow_market_prices']);
+        if ($followMarket) $unitPrice = (float)$marketQuote['tenant_unit_price'];
+        $userPoints = $followMarket ? (float)$marketQuote['user_charge_points'] : round($unitPrice * $duration, 2);
         return [
             'mode' => $prepared['mode'],
             'mode_label' => $prepared['mode_label'],
             'face_count' => $prepared['face_count'],
             'duration' => $duration,
-            'unit_price' => round($unitPrice, 2),
+            'unit_price' => round($unitPrice, $followMarket ? 6 : 2),
+            'billing_unit' => $marketQuote['billing_unit'] ?? 'second',
+            'billing_unit_size' => $marketQuote['billing_unit_size'] ?? 1,
+            'follow_market_prices' => $followMarket,
             'platform_unit_cost' => (float)$marketQuote['platform_unit_cost'],
             'tenant_cost_points' => (float)$marketQuote['tenant_cost_points'],
             'user_charge_points' => $userPoints,

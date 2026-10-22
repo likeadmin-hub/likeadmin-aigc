@@ -15,14 +15,14 @@ final class MarketPriceRuleService
 
     public static function platform(array $sku, ?array $rules = null): array
     {
-        return MarketPricePolicy::resolve($sku['upstream_price'] ?? 0, $sku['configured_sale_points'] ?? $sku['sale_points'] ?? 0,
+        return MarketPricePolicy::resolve($sku['upstream_price'] ?? 0, $sku['upstream_price'] ?? 0,
             $rules ?? self::rules(0), (int)$sku['product_id'], (int)$sku['id']);
     }
 
     public static function tenant(int $owner, array $sku, ?array $configured = null, ?array $rules = null, ?array $platformRules = null): array
     {
         $platform = self::platform($sku, $platformRules);
-        $tenant = MarketPricePolicy::resolve($platform['price'], $configured['sale_points'] ?? $platform['price'],
+        $tenant = MarketPricePolicy::resolve($platform['price'], $platform['price'],
             $rules ?? self::rules($owner), (int)$sku['product_id'], (int)$sku['id']);
         return ['platform' => $platform, 'tenant' => $tenant, 'valid' => $platform['valid'] && $tenant['valid']];
     }
@@ -43,10 +43,9 @@ final class MarketPriceRuleService
     }
 
     /** Capture provenance once, before a new consumption can cross the supplier boundary. */
-    public static function captureSnapshot(int $owner, array $snapshot): array
+    public static function captureSnapshot(int $owner, array $snapshot, array $context = []): array
     {
-        if (isset($snapshot['pricing_rules'])) return $snapshot;
-        foreach ($snapshot as $key => $value) if (is_array($value) && !in_array($key, ['pricing_rules', 'contract', 'market_metadata', 'pricing_attributes'], true)) $snapshot[$key] = self::captureSnapshot($owner, $value);
+        foreach ($snapshot as $key => $value) if (is_array($value) && !in_array($key, ['pricing_rules', 'contract', 'market_metadata', 'pricing_attributes'], true)) $snapshot[$key] = self::captureSnapshot($owner, $value, $context);
         $id = (int)($snapshot['sku_id'] ?? $snapshot['market_sku_id'] ?? 0);
         if ($id <= 0) return $snapshot;
         $sku = Db::name('power_market_sku')->where('id', $id)->find();
@@ -56,8 +55,12 @@ final class MarketPriceRuleService
         if (!$quote['valid']) throw new RuntimeException('当前手动售价低于进货价，请先调整价格或恢复价格');
         foreach (['platform_price' => 'platform', 'tenant_price' => 'tenant'] as $field => $level) {
             if (!array_key_exists($field, $snapshot)) continue;
-            if ($level === 'tenant' && !empty($snapshot['_tenant_admin_image_quantity'])) continue;
-            if (MarketPricePolicy::amount($snapshot[$field]) !== $quote[$level]['price']) throw new RuntimeException('价格已更新，请刷新报价后重新提交');
+            if ($level === 'tenant' && array_key_exists('user_id', $context) && $context['user_id'] === 0) continue;
+            $actual = $level === 'tenant' ? ($snapshot['market_tenant_price'] ?? $snapshot[$field]) : $snapshot[$field];
+            if (MarketPricePolicy::amount($actual) !== $quote[$level]['price']) throw new RuntimeException('价格已更新，请刷新报价后重新提交');
+        }
+        foreach (['tenant' => 'platform', 'user' => 'tenant'] as $field => $level) {
+            if (isset($snapshot['prices'][$field]) && MarketPricePolicy::amount($snapshot['prices'][$field]) !== $quote[$level]['price']) throw new RuntimeException('价格已更新，请刷新报价后重新提交');
         }
         $snapshot['pricing_rules'] = ['platform' => $quote['platform'], 'tenant' => $quote['tenant']];
         return $snapshot;
@@ -130,7 +133,10 @@ final class MarketPriceRuleService
     private static function changedRules(array $old, array $params, array $rows): array
     {
         $productIds = array_unique(array_column($rows, 'product_id'));
-        $skuIds = array_column($rows, 'id');
+        $skuIds = $params['scope'] === 'product'
+            ? Db::name('power_market_sku')->whereIn('product_id', $params['ids'])->column('id')
+            : array_column($rows, 'id');
+        $skuIds = array_map('intval', $skuIds);
         $rules = array_values(array_filter($old, static function ($rule) use ($params, $productIds, $skuIds) {
             if ($rule['scope_type'] === $params['scope'] && in_array((int)$rule['scope_id'], $params['ids'], true)) return false;
             if (!$params['replace_descendants']) return true;

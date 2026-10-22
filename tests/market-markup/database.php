@@ -30,5 +30,12 @@ try {
  $restore=S::preview(77,22,['action'=>'restore','scope'=>'product','ids'=>[$p]]);S::apply(77,22,$restore['token']);ok(S::tenantPrice(77,$newRow)===11.0,'product restore clears descendant rules');
  Db::transaction(fn()=>S::manual(77,$p,$sku,20));ok(S::tenantPrice(77,$newRow)===20.0,'manual SKU priority');
  $base=S::preview(77,22,['action'=>'restore']);S::apply(77,22,$base['token']);ok(S::tenantPrice(77,$newRow)===11.0,'global restore clears manual SKU');
+ Db::transaction(fn()=>S::manual(77,$p,$sku2,30));Db::name('power_market_sku')->where('id',$sku2)->update(['status'=>0]);
+ $hidden=S::preview(77,22,['action'=>'restore','scope'=>'product','ids'=>[$p]]);S::apply(77,22,$hidden['token']);Db::name('power_market_sku')->where('id',$sku2)->update(['status'=>1]);
+ ok(S::tenantPrice(77,Db::name('power_market_sku')->where('id',$sku2)->find())===5.0,'restore also clears hidden descendants');
+ Db::name('power_market_sku')->where('id',$sku2)->update(['upstream_price'=>6]);ok(S::tenantPrice(78,Db::name('power_market_sku')->where('id',$sku2)->find())===6.0,'unconfigured default follows upstream increase');
+ Db::transaction(fn()=>S::manual(77,$p,$sku2,4));
+ $catalog=app\common\service\power\MarketCatalogSkuReader::forProducts(77,[$p]);
+ ok(count($catalog[$p]['available'])===1,'one invalid SKU does not hide healthy catalogue entries');
  echo "PASS $n real SQL rule / preview / restore / isolation assertions\n";
 } finally {foreach(array_reverse($created) as $table)Db::execute("DROP TABLE IF EXISTS `$table`");}

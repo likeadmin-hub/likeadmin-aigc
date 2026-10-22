@@ -14,6 +14,8 @@ class PointService
 
     public static function assertCanConsumeAmounts(int $tenantId, int $userId, float $tenantPoints, float $userPoints): void
     {
+        $tenantPoints = round(max(0, $tenantPoints), 2);
+        $userPoints = round(max(0, $userPoints), 2);
         if ($tenantPoints > 0) {
             TenantPointService::assertEnough($tenantId, $tenantPoints);
         }
@@ -55,6 +57,11 @@ class PointService
         string $remark = '',
         array $extra = []
     ): void {
+        $reservedTenantPoints = round(max(0, $reservedTenantPoints), 2);
+        $reservedUserPoints = round(max(0, $reservedUserPoints), 2);
+        $actualTenantPoints = round(max(0, $actualTenantPoints), 2);
+        $actualUserPoints = round(max(0, $actualUserPoints), 2);
+
         $reservedTenantPoints = max(0, $reservedTenantPoints);
         $reservedUserPoints = max(0, $reservedUserPoints);
         $actualTenantPoints = max(0, $actualTenantPoints);
@@ -135,6 +142,8 @@ class PointService
         string $remark = '',
         array $extra = []
     ): void {
+        $tenantPoints = round(max(0, $tenantPoints), 2);
+        $userPoints = round(max(0, $userPoints), 2);
         if ($tenantPoints > 0) {
             TenantPointService::consume($tenantId, $tenantPoints, $sourceSn, $remark, array_merge($extra, [
                 'billing_side' => 'tenant_cost',
@@ -159,6 +168,8 @@ class PointService
         string $remark = '',
         array $extra = []
     ): void {
+        $tenantPoints = round(max(0, $tenantPoints), 2);
+        $userPoints = round(max(0, $userPoints), 2);
         if ($tenantPoints > 0) {
             TenantPointService::refund($tenantId, $tenantPoints, $sourceSn, $remark, array_merge($extra, [
                 'billing_side' => 'tenant_cost',
