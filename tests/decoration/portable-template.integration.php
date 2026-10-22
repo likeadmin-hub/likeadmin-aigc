@@ -2,7 +2,7 @@
 // Local z_cn only. Every fixture is inside one outer transaction; physical copies are removed in finally.
 $root=getenv('AIGC_SERVER_ROOT')?:dirname(__DIR__,2);
 require $root.'/runtime-loader.php';(new AigcRuntimeApp($root))->initialize();
-use app\common\service\decorate\{DecorateTemplateService as Templates,DecorationPortableAssets as Assets,DecorationPortableDocument as Document,DecorationPortablePackage as Package};
+use app\common\service\decorate\{DecorateTemplateService as Templates,DecorationPortableAssets as Assets,DecorationPortableDocument as Document,DecorationPortablePackage as Package,DecorationTransferProgress as Progress};
 use app\common\service\storage\{StorageConfigService,Driver};
 use app\common\enum\AdminTerminalEnum;
 use think\facade\Db;
@@ -12,15 +12,23 @@ $checks=0;function check($ok,$message){global $checks;if(!$ok)throw new RuntimeE
 function packageBytes(array $payload,array $embedded=[]):string{$tmp=tempnam(sys_get_temp_dir(),'portable_fixture_');$z=new ZipArchive();$z->open($tmp,ZipArchive::OVERWRITE);$z->addFromString('manifest.json',json_encode(['package_type'=>'likeadmin.decorate.template','schema_version'=>'1.0']));$z->addFromString('template.json',json_encode($payload));foreach($embedded as $entry=>$body)$z->addFromString($entry,$body);$z->close();try{return base64_encode(file_get_contents($tmp));}finally{unlink($tmp);}}
 function sourceSnapshot():string{return hash('sha256',json_encode([Db::name('decorate_template')->where(['tenant_id'=>1,'id'=>46])->find(),Db::name('decorate_page')->where(['tenant_id'=>1,'template_id'=>46])->order('id')->select()->toArray()]));}
 $before=sourceSnapshot();check(Db::name('decorate_template')->where(['tenant_id'=>1,'id'=>46])->count()===1,'source template46 required');
-$tenant=214700146;$created=[];$driverConfig=null;
+$tenant=214700146;$created=[];$driverConfig=null;$operation=bin2hex(random_bytes(16));
 check(Db::name('tenant')->where('id',$tenant)->count()===0,'fixture tenant id already exists');
 Db::startTrans();
 try{
-    $export=Templates::exportPackage(1,46);$package=Package::read($export['content']);$original=$package['payload'];
+    $exportSteps=[];
+    $export=Templates::exportPackage(1,46,function($message)use(&$exportSteps){$exportSteps[]=$message;});
+    check(count($exportSteps)>2&&str_contains(end($exportSteps),'ZIP'),'real export reports preparation and packaging');$package=Package::read($export['content']);$original=$package['payload'];
     $assets=[];Document::rewrite($original,function($url,$location)use(&$assets){check((bool)preg_match('~^https?://~',$url),'all exported media absolute');$assets[$url]=true;return $url;});check(count($assets)===$export['asset_count'],'manifest resource count matches media leaves');
     Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'portable-rollback-'.$tenant,'name'=>'portable rollback fixture','tactics'=>0,'create_time'=>time(),'allow_custom_storage'=>0,'allow_local_storage'=>1]);
     $request->tenantId=$tenant;$driverConfig=StorageConfigService::getEffectiveConfig($tenant);check($driverConfig['default']==='local','fixture requires local target storage; never send test media to cloud');
-    $copy=Templates::importPackage($tenant,$export['content'],$export['filename']);$id=(int)$copy['id'];check((int)$copy['is_active']===0&&$copy['publish_status']==='draft','import inactive draft');
+    $importSteps=[];$transfer=Progress::begin($tenant,$tenant,$operation,'import');
+    $copy=Templates::importPackage($tenant,$export['content'],$export['filename'],function($message)use(&$importSteps,$transfer){$importSteps[]=$message;$transfer->step($message);});
+    check(Progress::read($tenant,$tenant,$operation)['status']==='running','progress never claims success during database writes');
+    $transfer->succeed($copy);$snapshot=Progress::read($tenant,$tenant,$operation);
+    check($snapshot['status']==='success'&&$snapshot['result']['asset_import']['files']===$copy['asset_import']['files'],'real cache supports committed import reconciliation');
+    check(Progress::read($tenant+1,$tenant,$operation)['status']==='pending','real cache tenant isolation');
+    check(str_contains($importSteps[0],'解压')&&str_contains(implode('|',$importSteps),'已处理')&&str_contains(end($importSteps),'已保存页面'),'real import reports validation, stored assets and page writes');$id=(int)$copy['id'];check((int)$copy['is_active']===0&&$copy['publish_status']==='draft','import inactive draft');
     $created=Db::name('tenant_file')->where('tenant_id',$tenant)->select()->toArray();check(count($created)===$copy['asset_import']['files']&&count($created)>0,'each copied asset has tenant file metadata');
     foreach($created as $file){check(str_starts_with($file['uri'],'uploads/decoration/'.$tenant.'/'),'target namespace isolation');check(is_file(public_path().$file['uri']),'physical copied file exists');check((int)$file['source']===0,'sourceAdmin ownership');}
     $pages=Db::name('decorate_page')->where(['tenant_id'=>$tenant,'template_id'=>$id])->order(['terminal'=>'asc','is_home'=>'desc','sort'=>'asc','id'=>'asc'])->select()->toArray();check(count($pages)===count($original['pages']),'all original terminals/pages retained');
@@ -39,7 +47,9 @@ try{
     // Invalid remote input after local copies must compensate both DB and physical objects.
     $count=Db::name('tenant_file')->where('tenant_id',$tenant)->count();$templates=Db::name('decorate_template')->where('tenant_id',$tenant)->count();$dirs=glob(public_path().'uploads/decoration/'.$tenant.'/*')?:[];
     $bad=$original;$bad['pages'][0]['data']=json_encode([['name'=>'image-hotspot','content'=>['image'=>'http://127.0.0.1/deny.png','areas'=>[]],'styles'=>[]]]);
-    try{Templates::importPackage($tenant,packageBytes($bad));throw new LogicException('SSRF import accepted');}catch(RuntimeException $error){check(str_contains($error->getMessage(),'素材导入失败'),'safe explicit asset failure');}
+    $rollbackSteps=[];
+    try{Templates::importPackage($tenant,packageBytes($bad),'',function($message)use(&$rollbackSteps){$rollbackSteps[]=$message;});throw new LogicException('SSRF import accepted');}catch(RuntimeException $error){check(str_contains($error->getMessage(),'素材导入失败'),'safe explicit asset failure');}
+    check(str_contains(end($rollbackSteps),'回滚'),'real rollback reported before failed import returns');
     check(Db::name('tenant_file')->where('tenant_id',$tenant)->count()===$count&&Db::name('decorate_template')->where('tenant_id',$tenant)->count()===$templates,'failed import creates no rows');check((glob(public_path().'uploads/decoration/'.$tenant.'/*')?:[])===$dirs,'failed import leaves no local object directory');
     // Embedded private bytes are preferred even when the source URL is expired/unresolvable.
     $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jC1sAAAAASUVORK5CYII=');$hash=hash('sha256',$png);$entry='assets/'.$hash.'.png';$url='https://expired.private.invalid/a.png?e=1';$tiny=['template'=>['name'=>'embedded private fixture','settings'=>[]],'pages'=>[['terminal'=>'mobile','channel'=>'common','page_code'=>'fixture','data'=>json_encode([['name'=>'image-hotspot','content'=>['image'=>$url,'areas'=>[]],'styles'=>[]]]),'meta'=>'[]']]];
@@ -71,6 +81,7 @@ try{
     try{Assets::refreshValue($values,1);throw new LogicException('foreign tenant signed');}catch(RuntimeException $error){check(true,'cross tenant private read denied');}
     Db::name('tenant_file')->where('id',$file['id'])->update(['delete_time'=>time()]);try{Assets::refreshValue($values,$tenant);throw new LogicException('deleted file signed');}catch(RuntimeException $error){check(true,'deleted file denied');}
 }finally{
+    \think\facade\Cache::delete('decoration_transfer:'.$tenant.':'.$tenant.':'.$operation);
     $request->tenantId=$tenant;
     $all=Db::name('tenant_file')->where('tenant_id',$tenant)->select()->toArray();
     Db::rollback();
