@@ -125,7 +125,12 @@ final class DecorationPortableAssets
             if((int)$match[1]!==$tenant||$tenant<=0)throw new RuntimeException('装修导入素材不属于当前租户');
             if(isset($cache[$uri]))return $cache[$uri].self::fragment($value);
             $file=TenantFile::where(['tenant_id'=>$tenant,'source'=>FileEnum::SOURCE_ADMIN,'uri'=>$uri])->findOrEmpty();
-            if($file->isEmpty())throw new RuntimeException('装修导入素材已失效或无权读取');
+            if($file->isEmpty()){
+                // Missing media must not block lists, editor or published-page reads.
+                // Writes still require a live owned file; never sign a deleted object.
+                if($stable)throw new RuntimeException('装修导入素材已失效或无权读取');
+                return '';
+            }
             if($stable)return '/'.$uri.self::fragment($value);
             $request=request();$previous=$request->tenantId??null;$request->tenantId=$tenant;
             try{$cache[$uri]=FileService::getFileUrlByStorage($uri,$file['storage_scope'],$file['storage_engine'],$file['storage_domain']);return $cache[$uri].self::fragment($value);}
