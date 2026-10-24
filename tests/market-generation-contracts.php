@@ -38,3 +38,6 @@ require getenv('GENERATION_REQUEST_SOURCE') ?: dirname(__DIR__) . '/app/common/s
 use app\common\service\power\MarketGenerationRequest as R;
 check(R::parameterSignature(['provider_params'=>['seed'=>0,'audio'=>false]]),R::parameterSignature(['provider_params'=>['audio'=>false,'seed'=>0]]),'parameter signature ignores object key order');
 if(R::parameterSignature(['provider_params'=>['seed'=>1]])===R::parameterSignature(['provider_params'=>['seed'=>2]]))throw new RuntimeException('Changed seed reused old task signature');echo "PASS changing generation parameters creates a distinct task signature\n";
+
+$conditional=['properties'=>['video_urls'=>['type'=>'array'],'image_urls'=>['type'=>'array'],'duration'=>['type'=>'integer']],'oneOf'=>[['properties'=>['video_urls'=>['type'=>'array']],'required'=>['video_urls'],'additionalProperties'=>false],['properties'=>['video_urls'=>['type'=>'array'],'image_urls'=>['type'=>'array'],'duration'=>['type'=>'integer']],'required'=>['video_urls','image_urls'],'additionalProperties'=>false]]];
+check(S::normalize(S::branch($conditional,['video_urls'=>['https://test/v.mp4'],'duration'=>1]),['video_urls'=>['https://test/v.mp4'],'duration'=>1]),['video_urls'=>['https://test/v.mp4']],'video-only branch omits inapplicable injected duration');

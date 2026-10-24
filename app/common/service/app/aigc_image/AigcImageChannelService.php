@@ -205,12 +205,23 @@ class AigcImageChannelService
                 continue;
             }
             $channelQualities = array_column($channel['qualities'], 'value');
+            // Native business fields can own the priced dimension (for example size=1K
+            // or quality=medium). Match only actual sellable values so legacy rendering
+            // quality does not replace an independent resolution dimension.
+            $providerParams = is_array($params['provider_params'] ?? null) ? $params['provider_params'] : [];
+            foreach (['resolution','image_size','size','quality'] as $dimension) {
+                $candidate = $providerParams[$dimension] ?? null;
+                if (!is_scalar($candidate)) continue;
+                foreach ($channelQualities as $allowed) {
+                    if (strcasecmp((string)$candidate, (string)$allowed) === 0) { $quality = (string)$allowed; break 2; }
+                }
+            }
             if ($channelQualities === [''] || $quality === '') $quality = (string)($channelQualities[0] ?? '');
             foreach ($channel['qualities'] as $qualityItem) {
                 if ($variant !== '' && strtolower(trim((string)($qualityItem['variant'] ?? ''))) !== $variant) {
                     continue;
                 }
-                if ($qualityItem['value'] !== $quality) {
+                if (strcasecmp((string)$qualityItem['value'], $quality) !== 0) {
                     continue;
                 }
                 if (array_column($qualityItem['ratios'] ?? [], 'value') === ['']) $ratio = '';

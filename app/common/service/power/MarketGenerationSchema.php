@@ -87,7 +87,9 @@ final class MarketGenerationSchema
         }
         if ($best===null) return $schema;
         unset($schema['oneOf'],$schema['anyOf']);
-        $schema['properties']=array_replace((array)($schema['properties'] ?? []),(array)($best['properties'] ?? []));
+        $schema['properties']=($best['additionalProperties'] ?? true) === false
+            ? (array)($best['properties'] ?? [])
+            : array_replace((array)($schema['properties'] ?? []),(array)($best['properties'] ?? []));
         $schema['required']=array_values(array_unique(array_merge((array)($schema['required'] ?? []),(array)($best['required'] ?? []))));
         return $schema;
     }
