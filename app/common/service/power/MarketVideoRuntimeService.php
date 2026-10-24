@@ -3026,7 +3026,10 @@ class MarketVideoRuntimeService
                 $seconds=(float)($native['duration'] ?? $native['seconds'] ?? $native['video_duration'] ?? 0);
                 if ($seconds>0) return max(1,$seconds);
                 if (isset($native['num_frames'],$native['frames_per_second']) && (float)$native['frames_per_second']>0) return max(1,(float)$native['num_frames']/(float)$native['frames_per_second']);
-                return max(1,MarketGenerationMedia::seconds($native));
+                // The upstream meter estimates an unspecified generated clip at 60 seconds.
+                // This is an estimate, never a duration sent to the model or a hard limit;
+                // the actual measured receipt is mandatory for final settlement.
+                return max(1,MarketGenerationMedia::seconds($native,true));
             }
             return max(1, $lockedDuration ?: self::requestedDuration($selection));
         }

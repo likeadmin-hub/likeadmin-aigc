@@ -7,18 +7,19 @@ use InvalidArgumentException;
 /** Measured media facts for source-duration quotes. Browser duration metadata is never authoritative. */
 final class MarketGenerationMedia
 {
-    public static function seconds(array $input): float
+    public static function seconds(array $input, bool $estimateWithoutTimedInput = false): float
     {
-        $totals=['video'=>0.0,'audio'=>0.0];
-        $walk=static function($value,string $kind='') use (&$walk,&$totals): void {
+        $totals=['video'=>0.0,'audio'=>0.0];$count=0;
+        $walk=static function($value,string $kind='') use (&$walk,&$totals,&$count): void {
             if(is_array($value)) { foreach($value as $key=>$child) {
                 $next=is_int($key)?$kind:(preg_match('/video|first_clip/i',(string)$key)?'video':(preg_match('/audio|voice/i',(string)$key)?'audio':(preg_match('/image|frame/i',(string)$key)?'':$kind)));
                 $walk($child,$next);
             } return; }
-            if(isset($totals[$kind]) && is_string($value) && preg_match('~^https?://~i',$value)) $totals[$kind]+=self::probe($value,$kind);
+            if(isset($totals[$kind]) && is_string($value) && preg_match('~^https?://~i',$value)) { $totals[$kind]+=self::probe($value,$kind);$count++; }
         };
         $walk($input);
         $seconds=max($totals);
+        if($count===0 && $estimateWithoutTimedInput)return 60.0; // Same conservative estimate as the upstream meter; actual receipt is mandatory.
         if($seconds<=0)throw new InvalidArgumentException('无法核验计费素材时长，请上传有效音视频素材');
         return $seconds;
     }
