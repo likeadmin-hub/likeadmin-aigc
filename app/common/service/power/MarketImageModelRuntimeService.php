@@ -134,6 +134,7 @@ class MarketImageModelRuntimeService
             $first = $skus[0] ?? [];
             $modelId = self::modelId((int)$product['id']);
             $options[] = [
+                ...MarketModelSource::product($product),
                 'id' => $modelId,
                 'value' => $modelId,
                 'market_product_id' => (int)$product['id'],

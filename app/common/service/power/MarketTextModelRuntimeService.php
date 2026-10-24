@@ -575,6 +575,7 @@ class MarketTextModelRuntimeService
             $capacity = TextModelCapacity::metadata(array_replace($meta, ['model_code' => (string)$product['upstream_model_code']]));
             $protocols = self::protocolList($meta['protocols'] ?? []);
             $options[] = [
+                ...MarketModelSource::product($product),
                 'id' => (string)$product['id'],
                 'product_id' => (int)$product['id'],
                 'resource_type' => PowerMarketService::TYPE_MODEL,

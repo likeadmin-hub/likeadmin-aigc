@@ -59,7 +59,7 @@ final class MicroVideoCatalog
             }
             if(!$legacy){$specs=array_values($specs);$frameSpecs=array_values($frameSpecs);}
             if(!$specs||(!$legacy&&$mode!=='reference'&&!$frameSpecs))continue;
-            $result[]=['id'=>(string)$model['id'],'label'=>(string)$model['name'],'description'=>(string)($model['description']??''),'display_icon'=>(string)($model['display_icon']??''),'max_reference_images'=>$method==='image_to_video'?1:min(15,(int)$model['max_reference_images']),'specs'=>$specs,'start_end_specs'=>$frameSpecs,'generation_modes'=>$hasFrames&&$frameSpecs?['reference','start_end']:['reference'],'supports_first_last_frame'=>(bool)($hasFrames&&$frameSpecs)];
+            $result[]=['channel_source'=>(string)($model['channel_source']??'unknown'),'channel_source_label'=>(string)($model['channel_source_label']??'渠道未标注'),'id'=>(string)$model['id'],'label'=>(string)$model['name'],'description'=>(string)($model['description']??''),'display_icon'=>(string)($model['display_icon']??''),'max_reference_images'=>$method==='image_to_video'?1:min(15,(int)$model['max_reference_images']),'specs'=>$specs,'start_end_specs'=>$frameSpecs,'generation_modes'=>$hasFrames&&$frameSpecs?['reference','start_end']:['reference'],'supports_first_last_frame'=>(bool)($hasFrames&&$frameSpecs)];
         }
         // Catalog discovery is advisory; exact quote/reserve always validates live.
         // A short shared cache avoids repeating market reads for simultaneous

@@ -79,6 +79,8 @@ class AigcLlmChannelService
                 'name' => (string)($option['name'] ?? $modelCode),
                 'description' => (string)($option['description'] ?? ''),
                 'display_icon' => (string)($option['display_icon'] ?? ''),
+                'channel_source' => (string)($option['channel_source'] ?? 'unknown'),
+                'channel_source_label' => (string)($option['channel_source_label'] ?? '渠道未标注'),
                 'channel_code' => $channelCode,
                 'provider' => 'power_market',
                 'resource_type' => 'model',

@@ -433,6 +433,7 @@ class AiTaskRecordService
         $row['display_type'] = self::displayTaskType($row, $baseAppCode);
         $row['display_model'] = self::displayModel($row, $baseAppCode);
         $row['display_channel'] = self::displayChannel($row);
+        $row = array_merge($row, \app\common\service\power\MarketModelSource::task($row));
         $row['display_ratio'] = self::displayRatio($row);
         $row['display_duration'] = self::displayDuration($row);
         $row['elapsed_ms'] = self::elapsedMs($row);

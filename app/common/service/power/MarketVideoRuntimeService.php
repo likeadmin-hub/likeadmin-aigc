@@ -138,6 +138,7 @@ class MarketVideoRuntimeService
             }, $resolutions);
             $first = $validSkus[0];
             $options[] = [
+                ...MarketModelSource::product($product),
                 'id' => $id,
                 'value' => $id,
                 'resource_type' => $resourceType,

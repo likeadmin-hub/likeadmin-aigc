@@ -1375,6 +1375,8 @@ class AigcCanvasService
                         'name' => (string)($option['name'] ?? $option['model_code'] ?? $code),
                         'description' => (string)($option['description'] ?? ''),
                         'display_icon' => (string)($option['display_icon'] ?? ''),
+                        'channel_source' => (string)($option['channel_source'] ?? 'unknown'),
+                        'channel_source_label' => (string)($option['channel_source_label'] ?? '渠道未标注'),
                         'model_code' => (string)($option['model_code'] ?? ''),
                         'market_product_id' => (int)($option['product_id'] ?? 0),
                         'market_sku_id' => (int)($option['market_sku_id'] ?? 0),

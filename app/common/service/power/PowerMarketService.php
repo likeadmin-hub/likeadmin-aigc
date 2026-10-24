@@ -1072,6 +1072,7 @@ class PowerMarketService
 
     public static function formatProduct(array $product): array
     {
+        if (($product['resource_type'] ?? '') === self::TYPE_MODEL) $product = array_merge($product, MarketModelSource::product($product));
         $product['type_text'] = self::productTypes()[$product['resource_type'] ?? ''] ?? '';
         $product['status_text'] = (int)($product['status'] ?? 0) === 1 ? '上架' : '下架';
         if (($product['resource_type'] ?? '') === self::TYPE_APP_API) {

@@ -592,6 +592,8 @@ class AigcImageChannelService
                 'value' => $channelCode,
                 'name' => (string)($model['name'] ?? $modelCode),
                 'label' => (string)($model['name'] ?? $modelCode),
+                'channel_source' => (string)($model['channel_source'] ?? 'unknown'),
+                'channel_source_label' => (string)($model['channel_source_label'] ?? '渠道未标注'),
                 'description' => (string)($model['description'] ?? ''),
                 'display_icon' => (string)($model['display_icon'] ?? ''),
                 'resource_type' => (string)($model['resource_type'] ?? 'model'),
