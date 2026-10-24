@@ -937,7 +937,7 @@ class MarketVideoRuntimeService
             (string)($request['prompt'] ?? ''),
             $request
         );
-        if (($snapshot['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL) return self::request('POST', self::origin() . self::MODEL_TASK_PATH, self::modelPayload($snapshot, $request, $idempotency));
+        if (($snapshot['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL) return self::request('POST', self::origin() . self::MODEL_TASK_PATH, MarketModelTaskRequest::payload(self::modelPayload($snapshot, $request, $idempotency)));
         $app = (string)$snapshot['app_code'];
         if ($app === 'seedance') self::seedanceAssets($request, $consumptionId);
         return self::request('POST', self::endpoint($app, (string)$snapshot['api_code']), self::appPayload($snapshot, $request, $idempotency));

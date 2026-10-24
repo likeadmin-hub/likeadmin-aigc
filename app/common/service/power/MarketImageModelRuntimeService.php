@@ -311,7 +311,7 @@ class MarketImageModelRuntimeService
         }
         $microSubmission=MicroVideoSubmission::applies($consumption->toArray());
         $price = (array)$consumption['price_snapshot'];
-        $payload = self::payload($price, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
+        $payload = MarketModelTaskRequest::payload(self::payload($price, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']));
         if ($tenantAdminConsumption) {
             // Commit a claim before outbound I/O. A restarted worker must never replay it.
             $claimed = AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update(['run_status' => 'submitting', 'update_time' => time()]);
