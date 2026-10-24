@@ -35,6 +35,7 @@ final class MarketGenerationNativeContract
             if (!is_array($definition) || !isset($public[$key])) continue;
             if ($key==='duration') {
                 $values=MarketGenerationSchema::durationChoices(array_replace($public[$key],$definition));
+                if (isset($definition['minimum']) && $definition['minimum']>0) $values=array_values(array_filter($values,static fn($value)=>$value>=$definition['minimum']));
                 if ($values!==[]) $definition['enum']=array_map(static fn($value)=>($definition['type'] ?? '')==='string'?(string)$value:$value,$values);
             } elseif (!isset($definition['enum'])) {
                 $values=MarketGenerationSchema::choices($public[$key]);

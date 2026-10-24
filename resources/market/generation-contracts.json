@@ -115,7 +115,8 @@
                             },
                             "duration": {
                                 "type": "integer",
-                                "default": 5
+                                "default": 5,
+                                "minimum": 1
                             },
                             "web_search": {
                                 "type": "boolean"
@@ -222,7 +223,8 @@
                             },
                             "duration": {
                                 "type": "integer",
-                                "default": 5
+                                "default": 5,
+                                "minimum": 1
                             },
                             "output_format": {
                                 "type": "string",
@@ -341,7 +343,8 @@
                             },
                             "duration": {
                                 "type": "integer",
-                                "default": 5
+                                "default": 5,
+                                "minimum": 1
                             },
                             "web_search": {
                                 "type": "boolean"
@@ -444,7 +447,8 @@
                             },
                             "duration": {
                                 "type": "integer",
-                                "default": 5
+                                "default": 5,
+                                "minimum": 1
                             },
                             "web_search": {
                                 "type": "boolean"
@@ -789,16 +793,6 @@
                                 ],
                                 "default": "1K"
                             },
-                            "width": {
-                                "type": "integer",
-                                "minimum": 256,
-                                "maximum": 4096
-                            },
-                            "height": {
-                                "type": "integer",
-                                "minimum": 256,
-                                "maximum": 4096
-                            },
                             "output_format": {
                                 "type": "string",
                                 "enum": [
@@ -880,16 +874,6 @@
                                     "4K"
                                 ],
                                 "default": "1K"
-                            },
-                            "width": {
-                                "type": "integer",
-                                "minimum": 256,
-                                "maximum": 4096
-                            },
-                            "height": {
-                                "type": "integer",
-                                "minimum": 256,
-                                "maximum": 4096
                             },
                             "output_format": {
                                 "type": "string",
@@ -1968,7 +1952,9 @@
                                 ]
                             },
                             "duration": {
-                                "type": "number"
+                                "type": "number",
+                                "minimum": 6,
+                                "maximum": 30
                             },
                             "resolution": {
                                 "type": "string",
@@ -3670,6 +3656,10 @@
                             "kind": "subject_quota",
                             "field": "elements",
                             "message": "视频主体最多 3 个；仅图片主体时，参考图片＋图片主体最多 7 个；包含视频主体或参考视频时，参考图片＋图片主体最多 4 个。"
+                        },
+                        {
+                            "kind": "kling3_shots",
+                            "message": "自定义分镜需要提供分镜，不能与智能分镜同时开启，分镜总时长不能超过15秒"
                         }
                     ]
                 },
@@ -3829,6 +3819,10 @@
                             "field": "elements",
                             "image_minimum": 2,
                             "message": "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。"
+                        },
+                        {
+                            "kind": "kling3_shots",
+                            "message": "自定义分镜需要提供分镜，不能与智能分镜同时开启，分镜总时长不能超过15秒"
                         }
                     ]
                 },
@@ -4025,6 +4019,10 @@
                             "kind": "subject_quota",
                             "field": "elements",
                             "message": "视频主体最多 3 个；仅图片主体时，参考图片＋图片主体最多 7 个；包含视频主体或参考视频时，参考图片＋图片主体最多 4 个。"
+                        },
+                        {
+                            "kind": "kling3_shots",
+                            "message": "自定义分镜需要提供分镜，不能与智能分镜同时开启，分镜总时长不能超过15秒"
                         }
                     ]
                 }
@@ -4465,6 +4463,10 @@
                             "kind": "subject_quota",
                             "field": "elements",
                             "message": "视频主体最多 3 个；仅图片主体时，参考图片＋图片主体最多 7 个；包含视频主体或参考视频时，参考图片＋图片主体最多 4 个。"
+                        },
+                        {
+                            "kind": "kling3_shots",
+                            "message": "自定义分镜需要提供分镜，不能与智能分镜同时开启，分镜总时长不能超过15秒"
                         }
                     ]
                 }
