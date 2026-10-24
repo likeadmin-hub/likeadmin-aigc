@@ -166,7 +166,7 @@ class AigcImageService
         $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? []), $tenantId, $userId);
         self::checkSensitiveWords($tenantId, $prompt);
         $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
-        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)$estimate['market_snapshot'],$params)) throw new Exception('请输入提示词');
+        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)MarketImageModelRuntimeService::quote($tenantId,$params,$quantity,$billingOverride)['market_snapshot'],$params)) throw new Exception('请输入提示词');
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $claim = AigcImageSubmission::claim([
