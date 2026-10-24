@@ -2225,7 +2225,14 @@ class MarketVideoRuntimeService
                 $name = strtolower(preg_replace('/[^a-z0-9]+/', '', (string)$key) ?: '');
                 $text = $name;
                 if (is_array($value)) {
-                    $text .= ' ' . strtolower((string)($value['description'] ?? $value['label'] ?? $value['title'] ?? ''));
+                    // In a JSON Schema properties map, these names can be
+                    // nested field definitions rather than human-readable text.
+                    foreach (['description', 'label', 'title'] as $labelKey) {
+                        if (isset($value[$labelKey]) && is_scalar($value[$labelKey])) {
+                            $text .= ' ' . strtolower((string)$value[$labelKey]);
+                            break;
+                        }
+                    }
                     $queue[] = $value;
                 } elseif (is_scalar($value)) {
                     $text .= ' ' . strtolower((string)$value);
