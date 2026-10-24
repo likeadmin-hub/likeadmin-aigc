@@ -30,6 +30,18 @@ final class MarketGenerationNativeContract
             $schema['properties']['model_version']=$schema['properties']['model'];unset($schema['properties']['model']);
             $schema['required']=array_map(static fn($field)=>$field==='model'?'model_version':$field,(array)($schema['required'] ?? []));
         }
+        $public=MarketGenerationSchema::properties(MarketGenerationSchema::array($metadata['params_schema'] ?? []));
+        foreach ((array)($schema['properties'] ?? []) as $key=>&$definition) {
+            if (!is_array($definition) || !isset($public[$key])) continue;
+            if ($key==='duration') {
+                $values=MarketGenerationSchema::durationChoices(array_replace($public[$key],$definition));
+                if ($values!==[]) $definition['enum']=array_map(static fn($value)=>($definition['type'] ?? '')==='string'?(string)$value:$value,$values);
+            } elseif (!isset($definition['enum'])) {
+                $values=MarketGenerationSchema::choices($public[$key]);
+                if ($values!==[] && in_array($definition['type'] ?? '',['string','integer','number'],true)) $definition['enum']=$values;
+            }
+            $schema['properties'][$key]=$definition;
+        } unset($definition);
         return $schema;
     }
     public static function rules(array $metadata, string $mode): array

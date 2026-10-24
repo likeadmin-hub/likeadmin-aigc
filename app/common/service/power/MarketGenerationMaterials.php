@@ -161,6 +161,15 @@ final class MarketGenerationMaterials
         return $result;
     }
 
+    public static function billingInputs(array $metadata, array $request): array
+    {
+        $values=self::serialize($metadata,$request);
+        $video=false;
+        foreach (['reference_video_urls','video_urls','video_url','video_list','first_clip_url'] as $key) if (!empty($values[$key])) $video=true;
+        foreach ((array)($values['elements'] ?? []) as $subject) if (!empty($subject['video_url'])) $video=true;
+        return ['_billing_video_input'=>$video,'_billing_image_input'=>!empty($values['image_url'])];
+    }
+
     public static function validate(array $metadata, array $request, array $payload): void
     {
         $mode = self::select($metadata, $request);

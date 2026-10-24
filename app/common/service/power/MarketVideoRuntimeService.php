@@ -672,7 +672,7 @@ class MarketVideoRuntimeService
                 $now = time();
                 $usage['settlement_basis'] = 'awaiting_actual_usage';
                 $c->save(self::clearRefreshDiagnostics([
-                    'run_status' => 'success', 'billing_status' => 'pending_usage',
+                    'run_status' => 'success', 'billing_status' => !empty($snapshot['requires_actual_duration']) ? 'reserved' : 'pending_usage',
                     'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'],
                     'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'],
                     'usage_snapshot' => $usage,
@@ -971,7 +971,7 @@ class MarketVideoRuntimeService
             if ($options !== [] && !in_array(is_bool($value) ? ($value ? 'true' : 'false') : (string)$value, array_map('strval', $options), true)) throw new Exception('视频参数选项不支持: ' . $key);
             $result[$key] = $value;
         }
-        foreach (MarketGenerationParameters::definitions(['params_schema'=>$schema]) as $field) {
+        foreach (MarketGenerationParameters::definitions(['params_schema'=>$schema], 'video') as $field) {
             $key=$field['key'];
             if (isset($result[$key])) continue;
             if (!array_key_exists($key,(array)($request['provider_params'] ?? [])) && !array_key_exists($key,$request)) continue;
@@ -2840,6 +2840,13 @@ class MarketVideoRuntimeService
     }
     private static function durationOptions(array $meta): array
     {
+        $nativeDurations=[];
+        foreach (MarketGenerationNativeContract::modes($meta) as $nativeMode=>$_) {
+            $native=MarketGenerationNativeContract::schema($meta,(string)$nativeMode);
+            $definition=MarketGenerationSchema::properties($native)['duration'] ?? [];
+            $nativeDurations=array_merge($nativeDurations,MarketGenerationSchema::durationChoices($definition));
+        }
+        if ($nativeDurations!==[]) { $nativeDurations=array_values(array_unique($nativeDurations));sort($nativeDurations);return $nativeDurations; }
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $durationSchema = self::durationSchema($meta);
         $declared = MarketGenerationSchema::durationChoices($durationSchema);
@@ -2934,9 +2941,7 @@ class MarketVideoRuntimeService
                 continue;
             }
             $duration = (int)$value;
-            if ($duration <= 0) {
-                continue;
-            }
+            if ($duration < 0 && !in_array($duration,$durations,true)) continue;
             if ($durations === [] || in_array($duration, $durations, true)) {
                 return $duration;
             }
@@ -3211,9 +3216,10 @@ class MarketVideoRuntimeService
         if (($product['resource_type'] ?? '') !== 'model' || MarketGenerationMaterials::modes($metadata) === []) return self::skuSupportsInputMode($skuMode, $mode, $product, $locked);
         $native = MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '';
         if (!empty($locked['generation_type']) && $locked['generation_type'] !== $native) return false;
+        $billingInputs=MarketGenerationMaterials::billingInputs($metadata,$selection);
         foreach ($locked as $key=>$value) {
             if (is_array($value) || is_object($value)) continue;
-            if ($key === '_billing_video_input' && (bool)$value !== (self::assets($selection)['video'] !== [] || !empty($selection['provider_params']['video_urls']))) return false;
+            if (array_key_exists($key,$billingInputs) && (bool)$value !== $billingInputs[$key]) return false;
             if (str_starts_with($key,'_') || !array_key_exists($key,(array)($selection['provider_params'] ?? []))) continue;
             if (strcasecmp((string)$value,(string)$selection['provider_params'][$key]) !== 0) return false;
         }

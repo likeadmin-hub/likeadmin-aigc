@@ -174,7 +174,7 @@ class AigcImageService
         $claim = AigcImageSubmission::claim([
             'app_task_id' => 0, 'tenant_id' => $tenantId, 'user_id' => $userId,
             'prompt' => $prompt, 'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
-            'reference_images' => $referenceImages, 'provider_params_json' => $batchMetadata,
+            'reference_images' => $referenceImages, 'provider_params_json' => array_merge((array)($params['provider_params'] ?? []), $batchMetadata, ['_material_mode'=>(string)($params['material_mode'] ?? ''),'_generation_signature'=>\app\common\service\power\MarketGenerationRequest::parameterSignature($params)]),
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)($params['model_id'] ?? $params['channel'] ?? ''),
             'quality' => (string)($params['quality'] ?? ''), 'ratio' => (string)($params['ratio'] ?? ''),

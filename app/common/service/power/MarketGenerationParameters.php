@@ -32,17 +32,21 @@ final class MarketGenerationParameters
         $first = preg_split('/[。；\n]/u', $description)[0] ?? '';
         return $first !== '' && mb_strlen($first) <= 24 ? $first : $name;
     }
-    public static function definitions(array $model): array
+    public static function definitions(array $model, string $type = ''): array
     {
         $schema = MarketGenerationSchema::array($model['params_schema'] ?? []);
         $modes = (array)($model['material_modes'] ?? []);
         $result = [];
         foreach (MarketGenerationSchema::properties($schema) as $key=>$definition) {
             if (str_starts_with($key,'_') || in_array($key,self::OWNED,true)) continue;
-            if ($key==='quality' && !isset(MarketGenerationSchema::properties($schema)['resolution'])) continue;
+            if ($modes===[] && in_array($key,['urls','image_urls','images','reference_images','video_urls','audio_urls','media','image_with_roles','action','image_size','size'],true)) continue;
+            if ($key==='quality' && !isset(MarketGenerationSchema::properties($schema)['resolution']) && ($type==='video' || (isset($model['quality_options']) && !array_diff(array_map('strtolower',MarketGenerationSchema::choices($definition)),array_map('strtolower',(array)$model['quality_options']))))) continue;
             $type = $definition['type'] ?? 'string';
             if (!is_string($type) || !in_array($type,['string','integer','number','boolean','array','object'],true)) continue;
             $field = ['key'=>$key,'label'=>self::label($key,$definition),'type'=>$type,'description'=>(string)($definition['description'] ?? ''),'options'=>MarketGenerationSchema::choices($definition),'schema'=>self::annotate($definition),'required'=>MarketGenerationSchema::required($definition)];
+            if ($key==='meta_data') $field['format']='json';
+            if ($key==='tools') $field['control']='web_search';
+            if ($type==='string' && (preg_match('/(?:url|uri)$/i',$key) || in_array($key,['input_image','reference_image','reference_video','reference_voice','first_frame'],true))) $field['control']=preg_match('/video|clip/i',$key)?'video':(preg_match('/audio|voice/i',$key)?'audio':(preg_match('/file|link/i',$key)?'file':'image'));
             foreach (['minimum','maximum','minLength','maxLength','minItems','maxItems','default'] as $constraint) if (array_key_exists($constraint,$definition)) $field[$constraint]=$definition[$constraint];
             $field['applicable_modes'] = [];
             foreach ($modes as $mode) {

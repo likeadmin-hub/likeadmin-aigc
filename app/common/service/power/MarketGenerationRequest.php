@@ -13,6 +13,14 @@ final class MarketGenerationRequest
         return $metadata;
     }
 
+    public static function parameterSignature(array $request): string
+    {
+        // Existing task matching owns these dimensions. Capture every other control, including future schema fields.
+        foreach (['prompt','reference_images','reference_assets','ratio','aspect_ratio','duration','seconds','video_duration','quality','resolution','channel','channel_code','model','model_id','market_product_id','market_sku_id','sku_id','resource_type','quantity','idempotency_key','generation_parameters_signature'] as $key) unset($request[$key]);
+        $sort=static function ($value) use (&$sort) { if (!is_array($value)) return $value; foreach ($value as &$child) $child=$sort($child);unset($child);if(!array_is_list($value))ksort($value);return $value; };
+        return hash('sha256',json_encode($sort($request),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
+    }
+
     public static function payload(array $snapshot, array $request): array
     {
         $metadata = self::metadata($snapshot);

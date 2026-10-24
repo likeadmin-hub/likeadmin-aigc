@@ -24,7 +24,7 @@ final class MarketGenerationSchema
         $raw = $definition['enum'] ?? $definition['options'] ?? $definition['values'] ?? [];
         if (is_string($raw)) {
             $decoded = json_decode($raw, true);
-            $raw = is_array($decoded) ? $decoded : preg_split('/\s*(?:\/|\||,|，)\s*/u', trim($raw, "[] \t\n\r"));
+            $raw = is_array($decoded) ? $decoded : (preg_match('/-?\d+(?:\.\d+)?\s*(?:s|秒)?\s*[-–—~至到]\s*\d+/iu', $raw) ? [] : preg_split('/\s*(?:\/|\||,|，)\s*/u', trim($raw, "[] \t\n\r")));
         }
         $values = [];
         foreach ((array)$raw as $item) {
@@ -39,10 +39,11 @@ final class MarketGenerationSchema
     public static function durationChoices(array $definition): array
     {
         $values = self::choices($definition);
-        if ($values !== []) return array_values(array_unique(array_map('intval', array_filter($values, 'is_numeric'))));
+        $numericValues = array_values(array_unique(array_map('intval', array_filter($values, 'is_numeric'))));
+        if ($numericValues !== []) return $numericValues;
         $min = $definition['minimum'] ?? $definition['min'] ?? null;
         $max = $definition['maximum'] ?? $definition['max'] ?? null;
-        $description = is_scalar($definition['description'] ?? null) ? (string)$definition['description'] : '';
+        $description = (is_scalar($definition['description'] ?? null) ? (string)$definition['description'] : '') . ' ' . (is_string($definition['options'] ?? null) ? $definition['options'] : '');
         if (($min === null || $max === null) && preg_match('/(?:\[\s*(\d+)\s*,\s*(\d+)\s*\]|(\d+)\s*(?:s|秒)?\s*(?:-|–|—|~|至|到)\s*(\d+)\s*(?:s|秒)?)/iu', $description, $m)) {
             $min = $m[1] !== '' ? (int)$m[1] : (int)$m[3];
             $max = $m[2] !== '' ? (int)$m[2] : (int)$m[4];
@@ -50,7 +51,7 @@ final class MarketGenerationSchema
         if ($min !== null && $max !== null && $max >= $min && $max - $min <= 300) {
             $values = range(max(0, (int)$min), (int)$max);
             // A zero duration is normally a special "follow source" value, not permission for one second.
-            if ((int)$min === 0 && preg_match('/0\s*(?:或|or|，|,)\s*2/iu', $description)) $values = array_values(array_diff($values, [1]));
+            if ((int)$min === 0 && preg_match('/[0`\s]+(?:或|or|，|,)[`\s\[]*2/iu', $description)) $values = array_values(array_diff($values, [1]));
             if (preg_match('/(?<!\d)-1\s*(?:表示|为|[:：]|智能|自动)/u', $description)) array_unshift($values, -1);
             return $values;
         }
