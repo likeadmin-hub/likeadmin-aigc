@@ -162,13 +162,11 @@ class AigcImageService
         $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
-        if ($prompt === '') {
-            throw new Exception('请输入提示词');
-        }
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? []), $tenantId, $userId);
         self::checkSensitiveWords($tenantId, $prompt);
         $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
+        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)$estimate['market_snapshot'],$params)) throw new Exception('请输入提示词');
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $claim = AigcImageSubmission::claim([
@@ -212,11 +210,9 @@ class AigcImageService
         $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'image');
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
-        if ($prompt === '') {
-            throw new Exception('请输入提示词');
-        }
         $frozen = \app\common\service\open_platform\OpenImagePricing::selection($tenantId, $userId);
         $selection = $frozen['selection'] ?? AigcImageChannelService::resolveSelection($tenantId, $params);
+        if ($prompt === '' && empty($selection['channel']['material_modes'])) throw new Exception('请输入提示词');
         if (!empty($params['market_sku_id']) || !empty($params['sku_id'])) {
             $selection['market_sku_id'] = (int)($params['market_sku_id'] ?? $params['sku_id']);
         }

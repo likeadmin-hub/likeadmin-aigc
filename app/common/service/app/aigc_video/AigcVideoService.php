@@ -85,7 +85,7 @@ class AigcVideoService
         $params['duration']=(int)$normalized['duration'];$selection=array_replace($selection,$normalized);
         $resolved=$selection+$params;$resolved['resource_type']=$runtime===MarketVideoAppRuntimeService::class?'app_api':'model';
         $captured=\app\common\service\power\MarketVideoRuntimeService::openPlatformAdmissionQuote($tenantId,$resolved);
-        if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$captured['quote']['market_snapshot'])) throw new Exception('请输入提示词');
+        if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$captured['quote']['market_snapshot']) && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)$captured['quote']['market_snapshot'],$resolved)) throw new Exception('请输入提示词');
         $effect=VideoEffectService::resolve(VideoEffectService::catalog($tenantId),$params,(int)$captured['quote']['market_product_id']);
         if($effect){
             $params=VideoEffectService::compile($params,$effect);
@@ -181,7 +181,7 @@ class AigcVideoService
             $params['duration'] = (int)$normalizedDuration['duration'];
             $selection = array_replace($selection, $normalizedDuration);
             $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
-            if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot'])) throw new Exception('请输入提示词');
+            if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot']) && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)$quote['market_snapshot'],$selection+$params)) throw new Exception('请输入提示词');
             $effect = VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
             if ($effect) {
                 $params = VideoEffectService::compile($params, $effect);

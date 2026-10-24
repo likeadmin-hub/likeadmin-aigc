@@ -21,6 +21,16 @@ final class MarketGenerationRequest
         return hash('sha256',json_encode($sort($request),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
     }
 
+    public static function allowsEmptyPrompt(array $snapshot, array $request): bool
+    {
+        $metadata=self::metadata($snapshot);
+        if (MarketGenerationNativeContract::modes($metadata)===[]) return false;
+        $mode=MarketGenerationMaterials::select($metadata,$request);
+        $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
+        foreach (['prompt','content'] as $field) if (in_array($field,(array)($schema['required']??[]),true) || !empty($schema['properties'][$field]['required'])) return false;
+        return true; // Admission still validates the complete exact-mode schema and materials.
+    }
+
     public static function payload(array $snapshot, array $request): array
     {
         $metadata = self::metadata($snapshot);
