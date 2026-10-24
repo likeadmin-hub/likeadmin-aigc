@@ -783,7 +783,7 @@ class MarketImageModelRuntimeService
                 // Canvas keeps the selected SKU on a node. When a user changes
                 // resolution or ratio, re-resolve that node instead of silently
                 // submitting the old locked specification.
-                if (!in_array($e->getMessage(), ['所选图片 SKU 不支持当前分辨率', '所选图片 SKU 不支持当前比例'], true)) {
+                if (!in_array($e->getMessage(), ['所选图片 SKU 不支持当前分辨率', '所选图片 SKU 不支持当前比例', '所选图片 SKU 不支持当前参数'], true)) {
                     throw $e;
                 }
                 return self::resolveProduct($tenantId, $productData, self::withoutSku($selection));
@@ -811,6 +811,7 @@ class MarketImageModelRuntimeService
             $choices = self::skuQualityChoices($sku, self::metadata($product), $product);
             $nativeMode = MarketGenerationMaterials::select(self::metadata($product), $selection)['native_mode'] ?? '';
             if (!empty($locked['generation_type']) && $nativeMode !== '' && $locked['generation_type'] !== $nativeMode) continue;
+            if (!self::pricedParametersMatch($locked, $selection)) continue;
             if ($quality === '' || $choices === [] || in_array(strtolower($quality), $choices, true)) {
                 $supportedRatios = self::ratioOptions($locked, self::metadata($product), (string)($product['upstream_model_code'] ?? ''));
                 if ($ratio === '' || $supportedRatios === [] || in_array($ratio, $supportedRatios, true)) {
@@ -854,6 +855,7 @@ class MarketImageModelRuntimeService
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $requestedQuality = self::selectionQuality($selection);
         $lockedQuality = self::skuQuality($market['sku'], $locked);
+        if (!self::pricedParametersMatch($locked, $selection)) throw new Exception('所选图片 SKU 不支持当前参数');
         $choices = self::skuQualityChoices($market['sku'], self::metadata($market['product']), $market['product']);
         $nativeMode = MarketGenerationMaterials::select(self::metadata($market['product']), $selection)['native_mode'] ?? '';
         if (!empty($locked['generation_type']) && $nativeMode !== '' && $locked['generation_type'] !== $nativeMode) throw new Exception('所选图片 SKU 不支持当前分辨率');
@@ -1580,6 +1582,16 @@ class MarketImageModelRuntimeService
             }
         }
         return [];
+    }
+
+    private static function pricedParametersMatch(array $locked, array $selection): bool
+    {
+        foreach ((array)($selection['provider_params'] ?? []) as $key=>$value) {
+            if (!array_key_exists($key,$locked) || str_starts_with($key,'_')) continue;
+            if (is_array($value) || is_array($locked[$key])) { if ($value!==$locked[$key]) return false; }
+            elseif (strcasecmp((string)$value,(string)$locked[$key])!==0) return false;
+        }
+        return true;
     }
 
     private static function skuQualityChoices(array $sku, array $meta, array $product): array

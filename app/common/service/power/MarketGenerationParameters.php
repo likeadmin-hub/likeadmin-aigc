@@ -6,7 +6,7 @@ final class MarketGenerationParameters
 {
     private const OWNED = ['model','channel','provider','api_key','token','authorization','base_url','endpoint','callback_url','webhook_url','idempotency_key','metadata','client_id','user_id','tenant_id','market_sku_id','sku_id','pricing_sku_key','prompt','content','aspect_ratio','ratio','resolution','duration','seconds','video_duration','n','num_images','generation_type'];
     private const LABELS = [
-        'quality'=>'渲染质量','image_size'=>'输出尺寸','size'=>'输出尺寸','output_format'=>'图片格式','output_quality'=>'输出质量','seed'=>'随机种子',
+        'model_version'=>'模型版本','quality'=>'渲染质量','image_size'=>'输出尺寸','size'=>'输出尺寸','output_format'=>'图片格式','output_quality'=>'输出质量','seed'=>'随机种子',
         'negative_prompt'=>'负面提示词','style'=>'画面风格','style_type'=>'风格类型','style_preset'=>'风格预设','style_codes'=>'风格编码','style_reference'=>'风格参考',
         'rendering_speed'=>'渲染速度','strength'=>'变化强度','guidance_scale'=>'提示词引导强度','cfg_scale'=>'提示词引导强度','num_inference_steps'=>'采样步数','steps'=>'采样步数',
         'watermark'=>'水印','aigc_watermark'=>'生成标识','enable_safety_checker'=>'安全检查','nsfw_checker'=>'内容过滤','safety_tolerance'=>'安全容忍度',
@@ -39,12 +39,16 @@ final class MarketGenerationParameters
         $result = [];
         foreach (MarketGenerationSchema::properties($schema) as $key=>$definition) {
             if (str_starts_with($key,'_') || in_array($key,self::OWNED,true)) continue;
+            if ($key==='quality' && !isset(MarketGenerationSchema::properties($schema)['resolution'])) continue;
             $type = $definition['type'] ?? 'string';
             if (!is_string($type) || !in_array($type,['string','integer','number','boolean','array','object'],true)) continue;
             $field = ['key'=>$key,'label'=>self::label($key,$definition),'type'=>$type,'description'=>(string)($definition['description'] ?? ''),'options'=>MarketGenerationSchema::choices($definition),'schema'=>self::annotate($definition),'required'=>MarketGenerationSchema::required($definition)];
             foreach (['minimum','maximum','minLength','maxLength','minItems','maxItems','default'] as $constraint) if (array_key_exists($constraint,$definition)) $field[$constraint]=$definition[$constraint];
             $field['applicable_modes'] = [];
-            foreach ($modes as $mode) if (MarketGenerationSchema::applies($definition,(string)($mode['native_mode'] ?? ''))) $field['applicable_modes'][]=$mode['key'];
+            foreach ($modes as $mode) {
+                $nativeProperties = MarketGenerationSchema::properties((array)($mode['parameter_schema'] ?? []));
+                if ($nativeProperties !== [] ? isset($nativeProperties[$key]) : MarketGenerationSchema::applies($definition,(string)($mode['native_mode'] ?? ''))) $field['applicable_modes'][]=$mode['key'];
+            }
             $result[]=$field;
         }
         return $result;

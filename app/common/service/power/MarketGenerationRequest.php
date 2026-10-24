@@ -16,7 +16,9 @@ final class MarketGenerationRequest
     public static function payload(array $snapshot, array $request): array
     {
         $metadata = self::metadata($snapshot);
-        $schema = MarketGenerationSchema::array($metadata['params_schema'] ?? []);
+        $mode = MarketGenerationMaterials::select($metadata, $request);
+        $schema = MarketGenerationNativeContract::schema($metadata, (string)($mode['native_mode'] ?? '')) ?: MarketGenerationSchema::array($metadata['params_schema'] ?? []);
+        if (isset($schema['properties']) && isset($metadata['params_schema']['generation_type'])) $schema['properties']['generation_type'] = $metadata['params_schema']['generation_type'];
         $properties = MarketGenerationSchema::properties($schema);
         $locked = MarketGenerationSchema::array($snapshot['locked_params'] ?? []);
         $params = array_replace(MarketGenerationSchema::array($metadata['default_params'] ?? []), MarketGenerationSchema::array($request['provider_params'] ?? []));
@@ -37,7 +39,7 @@ final class MarketGenerationRequest
         }
         foreach (['duration','seconds','video_duration'] as $field) if (isset($properties[$field]) && array_key_exists('duration', $request)) { $params[$field] = $request['duration']; break; }
         if (isset($properties['n'])) $params['n'] = max(1, (int)($request['quantity'] ?? $request['n'] ?? 1));
-        $material = MarketGenerationMaterials::serialize($metadata, $request);
+        $material = MarketGenerationMaterials::serialize($metadata, $request, $schema);
         $mode = MarketGenerationMaterials::select($metadata, $request);
         // Remove defaults from other material modes rather than accidentally submitting their example inputs.
         foreach (MarketGenerationMaterials::modes($metadata) as $other) foreach ($other['fields'] as $field) {
@@ -50,9 +52,13 @@ final class MarketGenerationRequest
             $params[$key] = $value;
         }
         $native = (string)($mode['native_mode'] ?? '');
+        $originalSchema = $schema;
+        $schema = MarketGenerationSchema::branch($schema, $params);
         $params = MarketGenerationSchema::normalize($schema, $params, $native);
         MarketGenerationMaterials::validate($metadata, $request, $params);
         MarketGenerationSchema::validate($schema, $params, $native);
+        MarketGenerationSchema::validate($originalSchema, $params, $native);
+        MarketGenerationRules::validate(MarketGenerationNativeContract::rules($metadata, $native), $params);
         return $params;
     }
 }

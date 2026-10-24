@@ -425,6 +425,7 @@ class MarketVideoRuntimeService
             ]);
             $consumeNo = self::no('C');
             $snapshot = self::applyBillingOverrideToSnapshot(self::snapshot($market, $quantity), $quote, $billingOverride);
+            if (array_key_exists('duration',$request) && (int)$request['duration']<=0 && self::isDurationBillingUnit(strtolower((string)$snapshot['usage_unit']))) $snapshot['requires_actual_duration']=true;
             $consumption = AiConsumptionLog::create([
                 'consume_no' => $consumeNo, 'app_task_id' => (int)$appTask['id'], 'tenant_id' => $tenantId, 'user_id' => $userId,
                 'app_code' => $appCode, 'action_code' => $action, 'resource_type' => (string)$market['product']['resource_type'],
@@ -667,7 +668,7 @@ class MarketVideoRuntimeService
             if (self::isTokenSnapshot($snapshot)) {
                 $usage['actual_quantity'] = MarketUsageSettlementService::tokenUsage($response);
             }
-            if (self::isTokenSnapshot($snapshot) && (float)($usage['actual_quantity'] ?? 0) <= 0) {
+            if ((self::isTokenSnapshot($snapshot) || !empty($snapshot['requires_actual_duration'])) && (float)($usage['actual_quantity'] ?? 0) <= 0) {
                 $now = time();
                 $usage['settlement_basis'] = 'awaiting_actual_usage';
                 $c->save(self::clearRefreshDiagnostics([
@@ -969,6 +970,16 @@ class MarketVideoRuntimeService
             $options = self::schemaOptionValues($schema, $key);
             if ($options !== [] && !in_array(is_bool($value) ? ($value ? 'true' : 'false') : (string)$value, array_map('strval', $options), true)) throw new Exception('视频参数选项不支持: ' . $key);
             $result[$key] = $value;
+        }
+        foreach (MarketGenerationParameters::definitions(['params_schema'=>$schema]) as $field) {
+            $key=$field['key'];
+            if (isset($result[$key])) continue;
+            if (!array_key_exists($key,(array)($request['provider_params'] ?? [])) && !array_key_exists($key,$request)) continue;
+            $raw=$request['provider_params'][$key] ?? $request[$key];
+            $definition=MarketGenerationSchema::properties($schema)[$key] ?? [];
+            $value=MarketGenerationSchema::normalize([$key=>$definition],[$key=>$raw],'',false);
+            MarketGenerationSchema::validate([$key=>$definition],$value);
+            if (array_key_exists($key,$value)) $result[$key]=$value[$key];
         }
         return $result;
     }
@@ -2989,6 +3000,11 @@ class MarketVideoRuntimeService
         if (self::isTokenSku($market['sku'])) return max(0, self::lockedQuantity($locked));
         $lockedDuration = self::duration($locked);
         if (self::isDurationBillingUnit($unit)) {
+            if ($lockedDuration <= 0 && array_key_exists('duration',$selection) && (int)$selection['duration']<=0 && MarketGenerationMaterials::modes(self::metadata($market['product']))!==[]) {
+                $durations=array_filter(self::durationOptions(self::metadata($market['product'])),static fn($duration)=>$duration>0);
+                if ($durations===[]) throw new Exception('当前自动时长缺少可信的计费上限');
+                return max($durations);
+            }
             return max(1, $lockedDuration ?: self::requestedDuration($selection));
         }
         // Per-call SKU pricing is one submitted request regardless of a model

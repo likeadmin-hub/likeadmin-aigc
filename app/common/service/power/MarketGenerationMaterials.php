@@ -48,7 +48,7 @@ final class MarketGenerationMaterials
             else $method = match ($kinds[0] ?? '') { 'video'=>'video_edit', 'audio'=>'audio_reference', default=>'image_reference' };
             $fingerprint = json_encode([$code, $method, $fields]);
             if (isset($result[$fingerprint])) continue;
-            $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields]);
+            $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields, 'parameter_schema'=>MarketGenerationNativeContract::schema($metadata, $code)]);
         }
         return array_values($result);
     }
@@ -123,11 +123,11 @@ final class MarketGenerationMaterials
         }));
     }
 
-    public static function serialize(array $metadata, array $request): array
+    public static function serialize(array $metadata, array $request, array $nativeSchema = []): array
     {
         $mode = self::select($metadata, $request);
         if ($mode === null) return [];
-        $schema = MarketGenerationSchema::properties(MarketGenerationSchema::array($metadata['params_schema'] ?? []));
+        $schema = MarketGenerationSchema::properties($nativeSchema ?: MarketGenerationSchema::array($metadata['params_schema'] ?? []));
         $params = MarketGenerationSchema::array($request['provider_params'] ?? []);
         $assets = self::assets($request);
         $result = [];
@@ -165,6 +165,12 @@ final class MarketGenerationMaterials
     {
         $mode = self::select($metadata, $request);
         if ($mode === null) return;
+        $overrides=(array)($metadata['_local_capability_overrides'] ?? []);
+        if (($overrides['supports_first_last_frame'] ?? null)===false && $mode['method']==='start_end') throw new InvalidArgumentException('当前模型已停用首尾帧方式');
+        $counts=['image'=>0,'video'=>0,'audio'=>0];
+        foreach ($mode['fields'] as $field) if (isset($counts[$field['kind'] ?? ''])) { $value=$payload[$field['field']] ?? null; $counts[$field['kind']]+=is_array($value)?count($value):(($value!==null && $value!=='')?1:0); }
+        if (($overrides['supports_reference_images'] ?? null)===false && $counts['image']>0) throw new InvalidArgumentException('当前模型已停用图片参考');
+        foreach (['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'] as $kind=>$key) if (array_key_exists($key,$overrides) && $counts[$kind]>(int)$overrides[$key]) throw new InvalidArgumentException('素材数量超过当前模型上限');
         foreach ($mode['fields'] as $field) {
             $value = $payload[$field['field']] ?? null;
             $count = is_array($value) ? count($value) : (($value !== null && $value !== '') ? 1 : 0);

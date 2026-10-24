@@ -73,6 +73,24 @@ final class MarketGenerationSchema
         return ($definition['required'] ?? false) === true;
     }
 
+    public static function branch(array $schema, array $values): array
+    {
+        $branches = $schema['oneOf'] ?? $schema['anyOf'] ?? [];
+        if ($branches === []) return $schema;
+        $best=null; $score=-PHP_INT_MAX;
+        foreach ($branches as $branch) {
+            $current=0;
+            foreach ((array)($branch['required'] ?? []) as $key) $current+=isset($values[$key]) && $values[$key]!==[] && $values[$key]!=='' ? 5 : -10;
+            if (($branch['additionalProperties'] ?? true) === false) foreach ($values as $key=>$value) if ($value!==[] && $value!=='' && !isset($branch['properties'][$key]) && $key!=='generation_type') $current-=10;
+            if ($current>$score) { $score=$current; $best=$branch; }
+        }
+        if ($best===null) return $schema;
+        unset($schema['oneOf'],$schema['anyOf']);
+        $schema['properties']=array_replace((array)($schema['properties'] ?? []),(array)($best['properties'] ?? []));
+        $schema['required']=array_values(array_unique(array_merge((array)($schema['required'] ?? []),(array)($best['required'] ?? []))));
+        return $schema;
+    }
+
     public static function normalize(array $schema, array $values, string $mode = '', bool $defaults = true): array
     {
         $result = [];
@@ -111,6 +129,14 @@ final class MarketGenerationSchema
 
     public static function validate(array $schema, array $values, string $mode = '', string $prefix = ''): void
     {
+        if (($schema['additionalProperties'] ?? true) === false) foreach ($values as $key=>$_) if (!isset($schema['properties'][$key]) && $key!=='generation_type') throw new InvalidArgumentException('当前参数组合不支持：' . $prefix . $key);
+        foreach ((array)($schema['allOf'] ?? []) as $branch) self::validate($branch,$values,$mode,$prefix);
+        foreach (['oneOf','anyOf'] as $group) {
+            if (empty($schema[$group])) continue;
+            $matches=0;
+            foreach ($schema[$group] as $branch) { try { self::validate($branch,$values,$mode,$prefix); $matches++; } catch (InvalidArgumentException $e) {} }
+            if ($matches===0 || ($group==='oneOf' && $matches!==1)) throw new InvalidArgumentException('当前素材与参数组合不符合模型要求');
+        }
         foreach (self::properties($schema) as $name => $definition) {
             if (!self::applies($definition, $mode) || str_starts_with($name, '_')) continue;
             $path = $prefix . $name;
@@ -125,6 +151,14 @@ final class MarketGenerationSchema
 
     private static function validateValue(array $definition, $value, string $path): void
     {
+        if (isset($definition['const']) && $value !== $definition['const']) throw new InvalidArgumentException('参数选项不支持：' . $path);
+        foreach ((array)($definition['allOf'] ?? []) as $branch) self::validateValue($branch, $value, $path);
+        foreach (['anyOf','oneOf'] as $group) {
+            if (empty($definition[$group])) continue;
+            $matches=0;
+            foreach ($definition[$group] as $branch) { try { self::validateValue($branch,$value,$path); $matches++; } catch (InvalidArgumentException $e) {} }
+            if ($matches === 0 || ($group === 'oneOf' && $matches !== 1)) throw new InvalidArgumentException('参数组合不正确：' . $path);
+        }
         $type = $definition['type'] ?? '';
         if (is_array($type)) $type = array_values(array_diff($type, ['null']))[0] ?? '';
         $valid = match ($type) {

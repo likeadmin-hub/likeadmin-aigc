@@ -568,6 +568,7 @@ class AigcImageChannelService
             if (!self::isMarketRuntimeOptionVisible($model)) {
                 continue;
             }
+            $model = \app\common\service\power\MarketCreationParameters::describe($model, 'image');
             $modelCode = trim((string)($model['model_code'] ?? ''));
             $channelCode = trim((string)($model['id'] ?? ''));
             if ($modelCode === '' || $channelCode === '') {
@@ -593,6 +594,7 @@ class AigcImageChannelService
                 'model' => $modelCode,
                 'model_code' => $modelCode,
                 'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
+                'generation_parameters' => (array)($model['generation_parameters'] ?? []),
                 'material_modes' => (array)($model['material_modes'] ?? []),
                 'params_schema' => (array)($model['params_schema'] ?? []),
                 'default_params' => (array)($model['default_params'] ?? []),
@@ -631,14 +633,14 @@ class AigcImageChannelService
                     $qualities = array_values(array_filter(array_map('strval', (array)($model['quality_options'] ?? []))));
                 }
                 if ($qualities === []) {
-                    $qualities = [trim((string)($model['default_quality'] ?? '1k')) ?: '1k'];
+                    $qualities = !empty($model['material_modes']) ? [''] : [trim((string)($model['default_quality'] ?? '1k')) ?: '1k'];
                 }
                 $ratios = array_values(array_unique(array_map('strval', (array)($sku['ratio_options'] ?? []))));
                 if ($ratios === []) {
                     $ratios = array_values(array_unique(array_map('strval', (array)($model['ratio_options'] ?? []))));
                 }
                 if ($ratios === []) {
-                    $ratios = [trim((string)($model['default_ratio'] ?? '1:1')) ?: '1:1'];
+                    $ratios = !empty($model['material_modes']) ? [''] : [trim((string)($model['default_ratio'] ?? '1:1')) ?: '1:1'];
                 }
                 foreach ($qualities as $quality) {
                     foreach ($ratios as $ratio) {

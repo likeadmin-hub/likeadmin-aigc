@@ -1,6 +1,7 @@
 <?php
 require getenv('GENERATION_SCHEMA_SOURCE') ?: dirname(__DIR__) . '/app/common/service/power/MarketGenerationSchema.php';
 require getenv('GENERATION_MATERIALS_SOURCE') ?: dirname(__DIR__) . '/app/common/service/power/MarketGenerationMaterials.php';
+require getenv('GENERATION_NATIVE_SOURCE') ?: dirname(__DIR__) . '/app/common/service/power/MarketGenerationNativeContract.php';
 use app\common\service\power\MarketGenerationSchema as S;
 use app\common\service\power\MarketGenerationMaterials as M;
 function check($actual, $expected, string $message): void { if ($actual !== $expected) throw new RuntimeException($message . ': ' . json_encode($actual)); echo "PASS $message\n"; }
@@ -28,3 +29,4 @@ check(array_column(M::modes($optionalFrames),'method'), ['text_to_video','image_
 $duplicate=$request;$duplicate['reference_images']=['https://test/first.png','https://test/last.png'];
 check(M::serialize($meta,$duplicate), M::serialize($meta,$request), 'legacy image aliases do not duplicate typed assets');
 try {M::serialize($meta,['generation_method'=>'last_frame','reference_images'=>['https://test/last.png']]);throw new RuntimeException('accepted unsupported tail-only');}catch(InvalidArgumentException $e){echo "PASS unsupported tail-only view rejected\n";}
+try {S::validate(['type'=>'object','properties'=>['video_urls'=>['type'=>'array'],'image_urls'=>['type'=>'array']],'oneOf'=>[['type'=>'object','properties'=>['video_urls'=>['type'=>'array']],'required'=>['video_urls'],'additionalProperties'=>false],['type'=>'object','properties'=>['video_urls'=>['type'=>'array'],'image_urls'=>['type'=>'array']],'required'=>['video_urls','image_urls'],'additionalProperties'=>false]]],[]);throw new RuntimeException('accepted missing conditional video');}catch(InvalidArgumentException $e){echo "PASS missing conditional required material rejected\n";}
