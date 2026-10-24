@@ -43,7 +43,7 @@ try {
     if ($updatedPayload['market_metadata']['developer_doc_content'] !== $largeText . 'updated'
         || $updatedSku['source_payload']['price']['metadata'] !== $largeText
         || (float)$updatedSku['upstream_price'] !== 12.0
-        || (float)$updatedSku['sale_points'] !== 25.0 || (int)$updatedSku['sale_status'] !== 0) {
+        || (float)$updatedSku['configured_sale_points'] !== 25.0 || (int)$updatedSku['sale_status'] !== 0) {
         throw new RuntimeException('Repeat sync lost metadata or changed manual sale settings');
     }
     echo 'PASS large product/SKU insert, update, and manual price/shelf preservation' . PHP_EOL;
