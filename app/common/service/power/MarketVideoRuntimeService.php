@@ -329,6 +329,17 @@ class MarketVideoRuntimeService
                 throw $error;
             }
         }
+        $metadata = self::metadata($market['product']);
+        if (MarketGenerationMaterials::modes($metadata) !== []) {
+            $mode=MarketGenerationMaterials::select($metadata,$selection);
+            $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
+            $values=array_replace((array)($selection['provider_params']??[]),MarketGenerationMaterials::serialize($metadata,$selection,$schema));
+            $properties=MarketGenerationSchema::properties(MarketGenerationSchema::branch($schema,$values));
+            // Follow-source/frames-per-second models do not accept a synthetic duration.
+            if (!isset($properties['duration']) && !isset($properties['seconds']) && !isset($properties['video_duration'])) {
+                return ['duration'=>0,'market_product_id'=>(int)$market['product']['id'],'market_sku_id'=>(int)$market['sku']['id'],'sku_id'=>(int)$market['sku']['id']];
+            }
+        }
         $duration = self::effectiveDurationFromMarket($market, $requestedDuration);
 
         // Validate and select using the negotiated duration, never the
@@ -598,9 +609,8 @@ class MarketVideoRuntimeService
                 if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $videos];
             }
-            if ((string)$c['billing_status'] === 'pending_usage' && self::isTokenSnapshot($snapshot)) {
-                $usage = self::usage($response, 0);
-                $usage['actual_quantity'] = MarketUsageSettlementService::tokenUsage($response);
+            if (((string)$c['billing_status'] === 'pending_usage' && self::isTokenSnapshot($snapshot)) || !empty($snapshot['requires_actual_duration'])) {
+                $usage = self::usage($response, (float)($snapshot['quantity']??0), $snapshot);
                 if ((float)($usage['actual_quantity'] ?? 0) > 0) {
                     $stored = self::arrayValue($c['response_summary'] ?? []);
                     $settleVideos = $videos !== [] ? $videos : (array)($stored['videos'] ?? []);
@@ -664,7 +674,7 @@ class MarketVideoRuntimeService
             $c = $ctx['consumption']; $task = $ctx['app_task']; if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $submittedQuantity = max(1, (float)($snapshot['quantity'] ?? $c['quantity']));
-            $usage = self::usage($response, $submittedQuantity);
+            $usage = self::usage($response, $submittedQuantity, $snapshot);
             if (self::isTokenSnapshot($snapshot)) {
                 $usage['actual_quantity'] = MarketUsageSettlementService::tokenUsage($response);
             }
@@ -3007,8 +3017,16 @@ class MarketVideoRuntimeService
         if (self::isDurationBillingUnit($unit)) {
             if ($lockedDuration <= 0 && array_key_exists('duration',$selection) && (int)$selection['duration']<=0 && MarketGenerationMaterials::modes(self::metadata($market['product']))!==[]) {
                 $durations=array_filter(self::durationOptions(self::metadata($market['product'])),static fn($duration)=>$duration>0);
-                if ($durations===[]) throw new Exception('当前自动时长缺少可信的计费上限');
-                return max($durations);
+                if ($durations!==[]) return max($durations);
+            }
+            $metadata=self::metadata($market['product']);
+            if (MarketGenerationMaterials::modes($metadata)!==[]) {
+                $native=MarketGenerationRequest::payload(self::snapshot($market,1),$selection);
+                if ($unit==='input_second') return max(1,MarketGenerationMedia::seconds($native));
+                $seconds=(float)($native['duration'] ?? $native['seconds'] ?? $native['video_duration'] ?? 0);
+                if ($seconds>0) return max(1,$seconds);
+                if (isset($native['num_frames'],$native['frames_per_second']) && (float)$native['frames_per_second']>0) return max(1,(float)$native['num_frames']/(float)$native['frames_per_second']);
+                return max(1,MarketGenerationMedia::seconds($native));
             }
             return max(1, $lockedDuration ?: self::requestedDuration($selection));
         }
@@ -3412,35 +3430,14 @@ class MarketVideoRuntimeService
         return $cache[$modelCode] = self::metadata($product->toArray());
     }
     private static function requestSummary(array $request): array { $assets = self::assets($request); return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'duration' => (int)($request['duration'] ?? 0), 'resolution' => self::value($request, ['resolution','quality']), 'reference_images' => count($assets['image']), 'reference_videos' => count($assets['video']), 'reference_audios' => count($assets['audio'])]; }
-    private static function usage(array $response, float $quantity): array
+    private static function usage(array $response, float $quantity, array $snapshot = []): array
     {
         $root = self::root($response);
         $result = self::arrayValue($root['result'] ?? $root['Result'] ?? []);
         $usage = self::arrayValue($root['usage'] ?? $response['usage'] ?? $result['usage'] ?? $result['Usage'] ?? []);
-        $actual = 0.0;
-        foreach ([
-            $usage['total_tokens'] ?? null,
-            $usage['totalTokens'] ?? null,
-            $usage['token_count'] ?? null,
-            $usage['tokenCount'] ?? null,
-            $usage['usage_tokens'] ?? null,
-            $root['total_tokens'] ?? null,
-            $root['totalTokens'] ?? null,
-            $result['total_tokens'] ?? null,
-            $result['totalTokens'] ?? null,
-            $usage['quantity'] ?? null,
-            $usage['duration'] ?? null,
-            $usage['seconds'] ?? null,
-            $usage['output_seconds'] ?? null,
-            $root['duration'] ?? null,
-            $root['seconds'] ?? null,
-            $response['duration'] ?? null,
-        ] as $value) {
-            if (is_numeric($value) && (float)$value > 0) {
-                $actual = (float)$value;
-                break;
-            }
-        }
+        $actual = self::isTokenSnapshot($snapshot)
+            ? MarketUsageSettlementService::tokenUsage($response)
+            : (self::openPlatformSettlementQuantity($snapshot,$response) ?? 0.0);
         return ['actual_quantity' => $actual, 'submitted_quantity' => $quantity, 'upstream_usage' => $usage];
     }
     private static function settlementQuantity(array $snapshot, float $submitted, array $usage): float
@@ -3467,8 +3464,8 @@ class MarketVideoRuntimeService
         $root = self::root($response);
         $result = self::arrayValue($root['result'] ?? $root['Result'] ?? []);
         $usage = self::arrayValue($root['usage'] ?? $response['usage'] ?? $result['usage'] ?? $result['Usage'] ?? []);
-        $specific = $unit === 'input_second' ? ['input_seconds','input_duration'] : ['output_seconds','output_duration'];
-        if (in_array($unit, ['second','seconds','sec'], true)) $specific = ['output_seconds','output_duration'];
+        $specific = $unit === 'input_second' ? ['input_seconds','input_duration','input_video_duration'] : ['output_seconds','output_duration','output_video_duration'];
+        if (in_array($unit, ['second','seconds','sec'], true)) $specific = ['output_seconds','output_duration','output_video_duration'];
         foreach (array_merge($specific, ['duration','seconds']) as $field) {
             foreach ([$usage, $result, $root, $response] as $source) {
                 $value = $source[$field] ?? null;
