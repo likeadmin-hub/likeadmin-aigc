@@ -85,6 +85,10 @@ class MarketVideoRuntimeService
             }
             $id = self::optionId($resourceType, $product);
             $resolutions = array_values(array_unique(array_filter(array_map(static fn(array $row): string => (string)$row['resolution'], $validSkus))));
+            if (in_array('', array_column($validSkus, 'resolution'), true)) {
+                $schemaProperties = MarketGenerationSchema::properties(self::arrayValue($metadata['params_schema'] ?? []));
+                $resolutions = array_values(array_unique(array_merge($resolutions, array_map(static fn($v)=>strtolower((string)$v), MarketGenerationSchema::choices($schemaProperties['resolution'] ?? $schemaProperties['quality'] ?? [])))));
+            }
             $durations = array_values(array_unique(array_merge(...array_map(
                 static fn(array $row): array => (array)($row['duration_options'] ?? []),
                 $validSkus
@@ -159,6 +163,7 @@ class MarketVideoRuntimeService
                 'durations' => $durations,
                 'duration_options' => $durations,
                 'input_modes' => self::inputModes($resourceType, $product, $metadata),
+                'material_modes' => MarketGenerationMaterials::modes($metadata),
                 'params_schema' => self::arrayValue($metadata['params_schema'] ?? []),
                 'default_params' => self::arrayValue($metadata['default_params'] ?? []),
                 'content_schema' => self::arrayValue($metadata['content_schema'] ?? []),
@@ -294,6 +299,13 @@ class MarketVideoRuntimeService
      */
     public static function normalizeDurationSelection(int $tenantId, array $selection, int $requestedDuration = 0): array
     {
+        if (array_key_exists('duration', $selection) && (int)$selection['duration'] <= 0) {
+            $market = self::resolve($tenantId, self::withoutDuration($selection));
+            $metadata = self::metadata($market['product']);
+            if (MarketGenerationMaterials::modes($metadata) !== [] && in_array((int)$selection['duration'], self::durationOptions($metadata), true)) {
+                return ['duration'=>(int)$selection['duration'],'market_product_id'=>(int)$market['product']['id'],'market_sku_id'=>(int)$market['sku']['id'],'sku_id'=>(int)$market['sku']['id']];
+            }
+        }
         $requestedDuration = max(0, $requestedDuration);
         $requestedSelection = self::withoutDuration($selection);
         if ($requestedDuration > 0) {
@@ -733,12 +745,12 @@ class MarketVideoRuntimeService
     {
         $productId = (int)$productData['id'];
         $matches = self::availableSkus($tenantId, $productId); $quality = self::value($selection, ['resolution', 'quality']); $duration = (int)self::value($selection, ['duration']); $ratio = self::value($selection, ['ratio', 'aspect_ratio', 'size']); $mode = self::inputMode($selection);
-        $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $ratio, $mode, $productData): bool {
+        $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $ratio, $mode, $productData, $selection): bool {
             $locked = self::arrayValue($row['sku']['locked_params'] ?? []); $resolution = self::resolution($locked); $lockedDuration = self::duration($locked); $skuMode = self::skuInputMode($locked);
             if ($quality !== '' && $resolution !== '' && strtolower($quality) !== strtolower($resolution)) return false;
             if ($duration > 0 && $lockedDuration > 0 && $lockedDuration !== $duration) return false;
             if (!self::skuSupportsRatio($locked, self::arrayValue($row['sku']['selectable_params'] ?? []), $ratio)) return false;
-            if (!self::skuSupportsInputMode($skuMode, $mode, $productData, $locked)) return false;
+            if (!self::contractSkuMatches($productData, $locked, $selection, $skuMode, $mode)) return false;
             return true;
         }));
         if ($matches === []) throw new Exception('当前模型没有可用的市场计费 SKU');
@@ -903,7 +915,7 @@ class MarketVideoRuntimeService
     {
         $product = $market['product']; $sku = $market['sku']; $meta = self::metadata($product);
         $requiresConcreteRatio = self::requiresConcreteTextToVideoRatio($product, $meta);
-        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
+        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
     }
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
@@ -963,6 +975,11 @@ class MarketVideoRuntimeService
 
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
     {
+        if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) !== []) {
+            $request['reference_assets'] = array_map(static function ($asset) { $asset['url'] = AigcVideoReferenceAssetService::publicUrl($asset); return $asset; }, AigcVideoReferenceAssetService::normalize($request, 100));
+            unset($request['reference_images']);
+            return array_merge(self::marketContext($snapshot, 'power_market_video'), MarketGenerationRequest::payload($snapshot, $request), ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)$snapshot['channel_code'], 'idempotency_key'=>$idempotency]);
+        }
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
         $schema = self::arrayValue($snapshot['params_schema'] ?? []);
@@ -1644,7 +1661,12 @@ class MarketVideoRuntimeService
 
     private static function assertAssets(array $market, array $request): void
     {
-        $product = $market['product']; $metadata = self::metadata($product); $assets = self::assets($request);
+        $product = $market['product']; $metadata = self::metadata($product);
+        if (($product['resource_type'] ?? '') === 'model' && MarketGenerationMaterials::modes($metadata) !== []) {
+            self::modelPayload(self::snapshot($market, 1), $request, 'admission');
+            return;
+        }
+        $assets = self::assets($request);
         if (!empty($request['tools']) && array_filter($assets)) throw new Exception('联网搜索仅支持文生视频，请移除参考素材或关闭联网搜索');
         $referenceAssets = AigcVideoReferenceAssetService::normalize($request);
         if (Q4VideoContract::matches($product)) Q4VideoContract::validate($request, $assets);
@@ -1940,7 +1962,7 @@ class MarketVideoRuntimeService
             }
         }
         $mode = self::inputMode($selection); $app = strtolower((string)($market['product']['upstream_app_code'] ?? ''));
-        if (!self::skuSupportsInputMode(self::skuInputMode($locked), $mode, $market['product'], $locked)) {
+        if (!self::contractSkuMatches($market['product'], $locked, $selection, self::skuInputMode($locked), $mode)) {
             throw new Exception('所选市场 SKU 不支持当前输入模式');
         }
     }
@@ -2027,6 +2049,7 @@ class MarketVideoRuntimeService
     {
         $overrides=MarketModelCapabilities::overrides($product);
         if(array_key_exists('supported_asset_types',$overrides))return array_values(array_intersect(['image','video','audio'],$overrides['supported_asset_types']));
+        if (MarketGenerationMaterials::modes($meta) !== []) return array_values(array_filter(['image','video','audio'], static fn($type)=>MarketGenerationMaterials::limit($meta,$type)>0));
         $types = self::assetTypes($meta);
         // The connected Grok app create endpoint only encodes image_urls.
         if (self::isGrokPerCallProduct($product)) return array_values(array_intersect($types, ['image']));
@@ -2044,6 +2067,7 @@ class MarketVideoRuntimeService
         $overrides=MarketModelCapabilities::overrides($product);
         $key=['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'][$type]??'';
         if(array_key_exists($key,$overrides))return $overrides[$key];
+        if (MarketGenerationMaterials::modes($meta) !== []) return MarketGenerationMaterials::limit($meta, $type);
         if ((string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
             $app = strtolower((string)($product['upstream_app_code'] ?? ''));
             if ($app === 'wan') return ['image' => 4, 'video' => 1, 'audio' => 1][$type] ?? 0;
@@ -2410,6 +2434,8 @@ class MarketVideoRuntimeService
 
     private static function declaredGenerationModes(array $product, array $meta): array
     {
+        $contractModes = MarketGenerationMaterials::modes($meta);
+        if ($contractModes !== []) return array_values(array_unique(array_column($contractModes, 'method')));
         $isH3 = self::isH3Product($product);
         $supportsStartEndFrames = self::supportsStartEndFrames($product);
         $cap = self::arrayValue($meta['capabilities'] ?? []);
@@ -2805,6 +2831,8 @@ class MarketVideoRuntimeService
     {
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $durationSchema = self::durationSchema($meta);
+        $declared = MarketGenerationSchema::durationChoices($durationSchema);
+        if ($declared !== []) return $declared;
         $minimum = (int)($durationSchema['minimum'] ?? $durationSchema['min'] ?? 0);
         $maximum = (int)($durationSchema['maximum'] ?? $durationSchema['max'] ?? 0);
         if ($minimum > 0 && $maximum >= $minimum && $maximum - $minimum <= 120) {
@@ -3161,6 +3189,21 @@ class MarketVideoRuntimeService
         $variant = strtolower(trim((string)($locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? '')));
         return str_contains(str_replace(['_', '-', ' '], '', $variant), 'withvideo');
     }
+    private static function contractSkuMatches(array $product, array $locked, array $selection, string $skuMode, string $mode): bool
+    {
+        $metadata = self::metadata($product);
+        if (($product['resource_type'] ?? '') !== 'model' || MarketGenerationMaterials::modes($metadata) === []) return self::skuSupportsInputMode($skuMode, $mode, $product, $locked);
+        $native = MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '';
+        if (!empty($locked['generation_type']) && $locked['generation_type'] !== $native) return false;
+        foreach ($locked as $key=>$value) {
+            if (is_array($value) || is_object($value)) continue;
+            if ($key === '_billing_video_input' && (bool)$value !== (self::assets($selection)['video'] !== [] || !empty($selection['provider_params']['video_urls']))) return false;
+            if (str_starts_with($key,'_') || !array_key_exists($key,(array)($selection['provider_params'] ?? []))) continue;
+            if (strcasecmp((string)$value,(string)$selection['provider_params'][$key]) !== 0) return false;
+        }
+        return true;
+    }
+
     private static function skuSupportsInputMode(string $skuMode, string $requestedMode, array $product, array $locked): bool
     {
         if (Q4VideoContract::matches($product)) return $requestedMode === 'image_reference';
@@ -3197,6 +3240,18 @@ class MarketVideoRuntimeService
     /** Do not advertise a provider capability that no currently sellable SKU can price. */
     private static function sellableGenerationModes(array $product, array $metadata, array $skus): array
     {
+        if (MarketGenerationMaterials::modes($metadata) !== []) {
+            return array_values(array_filter(self::generationModes($product, $metadata), static function ($method) use ($metadata,$skus): bool {
+                foreach (MarketGenerationMaterials::modes($metadata) as $mode) {
+                    if ($mode['method'] !== $method) continue;
+                    foreach ($skus as $sku) {
+                        $locked = self::arrayValue($sku['locked_params'] ?? []);
+                        if (empty($locked['generation_type']) || $locked['generation_type'] === $mode['native_mode']) return true;
+                    }
+                }
+                return false;
+            }));
+        }
         $inputModes = [
             'text_to_video'=>['text_to_video'],
             'image_to_video'=>['image_reference'],

@@ -111,6 +111,7 @@ class MarketImageModelRuntimeService
                     'sku_key' => (string)$sku['sku_key'],
                     'title' => (string)$sku['title'],
                     'quality' => $quality,
+                    'quality_options' => self::skuQualityChoices($sku, $meta, $product),
                     'resolution' => $quality,
                     'ratio_options' => self::ratioOptions($locked, $meta, (string)($product['upstream_model_code'] ?? '')),
                     'locked_params' => $locked,
@@ -123,7 +124,7 @@ class MarketImageModelRuntimeService
             }
             $available = $skus !== [];
             $unavailableReason = $available ? '' : ((int)$platformSkuCount > 0 ? '租户未上架该图片模型 SKU' : '暂无可售 SKU');
-            $qualities = array_values(array_unique(array_filter(array_map(static fn(array $item): string => (string)$item['quality'], $skus))));
+            $qualities = array_values(array_unique(array_merge(...array_map(static fn(array $item): array => $item['quality_options'], $skus))));
             if ($qualities === []) {
                 $qualities = self::modelQualityOptions($product, $meta);
             }
@@ -153,6 +154,7 @@ class MarketImageModelRuntimeService
                 'default_quality' => (string)($qualities[0] ?? ''),
                 'default_ratio' => (string)($first['ratio_options'][0] ?? $ratios[0] ?? ''),
                 'skus' => $skus,
+                'material_modes' => MarketGenerationMaterials::modes($meta),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'content_schema' => self::arrayValue($meta['content_schema'] ?? []),
@@ -194,6 +196,7 @@ class MarketImageModelRuntimeService
         $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, 0, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
+        self::assertReferenceImagesAllowed($market, $selection);
         return self::quoteMarket($market, $quantity, $billingOverride) + ['follow_market_prices' => MarketPriceRuleService::followsApps($tenantId)];
     }
 
@@ -805,7 +808,10 @@ class MarketImageModelRuntimeService
             $sku = (array)$market['sku'];
             $locked = self::arrayValue($sku['locked_params'] ?? []);
             $lockedQuality = self::skuQuality($sku, $locked);
-            if ($quality === '' || $lockedQuality === '' || strcasecmp($lockedQuality, $quality) === 0) {
+            $choices = self::skuQualityChoices($sku, self::metadata($product), $product);
+            $nativeMode = MarketGenerationMaterials::select(self::metadata($product), $selection)['native_mode'] ?? '';
+            if (!empty($locked['generation_type']) && $nativeMode !== '' && $locked['generation_type'] !== $nativeMode) continue;
+            if ($quality === '' || $choices === [] || in_array(strtolower($quality), $choices, true)) {
                 $supportedRatios = self::ratioOptions($locked, self::metadata($product), (string)($product['upstream_model_code'] ?? ''));
                 if ($ratio === '' || $supportedRatios === [] || in_array($ratio, $supportedRatios, true)) {
                     $matches[] = $market;
@@ -848,7 +854,10 @@ class MarketImageModelRuntimeService
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $requestedQuality = self::selectionQuality($selection);
         $lockedQuality = self::skuQuality($market['sku'], $locked);
-        if ($requestedQuality !== '' && $lockedQuality !== '' && strcasecmp($requestedQuality, $lockedQuality) !== 0) {
+        $choices = self::skuQualityChoices($market['sku'], self::metadata($market['product']), $market['product']);
+        $nativeMode = MarketGenerationMaterials::select(self::metadata($market['product']), $selection)['native_mode'] ?? '';
+        if (!empty($locked['generation_type']) && $nativeMode !== '' && $locked['generation_type'] !== $nativeMode) throw new Exception('所选图片 SKU 不支持当前分辨率');
+        if ($requestedQuality !== '' && $choices !== [] && !in_array(strtolower($requestedQuality), $choices, true)) {
             throw new Exception('所选图片 SKU 不支持当前分辨率');
         }
         $ratio = self::normalizedRatio(self::firstValue($selection, ['ratio', 'aspect_ratio', 'size']));
@@ -870,6 +879,10 @@ class MarketImageModelRuntimeService
 
     private static function payload(array $snapshot, array $request, string $idempotencyKey, int $tenantId = 0): array
     {
+        if (MarketGenerationMaterials::modes(self::metadata($snapshot)) !== []) {
+            $request['reference_images'] = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
+            return array_merge(self::marketContext($snapshot), MarketGenerationRequest::payload($snapshot, $request), ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)($snapshot['channel_code'] ?? ''), 'idempotency_key'=>$idempotencyKey]);
+        }
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $providerParams = (array)($request['provider_params'] ?? []);
         $defaultParams = self::arrayValue($snapshot['default_params'] ?? self::metadata($snapshot)['default_params'] ?? []);
@@ -1536,7 +1549,8 @@ class MarketImageModelRuntimeService
     private static function modelQualityOptions(array $product, array $meta): array
     {
         $schema = self::arrayValue($meta['params_schema'] ?? []);
-        $values = $meta['quality_options'] ?? $meta['resolution_options'] ?? $schema['image_size']['options'] ?? $schema['resolution']['options'] ?? [];
+        $schema = MarketGenerationSchema::properties($schema);
+        $values = $meta['quality_options'] ?? $meta['resolution_options'] ?? MarketGenerationSchema::choices($schema['resolution'] ?? $schema['image_size'] ?? $schema['quality'] ?? []);
         if (is_string($values)) {
             $values = preg_split('/\s*\/\s*/', $values) ?: [];
         }
@@ -1566,6 +1580,16 @@ class MarketImageModelRuntimeService
             }
         }
         return [];
+    }
+
+    private static function skuQualityChoices(array $sku, array $meta, array $product): array
+    {
+        $locked = self::arrayValue($sku['locked_params'] ?? []);
+        if (!empty($locked['_billing_resolution_tier'])) {
+            return array_map('strtolower', MarketGenerationSchema::choices(['enum'=>$locked['_billing_resolution_tier']]));
+        }
+        $quality = self::skuQuality($sku, $locked);
+        return $quality !== '' ? [$quality] : self::modelQualityOptions($product, $meta);
     }
 
     private static function skuQuality(array $sku, array $locked): string
@@ -1662,18 +1686,31 @@ class MarketImageModelRuntimeService
         }
         return '';
     }
-    private static function referenceLimit(array $meta): int { $capabilities = self::arrayValue($meta['capabilities'] ?? []); foreach (['max_reference_images','max_reference_image_count','reference_image_limit'] as $key) { if (isset($meta[$key])) return max(0, (int)$meta[$key]); if (isset($capabilities[$key])) return max(0, (int)$capabilities[$key]); } return 0; }
+    private static function referenceLimit(array $meta): int { if (MarketGenerationMaterials::modes($meta) !== []) return MarketGenerationMaterials::limit($meta, 'image'); $capabilities = self::arrayValue($meta['capabilities'] ?? []); foreach (['max_reference_images','max_reference_image_count','reference_image_limit'] as $key) { if (isset($meta[$key])) return max(0, (int)$meta[$key]); if (isset($capabilities[$key])) return max(0, (int)$capabilities[$key]); } return 0; }
     private static function supportsReferenceImages(array $meta): bool { if (array_key_exists('supports_reference_images', $meta['_local_capability_overrides'] ?? [])) return $meta['_local_capability_overrides']['supports_reference_images']; $capabilities = self::arrayValue($meta['capabilities'] ?? []); if (!empty($meta['supports_reference_images']) || !empty($capabilities['supports_reference_images']) || self::referenceLimit($meta) > 0) return true; $schema = self::arrayValue($meta['params_schema'] ?? []); foreach (['urls', 'image_urls', 'images', 'reference_images'] as $field) if (array_key_exists($field, $schema)) return true; return false; }
     private static function firstValue(array $params, array $keys): string { foreach ($keys as $key) if (isset($params[$key]) && $params[$key] !== '') return (string)$params[$key]; return ''; }
     private static function qualityOptions(array $locked): array { $v = self::skuQuality([], $locked); return $v === '' ? [] : [$v]; }
     private static function resolutionOptions(array $locked): array { $v = self::firstValue($locked, ['quality','resolution','image_size']); return $v === '' ? [] : [['value' => $v, 'label' => $v, 'ratio_options' => self::ratioOptions($locked, [])]]; }
-    private static function ratioOptions(array $locked, array $meta, string $modelCode = ''): array { $v = self::firstValue($locked, ['ratio','aspect_ratio']); if ($v !== '' && !self::isPlaceholderRatio($v)) return [$v]; $schema = self::arrayValue($meta['params_schema'] ?? []); $values = $meta['supported_ratios'] ?? $meta['ratios'] ?? $schema['aspect_ratio']['options'] ?? []; if (is_string($values)) $values = preg_split('/\s*\/\s*/', $values) ?: []; if ($values === [] && self::isQwenImageModel($modelCode)) $values = self::QWEN_IMAGE_RATIOS; return array_values(array_filter(array_map('strval', (array)$values), static fn(string $ratio): bool => !self::isPlaceholderRatio($ratio))); }
+    private static function ratioOptions(array $locked, array $meta, string $modelCode = ''): array
+    {
+        $value = self::firstValue($locked, ['ratio','aspect_ratio']);
+        if ($value !== '') return [$value];
+        $schema = MarketGenerationSchema::properties(self::arrayValue($meta['params_schema'] ?? []));
+        $values = MarketGenerationSchema::choices(['enum'=>$meta['supported_ratios'] ?? $meta['ratios'] ?? []]);
+        if ($values === []) foreach (['aspect_ratio','ratio','image_size'] as $field) {
+            $choices = MarketGenerationSchema::choices($schema[$field] ?? []);
+            if ($field === 'image_size') $choices = array_values(array_filter($choices, static fn($v) => preg_match('/^\d+:\d+$/', (string)$v)));
+            if ($choices !== []) { $values = $choices; break; }
+        }
+        if ($values === [] && self::isQwenImageModel($modelCode)) $values = self::QWEN_IMAGE_RATIOS;
+        return array_values(array_map('strval', $values));
+    }
     private static function isQwenImageModel(string $modelCode): bool { return in_array(strtolower(trim($modelCode)), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true); }
     private static function normalizedRatio(string $ratio): string { $ratio = trim($ratio); return self::isPlaceholderRatio($ratio) ? '' : $ratio; }
     private static function isPlaceholderRatio(string $ratio): bool { return trim($ratio) === ''; }
     private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; $source = self::arrayValue($product['source_payload'] ?? []); return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'image', 'market_metadata' => self::metadata($product), 'pricing_attributes' => array_values(array_filter((array)($source['pricing_v2']['attributes'] ?? []), 'is_array')), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)($market['reference_limit'] ?? 0)]; }
     private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'reference_image_count' => count((array)($request['reference_images'] ?? [])), 'ratio' => self::firstValue($request, ['ratio', 'aspect_ratio']), 'quality' => (string)($request['quality'] ?? '')]; }
-    private static function assertReferenceImagesAllowed(array $market, array $request): void { $count = count(array_filter((array)($request['reference_images'] ?? []))); if ($count <= 0) return; $meta = self::metadata($market['product']); $limit = (int)($market['reference_limit'] ?? 0); if (!self::supportsReferenceImages($meta)) throw new Exception('所选图片模型不支持参考图'); if ($limit > 0 && $count > $limit) throw new Exception('所选图片模型最多支持 ' . $limit . ' 张参考图'); }
+    private static function assertReferenceImagesAllowed(array $market, array $request): void { if (MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []) { self::payload(self::snapshot($market), $request, 'admission'); return; } $count = count(array_filter((array)($request['reference_images'] ?? []))); if ($count <= 0) return; $meta = self::metadata($market['product']); $limit = (int)($market['reference_limit'] ?? 0); if (!self::supportsReferenceImages($meta)) throw new Exception('所选图片模型不支持参考图'); if ($limit > 0 && $count > $limit) throw new Exception('所选图片模型最多支持 ' . $limit . ' 张参考图'); }
     private static function context(int $consumptionId, bool $lock): ?array { $q = AiConsumptionLog::where('id', $consumptionId); if ($lock) $q->lock(true); $c = $q->findOrEmpty(); if ($c->isEmpty()) return null; $tq = AiAppTask::where('id', (int)$c['app_task_id']); if ($lock) $tq->lock(true); $t = $tq->findOrEmpty(); return $t->isEmpty() ? null : ['consumption' => $c, 'app_task' => $t]; }
     private static function responseFromConsumption(array $c): array
     {

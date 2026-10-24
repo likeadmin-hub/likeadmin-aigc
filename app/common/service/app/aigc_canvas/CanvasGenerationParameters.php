@@ -34,6 +34,7 @@ final class CanvasGenerationParameters
 
     public static function definitions(array $model, string $type): array
     {
+        if (in_array($type, ['image','video'], true) && !empty($model['material_modes'])) return \app\common\service\power\MarketGenerationParameters::definitions($model);
         $schema = self::arrayValue($model['params_schema'] ?? []);
         $properties = self::arrayValue($schema['properties'] ?? $schema);
         $defaults = self::arrayValue($model['default_params'] ?? []);

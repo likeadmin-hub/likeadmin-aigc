@@ -260,11 +260,12 @@ class AigcVideoReferenceAssetService
             'url' => $url !== '' ? $url : $uri,
             'name' => $name,
         ];
+        foreach (['field','parameters'] as $key) if (isset($asset[$key])) $normalized[$key] = $asset[$key];
         $role = trim((string)($asset['role'] ?? ''));
         $allowedRoles = match ($type) {
             self::TYPE_VIDEO => ['reference_video'],
             self::TYPE_AUDIO => ['reference_audio'],
-            default => ['reference_image', 'first_frame_image', 'last_frame_image'],
+            default => ['reference_image', 'first_frame_image', 'last_frame_image', 'mask_image', 'keyframe_image', 'loop_image'],
         };
         if (in_array($role, $allowedRoles, true)) {
             $normalized['role'] = $role;

@@ -14,16 +14,36 @@ final class MarketGenerationMaterials
     public static function modes(array $metadata): array
     {
         $result = [];
-        foreach ((array)(self::contract($metadata)['modes'] ?? []) as $index => $mode) {
+        $declared = (array)(self::contract($metadata)['modes'] ?? []);
+        $expanded = [];
+        foreach ($declared as $mode) {
+            if (!is_array($mode)) continue;
+            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f)=>is_array($f) && !str_contains((string)($f['field'] ?? ''), '.')));
+            $frames = array_values(array_filter($fields, static fn($f)=>in_array($f['role'] ?? '', ['first','last'],true)));
+            if (empty($mode['view_key']) && count($frames) === 2 && !array_filter($frames, static fn($f)=>!empty($f['required']))) {
+                $base = array_values(array_filter($fields, static fn($f)=>!in_array($f['role'] ?? '', ['first','last'],true)));
+                $expanded[] = array_replace($mode, ['fields'=>$base,'first_last_frame'=>'不支持','view_key'=>($mode['code'] ?? 'default').':reference']);
+                foreach (['first'=>'image_to_video','last'=>'last_frame','pair'=>'start_end'] as $view=>$method) {
+                    if ($view === 'pair' && ($mode['first_last_frame'] ?? '') !== '支持') continue;
+                    $selected = $base;
+                    foreach ($frames as $frame) if ($view === 'pair' || $frame['role'] === $view) $selected[] = array_replace($frame,['required'=>true,'minimum'=>1]);
+                    $expanded[] = array_replace($mode,['fields'=>$selected,'method'=>$method,'view_key'=>($mode['code'] ?? 'default').':'.$view]);
+                }
+            } else $expanded[] = $mode;
+        }
+        foreach ($expanded as $index => $mode) {
             if (!is_array($mode)) continue;
             $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f) => is_array($f) && !str_contains((string)($f['field'] ?? ''), '.')));
             $roles = array_column($fields, 'role');
             $kinds = array_unique(array_column($fields, 'kind'));
             $code = (string)($mode['code'] ?? '');
-            if (($mode['first_last_frame'] ?? '') === '支持' && (in_array('first', $roles, true) || in_array('frames', $roles, true))) $method = 'start_end';
+            if (!empty($mode['method'])) $method = $mode['method'];
+            elseif (in_array($code, ['text_to_video','text_2_video','text_to_image'], true) || str_ends_with((string)($mode['view_key'] ?? ''), ':text')) $method = 'text_to_video';
+            elseif ($code === 'reference_to_video') $method = count($kinds) > 1 ? 'omni_reference' : (($kinds[0] ?? '') === 'video' ? 'video_edit' : 'image_reference');
+            elseif (($mode['first_last_frame'] ?? '') === '支持' && (in_array('first', $roles, true) || in_array('frames', $roles, true))) $method = 'start_end';
             elseif (in_array('last', $roles, true) && !in_array('first', $roles, true)) $method = 'last_frame';
             elseif (in_array('first', $roles, true) || in_array('frames', $roles, true)) $method = 'image_to_video';
-            elseif ($fields === []) $method = 'text_to_video';
+            elseif ($fields === [] || (!array_filter($fields,static fn($f)=>!empty($f['required'])) && !array_diff($roles,['keyframe']))) $method = 'text_to_video';
             elseif (count($kinds) > 1 || array_intersect($kinds, ['subject','mixed','character','file'])) $method = 'omni_reference';
             else $method = match ($kinds[0] ?? '') { 'video'=>'video_edit', 'audio'=>'audio_reference', default=>'image_reference' };
             $fingerprint = json_encode([$code, $method, $fields]);
@@ -31,6 +51,17 @@ final class MarketGenerationMaterials
             $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields]);
         }
         return array_values($result);
+    }
+
+    public static function limit(array $metadata, string $kind): int
+    {
+        $limit = 0;
+        foreach (self::modes($metadata) as $mode) {
+            $total = 0;
+            foreach ($mode['fields'] as $field) if (($field['kind'] ?? '') === $kind) $total += max(0, (int)($field['maximum'] ?? $field['minimum'] ?? 0));
+            $limit = max($limit, $total);
+        }
+        return $limit;
     }
 
     public static function select(array $metadata, array $request): ?array
@@ -68,7 +99,7 @@ final class MarketGenerationMaterials
             if ($url === '') continue;
             $assets[] = $asset + ['url'=>$url, 'type'=>'image', 'role'=>'reference_image'];
         }
-        foreach ((array)($request['reference_images'] ?? []) as $url) {
+        foreach ($assets === [] ? (array)($request['reference_images'] ?? []) : [] as $url) {
             if (is_string($url) && $url !== '') $assets[] = ['url'=>$url,'type'=>'image','role'=>'reference_image'];
         }
         return $assets;
@@ -105,6 +136,7 @@ final class MarketGenerationMaterials
             if (array_key_exists($name, $params) && $params[$name] !== '' && $params[$name] !== []) { $result[$name] = $params[$name]; continue; }
             $matched = self::matching($assets, $field, $mode['method']);
             if ($matched === []) continue;
+            if (empty($field['required']) && count($matched) > (int)($field['maximum'] ?? PHP_INT_MAX) && ($schema[$name]['type'] ?? '') !== 'array') continue;
             $definition = $schema[$name] ?? [];
             $urls = array_map(static fn($asset) => $asset['url'], $matched);
             if (($definition['type'] ?? '') === 'array') {
