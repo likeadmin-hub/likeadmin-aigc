@@ -27,6 +27,7 @@ final class MarketGenerationRequest
         if (MarketGenerationNativeContract::modes($metadata)===[]) return false;
         $mode=MarketGenerationMaterials::select($metadata,$request);
         $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
+        $schema=MarketGenerationSchema::branch($schema,array_replace((array)($request['provider_params']??[]),MarketGenerationMaterials::serialize($metadata,$request,$schema)));
         foreach (['prompt','content'] as $field) if (in_array($field,(array)($schema['required']??[]),true) || !empty($schema['properties'][$field]['required'])) return false;
         return true; // Admission still validates the complete exact-mode schema and materials.
     }
