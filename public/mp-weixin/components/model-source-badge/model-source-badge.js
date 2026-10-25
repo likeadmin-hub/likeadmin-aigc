@@ -1,0 +1,1 @@
+"use strict";const e=require("../../common/vendor.js"),o=e.defineComponent({__name:"model-source-badge",props:{model:null},setup(o){const t=o,n=e.computed(()=>e.modelSourceText(t.model));return(t,d)=>e.e({a:o.model},o.model?{b:e.t(e.unref(n).label),c:e.unref(n).title}:{})}}),t=e._export_sfc(o,[["__scopeId","data-v-578de948"]]);wx.createComponent(t);
