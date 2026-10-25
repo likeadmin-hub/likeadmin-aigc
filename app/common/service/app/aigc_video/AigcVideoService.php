@@ -85,7 +85,7 @@ class AigcVideoService
         $params['duration']=(int)$normalized['duration'];$selection=array_replace($selection,$normalized);
         $resolved=$selection+$params;$resolved['resource_type']=$runtime===MarketVideoAppRuntimeService::class?'app_api':'model';
         $captured=\app\common\service\power\MarketVideoRuntimeService::openPlatformAdmissionQuote($tenantId,$resolved);
-        if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$captured['quote']['market_snapshot'])) throw new Exception('请输入提示词');
+        if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$captured['quote']['market_snapshot']) && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)$captured['quote']['market_snapshot'],$resolved)) throw new Exception('请输入提示词');
         $effect=VideoEffectService::resolve(VideoEffectService::catalog($tenantId),$params,(int)$captured['quote']['market_product_id']);
         if($effect){
             $params=VideoEffectService::compile($params,$effect);
@@ -181,7 +181,7 @@ class AigcVideoService
             $params['duration'] = (int)$normalizedDuration['duration'];
             $selection = array_replace($selection, $normalizedDuration);
             $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
-            if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot'])) throw new Exception('请输入提示词');
+            if ($prompt === '' && !\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot']) && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)$quote['market_snapshot'],$selection+$params)) throw new Exception('请输入提示词');
             $effect = VideoEffectService::resolve(VideoEffectService::catalog($tenantId), $params, (int)$quote['market_product_id']);
             if ($effect) {
                 $params = VideoEffectService::compile($params, $effect);
@@ -191,6 +191,7 @@ class AigcVideoService
             }
         }
         if (\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot'])) $selection['q4_options'] = \app\common\service\power\Q4VideoContract::options($params);
+        $selection['generation_parameters_signature'] = \app\common\service\power\MarketGenerationRequest::parameterSignature($params);
         $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
         if ($duplicate !== null) {
             return self::marketDuplicateResponse($duplicate, $tenantId, $userId);
@@ -203,7 +204,7 @@ class AigcVideoService
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)($selection['model_id'] ?? $selection['channel'] ?? ''),
             'quality' => (string)($selection['resolution'] ?? $selection['quality'] ?? ''), 'ratio' => (string)($params['ratio'] ?? ''),
-            'duration' => max(1, (int)($params['duration'] ?? 0)), 'quantity' => 1,
+            'duration' => max(0, (int)($params['duration'] ?? 0)), 'quantity' => 1,
             'tenant_cost_points' => (float)$quote['tenant_cost_points'], 'user_charge_points' => (float)$quote['user_charge_points'],
             'provider' => 'power_market', 'model' => (string)($selection['model_id'] ?? ''), 'provider_task_id' => '',
             'status' => 'running', 'error' => '', 'app_task_id' => 0, 'consumption_id' => 0,
@@ -386,12 +387,13 @@ class AigcVideoService
             ->order('id', 'desc')->limit(3)->select();
         $signature = self::referenceAssetSignature((array)$params['reference_assets'], (array)$params['reference_images']);
         foreach ($rows as $row) {
+            if (($row['model_json']['generation_parameters_signature'] ?? '') !== ($selection['generation_parameters_signature'] ?? '')) continue;
             if (($row['model_json']['q4_options'] ?? []) !== ($selection['q4_options'] ?? [])) continue;
             if (($row['model_json']['effect_snapshot']['version'] ?? '') !== ($selection['effect_snapshot']['version'] ?? '')) continue;
             if (in_array((string)$row['status'], ['failed', 'canceled'], true)) {
                 continue;
             }
-            if ((string)$row['ratio'] !== (string)($params['ratio'] ?? '') || (int)$row['duration'] !== (int)($params['duration'] ?? 0)) {
+            if ((string)$row['ratio'] !== (string)($params['ratio'] ?? '') || (int)($row['model_json']['duration'] ?? $row['duration']) !== (int)($params['duration'] ?? 0)) {
                 continue;
             }
             if (self::referenceAssetSignature((array)($row['reference_assets'] ?: []), (array)($row['reference_images'] ?: [])) === $signature) {
@@ -958,6 +960,7 @@ class AigcVideoService
         $task['effect'] = $effect ? array_intersect_key($effect, array_flip(['id', 'name', 'version', 'instruction'])) : null;
         $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
         $task['channel_name'] = $task['model_name'];
+        $task = array_merge($task, \app\common\service\power\MarketModelSource::task($task));
     }
 
     public static function saveSensitiveWord(int $tenantId, array $params): void

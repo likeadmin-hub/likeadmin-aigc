@@ -79,7 +79,29 @@ try{
     $values=['cover'=>$old,'mobile_tabbar'=>['style'=>['icon_atlas'=>$old]],'html'=>'<img src="'.$old.'">','background'=>'url('.$old.')'];
     $wire=Assets::refreshValue($values,$tenant);check(!str_contains(json_encode($wire),'token=old')&&str_contains(json_encode($wire),'token='),'private CSS/HTML/settings refreshed offline');check(str_ends_with($wire['cover'],'#symbol'),'private fragment preserved');$normalized=Assets::normalizeValue($wire,$tenant);check($normalized['cover']===$stable.'#symbol'&&str_contains($normalized['html'],$stable.'#symbol'),'private save normalizes signatures to stable URI with fragment');
     try{Assets::refreshValue($values,1);throw new LogicException('foreign tenant signed');}catch(RuntimeException $error){check(true,'cross tenant private read denied');}
-    Db::name('tenant_file')->where('id',$file['id'])->update(['delete_time'=>time()]);try{Assets::refreshValue($values,$tenant);throw new LogicException('deleted file signed');}catch(RuntimeException $error){check(true,'deleted file denied');}
+    // Deleting a referenced material must not lock the tenant out of decoration.
+    $settings=json_encode(['mobile_tabbar'=>['list'=>[['icon'=>$stable.'#icon']]]]);
+    Db::name('decorate_template')->where('id',$svgTemplate['id'])->update(['cover'=>$old,'draft_settings'=>$settings,'published_settings'=>$settings]);
+    $missingData=json_encode([['id'=>'missing-image','name'=>'image-hotspot','content'=>['image'=>$old,'areas'=>[]],'styles'=>['width'=>375],'future'=>(object)[]]]);
+    Db::name('decorate_page')->where('id',$svgPage['id'])->update(['data'=>$missingData,'draft_data'=>$missingData,'published_data'=>$missingData]);
+    Db::name('tenant_file')->where('id',$file['id'])->update(['delete_time'=>time()]);
+    $beforeMissingRead=Db::name('decorate_page')->where('id',$svgPage['id'])->find();
+    $missing=Assets::refreshValue($values,$tenant);
+    check($missing['cover']===''&&$missing['mobile_tabbar']['style']['icon_atlas']==='','deleted images return empty without an old signature or fragment');
+    check(!str_contains($missing['html'],'token=')&&!str_contains($missing['background'],'token='),'deleted HTML/CSS media never expose cached private delivery URLs');
+    $listed=array_values(array_filter(Templates::lists($tenant),fn($row)=>(int)$row['id']===(int)$svgTemplate['id']));
+    check(count($listed)===1&&$listed[0]['cover']==='','deleted template cover does not break template list');
+    $detail=Templates::detail($tenant,$svgTemplate['id']);
+    check($detail['settings']['mobile_tabbar']['list'][0]['icon']===''&&count($detail['pages'])>0,'editor opens with missing tabbar and page images');
+    $editor=Templates::pageDetail($tenant,['template_id'=>$svgTemplate['id'],'id'=>$svgPage['id'],'terminal'=>'mobile']);
+    $editorData=json_decode($editor['draft_data']);
+    check($editorData[0]->content->image===''&&$editorData[0]->styles->width===375&&$editorData[0]->future instanceof stdClass,'editor clears only deleted media and preserves geometry/unknown objects');
+    check(Db::name('decorate_page')->where('id',$svgPage['id'])->find()===$beforeMissingRead,'tolerant reads never rewrite persisted draft or published snapshots');
+    Templates::savePage($tenant,['template_id'=>$svgTemplate['id'],'id'=>$svgPage['id'],'data'=>$editor['draft_data'],'meta'=>$editor['draft_meta']]);
+    check(json_decode(Templates::pageDetail($tenant,['template_id'=>$svgTemplate['id'],'id'=>$svgPage['id']])['draft_data'],true)[0]['content']['image']==='','editor can save and reopen after removing missing material');
+    try{Assets::normalizeValue(['cover'=>$old],$tenant);throw new LogicException('deleted file write accepted');}catch(RuntimeException $error){check(str_contains($error->getMessage(),'失效'),'stale deleted material cannot be submitted as a fresh valid reference');}
+    try{Assets::refreshValue(['cover'=>$old],1);throw new LogicException('foreign deleted file accepted');}catch(RuntimeException $error){check(str_contains($error->getMessage(),'租户'),'cross tenant checks still reject deleted references');}
+    check(Assets::refreshValue(['cover'=>'/'.$svgFile['uri']],$tenant)['cover']!=='','other valid imported media remain available');
 }finally{
     \think\facade\Cache::delete('decoration_transfer:'.$tenant.':'.$tenant.':'.$operation);
     $request->tenantId=$tenant;

@@ -191,15 +191,12 @@ class AigcImageChannelService
             ?: self::normalizeRuntimeChannelCode((string)$defaults['channel']);
         $quality = array_key_exists('quality', $params)
             ? trim((string)$params['quality'])
-            : $defaults['quality'];
-        if ($quality === '') {
-            $quality = (string)$defaults['quality'];
-        }
+            : '';
         $ratio = array_key_exists('ratio', $params)
             ? trim((string)$params['ratio'])
-            : self::normalizeRequestedRatio('', $defaults['ratio']);
+            : '';
         if ($ratio === 'default') {
-            $ratio = self::normalizeRequestedRatio($ratio, $defaults['ratio']);
+            $ratio = '';
         }
         $variant = strtolower(trim((string)($params['variant'] ?? '')));
 
@@ -207,13 +204,27 @@ class AigcImageChannelService
             if ($channel['code'] !== $channelCode) {
                 continue;
             }
+            $channelQualities = array_column($channel['qualities'], 'value');
+            // Native business fields can own the priced dimension (for example size=1K
+            // or quality=medium). Match only actual sellable values so legacy rendering
+            // quality does not replace an independent resolution dimension.
+            $providerParams = is_array($params['provider_params'] ?? null) ? $params['provider_params'] : [];
+            foreach (['resolution','image_size','size','quality'] as $dimension) {
+                $candidate = $providerParams[$dimension] ?? null;
+                if (!is_scalar($candidate)) continue;
+                foreach ($channelQualities as $allowed) {
+                    if (strcasecmp((string)$candidate, (string)$allowed) === 0) { $quality = (string)$allowed; break 2; }
+                }
+            }
+            if ($channelQualities === [''] || $quality === '') $quality = (string)($channelQualities[0] ?? '');
             foreach ($channel['qualities'] as $qualityItem) {
                 if ($variant !== '' && strtolower(trim((string)($qualityItem['variant'] ?? ''))) !== $variant) {
                     continue;
                 }
-                if ($qualityItem['value'] !== $quality) {
+                if (strcasecmp((string)$qualityItem['value'], $quality) !== 0) {
                     continue;
                 }
+                if (array_column($qualityItem['ratios'] ?? [], 'value') === ['']) $ratio = '';
                 if ($ratio === '') {
                     $ratio = self::firstUsableRatio($qualityItem['ratios'] ?? []);
                 }
@@ -568,6 +579,7 @@ class AigcImageChannelService
             if (!self::isMarketRuntimeOptionVisible($model)) {
                 continue;
             }
+            $model = \app\common\service\power\MarketCreationParameters::describe($model, 'image');
             $modelCode = trim((string)($model['model_code'] ?? ''));
             $channelCode = trim((string)($model['id'] ?? ''));
             if ($modelCode === '' || $channelCode === '') {
@@ -580,6 +592,8 @@ class AigcImageChannelService
                 'value' => $channelCode,
                 'name' => (string)($model['name'] ?? $modelCode),
                 'label' => (string)($model['name'] ?? $modelCode),
+                'channel_source' => (string)($model['channel_source'] ?? 'unknown'),
+                'channel_source_label' => (string)($model['channel_source_label'] ?? '渠道未标注'),
                 'description' => (string)($model['description'] ?? ''),
                 'display_icon' => (string)($model['display_icon'] ?? ''),
                 'resource_type' => (string)($model['resource_type'] ?? 'model'),
@@ -593,6 +607,11 @@ class AigcImageChannelService
                 'model' => $modelCode,
                 'model_code' => $modelCode,
                 'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
+                'generation_parameters' => (array)($model['generation_parameters'] ?? []),
+                'material_modes' => (array)($model['material_modes'] ?? []),
+                'params_schema' => (array)($model['params_schema'] ?? []),
+                'default_params' => (array)($model['default_params'] ?? []),
+                'skus' => (array)($model['skus'] ?? []),
                 'status' => (int)($model['status'] ?? 1),
                 'available' => (bool)($model['available'] ?? ((int)($model['status'] ?? 1) === 1)),
                 'enabled' => (bool)($model['enabled'] ?? ((int)($model['status'] ?? 1) === 1)),
@@ -627,14 +646,14 @@ class AigcImageChannelService
                     $qualities = array_values(array_filter(array_map('strval', (array)($model['quality_options'] ?? []))));
                 }
                 if ($qualities === []) {
-                    $qualities = [trim((string)($model['default_quality'] ?? '1k')) ?: '1k'];
+                    $qualities = !empty($model['material_modes']) ? [''] : [trim((string)($model['default_quality'] ?? '1k')) ?: '1k'];
                 }
                 $ratios = array_values(array_unique(array_map('strval', (array)($sku['ratio_options'] ?? []))));
                 if ($ratios === []) {
                     $ratios = array_values(array_unique(array_map('strval', (array)($model['ratio_options'] ?? []))));
                 }
                 if ($ratios === []) {
-                    $ratios = [trim((string)($model['default_ratio'] ?? '1:1')) ?: '1:1'];
+                    $ratios = !empty($model['material_modes']) ? [''] : [trim((string)($model['default_ratio'] ?? '1:1')) ?: '1:1'];
                 }
                 foreach ($qualities as $quality) {
                     foreach ($ratios as $ratio) {

@@ -19,7 +19,7 @@ final class MicroVideoFrameCatalog
                     $specs[]=['quality'=>$s['quality'],'ratio'=>$ratio,'market_sku_id'=>(int)$s['market_sku_id'],'user_charge_points'=>round((float)$s['tenant_unit_price'],4)];
                 }
             }
-            if($specs)$out[]=['id'=>$m['id'],'label'=>$m['name'],'max_reference_images'=>(int)$m['max_reference_images'],'specs'=>$specs];
+            if($specs)$out[]=['channel_source'=>(string)($m['channel_source']??'unknown'),'channel_source_label'=>(string)($m['channel_source_label']??'渠道未标注'),'id'=>$m['id'],'label'=>$m['name'],'max_reference_images'=>(int)$m['max_reference_images'],'specs'=>$specs];
         }
         return $out;
     }

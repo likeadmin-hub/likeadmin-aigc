@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "model-source-badge": "../../../../components/model-source-badge/model-source-badge",
     "micro-page": "../../components/MicroPage",
     "image-library": "../../components/ImageLibrary"
   }

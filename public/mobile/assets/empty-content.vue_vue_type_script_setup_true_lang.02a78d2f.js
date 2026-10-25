@@ -1,0 +1,1 @@
+import{d as e,a as t,c as o}from"./index-4271eaf4.js";import{i as a}from"./page-content-lifecycle.e4b13e65.js";const s=e({__name:"empty-content",props:{decorationTabSlot:{type:Number,default:void 0}},setup:e=>(a(),(e,a)=>(t(),o("div")))});export{s as _};

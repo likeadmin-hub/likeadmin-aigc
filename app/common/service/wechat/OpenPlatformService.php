@@ -1610,7 +1610,7 @@ class OpenPlatformService
         $description = trim((string)($data['description'] ?? ('小程序 ' . $version)));
         if ($version === '' || !preg_match('/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?$/', $version)) throw new \InvalidArgumentException('草稿版本号格式无效');
         if (mb_strlen($description) > 255) throw new \InvalidArgumentException('草稿说明不能超过 255 个字符');
-        $lock = SubmitLockService::acquire('wechat.draft.upload', 0, 0, true);
+        $lock = SubmitLockService::acquire('wechat.draft.upload', 0, 0, false);
         $workRoot = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'likeadmin-wechat-draft-upload' . DIRECTORY_SEPARATOR . bin2hex(random_bytes(12));
         $projectPath = $workRoot . DIRECTORY_SEPARATOR . 'project';
         if (!mkdir($projectPath, 0700, true) && !is_dir($projectPath)) {
@@ -1652,15 +1652,21 @@ class OpenPlatformService
                     $candidates = array_values(array_filter(self::templateDrafts(), static fn(array $draft): bool =>
                         (string)$draft['user_version'] === $version && (string)$draft['user_desc'] === $description
                     ));
-                    if (count($candidates) === 1) $payload['draft_id'] = (int)$candidates[0]['draft_id'];
-                } catch (\Throwable $ignored) {
-                    // Upload success is authoritative. The administrator can refresh and select the draft later.
+                    if (count($candidates) === 1) {
+                        $payload['draft_id'] = (int)$candidates[0]['draft_id'];
+                    } else {
+                        $payload['upload_status'] = 'uploaded_unconfirmed';
+                        $payload['error_message'] = '代码上传已完成，但未能唯一确认微信草稿。请先刷新微信草稿列表，避免重复上传。';
+                    }
+                } catch (\Throwable $verificationError) {
+                    $payload['upload_status'] = 'uploaded_unconfirmed';
+                    $payload['error_message'] = '代码上传已完成，但微信草稿核验失败：' . mb_substr(self::sanitizeProcessOutput($verificationError->getMessage()), 0, 1000);
                 }
             }
             $record->save($payload);
             return array_merge($record->toArray(), [
                 'draft_id' => (int)($payload['draft_id'] ?? $record['draft_id'] ?? 0),
-                'message' => $result['success'] ? '已上传至微信草稿箱，请在代码模板页添加代码模板。' : '上传草稿失败，请查看错误日志。',
+                'message' => $payload['upload_status'] === 'success' ? '已上传至微信草稿箱，请在代码模板页添加代码模板。' : ($payload['error_message'] ?: '上传草稿失败，请查看错误日志。'),
             ]);
         } catch (\Throwable $e) {
             if ($record !== null) {
@@ -1741,18 +1747,35 @@ class OpenPlatformService
         );
     }
 
-    public static function syncTenantServerDomains(int $tenantId): array
+    public static function syncTenantServerDomains(int $tenantId, ?array $settings = null): array
     {
-        // Resolve and validate authorization before changing any platform settings.
+        // Resolve authorization before changing any third-party platform settings.
         self::effectiveMiniprogramAuthorizer($tenantId);
         $runtime = self::tenantRuntimeConfig($tenantId, true);
-        $host = strtolower((string)parse_url($runtime['apiBaseUrl'], PHP_URL_HOST));
-        MiniProgramServerDomainService::ensurePlatform($host, static function (array $payload): array {
+        if ($settings === null) {
+            $raw = WechatCredential::withoutGlobalScope()->where('tenant_id',$tenantId)->value('settings_json');
+            $settings = json_decode((string)$raw,true) ?: [];
+        }
+        $required = WechatDomainSettings::serverDomains($runtime['apiBaseUrl'],$settings);
+        $hosts = [];
+        foreach ($required as $domains) foreach ($domains as $domain) $hosts[]=(string)parse_url($domain,PHP_URL_HOST);
+        MiniProgramServerDomainService::ensurePlatform(array_values(array_unique($hosts)), static function (array $payload): array {
             return self::request('cgi-bin/component/modify_wxa_server_domain', $payload, 'miniprogram.platform.domain.' . $payload['action'], ['access_token' => self::componentAccessToken()]);
         });
-        return MiniProgramServerDomainService::ensure($runtime['apiBaseUrl'], static function (array $payload) use ($tenantId): array {
+        $result = MiniProgramServerDomainService::ensure($runtime['apiBaseUrl'], static function (array $payload) use ($tenantId): array {
             return self::authorizerRequest($tenantId, 'miniprogram', 'wxa/modify_domain', $payload, 'miniprogram.domain.' . $payload['action']);
-        });
+        },$settings);
+        // Web-view domains have their own platform whitelist and WeChat API.
+        $webview = !empty($settings['_managed_business_domain']) ? WechatDomainSettings::lines(WechatDomainSettings::normalize($settings,'miniprogram')['business_domain'] ?? '') : [];
+        if ($webview) {
+            MiniProgramServerDomainService::ensurePlatformWebview($webview, static function(array $payload):array {
+                return self::request('cgi-bin/component/modify_wxa_jump_domain',$payload,'miniprogram.platform.webview.'.$payload['action'],['access_token'=>self::componentAccessToken()]);
+            });
+            $result['webviewdomain'] = MiniProgramServerDomainService::ensureWebview($webview,static function(array $payload)use($tenantId):array {
+                return self::authorizerRequest($tenantId,'miniprogram','wxa/setwebviewdomain',$payload,'miniprogram.webview.'.$payload['action']);
+            })['webviewdomain'];
+        }
+        return $result;
     }
 
     public static function saveCredentials(int $tenantId, array $data): array
@@ -1780,6 +1803,14 @@ class OpenPlatformService
                 if (!is_array($value)) throw new \InvalidArgumentException('设置数据格式错误');
                 if ($jsonField === 'settings_json') {
                     $previous = json_decode((string)($row['settings_json'] ?? ''), true) ?: [];
+                    $submittedBusiness = array_key_exists('business_domain',$value);
+                    $value = array_replace($previous,$value);
+                    $value = array_replace($value,WechatDomainSettings::normalize($value,'miniprogram'));
+                    // Historical read-only forms posted a suggested domain that was never
+                    // assigned to WeChat. Do not let an unrelated download-domain edit
+                    // trigger business-domain verification for that old suggestion.
+                    $beforeBusiness = WechatDomainSettings::normalize(['business_domain'=>$previous['business_domain'] ?? MiniProgramDomainService::host($tenantId)],'miniprogram')['business_domain'];
+                    $value['_managed_business_domain'] = !empty($previous['_managed_business_domain']) || ($submittedBusiness && ($value['business_domain'] ?? '') !== $beforeBusiness);
                     $popup = $value['qr_popup'] ?? ($previous['qr_popup'] ?? []);
                     if (!is_array($popup)) throw new \InvalidArgumentException('小程序码弹窗配置格式错误');
                     $value['qr_popup'] = MiniProgramPopupService::normalize($popup);
@@ -1789,7 +1820,7 @@ class OpenPlatformService
         }
         if (array_key_exists('settings_json', $data)) {
             $authorized = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty();
-            if (!$authorized->isEmpty()) self::syncTenantServerDomains($tenantId);
+            if (!$authorized->isEmpty()) self::syncTenantServerDomains($tenantId, json_decode($payload['settings_json'],true));
         }
         if ($row->isEmpty()) { $payload['create_time'] = time(); $row = WechatCredential::create($payload); } else $row->save($payload); return self::credentialView($row->toArray());
     }
@@ -1909,8 +1940,11 @@ class OpenPlatformService
 
         $process = null;
         $closed = false;
-        register_shutdown_function(static function () use (&$process, &$closed, $workRoot): void {
+        $processPid = 0;
+        $processGroup = (bool)config('wechat_ci.process_group', false) && function_exists('posix_kill');
+        register_shutdown_function(static function () use (&$process, &$closed, &$processPid, $processGroup, $workRoot): void {
             if (is_resource($process)) {
+                if ($processGroup && $processPid > 0) @posix_kill(-$processPid, 9);
                 @proc_terminate($process, 15);
                 @proc_close($process);
                 $process = null;
@@ -1931,6 +1965,7 @@ class OpenPlatformService
         if (!is_resource($process)) {
             return self::manualUploadFailure('无法启动 Node.js 上传进程。', $installHint);
         }
+        $processPid = (int)(proc_get_status($process)['pid'] ?? 0);
         fclose($pipes[0]);
         foreach ([1, 2] as $index) stream_set_blocking($pipes[$index], false);
         $stdout = '';
@@ -1951,6 +1986,9 @@ class OpenPlatformService
             }
             usleep(100000);
         }
+        // A configured setsid wrapper gives this upload its own process group.
+        // Kill only its descendants before draining inherited pipes.
+        if ($processGroup && $processPid > 0) @posix_kill(-$processPid, 9);
         foreach ([1, 2] as $index) {
             stream_set_blocking($pipes[$index], true);
             if ($index === 1) self::appendProcessOutput($pipes[$index], $stdout);
@@ -1973,7 +2011,7 @@ class OpenPlatformService
         // the child has already been reaped, so use the provider confirmation
         // as the authoritative fallback for that specific exit-code anomaly.
         $providerConfirmed = str_contains($stdout, '微信小程序代码上传成功');
-        $success = !$timedOut && ($exitCode === 0 || ($exitCode === -1 && $providerConfirmed));
+        $success = !$timedOut && $providerConfirmed && in_array($exitCode, [0, -1], true);
         $logTail = mb_substr($output, -16000);
         if ($success) {
             return [
@@ -2122,7 +2160,7 @@ class OpenPlatformService
     private static function nodeBinaryCandidates(): array
     {
         $candidates = [];
-        $explicit = [getenv('WECHAT_UPLOAD_NODE'), getenv('NODE_BINARY'), getenv('NODE_BIN')];
+        $explicit = [config('wechat_ci.node_binary', ''), getenv('WECHAT_UPLOAD_NODE'), getenv('NODE_BINARY'), getenv('NODE_BIN')];
         foreach ($explicit as $value) {
             if (!is_string($value) || trim($value) === '') continue;
             $value = rtrim(trim($value), DIRECTORY_SEPARATOR);
@@ -2266,7 +2304,70 @@ class OpenPlatformService
 
     private static function manualUploadScript(string $workRoot, string $projectPath, string $keyPath, string $appId, string $version, string $description): string
     {
-        return "import fs from 'node:fs';\nimport path from 'node:path';\nimport { createRequire } from 'node:module';\n\nconst workRoot = " . json_encode($workRoot, JSON_UNESCAPED_SLASHES) . ";\nconst projectPath = " . json_encode($projectPath, JSON_UNESCAPED_SLASHES) . ";\nconst privateKeyPath = " . json_encode($keyPath, JSON_UNESCAPED_SLASHES) . ";\nconst appid = " . json_encode($appId, JSON_UNESCAPED_SLASHES) . ";\nconst version = " . json_encode($version, JSON_UNESCAPED_SLASHES) . ";\nconst desc = " . json_encode($description, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ";\nlet cleaned = false;\nconst cleanup = () => { if (cleaned) return; cleaned = true; try { fs.rmSync(workRoot, { recursive: true, force: true }); } catch (error) { console.error('临时目录清理失败'); } };\nconst errorText = (value) => String(value ?? '').slice(0, 1000);\nconst reportUploadError = (error) => {\n  const diagnostic = {\n    name: errorText(error?.name),\n    code: errorText(error?.code),\n    errCode: errorText(error?.errCode),\n    errMsg: errorText(error?.errMsg),\n    message: errorText(error?.message || error)\n  };\n  console.error('WECHAT_UPLOAD_ERROR:' + JSON.stringify(diagnostic));\n};\nprocess.on('SIGINT', () => { cleanup(); process.exit(130); });\nprocess.on('SIGTERM', () => { cleanup(); process.exit(143); });\ntry {\n  const require = createRequire(import.meta.url);\n  let ci;\n  try { ci = require('miniprogram-ci'); } catch {}\n  if (!ci) {\n    const modulePaths = (process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean);\n    for (const moduleRoot of modulePaths) {\n      try { ci = require(path.join(moduleRoot, 'miniprogram-ci')); break; } catch {}\n      try { ci = require(require.resolve('miniprogram-ci', { paths: [path.dirname(moduleRoot)] })); break; } catch {}\n    }\n  }\n  if (!ci) throw new Error('未找到 miniprogram-ci，请先安装后重试');\n  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules'] });\n  await ci.upload({ project, version, desc });\n  console.log('微信小程序代码上传成功');\n} catch (error) {\n  console.error('微信小程序代码上传失败：' + (error?.message || error));\n  reportUploadError(error);\n  process.exitCode = 1;\n} finally {\n  cleanup();\n}\n";
+        $parameters = 'const workRoot = ' . json_encode($workRoot) . ";\n"
+            . 'const projectPath = ' . json_encode($projectPath) . ";\n"
+            . 'const privateKeyPath = ' . json_encode($keyPath) . ";\n"
+            . 'const appid = ' . json_encode($appId) . ";\n"
+            . 'const version = ' . json_encode($version) . ";\n"
+            . 'const desc = ' . json_encode($description, JSON_UNESCAPED_UNICODE) . ";\n";
+        return $parameters . <<<'JS'
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+let cleaned = false;
+let exitCode = 1;
+const cleanup = () => {
+  if (cleaned) return;
+  cleaned = true;
+  try { fs.rmSync(workRoot, { recursive: true, force: true }); }
+  catch (error) { console.error('临时目录清理失败'); }
+};
+const errorText = value => String(value ?? '').slice(0, 1000);
+const reportUploadError = error => console.error('WECHAT_UPLOAD_ERROR:' + JSON.stringify({
+  name: errorText(error?.name), code: errorText(error?.code),
+  errCode: errorText(error?.errCode), errMsg: errorText(error?.errMsg),
+  message: errorText(error?.message || error)
+}));
+process.on('SIGINT', () => { cleanup(); process.exit(130); });
+process.on('SIGTERM', () => { cleanup(); process.exit(143); });
+try {
+  const require = createRequire(import.meta.url);
+  let ci, ciEntry;
+  const loadCi = (id, options) => { ciEntry = require.resolve(id, options); ci = require(ciEntry); };
+  try { loadCi('miniprogram-ci'); } catch {}
+  if (!ci) {
+    for (const moduleRoot of (process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean)) {
+      try { loadCi(path.join(moduleRoot, 'miniprogram-ci')); break; } catch {}
+      try { loadCi('miniprogram-ci', { paths: [path.dirname(moduleRoot)] }); break; } catch {}
+    }
+  }
+  if (!ci) throw new Error('未找到 miniprogram-ci，请先安装后重试');
+  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules'] });
+  // The SDK otherwise logs authentication errors, returns default attributes,
+  // and proceeds to spawn expensive compiler workers with invalid credentials.
+  const { DefaultProjectAttr } = require(path.join(path.dirname(ciEntry), 'config/config.js'));
+  let authError = '';
+  const originalError = console.error;
+  console.error = (...args) => { authError = args.map(String).join(' '); originalError(...args); };
+  let attributes;
+  try { attributes = await project.attr(); } finally { console.error = originalError; }
+  if (!attributes || attributes === DefaultProjectAttr) {
+    throw Object.assign(new Error(authError || '微信 CI 认证失败，请核对草稿小程序 AppID、上传密钥和上传 IP 白名单'), { code: 'CI_AUTH_FAILED' });
+  }
+  await ci.upload({ project, version, desc, threads: 1 });
+  console.log('微信小程序代码上传成功');
+  exitCode = 0;
+} catch (error) {
+  console.error('微信小程序代码上传失败：' + (error?.message || error));
+  reportUploadError(error);
+} finally {
+  cleanup();
+}
+// SDK failures can leave handles alive. Flush diagnostics and exit explicitly.
+await new Promise(resolve => process.stdout.write('', resolve));
+await new Promise(resolve => process.stderr.write('', resolve));
+process.exit(exitCode);
+JS;
     }
 
     private static function removeTree(string $path): void

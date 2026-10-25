@@ -45,6 +45,10 @@ class MnpSettingsController extends BaseAdminController
      */
     public function setConfig()
     {
+        if ((string)$this->request->post('domains_only','') === '1') {
+            try { \app\common\service\wechat\OpenPlatformService::saveCredentials($this->tenantId,['settings_json'=>\app\common\service\wechat\WechatDomainSettings::normalize((array)$this->request->post(),'miniprogram')]); } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+            return $this->success('域名设置已保存',[],1,1);
+        }
         $params = (new MnpSettingsValidate())->post()->goCheck();
         (new MnpSettingsLogic())->setConfig($params);
         return $this->success('操作成功', [], 1, 1);
