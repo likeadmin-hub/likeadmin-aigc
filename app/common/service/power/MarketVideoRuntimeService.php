@@ -3154,6 +3154,7 @@ class MarketVideoRuntimeService
             'id' => $id,
             'value' => $id,
             'channel_code' => $id,
+            ...MarketModelSource::product($product),
             'market_product_id' => (int)$product['id'],
             'resource_type' => $type,
             'resource_type_label' => $type === PowerMarketService::TYPE_APP_API ? '应用 API' : '模型 API',
