@@ -5,14 +5,15 @@ namespace app\common\service\wechat;
 /** Synchronize only the bound tenant's required domains; retain existing entries. */
 class MiniProgramServerDomainService
 {
-    public static function ensurePlatform(string $host, callable $request): array
+    public static function ensurePlatform(string|array $host, callable $request): array
     {
-        $contains = static function (array $state) use ($host): bool {
+        $hosts=(array)$host;$host=implode(';',$hosts);
+        $contains = static function (array $state) use ($hosts): bool {
             if (!array_key_exists('testing_wxa_server_domain', $state)) return false;
             foreach (['testing_wxa_server_domain', 'published_wxa_server_domain'] as $key) {
                 if (!array_key_exists($key, $state)) continue;
                 $domains = array_map('trim', explode(';', strtolower((string)$state[$key])));
-                if (!in_array($host, $domains, true)) return false;
+                if (array_diff($hosts, $domains)) return false;
             }
             return true;
         };
@@ -24,19 +25,14 @@ class MiniProgramServerDomainService
         return $state;
     }
 
-    public static function ensure(string $apiBaseUrl, callable $request): array
+    public static function ensure(string $apiBaseUrl, callable $request, array $settings = []): array
     {
         $parts = parse_url($apiBaseUrl);
         if (($parts['scheme'] ?? '') !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['port'])) {
             throw new \InvalidArgumentException('小程序接口域名必须是有效的 HTTPS 域名');
         }
         $host = strtolower($parts['host']);
-        $required = [
-            'requestdomain' => ['https://' . $host],
-            'wsrequestdomain' => ['wss://' . $host],
-            'uploaddomain' => ['https://' . $host],
-            'downloaddomain' => ['https://' . $host],
-        ];
+        $required = WechatDomainSettings::serverDomains($apiBaseUrl, $settings);
         try {
             $current = $request(['action' => 'get']);
             $missing = self::missing($required, $current);
@@ -50,6 +46,35 @@ class MiniProgramServerDomainService
             throw new \RuntimeException('微信合法域名回读校验失败（' . $host . '），请检查第三方平台服务器域名配置后重试');
         }
         return $current;
+    }
+
+    public static function ensureWebview(array $domains, callable $request): array
+    {
+        if (!$domains) return [];
+        $current = $request(['action'=>'get']);
+        $required = ['webviewdomain'=>$domains];
+        $missing = self::missing($required, $current);
+        if ($missing) { $request(['action'=>'add'] + $missing); $current=$request(['action'=>'get']); }
+        if (self::missing($required,$current)) throw new \RuntimeException('微信业务域名回读校验失败，请检查域名校验及授权权限');
+        return $current;
+    }
+
+    public static function ensurePlatformWebview(string|array $host, callable $request): array
+    {
+        $hosts=(array)$host;$host=implode(';',$hosts);
+        $contains=static function(array $state)use($hosts):bool{
+            if (!array_key_exists('testing_wxa_jump_h5_domain',$state)) return false;
+            foreach(['testing_wxa_jump_h5_domain','published_wxa_jump_h5_domain'] as $key){
+                if(array_key_exists($key,$state)&&array_diff($hosts,array_map('trim',explode(';',strtolower((string)$state[$key])))))return false;
+            }
+            return true;
+        };
+        $state=$request(['action'=>'get']);
+        if($contains($state))return $state;
+        $request(['action'=>'add','wxa_jump_h5_domain'=>$host,'is_modify_published_together'=>true]);
+        $state=$request(['action'=>'get']);
+        if(!$contains($state))throw new \RuntimeException('第三方平台业务域名未生效（'.$host.'），请完成微信域名校验后重试');
+        return $state;
     }
 
     private static function missing(array $required, array $current): array

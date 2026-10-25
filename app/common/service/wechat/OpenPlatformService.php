@@ -1747,18 +1747,35 @@ class OpenPlatformService
         );
     }
 
-    public static function syncTenantServerDomains(int $tenantId): array
+    public static function syncTenantServerDomains(int $tenantId, ?array $settings = null): array
     {
-        // Resolve and validate authorization before changing any platform settings.
+        // Resolve authorization before changing any third-party platform settings.
         self::effectiveMiniprogramAuthorizer($tenantId);
         $runtime = self::tenantRuntimeConfig($tenantId, true);
-        $host = strtolower((string)parse_url($runtime['apiBaseUrl'], PHP_URL_HOST));
-        MiniProgramServerDomainService::ensurePlatform($host, static function (array $payload): array {
+        if ($settings === null) {
+            $raw = WechatCredential::withoutGlobalScope()->where('tenant_id',$tenantId)->value('settings_json');
+            $settings = json_decode((string)$raw,true) ?: [];
+        }
+        $required = WechatDomainSettings::serverDomains($runtime['apiBaseUrl'],$settings);
+        $hosts = [];
+        foreach ($required as $domains) foreach ($domains as $domain) $hosts[]=(string)parse_url($domain,PHP_URL_HOST);
+        MiniProgramServerDomainService::ensurePlatform(array_values(array_unique($hosts)), static function (array $payload): array {
             return self::request('cgi-bin/component/modify_wxa_server_domain', $payload, 'miniprogram.platform.domain.' . $payload['action'], ['access_token' => self::componentAccessToken()]);
         });
-        return MiniProgramServerDomainService::ensure($runtime['apiBaseUrl'], static function (array $payload) use ($tenantId): array {
+        $result = MiniProgramServerDomainService::ensure($runtime['apiBaseUrl'], static function (array $payload) use ($tenantId): array {
             return self::authorizerRequest($tenantId, 'miniprogram', 'wxa/modify_domain', $payload, 'miniprogram.domain.' . $payload['action']);
-        });
+        },$settings);
+        // Web-view domains have their own platform whitelist and WeChat API.
+        $webview = !empty($settings['_managed_business_domain']) ? WechatDomainSettings::lines(WechatDomainSettings::normalize($settings,'miniprogram')['business_domain'] ?? '') : [];
+        if ($webview) {
+            MiniProgramServerDomainService::ensurePlatformWebview($webview, static function(array $payload):array {
+                return self::request('cgi-bin/component/modify_wxa_jump_domain',$payload,'miniprogram.platform.webview.'.$payload['action'],['access_token'=>self::componentAccessToken()]);
+            });
+            $result['webviewdomain'] = MiniProgramServerDomainService::ensureWebview($webview,static function(array $payload)use($tenantId):array {
+                return self::authorizerRequest($tenantId,'miniprogram','wxa/setwebviewdomain',$payload,'miniprogram.webview.'.$payload['action']);
+            })['webviewdomain'];
+        }
+        return $result;
     }
 
     public static function saveCredentials(int $tenantId, array $data): array
@@ -1786,6 +1803,14 @@ class OpenPlatformService
                 if (!is_array($value)) throw new \InvalidArgumentException('设置数据格式错误');
                 if ($jsonField === 'settings_json') {
                     $previous = json_decode((string)($row['settings_json'] ?? ''), true) ?: [];
+                    $submittedBusiness = array_key_exists('business_domain',$value);
+                    $value = array_replace($previous,$value);
+                    $value = array_replace($value,WechatDomainSettings::normalize($value,'miniprogram'));
+                    // Historical read-only forms posted a suggested domain that was never
+                    // assigned to WeChat. Do not let an unrelated download-domain edit
+                    // trigger business-domain verification for that old suggestion.
+                    $beforeBusiness = WechatDomainSettings::normalize(['business_domain'=>$previous['business_domain'] ?? MiniProgramDomainService::host($tenantId)],'miniprogram')['business_domain'];
+                    $value['_managed_business_domain'] = !empty($previous['_managed_business_domain']) || ($submittedBusiness && ($value['business_domain'] ?? '') !== $beforeBusiness);
                     $popup = $value['qr_popup'] ?? ($previous['qr_popup'] ?? []);
                     if (!is_array($popup)) throw new \InvalidArgumentException('小程序码弹窗配置格式错误');
                     $value['qr_popup'] = MiniProgramPopupService::normalize($popup);
@@ -1795,7 +1820,7 @@ class OpenPlatformService
         }
         if (array_key_exists('settings_json', $data)) {
             $authorized = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty();
-            if (!$authorized->isEmpty()) self::syncTenantServerDomains($tenantId);
+            if (!$authorized->isEmpty()) self::syncTenantServerDomains($tenantId, json_decode($payload['settings_json'],true));
         }
         if ($row->isEmpty()) { $payload['create_time'] = time(); $row = WechatCredential::create($payload); } else $row->save($payload); return self::credentialView($row->toArray());
     }

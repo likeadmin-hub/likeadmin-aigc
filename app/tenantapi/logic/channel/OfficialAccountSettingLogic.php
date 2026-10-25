@@ -17,6 +17,7 @@ namespace app\tenantapi\logic\channel;
 use app\common\logic\BaseLogic;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\wechat\WechatDomainSettings;
 
 /**
  * 公众号设置逻辑
@@ -48,9 +49,9 @@ class OfficialAccountSettingLogic extends BaseLogic
             'token'             => ConfigService::get('oa_setting', 'token'),
             'encoding_aes_key'  => ConfigService::get('oa_setting', 'encoding_aes_key', ''),
             'encryption_type'   => ConfigService::get('oa_setting', 'encryption_type', 1),
-            'business_domain'   => $domainName,
-            'js_secure_domain'  => $domainName,
-            'web_auth_domain'   => $domainName,
+            'business_domain'   => ConfigService::get('oa_setting','business_domain',$domainName),
+            'js_secure_domain'  => ConfigService::get('oa_setting','js_secure_domain',$domainName),
+            'web_auth_domain'   => ConfigService::get('oa_setting','web_auth_domain',$domainName),
         ];
         return $config;
     }
@@ -61,8 +62,14 @@ class OfficialAccountSettingLogic extends BaseLogic
      * @author ljj
      * @date 2022/2/16 10:08 上午
      */
+    public function saveDomains(array $params): void
+    {
+        foreach(WechatDomainSettings::normalize($params,'official') as $name=>$value) ConfigService::set('oa_setting',$name,$value);
+    }
+
     public function setConfig($params)
     {
+        $this->saveDomains($params);
         $qrCode = isset($params['qr_code']) ? FileService::setFileUrl($params['qr_code']) : '';
 
         ConfigService::set('oa_setting','name', $params['name'] ?? '');

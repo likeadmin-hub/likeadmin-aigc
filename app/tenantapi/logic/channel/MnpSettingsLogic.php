@@ -19,6 +19,9 @@ use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\tenant\TenantUrlService;
 use app\common\service\wechat\MiniProgramDomainService;
+use app\common\service\wechat\WechatDomainSettings;
+use app\common\service\wechat\OpenPlatformService;
+use app\common\model\wechat\WechatCredential;
 
 /**
  * 小程序设置逻辑
@@ -52,7 +55,9 @@ class MnpSettingsLogic extends BaseLogic
             'business_domain'       => $domainName,
         ];
 
-        return $config;
+        $raw=WechatCredential::withoutGlobalScope()->where('tenant_id',(int)request()->tenantId)->value('settings_json');
+        $settings=json_decode((string)$raw,true) ?: [];
+        return array_replace($config,WechatDomainSettings::miniProgram('https://'.$domainName,$settings));
     }
 
     /**
@@ -79,6 +84,9 @@ class MnpSettingsLogic extends BaseLogic
      */
     public function setConfig($params)
     {
+        if (array_intersect_key($params,WechatDomainSettings::MINI_FIELDS)) {
+            OpenPlatformService::saveCredentials((int)request()->tenantId,['settings_json'=>WechatDomainSettings::normalize($params,'miniprogram')]);
+        }
         $qrCode = isset($params['qr_code']) ? FileService::setFileUrl($params['qr_code']) : '';
 
         ConfigService::set('mnp_setting','name', $params['name'] ?? '');

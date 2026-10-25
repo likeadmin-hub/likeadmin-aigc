@@ -65,6 +65,10 @@ class OfficialAccountSettingController extends BaseAdminController
      */
     public function setConfig()
     {
+        if ((string)$this->request->post('domains_only','') === '1') {
+            try { (new OfficialAccountSettingLogic())->saveDomains((array)$this->request->post()); } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+            return $this->success('域名设置已保存',[],1,1);
+        }
         $params = (new OfficialAccountSettingValidate())->post()->goCheck();
         (new OfficialAccountSettingLogic())->setConfig($params);
         return $this->success('操作成功',[],1,1);
