@@ -775,19 +775,16 @@ class MarketTextModelRuntimeService
             && (($params['action_code']??'')==='decoration_agent_text'||$operatorCapabilityProbe)
             && !empty($params['_decoration_native_responses_transport'])
             && self::protocolForModel($model)==='openai_responses';
-        // Micro-video calls retain local immutable SKU billing snapshots. Native
-        // model endpoints route by model/channel and reject pricing SKU fields.
-        $microNative=($params['source_app_code']??'')==='aigc_micro_video'&&!empty($params['_micro_video_native_transport']);
-        return ['include_market_context'=>!$decorationResponses&&!$microNative,'include_channel'=>true,'require_native_responses'=>$decorationResponses];
+        // Local immutable SKU snapshots own billing for every caller. Native
+        // text endpoints route by model/channel, including callers without retries.
+        return ['include_market_context'=>false,'include_channel'=>true,'require_native_responses'=>$decorationResponses];
     }
 
     /** Routing stays on model/channel; local SKU snapshots never depend on the wire body. */
     private static function transportPayload(string $protocol,array $model,array $messages,string $system,int $maxTokens,array $generationParams,array $transportOptions): array
     {
         $payload = self::requestPayload($protocol, $model, $messages, $system, $maxTokens, $generationParams);
-        if (($transportOptions['include_market_context'] ?? true) === true) {
-            $payload = array_merge(self::marketContext($model), $payload);
-        }
+        foreach (self::MARKET_CONTEXT_KEYS as $key) unset($payload[$key]);
         $channelCode = trim((string)($model['channel_code'] ?? ''));
         if (($transportOptions['include_channel'] ?? true) === true && $channelCode !== '') {
             $payload['channel'] = $channelCode;

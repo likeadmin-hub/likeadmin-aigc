@@ -8,6 +8,34 @@ use ReflectionMethod;
 
 class MarketTextModelPayloadContractTest extends TestCase
 {
+    public function testFirstTextRequestKeepsLocalBillingFieldsOffEveryNativeProtocol(): void
+    {
+        $initial = new ReflectionMethod(MarketTextModelRuntimeService::class, 'initialTransportOptions');
+        $transport = new ReflectionMethod(MarketTextModelRuntimeService::class, 'transportPayload');
+        $model = ['product_id' => 123, 'model_code' => 'fixture-text', 'channel_code' => 'fixture',
+            'input' => ['sku_id' => 4, 'sku_key' => 'local_input'],
+            'output' => ['sku_id' => 5, 'sku_key' => 'local_output']];
+        foreach (['openai_chat', 'openai_responses', 'anthropic_messages'] as $protocol) {
+            foreach ([[], ['_agent_tool_history' => true], ['_disable_compatibility_retry' => true]] as $request) {
+                $options = $initial->invoke(null, $model, $request, false);
+                self::assertFalse($options['include_market_context']);
+                // Even stale transport flags and model parameter overrides
+                // cannot turn local billing selectors into provider input.
+                $options['include_market_context'] = true;
+                $body = $transport->invoke(null, $protocol, $model,
+                    [['role' => 'user', 'content' => 'hello']], 'system', 128,
+                    ['market_product_id' => 999, 'sku_key' => 'local_override', 'input_pricing_sku_key' => 'local_override'], $options);
+                foreach (['market_product_id', 'sku_id', 'sku_key', 'market_input_sku_id', 'input_pricing_sku_key', 'output_sku_key', 'price_source'] as $key) {
+                    self::assertArrayNotHasKey($key, $body);
+                }
+                self::assertSame('fixture-text', $body['model']);
+                self::assertSame('fixture', $body['channel']);
+                self::assertTrue($body['stream']);
+                self::assertNotEmpty($body[$protocol === 'openai_responses' ? 'input' : 'messages']);
+            }
+        }
+    }
+
     public function testAnthropicTerminalEventDoesNotEraseOutputTruncation(): void
     {
         $parse = new ReflectionMethod(MarketTextModelRuntimeService::class, 'parseProviderPayload'); $parse->setAccessible(true);
