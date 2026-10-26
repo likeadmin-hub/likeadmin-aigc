@@ -95,7 +95,9 @@ final class MicroVideoCatalog
         // Read-only quotes validate the generation mode's reference shape. This
         // application admits owned images separately; never send this pricing-only
         // placeholder to a provider or persist it in the executable selection.
-        $asset=['type'=>'image','uri'=>'uploads/aigc_micro_video/pricing-only.png','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image'];
+        // An absolute non-routable URL avoids resolving a nonexistent upload
+        // through tenant storage for every SKU/mode check. This is never fetched.
+        $asset=['type'=>'image','uri'=>'https://pricing-only.invalid/aigc_micro_video/reference.png','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image'];
         $assets=[$asset];if($selection['generation_method']==='start_end'){$assets=[array_replace($asset,['role'=>'first_frame_image']),array_replace($asset,['role'=>'last_frame_image'])];}
         $q=self::runtime($spec)::quote($tenant,$selection+['reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets]);
         if(($q['settlement_mode']??'reserved')!=='reserved')throw new InvalidArgumentException('此规格按实际用量结算，暂不支持分段预报价');
