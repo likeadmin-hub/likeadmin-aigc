@@ -37,16 +37,18 @@ namespace {
     check($quote['user_charge_points'] === 78 && $request['quantity'] === 3, 'image quantity reaches pricing');
     check($request['reference_images'] === [$inline], 'quote deduplicates references without persisting inline images');
     check($request['market_sku_id'] === 123 && $request['provider_params']['seed'] === 42, 'SKU and provider parameters survive normalization');
+    check(!array_key_exists('style', $request), 'missing style does not inject an unsupported provider option');
     check(Router::$seen['tenantId'] === 7 && Router::$seen['tool'] === 'generate_image', 'tenant and image pricing route retained');
     Service::estimateGeneration(7, 9, [
         'generationKind' => 'video', 'duration' => 5, 'generate_audio' => 'false',
         'reference_assets' => [['type' => 'video', 'url' => 'https://fixture.invalid/ref.mp4', 'duration' => 26]],
-        'reference_images' => [$inline], 'generation_method' => 'omni_reference',
+        'reference_images' => [$inline], 'generation_method' => 'omni_reference', 'provider_params' => ['mode' => 'lite'],
     ]);
     $request = Router::$seen['params'];
     check($request['duration'] === 5 && $request['reference_assets'][0]['duration'] === 26.0, 'output and reference durations remain distinct');
     check($request['generate_audio'] === false && $request['generation_method'] === 'omni_reference', 'video mode and explicit audio option retained');
     check(Router::$seen['tool'] === 'generate_video', 'video pricing route retained');
+    check(!array_key_exists('mode', $request) && $request['provider_params']['mode'] === 'lite', 'absent generic mode does not override native provider mode');
     Router::$available = false;
     try { Service::estimateGeneration(7, 9, ['generationKind' => 'image']); throw new \LogicException('missing rejection'); }
     catch (\Exception $e) { check($e->getMessage() === 'invalid SKU', 'unavailable quote blocks generation'); }
