@@ -3238,6 +3238,8 @@ class AigcShortDramaService
     public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        ShortDramaPlanningState::reconcile($tenantId, $userId, $taskId);
+        $task = self::findTask($tenantId, $userId, $taskId, $projectId);
         if (self::isMarketFileQaParseRequest(self::jsonDecode((string)$task['request_json']))) {
             if (!in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
                 $consumptionId = (int)(AiConsumptionLog::where([
@@ -3272,7 +3274,7 @@ class AigcShortDramaService
         $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $task->toArray());
         $taskData = self::recoverCompletedScriptPlanTask($tenantId, $userId, $taskData);
         $taskData = self::recoverStaleScriptPlanTask($tenantId, $userId, $taskData);
-        $taskData = self::recoverFailedScriptPlanTaskForStream($tenantId, $userId, $taskData);
+        // A read must not silently restart a failed historical task. Retry is user initiated.
         return self::formatTask($taskData, true);
     }
 
@@ -3635,53 +3637,6 @@ class AigcShortDramaService
         return $taskData;
     }
 
-    private static function recoverFailedScriptPlanTaskForStream(int $tenantId, int $userId, array $taskData): array
-    {
-        if ((string)($taskData['status'] ?? '') !== self::STATUS_FAILED) {
-            return $taskData;
-        }
-        if ((string)($taskData['error'] ?? '') === self::SCRIPT_PLAN_STALE_ERROR) {
-            return $taskData;
-        }
-        $error = (string)($taskData['error'] ?? '');
-        $recoverableFailed = str_contains($error, 'uk_agent_run') || str_contains($error, 'Duplicate entry') || str_contains($error, 'SQLSTATE');
-        if (!$recoverableFailed) {
-            return $taskData;
-        }
-        if ((int)($taskData['retry_count'] ?? 0) > 0) {
-            return $taskData;
-        }
-        if (self::planResultHasContent(self::jsonDecode((string)($taskData['result_json'] ?? '')))) {
-            return $taskData;
-        }
-
-        $retryCount = (int)($taskData['retry_count'] ?? 0) + 1;
-        $time = time();
-        AigcShortDramaScriptTask::where([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'task_id' => (string)($taskData['task_id'] ?? ''),
-        ])->update([
-            'status' => self::STATUS_PENDING,
-            'progress' => 0,
-            'current_step' => '等待剧本策划',
-            'error' => '',
-            'retry_count' => $retryCount,
-            'finished_at' => 0,
-            'update_time' => $time,
-        ]);
-        Log::write('AI short drama script task auto-recovered for retry: task=' . (string)($taskData['task_id'] ?? '') . ' project=' . (int)($taskData['project_id'] ?? 0));
-
-        $taskData['status'] = self::STATUS_PENDING;
-        $taskData['progress'] = 0;
-        $taskData['current_step'] = '等待剧本策划';
-        $taskData['error'] = '';
-        $taskData['retry_count'] = $retryCount;
-        $taskData['finished_at'] = 0;
-        $taskData['update_time'] = $time;
-        return $taskData;
-    }
-
     private static function recoverCompletedScriptPlanTask(int $tenantId, int $userId, array $taskData): array
     {
         $status = (string)($taskData['status'] ?? '');
@@ -3964,10 +3919,7 @@ class AigcShortDramaService
             // Setup can fail before executeScriptPlanTask enters its provider try/catch.
             // Persist a terminal explanation instead of leaving an invisible endless pending task.
             Log::error('Short drama planning setup failed: task=' . $taskId . ' error=' . $error->getMessage());
-            AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])
-                ->whereIn('status', ['pending', 'queued', 'running'])->update(['status' => self::STATUS_FAILED,
-                    'current_step' => '准备生成失败', 'error' => '准备生成失败，请检查文本模型配置及数据库升级；已完成部分保留',
-                    'finished_at' => time(), 'update_time' => time()]);
+            ShortDramaPlanningState::failSetup($tenantId, $userId, $taskId, $error);
             return true;
         } finally { Db::query('SELECT RELEASE_LOCK(?)', [$lock]); }
     }
@@ -4370,29 +4322,9 @@ class AigcShortDramaService
             if ($streamContent !== '') {
                 self::persistScriptPlanStreamState($tenantId, $userId, $taskId, $streamContent, $persistedProviderRequestId, $message);
             }
-            AigcShortDramaScriptTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'task_id' => $taskId,
-            ])->update([
-                'status' => self::STATUS_FAILED,
-                'progress' => 0,
-                'current_step' => '剧本策划失败',
-                'error' => $message,
-                'result_json' => $storyAttempt !== null ? (string)$current['result_json'] : self::jsonEncode(self::scriptPlanStreamState($streamContent, $persistedProviderRequestId, $message)),
-                'finished_at' => time(),
-                'update_time' => time(),
-            ]);
-            self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_FAILED, $request, $selectedModels['script_plan'] ?? [], [
-                'provider' => (string)($selectedModels['script_plan']['provider'] ?? ''),
-                'provider_request_id' => $persistedProviderRequestId,
-                'progress' => 0,
-                'error_msg' => $message,
-                'error_code' => str_contains($e->getMessage(), '解析') || str_contains(strtolower($e->getMessage()), 'json') ? 'parse_failed' : 'provider_failed',
-                'started_at' => (int)($taskData['started_at'] ?? 0) > 0 ? (int)$taskData['started_at'] : $time,
-                'finished_at' => time(),
-                'result' => self::scriptPlanStreamState($streamContent, $persistedProviderRequestId, $message),
-            ]);
+            if (!ShortDramaPlanningState::failExecution($tenantId, $userId, $taskId, $e, $message, $storyAttempt)) {
+                return self::formatTask(self::findTask($tenantId, $userId, $taskId, $projectId)->toArray(), true);
+            }
             $task = self::findTask($tenantId, $userId, $taskId, $projectId);
             $formatted = self::formatTask($task->toArray(), false);
             $emit('error', ['message' => $message, 'task' => $formatted]);
@@ -5647,6 +5579,10 @@ class AigcShortDramaService
             throw new Exception('当前任务不需要重');
         }
         return Db::transaction(function () use ($tenantId, $userId, $taskId, $task) {
+            $task = AigcShortDramaScriptTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$taskId,'delete_time'=>0])->lock(true)->findOrEmpty();
+            if ($task->isEmpty() || !in_array((string)$task['status'], [self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
+                throw new Exception('当前任务不需要重试');
+            }
             ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$task['project_id'], $taskId);
             $request = self::jsonDecode((string)$task['request_json']);
             if (ShortDramaStoryWorkflow::workerOwned($request)) {
@@ -5679,6 +5615,7 @@ class AigcShortDramaService
                     'current_step' => '等待继续未完成部分',
                     'update_time' => time(),
                 ]);
+                ShortDramaPlanningState::explicitRetry($tenantId, $userId, $taskId, (int)$task['project_id']);
                 return self::formatTask($task->toArray(), false);
             }
             return self::createScriptPlan($tenantId, $userId, $request, (int)$task['project_id'],
@@ -7908,6 +7845,11 @@ class AigcShortDramaService
     private static function prepareGenerationTaskForRead(int $tenantId, int $userId, array $row): array
     {
         $request = self::jsonDecode((string)($row['request_json'] ?? ''));
+        if (($row['task_type'] ?? '') === 'script_plan' && ($request['source'] ?? '') !== 'market_file_qa_parse'
+            && ($row['source_app_code'] ?? '') !== 'file_qa') {
+            ShortDramaPlanningState::reconcile($tenantId, $userId, (string)$row['task_id']);
+            return self::reloadGenerationTaskRow($tenantId, $userId, (string)$row['task_id'], $row);
+        }
         if (!empty($request['params']['_episode_export'])) return $row;
         $status = (string)($row['status'] ?? '');
         $consumptionId = (int)($row['consumption_id'] ?? 0);
