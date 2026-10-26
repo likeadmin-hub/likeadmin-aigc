@@ -68,6 +68,9 @@ Db::startTrans();try{
  $split->save(['upstream_price'=>7]);
  $splitRaw=['model'=>'fixture-image','quality'=>'high','parameters'=>['resolution'=>'2k','n'=>2]];$splitWire=S::encode($splitRaw);$splitBudget=N::capture(1,$p->toArray(),$splitRaw,(int)$split['id']);checkNative($splitBudget['user']===14.&&$splitBudget['tenant']===14.&&S::encode($splitRaw)===$splitWire,'Independent quality/resolution failed actual native admission or changed wire');
  rejectNative(fn()=>N::capture(1,$p->toArray(),['quality'=>'high','resolution'=>'1k'],(int)$split['id']),'invalid_sku');
+ $call=Sku::create(array_replace($skuBase,['product_id'=>$p['id'],'sku_key'=>'opf_native_call_'.$tag,'usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>3,'locked_params'=>['quality'=>'1k'],'status'=>1,'sale_status'=>1,'source_payload'=>['usage_unit'=>'per_call','meter_summary'=>'按次，总点数向上取整']]));
+ $callBudget=N::capture(1,$p->toArray(),$params,(int)$call['id']);
+ checkNative($callBudget['user']===3.&&$callBudget['snapshot']['native_media']['submitted_units']===1.,'Explicit per-call image meter multiplied output slots or created false partial-success units');
  $appMeta=['category_code'=>'video','generation_modes'=>['text_to_video'],'supported_asset_types'=>['video'],'params_schema'=>['model'=>['type'=>'string'],'duration'=>['type'=>'integer'],'resolution'=>['type'=>'string']]];
  $appBase=array_replace($base,['name'=>'Happy Horse fixture','resource_type'=>'app_api','model_type'=>'','upstream_model_code'=>'','upstream_channel_code'=>'','upstream_app_code'=>'happy_horse','source_payload'=>['market_metadata'=>$appMeta]]);
  Product::create(array_replace($appBase,['product_code'=>'opf_native_query_'.$tag,'upstream_resource_key'=>'opf_native_query_'.$tag,'upstream_api_code'=>'query']));

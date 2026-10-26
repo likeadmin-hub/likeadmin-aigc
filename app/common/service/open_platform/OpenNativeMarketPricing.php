@@ -104,9 +104,10 @@ final class OpenNativeMarketPricing
             catch (\Exception $e) { throw new OpenException('invalid_request',$e->getMessage()); }
         }
         $quote = $captured['quote'];
+        $units = ($quote['market_snapshot']['billing_meter']['basis'] ?? '') === 'call' ? 1. : (float)$quote['quantity'];
         return ['user' => round((float)$quote['user_charge_points'], 2), 'tenant' => round((float)$quote['tenant_cost_points'], 2), 'snapshot' => [
-            'native_media' => ['kind' => $bound['kind'], 'market_snapshot' => $quote['market_snapshot'], 'submitted_units' => (float)$quote['quantity']],
-            'rules' => [['sku_id' => $skuId, 'sku_key' => $captured['market']['sku']['sku_key'], 'basis' => 'native', 'units' => (float)$quote['quantity'], 'max_units' => (float)$quote['quantity'], 'unit_size' => $bound['kind'] === 'image' ? 1. : (float)$quote['billing_unit_size'], 'usage_unit' => $quote['billing_unit'], 'prices' => ['user' => (float)$quote['user_unit_points'], 'tenant' => (float)$quote['tenant_unit_points']]]],
+            'native_media' => ['kind' => $bound['kind'], 'market_snapshot' => $quote['market_snapshot'], 'submitted_units' => $units],
+            'rules' => [['sku_id' => $skuId, 'sku_key' => $captured['market']['sku']['sku_key'], 'basis' => 'native', 'units' => $units, 'max_units' => $units, 'unit_size' => $bound['kind'] === 'image' ? 1. : (float)$quote['billing_unit_size'], 'usage_unit' => $quote['billing_unit'], 'prices' => ['user' => (float)$quote['user_unit_points'], 'tenant' => (float)$quote['tenant_unit_points']]]],
         ]];
     }
 
