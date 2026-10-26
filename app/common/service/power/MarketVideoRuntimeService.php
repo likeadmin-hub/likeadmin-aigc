@@ -3258,7 +3258,7 @@ class MarketVideoRuntimeService
         if (($product['resource_type'] ?? '') !== 'model' || MarketGenerationMaterials::modes($metadata) === []) return self::skuSupportsInputMode($skuMode, $mode, $product, $locked);
         // Product fallback checks every SKU against the same material request.
         // Resolve that request once within catalogue discovery, independently of SKU locks.
-        $inputs = MarketCatalogReadScope::remember('video_material_selection:' . hash('sha256', serialize([$metadata, $selection])), static fn(): array => [
+        $inputs = MarketCatalogReadScope::derive('video_material_selection', [$metadata, $selection], static fn(): array => [
             'native_mode' => MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '',
             'billing' => MarketGenerationMaterials::billingInputs($metadata, $selection),
         ]);
@@ -3343,7 +3343,7 @@ class MarketVideoRuntimeService
     private static function selectionKey(array $market): string { return (string)$market['product']['id'] . ':' . (string)$market['sku']['id']; }
     private static function metadata(array $product): array
     {
-        return MarketCatalogReadScope::remember('video_metadata:' . hash('sha256', serialize($product)), static fn(): array => self::buildMetadata($product));
+        return MarketCatalogReadScope::derive('video_metadata', $product, static fn(): array => self::buildMetadata($product));
     }
 
     private static function buildMetadata(array $product): array

@@ -33,6 +33,20 @@ final class MicroVideoCatalogScopeTest extends TestCase
         ];
     }
 
+    public function testDerivedContractChangesAreNeverReusedAndDoNotOutliveScope(): void
+    {
+        $reads = 0;
+        $read = static function () use (&$reads): array { return [++$reads]; };
+        MarketCatalogReadScope::run(static function () use ($read): array {
+            self::assertSame([1], MarketCatalogReadScope::derive('fixture', ['required' => false], $read));
+            self::assertSame([1], MarketCatalogReadScope::derive('fixture', ['required' => false], $read));
+            self::assertSame([2], MarketCatalogReadScope::derive('fixture', ['required' => true], $read));
+            self::assertSame([3], MarketCatalogReadScope::derive('fixture', ['required' => 1], $read));
+            return [];
+        });
+        self::assertSame([4], MarketCatalogReadScope::derive('fixture', ['required' => 1], $read));
+    }
+
     public function testRepeatedDisplayQuotesReuseReadsAndPreserveLiveResult(): void
     {
         $selection = $this->selection();
