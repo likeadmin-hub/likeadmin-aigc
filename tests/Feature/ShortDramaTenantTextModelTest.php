@@ -47,6 +47,15 @@ class ShortDramaTenantTextModelTest extends TestCase {
         self::assertArrayNotHasKey('channel',$payload);
         self::assertTrue($payload['_disable_model_fallback']);
     }
+    public function testReplayIdentityCanBeBuiltWithoutReadingChangedTenantConfiguration(): void {
+        $method=new \ReflectionMethod(Canvas::class,'generationPayload'); $method->setAccessible(true);
+        $params=['prompt'=>'test','model_id'=>'legacy-model'];
+        $before=$method->invoke(null,'text',$params,701,1,1,false,false);
+        Config::$configs[701]['default_text_model_id']='retired';
+        $after=$method->invoke(null,'text',$params,701,1,1,false,false);
+        self::assertSame($before,$after);
+        self::assertSame([],\app\common\service\power\MarketTextModelRuntimeService::$calls);
+    }
     public function testAgentIgnoresLegacyTextPreferenceButPreservesMediaAndMode(): void {
         $groups=[['key'=>'script_plan','default'=>'text-a','options'=>[['id'=>'text-a'],['id'=>'old-text']]],
             ['key'=>'image','default'=>'image-a','options'=>[['id'=>'image-a'],['id'=>'image-b']]]];

@@ -411,11 +411,14 @@ class ShortDramaCanvasService
         $params=self::withGraphReferenceInputs($document,$nodeId,$params);
         $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
         $key=(string)($params['request_key']??'');
-        $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
+        $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id'],false,false);
         self::assertWorkflowVideoDuration($document,$nodeId,$type,$payload,$tenantId);
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
         $intent=GenerationIntentService::lookup($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$requestInput);
         if (!$intent) {
+            // Resolve only a new submission. Replays use the accepted snapshot
+            // even if the administrator changed/disabled the model meanwhile.
+            if ($type === 'text') $payload = self::withTenantTextModel($tenantId, $payload);
             if ($type === 'video') self::assertConfirmedQuote($tenantId, $userId, $document, $nodeId, $key, $payload, (string)($params['quote_token'] ?? ''));
             if ((int)($params['skill_id']??0)>0) $payload=self::applyComposerSkill($type,$payload,$params,ShortDramaSkillService::resolveForTask($tenantId,$params));
             $intent=GenerationIntentService::reserve($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$payload,$requestInput);
@@ -1025,7 +1028,18 @@ class ShortDramaCanvasService
         return $merged;
     }
 
-    private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId, bool $allowEmptyPrompt = false): array
+    private static function withTenantTextModel(int $tenantId, array $payload): array
+    {
+        $model = AigcShortDramaService::tenantTextModel($tenantId);
+        $payload['model_id'] = (string)$model['id'];
+        $payload['model_selection'] = $model;
+        $payload['model_code'] = (string)($model['model_code'] ?? '');
+        $payload['_disable_model_fallback'] = true;
+        unset($payload['channel']);
+        return $payload;
+    }
+
+    private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId, bool $allowEmptyPrompt = false, bool $resolveTextModel = true): array
     {
         $prompt = trim((string)($params['prompt'] ?? $params['content'] ?? ''));
         if ($prompt === '' && !$allowEmptyPrompt) throw new Exception('请输入提示内容');
@@ -1074,14 +1088,7 @@ class ShortDramaCanvasService
             'reference_assets' => $referenceAssets,
             'source_app_code' => AigcShortDramaService::APP_CODE,
         ];
-        if ($type === 'text') {
-            $model = AigcShortDramaService::tenantTextModel($tenantId);
-            $payload['model_id'] = (string)$model['id'];
-            $payload['model_selection'] = $model;
-            $payload['model_code'] = (string)($model['model_code'] ?? '');
-            $payload['_disable_model_fallback'] = true;
-            unset($payload['channel']);
-        }
+        if ($type === 'text' && $resolveTextModel) $payload = self::withTenantTextModel($tenantId, $payload);
         if ($type === 'video') {
             if (array_key_exists('generate_audio', $params)) {
                 $payload['generate_audio'] = filter_var($params['generate_audio'], FILTER_VALIDATE_BOOLEAN);
