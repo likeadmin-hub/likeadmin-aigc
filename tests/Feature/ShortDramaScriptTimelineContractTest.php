@@ -254,6 +254,20 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         self::assertCount(1, $result['result']['storyboard']);
     }
 
+    public function testReadingHistoricalRepeatedShotsPreservesEditsAndSelectedAssets(): void
+    {
+        $plan = ['title' => '旧项目', 'storyboard' => [
+            ['shot_id' => 'shot-1', 'visual_description' => '重复构图', 'dialogue' => '用户修改的台词',
+                'recommended_duration_seconds' => 1.5, 'selected_image_asset_id' => 101, 'selected_video_asset_id' => 201],
+            ['shot_id' => 'shot-2', 'visual_description' => '重复构图', 'dialogue' => '刻意重复的镜头',
+                'recommended_duration_seconds' => 8.5, 'selected_image_asset_id' => 102],
+        ]];
+        $result = $this->invoke('cleanStoryboardResultData', 0, 0, 0, '', $plan);
+        self::assertSame($plan, $result['result']);
+        self::assertFalse($result['changed']);
+        self::assertSame([], $result['removed_shot_ids']);
+    }
+
     private function invoke(string $method, mixed ...$arguments): mixed
     {
         $reflection = new ReflectionMethod(AigcShortDramaService::class, $method);
