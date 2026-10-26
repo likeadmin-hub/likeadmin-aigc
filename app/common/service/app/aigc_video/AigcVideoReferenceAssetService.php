@@ -25,10 +25,10 @@ class AigcVideoReferenceAssetService
         }
 
         foreach (self::legacyImageAssets($params) as $asset) {
-            if (($asset['role'] ?? '') === 'reference_image' && array_filter($assets, static fn(array $existing): bool =>
+            if (array_filter($assets, static fn(array $existing): bool =>
                 ($existing['type'] ?? '') === self::TYPE_IMAGE
                 && self::sameMediaSource($existing, $asset)
-                && in_array($existing['role'] ?? '', ['first_frame_image', 'last_frame_image'], true)
+                && (($asset['role'] ?? '') === 'reference_image' || ($existing['role'] ?? '') === ($asset['role'] ?? ''))
             )) {
                 continue;
             }
@@ -305,11 +305,11 @@ class AigcVideoReferenceAssetService
         foreach ($assets as $asset) {
             $role=(string)($asset['role']??'');
             if ($role==='' && array_filter($frameSources,static fn(array $frame): bool => self::sameMediaSource($asset,$frame))) continue;
-            $slot=in_array($role,$frames,true)?$role:'reference';
+            $slot=!empty($asset['field'])?'field:'.$asset['field']:($role ?: 'reference_image');
             $duplicate=null;
             foreach ($unique as $index=>$existing) {
                 $existingRole=(string)($existing['role']??'');
-                $existingSlot=in_array($existingRole,$frames,true)?$existingRole:'reference';
+                $existingSlot=!empty($existing['field'])?'field:'.$existing['field']:($existingRole ?: 'reference_image');
                 if ($slot===$existingSlot && self::sameMediaSource($asset,$existing)) { $duplicate=$index; break; }
             }
             if ($duplicate!==null) {
