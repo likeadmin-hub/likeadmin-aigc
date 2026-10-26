@@ -53,9 +53,10 @@ final class MarketGenerationMeter
             }
         };
         $walk($native);
-        $context = ['reference_images'=>count(array_unique($images)), 'reference_video_seconds'=>0];
+        // Count submitted slots, including repeated URLs; canonical native input has no UI aliases.
+        $context = ['reference_images'=>count($images), 'reference_video_seconds'=>0];
         if (in_array($contract['basis'], ['output_plus_video','output_plus_max_video'], true) && $video !== []) {
-            $context['reference_video_seconds'] = MarketGenerationMedia::seconds(['video_urls'=>array_values(array_unique($video))]);
+            $context['reference_video_seconds'] = MarketGenerationMedia::seconds(['video_urls'=>$video]);
         }
         if ($contract['basis'] === 'megapixel') {
             // Resolution labels and browser metadata do not prove billed pixel dimensions.

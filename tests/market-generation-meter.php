@@ -17,6 +17,8 @@ eq(M::price(16,2,snapshot('按次','pack')),16.0,'pack output count must not dou
 eq(M::price(26,3,snapshot('生成张数','image')),78.0,'image quantity');
 eq(M::price(1.1,1.1,snapshot('生成秒数','output_second')),2.0,'supplier whole-point rounding');
 eq(M::price(1.1,1.1,['usage_unit_size'=>1]),1.21,'historical price snapshot keeps old rounding');
+$references=M::context(snapshot('生成张数')['billing_meter'],['reference_image_urls'=>['https://test/a.png','https://test/a.png']]);
+eq($references['reference_images'],2,'identical submitted reference slots remain billable');
 foreach(['business_unit','pack','token','unknown'] as $unit){try{M::contract(['usage_unit'=>$unit]);throw new RuntimeException('unsafe unit admitted');}catch(InvalidArgumentException $e){$checks++;}}
 try{M::contract(['usage_unit'=>'business_unit','meter_summary'=>'新公式']);throw new RuntimeException('unknown formula admitted');}catch(InvalidArgumentException $e){$checks++;}
 echo "PASS $checks meter, price and immutable snapshot checks\n";
