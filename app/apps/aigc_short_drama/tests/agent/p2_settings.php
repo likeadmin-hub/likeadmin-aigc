@@ -22,14 +22,14 @@ $defaults=Settings::fromCatalog($groups,[]);
 agentCheck($defaults['reasoning_model']['id']==='script_plan-one' && $defaults['generation_mode']==='manual','catalog defaults remain separate from automatic execution');
 agentCheck(!str_contains(json_encode($defaults),'must-not-persist') && !str_contains(json_encode($defaults),'price'),'model snapshots discard secrets and arbitrary price fields');
 $selected=Settings::fromCatalog($groups,['reasoning_model'=>'script_plan-two','image_model'=>'image-two','video_model'=>'video-two','generation_mode'=>'auto']);
-agentCheck($selected['reasoning_model']['id']==='script_plan-two' && $selected['image_model']['id']==='image-two' && $selected['video_model']['id']==='video-two','three explicit model choices preserved');
-foreach (['reasoning_model'=>'script_plan','image_model'=>'image','video_model'=>'video'] as $field=>$key) {
+agentCheck($selected['reasoning_model']['id']==='script_plan-one' && $selected['image_model']['id']==='image-two' && $selected['video_model']['id']==='video-two','tenant text default and explicit media choices preserved');
+foreach (['image_model'=>'image','video_model'=>'video'] as $field=>$key) {
     rejectsSettings(fn()=>Settings::fromCatalog($groups,[$field=>$key.'-disabled']),strtoupper($field).'_UNAVAILABLE');
     rejectsSettings(fn()=>Settings::fromCatalog($groups,[$field=>'unknown']),strtoupper($field).'_UNAVAILABLE');
     rejectsSettings(fn()=>Settings::fromCatalog($groups,[$field=>['id'=>$key.'-one']]),'INVALID_MODEL_SELECTION');
 }
-rejectsSettings(fn()=>Settings::fromCatalog($groups,['reasoning_model'=>'image-one']),'REASONING_MODEL_UNAVAILABLE');
-rejectsSettings(fn()=>Settings::fromCatalog($groups,['reasoning_model'=>null]),'INVALID_MODEL_SELECTION');
+agentCheck(Settings::fromCatalog($groups,['reasoning_model'=>'image-one'])['reasoning_model']['id']==='script_plan-one','legacy text override ignored');
+
 rejectsSettings(fn()=>Settings::fromCatalog($groups,['system_prompt'=>'override']),'INVALID_AGENT_PREFERENCES');
 rejectsSettings(fn()=>Settings::fromCatalog($groups,['generation_mode'=>'unrestricted']),'INVALID_GENERATION_MODE');
 agentCheck(Settings::fromCatalog([$groups[0]],[])['image_model']===[],'unconfigured media model does not block pure conversation');
@@ -44,6 +44,7 @@ try {
     $sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'input','title'=>'Isolated input tokens','usage_unit'=>'token','sale_points'=>1,'status'=>1,'sale_status'=>1]);
     $textOnly=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-agent-text-only','resource_type'=>'model','model_type'=>'text','name'=>'Isolated text-only fixture','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-agent-text-only','upstream_model_code'=>'isolated-text-only','upstream_channel_code'=>'isolated-channel','source_payload'=>json_encode(['market_metadata'=>['supports_vision'=>false]]),'status'=>1]);
     Db::name('power_market_sku')->insert(['product_id'=>$textOnly,'sku_key'=>'input','title'=>'Isolated text-only input tokens','usage_unit'=>'token','sale_points'=>1,'status'=>1,'sale_status'=>1]);
+    foreach ([91001,91002] as $tenant) AigcShortDramaService::saveConfig($tenant,['default_text_model_id'=>(string)$product]);
     $real=Settings::resolve(91001,['reasoning_model'=>(string)$product]);
     agentCheck($real['reasoning_model']['id']===(string)$product && $real['reasoning_model']['model_code']==='isolated-reasoning','real database catalog resolves exact requested market identity');
     agentCheck($real['reasoning_model']['supports_vision']===true && $real['reasoning_model']['market_input_sku_id']===(int)$sku,'market capabilities and SKU resolved server-side');
@@ -58,7 +59,7 @@ try {
     agentCheck(ConversationPreferences::read(91001,92001)===$saved,'preference read returns durable account-scoped revision');
     rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,0,['reasoning_model'=>(string)$product]),'PREFERENCE_VERSION_CONFLICT');
     agentCheck(ConversationPreferences::save(91001,92002,0,['reasoning_model'=>(string)$product])['revision']===1,'different users have independent default model preferences');
-    rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,1,['reasoning_model'=>'unknown']),'REASONING_MODEL_UNAVAILABLE');
+    agentCheck(Settings::resolve(91001,['reasoning_model'=>'unknown'])['reasoning_model']['id']===(string)$product,'legacy text preference ignored');
     rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,1,['reasoning_model'=>(string)$product,'provider_url'=>'forged']),'INVALID_AGENT_PREFERENCES');
     agentCheck(FeatureGate::executionEnabled(91001),'Agent model execution defaults on when only the conversation panel is configured');
     AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>false]]);

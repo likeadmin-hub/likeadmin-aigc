@@ -758,9 +758,7 @@ class AigcShortDramaService
                 'safety'=>FeatureGate::normalizeSafetyPolicy($agent['safety']??($current['canvas_agent']['safety']??[]))];
         }
         unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
-        $defaultTextKey = array_key_exists('default_text_model_id', $params)
-            ? 'default_text_model_id'
-            : (array_key_exists('vision_model_id', $params) ? 'vision_model_id' : null);
+        $defaultTextKey = array_key_exists('default_text_model_id', $params) ? 'default_text_model_id' : null;
         if ($defaultTextKey !== null) {
             $defaultTextModelId = trim((string)$params[$defaultTextKey]);
             if ($defaultTextModelId === '') {
@@ -770,6 +768,12 @@ class AigcShortDramaService
                 $config['default_text_model_id'] = (string)$defaultTextModel['id'];
                 $config['default_text_model_selection'] = self::marketModelSnapshot($defaultTextModel);
             }
+        }
+        if (array_key_exists('vision_model_id', $params)) {
+            $visionId = trim((string)$params['vision_model_id']);
+            $vision = $visionId === '' ? [] : MarketTextModelRuntimeService::resolveModel($tenantId, $visionId, true);
+            $config['vision_model_id'] = (string)($vision['id'] ?? '');
+            $config['vision_model_selection'] = $vision === [] ? [] : self::marketModelSnapshot($vision);
         }
         $creationModelGroups = self::dependencyModelGroups($tenantId);
         foreach ([
@@ -3992,7 +3996,7 @@ class AigcShortDramaService
         }
 
         $config = self::publicConfig($tenantId);
-        $selectedModels = self::resolveSelectedModels($tenantId, $request, $config);
+        $selectedModels = self::resolveSelectedModels($tenantId, $request, $config, true);
         if (empty($request['storyboard_rules']) || !is_array($request['storyboard_rules'])) {
             $request['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         }
@@ -16167,6 +16171,9 @@ class AigcShortDramaService
             static fn(array $item): bool => $item['id'] !== ''
         ));
         $scriptGroup['default'] = (string)($scriptGroup['default'] ?? ($scriptGroup['options'][0]['id'] ?? ''));
+        $scriptGroup['managed_by_tenant'] = true;
+        $scriptGroup['options'] = array_values(array_filter($scriptGroup['options'],
+            static fn(array $option): bool => $option['id'] === $scriptGroup['default']));
         unset($scriptGroup['app_code'], $scriptGroup['provider'], $scriptGroup['provider_model'], $scriptGroup['channel_code']);
         return [$scriptGroup];
     }
@@ -16236,7 +16243,7 @@ class AigcShortDramaService
     {
         $defaultId = (string)($model['id'] ?? '');
         foreach ($groups as &$group) {
-            if (($group['key'] ?? '') === 'script_plan' && $defaultId !== '') {
+            if (($group['key'] ?? '') === 'script_plan') {
                 $group['default'] = $defaultId;
             }
         }
@@ -16355,6 +16362,13 @@ class AigcShortDramaService
     }
 
     /** @return array<string, mixed> */
+    public static function tenantTextModel(int $tenantId): array
+    {
+        $model = self::configuredDefaultTextModel($tenantId);
+        if ($model === []) throw new Exception('文本服务暂不可用，请联系管理员配置短剧文本模型');
+        return $model;
+    }
+
     private static function configuredDefaultTextModel(int $tenantId, array $config = [], bool $strict = true): array
     {
         if ($config === []) {
@@ -16375,8 +16389,9 @@ class AigcShortDramaService
             return MarketTextModelRuntimeService::resolveModel($tenantId, $selectedId, false);
         } catch (\Throwable $e) {
             if ($strict && $selectedId !== '') {
-                throw new Exception('已配置的默认文本模型已下架或不可用，请重新选择');
+                throw new Exception('短剧文本模型已下架或不可用，请联系管理员在短剧基础配置中重新选择');
             }
+            if ($selectedId !== '') return [];
             try {
                 return MarketTextModelRuntimeService::resolveModel($tenantId, '', false);
             } catch (\Throwable $fallbackError) {
@@ -17272,7 +17287,7 @@ class AigcShortDramaService
         return $priceConfig;
     }
 
-    private static function resolveSelectedModels(int $tenantId, array $request, array $config = []): array
+    private static function resolveSelectedModels(int $tenantId, array $request, array $config = [], bool $storedTask = false): array
     {
         $groups = (array)($config['model_groups'] ?? []);
         if (empty($groups)) {
@@ -17293,47 +17308,26 @@ class AigcShortDramaService
             }
             $selected[$key] = $matched ?: $options[0];
         }
+        // Only the worker may reuse a model frozen in a persisted task. New
+        // submissions, revisions and uploads ignore all client text choices.
+        $frozen = $selections['script_plan'] ?? $request['model_id'] ?? '';
+        if ($storedTask && !empty($frozen)) {
+            try { $selected['script_plan'] = MarketTextModelRuntimeService::resolveModel($tenantId, $frozen, false); }
+            catch (\Throwable $error) {
+                // Let the existing execution failure handler persist the model
+                // rejection; throwing during setup can strand streaming tasks.
+                $selected['script_plan'] = is_array($frozen) ? $frozen : ['id' => (string)$frozen];
+            }
+        } else {
+            $selected['script_plan'] = self::tenantTextModel($tenantId);
+        }
         return $selected;
     }
 
-    /**
-     * The browser can hold a model choice longer than the market catalogue.
-     * A stale script-plan choice must not prevent a task from using another
-     * text model that this tenant has already enabled.  Image/video selections
-     * intentionally remain strict because their contracts are model-specific.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    /** Never silently switch away from the tenant-approved task snapshot. */
     private static function scriptPlanModelCandidates(int $tenantId, array $preferred): array
     {
-        $candidates = [];
-        $append = static function (array $candidate) use (&$candidates): void {
-            if ($candidate === []) {
-                return;
-            }
-            $identity = trim((string)($candidate['market_product_id'] ?? $candidate['product_id'] ?? $candidate['id'] ?? ''));
-            if ($identity === '') {
-                $identity = trim((string)($candidate['model_code'] ?? '')) . '|' . trim((string)($candidate['channel_code'] ?? ''));
-            }
-            if ($identity === '' || isset($candidates[$identity])) {
-                return;
-            }
-            $candidates[$identity] = $candidate;
-        };
-
-        $append($preferred);
-        foreach (MarketTextModelRuntimeService::modelGroups($tenantId) as $group) {
-            if ((string)($group['key'] ?? '') !== 'script_plan') {
-                continue;
-            }
-            $options = array_values(array_filter((array)($group['options'] ?? []), 'is_array'));
-            $append(self::matchModelOption($options, (string)($group['default'] ?? '')));
-            foreach ($options as $option) {
-                $append($option);
-            }
-            break;
-        }
-        return array_values($candidates);
+        return $preferred === [] ? [] : [$preferred];
     }
 
     private static function isScriptPlanModelUnavailableError(string $message): bool
@@ -17346,7 +17340,7 @@ class AigcShortDramaService
     }
 
     /**
-     * Try every tenant-enabled text model after an explicit model rejection.  Such a
+     * Use the frozen tenant text model. An explicit rejection remains visible. Such a
      * response is rejected before generation starts; the market runtime marks
      * that attempt failed and releases its reservation.  Other provider
      * failures (timeouts, safety, parameters, quota, etc.) must stay visible
@@ -17432,7 +17426,7 @@ class AigcShortDramaService
         }
 
         if ($capacityError !== null) throw $capacityError;
-        throw new Exception('当前租户已开启的剧本策划模型均不可用，请联系管理员同步或上架文本模型后重试');
+        throw new Exception('短剧文本模型不可用，请联系管理员检查配置后重试');
     }
 
     private static function matchModelOption(array $options, $wanted): array
@@ -18880,7 +18874,7 @@ class AigcShortDramaService
             || str_contains($lower, 'unknown parameter')
             || str_contains($lower, 'invalid parameter')
             || str_contains($lower, 'not support')) {
-            return '文本模型不支持当前请求参数，请切换模型或联系管理员同步模型能力';
+            return '文本模型不支持当前请求参数，请联系管理员同步模型能力';
         }
         if (str_contains($lower, 'bad request') || str_contains($lower, 'invalid request')) {
             return '文本模型 API 请求不兼容，请检查算力市场模型配置';

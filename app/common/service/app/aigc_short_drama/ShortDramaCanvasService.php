@@ -1074,6 +1074,14 @@ class ShortDramaCanvasService
             'reference_assets' => $referenceAssets,
             'source_app_code' => AigcShortDramaService::APP_CODE,
         ];
+        if ($type === 'text') {
+            $model = AigcShortDramaService::tenantTextModel($tenantId);
+            $payload['model_id'] = (string)$model['id'];
+            $payload['model_selection'] = $model;
+            $payload['model_code'] = (string)($model['model_code'] ?? '');
+            $payload['_disable_model_fallback'] = true;
+            unset($payload['channel']);
+        }
         if ($type === 'video') {
             if (array_key_exists('generate_audio', $params)) {
                 $payload['generate_audio'] = filter_var($params['generate_audio'], FILTER_VALIDATE_BOOLEAN);
