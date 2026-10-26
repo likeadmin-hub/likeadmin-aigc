@@ -33,13 +33,17 @@ class ShortDramaDefaultCreationModelsContractTest extends TestCase
         self::assertSame('image-a', $resolved[0]['default']);
     }
 
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testUnspecifiedProjectSelectionUsesConfiguredCreationDefaults(): void
     {
         $groups = $this->invoke('applyDefaultCreationModels', $this->groups(), [
             'default_image_model_id' => 'image-b',
             'default_video_model_id' => 'video-b',
         ]);
-        $selected = $this->invoke('resolveSelectedModels', 0, [], ['model_groups' => $groups]);
+        require __DIR__.'/../fixtures/short_drama_tenant_text_model.php';
+        $selected = $this->invoke('resolveSelectedModels', 701, [], ['model_groups' => $groups]);
 
         self::assertSame('image-b', $selected['image']['id']);
         self::assertSame('video-b', $selected['video']['id']);
