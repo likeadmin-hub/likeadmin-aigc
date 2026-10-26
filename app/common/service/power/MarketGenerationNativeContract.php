@@ -25,7 +25,7 @@ final class MarketGenerationNativeContract
     }
     public static function schema(array $metadata, string $mode): array
     {
-        return MarketCatalogReadScope::remember('native_schema:' . hash('sha256', serialize([$metadata, $mode])), static fn(): array => self::buildSchema($metadata, $mode));
+        return MarketCatalogReadScope::derive('native_schema:' . $mode, $metadata, static fn(): array => self::buildSchema($metadata, $mode));
     }
 
     private static function buildSchema(array $metadata, string $mode): array

@@ -15,7 +15,7 @@ final class MarketGenerationMaterials
     {
         // A catalogue validates many specifications against the same declaration.
         // Include all metadata so a changed contract never reuses an older result.
-        return MarketCatalogReadScope::remember('material_modes:' . hash('sha256', serialize($metadata)), static fn(): array => self::buildModes($metadata));
+        return MarketCatalogReadScope::derive('material_modes', $metadata, static fn(): array => self::buildModes($metadata));
     }
 
     private static function buildModes(array $metadata): array
