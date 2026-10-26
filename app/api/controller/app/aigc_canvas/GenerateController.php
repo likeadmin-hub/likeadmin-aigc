@@ -11,6 +11,17 @@ use Exception;
 
 class GenerateController extends BaseApiController
 {
+    public function estimate()
+    {
+        try {
+            return $this->success('估价成功', AigcCanvasService::estimateGeneration(
+                (int)$this->request->tenantId, $this->userId, CanvasRequestInput::post($this->request)
+            ));
+        } catch (\Throwable $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function optimizePrompt()
     {
         try {
