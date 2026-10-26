@@ -1620,6 +1620,8 @@ class PowerMarketService
             'usage_unit' => (string)($sku['usage_unit'] ?? ''),
             'usage_unit_size' => (float)($sku['usage_unit_size'] ?? 1),
             'price' => (array)($sku['price'] ?? []),
+            'meter_summary' => (string)($sku['meter_summary'] ?? ''),
+            'pricing_rule_key' => (string)($sku['pricing_rule_key'] ?? ''),
         ];
     }
 
