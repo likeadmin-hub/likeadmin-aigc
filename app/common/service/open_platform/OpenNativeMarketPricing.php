@@ -49,7 +49,7 @@ final class OpenNativeMarketPricing
                 $selection['ratio'] = $size;
             } else $selection['size'] = $size;
         }
-        $quantity = self::alias($raw, ['n', 'quantity'], true) ?? 1;
+        $quantity = self::alias($raw, ['n', 'num_images', 'quantity'], true) ?? 1;
         if ($quantity < 1) throw new OpenException('invalid_request', '图片数量须为正整数');
         $selection['quantity'] = $quantity;
         $references=self::alias($raw,['reference_images','image_urls','images','urls'],false,true);
@@ -75,6 +75,9 @@ final class OpenNativeMarketPricing
             if (isset($selection[$target]) && OpenPolicy::fingerprint(['v' => $selection[$target]]) !== OpenPolicy::fingerprint(['v' => $values])) throw new OpenException('invalid_request', '结构化素材参数冲突');
             $selection[$target] = $values;
         }
+        // Pricing must see the same native fields as transport (including reference-image
+        // surcharges and conditional generation modes). The runtime filters by its schema.
+        $selection['provider_params'] = array_replace($raw, self::object($raw['input'] ?? []), self::object($raw['params'] ?? []), self::object($raw['parameters'] ?? []));
         return ['kind' => $isImage ? 'image' : 'video', 'selection' => $selection];
     }
 
