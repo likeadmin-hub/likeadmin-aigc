@@ -4,15 +4,17 @@ require dirname(__DIR__).'/runtime-loader.php';
 (new AigcRuntimeApp(dirname(__DIR__)))->initialize();
 use app\common\model\power\{PowerMarketProduct, PowerMarketSku};
 use app\common\service\app\UpstreamPricingService;
-use app\common\service\power\{MarketGenerationCatalogService, MarketGenerationMeter, MarketGenerationSchema};
+use app\common\service\power\{MarketGenerationCatalogService, MarketGenerationSchema};
 use app\common\service\app\aigc_canvas\CanvasGenerationParameters;
 use think\facade\Db;
 $args = getopt('', ['tenant-id:', 'upstream', 'refresh-meters', 'output:']);
 $tenant = (int)($args['tenant-id'] ?? 1);
 $report = ['time'=>date('c'),'tenant_id'=>$tenant,'counts'=>[],'issues'=>[],'parameters'=>[],'prices'=>[]];
+$applicationIds = [];
 foreach (MarketGenerationCatalogService::directory($tenant) as $type=>$catalog) {
     $report['counts'][$type] = count($catalog['channels']);
     foreach ($catalog['channels'] as $model) {
+        if (($model['resource_type'] ?? '') === 'app_api') $applicationIds[] = (int)$model['market_product_id'];
         $passed = 0;
         foreach (CanvasGenerationParameters::definitions($model, $type) as $field) {
             $values = $field['options'];
@@ -28,9 +30,13 @@ foreach (MarketGenerationCatalogService::directory($tenant) as $type=>$catalog) 
     }
 }
 if (isset($args['upstream'])) {
-    foreach (PowerMarketProduct::where('status',1)->where('resource_type','model')->select()->toArray() as $product) {
+    $products = PowerMarketProduct::where('status',1)->where('resource_type','model')->select()->toArray();
+    if ($applicationIds !== []) $products = array_merge($products, PowerMarketProduct::where('status',1)->whereIn('id',array_unique($applicationIds))->select()->toArray());
+    foreach ($products as $product) {
         $id=(int)$product['id'];
-        try { $remote=UpstreamPricingService::queryModel($product['upstream_model_code'],$product['upstream_channel_code']); }
+        try { $remote=$product['resource_type'] === 'app_api'
+            ? UpstreamPricingService::queryAppApi($product['upstream_app_code'],$product['upstream_api_code'])
+            : UpstreamPricingService::queryModel($product['upstream_model_code'],$product['upstream_channel_code']); }
         catch(Throwable $e){$report['issues'][]=['kind'=>'upstream','product'=>$id,'name'=>$product['name'],'error'=>$e->getMessage()];continue;}
         if (empty($remote['available'])) {$report['issues'][]=['kind'=>'unavailable','product'=>$id,'name'=>$product['name']];continue;}
         $remoteSkus=array_column((array)($remote['pricing_v2']['items']??[]),null,'sku_key');

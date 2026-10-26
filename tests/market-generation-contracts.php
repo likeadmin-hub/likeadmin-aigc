@@ -51,3 +51,14 @@ check($usage->invoke(null,['usage'=>['input_seconds'=>18]],60,['usage_unit'=>'in
 check($usage->invoke(null,['usage'=>['total_tokens'=>100]],60,['usage_unit'=>'output_second'])['actual_quantity'],0.0,'missing measured output is not replaced with tokens');
 $ratios=new ReflectionMethod(V::class,'ratioValues');
 check($ratios->invoke(null,['aspect_ratio'=>['16:9','auto','adaptive']]),['16:9','auto','adaptive'],'follow-source auto ratio remains selectable');
+require dirname(__DIR__).'/app/common/service/power/MarketGenerationMeter.php';
+require dirname(__DIR__).'/app/common/service/power/PowerMarketService.php';
+$billingUnit=new ReflectionMethod(V::class,'billingUnit');
+$quantity=new ReflectionMethod(V::class,'quantity');
+$normalizer=new ReflectionMethod(\app\common\service\power\PowerMarketService::class,'normalizedUsageUnit');
+foreach(['per_call'=>1.0,'output_second'=>5.0] as $unit=>$expected){
+ $market=['product'=>['resource_type'=>'app_api','upstream_app_code'=>'grok_video'],'sku'=>['usage_unit'=>$unit,'usage_unit_size'=>1,'locked_params'=>[]]];
+ check($billingUnit->invoke(null,$market['product'],$market['sku']),$unit,'Grok preserves '.$unit.' runtime unit');
+ check($quantity->invokeArgs(null,[&$market,['duration'=>5]]),$expected,'Grok '.$unit.' quantity');
+ check($normalizer->invoke(null,$market['sku'],['type'=>'app_api','resource'=>['app_code'=>'grok_video']]),$unit,'Grok sync preserves '.$unit);
+}
