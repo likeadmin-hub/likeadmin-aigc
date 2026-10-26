@@ -3256,9 +3256,14 @@ class MarketVideoRuntimeService
     {
         $metadata = self::metadata($product);
         if (($product['resource_type'] ?? '') !== 'model' || MarketGenerationMaterials::modes($metadata) === []) return self::skuSupportsInputMode($skuMode, $mode, $product, $locked);
-        $native = MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '';
-        if (!empty($locked['generation_type']) && $locked['generation_type'] !== $native) return false;
-        $billingInputs=MarketGenerationMaterials::billingInputs($metadata,$selection);
+        // Product fallback checks every SKU against the same material request.
+        // Resolve that request once within catalogue discovery, independently of SKU locks.
+        $inputs = MarketCatalogReadScope::remember('video_material_selection:' . hash('sha256', serialize([$metadata, $selection])), static fn(): array => [
+            'native_mode' => MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '',
+            'billing' => MarketGenerationMaterials::billingInputs($metadata, $selection),
+        ]);
+        if (!empty($locked['generation_type']) && $locked['generation_type'] !== $inputs['native_mode']) return false;
+        $billingInputs = $inputs['billing'];
         foreach ($locked as $key=>$value) {
             if (is_array($value) || is_object($value)) continue;
             if (array_key_exists($key,$billingInputs) && (bool)$value !== $billingInputs[$key]) return false;
