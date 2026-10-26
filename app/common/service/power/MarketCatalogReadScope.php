@@ -33,6 +33,8 @@ final class MarketCatalogReadScope
      */
     public static function derive(string $key, array $input, callable $read): array
     {
+        // Pure contract readers also run without a bootstrapped HTTP application.
+        if (!function_exists('request')) return $read();
         $scope = request()->marketCatalogReadScope;
         if (!$scope instanceof self) return $read();
         $previous = $scope->derived[$key] ?? null;
