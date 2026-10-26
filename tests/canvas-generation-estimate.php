@@ -49,6 +49,13 @@ namespace {
     check($request['generate_audio'] === false && $request['generation_method'] === 'omni_reference', 'video mode and explicit audio option retained');
     check(Router::$seen['tool'] === 'generate_video', 'video pricing route retained');
     check(!array_key_exists('mode', $request) && $request['provider_params']['mode'] === 'lite', 'absent generic mode does not override native provider mode');
+    $many = array_map(static fn($i) => ['type'=>'image','uri'=>"https://fixture.invalid/$i.png",'role'=>'reference_image'], range(1, 30));
+    $many[] = ['type'=>'image','uri'=>'https://fixture.invalid/1.png','role'=>'keyframe_image','field'=>'keyframes','parameters'=>['timestamp_s'=>2]];
+    Service::estimateGeneration(7, 9, ['generationKind'=>'video','generation_method'=>'omni_reference','reference_assets'=>$many]);
+    $assets = Router::$seen['params']['reference_assets'];
+    check(count($assets) === 31, 'canvas passes every native asset to model validation instead of truncating at fifteen');
+    check($assets[30]['field'] === 'keyframes' && $assets[30]['role'] === 'keyframe_image', 'same URL in an explicitly different native slot survives deduplication');
+    check($assets[30]['parameters']['timestamp_s'] === 2, 'structured keyframe properties reach the native contract');
     Router::$available = false;
     try { Service::estimateGeneration(7, 9, ['generationKind' => 'image']); throw new \LogicException('missing rejection'); }
     catch (\Exception $e) { check($e->getMessage() === 'invalid SKU', 'unavailable quote blocks generation'); }

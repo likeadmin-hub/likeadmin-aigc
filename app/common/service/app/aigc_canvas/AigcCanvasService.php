@@ -2355,7 +2355,7 @@ class AigcCanvasService
             if ($url === '') {
                 continue;
             }
-            $key = $type . '|' . $url;
+            $key = $type . '|' . $url . '|' . (string)($asset['field'] ?? '');
             if (isset($seen[$key])) {
                 continue;
             }
@@ -2420,7 +2420,7 @@ class AigcCanvasService
         $referenceImages = self::normalizeReferenceImages($params, $tenantId, $userId, $persistInlineImages);
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
-        ]));
+        ]), PHP_INT_MAX);
         return array_replace(array_intersect_key($params, array_flip(['seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
@@ -2579,10 +2579,18 @@ class AigcCanvasService
         $allowedRoles = match ($type) {
             'video' => ['reference_video'],
             'audio' => ['reference_audio'],
-            default => ['reference_image', 'first_frame_image', 'last_frame_image'],
+            default => ['reference_image', 'first_frame_image', 'last_frame_image', 'mask', 'mask_image', 'loop', 'loop_image', 'keyframe', 'keyframe_image'],
         };
         if (in_array($role, $allowedRoles, true)) {
             $normalized['role'] = $role;
+        }
+        // Native field bindings and structured frame properties are validated by the selected model contract.
+        $field = trim((string)($asset['field'] ?? ''));
+        if ($field !== '' && preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $field)) {
+            $normalized['field'] = $field;
+        }
+        if (isset($asset['parameters']) && is_array($asset['parameters'])) {
+            $normalized['parameters'] = $asset['parameters'];
         }
         $generationMethod = strtolower(trim((string)($asset['generation_method'] ?? '')));
         if (in_array($generationMethod, ['omni_reference', 'start_end', 'multi_frame'], true)) {
