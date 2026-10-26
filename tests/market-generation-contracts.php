@@ -47,3 +47,5 @@ $usage=new ReflectionMethod(V::class,'usage');
 check($usage->invoke(null,['usage'=>['output_video_duration'=>5,'total_tokens'=>1234]],60,['usage_unit'=>'output_second'])['actual_quantity'],5.0,'measured video duration is used instead of token count');
 check($usage->invoke(null,['usage'=>['input_seconds'=>18]],60,['usage_unit'=>'input_second'])['actual_quantity'],18.0,'measured input seconds are accepted');
 check($usage->invoke(null,['usage'=>['total_tokens'=>100]],60,['usage_unit'=>'output_second'])['actual_quantity'],0.0,'missing measured output is not replaced with tokens');
+$ratios=new ReflectionMethod(V::class,'ratioValues');
+check($ratios->invoke(null,['aspect_ratio'=>['16:9','auto','adaptive']]),['16:9','auto','adaptive'],'follow-source auto ratio remains selectable');

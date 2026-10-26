@@ -20,3 +20,8 @@ eq(M::price(1.1,1.1,['usage_unit_size'=>1]),1.21,'historical price snapshot keep
 foreach(['business_unit','pack','token','unknown'] as $unit){try{M::contract(['usage_unit'=>$unit]);throw new RuntimeException('unsafe unit admitted');}catch(InvalidArgumentException $e){$checks++;}}
 try{M::contract(['usage_unit'=>'business_unit','meter_summary'=>'新公式']);throw new RuntimeException('unknown formula admitted');}catch(InvalidArgumentException $e){$checks++;}
 echo "PASS $checks meter, price and immutable snapshot checks\n";
+require dirname(__DIR__).'/app/common/service/open_platform/OpenNativeMarketPricing.php';
+$native=['kind'=>'video','market_snapshot'=>$seedance];
+eq(\app\common\service\open_platform\OpenNativeMarketPricing::settledPrice(68,5,$native,false),833.0,'API settlement shares app meter');
+eq(\app\common\service\open_platform\OpenNativeMarketPricing::settledPrice(68,0,$native,true),0.0,'failed API call refunds all reference charges');
+echo "PASS API meter parity and failure refund\n";

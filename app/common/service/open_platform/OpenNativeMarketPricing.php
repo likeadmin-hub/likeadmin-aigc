@@ -126,7 +126,14 @@ final class OpenNativeMarketPricing
             $identity = $fingerprint; $slots = $candidate;
         }
         $successful = $slots === null ? 0 : count(array_filter($slots, 'is_string'));
-        return $successful > 0 ? (float)$successful : null;
+        return $successful > 0 ? (($native['market_snapshot']['billing_meter']['basis'] ?? '') === 'call' ? 1. : (float)$successful) : null;
+    }
+
+    /** Use the same immutable meter at admission and settlement, including failed-task refunds. */
+    public static function settledPrice(float $unitPrice, float $units, array $native, bool $failed): float
+    {
+        if ($failed) return 0.;
+        return \app\common\service\power\MarketGenerationMeter::price($unitPrice, $units, (array)$native['market_snapshot']);
     }
 
     /** Successful URL slots plus null markers for confirmed unavailable/non-image slots. */

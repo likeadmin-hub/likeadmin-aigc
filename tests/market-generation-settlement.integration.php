@@ -6,7 +6,7 @@ use think\facade\Db;
 use app\common\model\ai\{AiConsumptionLog as C,AiAppTask as T};
 use app\common\service\power\MarketVideoRuntimeService as V;
 use app\common\service\point\PointService as P;
-$c=config('database.connections.mysql');if(($c['hostname']??'')!=='127.0.0.1'||($c['database']??'')!=='z_cn')throw new RuntimeException('Local rollback only');
+$c=config('database.connections.mysql');if(($c['hostname']??'')!=='127.0.0.1'||($c['database']??'')!==(getenv('GENERATION_TEST_DATABASE') ?: 'z_cn'))throw new RuntimeException('Local rollback only');
 function check($ok,$message){if(!$ok)throw new RuntimeException($message);echo 'PASS '.$message.PHP_EOL;}
 $tenant=1;$user=(int)Db::name('user')->where('tenant_id',$tenant)->where('user_money','>',20)->value('id');if(!$user)throw new RuntimeException('Local funded fixture missing');
 function state($tenant,$user){return ['tenant'=>(float)Db::name('tenant')->where('id',$tenant)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money'),'tasks'=>Db::name('ai_app_task')->count(),'consumptions'=>Db::name('ai_consumption_log')->count(),'user_logs'=>Db::name('user_account_log')->count(),'tenant_logs'=>Db::name('tenant_point_log')->count()];}
