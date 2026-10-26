@@ -3069,16 +3069,11 @@ class MarketVideoRuntimeService
     }
     private static function billingUnit(array $product, array $sku): string
     {
-        if (self::isGrokPerCallProduct($product)) {
-            return 'per_call';
-        }
         return trim((string)($sku['usage_unit'] ?? '')) ?: 'per_call';
     }
     private static function billingUnitSize(array $product, array $sku): float
     {
-        return self::isGrokPerCallProduct($product)
-            ? 1.0
-            : max(1, (float)($sku['usage_unit_size'] ?? 1));
+        return max(1, (float)($sku['usage_unit_size'] ?? 1));
     }
     private static function isGrokPerCallProduct(array $product): bool
     {
