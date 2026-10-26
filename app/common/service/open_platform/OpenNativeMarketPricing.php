@@ -49,7 +49,7 @@ final class OpenNativeMarketPricing
                 $selection['ratio'] = $size;
             } else $selection['size'] = $size;
         }
-        $quantity = self::alias($raw, ['n', 'quantity'], true) ?? 1;
+        $quantity = self::alias($raw, ['n', 'num_images', 'quantity'], true) ?? 1;
         if ($quantity < 1) throw new OpenException('invalid_request', '图片数量须为正整数');
         $selection['quantity'] = $quantity;
         $references=self::alias($raw,['reference_images','image_urls','images','urls'],false,true);
@@ -75,6 +75,9 @@ final class OpenNativeMarketPricing
             if (isset($selection[$target]) && OpenPolicy::fingerprint(['v' => $selection[$target]]) !== OpenPolicy::fingerprint(['v' => $values])) throw new OpenException('invalid_request', '结构化素材参数冲突');
             $selection[$target] = $values;
         }
+        // Pricing must see the same native fields as transport (including reference-image
+        // surcharges and conditional generation modes). The runtime filters by its schema.
+        $selection['provider_params'] = array_replace($raw, self::object($raw['input'] ?? []), self::object($raw['params'] ?? []), self::object($raw['parameters'] ?? []));
         return ['kind' => $isImage ? 'image' : 'video', 'selection' => $selection];
     }
 
@@ -101,9 +104,10 @@ final class OpenNativeMarketPricing
             catch (\Exception $e) { throw new OpenException('invalid_request',$e->getMessage()); }
         }
         $quote = $captured['quote'];
+        $units = ($quote['market_snapshot']['billing_meter']['basis'] ?? '') === 'call' ? 1. : (float)$quote['quantity'];
         return ['user' => round((float)$quote['user_charge_points'], 2), 'tenant' => round((float)$quote['tenant_cost_points'], 2), 'snapshot' => [
-            'native_media' => ['kind' => $bound['kind'], 'market_snapshot' => $quote['market_snapshot'], 'submitted_units' => (float)$quote['quantity']],
-            'rules' => [['sku_id' => $skuId, 'sku_key' => $captured['market']['sku']['sku_key'], 'basis' => 'native', 'units' => (float)$quote['quantity'], 'max_units' => (float)$quote['quantity'], 'unit_size' => $bound['kind'] === 'image' ? 1. : (float)$quote['billing_unit_size'], 'usage_unit' => $quote['billing_unit'], 'prices' => ['user' => (float)$quote['user_unit_points'], 'tenant' => (float)$quote['tenant_unit_points']]]],
+            'native_media' => ['kind' => $bound['kind'], 'market_snapshot' => $quote['market_snapshot'], 'submitted_units' => $units],
+            'rules' => [['sku_id' => $skuId, 'sku_key' => $captured['market']['sku']['sku_key'], 'basis' => 'native', 'units' => $units, 'max_units' => $units, 'unit_size' => $bound['kind'] === 'image' ? 1. : (float)$quote['billing_unit_size'], 'usage_unit' => $quote['billing_unit'], 'prices' => ['user' => (float)$quote['user_unit_points'], 'tenant' => (float)$quote['tenant_unit_points']]]],
         ]];
     }
 
@@ -126,7 +130,14 @@ final class OpenNativeMarketPricing
             $identity = $fingerprint; $slots = $candidate;
         }
         $successful = $slots === null ? 0 : count(array_filter($slots, 'is_string'));
-        return $successful > 0 ? (float)$successful : null;
+        return $successful > 0 ? (($native['market_snapshot']['billing_meter']['basis'] ?? '') === 'call' ? 1. : (float)$successful) : null;
+    }
+
+    /** Use the same immutable meter at admission and settlement, including failed-task refunds. */
+    public static function settledPrice(float $unitPrice, float $units, array $native, bool $failed): float
+    {
+        if ($failed) return 0.;
+        return \app\common\service\power\MarketGenerationMeter::price($unitPrice, $units, (array)$native['market_snapshot']);
     }
 
     /** Successful URL slots plus null markers for confirmed unavailable/non-image slots. */

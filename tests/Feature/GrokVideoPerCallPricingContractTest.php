@@ -9,7 +9,7 @@ use ReflectionMethod;
 
 class GrokVideoPerCallPricingContractTest extends TestCase
 {
-    public function testRuntimeNormalizesGrokVideoToOneCall(): void
+    public function testRuntimePreservesEachGrokSkuMeter(): void
     {
         $product = [
             'resource_type' => PowerMarketService::TYPE_APP_API,
@@ -23,21 +23,16 @@ class GrokVideoPerCallPricingContractTest extends TestCase
 
         $billingUnit = new ReflectionMethod(MarketVideoRuntimeService::class, 'billingUnit');
         $billingUnit->setAccessible(true);
-        self::assertSame('per_call', $billingUnit->invoke(null, $product, $sku));
+        self::assertSame('output_second', $billingUnit->invoke(null, $product, $sku));
 
         $billingUnitSize = new ReflectionMethod(MarketVideoRuntimeService::class, 'billingUnitSize');
         $billingUnitSize->setAccessible(true);
-        self::assertSame(1.0, $billingUnitSize->invoke(null, $product, $sku));
+        self::assertSame(5.0, $billingUnitSize->invoke(null, $product, $sku));
 
-        $quantity = new ReflectionMethod(MarketVideoRuntimeService::class, 'quantity');
-        $quantity->setAccessible(true);
-        self::assertSame(1.0, $quantity->invoke(null, [
-            'product' => $product,
-            'sku' => $sku,
-        ], ['duration' => 30]));
+
     }
 
-    public function testMarketSyncCannotRestoreGrokSecondBilling(): void
+    public function testMarketSyncPreservesSupplierUnit(): void
     {
         $normalize = new ReflectionMethod(PowerMarketService::class, 'normalizedUsageUnit');
         $normalize->setAccessible(true);
@@ -46,7 +41,7 @@ class GrokVideoPerCallPricingContractTest extends TestCase
             'price' => ['unit' => 'output_second'],
         ];
 
-        self::assertSame('per_call', $normalize->invoke(null, $sku, [
+        self::assertSame('output_second', $normalize->invoke(null, $sku, [
             'type' => PowerMarketService::TYPE_APP_API,
             'resource' => ['app_code' => 'grok_video'],
         ]));
@@ -56,15 +51,13 @@ class GrokVideoPerCallPricingContractTest extends TestCase
         ]));
     }
 
-    public function testUpgradeRepairsExistingGrokSkus(): void
+    public function testRepairUsesSynchronizedMetadataWithoutChangingPrices(): void
     {
-        $root = dirname(__DIR__, 2);
-        $upgrade = (string)file_get_contents($root . '/upgrade/20260820_grok_video_per_call_pricing.sql');
-        $publicUpgrade = (string)file_get_contents($root . '/public/upgrade/20260820_grok_video_per_call_pricing.sql');
-
-        self::assertSame($upgrade, $publicUpgrade);
-        self::assertStringContainsString("product.`upstream_app_code` = 'grok_video'", $upgrade);
-        self::assertStringContainsString("sku.`usage_unit` = 'per_call'", $upgrade);
-        self::assertStringContainsString('sku.`usage_unit_size` = 1', $upgrade);
+        $root=dirname(__DIR__,2);
+        $sql=file_get_contents($root.'/upgrade/20261026_grok_supplier_meter.sql');
+        self::assertSame($sql,file_get_contents($root.'/public/upgrade/20261026_grok_supplier_meter.sql'));
+        self::assertStringContainsString('JSON_EXTRACT(sku.`source_payload`', $sql);
+        self::assertStringNotContainsString('sale_points', $sql);
+        self::assertStringNotContainsString('ai_consumption_log', $sql);
     }
 }

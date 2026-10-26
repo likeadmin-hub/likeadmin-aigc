@@ -1291,7 +1291,6 @@ class PowerMarketService
             }
         }
         $price = (array)($sku['price'] ?? []);
-        $grokPerCall = self::isGrokPerCallItem($item);
         $usageUnit = self::normalizedUsageUnit($sku, $item);
         $data = [
             'title' => trim((string)($sku['title'] ?? $key)),
@@ -1299,7 +1298,7 @@ class PowerMarketService
             'locked_params' => self::arrayValue($sku['locked_params'] ?? []),
             'selectable_params' => self::arrayValue($sku['selectable_params'] ?? []),
             'usage_unit' => $usageUnit,
-            'usage_unit_size' => $grokPerCall ? 1 : max(1, (float)($sku['usage_unit_size'] ?? 1)),
+            'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)),
             'upstream_price' => max(0, (float)($price['points'] ?? 0)),
             'price_hash' => sha1(json_encode($sku, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
             'source_payload' => self::skuSnapshot($sku),
@@ -1357,18 +1356,8 @@ class PowerMarketService
 
     private static function normalizedUsageUnit(array $sku, array $item): string
     {
-        if (self::isGrokPerCallItem($item)) {
-            return 'per_call';
-        }
         $price = (array)($sku['price'] ?? []);
         return trim((string)($sku['usage_unit'] ?? $price['unit'] ?? 'per_call')) ?: 'per_call';
-    }
-
-    private static function isGrokPerCallItem(array $item): bool
-    {
-        $resource = (array)($item['resource'] ?? []);
-        return (string)($item['type'] ?? '') === self::TYPE_APP_API
-            && strtolower(trim((string)($resource['app_code'] ?? ''))) === 'grok_video';
     }
 
     private static function withUpstreamRetry(callable $callback)
@@ -1620,6 +1609,8 @@ class PowerMarketService
             'usage_unit' => (string)($sku['usage_unit'] ?? ''),
             'usage_unit_size' => (float)($sku['usage_unit_size'] ?? 1),
             'price' => (array)($sku['price'] ?? []),
+            'meter_summary' => (string)($sku['meter_summary'] ?? ''),
+            'pricing_rule_key' => (string)($sku['pricing_rule_key'] ?? ''),
         ];
     }
 

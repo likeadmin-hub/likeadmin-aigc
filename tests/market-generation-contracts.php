@@ -36,6 +36,8 @@ check(M::billingInputs($subjects,['provider_params'=>['elements'=>[['video_url'=
 check(M::billingInputs($meta,$request), ['_billing_video_input'=>false,'_billing_image_input'=>true], 'native scalar first image selects the image-input price variant');
 require getenv('GENERATION_REQUEST_SOURCE') ?: dirname(__DIR__) . '/app/common/service/power/MarketGenerationRequest.php';
 use app\common\service\power\MarketGenerationRequest as R;
+require dirname(__DIR__).'/app/common/service/power/MarketGenerationRules.php';
+check(R::payload(['market_metadata'=>['params_schema'=>['num_images'=>['type'=>'string','enum'=>['1','2','3','4']]]]],['quantity'=>3])['num_images'],'3','image batch quantity reaches native num_images with its declared type');
 check(R::parameterSignature(['provider_params'=>['seed'=>0,'audio'=>false]]),R::parameterSignature(['provider_params'=>['audio'=>false,'seed'=>0]]),'parameter signature ignores object key order');
 if(R::parameterSignature(['provider_params'=>['seed'=>1]])===R::parameterSignature(['provider_params'=>['seed'=>2]]))throw new RuntimeException('Changed seed reused old task signature');echo "PASS changing generation parameters creates a distinct task signature\n";
 
@@ -47,3 +49,14 @@ $usage=new ReflectionMethod(V::class,'usage');
 check($usage->invoke(null,['usage'=>['output_video_duration'=>5,'total_tokens'=>1234]],60,['usage_unit'=>'output_second'])['actual_quantity'],5.0,'measured video duration is used instead of token count');
 check($usage->invoke(null,['usage'=>['input_seconds'=>18]],60,['usage_unit'=>'input_second'])['actual_quantity'],18.0,'measured input seconds are accepted');
 check($usage->invoke(null,['usage'=>['total_tokens'=>100]],60,['usage_unit'=>'output_second'])['actual_quantity'],0.0,'missing measured output is not replaced with tokens');
+$ratios=new ReflectionMethod(V::class,'ratioValues');
+check($ratios->invoke(null,['aspect_ratio'=>['16:9','auto','adaptive']]),['16:9','auto','adaptive'],'follow-source auto ratio remains selectable');
+require dirname(__DIR__).'/app/common/service/power/MarketGenerationMeter.php';
+require dirname(__DIR__).'/app/common/service/power/PowerMarketService.php';
+$billingUnit=new ReflectionMethod(V::class,'billingUnit');
+$normalizer=new ReflectionMethod(\app\common\service\power\PowerMarketService::class,'normalizedUsageUnit');
+foreach(['per_call'=>1.0,'output_second'=>5.0] as $unit=>$expected){
+ $market=['product'=>['resource_type'=>'app_api','upstream_app_code'=>'grok_video'],'sku'=>['usage_unit'=>$unit,'usage_unit_size'=>1,'locked_params'=>[]]];
+ check($billingUnit->invoke(null,$market['product'],$market['sku']),$unit,'Grok preserves '.$unit.' runtime unit');
+ check($normalizer->invoke(null,$market['sku'],['type'=>'app_api','resource'=>['app_code'=>'grok_video']]),$unit,'Grok sync preserves '.$unit);
+}

@@ -2,6 +2,7 @@
 namespace app\common\service\app\aigc_micro_video;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\power\MarketVideoModelRuntimeService;
+use app\common\service\power\MarketCatalogReadScope;
 use app\common\service\power\MarketVideoAppRuntimeService;
 use InvalidArgumentException;
 use think\facade\Cache;
@@ -10,6 +11,12 @@ final class MicroVideoCatalog
 {
     private static array $cache=[];
     public static function models(int $tenant,bool $legacy=false,string $mode='both',?array $allowedIds=null): array
+    {
+        // Share market reads only while discovering callable specifications.
+        // Real quotes and admissions run after this scope has been released.
+        return MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant,$legacy,$mode,$allowedIds));
+    }
+    private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds): array
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',MicroVideoStore::encode($allowedIds));}
         $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset;if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
@@ -88,7 +95,9 @@ final class MicroVideoCatalog
         // Read-only quotes validate the generation mode's reference shape. This
         // application admits owned images separately; never send this pricing-only
         // placeholder to a provider or persist it in the executable selection.
-        $asset=['type'=>'image','uri'=>'uploads/aigc_micro_video/pricing-only.png','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image'];
+        // An absolute non-routable URL avoids resolving a nonexistent upload
+        // through tenant storage for every SKU/mode check. This is never fetched.
+        $asset=['type'=>'image','uri'=>'https://pricing-only.invalid/aigc_micro_video/reference.png','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image'];
         $assets=[$asset];if($selection['generation_method']==='start_end'){$assets=[array_replace($asset,['role'=>'first_frame_image']),array_replace($asset,['role'=>'last_frame_image'])];}
         $q=self::runtime($spec)::quote($tenant,$selection+['reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets]);
         if(($q['settlement_mode']??'reserved')!=='reserved')throw new InvalidArgumentException('此规格按实际用量结算，暂不支持分段预报价');

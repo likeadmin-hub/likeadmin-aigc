@@ -1,0 +1,69 @@
+<?php
+// Standalone boundary regression: no database, provider, storage or billing writes.
+namespace app\common\service\app\aigc_canvas {
+    final class CanvasModelRouterService
+    {
+        public static array $seen = [];
+        public static bool $available = true;
+        public static function applyToToolInput(int $tenantId, string $tool, array $params): array
+        {
+            if (($params['ratio'] ?? '') === 'adaptive') $params['ratio'] = '1:1';
+            return $params;
+        }
+        public static function toolPricing(int $tenantId, string $tool, array $params): array
+        {
+            self::$seen = compact('tenantId', 'tool', 'params');
+            return ['available' => self::$available, 'user_charge_points' => 26 * ($params['quantity'] ?? 1), 'message' => 'invalid SKU'];
+        }
+    }
+}
+namespace {
+    require dirname(__DIR__) . '/app/common/service/ai/ReferenceMentionPromptService.php';
+    require dirname(__DIR__) . '/app/common/service/app/aigc_canvas/AigcCanvasService.php';
+    use app\common\service\app\aigc_canvas\AigcCanvasService as Service;
+    use app\common\service\app\aigc_canvas\CanvasModelRouterService as Router;
+    function check(bool $condition, string $label): void {
+        if (!$condition) throw new \RuntimeException($label);
+        echo "PASS: $label\n";
+    }
+    $inline = 'data:image/png;base64,dGVzdA==';
+    $quote = Service::estimateGeneration(7, 9, [
+        'generationKind' => 'image', 'ratio' => 'adaptive', 'count' => 3,
+        'reference_images' => [$inline, $inline], 'market_sku_id' => 123,
+        'provider_params' => ['seed' => 42],
+    ]);
+    $request = Router::$seen['params'];
+    check($request['ratio'] === '1:1', 'canvas routing precedes quoting');
+    check($quote['user_charge_points'] === 78 && $request['quantity'] === 3, 'image quantity reaches pricing');
+    check($request['reference_images'] === [$inline], 'quote deduplicates references without persisting inline images');
+    check($request['market_sku_id'] === 123 && $request['provider_params']['seed'] === 42, 'SKU and provider parameters survive normalization');
+    check(!array_key_exists('style', $request), 'missing style does not inject an unsupported provider option');
+    check(Router::$seen['tenantId'] === 7 && Router::$seen['tool'] === 'generate_image', 'tenant and image pricing route retained');
+    Service::estimateGeneration(7, 9, [
+        'generationKind' => 'video', 'duration' => 5, 'generate_audio' => 'false',
+        'reference_assets' => [['type' => 'video', 'url' => 'https://fixture.invalid/ref.mp4', 'duration' => 26]],
+        'reference_images' => [$inline], 'generation_method' => 'omni_reference', 'provider_params' => ['mode' => 'lite'],
+    ]);
+    $request = Router::$seen['params'];
+    check($request['duration'] === 5 && $request['reference_assets'][0]['duration'] === 26.0, 'output and reference durations remain distinct');
+    check($request['generate_audio'] === false && $request['generation_method'] === 'omni_reference', 'video mode and explicit audio option retained');
+    check(Router::$seen['tool'] === 'generate_video', 'video pricing route retained');
+    check(!array_key_exists('mode', $request) && $request['provider_params']['mode'] === 'lite', 'absent generic mode does not override native provider mode');
+    $many = array_map(static fn($i) => ['type'=>'image','uri'=>"https://fixture.invalid/$i.png",'role'=>'reference_image'], range(1, 30));
+    $many[] = ['type'=>'image','uri'=>'https://fixture.invalid/1.png','role'=>'keyframe_image','field'=>'keyframes','parameters'=>['timestamp_s'=>2]];
+    Service::estimateGeneration(7, 9, ['generationKind'=>'video','generation_method'=>'omni_reference','reference_assets'=>$many]);
+    $assets = Router::$seen['params']['reference_assets'];
+    check(count($assets) === 31, 'canvas passes every native asset to model validation instead of truncating at fifteen');
+    check($assets[30]['field'] === 'keyframes' && $assets[30]['role'] === 'keyframe_image', 'same URL in an explicitly different native slot survives deduplication');
+    check($assets[30]['parameters']['timestamp_s'] === 2, 'structured keyframe properties reach the native contract');
+    require dirname(__DIR__) . '/app/common/service/app/aigc_video/AigcVideoReferenceAssetService.php';
+    $native = \app\common\service\app\aigc_video\AigcVideoReferenceAssetService::normalize([
+        'reference_assets'=>$assets, 'reference_images'=>['https://fixture.invalid/1.png'],
+    ], 100);
+    check(count($native) === 31, 'runtime keeps distinct native slots without adding duplicate legacy image aliases');
+    Router::$available = false;
+    try { Service::estimateGeneration(7, 9, ['generationKind' => 'image']); throw new \LogicException('missing rejection'); }
+    catch (\Exception $e) { check($e->getMessage() === 'invalid SKU', 'unavailable quote blocks generation'); }
+    try { Service::estimateGeneration(7, 9, ['generationKind' => 'text']); throw new \LogicException('missing rejection'); }
+    catch (\Exception $e) { check($e->getMessage() === '不支持的画布生成类型', 'unsupported type rejected'); }
+}

@@ -6,6 +6,7 @@ namespace app\common\service\power;
 final class MarketCatalogReadScope
 {
     private array $values = [];
+    private array $derived = [];
 
     public static function run(callable $read): array
     {
@@ -27,4 +28,20 @@ final class MarketCatalogReadScope
         if (!array_key_exists($key, $scope->values)) $scope->values[$key] = $read();
         return $scope->values[$key];
     }
+    /** Reuse a pure derivation while its complete inputs remain unchanged.
+     * Keep only the latest input per operation; avoid repeatedly serializing large schemas.
+     */
+    public static function derive(string $key, array $input, callable $read): array
+    {
+        // Pure contract readers also run without a bootstrapped HTTP application.
+        if (!function_exists('request')) return $read();
+        $scope = request()->marketCatalogReadScope;
+        if (!$scope instanceof self) return $read();
+        $previous = $scope->derived[$key] ?? null;
+        if ($previous !== null && $previous['input'] === $input) return $previous['value'];
+        $value = $read();
+        $scope->derived[$key] = ['input' => $input, 'value' => $value];
+        return $value;
+    }
+
 }

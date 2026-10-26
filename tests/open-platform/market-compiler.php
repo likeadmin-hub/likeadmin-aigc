@@ -5,7 +5,7 @@ use app\common\service\open_platform\{OpenSchemaNormalizer as N, OpenMarketContr
 use think\facade\Db;
 function checkCompiler(bool $ok, string $why): void { if (!$ok) throw new RuntimeException($why); }
 $db = config('database.connections.mysql');
-checkCompiler($db['hostname'] === '127.0.0.1' && $db['database'] === 'z_cn', 'Local rollback fixtures only');
+checkCompiler($db['hostname'] === '127.0.0.1' && $db['database'] === (getenv('GENERATION_TEST_DATABASE') ?: 'z_cn'), 'Local rollback fixtures only');
 checkCompiler(class_exists(N::class) && class_exists(C::class), 'Market compiler and schema normalizer are missing');
 foreach (['marketPlan', 'importMarketContracts'] as $action) {
     \app\common\service\open_platform\OpenAdminPermission::assert('platform_admin', ['admin_id' => 1, 'root' => 1], $action);

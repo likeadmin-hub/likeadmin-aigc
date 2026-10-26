@@ -721,11 +721,11 @@ class MarketVideoRuntimeService
         $skuId = self::intSelection($selection, ['market_sku_id', 'sku_id']);
         $resourceType = self::resourceType($selection);
         if ($skuId > 0) {
-            $sku = PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty();
-            if ($sku->isEmpty()) throw new Exception('所选视频规格已下架');
-            $product = PowerMarketProduct::where(['id' => (int)$sku['product_id'], 'status' => 1])->findOrEmpty();
-            if ($product->isEmpty() || !self::productAllowed($product->toArray(), $resourceType)) throw new Exception('所选视频商品已下架');
-            $market = self::marketRow($tenantId, $product->toArray(), $sku->toArray());
+            $sku = MarketCatalogReadScope::remember('video_sku:' . $skuId, static fn(): array => PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->find()?->toArray() ?? []);
+            if ($sku === []) throw new Exception('所选视频规格已下架');
+            $product = self::catalogProduct((int)$sku['product_id']);
+            if ($product === [] || !self::productAllowed($product, $resourceType)) throw new Exception('所选视频商品已下架');
+            $market = self::marketRow($tenantId, $product, $sku);
             try {
                 self::assertSkuMatchesSelection($market, $selection);
             } catch (Exception $e) {
@@ -741,16 +741,27 @@ class MarketVideoRuntimeService
                 ], true)) {
                     throw $e;
                 }
-                $fallback = self::resolveProduct($tenantId, $product->toArray(), self::withoutSku($selection));
+                $fallback = self::resolveProduct($tenantId, $product, self::withoutSku($selection));
                 self::assertSkuMatchesSelection($fallback, $selection);
                 return $fallback;
             }
             return $market;
         }
         $productId = self::productId($selection); if ($productId <= 0) throw new Exception('请选择算力市场视频模型');
-        $product = PowerMarketProduct::where(['id' => $productId, 'status' => 1])->findOrEmpty();
-        if ($product->isEmpty() || !self::productAllowed($product->toArray(), $resourceType)) throw new Exception('所选视频商品已下架');
-        return self::resolveProduct($tenantId, $product->toArray(), $selection);
+        $product = self::catalogProduct($productId);
+        if ($product === [] || !self::productAllowed($product, $resourceType)) throw new Exception('所选视频商品已下架');
+        return self::resolveProduct($tenantId, $product, $selection);
+    }
+
+    /** Raw catalogue reads are memoized only inside an explicit display scope. */
+    private static function catalogProduct(int $productId): array
+    {
+        return MarketCatalogReadScope::remember('video_product:' . $productId, static fn(): array => PowerMarketProduct::where(['id' => $productId, 'status' => 1])->find()?->toArray() ?? []);
+    }
+
+    private static function tenantSkuPrice(int $tenantId, int $skuId): array
+    {
+        return MarketCatalogReadScope::remember('video_tenant_price:' . $tenantId . ':' . $skuId, static fn(): array => TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->find()?->toArray() ?? []);
     }
 
     private static function resolveProduct(int $tenantId, array $productData, array $selection): array
@@ -804,13 +815,13 @@ class MarketVideoRuntimeService
         $app = strtolower((string)($product['upstream_app_code'] ?? ''));
         // query is an internal task-lifecycle contract, not a separately sold
         // SKU. Its product only needs to remain published by the platform.
-        $query = PowerMarketProduct::where([
+        $query = MarketCatalogReadScope::remember('video_query_product:' . $app, static fn(): array => PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
             'upstream_app_code' => $app,
             'upstream_api_code' => 'query',
             'status' => 1,
-        ])->findOrEmpty();
-        return !$query->isEmpty();
+        ])->find()?->toArray() ?? []);
+        return $query !== [];
     }
 
     private static function isVideoAppCategory(array $product): bool
@@ -896,15 +907,20 @@ class MarketVideoRuntimeService
 
     private static function marketRow(int $tenantId, array $product, array $sku): array
     {
-        $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
-        if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该视频规格');
+        $tenant = self::tenantSkuPrice($tenantId, (int)$sku['id']);
+        if ($tenant !== [] && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该视频规格');
         return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
     }
 
     private static function availableSkus(int $tenantId, int $productId): array
     {
+        return MarketCatalogReadScope::remember('video_available_skus:' . $tenantId . ':' . $productId, static fn(): array => self::readAvailableSkus($tenantId, $productId));
+    }
+
+    private static function readAvailableSkus(int $tenantId, int $productId): array
+    {
         $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(); $result = [];
-        foreach ($rows as $sku) { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
+        foreach ($rows as $sku) { $tenant = self::tenantSkuPrice($tenantId, (int)$sku['id']); if ($tenant !== [] && (int)$tenant['sale_status'] !== 1) continue;
                 if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue; $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)]; }
         return $result;
     }
@@ -927,7 +943,7 @@ class MarketVideoRuntimeService
     {
         $product = $market['product']; $sku = $market['sku']; $meta = self::metadata($product);
         $requiresConcreteRatio = self::requiresConcreteTextToVideoRatio($product, $meta);
-        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
+        return ['billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'requires_actual_duration' => isset($market['billing_meter']) && in_array($market['billing_meter']['basis'], ['output','output_plus_video','output_plus_max_video'], true), 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
     }
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
@@ -2734,13 +2750,13 @@ class MarketVideoRuntimeService
             return;
         }
         $ratio = trim((string)$value);
-        if (preg_match('/^\d+\s*:\s*\d+$/', $ratio) || strtolower($ratio) === 'adaptive') {
+        if (preg_match('/^\d+\s*:\s*\d+$/', $ratio) || in_array(strtolower($ratio), ['adaptive', 'auto'], true)) {
             $values[] = str_replace(' ', '', $ratio);
             return;
         }
-        if (preg_match_all('/\d+\s*:\s*\d+|adaptive/i', $ratio, $matches)) {
+        if (preg_match_all('/\d+\s*:\s*\d+|\badaptive\b|\bauto\b/i', $ratio, $matches)) {
             foreach ($matches[0] as $match) {
-                $values[] = strtolower($match) === 'adaptive' ? 'adaptive' : str_replace(' ', '', $match);
+                $values[] = in_array(strtolower($match), ['adaptive', 'auto'], true) ? strtolower($match) : str_replace(' ', '', $match);
             }
         }
     }
@@ -3009,11 +3025,20 @@ class MarketVideoRuntimeService
             }
         }
     }
-    private static function quantity(array $market, array $selection): float
+    private static function quantity(array &$market, array $selection): float
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
-        if (self::isTokenSku($market['sku'])) return max(0, self::lockedQuantity($locked));
+        if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
+        $meter = MarketGenerationMeter::contract($market['sku']);
+        if ($meter['summary'] !== '') {
+            $market['billing_meter'] = $meter;
+            $native = MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
+                ? MarketGenerationRequest::payload(self::snapshot($market, 1), $selection) : $selection;
+            $market['meter_context'] = MarketGenerationMeter::context($meter, $native);
+            if ($meter['basis'] === 'input') return MarketGenerationMedia::seconds($native);
+            if (in_array($meter['basis'], ['output_plus_video', 'output_plus_max_video'], true)) $unit = 'output_second';
+        }
         $lockedDuration = self::duration($locked);
         if (self::isDurationBillingUnit($unit)) {
             if ($lockedDuration <= 0 && array_key_exists('duration',$selection) && (int)$selection['duration']<=0 && MarketGenerationMaterials::modes(self::metadata($market['product']))!==[]) {
@@ -3056,21 +3081,15 @@ class MarketVideoRuntimeService
     private static function isTokenSnapshot(array $snapshot): bool { return str_contains(strtolower((string)($snapshot['usage_unit'] ?? '')), 'token'); }
     private static function priceForQuantity(float $unitPrice, float $quantity, array $snapshot): float
     {
-        $unitSize = max(1, (float)($snapshot['usage_unit_size'] ?? 1));
-        return self::points($unitPrice * $quantity / $unitSize);
+        return MarketGenerationMeter::price($unitPrice, $quantity, $snapshot);
     }
     private static function billingUnit(array $product, array $sku): string
     {
-        if (self::isGrokPerCallProduct($product)) {
-            return 'per_call';
-        }
         return trim((string)($sku['usage_unit'] ?? '')) ?: 'per_call';
     }
     private static function billingUnitSize(array $product, array $sku): float
     {
-        return self::isGrokPerCallProduct($product)
-            ? 1.0
-            : max(1, (float)($sku['usage_unit_size'] ?? 1));
+        return max(1, (float)($sku['usage_unit_size'] ?? 1));
     }
     private static function isGrokPerCallProduct(array $product): bool
     {
@@ -3237,9 +3256,14 @@ class MarketVideoRuntimeService
     {
         $metadata = self::metadata($product);
         if (($product['resource_type'] ?? '') !== 'model' || MarketGenerationMaterials::modes($metadata) === []) return self::skuSupportsInputMode($skuMode, $mode, $product, $locked);
-        $native = MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '';
-        if (!empty($locked['generation_type']) && $locked['generation_type'] !== $native) return false;
-        $billingInputs=MarketGenerationMaterials::billingInputs($metadata,$selection);
+        // Product fallback checks every SKU against the same material request.
+        // Resolve that request once within catalogue discovery, independently of SKU locks.
+        $inputs = MarketCatalogReadScope::derive('video_material_selection', [$metadata, $selection], static fn(): array => [
+            'native_mode' => MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '',
+            'billing' => MarketGenerationMaterials::billingInputs($metadata, $selection),
+        ]);
+        if (!empty($locked['generation_type']) && $locked['generation_type'] !== $inputs['native_mode']) return false;
+        $billingInputs = $inputs['billing'];
         foreach ($locked as $key=>$value) {
             if (is_array($value) || is_object($value)) continue;
             if (array_key_exists($key,$billingInputs) && (bool)$value !== $billingInputs[$key]) return false;
@@ -3318,6 +3342,11 @@ class MarketVideoRuntimeService
     }
     private static function selectionKey(array $market): string { return (string)$market['product']['id'] . ':' . (string)$market['sku']['id']; }
     private static function metadata(array $product): array
+    {
+        return MarketCatalogReadScope::derive('video_metadata', $product, static fn(): array => self::buildMetadata($product));
+    }
+
+    private static function buildMetadata(array $product): array
     {
         $source = self::arrayValue($product['source_payload'] ?? []);
         $raw = self::arrayValue($source['raw'] ?? []);
@@ -3451,7 +3480,7 @@ class MarketVideoRuntimeService
         $actual = (float)($usage['actual_quantity'] ?? 0);
         // Fixed-call SKUs are always settled as one submitted call. Only
         // measured second/token SKUs can change the reserved quantity.
-        if ($actual > 0 && (str_contains($unit, 'second') || str_contains($unit, 'sec') || str_contains($unit, 'token'))) {
+        if ($actual > 0 && (isset($snapshot['billing_meter']) || str_contains($unit, 'second') || str_contains($unit, 'sec') || str_contains($unit, 'token'))) {
             return max(1, $actual);
         }
         return $submitted;
@@ -3464,6 +3493,11 @@ class MarketVideoRuntimeService
         if (self::isTokenSnapshot($snapshot)) {
             $tokens = MarketUsageSettlementService::tokenUsage($response);
             return $tokens > 0 ? $tokens : null;
+        }
+        if (isset($snapshot['billing_meter'])) {
+            $basis = $snapshot['billing_meter']['basis'];
+            if ($basis === 'call') return 1.;
+            $unit = $basis === 'input' ? 'input_second' : 'output_second';
         }
         if (!in_array($unit, ['input_second','output_second','second','seconds','sec'], true)) return null;
         $root = self::root($response);

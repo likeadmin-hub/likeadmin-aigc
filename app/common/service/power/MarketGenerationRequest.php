@@ -57,7 +57,7 @@ final class MarketGenerationRequest
             $params[$field] = $resolution; break;
         }
         foreach (['duration','seconds','video_duration'] as $field) if (isset($properties[$field]) && array_key_exists('duration', $request)) { $params[$field] = $request['duration']; break; }
-        if (isset($properties['n'])) $params['n'] = max(1, (int)($request['quantity'] ?? $request['n'] ?? 1));
+        foreach (['n', 'num_images'] as $field) if (isset($properties[$field])) $params[$field] = max(1, (int)($request['quantity'] ?? $request[$field] ?? $params[$field] ?? 1));
         $material = MarketGenerationMaterials::serialize($metadata, $request, $schema);
         $mode = MarketGenerationMaterials::select($metadata, $request);
         // Remove defaults from other material modes rather than accidentally submitting their example inputs.

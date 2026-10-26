@@ -73,6 +73,10 @@ class CanvasModelRouterService
 
     private static function applyImageMarketSelection(int $tenantId, array $params): array
     {
+        // Older canvas nodes persisted this UI default; it is not a provider style.
+        if (($params['style'] ?? '') === 'general') {
+            unset($params['style']);
+        }
         $params = self::normalizeNanoBananaSelectionFromSku($params);
         if (MarketNanoBananaAppRuntimeService::isSelection($params)) {
             $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, self::marketSelectionFromParams($params), (int)($params['quantity'] ?? 1));
