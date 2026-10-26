@@ -927,7 +927,7 @@ class MarketVideoRuntimeService
     {
         $product = $market['product']; $sku = $market['sku']; $meta = self::metadata($product);
         $requiresConcreteRatio = self::requiresConcreteTextToVideoRatio($product, $meta);
-        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
+        return ['billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'requires_actual_duration' => isset($market['billing_meter']) && in_array($market['billing_meter']['basis'], ['output','output_plus_video','output_plus_max_video'], true), 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
     }
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
@@ -3009,11 +3009,18 @@ class MarketVideoRuntimeService
             }
         }
     }
-    private static function quantity(array $market, array $selection): float
+    private static function quantity(array &$market, array $selection): float
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
-        if (self::isTokenSku($market['sku'])) return max(0, self::lockedQuantity($locked));
+        if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
+        $meter = MarketGenerationMeter::contract($market['sku']);
+        $market['billing_meter'] = $meter;
+        $native = MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
+            ? MarketGenerationRequest::payload(self::snapshot($market, 1), $selection) : $selection;
+        $market['meter_context'] = MarketGenerationMeter::context($meter, $native);
+        if ($meter['basis'] === 'input') return MarketGenerationMedia::seconds($native);
+        if (in_array($meter['basis'], ['output_plus_video', 'output_plus_max_video'], true)) $unit = 'output_second';
         $lockedDuration = self::duration($locked);
         if (self::isDurationBillingUnit($unit)) {
             if ($lockedDuration <= 0 && array_key_exists('duration',$selection) && (int)$selection['duration']<=0 && MarketGenerationMaterials::modes(self::metadata($market['product']))!==[]) {
@@ -3056,8 +3063,7 @@ class MarketVideoRuntimeService
     private static function isTokenSnapshot(array $snapshot): bool { return str_contains(strtolower((string)($snapshot['usage_unit'] ?? '')), 'token'); }
     private static function priceForQuantity(float $unitPrice, float $quantity, array $snapshot): float
     {
-        $unitSize = max(1, (float)($snapshot['usage_unit_size'] ?? 1));
-        return self::points($unitPrice * $quantity / $unitSize);
+        return MarketGenerationMeter::price($unitPrice, $quantity, $snapshot);
     }
     private static function billingUnit(array $product, array $sku): string
     {
@@ -3451,7 +3457,7 @@ class MarketVideoRuntimeService
         $actual = (float)($usage['actual_quantity'] ?? 0);
         // Fixed-call SKUs are always settled as one submitted call. Only
         // measured second/token SKUs can change the reserved quantity.
-        if ($actual > 0 && (str_contains($unit, 'second') || str_contains($unit, 'sec') || str_contains($unit, 'token'))) {
+        if ($actual > 0 && (isset($snapshot['billing_meter']) || str_contains($unit, 'second') || str_contains($unit, 'sec') || str_contains($unit, 'token'))) {
             return max(1, $actual);
         }
         return $submitted;
@@ -3464,6 +3470,11 @@ class MarketVideoRuntimeService
         if (self::isTokenSnapshot($snapshot)) {
             $tokens = MarketUsageSettlementService::tokenUsage($response);
             return $tokens > 0 ? $tokens : null;
+        }
+        if (isset($snapshot['billing_meter'])) {
+            $basis = $snapshot['billing_meter']['basis'];
+            if ($basis === 'call') return 1.;
+            $unit = $basis === 'input' ? 'input_second' : 'output_second';
         }
         if (!in_array($unit, ['input_second','output_second','second','seconds','sec'], true)) return null;
         $root = self::root($response);
