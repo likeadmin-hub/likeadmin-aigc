@@ -585,6 +585,28 @@ class AigcCanvasService
             ->toArray();
     }
 
+    /** Quote the canvas contract without creating a run, enriching a prompt or reserving points. */
+    public static function estimateGeneration(int $tenantId, int $userId, array $params): array
+    {
+        $type = (string)($params['generationKind'] ?? '');
+        if (!in_array($type, ['image', 'video'], true)) {
+            throw new Exception('不支持的画布生成类型');
+        }
+        unset($params['generationKind']);
+        self::assertGenerationProject($tenantId, $userId, $params);
+        $params = self::applyAdvancedParameters($tenantId, $params, $type);
+        $params = self::prepareMentionParams($params);
+        $params = CanvasModelRouterService::applyToToolInput($tenantId, 'generate_' . $type, $params);
+        $request = $type === 'image'
+            ? self::normalizeImageParams($params, $tenantId, $userId, false)
+            : self::normalizeVideoParams($params, $tenantId, $userId, false);
+        $quote = CanvasModelRouterService::toolPricing($tenantId, 'generate_' . $type, array_replace($params, $request));
+        if (empty($quote['available'])) {
+            throw new Exception((string)($quote['message'] ?? '当前参数无法估价'));
+        }
+        return $quote;
+    }
+
     public static function generateImage(int $tenantId, int $userId, array $params): array
     {
         self::assertGenerationProject($tenantId, $userId, $params);
@@ -2379,12 +2401,12 @@ class AigcCanvasService
         return CanvasGenerationParameters::apply($params, $model, $type);
     }
 
-    private static function normalizeImageParams(array $params, int $tenantId, int $userId): array
+    private static function normalizeImageParams(array $params, int $tenantId, int $userId, bool $persistInlineImages = true): array
     {
         return [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
-            'reference_images' => self::normalizeReferenceImages($params, $tenantId, $userId),
+            'reference_images' => self::normalizeReferenceImages($params, $tenantId, $userId, $persistInlineImages),
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)($params['channel'] ?? $params['model'] ?? ''),
             'quality' => (string)($params['quality'] ?? ''),
@@ -2393,9 +2415,9 @@ class AigcCanvasService
         ];
     }
 
-    private static function normalizeVideoParams(array $params, int $tenantId, int $userId): array
+    private static function normalizeVideoParams(array $params, int $tenantId, int $userId, bool $persistInlineImages = true): array
     {
-        $referenceImages = self::normalizeReferenceImages($params, $tenantId, $userId);
+        $referenceImages = self::normalizeReferenceImages($params, $tenantId, $userId, $persistInlineImages);
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
         ]));
