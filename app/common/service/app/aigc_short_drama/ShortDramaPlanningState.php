@@ -98,9 +98,9 @@ final class ShortDramaPlanningState
     }
 
     /** Primary and mirror fail atomically; completed/canceled or newer attempts are fenced. */
-    public static function failExecution(int $tenant, int $user, string $taskId, \Throwable $error, string $message, ?int $attempt = null): bool
+    public static function failExecution(int $tenant, int $user, string $taskId, \Throwable $error, string $message, ?int $attempt = null, string $providerRequestId = ''): bool
     {
-        return Db::transaction(static function () use ($tenant, $user, $taskId, $error, $message, $attempt): bool {
+        return Db::transaction(static function () use ($tenant, $user, $taskId, $error, $message, $attempt, $providerRequestId): bool {
             $scope=['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$taskId,'delete_time'=>0];
             $task=Db::name('aigc_short_drama_script_task')->where($scope)->lock(true)->find();
             if (!$task || !in_array($task['status'],self::ACTIVE,true)
@@ -109,7 +109,8 @@ final class ShortDramaPlanningState
                 'current_step'=>'剧本策划失败','error'=>$message,'finished_at'=>time(),'update_time'=>time()]);
             Db::name('aigc_short_drama_generation_task')->where($scope + ['project_id'=>(int)$task['project_id'],'task_type'=>'script_plan'])
                 ->whereIn('status',self::ACTIVE)->update(['status'=>'failed','progress'=>0,'error_code'=>self::errorCode($error),
-                    'error_msg'=>$message,'finished_at'=>time(),'update_time'=>time()]);
+                    'error_msg'=>$message,'finished_at'=>time(),'update_time'=>time()]
+                    + ($providerRequestId !== '' ? ['provider_request_id'=>$providerRequestId] : []));
             return true;
         });
     }

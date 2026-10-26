@@ -4322,7 +4322,7 @@ class AigcShortDramaService
             if ($streamContent !== '') {
                 self::persistScriptPlanStreamState($tenantId, $userId, $taskId, $streamContent, $persistedProviderRequestId, $message);
             }
-            if (!ShortDramaPlanningState::failExecution($tenantId, $userId, $taskId, $e, $message, $storyAttempt)) {
+            if (!ShortDramaPlanningState::failExecution($tenantId, $userId, $taskId, $e, $message, $storyAttempt, $persistedProviderRequestId)) {
                 return self::formatTask(self::findTask($tenantId, $userId, $taskId, $projectId)->toArray(), true);
             }
             $task = self::findTask($tenantId, $userId, $taskId, $projectId);
