@@ -26,4 +26,19 @@ try{
  check($after['user']===$before['user']-5 && $after['tenant']===$before['tenant']-5,'reservation difference refunded to both wallets');
  $settle->invoke(null,(int)$c['id'],$videos,'','audit-provider',['usage'=>['output_video_duration'=>5]]);
  check(state($tenant,$user)===$after,'duplicate receipt leaves balances and ledgers unchanged');
+ foreach(['success','failed','canceled'] as $outcome){
+  $baseline=state($tenant,$user);$sn='METER'.bin2hex(random_bytes(6));
+  $t=T::create(['tenant_id'=>$tenant,'user_id'=>$user,'task_no'=>$sn,'app_code'=>'aigc_video','action_code'=>'generate','status'=>'running','idempotency_key'=>$sn,'create_time'=>$now,'update_time'=>$now]);
+  $snapshot=['usage_unit'=>'business_unit','usage_unit_size'=>1,'platform_price'=>1.1,'tenant_price'=>1.1,'quantity'=>5,'requires_actual_duration'=>true,'billing_meter'=>\app\common\service\power\MarketGenerationMeter::contract(['usage_unit'=>'business_unit','meter_summary'=>'生成秒数 + 参考视频秒数，总点数向上取整']),'meter_context'=>['reference_video_seconds'=>7.25]];
+  $c=C::create(['tenant_id'=>$tenant,'user_id'=>$user,'app_task_id'=>$t['id'],'consume_no'=>$sn,'app_code'=>'aigc_video','action_code'=>'generate','resource_type'=>'model','model_code'=>'audit-no-submit','billing_status'=>'reserved','run_status'=>'reserved','reserved_tenant_cost'=>14,'reserved_user_price'=>14,'price_snapshot'=>$snapshot,'quantity'=>5,'usage_unit'=>'business_unit','create_time'=>$now,'update_time'=>$now]);
+  P::reserveBusinessAmountsInCurrentTransaction($tenant,$user,14,14,$sn.'-reserve','local rollback compound meter');
+  $complete=static function()use($outcome,$settle,$c,$videos){
+   if($outcome==='success')$settle->invoke(null,(int)$c['id'],$videos,'','audit-provider',['usage'=>['output_video_duration'=>4]]);
+   elseif($outcome==='canceled')V::cancel((int)$c['id']);
+   else V::fail((int)$c['id'],'fixture upstream failure');
+  };
+  $complete();$actual=state($tenant,$user);$cost=$outcome==='success'?13:0;
+  check(round($baseline['user']-$actual['user'],6)===(float)$cost && round($baseline['tenant']-$actual['tenant'],6)===(float)$cost,'compound meter '.$outcome.' preserves both wallet amounts');
+  $complete();check(state($tenant,$user)===$actual,'compound meter '.$outcome.' callback is idempotent');
+ }
 }finally{Db::rollback();check(state($tenant,$user)===$before,'all test records and balances rolled back');}

@@ -36,6 +36,8 @@ check(M::billingInputs($subjects,['provider_params'=>['elements'=>[['video_url'=
 check(M::billingInputs($meta,$request), ['_billing_video_input'=>false,'_billing_image_input'=>true], 'native scalar first image selects the image-input price variant');
 require getenv('GENERATION_REQUEST_SOURCE') ?: dirname(__DIR__) . '/app/common/service/power/MarketGenerationRequest.php';
 use app\common\service\power\MarketGenerationRequest as R;
+require dirname(__DIR__).'/app/common/service/power/MarketGenerationRules.php';
+check(R::payload(['market_metadata'=>['params_schema'=>['num_images'=>['type'=>'string','enum'=>['1','2','3','4']]]]],['quantity'=>3])['num_images'],'3','image batch quantity reaches native num_images with its declared type');
 check(R::parameterSignature(['provider_params'=>['seed'=>0,'audio'=>false]]),R::parameterSignature(['provider_params'=>['audio'=>false,'seed'=>0]]),'parameter signature ignores object key order');
 if(R::parameterSignature(['provider_params'=>['seed'=>1]])===R::parameterSignature(['provider_params'=>['seed'=>2]]))throw new RuntimeException('Changed seed reused old task signature');echo "PASS changing generation parameters creates a distinct task signature\n";
 

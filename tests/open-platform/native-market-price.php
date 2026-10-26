@@ -44,7 +44,7 @@ checkNative(Video::openPlatformSettlementQuantity(['usage_unit'=>'token','quanti
 checkNative(Video::openPlatformSettlementQuantity(['usage_unit'=>'token','quantity'=>0],['data'=>['result'=>[]]])===null,'Token output without usage fabricated a price');
 checkNative(Usage::price(12,3,['usage_unit_size'=>2])===18.,'Native billing-unit divisor lost');
 
-$db=config('database.connections.mysql');checkNative($db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local rollback only');
+$db=config('database.connections.mysql');checkNative($db['hostname']==='127.0.0.1'&&$db['database']===(getenv('GENERATION_TEST_DATABASE') ?: 'z_cn'),'Local rollback only');
 $wallets=fn()=>[(float)Db::name('user')->where('id',1)->value('user_money'),(float)Db::name('tenant')->where('id',1)->value('point_balance')];$walletBefore=$wallets();
 Db::startTrans();try{
  request()->tenantId=1;request()->userId=1;

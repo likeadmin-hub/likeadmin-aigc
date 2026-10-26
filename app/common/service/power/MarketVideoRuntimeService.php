@@ -3015,12 +3015,14 @@ class MarketVideoRuntimeService
         $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
         if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
-        $market['billing_meter'] = $meter;
-        $native = MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
-            ? MarketGenerationRequest::payload(self::snapshot($market, 1), $selection) : $selection;
-        $market['meter_context'] = MarketGenerationMeter::context($meter, $native);
-        if ($meter['basis'] === 'input') return MarketGenerationMedia::seconds($native);
-        if (in_array($meter['basis'], ['output_plus_video', 'output_plus_max_video'], true)) $unit = 'output_second';
+        if ($meter['summary'] !== '') {
+            $market['billing_meter'] = $meter;
+            $native = MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
+                ? MarketGenerationRequest::payload(self::snapshot($market, 1), $selection) : $selection;
+            $market['meter_context'] = MarketGenerationMeter::context($meter, $native);
+            if ($meter['basis'] === 'input') return MarketGenerationMedia::seconds($native);
+            if (in_array($meter['basis'], ['output_plus_video', 'output_plus_max_video'], true)) $unit = 'output_second';
+        }
         $lockedDuration = self::duration($locked);
         if (self::isDurationBillingUnit($unit)) {
             if ($lockedDuration <= 0 && array_key_exists('duration',$selection) && (int)$selection['duration']<=0 && MarketGenerationMaterials::modes(self::metadata($market['product']))!==[]) {

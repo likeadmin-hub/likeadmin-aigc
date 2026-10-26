@@ -215,6 +215,9 @@ class MarketImageModelRuntimeService
     {
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
+        // Legacy image channels priced each requested image even when their unit was per_call.
+        // Only an explicit supplier meter may change that established contract.
+        if ($meter['summary'] === '') return $market;
         $native = self::payload(self::snapshot($market), $selection, 'estimate');
         $market['billing_meter'] = $meter;
         $market['meter_context'] = MarketGenerationMeter::context($meter, $native);
