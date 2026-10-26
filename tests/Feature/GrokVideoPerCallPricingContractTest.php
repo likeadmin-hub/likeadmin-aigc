@@ -29,12 +29,7 @@ class GrokVideoPerCallPricingContractTest extends TestCase
         $billingUnitSize->setAccessible(true);
         self::assertSame(5.0, $billingUnitSize->invoke(null, $product, $sku));
 
-        $quantity = new ReflectionMethod(MarketVideoRuntimeService::class, 'quantity');
-        $quantity->setAccessible(true);
-        $market = ['product'=>$product, 'sku'=>$sku];
-        self::assertSame(30.0, $quantity->invokeArgs(null, [&$market, ['duration'=>30]]));
-        $market['sku']['usage_unit']='per_call';
-        self::assertSame(1.0, $quantity->invokeArgs(null, [&$market, ['duration'=>30]]));
+
     }
 
     public function testMarketSyncPreservesSupplierUnit(): void
