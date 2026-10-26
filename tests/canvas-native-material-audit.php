@@ -16,6 +16,7 @@ foreach ($cases as $case) {
         $mode = $case['mode'];
         $metadata = ['params_schema'=>$mode['parameter_schema'], 'material_capabilities'=>['modes'=>[$mode]]];
         $request = $normalize->invoke(null, $prepare->invoke(null, $case['request']), 1, 0, false);
+        $request['reference_assets'] = \app\common\service\app\aigc_video\AigcVideoReferenceAssetService::normalize($request, 100);
         $payload = Materials::serialize($metadata, $request);
         Materials::validate($metadata, $request, $payload);
         $baseline = array_replace($case['request'], ['reference_assets'=>$case['assets']]);
