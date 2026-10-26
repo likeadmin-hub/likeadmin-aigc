@@ -721,7 +721,7 @@ class MarketVideoRuntimeService
         $skuId = self::intSelection($selection, ['market_sku_id', 'sku_id']);
         $resourceType = self::resourceType($selection);
         if ($skuId > 0) {
-            $sku = MarketCatalogReadScope::remember('video_sku:' . $skuId, static fn(): array => PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty()->toArray());
+            $sku = MarketCatalogReadScope::remember('video_sku:' . $skuId, static fn(): array => PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->find()?->toArray() ?? []);
             if ($sku === []) throw new Exception('所选视频规格已下架');
             $product = self::catalogProduct((int)$sku['product_id']);
             if ($product === [] || !self::productAllowed($product, $resourceType)) throw new Exception('所选视频商品已下架');
@@ -756,12 +756,12 @@ class MarketVideoRuntimeService
     /** Raw catalogue reads are memoized only inside an explicit display scope. */
     private static function catalogProduct(int $productId): array
     {
-        return MarketCatalogReadScope::remember('video_product:' . $productId, static fn(): array => PowerMarketProduct::where(['id' => $productId, 'status' => 1])->findOrEmpty()->toArray());
+        return MarketCatalogReadScope::remember('video_product:' . $productId, static fn(): array => PowerMarketProduct::where(['id' => $productId, 'status' => 1])->find()?->toArray() ?? []);
     }
 
     private static function tenantSkuPrice(int $tenantId, int $skuId): array
     {
-        return MarketCatalogReadScope::remember('video_tenant_price:' . $tenantId . ':' . $skuId, static fn(): array => TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->findOrEmpty()->toArray());
+        return MarketCatalogReadScope::remember('video_tenant_price:' . $tenantId . ':' . $skuId, static fn(): array => TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->find()?->toArray() ?? []);
     }
 
     private static function resolveProduct(int $tenantId, array $productData, array $selection): array
@@ -820,7 +820,7 @@ class MarketVideoRuntimeService
             'upstream_app_code' => $app,
             'upstream_api_code' => 'query',
             'status' => 1,
-        ])->findOrEmpty()->toArray());
+        ])->find()?->toArray() ?? []);
         return $query !== [];
     }
 
@@ -3337,6 +3337,11 @@ class MarketVideoRuntimeService
     }
     private static function selectionKey(array $market): string { return (string)$market['product']['id'] . ':' . (string)$market['sku']['id']; }
     private static function metadata(array $product): array
+    {
+        return MarketCatalogReadScope::remember('video_metadata:' . hash('sha256', serialize($product)), static fn(): array => self::buildMetadata($product));
+    }
+
+    private static function buildMetadata(array $product): array
     {
         $source = self::arrayValue($product['source_payload'] ?? []);
         $raw = self::arrayValue($source['raw'] ?? []);
