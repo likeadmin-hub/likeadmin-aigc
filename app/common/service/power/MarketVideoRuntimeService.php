@@ -721,11 +721,11 @@ class MarketVideoRuntimeService
         $skuId = self::intSelection($selection, ['market_sku_id', 'sku_id']);
         $resourceType = self::resourceType($selection);
         if ($skuId > 0) {
-            $sku = PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty();
-            if ($sku->isEmpty()) throw new Exception('所选视频规格已下架');
-            $product = PowerMarketProduct::where(['id' => (int)$sku['product_id'], 'status' => 1])->findOrEmpty();
-            if ($product->isEmpty() || !self::productAllowed($product->toArray(), $resourceType)) throw new Exception('所选视频商品已下架');
-            $market = self::marketRow($tenantId, $product->toArray(), $sku->toArray());
+            $sku = MarketCatalogReadScope::remember('video_sku:' . $skuId, static fn(): array => PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty()->toArray());
+            if ($sku === []) throw new Exception('所选视频规格已下架');
+            $product = self::catalogProduct((int)$sku['product_id']);
+            if ($product === [] || !self::productAllowed($product, $resourceType)) throw new Exception('所选视频商品已下架');
+            $market = self::marketRow($tenantId, $product, $sku);
             try {
                 self::assertSkuMatchesSelection($market, $selection);
             } catch (Exception $e) {
@@ -741,16 +741,27 @@ class MarketVideoRuntimeService
                 ], true)) {
                     throw $e;
                 }
-                $fallback = self::resolveProduct($tenantId, $product->toArray(), self::withoutSku($selection));
+                $fallback = self::resolveProduct($tenantId, $product, self::withoutSku($selection));
                 self::assertSkuMatchesSelection($fallback, $selection);
                 return $fallback;
             }
             return $market;
         }
         $productId = self::productId($selection); if ($productId <= 0) throw new Exception('请选择算力市场视频模型');
-        $product = PowerMarketProduct::where(['id' => $productId, 'status' => 1])->findOrEmpty();
-        if ($product->isEmpty() || !self::productAllowed($product->toArray(), $resourceType)) throw new Exception('所选视频商品已下架');
-        return self::resolveProduct($tenantId, $product->toArray(), $selection);
+        $product = self::catalogProduct($productId);
+        if ($product === [] || !self::productAllowed($product, $resourceType)) throw new Exception('所选视频商品已下架');
+        return self::resolveProduct($tenantId, $product, $selection);
+    }
+
+    /** Raw catalogue reads are memoized only inside an explicit display scope. */
+    private static function catalogProduct(int $productId): array
+    {
+        return MarketCatalogReadScope::remember('video_product:' . $productId, static fn(): array => PowerMarketProduct::where(['id' => $productId, 'status' => 1])->findOrEmpty()->toArray());
+    }
+
+    private static function tenantSkuPrice(int $tenantId, int $skuId): array
+    {
+        return MarketCatalogReadScope::remember('video_tenant_price:' . $tenantId . ':' . $skuId, static fn(): array => TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->findOrEmpty()->toArray());
     }
 
     private static function resolveProduct(int $tenantId, array $productData, array $selection): array
@@ -804,13 +815,13 @@ class MarketVideoRuntimeService
         $app = strtolower((string)($product['upstream_app_code'] ?? ''));
         // query is an internal task-lifecycle contract, not a separately sold
         // SKU. Its product only needs to remain published by the platform.
-        $query = PowerMarketProduct::where([
+        $query = MarketCatalogReadScope::remember('video_query_product:' . $app, static fn(): array => PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
             'upstream_app_code' => $app,
             'upstream_api_code' => 'query',
             'status' => 1,
-        ])->findOrEmpty();
-        return !$query->isEmpty();
+        ])->findOrEmpty()->toArray());
+        return $query !== [];
     }
 
     private static function isVideoAppCategory(array $product): bool
@@ -896,15 +907,20 @@ class MarketVideoRuntimeService
 
     private static function marketRow(int $tenantId, array $product, array $sku): array
     {
-        $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
-        if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该视频规格');
+        $tenant = self::tenantSkuPrice($tenantId, (int)$sku['id']);
+        if ($tenant !== [] && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该视频规格');
         return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
     }
 
     private static function availableSkus(int $tenantId, int $productId): array
     {
+        return MarketCatalogReadScope::remember('video_available_skus:' . $tenantId . ':' . $productId, static fn(): array => self::readAvailableSkus($tenantId, $productId));
+    }
+
+    private static function readAvailableSkus(int $tenantId, int $productId): array
+    {
         $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(); $result = [];
-        foreach ($rows as $sku) { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
+        foreach ($rows as $sku) { $tenant = self::tenantSkuPrice($tenantId, (int)$sku['id']); if ($tenant !== [] && (int)$tenant['sale_status'] !== 1) continue;
                 if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue; $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)]; }
         return $result;
     }

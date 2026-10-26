@@ -2,6 +2,7 @@
 namespace app\common\service\app\aigc_micro_video;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\power\MarketVideoModelRuntimeService;
+use app\common\service\power\MarketCatalogReadScope;
 use app\common\service\power\MarketVideoAppRuntimeService;
 use InvalidArgumentException;
 use think\facade\Cache;
@@ -10,6 +11,12 @@ final class MicroVideoCatalog
 {
     private static array $cache=[];
     public static function models(int $tenant,bool $legacy=false,string $mode='both',?array $allowedIds=null): array
+    {
+        // Share market reads only while discovering callable specifications.
+        // Real quotes and admissions run after this scope has been released.
+        return MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant,$legacy,$mode,$allowedIds));
+    }
+    private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds): array
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',MicroVideoStore::encode($allowedIds));}
         $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset;if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
