@@ -86,8 +86,9 @@ class ShortDramaPlanningStatePersistenceTest extends TestCase
     {
         $id=$this->fixture(['status'=>'running','retry_count'=>4,'result_json'=>'{"checkpoint":"keep"}'],['status'=>'running','billing_status'=>'deducted','user_charge_points'=>8]);
         self::assertFalse(State::failExecution(2000000719,7,$id,new \RuntimeException('old'),'old',3));
-        self::assertTrue(State::failExecution(2000000719,7,$id,new \RuntimeException('场次时长与片段合计不一致',422),'场次时长与片段合计不一致',4));
+        self::assertTrue(State::failExecution(2000000719,7,$id,new \RuntimeException('场次时长与片段合计不一致',422),'场次时长与片段合计不一致',4,'receipt-accepted'));
         self::assertSame('validation_failed',$this->row($id,'generation_task')['error_code']);
+        self::assertSame('receipt-accepted',$this->row($id,'generation_task')['provider_request_id']);
         self::assertSame('{"checkpoint":"keep"}',$this->row($id,'script_task')['result_json']);
         self::assertEquals(8,$this->row($id,'generation_task')['user_charge_points']);
         $setup=$this->fixture(['request_json'=>'{"_generation_version":3}']);
