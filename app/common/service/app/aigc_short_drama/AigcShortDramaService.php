@@ -6794,6 +6794,7 @@ class AigcShortDramaService
     {
         // Never accept a client-supplied prompt snapshot. Retries use stored task params instead.
         unset($params['_prompt_snapshot'], $params['params']['_prompt_snapshot'], $params['_skill_snapshot'], $params['params']['_skill_snapshot'], $params['_skill_origin_task_id'], $params['_episode_duration_policy'], $params['params']['_episode_duration_policy']);
+        unset($params['_export_timeline'], $params['params']['_export_timeline']);
         $params['_prompt_snapshot'] = ShortDramaPromptWorkspace::capture($tenantId);
         $projectId = (int)($params['project_id'] ?? 0);
         $taskId = trim((string)($params['task_id'] ?? ''));
@@ -6864,6 +6865,10 @@ class AigcShortDramaService
             ? null
             : self::findShot($tenantId, $userId, $projectId, $taskId, $shotId);
         $shotPayload = $shot ? $shot->toArray() : [];
+        if ($taskType === 'export_video') {
+            // Validate before reserving points, then persist choices for workers and retries.
+            $params['_export_timeline'] = self::captureExportTimeline($tenantId, $userId, $projectId, $taskId, $params);
+        }
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
             $timing = self::videoTimingRequest($tenantId, $userId, $projectId, $taskId);
@@ -9785,7 +9790,9 @@ class AigcShortDramaService
         ]);
 
         try {
-            $assets = self::orderedShotVideoAssets($tenantId, $userId, $projectId);
+            $snapshot = (array)($params['_export_timeline'] ?? []);
+            $resolved = $snapshot ? ShortDramaExportTimeline::resolve($snapshot, self::exportTimelineAssets($tenantId, $userId, $projectId)) : null;
+            $assets = $resolved ? $resolved['assets'] : self::orderedShotVideoAssets($tenantId, $userId, $projectId);
             if (empty($assets)) {
                 throw new Exception('暂无可导出的分镜视频，请先生成分镜视');
             }
@@ -9793,7 +9800,7 @@ class AigcShortDramaService
             if ($ffmpeg === '') {
                 throw new Exception('服务器无法执行视频合成组件，请检查 FFmpeg 路径、PHP 进程 PATH 和 exec 权限后重试');
             }
-            $bgmAsset = self::readyBgmAudioAsset($tenantId, $userId, $projectId);
+            $bgmAsset = $resolved ? $resolved['bgm'] : self::readyBgmAudioAsset($tenantId, $userId, $projectId);
             $nestedParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
             $watermarkEnabled = array_key_exists('watermark_enabled', $params)
                 ? (bool)$params['watermark_enabled']
@@ -9831,6 +9838,7 @@ class AigcShortDramaService
                 'checksum' => (string)($export['checksum'] ?? ''),
                 'meta_json' => self::jsonEncode([
                     'source_asset_ids' => $inputAssetIds,
+                    'export_timeline' => $snapshot,
                     'bgm_asset_id' => (int)($bgmAsset['id'] ?? 0),
                     'bgm_volume' => empty($bgmAsset) ? 0 : 0.18,
                     'ffmpeg' => basename($ffmpeg),
@@ -10911,6 +10919,25 @@ class AigcShortDramaService
             $value = !empty($decoded) ? $decoded : explode(',', $value);
         }
         return array_values(array_filter(array_map(static fn($item) => trim((string)$item), (array)$value)));
+    }
+
+    private static function exportTimelineAssets(int $tenantId, int $userId, int $projectId): array
+    {
+        return AigcShortDramaAsset::where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
+            'status' => 'ready', 'delete_time' => 0,
+        ])->whereIn('asset_type', ['shot_image', 'shot_video', 'bgm_audio'])->select()->toArray();
+    }
+
+    private static function captureExportTimeline(int $tenantId, int $userId, int $projectId, string $taskId, array $params): array
+    {
+        $options = array_replace((array)($params['params'] ?? []), $params);
+        $query = AigcShortDramaStoryboard::where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0,
+        ]);
+        if (array_key_exists('timeline', $options)) $query->where('task_id', $taskId);
+        $shots = $query->order(['sort' => 'asc', 'id' => 'asc'])->select()->toArray();
+        return ShortDramaExportTimeline::capture($shots, self::exportTimelineAssets($tenantId, $userId, $projectId), $options);
     }
 
     private static function orderedShotVideoAssets(int $tenantId, int $userId, int $projectId): array
