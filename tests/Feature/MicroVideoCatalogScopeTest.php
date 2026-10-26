@@ -13,7 +13,7 @@ final class MicroVideoCatalogScopeTest extends TestCase
     {
         (new \think\App(dirname(__DIR__, 2) . '/'))->initialize();
         $db = config('database.connections.mysql');
-        if ($db['hostname'] !== '127.0.0.1' || $db['database'] !== 'z_cn') {
+        if ($db['hostname'] !== '127.0.0.1' || !in_array($db['database'], ['x_cn', 'z_cn'], true)) {
             self::markTestSkipped('Local read/rollback verification only');
         }
         $connections = config('database.connections');
