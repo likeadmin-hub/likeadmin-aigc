@@ -24,7 +24,7 @@ final class MicroVideoCatalogScopeTest extends TestCase
 
     private function selection(): array
     {
-        $models = MicroVideoCatalog::models(1, false, 'reference', ['market_video_model:182']);
+        $models = array_values(array_filter(MicroVideoCatalog::models(1, false, 'reference'), static fn(array $model): bool => str_starts_with($model['id'], 'market_video_model:')));
         self::assertNotEmpty($models);
         self::assertNull(request()->marketCatalogReadScope, 'Catalog must release its snapshot');
         return MicroVideoCatalog::quote(1, $models[0]['specs'][0], $models[0]['id'])['selection'] + [
