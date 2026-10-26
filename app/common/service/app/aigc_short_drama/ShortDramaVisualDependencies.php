@@ -13,7 +13,7 @@ final class ShortDramaVisualDependencies
                 if (!is_array($item) || trim((string)($item['id'] ?? '')) === '') continue;
                 // Names, model choices and signed display URLs are not visual edits.
                 $appearance = [];
-                foreach (['description', 'visual_prompt', 'image_prompt', 'appearance_lock', 'space_lock', 'unified_prompt'] as $key) {
+                foreach (['description', 'visual_prompt', 'appearance_lock', 'space_lock', 'unified_prompt'] as $key) {
                     $appearance[$key] = str_replace("\r\n", "\n", trim((string)($item[$key] ?? '')));
                 }
                 $appearance['image'] = self::imageIdentity(($item['raw_image'] ?? '') ?: ($item['image'] ?? ''));
