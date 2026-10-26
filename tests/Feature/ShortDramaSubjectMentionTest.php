@@ -29,17 +29,15 @@ class ShortDramaSubjectMentionTest extends TestCase
     public function testModelPromptIncludesResolvedSubjectDataForCreationAndRevision(): void
     {
         foreach ([[], ['revision_message' => '重写本集，加入@林远', 'revision_base_result' => ['title' => '原剧本']]] as $revision) {
-            foreach (['buildCompactScriptPlanPrompt', 'buildScriptPlanPrompt'] as $builder) {
-                $prompt = $this->call($builder, '雨夜重逢', $this->request() + $revision, '测试剧本');
-                self::assertStringContainsString('沉默的调查员，穿深色西装', $prompt);
-                self::assertStringContainsString('subject_references', $prompt);
-                self::assertStringContainsString('subject.png', $prompt);
-                self::assertStringContainsString('three-view.png', $prompt);
-                self::assertStringContainsString('"gender":"male"', $prompt);
-                self::assertStringContainsString('"age_stage":"adult"', $prompt);
-                self::assertStringNotContainsString('private-storage-key', $prompt);
-                self::assertStringNotContainsString('not-for-model', $prompt);
-            }
+            $prompt = $this->call('buildCompactScriptPlanPrompt', '雨夜重逢', $this->request() + $revision, '测试剧本');
+            self::assertStringContainsString('沉默的调查员，穿深色西装', $prompt);
+            self::assertStringContainsString('subject_references', $prompt);
+            self::assertStringContainsString('subject.png', $prompt);
+            self::assertStringContainsString('three-view.png', $prompt);
+            self::assertStringContainsString('"gender":"male"', $prompt);
+            self::assertStringContainsString('"age_stage":"adult"', $prompt);
+            self::assertStringNotContainsString('private-storage-key', $prompt);
+            self::assertStringNotContainsString('not-for-model', $prompt);
         }
     }
 
@@ -86,14 +84,12 @@ class ShortDramaSubjectMentionTest extends TestCase
             'image' => 'https://example.test/beauty.png', 'gender' => 'unknown', 'age_stage' => 'unknown',
         ]]];
 
-        foreach (['buildCompactScriptPlanPrompt', 'buildScriptPlanPrompt'] as $builder) {
-            $prompt = $this->call($builder, '@美女 与帅哥海边邂逅', $request, '测试剧本');
-            self::assertStringContainsString('locked', $prompt);
-            self::assertMatchesRegularExpression('/identical name(?: and|,) library_subject_id/', $prompt);
-            self::assertMatchesRegularExpression('/[Nn]ever rename/', $prompt);
-            self::assertStringContainsString('beauty.png', $prompt);
-            self::assertStringContainsString('"name":"美女"', $prompt);
-        }
+        $prompt = $this->call('buildCompactScriptPlanPrompt', '@美女 与帅哥海边邂逅', $request, '测试剧本');
+        self::assertStringContainsString('locked', $prompt);
+        self::assertMatchesRegularExpression('/identical name(?: and|,) library_subject_id/', $prompt);
+        self::assertMatchesRegularExpression('/[Nn]ever rename/', $prompt);
+        self::assertStringContainsString('beauty.png', $prompt);
+        self::assertStringContainsString('"name":"美女"', $prompt);
 
         $result = $this->call('attachSelectedSubjectReferences', ['subjects' => [[
             'id' => 'subject_1', 'name' => '林浅', 'description' => '模型生成角色', 'role' => '女主角',

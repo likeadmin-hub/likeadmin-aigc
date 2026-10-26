@@ -316,7 +316,8 @@ class ShortDramaEpisodeDurationTest extends TestCase
         $rule = ShortDramaShotDuration::rule($this->request(0, [['start_seconds' => 0, 'end_seconds' => 1.5, 'duration_seconds' => 1.5]]));
         $saved = $this->invoke('editableShotData', ['recommended_duration_seconds' => 1.5], $rule);
         self::assertSame(1.5, $saved['recommended_duration_seconds']);
-        self::assertSame('00:01.5-00:10', $this->invoke('readableShotTimeRange', [], 0, ['start_seconds' => 1.5], 8.5));
+        self::assertSame('00:01.5', $this->invoke('formatReadableTimecode', 1.5));
+        self::assertSame('00:10', $this->invoke('formatReadableTimecode', 10.0));
     }
 
     public function testTimingUsesTheSameDefaultEpisodeCountAsCreation(): void

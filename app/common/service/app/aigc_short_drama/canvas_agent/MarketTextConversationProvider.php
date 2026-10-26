@@ -39,14 +39,6 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         } else self::resolve($tenant,$selection,$images!==[]);
     }
 
-    private static function options(int $tenant,bool $vision): array
-    {
-        foreach (MarketTextModelRuntimeService::modelGroups($tenant) as $group) {
-            if (($group['key']??'')===($vision?'vision_describe':'script_plan')) return (array)($group['options']??[]);
-        }
-        return [];
-    }
-
     private static function resolve(int $tenant,array $selection,bool $vision): array
     {
         try { return MarketTextModelRuntimeService::resolveModel($tenant,$selection,$vision); }

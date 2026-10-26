@@ -5636,97 +5636,6 @@ class AigcShortDramaService
             'status' => self::STATUS_PENDING,
         ];
 
-        $request = self::jsonDecode((string)$task['request_json']);
-        $request['revision_message'] = $message;
-        $request['source'] = 'revision';
-        $prompt = trim((string)$task['prompt']) . "\nRevision instructions: " . $message;
-
-        $project = self::findProject($tenantId, $userId, (int)$task['project_id']);
-        $config = self::publicConfig($tenantId);
-        $selectedModels = self::resolveSelectedModels($tenantId, $request, $config);
-        $generation = self::generateScriptPlanResult($tenantId, $userId, $prompt, $request, (string)$project['title'], $selectedModels['script_plan'] ?? []);
-        $effectiveModel = (array)($generation['model_selection'] ?? $selectedModels['script_plan'] ?? []);
-        if ($effectiveModel !== []) {
-            $selectedModels['script_plan'] = $effectiveModel;
-            $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
-            $request['model_id'] = (string)($effectiveModel['id'] ?? $request['model_id'] ?? '');
-        }
-        $result = $generation['result'];
-        $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? '')) ?: self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
-        if ($projectRatio !== '') {
-            $request['ratio'] = $projectRatio;
-            $result['generation_settings'] = is_array($result['generation_settings'] ?? null) ? $result['generation_settings'] : [];
-            $result['generation_settings']['aspect_ratio'] = $projectRatio;
-            $result['generation_settings']['ratio'] = $projectRatio;
-        }
-        $billing = self::scriptPlanBillingFromLlm($generation, $prompt, $result, $selectedModels['script_plan'] ?? []);
-        $newTaskId = self::makeTaskId('sd_plan_revision');
-        $agentRunId = self::makeTaskId('sd_agent_revision');
-        $time = time();
-        Db::startTrans();
-        try {
-            AigcShortDramaScriptTask::create([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => (int)$task['project_id'],
-                'task_id' => $newTaskId,
-                'parent_task_id' => $taskId,
-                'status' => self::STATUS_SUCCESS,
-                'progress' => 100,
-                'current_step' => '修改完成',
-                'prompt' => $prompt,
-                'request_json' => self::jsonEncode($request),
-                'config_snapshot' => (string)$task['config_snapshot'],
-                'pricing_snapshot' => self::jsonEncode(array_merge($billing, ['revision' => true])),
-                'result_json' => self::jsonEncode($result),
-                'billing_status' => (string)($billing['billing_status'] ?? 'none'),
-                'tenant_cost_points' => $billing['tenant_cost_points'] ?? '0.00',
-                'user_charge_points' => $billing['user_charge_points'] ?? '0.00',
-                'provider' => (string)($selectedModels['script_plan']['provider'] ?? $generation['provider'] ?? ''),
-                'provider_request_id' => (string)($billing['provider_request_id'] ?? ''),
-                'provider_task_id' => '',
-                'idempotency_key' => sha1($tenantId . '|' . $userId . '|' . $newTaskId),
-                'create_time' => $time,
-                'update_time' => $time,
-                'started_at' => $time,
-                'finished_at' => $time,
-                'delete_time' => 0,
-            ]);
-            AigcShortDramaProject::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'id' => (int)$task['project_id'],
-            ])->update([
-                'last_task_id' => $newTaskId,
-                'status' => self::PROJECT_STATUS_PLAN_REVIEW,
-                'current_agent_run_id' => $agentRunId,
-                'ratio' => $projectRatio !== '' ? $projectRatio : (string)($project['ratio'] ?? ''),
-                'update_time' => $time,
-            ]);
-            self::createAgentRunRecord($tenantId, $userId, (int)$task['project_id'], $agentRunId, $newTaskId, 'agent_revision', $request, $result, $selectedModels['script_plan'] ?? [], self::STATUS_SUCCESS, $time);
-            $parentVersionId = (int)($project['current_version_id'] ?? 0);
-            $version = self::createPlanVersion($tenantId, $userId, (int)$task['project_id'], $newTaskId, $agentRunId, 'agent_revision', $result, $parentVersionId, true, $time);
-            AigcShortDramaProject::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'id' => (int)$task['project_id'],
-            ])->update([
-                'current_version_id' => (int)$version['id'],
-                'update_time' => $time,
-            ]);
-            self::replaceStoryboard($tenantId, $userId, (int)$task['project_id'], $newTaskId, $result['storyboard']);
-            Db::commit();
-        } catch (\Throwable $e) {
-            Db::rollback();
-            Log::write('AI short drama revision failed: ' . $e->getMessage());
-            throw new Exception(self::SAFE_ERROR);
-        }
-
-        return [
-            'message_id' => 'msg_' . $time,
-            'task_id' => $newTaskId,
-            'status' => self::STATUS_SUCCESS,
-        ];
     }
 
     public static function retry(int $tenantId, int $userId, string $taskId): array
@@ -10353,33 +10262,6 @@ class AigcShortDramaService
         return $filtered;
     }
 
-    private static function filterReferencePayloadByAssetTypes(array $payload, array $assetTypes): array
-    {
-        $allowed = array_flip(array_map('strval', $assetTypes));
-        $filtered = self::emptyReferencePayload();
-        $ids = array_values(array_map('intval', (array)($payload['input_asset_ids'] ?? [])));
-        foreach ((array)($payload['reference_assets'] ?? []) as $index => $asset) {
-            if (!is_array($asset)) {
-                continue;
-            }
-            $assetType = (string)($asset['asset_type'] ?? '');
-            if (!isset($allowed[$assetType])) {
-                continue;
-            }
-            if (!empty($ids[$index]) && empty($asset['id'])) {
-                $asset['id'] = $ids[$index];
-            }
-            self::appendReferenceAsset($filtered, $asset);
-        }
-        if (!empty($payload['first_frame_image'])) {
-            $filtered['first_frame_image'] = (string)$payload['first_frame_image'];
-        }
-        if (!empty($payload['last_frame_image'])) {
-            $filtered['last_frame_image'] = (string)$payload['last_frame_image'];
-        }
-        return $filtered;
-    }
-
     private static function shotReferenceAssets(int $tenantId, int $userId, int $projectId, $shot, array $plan = []): array
     {
         $shotData = is_array($shot) ? $shot : [];
@@ -11793,34 +11675,6 @@ class AigcShortDramaService
         return $target;
     }
 
-    private static function markGenerationSuccess(int $tenantId, int $userId, string $taskId, array $result, array $assetIds, array $billing, string $provider = ''): void
-    {
-        $task = AigcShortDramaGenerationTask::where([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'task_id' => $taskId,
-        ])->findOrEmpty();
-        AigcShortDramaGenerationTask::where([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'task_id' => $taskId,
-        ])->update([
-            'status' => self::STATUS_SUCCESS,
-            'progress' => 100,
-            'provider' => $provider,
-            'result_json' => self::jsonEncode($result),
-            'output_asset_ids' => self::jsonEncode($assetIds),
-            'billing_status' => ((float)($billing['tenant_cost_points'] ?? 0) > 0 || (float)($billing['user_charge_points'] ?? 0) > 0) ? 'deducted' : 'none',
-            'error_code' => '',
-            'error_msg' => '',
-            'finished_at' => time(),
-            'update_time' => time(),
-        ]);
-        if (!$task->isEmpty()) {
-            self::refreshProjectGenerationStatus($tenantId, $userId, (int)$task['project_id']);
-        }
-    }
-
     private static function selectGeneratedStoryboardAsset(int $tenantId, int $userId, array $task, array $assetIds): void
     {
         $taskType = (string)($task['task_type'] ?? '');
@@ -11848,44 +11702,6 @@ class AigcShortDramaService
             'shot_id' => $shotId,
             'delete_time' => 0,
         ])->where($field, 0)->update($updateData);
-    }
-
-    private static function failGenerationTask(int $tenantId, int $userId, array $generation, array $billing, string $errorCode, string $friendlyError, string $refundRemark): void
-    {
-        $taskId = (string)$generation['task_id'];
-        $projectId = (int)$generation['project_id'];
-        Db::startTrans();
-        try {
-            $refundStatus = ((float)($billing['tenant_cost_points'] ?? 0) > 0 || (float)($billing['user_charge_points'] ?? 0) > 0) ? 'refunded' : 'none';
-            if ((string)($generation['billing_status'] ?? '') === 'reserved') {
-                PointService::refundBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)($billing['tenant_cost_points'] ?? 0), (float)($billing['user_charge_points'] ?? 0), $taskId . '-refund', $refundRemark, [
-                    'app_code' => self::APP_CODE,
-                    'task_id' => $taskId,
-                    'project_id' => $projectId,
-                    'task_type' => (string)($generation['task_type'] ?? ''),
-                ]);
-            }
-            AigcShortDramaGenerationTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'task_id' => $taskId,
-            ])->update([
-                'status' => self::STATUS_FAILED,
-                'progress' => 0,
-                'billing_status' => $refundStatus,
-                'error_code' => $errorCode,
-                'error_msg' => mb_substr($friendlyError ?: self::SAFE_ERROR, 0, 500, 'UTF-8'),
-                'operator_error' => mb_substr($friendlyError ?: self::SAFE_ERROR, 0, 1000, 'UTF-8'),
-                'finished_at' => time(),
-                'update_time' => time(),
-            ]);
-            Db::commit();
-            self::refreshProjectGenerationStatus($tenantId, $userId, $projectId);
-        } catch (\Throwable $e) {
-            Db::rollback();
-            Log::write('AI short drama generation failure rollback failed: ' . $e->getMessage());
-        }
-        Log::write('AI short drama generation task failed: ' . $taskId . ' ' . $friendlyError);
     }
 
     private static function friendlyGenerationError(string $message): string
@@ -12878,12 +12694,6 @@ class AigcShortDramaService
         return preg_match('/(画面|镜头|场景|背景|光|阴影|构图|特写|近景|中景|远景|表情|眼神|动作|姿态|服装|道具|脸|手|身体|站|坐|走|跑|看|望|拿|握|打开|推|拉|哭|笑|皱眉|低头|转身|凝视|出现)/u', $line) !== 1;
     }
 
-    private static function shotImagePromptVisibleLength(string $prompt): int
-    {
-        $text = preg_replace('/\s+/u', '', $prompt) ?? '';
-        return mb_strlen($text, 'UTF-8');
-    }
-
     private static function buildShotImagePromptFallback(array $shot): string
     {
         return self::cleanShotImagePromptText(self::joinPromptParts([
@@ -13018,56 +12828,6 @@ class AigcShortDramaService
                 : '',
             'last_frame_rule' => !empty($params['has_last_frame_image']) ? ShortDramaPromptCatalog::text('video.last_frame') : '',
         ]));
-    }
-
-    private static function shotVideoFixedPrompt(array $context, array $params, int $duration, string $flexiblePrompt): array
-    {
-        $shot = (array)$context['shot'];
-        $scene = (array)$context['scene'];
-        $mentionsComposition = self::flexiblePromptMentionsComposition($flexiblePrompt);
-        $mentionsCamera = self::flexiblePromptMentionsCamera($flexiblePrompt);
-        $mentionsStyle = self::flexiblePromptMentionsStyle($flexiblePrompt);
-        $sceneText = self::shotImagePromptInlineParts([
-            (string)($scene['name'] ?? ''),
-            (string)($shot['scene_name'] ?? ''),
-            (string)($shot['time_of_day'] ?? ''),
-            (string)($shot['interior_exterior'] ?? ''),
-        ]);
-        $compositionText = self::shotImagePromptInlineParts([
-            self::cleanShotVideoPromptText((string)($shot['composition'] ?? '')),
-            (string)($shot['shot_type'] ?? ''),
-            (string)($shot['angle'] ?? ''),
-        ]);
-        $actionText = self::shotImagePromptInlineParts([
-            self::cleanShotVideoPromptText((string)($shot['action'] ?? '')),
-            self::cleanShotVideoPromptText((string)($shot['result'] ?? '')),
-        ]);
-        $actionText = self::separateSubjectNamesInText($actionText, (array)($context['raw_subject_names'] ?? $context['subject_names']));
-        $styleText = self::cleanPromptRatioText((string)($context['plan']['art_style']['visual_description'] ?? ''));
-        $noSubjectShot = !empty($context['no_subject_shot']);
-        $fixedRule = $noSubjectShot
-            ? '固定要求：画面中无角色出现，全程无人说话。保持场景、光线和美术风格一致，画面中不要出现人物、角色、脸、身体、肖像，无字幕、无BGM背景音乐、无水印、无文字'
-            : '固定要求：保持角色身份、脸部、发型、服装、道具、场景、光线和美术风格一致，无新增角色，无字幕、无BGM背景音乐、无水印、无文字';
-        $firstFrameRule = '';
-        if (!empty($params['has_first_frame_image'])) {
-            $firstFrameRule = $noSubjectShot
-                ? '首帧约束：以当前首帧为开场，不改变构图、场景、光线和色彩'
-                : '首帧约束：以当前首帧为开场，不改变人物脸、发型、服装、道具、构图、场景和光线';
-        }
-        return [
-            self::promptLine('当前绑定主体', $noSubjectShot ? '空镜，无可见主体' : implode('', (array)$context['subject_names'])),
-            self::promptLine('当前绑定场景', $sceneText),
-            !$mentionsComposition ? self::promptLine('构图', $compositionText) : '',
-            !$mentionsCamera ? self::promptLine('运镜', self::cleanShotVideoPromptText((string)($shot['camera_movement'] ?? ''))) : '',
-            !$noSubjectShot ? self::promptLine('动作结果', $actionText) : '',
-            self::promptLine('氛围', self::cleanShotVideoPromptText((string)($shot['atmosphere'] ?? ''))),
-            !$mentionsStyle ? self::promptLine('整体风格', $styleText) : '',
-            self::promptLine('视频时长', (string)max(1, $duration) . ''),
-            self::buildShotDialogueText($shot, $noSubjectShot),
-            $firstFrameRule,
-            !empty($params['has_last_frame_image']) ? '尾帧约束：自然过渡到尾帧目标画面' : '',
-            $fixedRule,
-        ];
     }
 
     private static function flexiblePromptMentionsComposition(string $prompt): bool
@@ -13293,27 +13053,6 @@ class AigcShortDramaService
             }
         }
         return true;
-    }
-
-    private static function readableShotId(array $shot, int $index = 0): string
-    {
-        $shotId = trim((string)($shot['shot_id'] ?? $shot['id'] ?? ''));
-        return $shotId !== '' ? $shotId : (string)($index + 1);
-    }
-
-    private static function readableShotTimeRange(array $shot, int $index, array $timeline, float $duration): string
-    {
-        $range = trim((string)($shot['time_range'] ?? ''));
-        if ($range !== '') {
-            return $range;
-        }
-        $start = isset($timeline['start_seconds'])
-            ? (float)$timeline['start_seconds']
-            : max(0, (float)($shot['start_seconds'] ?? 0));
-        $end = isset($shot['end_seconds'])
-            ? max($start + 0.001, (float)$shot['end_seconds'])
-            : $start + $duration;
-        return self::formatReadableTimecode($start) . '-' . self::formatReadableTimecode($end);
     }
 
     private static function formatReadableTimecode(float $seconds): string
@@ -14077,18 +13816,6 @@ class AigcShortDramaService
             return false;
         }
         return true;
-    }
-
-    private static function firstStoryboardImageAsset(int $tenantId, int $userId, int $projectId): array
-    {
-        $assets = self::storyboardImageAssetRows($tenantId, $userId, $projectId);
-        return $assets[0] ?? [];
-    }
-
-    private static function firstProjectShotImageAsset(int $tenantId, int $userId, int $projectId): array
-    {
-        $assets = self::projectCoverCandidateAssets($tenantId, $userId, $projectId);
-        return $assets[0] ?? [];
     }
 
     private static function projectCoverData(array $row): array
@@ -15039,11 +14766,6 @@ class AigcShortDramaService
         return preg_match('/(本镜头|推动剧情|情绪升级|视觉任务|下一拍|生成视频片段|做出反应|镜头编号|参考已提供|角色完成一个单一动作|画面任务)/u', $text) === 1;
     }
 
-    private static function videoPromptHasRequiredMuteConstraints(string $text): bool
-    {
-        return str_contains($text, '无字') && str_contains($text, '无BGM背景音乐');
-    }
-
     private static function hasNoSubjectNegativeTerms(string $text): bool
     {
         return preg_match('/(不要人物|不要角色|不要脸|不要身体|不要肖像|无人物|无人|无角色|禁止人物|禁止角色|禁止人类)/u', $text) === 1;
@@ -15831,62 +15553,6 @@ class AigcShortDramaService
             return $params;
         }
         throw new Exception('短剧生图仅支持租户已上架的算力市场图片模型或 nano-banana 应用 API，请重新选择');
-    }
-
-    private static function normalizeShortDramaVideoChannelParams(int $tenantId, array $params): array
-    {
-        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
-        $requested = '';
-        foreach (['video_model_id', 'model_id', 'channel', 'channel_code'] as $key) {
-            $value = trim((string)($params[$key] ?? $nested[$key] ?? ''));
-            if ($value !== '') {
-                $requested = $value;
-                break;
-            }
-        }
-        if ($requested === '') {
-            return $params;
-        }
-
-        try {
-            $config = AigcVideoChannelService::userConfig($tenantId);
-            $channels = (array)($config['channels'] ?? []);
-        } catch (\Throwable) {
-            throw new Exception('暂无可用视频模型，请先在后台配置');
-        }
-
-        $matched = [];
-        foreach ($channels as $channel) {
-            if (!is_array($channel)) {
-                continue;
-            }
-            $codes = array_filter([
-                (string)($channel['code'] ?? ''),
-                (string)($channel['name'] ?? ''),
-                (string)($channel['model'] ?? ''),
-            ]);
-            if (in_array($requested, $codes, true)) {
-                $matched = $channel;
-                break;
-            }
-        }
-        if (empty($matched)) {
-            throw new Exception('当前视频模型不可用，请重新选择');
-        }
-
-        $code = (string)($matched['code'] ?? '');
-        if ($code === '') {
-            throw new Exception('当前视频模型不可用，请重新选择');
-        }
-        foreach (['model_id', 'video_model_id', 'channel', 'channel_code'] as $key) {
-            $params[$key] = $code;
-        }
-        if (is_array($params['params'] ?? null)) {
-            foreach (['model_id', 'video_model_id', 'channel', 'channel_code'] as $key) {
-                $params['params'][$key] = $code;
-            }
-        }
-        return self::normalizeShortDramaChannelQuality($params, self::channelPriceSummary($matched));
     }
 
     private static function normalizeShortDramaChannelQuality(array $params, array $summary): array
@@ -17030,71 +16696,6 @@ class AigcShortDramaService
         ];
     }
 
-    private static function channelModelGroup(int $tenantId, string $appCode, string $key, string $type, string $label): array
-    {
-        $channels = [];
-        try {
-            $config = $appCode === self::IMAGE_APP_CODE
-                ? AigcImageChannelService::userConfig($tenantId)
-                : AigcVideoChannelService::userConfig($tenantId);
-            $channels = (array)($config['channels'] ?? []);
-        } catch (\Throwable) {
-            $channels = [];
-        }
-        $options = [];
-        foreach ($channels as $channel) {
-            $code = (string)($channel['code'] ?? '');
-            if ($code === '') {
-                continue;
-            }
-            $summary = self::channelPriceSummary((array)$channel);
-            $tenantUnitPrice = self::formatPrice(max(
-                (float)$summary['platform_unit_cost'],
-                (float)($summary['tenant_unit_price'] ?? $summary['platform_unit_cost'])
-            ));
-            $options[] = [
-                'id' => $code,
-                'value' => $code,
-                'app_code' => $appCode,
-                'type' => $type,
-                'channel' => $code,
-                'channel_code' => $code,
-                'name' => (string)($channel['name'] ?? $code),
-                'description' => $summary['description'],
-                'provider' => (string)($channel['provider'] ?? ''),
-                'provider_model' => (string)($channel['model'] ?? ''),
-                'billing_unit' => $type === 'video' ? 'video_spec' : 'image_spec',
-                'platform_unit_cost' => $summary['platform_unit_cost'],
-                'tenant_unit_price' => $tenantUnitPrice,
-                'spec_count' => $summary['spec_count'],
-                'default_quality' => (string)($summary['default_quality'] ?? ''),
-                'quality_options' => (array)($summary['quality_options'] ?? []),
-                'resolution_options' => (array)($summary['resolution_options'] ?? []),
-                // Canvas needs the real tenant SKU price for both image and video
-                // specifications. The UI derives the active price from this list;
-                // task settlement remains owned by the existing channel services.
-                'skus' => (array)($summary['skus'] ?? []),
-                'default_ratio' => (string)($summary['default_ratio'] ?? ''),
-                'ratio_options' => (array)($summary['ratio_options'] ?? []),
-                'max_reference_images' => max(0, (int)($channel['max_reference_images'] ?? 0)),
-                'max_reference_assets' => max(0, (int)($channel['max_reference_assets'] ?? 0)),
-                'image' => self::fileUrl(self::DEFAULT_IMAGE),
-                'enabled' => true,
-                'sort' => (int)($channel['sort'] ?? 0),
-            ];
-        }
-        usort($options, fn(array $a, array $b) => (int)$b['sort'] <=> (int)$a['sort']);
-        return [
-            'key' => $key,
-            'label' => $label,
-            'app_code' => $appCode,
-            'type' => $type,
-            'description' => $type === 'video' ? '通过 AIGC 视频通道生成短剧分镜视频' : '通过 AIGC 生图通道生成主体图、场景图和分镜图',
-            'options' => $options,
-            'default' => (string)($options[0]['id'] ?? ''),
-        ];
-    }
-
     private static function channelPriceSummary(array $channel): array
     {
         $specs = [];
@@ -17182,109 +16783,6 @@ class AigcShortDramaService
         $input = (string)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? '0');
         $output = (string)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? '0');
         return '成本：输入 ' . $input . ' 点/百万Token，输出 ' . $output . ' 点/百万Token';
-    }
-
-    private static function normalizePriceConfig(array $payload): array
-    {
-        $items = [];
-        foreach ($payload as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $groupKey = trim((string)($item['group_key'] ?? $item['key'] ?? ''));
-            $id = trim((string)($item['id'] ?? $item['value'] ?? $item['model_code'] ?? $item['channel_code'] ?? ''));
-            if ($groupKey === '' || $id === '') {
-                continue;
-            }
-            $row = [
-                'group_key' => $groupKey,
-                'id' => $id,
-                'type' => trim((string)($item['type'] ?? '')),
-                'app_code' => trim((string)($item['app_code'] ?? '')),
-                'name' => trim((string)($item['name'] ?? '')),
-            ];
-            if ($groupKey === 'script_plan') {
-                $row['tenant_input_unit_price'] = self::formatUnitPrice(max(0, (float)($item['tenant_input_unit_price'] ?? 0)));
-                $row['tenant_output_unit_price'] = self::formatUnitPrice(max(0, (float)($item['tenant_output_unit_price'] ?? 0)));
-            } else {
-                $row['tenant_unit_price'] = self::formatPrice(max(0, (float)($item['tenant_unit_price'] ?? 0)));
-            }
-            $items[$groupKey . '|' . $id] = $row;
-        }
-        return array_values($items);
-    }
-
-    private static function priceConfigMap(array $priceConfig): array
-    {
-        $map = [];
-        foreach ($priceConfig as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $groupKey = (string)($item['group_key'] ?? $item['key'] ?? '');
-            $id = (string)($item['id'] ?? $item['value'] ?? $item['model_code'] ?? $item['channel_code'] ?? '');
-            if ($groupKey !== '' && $id !== '') {
-                $map[$groupKey . '|' . $id] = $item;
-            }
-        }
-        return $map;
-    }
-
-    private static function floorPriceConfig(array $priceConfig, array $groups): array
-    {
-        $costMap = [];
-        foreach ($groups as $group) {
-            if (!is_array($group)) {
-                continue;
-            }
-            $groupKey = (string)($group['key'] ?? '');
-            if ($groupKey === '') {
-                continue;
-            }
-            foreach ((array)($group['options'] ?? []) as $option) {
-                if (!is_array($option)) {
-                    continue;
-                }
-                $id = (string)($option['id'] ?? $option['value'] ?? $option['model_code'] ?? $option['channel_code'] ?? '');
-                if ($id === '') {
-                    continue;
-                }
-                $costMap[$groupKey . '|' . $id] = [
-                    'platform_unit_cost' => (float)($option['platform_unit_cost'] ?? 0),
-                    'platform_input_unit_cost' => (float)($option['platform_input_unit_cost'] ?? $option['platform_unit_cost'] ?? 0),
-                    'platform_output_unit_cost' => (float)($option['platform_output_unit_cost'] ?? $option['platform_unit_cost'] ?? 0),
-                ];
-            }
-        }
-
-        foreach ($priceConfig as &$item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $key = (string)($item['group_key'] ?? '') . '|' . (string)($item['id'] ?? '');
-            $cost = $costMap[$key] ?? null;
-            if ($cost === null) {
-                continue;
-            }
-            if (($item['group_key'] ?? '') === 'script_plan') {
-                $item['tenant_input_unit_price'] = self::formatUnitPrice(max(
-                    (float)$cost['platform_input_unit_cost'],
-                    (float)($item['tenant_input_unit_price'] ?? 0)
-                ));
-                $item['tenant_output_unit_price'] = self::formatUnitPrice(max(
-                    (float)$cost['platform_output_unit_cost'],
-                    (float)($item['tenant_output_unit_price'] ?? 0)
-                ));
-                continue;
-            }
-            $item['tenant_unit_price'] = self::formatPrice(max(
-                (float)$cost['platform_unit_cost'],
-                (float)($item['tenant_unit_price'] ?? 0)
-            ));
-        }
-        unset($item);
-
-        return $priceConfig;
     }
 
     private static function resolveSelectedModels(int $tenantId, array $request, array $config = [], bool $storedTask = false): array
@@ -17482,47 +16980,6 @@ class AigcShortDramaService
             ];
         }
         return $snapshot;
-    }
-
-    private static function estimateScriptPlanBilling(string $prompt, array $result, array $model): array
-    {
-        if (empty($model)) {
-            return [
-                'billing_unit' => 'tokens_1m',
-                'tenant_cost_points' => '0.00',
-                'user_charge_points' => '0.00',
-                'prompt_tokens' => 0,
-                'completion_tokens' => 0,
-                'price' => [],
-            ];
-        }
-        $promptTokens = MarketTextModelRuntimeService::estimateTokens($prompt);
-        $completionTokens = MarketTextModelRuntimeService::estimateTokens(self::jsonEncode($result));
-        $platformInput = (float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0);
-        $platformOutput = (float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0);
-        $tenantInput = (float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0);
-        $tenantOutput = (float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? 0);
-        $tenantCost = ($promptTokens * $platformInput + $completionTokens * $platformOutput) / 1000000;
-        $userCharge = ($promptTokens * $tenantInput + $completionTokens * $tenantOutput) / 1000000;
-        return [
-            'source_app_code' => self::LLM_APP_CODE,
-            'model_code' => (string)($model['model_code'] ?? $model['code'] ?? ''),
-            'channel_code' => (string)($model['channel_code'] ?? ''),
-            'channel_source' => (string)($model['channel_source'] ?? 'unknown'),
-            'channel_source_label' => (string)($model['channel_source_label'] ?? '渠道未标注'),
-            'provider_model' => (string)($model['provider_model'] ?? ''),
-            'billing_unit' => 'tokens_1m',
-            'prompt_tokens' => $promptTokens,
-            'completion_tokens' => $completionTokens,
-            'tenant_cost_points' => self::formatBillingPoints($tenantCost),
-            'user_charge_points' => self::formatBillingPoints($userCharge),
-            'price' => [
-                'platform_input_unit_cost' => self::formatUnitPrice($platformInput),
-                'platform_output_unit_cost' => self::formatUnitPrice($platformOutput),
-                'tenant_input_unit_price' => self::formatUnitPrice($tenantInput),
-                'tenant_output_unit_price' => self::formatUnitPrice($tenantOutput),
-            ],
-        ];
     }
 
     private static function subjectOptions(int $tenantId, int $userId): array
@@ -19845,204 +19302,6 @@ class AigcShortDramaService
     public static function canonicalizeStoryDraftSubjects(array $plan, array $request): array
     {
         return self::normalizeStoryDraftPlanResult(self::attachSelectedSubjectReferences($plan, $request));
-    }
-
-    private static function buildScriptPlanPrompt(string $prompt, array $request, string $title): string
-    {
-        $durationRule = ShortDramaShotDuration::rule($request);
-        $styleDetail = self::styleDetail((string)($request['style_id'] ?? ''));
-        $selectedStyleName = (string)($styleDetail['name'] ?? '');
-        $selectedStylePrompt = (string)($styleDetail['prompt'] ?? '');
-        $userTextStyleHint = self::extractUserTextStyleHint($prompt);
-        $userTextDurationHint = self::extractUserTextDurationHint($prompt);
-        $userTextTimePeriodHint = self::extractUserTextTimePeriodHint($prompt);
-        $selectedDurationHint = self::selectedDurationHint($request);
-        $timelineSegments = self::extractTimelineSegments($prompt);
-        $targetDurationSeconds = self::planningTargetDurationSeconds($prompt, $request);
-        $recommendedCountHint = self::recommendedStoryboardCountHint($prompt, $request);
-        // User-authored timecode controls the story order and the duration of
-        // every segment, even when the form also contains a total duration.
-        $timelineOverride = !empty($timelineSegments);
-        $styleSource = $selectedStyleName !== '' || $selectedStylePrompt !== ''
-            ? 'selected'
-            : ($userTextStyleHint !== '' ? 'user_text' : 'default');
-        $durationSource = $timelineOverride
-            ? 'timeline'
-            : ($selectedDurationHint !== '' ? 'selected' : ($userTextDurationHint !== '' ? 'user_text' : 'auto'));
-        $context = [
-            'title_hint' => $title,
-            'user_prompt' => $prompt,
-            'multi_episode' => (bool)($request['multi_episode'] ?? false),
-            'episode_count' => (int)($request['episode_count'] ?? 1),
-            'target_duration_seconds' => (int)($request['target_duration_seconds'] ?? 0),
-            'effective_target_duration_seconds' => $targetDurationSeconds,
-            'selected_style_id' => (string)($request['style_id'] ?? ''),
-            'selected_style_name' => $selectedStyleName,
-            'selected_style_prompt' => $selectedStylePrompt,
-            'selected_duration_hint' => $selectedDurationHint,
-            'user_text_style_hint' => $userTextStyleHint,
-            'user_text_duration_hint' => $userTextDurationHint,
-            'user_text_time_period_hint' => $userTextTimePeriodHint,
-            'timeline_segments' => $timelineSegments,
-            'timeline_total_seconds' => self::timelineTotalSeconds($timelineSegments),
-            'style_source' => $styleSource,
-            'duration_source' => $durationSource,
-            'style_priority_rule' => 'selected style config overrides conflicting style words in user_prompt; user_prompt style/time/duration hints are used only when selected config is empty; aspect ratio is not part of script planning.',
-            'recommended_storyboard_count_hint' => $recommendedCountHint,
-            'storyboard_quality_gate' => [
-                'must_cover_every_location' => true,
-                'minimum_shots_per_location' => $timelineOverride ? 1 : ($targetDurationSeconds > 0 ? 3 : 1),
-                'minimum_total_shots' => self::minimumStoryboardShotCount($prompt, $request, 0),
-                'duration_rule' => $timelineOverride
-                    ? 'Follow timeline_segments strictly. Total storyboard duration must equal timeline_total_seconds exactly.'
-                    : 'Every shot is 4-15 seconds. Total storyboard duration should approach effective_target_duration_seconds when it is greater than 0.',
-            ],
-            'script_agent_contract' => [
-                'role' => 'film short planning agent, script doctor, visual director, and AI video storyboard planner',
-                'goal' => 'turn any user inspiration into a complete Chinese script planning document directly usable for AI video creation',
-                'must_preserve' => 'key characters, events, scenes, props, emotions, conflicts, twists, ending, style requirements, and special imagery from user_prompt',
-                'must_infer' => 'story type, emotional tone, central conflict, character relationships, key imagery, hidden theme, and ending meaning',
-                'must_output' => 'title, type judgement, core theme, complete beginning-to-ending plot, executable art style, ordered scene list, and scene-based storyboard script',
-            ],
-            'subject_mentions' => (array)($request['subject_mentions'] ?? []),
-            'subject_references' => self::scriptSubjectReferenceContext($request),
-            'revision_message' => (string)($request['revision_message'] ?? ''),
-            'revision_base_task_id' => (string)($request['revision_base_task_id'] ?? ''),
-            'revision_base_result' => is_array($request['revision_base_result'] ?? null) ? $request['revision_base_result'] : [],
-            'revision_target' => is_array($request['revision_target'] ?? null) ? $request['revision_target'] : [],
-            'revision_policy' => is_array($request['revision_policy'] ?? null) ? $request['revision_policy'] : [],
-        ];
-        $schema = [
-            'title' => '短剧标题，简体中',
-            'type_judgement' => '中文影视类型判断，例如悬疑短片、梦境惊悚、爱情短片、广告片、MV、情绪短片等',
-            'core_theme' => '中文核心主题一句话，说明故事真正表达的主题',
-            'opening_feedback' => 'professional planning feedback for the user idea, within 80 Chinese characters',
-            'planning_steps' => ['中文策划步骤1', '中文策划步骤2', '中文策划步骤3'],
-            'story_outline' => '中文完整剧情概述，从开始、发展、冲突、转折、高潮到结尾写清楚，300-800个中文字',
-            'script_lines' => ['中文剧情段落1：按剧情顺序写完整故事，不写镜头术语', '中文剧情段落2：继续承接剧情直到结尾'],
-            'music_plan' => [
-                'music_title' => '中文背景音乐名称',
-                'global_bgm_prompt' => '完整中文背景音乐生成提示词，纯音乐，无歌词无人声，包含情绪曲线、节奏、乐器、氛围、时长',
-                'style' => '中文音乐风格',
-                'mood_curve' => '中文情绪变化，例如开场悬疑-中段紧张-结尾释然',
-                'bpm' => '建议速度，例如 80-96 BPM',
-                'instruments' => ['中文乐器1', '中文乐器2'],
-                'duration_seconds' => 60,
-                'negative_prompt' => '不要歌词，不要人声，不要突兀鼓点，不要版权旋',
-            ],
-            'art_style' => [
-                'base_style' => '中文画风名称',
-                'visual_description' => '中文整体视觉风格描述。不要包含比例、画布尺寸或横竖屏词',
-                'color_tone' => '中文色彩基调',
-                'lighting_design' => '中文光影设计',
-                'camera_texture' => '中文镜头质感',
-                'atmosphere_keywords' => ['中文氛围关键词1', '中文氛围关键词2'],
-            ],
-            'subjects' => [
-                [
-                    'id' => 'subject_1',
-                    'library_subject_id' => '主体库引用时填写 subject_references 中对应的 id，否则为空',
-                    'name' => '中文主体名称',
-                    'description' => '中文主体性格、用途和叙事功能',
-                    'visual_prompt' => '中文主体生图一致性描述。人物写固定外貌、服装、体态、气质；道具/物品只写材质、颜色、形状、磨损痕迹、尺寸比例、标志性细节，不写脸、服装、体态',
-                    'main_image_prompt' => '中文主体主图提示词。人物写单个角色标准参考图，包含外貌、发型、服装、体态、气质和可用于分镜一致性的细节；物品写单个物品独立参考图，只包含材质、颜色、形状、磨损、尺寸比例和标志性细节',
-                    'three_view_prompt' => '中文主体三视图提示词。人物写同一角色正面、侧面、背面三视图，保持同一张脸、同一服装、同一体态；物品写同一物品多角度设定图，保持材质、颜色、形状和磨损一致，不出现人物穿戴效果',
-                    'main_negative_prompt' => '中文主体主图负向词。人物不得包含不要人物、不要脸、不要身体；物品必须禁止人物、手、脸、身体、模特、穿戴效果、文字、水印',
-                    'three_view_negative_prompt' => '中文主体三视图负向词。人物禁止换脸、换装、比例错误、文字、水印；物品禁止人物、手、脸、身体、模特、穿戴效果、文字、水印',
-                    'category' => 'character | animal | prop | symbol。分类按主体本身判断：人物即使携带书、围巾、钥匙或穿着特殊服装也必须归为 character；只有主体本身是旧书、围巾、信件、钥匙、照片等独立物品时才归为 prop',
-                    'appearance_lock' => '中文固定视觉细节；道具/物品写材质、形状、颜色、磨损和标志性细节',
-                    'outfit_lock' => '仅人物填写固定服装细节；道具/物品必须为空',
-                    'temperament' => '仅人物填写表情气质；道具/物品写叙事气质或为空',
-                    'negative_prompt' => '人物：不要换脸、不要换装、不要文字、不要水印；道具/物品：不要人物、不要手、不要脸、不要身体、不要模特、不要穿戴效果、不要文字、不要水印',
-                ],
-            ],
-            'locations' => [
-                [
-                    'id' => 'location_1',
-                    'story_order' => 1,
-                    'story_phase' => '开端',
-                    'name' => '中文场景名称',
-                    'description' => '中文场景描述，包含剧情作用、主要视觉元素、情绪氛围',
-                    'visual_prompt' => '中文场景生图一致性描述，包含空间结构、光线、色彩和氛围',
-                    'scene_image_prompt' => '中文场景图提示词，只描述空间结构、主要环境元素、光线、色彩和氛围，不写人物主体，不写角色一致性',
-                    'scene_negative_prompt' => '中文场景图负向词，禁止人物、人类、角色、脸、身体、肖像、文字、水印',
-                    'location' => '中文具体地点',
-                    'time_light' => '中文时间和光线锁',
-                    'spatial_layout' => '中文稳定空间结构',
-                    'atmosphere' => 'scene atmosphere',
-                    'color_palette' => 'stable color palette',
-                    'negative_prompt' => '不要人物，不要角色，不要文字，不要水印',
-                ],
-            ],
-            'storyboard' => [
-                [
-                    'shot_id' => '1',
-                    'act' => '第一幕：中文场景｜中文时间 室内或室外',
-                    'scene_order' => 1,
-                    'scene_name' => '中文场景',
-                    'time_of_day' => '中文时间',
-                    'interior_exterior' => 'exterior',
-                    'visual_description' => '中文画面可见内容描述',
-                    'composition' => '中文构图设计',
-                    'camera_movement' => '中文运镜调度',
-                    'shot_type' => '中文画面类型，例如普通画面、空镜、人物特写、道具特写、动作镜头、转场镜头、情绪镜头',
-                    'angle' => 'eye level',
-                    'action' => '中文单一清晰动作',
-                    'result' => '中文动作结果',
-                    'atmosphere' => '中文镜头氛围',
-                    'voice_role' => '',
-                    'dialogue' => '',
-                    'frame_type' => 'normal',
-                    'recommended_duration_seconds' => '根据本镜内容估算的数字秒数',
-                    'scene_ref_id' => 'location_1',
-                    'subject_ref_ids' => ['subject_1'],
-                    'image_prompt' => '80-180字中文画面生图指令，必须包含可见主体、动作表情、绑定场景、构图景别、光线氛围、风格质感；禁止包含“本镜头、推动剧情、情绪升级、视觉任务、下一拍、分镜、镜头编号、参考已提供”等策划话术；只描述当前画面可见内容，不写英文',
-                    'image_negative_prompt' => '中文分镜图负向词。有主体时不要禁止人物、脸、身体、肖像；空镜 subject_ref_ids 为空时必须禁止人物、角色、脸、身体、肖像、文字、水印',
-                    'video_prompt' => '前端可见的栏目化单分镜导演提示词，必须按固定6行输出：分镜{shot_id}｜{本镜开始时间}-{本镜结束时间}\n景别：{shot_type}\n构图：{composition}\n运镜手法：{camera_movement}\n画面内容：{visual_description + action + result}\n声音：{dialogue / voice_role / sound_effect / silence_rule}。时间范围必须与recommended_duration_seconds一致；禁止写 <location>、<role>、<duration-ms> 等后端执行标签；禁止包含“情绪升级、推动剧情、视觉任务、本镜头、下一拍、做出反应、生成视频片段”等策划话术；不写英文',
-                    'video_negative_prompt' => '中文分镜视频负向词。有主体时禁止闪烁、脸部漂移、服装变化、场景漂移、多余角色、文字、水印，但绝不能写不要人物、不要角色、不要脸、不要身体、不要肖像；空镜 subject_ref_ids 为空时可以禁止人物、角色、脸、身体、肖像',
-                    'bgm_prompt' => '中文分镜背景音乐提示，承接全局音乐方案',
-                    'sound_effect' => '中文音效提示',
-                ],
-            ],
-        ];
-
-        return "Create a short-drama planning document that can enter the image/video generation workflow.\n"
-            . "Requirements:\n"
-            . "1. You are not a generic continuation assistant. Work as a film script generation and cinematic breakdown agent.\n"
-            . "2. Preserve the user's original inspiration. Keep all key characters, events, scenes, props, emotions, conflicts, reversals, ending, style requirements, and special imagery. Do not replace it with another story.\n"
-            . "3. Precisely infer user intent: type_judgement, emotional tone, central conflict, character relationships, key imagery, hidden theme, and ending meaning. Put the concise result into type_judgement, core_theme, opening_feedback, and story_outline.\n"
-            . "4. story_outline and script_lines are the screenplay content area. They must be a complete beginning-to-ending plot summary based on the decomposed story, not shot text and not prompt text. Write the opening, development, conflict, turning point, climax, and ending clearly. Use cinematic narrative language, but do not put camera terms in script_lines. script_lines must contain only story prose and must not include act titles, scene headers, storyboard titles, type_judgement labels, core_theme labels, subject/role lists, or any field-name style labels such as ''幕：', '类型判断', '核心主题', '出场角色'.\n"
-            . "5. Expand cinematically only where needed. Short input needs story logic, emotional progression, visual details, and rhythm. Complete input should keep its original structure and only improve film execution.\n"
-            . "6. Translate style names into executable visual language: base_style, visual_description, color_tone, lighting_design, camera_texture, atmosphere_keywords, subject visual locks, scene visual locks, image_prompt, and video_prompt.\n"
-            . "6A. Subject category is mandatory and must describe the subject itself, not accessories it carries or wears. Use character only for visible human characters, animal for animals/non-human creatures, prop for books, scarves, letters, keys, photos, objects, tools, vehicles, and physical symbols, and symbol for abstract/signature imagery. If a human character holds a book, wears a scarf, carries a key, or has clothing/props in the visual_prompt, the category must still be character. If a subject is prop/object, never describe face, outfit, body shape, hairstyle, expression, or person identity; describe only material, color, shape, wear, scale, pattern, and fixed details, and add negative constraints against people, hands, faces, bodies, models, and wearing effects.\n"
-            . "6B. Prompt fields must be separated by usage and must not all repeat the same text. subjects.main_image_prompt is for one confirmed subject reference image; subjects.three_view_prompt is for character three-view or object multi-angle design; locations.scene_image_prompt is for a reusable empty environment reference; storyboard.image_prompt is for a single still keyframe; storyboard.video_prompt is for 4-15 second motion from the first frame. Negative prompts must also be separated: character subject prompts and storyboard shots with visible subject_ref_ids must never include constraints like 不要人物、不要角色、不要脸、不要身体、不要肖' empty shots or scenes may include those constraints.\n"
-            . "6C. subject_references are explicitly @-selected locked library entities, not loose writing hints. Every reference must appear exactly once in subjects with its identical name and library_subject_id. Treat its name as a proper noun even when it looks like a generic Chinese description (for example 美女、帅哥、老人); never rename, translate, paraphrase, or replace it. Preserve the referenced category, gender, age_stage and supplied image/three-view. Never change a referenced male into female or a referenced female into male, and never create a duplicate character for the same selected library reference.\n"
-            . "7. Extract stable subjects before storyboard. Include main characters, important supporting characters, character variants, monsters, animals, non-human roles, key props, symbolic marks, and special imagery when present. Every recurring character, prop, and place must keep one stable id.\n"
-            . "8. Extract stable locations before storyboard and sort them by story_order, which must match the plot chronology. Each location description must include story function, main visual elements, and emotional atmosphere. Do not list scenes by visual preference; list them by when the story happens.\n"
-            . "9. Treat ordered locations as the structure of the storyboard. First split acts by main space, location, or story phase, such as bedroom, street, rainy rooftop, dream forest, lab, memory fragment, or another concrete space. For each location, generate the shots that happen inside that scene before moving to the next scene. Each location can have only one act group, and every storyboard item bound to the same scene_ref_id must reuse the exact same act title in the format '第N幕：场景'时间 室内/室外'. Never create duplicate act titles for the same scene, such as one with time/location suffix and one without. The act order, locations.story_order, storyboard.scene_order, and storyboard.scene_ref_id must stay aligned.\n"
-            . "10. Storyboard must cover the complete process: opening, development, conflict, turn, climax, and ending. If user_prompt contains a reversal, preserve and strengthen it in both script_lines and storyboard.\n"
-            . "11. Split storyboard by AI video shot granularity, not by literary paragraph. Each shot must have exactly one clear visual task: establish space, show a character, show a key prop, show a reaction, push one action, create suspense, intensify emotion, reveal information, complete a transition, or present a reversal.\n"
-            . "12. Do not pack complex actions into one shot. If one plot sentence contains multiple actions, split them into consecutive shots. For example, 'she opens the door, sees the monster, turns and runs' must become separate shots: hand touches doorknob, door slowly opens, monster appears behind door, protagonist terrified close-up, protagonist turns and runs.\n"
-            . "13. Important emotions and reversals must be decomposed into multiple short shots. Climax, truth reveal, key prop appearance, breakdown, relationship change, and reversal nodes must not be summarized in one shot.\n"
-            . "14. recommended_duration_seconds must be between " . $durationRule['min_seconds'] . " and " . $durationRule['max_seconds'] . " seconds. Choose the duration to fit visible action, dialogue and emotion; do not force every shot to the default duration.\n"
-            . "15. Determine shot count from complete plot, dialogue, action and emotional beats. Preserve user timing and timecodes. Never apply genre ranges, pad shots or drop key events.\n"
-            . "16. Each shot expresses one visible action or one visual information task and binds exactly one scene_ref_id from locations. subject_ref_ids must include only subjects visible in the current image frame; never include characters, props, animals, symbols, or locations that do not appear on screen. image_prompt must not mention any off-screen character, prop, object, or location, and each image_prompt may describe only one core visible action.\n"
-            . "16A. Storyboard quality gate: every location in locations must appear in storyboard at least once, and normally at least 2-4 shots per location. If effective_target_duration_seconds is set, distribute shots across all ordered locations until the total duration is close to that target. Never stop after only the first one or two locations when later locations exist.\n"
-            . "16B. If timeline_segments is not empty and selected_duration_hint is empty, the user has provided a finished timecoded script. Storyboard must strictly follow timeline_segments: use one storyboard item per time segment by default; split a segment only when it is longer than " . $durationRule['max_seconds'] . " seconds; segments shorter than " . $durationRule['min_seconds'] . " seconds must be adjusted by the user before generation; the sum of recommended_duration_seconds must equal timeline_total_seconds exactly; do not expand a 30-second timecoded script into a longer film.\n"
-            . "17. Each storyboard item must include Simplified Chinese visual_description, composition, camera_movement, voice_role, dialogue, shot_type, frame_type, image_prompt, image_negative_prompt, video_prompt, video_negative_prompt, and recommended_duration_seconds. visual_description must describe only visible people, objects, actions, spatial relations, light, and atmosphere in the frame; it must not be a planning note or abstract function sentence, and must never use phrases such as “主要角色出现、人物状态、情绪开始推进、角色完成一个单一动作、推动剧情、画面任务、镜头结果明确' shot_type must be the user-facing visual type, such as 普通画面、空镜、人物特写、道具特写、动作镜头、转场镜头、情绪镜' frame_type is only the machine value normal or lip_sync. composition must state shot size, angle, and framing method in Chinese, such as 远景、近景特写、极近特写、俯拍、仰拍、对称构图、三分法构图或过肩视' camera_movement must state movement in Chinese, such as 固定镜头、缓慢推镜头、拉镜头、横摇、跟拍、手持晃动、甩镜头、环绕或俯冲. image_prompt must be an 80-180 Chinese-character image generation instruction, not a planning note. It must include visible subject, action/expression, bound scene, composition/shot size, lighting/mood, and style/texture; describe only current visible frame content; do not include English prompt words; do not use planning phrases such as “本镜头、推动剧情、情绪升级、视觉任务、下一拍、分镜、镜头编号、参考已提供' image_negative_prompt must match whether the shot has visible subjects: if subject_ref_ids is empty or shot_type is 空镜, prohibit people; otherwise do not prohibit people, face, body, or portrait. video_prompt is a user-visible single-shot director note and must be exactly 6 labeled lines: 分镜{shot_id}：{start_time}-{end_time}, 景别：{shot_type}, 构图：{composition}, 运镜手法：{camera_movement}, 画面内容：{visible subject/action/result only}, 声音：{dialogue/voice_role/sound_effect/silence}. It must describe only the current single shot, mention only visible subject_ref_ids, and never include backend execution tags such as <location>, <role>, or <duration-ms>, because those tags are generated only by backend from real bound assets. Empty shots must have no character action in 画面内容 and 声音 must clearly say no one speaks. Do not use planning phrases such as “情绪升级、推动剧情、视觉任务、本镜头、下一拍、做出反应、生成视频片段' video_negative_prompt must not include 不要人物、不要角色、不要脸、不要身体、不要肖'when subject_ref_ids is not empty and shot_type is not 空镜.\n"
-            . "18. frame_type can only be normal or lip_sync. interior_exterior can only be interior or exterior.\n"
-            . "19. User-facing fields must be Simplified Chinese: title, type_judgement, core_theme, opening_feedback, planning_steps, story_outline, script_lines, music_plan, art_style, subjects.name, subjects.description, subjects.visual_prompt, subjects.main_image_prompt, subjects.three_view_prompt, subjects.main_negative_prompt, subjects.three_view_negative_prompt, locations.name, locations.description, locations.visual_prompt, locations.scene_image_prompt, locations.scene_negative_prompt, storyboard.act, storyboard.scene_name, storyboard.time_of_day, storyboard.visual_description, storyboard.composition, storyboard.camera_movement, storyboard.shot_type, storyboard.action, storyboard.result, storyboard.atmosphere, storyboard.image_prompt, storyboard.image_negative_prompt, storyboard.video_prompt, storyboard.video_negative_prompt, voice_role, dialogue, bgm_prompt, sound_effect. Do not return English generation prompts to the frontend. storyboard.act is the only place for act/scene group titles; never duplicate storyboard.act content into script_lines.\n"
-            . "20. Script planning does not receive or decide aspect ratio. Do not write ratio, portrait/landscape, vertical screen, horizontal screen, or canvas size into art_style.visual_description or any user-facing planning field.\n"
-            . "21. If selected_style_name or selected_style_prompt is not empty, art_style, subject visual locks, location visual locks, image_prompt, and video_prompt must follow the selected style. Conflicting style words in user_prompt may affect plot mood only, not the visual style authority.\n"
-            . "22. If no style is selected, derive the visual style from user_text_style_hint and user_text_time_period_hint; if they are empty, use a neutral short-drama visual style.\n"
-            . "23. If selected_duration_hint or user_text_duration_hint is not empty, treat it as an approximate pacing target, not an exact stopwatch value: storyboard total should usually land within about 90%-110% of the target unless story logic clearly needs a slight deviation. Choose shot count from plot density and scene coverage; do not hard-code a fixed number of storyboard items just to hit the target. Otherwise use the default short-drama pacing.\n"
-            . "24. music_plan.global_bgm_prompt is required. It must be a complete Chinese prompt for generating one full-film instrumental BGM track. It must include style, mood curve, tempo, instruments, atmosphere, duration target, and negative constraints. No lyrics or human voice unless the user explicitly asks.\n"
-            . "25. Every storyboard item must include non-empty Chinese bgm_prompt and sound_effect. bgm_prompt should describe this shot's musical emotion while staying consistent with music_plan.global_bgm_prompt.\n"
-            . "26. Revision mode: if revision_message is not empty, revision_base_result is the authoritative complete script version. Read revision_policy before editing. When revision_policy.mode is local_only, apply the smallest possible change needed for revision_message; copy every unmentioned value, order, identifier, episode, subject, location, music setting and storyboard item unchanged. Do not rewrite, expand, summarize, rename or reorder other content. When revision_policy.mode is full_replan, the user explicitly requested a whole-plan change (for example a new episode count): regenerate every affected story outline, episode summary and storyboard item so the result is internally consistent, while retaining requirements not contradicted by the user. Return a complete new JSON object, not a diff, partial patch or explanation. If revision_target is provided, modify only that target and storyboard items directly tied to it; all other fields must remain unchanged.\n"
-            . "27. Before returning, silently self-check: original key elements preserved, script content is a complete beginning-to-ending plot, locations are chronologically ordered, storyboard is grouped under ordered scenes with no duplicate act title for the same scene_ref_id, each location has enough concrete shots, each shot has one visible visual task, no complex action is packed into one shot, no abstract placeholder visual_description, important emotion/reversal is split into multiple shots, no fixed 8-shot default is used, subjects extracted, selected/user style respected, and AI video production executable.\n"
-            . "28. Return one JSON object only. Do not return Markdown, code fences, explanations, or analysis process.\n"
-            . "Context: " . self::jsonEncode($context) . "\n"
-            . "JSON schema: " . self::jsonEncode($schema);
     }
 
     private static function scriptPlanSystemPrompt(): string
@@ -22827,138 +22086,6 @@ class AigcShortDramaService
         // newly submitted generation task.
         return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
 
-        $storyboard = array_values(array_filter((array)($result['storyboard'] ?? []), 'is_array'));
-        if (empty($storyboard)) {
-            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
-        }
-        // Timecode is an explicit editorial contract. Its generated shots may
-        // intentionally look alike when one segment is split into several
-        // clips, so automatic cleanup must not alter count or duration.
-        if (self::isTimelineLockedStoryboardResult($result)) {
-            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
-        }
-
-        $locations = array_values(array_filter((array)($result['locations'] ?? $result['scenes'] ?? []), 'is_array'));
-        $locationById = [];
-        $locationByName = [];
-        foreach ($locations as $index => $location) {
-            $id = (string)($location['id'] ?? ('location_' . ($index + 1)));
-            $locationById[$id] = $location;
-            $name = trim((string)($location['name'] ?? ''));
-            if ($name !== '') {
-                $locationByName[$name] = $id;
-            }
-        }
-
-        $rowsByShot = [];
-        if ($tenantId > 0 && $userId > 0 && $projectId > 0 && $taskId !== '') {
-            $rows = AigcShortDramaStoryboard::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'task_id' => $taskId,
-                'delete_time' => 0,
-            ])->select()->toArray();
-            foreach ($rows as $row) {
-                $shotId = (string)($row['shot_id'] ?? '');
-                if ($shotId !== '') {
-                    $rowsByShot[$shotId] = $row;
-                }
-            }
-        }
-
-        $changed = false;
-        $removedShotIds = [];
-        $cleaned = [];
-        $seenByScene = [];
-        foreach ($storyboard as $index => $shot) {
-            $shotId = (string)($shot['shot_id'] ?? $shot['id'] ?? '');
-            $isManualShot = self::isManualStoryboardShotId($shotId);
-            if (!$isManualShot && !self::isAutoRepairedStoryboardShot($shot) && self::isHighConfidenceGenericStoryboardVisual((string)($shot['visual_description'] ?? ''))) {
-                if ($shotId !== '') {
-                    $removedShotIds[] = $shotId;
-                }
-                $changed = true;
-                continue;
-            }
-
-            $originalShot = $shot;
-            $sceneRef = trim((string)($shot['scene_ref_id'] ?? ''));
-            $sceneName = trim((string)($shot['scene_name'] ?? ''));
-            if (($sceneRef === '' || !isset($locationById[$sceneRef])) && $sceneName !== '') {
-                $sceneRef = (string)($locationByName[$sceneName] ?? '');
-            }
-            if (($sceneRef === '' || !isset($locationById[$sceneRef])) && !empty($locations)) {
-                $sceneOrder = max(1, (int)($shot['scene_order'] ?? 1));
-                $location = $locations[min(count($locations) - 1, $sceneOrder - 1)] ?? $locations[0];
-                $sceneRef = (string)($location['id'] ?? '');
-            }
-            $location = $sceneRef !== '' && isset($locationById[$sceneRef]) ? $locationById[$sceneRef] : [];
-            if (!empty($location)) {
-                $shot['scene_ref_id'] = $sceneRef;
-                $shot['scene_name'] = (string)($location['name'] ?? $sceneName);
-                $shot['scene_order'] = max(1, (int)($location['story_order'] ?? $shot['scene_order'] ?? ($index + 1)));
-                if (trim((string)($shot['time_of_day'] ?? '')) === '' && trim((string)($location['time_light'] ?? '')) !== '') {
-                    $shot['time_of_day'] = (string)$location['time_light'];
-                }
-                if (!in_array(($shot['interior_exterior'] ?? ''), ['interior', 'exterior'], true)) {
-                    $shot['interior_exterior'] = self::inferInteriorExterior((string)($location['name'] ?? '') . ' ' . (string)($location['description'] ?? ''));
-                }
-                $episodeNumber = self::storyboardEpisodeNumber($shot);
-                $shot['act'] = self::storyboardActTitle($location, $shot);
-                if ($episodeNumber > 0) {
-                    $shot['episode_number'] = $episodeNumber;
-                    $shot['act'] = self::storyboardEpisodeActTitle($shot['act'], $episodeNumber);
-                }
-            }
-
-            if ($shot !== $originalShot) {
-                $changed = true;
-            }
-
-            $episodeNumber = self::storyboardEpisodeNumber($shot);
-            $sceneKey = ($episodeNumber > 0 ? 'episode_' . $episodeNumber . '|' : '')
-                . (string)($shot['scene_ref_id'] ?? $shot['scene_name'] ?? 'scene_' . $index);
-            $dedupeKey = self::storyboardDedupeKey($shot);
-            $canDedupeShot = $dedupeKey !== '' && !$isManualShot;
-            if ($canDedupeShot && isset($seenByScene[$sceneKey][$dedupeKey])) {
-                $existingIndex = (int)$seenByScene[$sceneKey][$dedupeKey];
-                $existingShotId = (string)($cleaned[$existingIndex]['shot_id'] ?? '');
-                if (self::storyboardStoredAssetScore($shotId, $rowsByShot) > self::storyboardStoredAssetScore($existingShotId, $rowsByShot)) {
-                    if ($existingShotId !== '') {
-                        $removedShotIds[] = $existingShotId;
-                    }
-                    $cleaned[$existingIndex] = $shot;
-                } elseif ($shotId !== '') {
-                    $removedShotIds[] = $shotId;
-                }
-                $changed = true;
-                continue;
-            }
-            if ($canDedupeShot) {
-                $seenByScene[$sceneKey][$dedupeKey] = count($cleaned);
-            }
-            $cleaned[] = $shot;
-        }
-
-        if (!$changed) {
-            return ['result' => $result, 'changed' => false, 'removed_shot_ids' => []];
-        }
-
-        $result['storyboard'] = array_values($cleaned);
-        $result['duration_stats'] = self::durationStats($result['storyboard'], count($locations));
-        $result['music_plan'] = self::normalizeMusicPlan(
-            (array)($result['music_plan'] ?? []),
-            $result['storyboard'],
-            (array)$result['duration_stats'],
-            (array)($result['art_style'] ?? []),
-            (string)($result['story_outline'] ?? '')
-        );
-        return [
-            'result' => $result,
-            'changed' => true,
-            'removed_shot_ids' => array_values(array_unique(array_filter($removedShotIds))),
-        ];
     }
 
     private static function storyboardStoredAssetScore(string $shotId, array $rowsByShot): int
@@ -25909,36 +25036,6 @@ class AigcShortDramaService
             return (int)$match[1];
         }
         return 0;
-        $hint = strtr($hint, [
-            '０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4',
-            '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9',
-        ]);
-        if (preg_match('/([0-9]+)\s*(?:分钟|分)\s*([0-9]+)?\s*(?:秒|s|S)?/u', $hint, $match)) {
-            return ((int)$match[1] * 60) + (int)($match[2] ?? 0);
-        }
-        if (preg_match('/([0-9]+)\s*(?:秒|s|S)/u', $hint, $match)) {
-            return (int)$match[1];
-        }
-        if ($hint === '') {
-            return 0;
-        }
-        $hint = strtr($hint, [
-            '０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4',
-            '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9',
-        ]);
-        if (preg_match('/([0-9]+)\s*(?:分|分钟)\s*([0-9]+)?\s*(?:秒|s|S)?/u', $hint, $match)) {
-            return ((int)$match[1] * 60) + (int)($match[2] ?? 0);
-        }
-        if (preg_match('/([0-9]+)\s*(?:秒|s|S)/u', $hint, $match)) {
-            return (int)$match[1];
-        }
-        if (preg_match('/([一二三四五六七八九十百两]+)\s*分钟/u', $hint, $match)) {
-            return self::chineseNumberToInt((string)$match[1]) * 60;
-        }
-        if (preg_match('/([一二三四五六七八九十百两]+)\s*秒/u', $hint, $match)) {
-            return self::chineseNumberToInt((string)$match[1]);
-        }
-        return 0;
     }
 
     private static function chineseNumberToInt(string $text): int
@@ -25991,25 +25088,6 @@ class AigcShortDramaService
             return mb_substr(trim((string)$match[0]), 0, 80, 'UTF-8');
         }
         return '';
-        if (preg_match('/([0-9０-９]+)\s*(?:分钟|分)(?!镜|段|集)/u', $prompt, $match)) {
-            return mb_substr(trim((string)$match[0]), 0, 80, 'UTF-8');
-        }
-        $patterns = [
-            '/(?:时长|总时长|片长|视频时长|每集时长)\s*(?:约|大约|大概|控制在|控制|为|是|：|:)?\s*([0-9０-９]+)\s*(?:分|分钟)\s*([0-9０-９]+)?\s*(?:秒|s|S)?/u',
-            '/(?:时长|总时长|片长|视频时长|每集时长)\s*(?:约|大约|大概|控制在|控制|为|是|：|:)?\s*([0-9０-９]+)\s*(?:秒|s|S)/u',
-            '/([0-9０-９]+)\s*(?:分|分钟)\s*([0-9０-９]+)\s*(?:秒|s|S)/u',
-            '/(?:约|大约|大概|控制)\s*([0-9０-９]+)\s*(?:分|分钟)\s*(?:左右|以内|上下)?/u',
-            '/([0-9０-９]+)\s*(?:秒|s|S)/u',
-        ];
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $prompt, $match)) {
-                return mb_substr(trim((string)$match[0]), 0, 80, 'UTF-8');
-            }
-        }
-        if (preg_match('/([一二三四五六七八九十百两]+)\s*(?:分钟|秒)/u', $prompt, $match)) {
-            return mb_substr(trim((string)$match[0]), 0, 80, 'UTF-8');
-        }
-        return '';
     }
 
     private static function extractUserTextTimePeriodHint(string $prompt): string
@@ -26056,11 +25134,6 @@ class AigcShortDramaService
             'name' => (string)$row['name'],
             'prompt' => trim((string)($row['description'] ?? '')),
         ];
-    }
-
-    private static function styleName(string $styleId): string
-    {
-        return (string)(self::styleDetail($styleId)['name'] ?? '');
     }
 
     private static function fallbackCoverUrl(): string
