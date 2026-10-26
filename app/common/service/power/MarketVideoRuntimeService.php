@@ -2734,13 +2734,13 @@ class MarketVideoRuntimeService
             return;
         }
         $ratio = trim((string)$value);
-        if (preg_match('/^\d+\s*:\s*\d+$/', $ratio) || strtolower($ratio) === 'adaptive') {
+        if (preg_match('/^\d+\s*:\s*\d+$/', $ratio) || in_array(strtolower($ratio), ['adaptive', 'auto'], true)) {
             $values[] = str_replace(' ', '', $ratio);
             return;
         }
-        if (preg_match_all('/\d+\s*:\s*\d+|adaptive/i', $ratio, $matches)) {
+        if (preg_match_all('/\d+\s*:\s*\d+|\badaptive\b|\bauto\b/i', $ratio, $matches)) {
             foreach ($matches[0] as $match) {
-                $values[] = strtolower($match) === 'adaptive' ? 'adaptive' : str_replace(' ', '', $match);
+                $values[] = in_array(strtolower($match), ['adaptive', 'auto'], true) ? strtolower($match) : str_replace(' ', '', $match);
             }
         }
     }
