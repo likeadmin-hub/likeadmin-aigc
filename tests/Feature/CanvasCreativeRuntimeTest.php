@@ -20,15 +20,16 @@ class CanvasCreativeRuntimeTest extends TestCase
     protected function setUp(): void { require __DIR__.'/../fixtures/canvas_creative_runtime.php'; }
     private function request(bool $image=false): array { return ['messages'=>[['role'=>'user','content'=>'Describe']], 'settings'=>['reasoning_model'=>['id'=>'text']], 'context'=>['_input_contract_version'=>1,'test_images'=>$image?['https://example.test/owned.png']:[]],'max_tokens'=>1024]; }
     private function models(): void { Runtime::$models=[['id'=>'text','context_window'=>100000,'max_tokens'=>8192],['id'=>'vision1','supports_vision'=>true,'context_window'=>100000,'max_tokens'=>8192],['id'=>'vision2','supports_vision'=>true,'context_window'=>100000,'max_tokens'=>8192]]; }
-    public function testImageRoutesOnlyToVisionModelsAndRejectFallsThrough(): void {
-        $this->models();Runtime::$errors['vision1']=new Rejection('unavailable',true);
-        $p=new Provider();$p->preflight(701,23,$this->request(true));$r=$p->generate(701,23,$this->request(true));
-        self::assertSame('vision description',$r['content']);self::assertSame(['vision1','vision2'],array_column(array_column(Runtime::$calls,'model_selection'),'id'));
+    public function testConfiguredVisionModelIsUsedWithoutFallback(): void {
+        $this->models();$request=$this->request(true);$request['settings']['reasoning_model']['id']='vision1';
+        $p=new Provider();$p->preflight(701,23,$request);$r=$p->generate(701,23,$request);
+        self::assertSame('vision description',$r['content']);
+        self::assertSame(['vision1'],array_column(array_column(Runtime::$calls,'model_selection'),'id'));
         self::assertSame('image_url',Runtime::$calls[0]['messages'][0]['content'][1]['type']);
         self::assertTrue(Runtime::$calls[0]['_disable_model_fallback']);
     }
-    public function testNoVisionModelFailsBeforeAnyPaidCall(): void {
-        $this->models();Runtime::$models=[Runtime::$models[0]];
+    public function testTextOnlyConfiguredModelDoesNotRouteImagesToAnotherModel(): void {
+        $this->models();
         try {(new Provider())->preflight(701,23,$this->request(true));self::fail('accepted');}
         catch(\RuntimeException $e) {self::assertSame('VISION_MODEL_UNAVAILABLE',$e->getMessage());self::assertSame([],Runtime::$calls);}
     }
@@ -37,10 +38,10 @@ class CanvasCreativeRuntimeTest extends TestCase
         try {(new Provider())->generate(701,23,$this->request());self::fail('accepted');}
         catch(Rejection $e) {self::assertCount(1,Runtime::$calls);}
     }
-    public function testAllRejectedCandidatesAreTriedExactlyOnce(): void {
+    public function testRejectedConfiguredModelNeverFallsBack(): void {
         $this->models();foreach(Runtime::$models as $m) Runtime::$errors[$m['id']]=new Rejection('unavailable',true);
         try {(new Provider())->generate(701,23,$this->request());self::fail('accepted');}
-        catch(Rejection $e) {self::assertSame(['text','vision1','vision2'],array_column(array_column(Runtime::$calls,'model_selection'),'id'));}
+        catch(Rejection $e) {self::assertSame(['text'],array_column(array_column(Runtime::$calls,'model_selection'),'id'));}
     }
     public function testEvaluationCannotFallBackOutsideExplicitlyAllowedModel(): void {
         $this->models();Runtime::$errors['text']=new Rejection('unavailable',true);

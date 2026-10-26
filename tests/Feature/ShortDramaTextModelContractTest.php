@@ -48,21 +48,7 @@ class ShortDramaTextModelContractTest extends TestCase
         self::assertSame('901', $matched['id']);
     }
 
-    public function testUnavailableExplicitScriptModelUsesAvailableConfiguredDefault(): void
-    {
-        $selected = $this->invoke('resolveSelectedModels', 0, [
-            'model_selections' => ['script_plan' => ['id' => 'missing-model']],
-        ], [
-            'model_groups' => [[
-                'key' => 'script_plan',
-                'default' => '902',
-                'options' => [['id' => '901', 'model_code' => 'glm-5.2'], ['id' => '902', 'model_code' => 'default-model']],
-            ]],
-        ]);
-        self::assertSame('902', $selected['script_plan']['id']);
-    }
-
-    public function testConfiguredDefaultKeepsEveryTextModelSelectable(): void
+    public function testAdminCatalogKeepsEveryTextModelSelectable(): void
     {
         $groups = $this->invoke('applyDefaultTextModel', [[
             'key' => 'script_plan',
@@ -76,40 +62,6 @@ class ShortDramaTextModelContractTest extends TestCase
         self::assertSame('902', $groups[0]['default']);
         self::assertCount(2, $groups[0]['options']);
         self::assertFalse($groups[0]['options'][0]['supports_vision']);
-    }
-
-    public function testScriptResolutionUsesConfiguredDefaultWhenUserHasNotSelectedOne(): void
-    {
-        $selected = $this->invoke('resolveSelectedModels', 0, [], [
-            'model_groups' => [[
-                'key' => 'script_plan',
-                'default' => '902',
-                'options' => [
-                    ['id' => '901', 'model_code' => 'glm-5.2'],
-                    ['id' => '902', 'model_code' => 'gpt-5.2'],
-                ],
-            ]],
-        ]);
-
-        self::assertSame('902', $selected['script_plan']['id']);
-    }
-
-    public function testExplicitUserTextModelStillOverridesConfiguredDefault(): void
-    {
-        $selected = $this->invoke('resolveSelectedModels', 0, [
-            'model_selections' => ['script_plan' => ['id' => '901']],
-        ], [
-            'model_groups' => [[
-                'key' => 'script_plan',
-                'default' => '902',
-                'options' => [
-                    ['id' => '901', 'model_code' => 'glm-5.2'],
-                    ['id' => '902', 'model_code' => 'gpt-5.2'],
-                ],
-            ]],
-        ]);
-
-        self::assertSame('901', $selected['script_plan']['id']);
     }
 
     public function testAdminSelectorUsesAllTextModelsForTheDefault(): void
@@ -127,7 +79,7 @@ class ShortDramaTextModelContractTest extends TestCase
     public function testUnsupportedModelParameterHasAnActionableSafeMessage(): void
     {
         self::assertSame(
-            '文本模型不支持当前请求参数，请切换模型或联系管理员同步模型能力',
+            '文本模型不支持当前请求参数，请联系管理员同步模型能力',
             $this->invoke('scriptPlanProviderError', 'invalid_request_error: Unsupported parameter: input_pricing_sku_key')
         );
     }
