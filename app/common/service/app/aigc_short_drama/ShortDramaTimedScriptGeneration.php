@@ -321,7 +321,8 @@ final class ShortDramaTimedScriptGeneration
      * Keep each scene's proposed total; explicit timelines remain authoritative. */
     public static function normalizeSkeletonBudgets(array $plan, array $request): array
     {
-        if (ShortDramaInputContract::providerTiming($request) || !empty($plan['storyboard']) || !empty(ShortDramaEpisodeDuration::policy($request)['timeline_segments'])) return $plan;
+        if (ShortDramaInputContract::providerTiming($request)) return self::normalizeDefaultSceneTotals($plan, $request);
+        if (!empty($plan['storyboard']) || !empty(ShortDramaEpisodeDuration::policy($request)['timeline_segments'])) return $plan;
         $rule = ShortDramaShotDuration::rule($request);
         $min = (float)$rule['min_seconds']; $max = (float)$rule['max_seconds'];
         foreach ((array)($plan['scene_beats'] ?? []) as $index => $beat) {
@@ -354,6 +355,35 @@ final class ShortDramaTimedScriptGeneration
             }
             $plan['scene_beats'][$index]['shot_durations'] = $durations;
             $plan['scene_beats'][$index]['duration_seconds'] = $total;
+        }
+        return $plan;
+    }
+
+    /** Correct derived sums only. Shot timing and user-locked totals remain authoritative. */
+    private static function normalizeDefaultSceneTotals(array $plan, array $request): array
+    {
+        $policy = ShortDramaEpisodeDuration::policy($request);
+        if (($policy['source'] ?? '') !== 'default' || !empty($policy['timeline_segments'])
+            || !empty($plan['storyboard']) || !is_array($plan['scene_beats'] ?? null)) return $plan;
+        $rule = ShortDramaShotDuration::rule($request);
+        $totals = [];
+        foreach ($plan['scene_beats'] as $index => $beat) {
+            $durations = $beat['shot_durations'] ?? null;
+            if (!is_array($durations) || !$durations || count($durations) > 40) return $plan;
+            foreach ($durations as $duration) {
+                if (!is_numeric($duration) || !is_finite((float)$duration)
+                    || !ShortDramaShotDuration::contains($duration, $rule)) return $plan;
+            }
+            $totals[$index] = array_sum($durations);
+        }
+        // Do not conceal an over-budget plan by changing just its displayed total.
+        if (!$totals || !is_numeric($policy['max_seconds'] ?? null)
+            || array_sum($totals) > (float)$policy['max_seconds'] + 0.001) return $plan;
+        foreach ($totals as $index => $total) {
+            if (!is_numeric($plan['scene_beats'][$index]['duration_seconds'] ?? null)
+                || abs((float)$plan['scene_beats'][$index]['duration_seconds'] - $total) > 0.001) {
+                $plan['scene_beats'][$index]['duration_seconds'] = $total;
+            }
         }
         return $plan;
     }
