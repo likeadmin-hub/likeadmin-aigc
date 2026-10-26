@@ -7529,6 +7529,26 @@ class AigcShortDramaService
         ])->findOrEmpty();
     }
 
+    private static function inheritVisualDependencies(int $tenantId, int $userId, int $projectId, array $snapshot, array $assetIds): array
+    {
+        $ids = self::normalizeIdList($assetIds);
+        if (!$ids) return $snapshot;
+        $assets = AigcShortDramaAsset::where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0,
+        ])->whereIn('id', $ids)->whereIn('asset_type', ['shot_image', 'shot_video'])->field('task_id')->select()->toArray();
+        $taskIds = array_values(array_unique(array_column($assets, 'task_id')));
+        if (!$taskIds) return $snapshot;
+        $tasks = AigcShortDramaGenerationTask::where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0,
+        ])->whereIn('task_id', $taskIds)->field('task_id,request_json')->select()->toArray();
+        $byId = array_column($tasks, null, 'task_id');
+        foreach ($taskIds as $id) {
+            $request = self::jsonDecode((string)($byId[$id]['request_json'] ?? ''));
+            $snapshot = ShortDramaVisualDependencies::inherit($snapshot, $request['visual_dependencies'] ?? null);
+        }
+        return $snapshot;
+    }
+
     private static function runImageGenerationTask(int $tenantId, int $userId, array $generation, array $shot, array $params, array $billing): void
     {
         $params['_prompt_snapshot'] = ShortDramaPromptWorkspace::forTask($tenantId, $params);
@@ -7655,6 +7675,11 @@ class AigcShortDramaService
                     'shot' => self::formatShot($shot),
                     'params' => $params,
                     'image_params' => $imageParams,
+                    'visual_dependencies' => $taskType === 'shot_image' ? self::inheritVisualDependencies(
+                        $tenantId, $userId, $projectId,
+                        ShortDramaVisualDependencies::capture($plan, $shot, $params, (array)($imageParams['reference_assets'] ?? [])),
+                        (array)($imageParams['input_asset_ids'] ?? [])
+                    ) : null,
                     '_prompt_audit' => self::promptRequestAudit($imageParams),
                 ]),
                 'input_asset_ids' => self::jsonEncode((array)($imageParams['input_asset_ids'] ?? [])),
@@ -8614,6 +8639,8 @@ class AigcShortDramaService
                 (string)($generation['source_task_id'] ?? $taskId)
             );
             $videoParams = self::marketShortDramaVideoParams($tenantId, $userId, (int)$generation['project_id'], $shot, $params);
+            $visualDependencies = (array)($videoParams['_visual_dependencies'] ?? []);
+            unset($videoParams['_visual_dependencies']);
             AigcShortDramaGenerationTask::where([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -8623,6 +8650,7 @@ class AigcShortDramaService
                     'shot' => self::formatShot($shot),
                     'params' => $params,
                     'video_params' => $videoParams,
+                    'visual_dependencies' => $visualDependencies,
                     '_prompt_audit' => self::promptRequestAudit($videoParams),
                 ]),
                 'input_asset_ids' => self::jsonEncode((array)($videoParams['input_asset_ids'] ?? [])),
@@ -16527,7 +16555,11 @@ class AigcShortDramaService
         $projectRatio = (string)AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId, 'delete_time' => 0])->value('ratio');
         $ratio = self::normalizeGenerationRatio($projectRatio) ?: self::requestGenerationRatio($params) ?: '9:16';
         $references = self::shortDramaVideoReferenceContract($tenantId, $userId, $projectId, $shot, $params);
-        return self::assembleVideoPromptRequest($tenantId, $shot, $params, $plan, $ratio, $references, $generateAudio);
+        $request = self::assembleVideoPromptRequest($tenantId, $shot, $params, $plan, $ratio, $references, $generateAudio);
+        $request['_visual_dependencies'] = self::inheritVisualDependencies($tenantId, $userId, $projectId,
+            ShortDramaVisualDependencies::capture($plan, $shot, $params, (array)($references['reference_assets'] ?? [])),
+            (array)($references['input_asset_ids'] ?? []));
+        return $request;
     }
 
     private static function assembleVideoPromptRequest(int $tenantId, array $shot, array $params, array $plan, string $ratio, array $references, bool $generateAudio): array
@@ -23237,6 +23269,7 @@ class AigcShortDramaService
                 'saved_at' => (int)($request['_story_draft']['saved_at'] ?? 0)];
         }
         $response = [
+            'visual_dependency_catalog' => $result !== null ? ShortDramaVisualDependencies::catalog($result) : null,
             'story_workspace' => $storyWorkspace,
             'skill' => self::jsonDecode((string)($task['skill_snapshot_json'] ?? '')) ?: null,
             'skill_steps' => ShortDramaSkillRuntime::executionSteps($task),
