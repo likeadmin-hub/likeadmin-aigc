@@ -24,7 +24,7 @@ final class MicroVideoSettings
     public static function save(int $tenant,array $params): void
     {
         $params=is_array($params['config']??null)?$params['config']:$params;$config=array_replace(self::get($tenant),array_intersect_key($params,self::defaults()));
-        $ids=array_values(array_unique(array_map('strval',(array)$config['video_model_ids'])));$available=array_column(MicroVideoCatalog::models($tenant,false,'reference'),'id');
+        $ids=array_values(array_unique(array_map('strval',(array)$config['video_model_ids'])));$available=array_column(MicroVideoCatalog::models($tenant,false,'reference',$ids),'id');
         if(array_diff($ids,$available))throw new InvalidArgumentException('勾选的模型暂不可用');
         if($ids)MicroVideoPolicy::allowedModel((string)$config['default_model_id'],$ids);elseif($config['default_model_id']!=='')throw new InvalidArgumentException('默认模型必须属于支持模型');
         foreach(['vision_model_id','script_model_id'] as $key)if($config[$key]!=='')MarketTextModelRuntimeService::resolveModel($tenant,(string)$config[$key],$key==='vision_model_id');
