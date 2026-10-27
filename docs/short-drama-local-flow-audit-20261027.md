@@ -172,3 +172,20 @@ validation: 后端 43 tests / 218 assertions，前端 10 tests；两页脚本和
 server commit: a95f31a0c（实现；本记录另行提交）
 web commit: 48580b80
 risks or blockers: 标注的剧本 URL 在当前浏览器会话跳回首页，该页本轮以源码移除及编译验证；多集未复核仍按原规则暂停；无付费请求、历史数据改写、生成文件提交或发布
+
+## 用户调整：关闭自动复核时多集连续生成
+
+关闭复核现在保存为 `script_review.status=unreviewed`、`audit_status=skipped`，允许下一集排队；不再使用代表未通过复核的 `pending_review`。前集正文摘要及原文记忆保留，不伪造“复核通过”。实际复核留下的问题继续阻断后续，分段范围确认、手动暂停、取消和技术失败规则保持原样。此条覆盖上节“未复核仍暂停”的规则。
+
+早期 v19 的未复核记录通过读取结果中的 `unreviewed` 状态并比对叙事指纹兼容为跳过审校，只改变派生判断，不批量修改历史记录；实际待处理问题及不同叙事版本不能借此解除阻断。后台原先使用精简列扫描，已补充仅对相关旧记录批量读取结果，避免列表放行但 worker 仍暂停。派生缓存升级为新键，防止沿用旧暂停结果。
+
+task: 关闭可选复核时恢复多集顺序连续生成
+branch: feature/short-drama-app-optimization
+server scope: 未复核结果、分集依赖判断、旧记录读取兼容、派生缓存、清单 1.0.48、回归
+web scope: 无变更
+contract changes: 未开启复核采用已有 skipped 审校状态；无数据库/API 路径/权限/计价变化
+completed / remaining: 实现完成，worker 已重启、PHP 平滑重载，首页接口 code=1
+validation: 72 项队列/范围/恢复/记忆/策略回归（4214 断言），15 项复核结果（59），1 项缓存（8），18 项生成服务（129）；合计 106 tests / 4410 assertions 通过。新旧记录分别连续调度 10 集，事务回滚、无真实模型调用
+server commit: 916f7be8a、191f841c9（实现；本报告另行提交）
+web commit: 无新增
+risks or blockers: 未开启复核不代表剧情已通过审校；未变更用户主动暂停/取消及分段确认边界；未修改历史正文、补扣费用或提交生成文件
