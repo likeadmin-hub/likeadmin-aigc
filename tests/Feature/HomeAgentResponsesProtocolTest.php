@@ -190,7 +190,36 @@ namespace {
     $actual=F::$payload;check($options['require_native_responses']===true&&!isset($actual['require_native_responses']),'Native requirement remains server-side, never a provider parameter');check($actual['model']==='gpt-fixture'&&$actual['channel']==='fixture-channel'&&$actual['stream']===true,'Decoration lost gateway model/channel routing or SSE');
     check(!array_intersect_key($actual,invoke('marketContext',$selectedModel)),'Decoration native wire leaked internal SKU selectors');
     check($selectedModel===$beforeModel&&invoke('quote',$selectedModel,1000000,1000000)['tenant_cost_points']===8.0,'Transport changed resolved SKU context or local price selection');
-    foreach([[false,$decorationParams,$selectedModel],[true,['action_code'=>'another_app','_decoration_native_responses_transport'=>true],$selectedModel],[true,['action_code'=>'decoration_agent_text'],$selectedModel],[true,$decorationParams,array_replace($selectedModel,['protocols'=>'openai_chat'])]] as [$adminPayer,$params,$model])check(invoke('initialTransportOptions',$model,$params,$adminPayer)['include_market_context']===true&&invoke('initialTransportOptions',$model,$params,$adminPayer)['require_native_responses']===false,'Unrelated AI request transport changed');
+    // Billing selectors were retired from ALL text requests in e6d308992a.
+    // This is independent of the narrower opt-in native-completion guard.
+    $transportCases=[
+        'user request'=>[false,$decorationParams,$selectedModel,false,false],
+        'unrelated app'=>[true,['action_code'=>'another_app','_decoration_native_responses_transport'=>true],$selectedModel,false,false],
+        'decoration without opt-in'=>[true,['action_code'=>'decoration_agent_text'],$selectedModel,false,false],
+        'chat protocol'=>[true,$decorationParams,array_replace($selectedModel,['protocols'=>'openai_chat']),false,false],
+        'decoration native'=>[true,$decorationParams,$selectedModel,false,true],
+        'operator capability probe'=>[true,['action_code'=>'decoration_capability_probe','_decoration_native_responses_transport'=>true],$selectedModel,true,true],
+    ];
+    $compatibleEvents=[['choices'=>[['delta'=>['content'=>'完成'],'finish_reason'=>'stop']]]];
+    foreach($transportCases as $case=>[$adminPayer,$params,$model,$operatorProbe,$expectNative]){
+        $options=invoke('initialTransportOptions',$model,$params,$adminPayer,$operatorProbe);
+        check($options['include_market_context']===false,$case.': local billing selectors must stay off the wire');
+        check($options['include_channel']===true,$case.': selected channel routing must remain enabled');
+        check($options['require_native_responses']===$expectNative,$case.': native completion guard changed scope');
+        $beforeModel=$model;
+        F::$events=$expectNative?[created(),complete([message('完成')])]:$compatibleEvents;
+        $reply=invoke('request',$model,[['role'=>'user','content'=>'fixture']],'fixture',4096,
+            ['market_product_id'=>999,'sku_key'=>'must-not-leak'],static function(){},10,$options);
+        check($reply['content']==='完成'&&$reply['protocol_evidence']['expected_native_responses']===$expectNative,$case.': request lost its response contract');
+        check(!array_intersect_key(F::$payload,invoke('marketContext',$model))&&!isset(F::$payload['sku_key']),$case.': payload leaked local billing selectors');
+        check(F::$payload['model']===$model['model_code']&&F::$payload['channel']===$model['channel_code']&&F::$payload['stream']===true,$case.': model/channel/SSE changed');
+        check($model===$beforeModel&&invoke('quote',$model,1000000,1000000)['tenant_cost_points']===8.0,$case.': local SKU snapshot or price changed');
+        if($expectNative){
+            F::$events=$compatibleEvents;
+            try{invoke('request',$model,[['role'=>'user','content'=>'fixture']],'fixture',4096,[],static function(){},10,$options);throw new \LogicException($case.': legacy stream bypassed native completion');}
+            catch(MarketTextModelProviderException $e){check(!$e->allowsModelFallback&&$e->partialResult['protocol_evidence']['expected_native_responses']===true,$case.': protocol downgrade lost its failure evidence');}
+        }
+    }
     $failure=['type'=>'response.failed','response'=>['id'=>'resp_fixture','status'=>'failed','output'=>[],'error'=>['code'=>'invalid_request_error','type'=>'invalid_request_error','message'=>'Unsupported parameter: max_output_tokens. <b>See</b> https://provider.invalid/help token sk-fixturePrivateSecret']]];
     try {wire([created(),$failure]);throw new \LogicException('Native failure accepted');}
     catch(MarketTextModelProviderException $e){$d=$e->partialResult['protocol_diagnostic'];check($d['provider_type']==='invalid_request_error'&&$d['response_status']==='failed'&&str_contains($d['provider_message'],'Unsupported parameter: max_output_tokens'),'Native error detail lost');check(!str_contains($d['provider_message'],'provider.invalid')&&!str_contains($d['provider_message'],'sk-fixturePrivateSecret')&&!str_contains($d['provider_message'],'<b>'),'Native diagnostics leaked URL/credential/markup');check($e->partialResult['protocol_evidence']['terminal_seen']===true&&$e->partialResult['protocol_evidence']['terminal_status']==='failed','Observed failed native terminal is diagnostic evidence, not successful completion');check($e->partialResult['content_source']==='content'&&$d['visible_chars']===0&&$d['delta_count']===0&&$d['output_items']===0,'Zero output proof missing');}
