@@ -32,23 +32,38 @@ final class ShortDramaShotSemantics
         return [['speaker'=>(string)($shot['voice_role'] ?? ''), 'text'=>$text]];
     }
 
-    public static function space(array $shot, array $locations = []): string
+    public static function space(array $shot, array $locations = [], array $request = []): string
     {
         if (in_array($shot['interior_exterior'] ?? '', ['interior','exterior'], true)) return $shot['interior_exterior'];
         $location = array_column($locations, null, 'id')[$shot['scene_ref_id'] ?? ''] ?? [];
+        if (ShortDramaInputContract::structuredValidation($request)) {
+            return in_array($location['interior_exterior'] ?? '', ['interior', 'exterior'], true)
+                ? $location['interior_exterior'] : '';
+        }
         $text = (string)($location['name'] ?? '') . ' ' . (string)($shot['scene_name'] ?? '');
         if (preg_match('/屋内|室内|客厅|卧室|厨房|教室|办公室|inside|interior/iu', $text)) return 'interior';
         if (preg_match('/^(?:清晨[，, ]*)?(?:屋内|室内|客厅)/u', (string)($shot['visual_description'] ?? ''))) return 'interior';
         return 'exterior';
     }
 
-    public static function normalize(array $plan, array $locked = []): array
+    public static function normalize(array $plan, array $locked = [], array $request = []): array
     {
+        $structured = ShortDramaInputContract::structuredValidation($request ?: $plan);
         $types = array_column((array)($locked['subjects'] ?? []), 'category', 'id');
         foreach ($plan['subjects'] ?? [] as $i => $subject) {
             if (in_array($types[$subject['id'] ?? ''] ?? '', ['character','animal','prop','symbol'], true)) $plan['subjects'][$i]['category'] = $types[$subject['id']];
         }
         foreach ($plan['storyboard'] ?? [] as $i => $shot) {
+            if ($structured) {
+                // Preserve authored words and explicit spatial flags. Legacy
+                // keyword recovery must not reinterpret a current contract.
+                $shot['interior_exterior'] = self::space($shot, (array)($plan['locations'] ?? []), $request ?: $plan);
+                if (trim((string)($shot['dialogue'] ?? '')) === '') {
+                    $shot['dialogue'] = ''; $shot['speech_type'] = 'none'; $shot['voice_role'] = '';
+                }
+                $plan['storyboard'][$i] = $shot;
+                continue;
+            }
             // Two independent literal cues can correct a legacy default. A
             // transition shot keeps its explicit setting when the cues differ.
             $location = array_column((array)($plan['locations'] ?? []), null, 'id')[$shot['scene_ref_id'] ?? ''] ?? [];

@@ -20360,7 +20360,7 @@ class AigcShortDramaService
         if (!empty($request['series_context']) && (empty($payload['storyboard']) || empty($payload['subjects']) || empty($payload['locations']))) {
             throw new Exception('本集正文、角色或场景不完整，请重试');
         }
-        $payload = ShortDramaShotSemantics::normalize($payload, (array)($request['series_context']['outline'] ?? []));
+        $payload = ShortDramaShotSemantics::normalize($payload, (array)($request['series_context']['outline'] ?? []), $request);
         $episodeSettings = self::normalizeEpisodeSettings($request);
         $multiEpisode = $episodeSettings['multi_episode'];
         $episodeCount = $episodeSettings['episode_count'];
@@ -20499,7 +20499,7 @@ class AigcShortDramaService
             ? $episodeStoryboardItems
             : $topLevelStoryboardItems);
         $hasNestedEpisodeProduction = $multiEpisode && !empty($episodeStoryboardItems);
-        $storyboard = self::normalizeGeneratedStoryboard($storyboardItems, ShortDramaShotDuration::rule($request), ShortDramaEpisodeDuration::active($request), $locations);
+        $storyboard = self::normalizeGeneratedStoryboard($storyboardItems, ShortDramaShotDuration::rule($request), ShortDramaEpisodeDuration::active($request), $locations, $request);
         $styleMeta = self::scriptPlanPriorityMeta($prompt, $request);
         $storyboardRepair = $multiEpisodeStage !== self::MULTI_EPISODE_STAGE_PRODUCTION
             ? ['storyboard' => [], 'issues_fixed' => []]
@@ -21662,7 +21662,7 @@ class AigcShortDramaService
         ];
     }
 
-    private static function normalizeGeneratedStoryboard(array $items, array $durationRule = [], bool $requireDuration = false, array $locations = []): array
+    private static function normalizeGeneratedStoryboard(array $items, array $durationRule = [], bool $requireDuration = false, array $locations = [], array $request = []): array
     {
         $result = [];
         $elapsedSeconds = 0.0;
@@ -21684,7 +21684,7 @@ class AigcShortDramaService
                 continue;
             }
             $frameType = (string)($item['frame_type'] ?? 'normal');
-            $interiorExterior = ShortDramaShotSemantics::space($item, $locations);
+            $interiorExterior = ShortDramaShotSemantics::space($item, $locations, $request);
             $subjectRefs = (array)($item['subject_ref_ids'] ?? $item['subject_refs'] ?? $item['character_ids'] ?? []);
             $bgmPrompt = trim((string)($item['bgm_prompt'] ?? ''));
             if ($bgmPrompt === '') {

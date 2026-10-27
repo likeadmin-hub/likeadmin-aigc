@@ -116,14 +116,14 @@ final class ShortDramaContentAcceptance
     {
         $requirements = self::requirements($request, $call);
         $beforeNormalization = $plan;
-        $plan = ShortDramaShotSemantics::normalize($plan);
+        $plan = ShortDramaShotSemantics::normalize($plan, [], $request);
         $originalLines = $plan['script_lines'] ?? [];
         $repairs = [];
         foreach ($plan['storyboard'] as $i=>$shot) if ($shot !== $beforeNormalization['storyboard'][$i]) {
             $repairs[]=['normalized_shot'=>$shot['shot_id']];
             $plan['storyboard'][$i]=ShortDramaPromptDocuments::withoutGeneratedDefaults($shot);
         }
-        $plan = self::legacyDialogue($plan, $requirements, $call, $repairs);
+        if (!ShortDramaInputContract::structuredValidation($request)) $plan = self::legacyDialogue($plan, $requirements, $call, $repairs);
         // Classification is an explicit complete task, not an optional side
         // note in a prose audit. Lock every returned ID to its existing entity.
         foreach (array_chunk($plan['subjects'], 20) as $subjects) {
@@ -141,7 +141,7 @@ final class ShortDramaContentAcceptance
             }
         }
         for ($pass = 0; $pass < 3; $pass++) {
-            $report = self::inspect($plan, $requirements, $call);
+            $report = self::inspect($plan, $requirements, $call, $request);
             if (!$report['issues']) {
                 $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
                 if ($repairs) {
@@ -163,11 +163,11 @@ final class ShortDramaContentAcceptance
                         'instruction'=>ShortDramaShotSemantics::INSTRUCTION];
                     $reply = self::call($call, 'repair', $data,
                         '修复已明确发现的剧本问题，保留其他剧情和全部用户指定台词。只返回{"patches":[{"shot_id":"目标ID","field":"字段","before":"原值或原数组","after":"新值或新数组"}],"subject_categories":[{"id":"现有主体ID","before":"原category","after":"character、animal、prop或symbol"}]}。允许字段：' . implode(',', self::FIELDS) . '。speech_type只允许character（角色对白，包括角色朗读信件）、narration（旁白）、none（无声）；interior_exterior只允许interior或exterior。对白必须来自正确人物关系，转述收到问候不等于读出问候原话。不得修改ID、时长、镜头数量、用户素材或已正确的内容。accepted_coverage已覆盖的事件和指定原话必须继续保留；修复缺失时只补缺失，不挪用另一段已正确对白。不删对白凑时长。重复镜头改成自然接续动作，关键事件遗漏利用本集已有镜头表现，禁止新增人物。室内外必须按实际地点，多人对白每行一位角色。',
-                        static function(array $reply) use ($plan, $targets): void {
-                            $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'));
+                        static function(array $reply) use ($plan, $targets, $request): void {
+                            $candidate = self::apply($plan, $reply, array_column($targets, 'shot_id'), $request);
                             if ($candidate === $plan) throw new RuntimeException('存在未解决问题，修复必须产生有效修改；请针对issues中的具体缺失原因补齐，不能返回空补丁', 422);
                         });
-                    $plan = self::apply($plan, $reply, array_column($targets, 'shot_id'));
+                    $plan = self::apply($plan, $reply, array_column($targets, 'shot_id'), $request);
                     $repairs[] = $reply;
                 }
             }
@@ -246,11 +246,12 @@ final class ShortDramaContentAcceptance
         return array_map(static fn($item) => array_intersect_key($item, array_flip(['id','name','category','description','library_subject_id'])), $items);
     }
 
-    public static function inspect(array $plan, array $requirements, callable $call): array
+    public static function inspect(array $plan, array $requirements, callable $call, array $request = []): array
     {
+        $structured = ShortDramaInputContract::structuredValidation($request ?: $plan);
         $coverage = []; $issues = []; $duplicates = self::duplicates($plan); $shots = array_values($plan['storyboard']);
         $names=implode('|',array_map(static fn($name)=>preg_quote($name,'/'),array_column($plan['subjects'],'name')));
-        foreach($shots as $shot)if(($shot['speech_type']??'')==='character' && $names!==''){
+        foreach($shots as $shot)if(!$structured && ($shot['speech_type']??'')==='character' && $names!==''){
             foreach(ShortDramaShotSemantics::turns($shot) as $turn){
                 if(!preg_match('/[“”「」"\x{0027}]/u',$turn['text']) && preg_match('/^(?:'.$names.')(?:用|以|开始|正在|继续).*(?:朗读|念诵|说话|讲话)/u',$turn['text'])){
                     $issues[]=['code'=>'dialogue_instruction','message'=>'对白是第三人称的表演说明，缺少实际可朗读的台词。保留表演要求在画面描述中，将对白补为该角色在此处真正说出的简短原话，不得仅改成旁白来绕过。','shot_ids'=>[$shot['shot_id']]];
@@ -338,7 +339,7 @@ final class ShortDramaContentAcceptance
                 $allowedRepeat=preg_replace('/不(?:要|得)?重复|不(?:要|得)?反复/u','',implode(' ',array_column($requirements,'quote')));
                 $remaining=[];
                 foreach($batch as $d){
-                    if(!empty($d['adjacent_same_speaker']) && !preg_match('/重复|复述|反复|再说|又说|再问|再喊|回声|齐声|口号/u',$allowedRepeat.' '.$byId[$d['shot_ids'][0]]['visual_description']))$issues[]=$d;
+                    if(!$structured && !empty($d['adjacent_same_speaker']) && !preg_match('/重复|复述|反复|再说|又说|再问|再喊|回声|齐声|口号/u',$allowedRepeat.' '.$byId[$d['shot_ids'][0]]['visual_description']))$issues[]=$d;
                     else $remaining[]=$d;
                 }
                 $batch=$remaining;if(!$batch)continue;
@@ -399,7 +400,7 @@ final class ShortDramaContentAcceptance
         return $issues;
     }
 
-    public static function apply(array $plan, array $reply, array $targets): array
+    public static function apply(array $plan, array $reply, array $targets, array $request = []): array
     {
         if (!is_array($reply['patches'] ?? null) || !is_array($reply['subject_categories'] ?? [])) throw new RuntimeException('内容修复补丁结构无效', 422);
         $candidate = $plan; $indices = array_flip(array_column($plan['storyboard'], 'shot_id')); $seen = [];
@@ -423,7 +424,9 @@ final class ShortDramaContentAcceptance
             $candidate['subjects'][$subjects[$p['id']]]['category'] = $p['after'];
             if ($p['after'] !== $p['before']) $candidate['subjects'][$subjects[$p['id']]] = ShortDramaPromptDocuments::withoutGeneratedDefaults($candidate['subjects'][$subjects[$p['id']]]);
         }
-        foreach ($candidate['storyboard'] as $shot) {
+        // The current generation contract delegates speech timing to the model;
+        // a review patch cannot reject accepted, unchanged text by letter count.
+        foreach (ShortDramaInputContract::structuredValidation($request ?: $plan) ? [] : $candidate['storyboard'] as $shot) {
             if (mb_strlen((string)($shot['dialogue'] ?? '')) > (float)$shot['recommended_duration_seconds'] * 8) throw new RuntimeException('修复后对白无法在原镜头时长内自然说完，请保持简短且完整', 422);
         }
         foreach ($candidate['storyboard'] as $i => $shot) if ($shot !== $plan['storyboard'][$i]) {
