@@ -157,3 +157,18 @@ validation: 后端 452 项、13299 断言；前端 38 项；页面、编译与�
 server commit: ea4f172ec、fe18b93a9（实现与回归；本报告另行提交）
 web commit: 4a21dd34、9b3eecdb
 risks or blockers: 不保证模型语义判断永远正确；新任务复核有实际用量费用；保留远端 develop 已有 4 个提交差异，未强制覆盖或发布
+
+## 用户调整：隐藏复核展示并默认关闭自动复核
+
+按用户新的页面标注，移除剧本页整块复核状态/问题提示，移除首页三个创作输入区域中的自动复核选项。新建提交显式传入 `quality_review_enabled=false`，后端新请求的缺省值也改为 false；显式开启、顶部手动复核入口及历史冻结策略保留。后台待复核结果、局部修复和多集暂停规则没有删除。此条覆盖上节“新任务默认开启”的产品设置。
+
+task: 隐藏复核提示和开关，默认不自动复核
+branch: feature/short-drama-app-optimization
+server scope: 新建请求和 v19 缺省复核策略、相关回归、清单 1.0.47
+web scope: 首页和剧本页展示、提交默认值、删除无消费者的展示工具及其测试
+contract changes: 默认值 true 改为 false；无 API 路径、数据库、权限、计价或任务状态结构变更
+completed / remaining: 已修改、提交并本地合并验证；worker 重启及 PHP 平滑重载完成，首页接口 code=1
+validation: 后端 43 tests / 218 assertions，前端 10 tests；两页脚本和模板编译通过；差异空白及源码仓库边界检查通过；首页实际页面确认无开关
+server commit: a95f31a0c（实现；本记录另行提交）
+web commit: 48580b80
+risks or blockers: 标注的剧本 URL 在当前浏览器会话跳回首页，该页本轮以源码移除及编译验证；多集未复核仍按原规则暂停；无付费请求、历史数据改写、生成文件提交或发布
