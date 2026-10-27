@@ -33,8 +33,12 @@ final class ShortDramaStoryWorkflow
 
     public static function enabled(array $request): bool
     {
+        $outlineBatch = (int)($request['_input_contract_version'] ?? 0) >= 17
+            && !empty($request['_short_drama_episode_batch'])
+            && ($request['multi_episode_stage'] ?? '') === 'episodes'
+            && (int)($request['episode_total_count'] ?? 0) >= 2;
         return ($request['workflow_variant'] ?? '') === self::VARIANT
-            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= (!empty($request['_canvas_series_planning']) ? 1 : 2);
+            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= (!empty($request['_canvas_series_planning']) || $outlineBatch ? 1 : 2);
     }
 
     public static function workerOwned(array $request): bool

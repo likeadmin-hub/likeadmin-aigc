@@ -39,12 +39,22 @@ final class ShortDramaContentAcceptance
         if (empty($request['_continuity_review_only']) && !empty($request['revision_message'])) $source .= "\n最新用户修改（冲突时以此为准）：" . $request['revision_message'];
         $episode = array_intersect_key((array)($request['series_context']['current_episode'] ?? []), array_flip(['episode_number','title']));
         $requirements = [];
-        $source = self::episodeSource($source, (int)($episode['episode_number'] ?? $request['episode_number'] ?? 1));
-        $chunks = mb_str_split($source === '' ? json_encode($episode, JSON_UNESCAPED_UNICODE) : $source, 6000);
-        foreach ($chunks as $chunk) {
+        $preserveScope = (int)($request['_input_contract_version'] ?? 0) >= 17;
+        if (!$preserveScope) $source = self::episodeSource($source, (int)($episode['episode_number'] ?? $request['episode_number'] ?? 1));
+        $source = $source === '' ? json_encode($episode, JSON_UNESCAPED_UNICODE) : $source;
+        $chunks = $preserveScope ? self::requirementSourceChunks($source)
+            : array_map(static fn($text) => ['source'=>$text], mb_str_split($source, 6000));
+        foreach ($chunks as $context) {
+            $chunk = $context['source'];
             $sources = array_values(array_filter(preg_split('/(?<=[；。！？\n])/u', $chunk) ?: [$chunk], static fn($s) => trim($s) !== ''));
-            $reply = self::call($call, 'requirements', ['source'=>$chunk, 'sources'=>array_map(static fn($i, $text) => ['source_index'=>$i, 'text'=>$text], array_keys($sources), $sources), 'episode'=>$episode, 'episode_number'=>$request['episode_number'] ?? 1],
-                '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。后续事件的执行时间限制不能扩大成禁止相关物品出场。每项event只含一个动作。顺序发生的多个动作分别成项，不合并成必须在同一镜头完成的事件。保留动作顺序，但不要求多个动作出现在同一镜头；文风、镜头数量、总时长由专用规则处理，不提取为剧情要求，不对它们做主观阻断。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index必须照抄该原文项明确标注的source_index，不自行计数；原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
+            $data = ['source'=>$chunk, 'sources'=>array_map(static fn($i, $text) => ['source_index'=>$i, 'text'=>$text], array_keys($sources), $sources), 'episode'=>$episode, 'episode_number'=>$request['episode_number'] ?? 1];
+            if ($preserveScope) {
+                $data['episode_number'] = $episode['episode_number'] ?? $request['episode_number'] ?? 1;
+                $data['preceding_scope_heading'] = $context['preceding_scope_heading'];
+            }
+            $reply = self::call($call, 'requirements', $data,
+                ($preserveScope ? '原文保留了其他集的标题和正文，不能把其他集标题后续的句子当成本集要求。preceding_scope_heading仅标明本分块之前最后出现的分集或共同要求标题，用于延续原文范围，不是额外剧情。遇到新的标题或明确的用户范围说明时按原文切换。' : '')
+                . '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。后续事件的执行时间限制不能扩大成禁止相关物品出场。每项event只含一个动作。顺序发生的多个动作分别成项，不合并成必须在同一镜头完成的事件。保留动作顺序，但不要求多个动作出现在同一镜头；文风、镜头数量、总时长由专用规则处理，不提取为剧情要求，不对它们做主观阻断。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index必须照抄该原文项明确标注的source_index，不自行计数；原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
                 static function(array $reply) use ($sources): void {
                     if (!is_array($reply['requirements'] ?? null) || count($reply['requirements']) > 24) throw new RuntimeException('本集要求提取结构不完整', 422);
                     foreach ($reply['requirements'] as $r) if (!is_string($r['text'] ?? null) || trim($r['text']) === ''
@@ -55,6 +65,26 @@ final class ShortDramaContentAcceptance
         $out = [];
         foreach ($requirements as $r) $out[] = ['id'=>'r' . (count($out) + 1)] + $r;
         return $out;
+    }
+
+    /** Do not delete only an episode heading and promote its following prose
+     * into unscoped requirements. Preserve source bytes and carry scope across
+     * bounded calls; ambiguous creative scope remains visible to the reviewer. */
+    public static function requirementSourceChunks(string $source): array
+    {
+        $chunks = []; $prefix = ''; $remaining = $source;
+        while ($remaining !== '') {
+            $text = mb_substr($remaining, 0, 6000);
+            // Prefer a sentence/line boundary so the next call does not receive
+            // half a heading or an ordinary short sentence with its scope cut off.
+            if (mb_strlen($remaining) > 6000 && preg_match('/^.*[。；！？\n]/us', $text, $boundary)) $text = $boundary[0];
+            preg_match_all('/(?:^|[\n。；！？])[\t ]*(?:#{1,6}[\t ]*)?(?:\*\*|__)?(第\s*[0-9０-９一二三四五六七八九十百千零〇两]+\s*集|全剧要求|全局要求|共同要求|共同设定|通用要求|补充要求|最新用户修改（冲突时以此为准）)/u', $prefix, $matches);
+            $headings = $matches[1] ?? [];
+            $chunks[] = ['source'=>$text, 'preceding_scope_heading'=>$headings ? end($headings) : ''];
+            $prefix .= $text;
+            $remaining = mb_substr($remaining, mb_strlen($text));
+        }
+        return $chunks;
     }
 
     /** Explicit episode headings are routing data, not something an LLM may
