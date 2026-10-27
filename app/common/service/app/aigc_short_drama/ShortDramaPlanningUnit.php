@@ -10,6 +10,25 @@ final class ShortDramaPlanningUnit
     public const INTERRUPTED_CONFIRMATION = '中断部分需要重新生成，可能产生新的费用；已完成内容和原费用记录保留。请确认后继续。';
     public const CHANGED_CONTEXT_CONFIRMATION = '中断任务的上下文已更新，不能安全复用旧回包；继续会在原项目生成新版本，可能产生新的费用，原剧本和素材保留。请确认后继续。';
     private const INTERRUPTED_SECONDS = 1800;
+    private static ?array $dispatchBudget = null;
+
+    /** Only fresh provider submissions consume a turn; persisted receipts are free to replay. */
+    public static function withinDispatch(int $tenant, int $user, string $task, int $limit, callable $run): mixed
+    {
+        $previous = self::$dispatchBudget;
+        self::$dispatchBudget = ['tenant'=>$tenant, 'user'=>$user, 'task'=>$task, 'remaining'=>$limit];
+        try { return $run(); }
+        finally { self::$dispatchBudget = $previous; }
+    }
+
+    private static function claimDispatchCall(int $tenant, int $user, string $task): void
+    {
+        if (self::$dispatchBudget === null || self::$dispatchBudget['tenant'] !== $tenant
+            || self::$dispatchBudget['user'] !== $user || self::$dispatchBudget['task'] !== $task) return;
+        if (self::$dispatchBudget['remaining'] <= 0) throw new RuntimeException('已保存当前进度，等待继续生成', 425);
+        self::$dispatchBudget['remaining']--;
+    }
+
     /** Presentation metadata can differ between HTTP and workers; paid input cannot. */
     public static function requestSignature(array $input): string
     {
@@ -179,6 +198,7 @@ final class ShortDramaPlanningUnit
             if ($row && $row['status'] === 'failed') throw new RuntimeException((string)$row['error']);
             if ($row && $row['status'] === 'waiting' && !self::ready($tenant, $user, $task)) throw new RuntimeException('连接暂时不可用，等待延迟重试', 425);
             if ($row && (int)$row['attempt'] >= 3) throw new RuntimeException('模型生成单元的请求次数已用完，请新建任务并核对已完成内容');
+            self::claimDispatchCall($tenant, $user, $task);
             $storedInput = $input;
             if ($key !== $root) {
                 $storedInput['_unit_root'] = $root;
