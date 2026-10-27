@@ -1302,10 +1302,7 @@ class MarketTextModelRuntimeService
             },
             CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$buffer, &$body, &$receivedEvent, &$receivedSseEvent, &$state, $onEvent, $key): int {
                 $body .= $chunk;
-                $buffer .= str_replace("\r\n", "\n", $chunk);
-                while (($pos = strpos($buffer, "\n\n")) !== false) {
-                    $block = substr($buffer, 0, $pos);
-                    $buffer = substr($buffer, $pos + 2);
+                foreach (self::takeSseBlocks($buffer, $chunk) as $block) {
                     $event = self::parseSseBlock($block);
                     if ($event !== null) {
                         $receivedEvent = true;
@@ -1318,8 +1315,8 @@ class MarketTextModelRuntimeService
         ]);
         curl_exec($ch);
 
-        if ($buffer !== '') {
-            $event = self::parseSseBlock($buffer);
+        foreach (self::takeSseBlocks($buffer, '', true) as $block) {
+            $event = self::parseSseBlock($block);
             if ($event !== null) {
                 $receivedEvent = true;
                 $receivedSseEvent = true;
@@ -1450,6 +1447,24 @@ class MarketTextModelRuntimeService
             return '接口渠道 SSL 证书校验失败，请在系统服务 > 接口渠道关闭 SSL 校验，或更换符合规范的 HTTPS 证书';
         }
         return '文本模型网络请求失败：' . mb_substr($error ?: '连接异常', 0, 120);
+    }
+
+    /** TCP/cURL chunks need not end at a line, character or SSE event boundary. */
+    private static function takeSseBlocks(string &$buffer, string $chunk, bool $flush = false): array
+    {
+        $buffer .= $chunk;
+        // Delay a final CR until we know whether the next byte is LF. Normalize
+        // the assembled buffer, never each transport chunk independently.
+        $pendingCr = !$flush && str_ends_with($buffer, "\r");
+        $ready = $pendingCr ? substr($buffer, 0, -1) : $buffer;
+        $ready = str_replace(["\r\n", "\r"], "\n", $ready);
+        $blocks = explode("\n\n", $ready);
+        $buffer = array_pop($blocks) . ($pendingCr ? "\r" : '');
+        if ($flush && $buffer !== '') {
+            $blocks[] = $buffer;
+            $buffer = '';
+        }
+        return $blocks;
     }
 
     /** @return array<string, mixed>|null */

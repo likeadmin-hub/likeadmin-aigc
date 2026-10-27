@@ -113,6 +113,10 @@ final class ShortDramaEpisodeDuration
     /** Validate semantic output before normalization can clamp or pad it. */
     public static function assertPlan(array $plan, array $request): void
     {
+        // Saved results must use the same timing contract as generation. The
+        // public result does not carry the task's private top-level fields.
+        $request['_input_contract_version'] = $request['_input_contract_version']
+            ?? $request['generation_settings']['input_contract_version'] ?? 0;
         if (!self::active($request) || self::localRevision($request)) return;
         $policy = self::policy($request);
         $shots = (array)($plan['storyboard'] ?? []);
