@@ -6,7 +6,7 @@ use RuntimeException;
 /** Budget-first generation, using the existing durable provider-unit callback. */
 final class ShortDramaTimedScriptGeneration
 {
-    public static function generate(array $request, array $messages, callable $call, ?callable $progress, int $outputBudget = 8192): array
+    public static function generate(array $request, array $messages, callable $call, ?callable $progress, int $outputBudget = 8192, ?callable $freezeBatches = null): array
     {
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
@@ -91,7 +91,26 @@ final class ShortDramaTimedScriptGeneration
         // Size output units to the selected model, not to a fixed shot count.
         // Reserve room for identifiers, JSON and dialogue as well as descriptions.
         $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
+        $batches = []; $batchParts = []; $batchOriginal = [];
+        if (ShortDramaSceneBatch::enabled($request)) {
+            $batchPlan = ShortDramaSceneBatch::plan($request, $messages, $skeleton, $partSize);
+            if ($freezeBatches) $batchPlan = ShortDramaSceneBatch::restore($batchPlan, $freezeBatches($batchPlan), $skeleton);
+            $partSize = (int)$batchPlan['part_size'];
+            foreach ($batchPlan['groups'] as $group) $batches[$group[0]] = $group;
+        }
         foreach ($skeleton['scene_beats'] as $sceneIndex => $beat) {
+            if (isset($batches[$sceneIndex])) {
+                $group = $batches[$sceneIndex];
+                $batchInput = ShortDramaSceneBatch::input($request, $messages, $base, $skeleton, $group, $shots);
+                $count = array_sum(array_map(static fn($i) => count($skeleton['scene_beats'][$i]['shot_durations']), $group));
+                $reply = $call('timed_batch_' . ($group[0] + 1) . '_' . ($group[1] + 1), $batchInput, 1800 + $count * 750);
+                $batchParts += ShortDramaSceneBatch::partition($reply, $skeleton, $group, $request);
+                foreach ($group as $index) {
+                    $prefix = 's' . ($index + 1) . '_';
+                    $batchOriginal[$index] = ['storyboard' => array_values(array_filter((array)($reply['storyboard'] ?? []),
+                        static fn($shot) => is_array($shot) && is_string($shot['shot_id'] ?? null) && str_starts_with($shot['shot_id'], $prefix)))];
+                }
+            }
             $durations = array_values($beat['shot_durations']);
             $sceneStart = count($shots);
             $pending = [];
@@ -130,8 +149,20 @@ final class ShortDramaTimedScriptGeneration
                     try {
                         // A failed attempt must not change the next attempt's locked input.
                         $validationDurations = $partDurations;
-                        $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750,
-                            static fn($part) => self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false));
+                        if ($offset === 0 && $attempt === 0 && isset($batchParts[$sceneIndex])) {
+                            $part = $batchParts[$sceneIndex];
+                        } else {
+                            if (array_key_exists($sceneIndex, $batchParts) && $offset === 0 && $attempt === 0) {
+                                $input['content'] .= "\n此前相邻场景合并返回中，本场缺失或未通过校验。本次只生成本场，其他场次的合格结果已保留。";
+                                $input['content'] .= "\n本场已收到的内容=" . self::json($batchOriginal[$sceneIndex]);
+                                $input['content'] .= "\n只修复本场缺失或不符合当前场景、ID、时长的字段，保留已有合格动作、对白、说话主体及事件顺序。";
+                                if (isset($batchParts[$sceneIndex + 1])) $input['content'] .= "\n相邻后场已保留的结果=" . self::json($batchParts[$sceneIndex + 1])
+                                    . '。本场仍按已确认骨架完成，保持与已保留后场的事实衔接，不新增或提前演出后场事件。';
+                                $contentRepairs++;
+                            }
+                            $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750,
+                                static fn($part) => self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false));
+                        }
                         $validationIds = $ids;
                         if (ShortDramaDialogueSplit::enabled($request)) {
                             self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false);

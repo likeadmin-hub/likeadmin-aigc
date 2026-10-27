@@ -57,6 +57,34 @@ final class ShortDramaPlanningUnit
         return true;
     }
 
+    /** A non-billable checkpoint freezes grouping before any grouped paid request. */
+    public static function freezeSceneBatches(int $tenant, int $user, string $task, array $plan): array
+    {
+        if ($task === '') return $plan;
+        return Db::transaction(static function () use ($tenant, $user, $task, $plan): array {
+            $owner = Db::name('aigc_short_drama_script_task')->where(['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task])->lock(true)->find();
+            if (!$owner) throw new RuntimeException('任务不属于当前用户', 403);
+            $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task, 'unit_key' => 'checkpoint_scene_batch_v1'];
+            $row = Db::name('aigc_short_drama_planning_unit')->where($scope)->lock(true)->find();
+            if ($row) {
+                $saved = json_decode((string)$row['result_json'], true, 512, JSON_THROW_ON_ERROR);
+                if (($saved['signature'] ?? '') !== ($plan['signature'] ?? '') || ($saved['version'] ?? null) !== 1) {
+                    throw new RuntimeException('分场规划已变化，不能重做已付费部分；请新建版本，原有内容保留', 409);
+                }
+                return $saved;
+            }
+            // A worker from the prior source version may already have started a v14 task.
+            // Preserve all such units and keep this entire task on its original path.
+            foreach (Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task])->column('unit_key') as $key) {
+                if (preg_match('/^v3_(?:policy2_)?timed_scene_\d+_/D', $key)) { $plan['groups'] = []; break; }
+            }
+            Db::name('aigc_short_drama_planning_unit')->insert($scope + ['status' => 'checkpoint', 'attempt' => 0,
+                'request_json' => '{}', 'result_json' => json_encode($plan, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                'create_time' => time(), 'update_time' => time()]);
+            return $plan;
+        });
+    }
+
     public static function retryableBeforeSubmission(string $error): bool
     {
         // These are connection establishment failures, not ambiguous read timeouts after submission.

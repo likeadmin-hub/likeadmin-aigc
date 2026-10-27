@@ -17572,7 +17572,8 @@ class AigcShortDramaService
                     $targetRule = self::storyboardTargetRuleForSkeleton($skeleton, $request, $prompt);
                     $request['storyboard_target_rule'] = $targetRule;
                     return self::applyStoryboardBudgetToSkeleton($skeleton, $targetRule);
-                });
+                }, static fn(array $plan): array => ShortDramaPlanningUnit::freezeSceneBatches(
+                    $tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan));
         }
         try {
             if ($v3Generation !== null) {
