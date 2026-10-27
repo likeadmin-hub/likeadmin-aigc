@@ -42,6 +42,18 @@ class ShortDramaStoryWorkflowTest extends TestCase
         self::assertTrue(ShortDramaStoryWorkflow::inheritQualityReview($disabled, [])['quality_review_enabled']);
     }
 
+    public function testExplicitNewReviewSurvivesParentOptOutAtEveryWorkerBoundary(): void
+    {
+        $request = ['_input_contract_version'=>19, '_continuity_review_only'=>true, 'quality_review_enabled'=>true];
+        $parent = ['quality_review_enabled'=>false];
+        for ($i=0; $i<3; $i++) {
+            $request = ShortDramaStoryWorkflow::inheritQualityReview($request, $parent);
+            self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled($request));
+        }
+        unset($request['_continuity_review_only']);
+        self::assertFalse(ShortDramaStoryWorkflow::inheritQualityReview($request, $parent)['quality_review_enabled']);
+    }
+
     public function testDisabledReviewKeepsStructuralChecksWithoutEditorialStoryGate(): void
     {
         $story = ['title' => '甲', 'type_judgement' => '奇幻', 'core_theme' => '成长',
