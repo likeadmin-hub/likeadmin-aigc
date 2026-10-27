@@ -12,12 +12,31 @@ class ShortDramaEpisodeService
 {
     private const TABLE = 'aigc_short_drama_episode_task';
 
+    /** Mirror only this attempt's state. Never rewrite historical results or fees. */
+    private static function syncJob(array $row): void
+    {
+        if (empty($row['queue_job_id'])) return;
+        $terminal = in_array($row['status'], ['success','failed','canceled'], true);
+        Db::name('aigc_short_drama_episode_job')->where(['id'=>$row['queue_job_id'],'tenant_id'=>$row['tenant_id'],
+            'user_id'=>$row['user_id'],'project_id'=>$row['project_id'],'episode_id'=>$row['id'],
+            'attempt'=>$row['attempt_number'],'job_type'=>'episode'])->whereIn('status',['pending','queued','running'])->update([
+                'status'=>$row['status'], 'error_code'=>$row['status']==='failed' ? (string)($row['error_code'] ?: ShortDramaPlanningState::errorCode($row['error'])) : '',
+                'error_msg'=>$row['status']==='success' ? '' : (string)($row['error'] ?? ''),
+                'finished_at'=>$terminal ? (int)($row['finished_at'] ?: time()) : 0,
+                'next_run_time'=>(int)($row['next_retry_at'] ?? 0), 'update_time'=>time(),
+            ]);
+    }
+
     private static function queueJob(int $tenantId, int $userId, int $projectId, int $episodeId, int $attempt = 0): void
     {
         $now = time();
         $key = $tenantId . ':' . $episodeId . ':episode:' . $attempt;
         $exists = Db::name('aigc_short_drama_episode_job')->where(['tenant_id' => $tenantId, 'episode_id' => $episodeId, 'job_type' => 'episode', 'attempt' => $attempt])->find();
         if ($exists) return;
+        // Older attempts cannot remain queued after an explicit successor exists.
+        Db::name('aigc_short_drama_episode_job')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$projectId,
+            'episode_id'=>$episodeId,'job_type'=>'episode'])->where('attempt','<',$attempt)->whereIn('status',['pending','queued','running'])
+            ->update(['status'=>'canceled','error_msg'=>'由后续尝试接替，原记录保留','finished_at'=>$now,'update_time'=>$now]);
         $jobId = Db::name('aigc_short_drama_episode_job')->insertGetId(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
             'episode_id' => $episodeId, 'job_type' => 'episode', 'status' => 'pending', 'attempt' => $attempt,
             'idempotency_key' => $key, 'next_run_time' => $now, 'create_time' => $now, 'update_time' => $now]);
@@ -134,6 +153,9 @@ class ShortDramaEpisodeService
         $project = self::project($tenantId, $userId, $projectId);
         self::importLegacy($tenantId, $userId, $project);
         $rows = Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->order('episode_number')->select()->toArray();
+        foreach ($rows as $row) {
+            if (in_array($row['status'], ['success','failed','canceled'], true)) self::syncJob($row);
+        }
         $storyboardCovers = AigcShortDramaService::episodeStoryboardCovers(
             $tenantId,
             $userId,
@@ -160,6 +182,9 @@ class ShortDramaEpisodeService
         $row['continuity_warnings'] = (array)($ledger['warnings'] ?? []);
         unset($row['outline_json'], $row['result_json'], $row['continuity_json'], $row['series_json'], $row['provider_request_id'], $row['provider_task_id']);
         $row['ready'] = (bool)$row['completed_once'];
+        if ($row['status'] === 'failed' && in_array($row['error_code'] ?? '', ['', 'provider_error'], true)) {
+            $row['error_code'] = ShortDramaPlanningState::errorCode($row['error'] ?? '');
+        }
         $row['queue_state'] = $row['status'];
         $row['review_status'] = '';
         if ($row['ready'] && $row['status'] === 'failed') {
@@ -315,6 +340,8 @@ class ShortDramaEpisodeService
             if ($row['status'] !== 'pending') throw new Exception('当前剧集无需取消');
             if ($row['task_id'] !== '') AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->whereIn('status', ['pending', 'queued'])->update(['status' => 'canceled', 'finished_at' => time(), 'update_time' => time()]);
             Db::name(self::TABLE)->where('id', $row['id'])->update(['status' => 'canceled', 'error' => '已取消，后续剧集暂停', 'update_time' => time()]);
+            self::syncJob(array_replace($row,['status'=>'canceled','error'=>'已取消，后续剧集暂停']));
+            if ($row['task_id'] !== '') ShortDramaPlanningState::reconcile($tenantId,$userId,$row['task_id']);
             return ['status' => 'canceled'];
         });
     }
@@ -489,12 +516,12 @@ class ShortDramaEpisodeService
     /** One provider call per invocation; a DB advisory lock prevents duplicate dispatch after lease expiry. */
     public static function tick(int $tenantId = 0, int $projectId = 0): int
     {
-        $exported = $projectId ? 0 : AigcShortDramaService::tickEpisodeExport();
+        $exported = ($projectId || $tenantId) ? 0 : AigcShortDramaService::tickEpisodeExport();
         $query = Db::name(self::TABLE)->where('delete_time', 0)->whereIn('status', ['pending', 'running']);
         $query->where(function ($q) { $q->where('next_retry_at', 0)->whereOr('next_retry_at', '<=', time()); });
         if ($tenantId) $query->where('tenant_id', $tenantId);
         if ($projectId) $query->where('project_id', $projectId);
-        $series = $query->group('tenant_id,user_id,project_id')->field('tenant_id,user_id,project_id')->select()->toArray();
+        $series = $query->group('tenant_id,user_id,project_id')->field('tenant_id,user_id,project_id')->orderRaw('MIN(update_time) ASC')->select()->toArray();
         foreach ($series as $owner) {
             $t = (int)$owner['tenant_id']; $u = (int)$owner['user_id']; $p = (int)$owner['project_id'];
             $lock = 'short-drama-series:' . $t . ':' . $p;
@@ -506,8 +533,18 @@ class ShortDramaEpisodeService
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
-                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->field('title,outline_json,retry_count')->find() ?: []);
+                $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->find() ?: []);
+                // Check the selected episode itself: later due siblings must not bypass
+                // its backoff. A waiting unit must yield the worker to other series.
+                if ((int)$selected['next_retry_at'] > time()) continue;
+                if ($selected['task_id'] !== '') {
+                    $childStatus = AigcShortDramaScriptTask::where(['tenant_id'=>$t,'user_id'=>$u,
+                        'project_id'=>$selected['production_project_id'],'task_id'=>$selected['task_id'],'delete_time'=>0])->value('status');
+                    if (in_array($childStatus, ['pending','queued','running'], true)
+                        && !ShortDramaPlanningUnit::ready($t, $u, $selected['task_id'])) continue;
+                }
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
+                $selected = array_replace($selected, Db::name(self::TABLE)->where('id',$selected['id'])->find() ?: []);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
                 if ($queueMessage && (int)($queueMessage['data']['episode_id'] ?? 0) !== (int)$selected['id']) {
                     ShortDramaRedisQueue::ack($queueMessage['id']);
@@ -575,17 +612,28 @@ class ShortDramaEpisodeService
             }
             $claimed = Db::name(self::TABLE)->where(['id' => $row['id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->whereIn('status', ['pending', 'running'])->update(['status' => 'running', 'started_at' => (int)$row['started_at'] ?: time(), 'update_time' => time()]);
             if (!$claimed && (Db::name(self::TABLE)->where('id', $row['id'])->value('status') !== 'running')) return;
+            self::syncJob(array_replace($row,['status'=>'running']));
             $data = AigcShortDramaService::streamScriptPlan($tenantId, $userId,
                 ['project_id' => $row['production_project_id'], 'task_id' => $row['task_id']],
                 static function ($event, $data) use ($row) {
                     if (in_array($event, ['stage', 'heartbeat'], true)) Db::name(self::TABLE)->where(['id' => $row['id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->update(['progress' => max(0, min(99, (int)($data['progress'] ?? 0))), 'heartbeat_at' => time(), 'update_time' => time()]);
                 }, true);
             $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->findOrEmpty()->toArray();
-            if (!in_array($task['status'] ?? '', ['success', 'failed', 'canceled'], true)) return;
+            if (!in_array($task['status'] ?? '', ['success', 'failed', 'canceled'], true)) {
+                if (($task['status'] ?? '') === 'queued') {
+                    Db::name(self::TABLE)->where(['id'=>$row['id'],'task_id'=>$row['task_id'],'status'=>'running'])->update(['status'=>'pending','update_time'=>time()]);
+                    self::syncJob(array_replace($row,['status'=>'pending']));
+                }
+                return;
+            }
+            ShortDramaPlanningState::reconcile($tenantId,$userId,$row['task_id']);
+            $failureCode = Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,
+                'project_id'=>$row['production_project_id'],'task_id'=>$row['task_id'],'task_type'=>'script_plan','delete_time'=>0])->value('error_code');
             $plan = self::decode($task['result_json'] ?? '');
             $update = ['status' => $task['status'], 'error' => $task['error'] ?? '', 'progress' => $task['status'] === 'success' ? 100 : 0,
                 'provider' => $task['provider'] ?? '', 'provider_request_id' => $task['provider_request_id'] ?? '',
-                'provider_task_id' => $task['provider_task_id'] ?? '', 'finished_at' => time(), 'update_time' => time()];
+                'provider_task_id' => $task['provider_task_id'] ?? '', 'error_code'=>$task['status']==='failed' ? ($failureCode ?: ShortDramaPlanningState::errorCode($task['error'] ?? '')) : '',
+                'next_retry_at'=>0,'finished_at' => time(), 'update_time' => time()];
             if ($task['status'] === 'success') {
                 if (empty($plan['storyboard']) || empty($plan['subjects']) || empty($plan['locations'])) throw new Exception('本集内容不完整，请重试');
                 $update['completed_once'] = 1;
@@ -601,29 +649,48 @@ class ShortDramaEpisodeService
                 $pauseFollowing = $update['status'] === 'success' && !empty($current['cancel_requested']);
                 $queueNext = $update['status'] === 'success' && !$pauseFollowing;
                 Db::name(self::TABLE)->where('id', $row['id'])->update($update);
+                self::syncJob(array_replace($current,$update));
             });
             if ($pauseFollowing) {
                 self::cancelFollowingEpisodes($tenantId, $userId, (int)$row['project_id'], (int)$row['episode_number']);
             } elseif ($queueNext) {
-                $next = Db::name(self::TABLE)->where(['project_id' => $row['project_id'], 'delete_time' => 0])
+                $next = Db::name(self::TABLE)->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'project_id' => $row['project_id'], 'delete_time' => 0])
                     ->where('episode_number', '>', (int)$row['episode_number'])->order('episode_number')->find();
                 if ($next) self::queueJob($tenantId, $userId, (int)$row['project_id'], (int)$next['id'], (int)$next['attempt_number']);
             }
         } catch (\Throwable $e) {
             \think\facade\Log::error('Short drama episode ' . $row['id'] . ': ' . $e->getMessage());
             $message = $e->getMessage();
-            $temporary = preg_match('/超时|timeout|timed out|连接|network|temporar|限流|rate limit|HTTP 5/i', $message) === 1;
-            $retryCount = (int)($row['retry_count'] ?? 0);
-            if ($temporary && $retryCount < 2) {
-                $delay = $retryCount === 0 ? 30 : 120;
-                Db::name(self::TABLE)->where(['id' => $row['id'], 'delete_time' => 0])->whereIn('status', ['pending', 'running'])->update([
-                    'status' => 'pending', 'retry_count' => $retryCount + 1, 'next_retry_at' => time() + $delay,
-                    'error_code' => 'temporary_provider_error', 'error' => '模型临时异常，已安排自动重试', 'finished_at' => 0, 'update_time' => time(),
-                ]);
-                self::queueJob($tenantId, $userId, (int)$row['project_id'], (int)$row['id'], $retryCount + 1);
-            } else {
-                Db::name(self::TABLE)->where(['id' => $row['id'], 'delete_time' => 0])->whereIn('status', ['pending', 'running'])->update(['status' => 'failed', 'error_code' => $temporary ? 'temporary_provider_error' : 'provider_error', 'error' => '本集生成失败，请检查模型配置、可用点数后重试', 'finished_at' => time(), 'update_time' => time()]);
-            }
+            $code = ShortDramaPlanningState::errorCode($e);
+            $safeMessage = in_array($code, ['internal_failed','persistence_failed'], true)
+                ? '本集生成遇到内部异常，已完成内容保留，请稍后重试' : mb_substr($message,0,200);
+            Db::transaction(function () use ($tenantId,$userId,$row,$e,$message,$code,$safeMessage): void {
+                $current = Db::name(self::TABLE)->where(['id'=>$row['id'],'tenant_id'=>$tenantId,'user_id'=>$userId,
+                    'task_id'=>$row['task_id'],'attempt_number'=>$row['attempt_number'],'delete_time'=>0])->lock(true)->find();
+                if (!$current || !in_array($current['status'],['pending','running'],true)) return;
+                $child = $row['task_id'] !== '' ? AigcShortDramaScriptTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,
+                    'project_id'=>$row['production_project_id'],'task_id'=>$row['task_id'],'delete_time'=>0])->findOrEmpty()->toArray() : [];
+                // Automatic retry is limited to a proven connection failure before any
+                // provider submission. Ambiguous timeouts require explicit user recovery.
+                $retryCount = (int)$current['retry_count'];
+                $safeRetry = ShortDramaPlanningUnit::retryableBeforeSubmission($message) && $retryCount < 2
+                    && (!$child || (in_array($child['status'],['pending','queued'],true) && empty($child['app_task_id'])
+                        && empty($child['provider_request_id']) && empty($child['provider_task_id'])
+                        && !Db::name('aigc_short_drama_planning_unit')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$row['task_id']])->count()));
+                self::syncJob(array_replace($current,['status'=>'failed','error'=>$safeMessage,'error_code'=>$code,'finished_at'=>time()]));
+                if ($safeRetry) {
+                    $next = time() + ($retryCount === 0 ? 30 : 120);
+                    Db::name(self::TABLE)->where('id',$row['id'])->update(['status'=>'pending','retry_count'=>$retryCount+1,
+                        'next_retry_at'=>$next,'error_code'=>$code,'error'=>'连接暂时不可用，等待延迟重试','finished_at'=>0,'update_time'=>time()]);
+                    self::queueJob($tenantId,$userId,(int)$row['project_id'],(int)$row['id'],$retryCount+1);
+                    $queued = Db::name(self::TABLE)->where('id',$row['id'])->find();
+                    self::syncJob($queued);
+                } else {
+                    if ($child) ShortDramaPlanningState::failExecution($tenantId,$userId,$row['task_id'],$e,$safeMessage,(int)$child['retry_count']);
+                    Db::name(self::TABLE)->where('id',$row['id'])->update(['status'=>'failed','progress'=>0,
+                        'error_code'=>$code,'error'=>$safeMessage,'next_retry_at'=>0,'finished_at'=>time(),'update_time'=>time()]);
+                }
+            });
         }
     }
 
