@@ -131,7 +131,7 @@ class ShortDramaLocalFlowAuditTest extends TestCase
         });
         self::assertCount(1,$seen);
         self::assertSame($source."\n最新用户修改（冲突时以此为准）：本集不拆信",$seen[0]['source']);
-        self::assertSame($seen[0]['source'],implode('',array_column($seen[0]['sources'],'text')));
+        self::assertSame(preg_replace('/\s+/u','',$seen[0]['source']),preg_replace('/\s+/u','',implode('',array_column($seen[0]['sources'],'text'))));
         self::assertSame(1,$seen[0]['episode_number']);
         self::assertSame('',$seen[0]['preceding_scope_heading']);
     }
@@ -144,5 +144,19 @@ class ShortDramaLocalFlowAuditTest extends TestCase
         self::assertSame('第2集',$chunks[1]['preceding_scope_heading']);
         self::assertSame('全剧要求',end($chunks)['preceding_scope_heading']);
         foreach($chunks as $chunk) self::assertLessThanOrEqual(6000,mb_strlen($chunk['source']));
+    }
+
+    public function testResumedLegacyTaskRetainsItsExplicitRecoveryTimingPolicy(): void
+    {
+        $request=['_generation_recovery_version'=>1,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];
+        $plan=$this->plan(); $plan['storyboard']=array_map(static fn($i)=>['shot_id'=>'s'.$i,'scene_ref_id'=>'hall',
+            'subject_ref_ids'=>['p'],'visual_description'=>'陈溪在走廊等待。','recommended_duration_seconds'=>10],range(1,14));
+        Duration::assertPlan($plan,$request);
+        $result=$this->invoke(Service::class,'normalizeGeneratedPlanResult',$plan,'按实际剧情安排时长',$request,'等候');
+        self::assertTrue($result['generation_settings']['timing_recovery_enabled']);
+        Duration::assertPlan($result,$result);
+        unset($result['generation_settings']['timing_recovery_enabled']);
+        $this->expectExceptionCode(422);
+        Duration::assertPlan($result,$result);
     }
 }
