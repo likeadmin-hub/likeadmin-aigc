@@ -103,7 +103,7 @@ class ShortDramaSceneBindingTest extends TestCase
         $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'陈溪找到信'],
             static function($key,$input)use($plan,&$shotContext){
                 if(str_contains($key,'skeleton'))return ['result'=>['content'=>json_encode($plan,JSON_UNESCAPED_UNICODE)]];
-                $shotContext=json_decode($input['content'],true);
+                $shotContext=\app\common\service\app\aigc_short_drama\ShortDramaStructuredResponse::decode(['content'=>$input['content']]);
                 return ['result'=>['content'=>json_encode(['storyboard'=>[['shot_id'=>'s1_1','scene_ref_id'=>'home',
                     'scene_name'=>'母亲老屋','subject_ref_ids'=>['p'],'interior_exterior'=>'interior',
                     'visual_description'=>'母亲老屋内，陈溪拆开信。','dialogue'=>'陈溪：原来她一直在等我。',
