@@ -336,6 +336,7 @@ class ShortDramaEpisodeService
                         $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7, ShortDramaSourceMemory::enabled($request));
                         $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
                         if ($review) {
+                            if (ShortDramaReviewOutcome::enabled($request)) $request['quality_review_enabled'] = true;
                             $version = Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                                 'project_id' => $row['production_project_id'], 'is_current' => 1, 'delete_time' => 0])->find();
                             $request['revision_base_result'] = self::decode($version['plan_json'] ?? $row['result_json']);
@@ -699,11 +700,11 @@ class ShortDramaEpisodeService
             }
             $queueNext = false;
             $pauseFollowing = false;
-            Db::transaction(function () use ($row, $update, &$queueNext, &$pauseFollowing) {
+            Db::transaction(function () use ($row, $update, $plan, &$queueNext, &$pauseFollowing) {
                 $current = Db::name(self::TABLE)->where(['id' => $row['id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->lock(true)->find();
                 if (!$current || !in_array($current['status'], ['pending', 'running'], true)) return;
                 $pauseFollowing = $update['status'] === 'success' && !empty($current['cancel_requested']);
-                $queueNext = $update['status'] === 'success' && !$pauseFollowing;
+                $queueNext = $update['status'] === 'success' && !$pauseFollowing && !ShortDramaReviewOutcome::blocksNext($plan);
                 Db::name(self::TABLE)->where('id', $row['id'])->update($update);
                 self::syncJob(array_replace($current,$update));
             });

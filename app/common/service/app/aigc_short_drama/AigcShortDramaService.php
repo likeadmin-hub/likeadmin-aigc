@@ -14119,7 +14119,7 @@ class AigcShortDramaService
             'order_by' => 'storyboard.sort',
             'requires' => ['shot_video'],
         ];
-        return $plan;
+        return ShortDramaReviewOutcome::present($plan);
     }
 
     private static function logicalAgentDefinitions(): array
@@ -17218,7 +17218,7 @@ class AigcShortDramaService
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
             'multi_episode' => $episodeSettings['multi_episode'],
-            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'episode_count' => $episodeSettings['episode_count'],
             'multi_episode_stage' => $episodeSettings['multi_episode']
                 ? self::MULTI_EPISODE_STAGE_STORY
@@ -17457,7 +17457,10 @@ class AigcShortDramaService
         }
         $result = ShortDramaEpisodeReview::generate($base, $request,
             static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$calls, &$rejected, $callLimit): array {
-                if (++$calls > $callLimit) throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
+                if (++$calls > $callLimit) {
+                    if (ShortDramaReviewOutcome::enabled($request)) throw new ShortDramaReviewDeferred('本次复核已达到处理上限，剧本已保存，可稍后继续复核', [], null, 429);
+                    throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
+                }
                 if ($onEvent) $onEvent('heartbeat', []);
                 $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, (int)($request['_input_contract_version'] ?? 0) >= 7);
                 ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
@@ -17468,11 +17471,12 @@ class AigcShortDramaService
                     $params, static fn(array $effective): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $effective, $model, $request, 'episode_review',
                         $onEvent === null ? null : static function ($event, $data) use ($onEvent) { if ($event !== 'delta') $onEvent($event, $data); }), true);
                 $receipts[] = $receipt['result'];
-                try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate): array {
-                    $payload = ShortDramaStructuredResponse::decode($receipt['result']);
-                    if ($validate) $validate($payload);
-                    return $payload;
-                }); } catch (\RuntimeException $error) { $rejected = $receipt; throw $error; }
+                try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $request): array {
+                    return ShortDramaReviewOutcome::decode($receipt['result'], $request, $validate);
+                }); } catch (\RuntimeException $error) {
+                    $rejected = $receipt;
+                    throw $error;
+                }
             }, $onEvent, static function(array $plan, int $reviewed, array $resume) use ($tenantId, $userId, $request, &$receipts): void {
                 $resume['receipts'] = $receipts;
                 ShortDramaReviewCheckpoint::save($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan, $reviewed, $resume);
@@ -17632,7 +17636,12 @@ class AigcShortDramaService
         $payload = self::mergeRevisionBasePlanPayload($payload, $request);
         if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
             // The baseline is already a complete saved script. Re-expanding it would rewrite untouched prompts.
-            return ['result' => self::protectRevisionTargetResult($payload, $request),
+            $targetResult = self::protectRevisionTargetResult($payload, $request);
+            if (ShortDramaReviewOutcome::enabled($request)
+                && ShortDramaContinuity::fingerprint($targetResult) !== ShortDramaContinuity::fingerprint((array)($request['revision_base_result'] ?? []))) {
+                $targetResult = ShortDramaReviewOutcome::pending($targetResult, $request, '局部修改已保存，剧情变化需要复核');
+            }
+            return ['result' => $targetResult,
                 'llm' => $llmResult, 'repair_llm' => [], 'provider' => (string)($model['provider'] ?? ''),
                 'model_selection' => $model, 'raw_content' => $rawContent];
         }
@@ -17652,6 +17661,9 @@ class AigcShortDramaService
                     $result, $request['series_context'], (int)($request['episode_number'] ?? 1)
                 );
                 $result['_continuity']['audit_status'] = 'skipped';
+            }
+            if (ShortDramaReviewOutcome::enabled($request) && !empty($result['storyboard'])) {
+                $result = ShortDramaReviewOutcome::pending($result, $request, '剧本已生成，尚未进行剧情复核；复核前暂停后续剧集', [], 'unreviewed');
             }
             return ['result' => $result, 'llm' => $llmResult, 'repair_llm' => [],
                 'provider' => (string)($model['provider'] ?? ''), 'model_selection' => $model,
