@@ -5586,7 +5586,14 @@ class AigcShortDramaService
             ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$task['project_id'], $taskId);
             $request = self::jsonDecode((string)$task['request_json']);
             if (ShortDramaStoryWorkflow::workerOwned($request)) {
-                ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, $taskId, $confirmInterrupted);
+                try {
+                    ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, $taskId, $confirmInterrupted);
+                } catch (\RuntimeException $error) {
+                    if ($error->getMessage() === '上次模型请求仍在收尾，请稍后再试') {
+                        throw new Exception('停止已生效，当前模型请求正在收尾，请稍后输入“继续”重新提交');
+                    }
+                    throw $error;
+                }
                 $request['_generation_recovery_version'] = 1;
                 $task->save([
                     'request_json' => self::jsonEncode($request),
