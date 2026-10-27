@@ -228,12 +228,13 @@ class ShortDramaEpisodeService
         // A running episode can finish after the user pauses the series. Its
         // completed plan is already durable and must remain viewable; only
         // later, not-yet-run episodes are canceled. Keep legacy rows with the
-        // old canceled status compatible with that same behavior.
+        // old canceled status compatible with that same behavior. Keep recovery
+        // available from queue_state: reading must not resume canceled work.
         if ($row['ready'] && $row['status'] === 'canceled') {
             $row['status'] = 'success';
             $row['error'] = '';
         }
-        $row['can_retry'] = in_array($row['status'], ['failed', 'canceled'], true) || !empty($row['needs_review']);
+        $row['can_retry'] = in_array($row['queue_state'], ['failed', 'canceled'], true) || !empty($row['needs_review']);
         return $row;
     }
 
@@ -295,8 +296,8 @@ class ShortDramaEpisodeService
                 if (!empty($sibling['needs_review'])) throw new Exception('请先复核前面的剧集，避免继续使用旧剧情');
             }
             if (!in_array($row['status'], ['failed', 'canceled'], true) && !($row['status'] === 'success' && $review)) throw new Exception('当前剧集无需重试');
-            if ($row['status'] === 'canceled' && (int)$row['completed_once'] && $row['task_id'] !== '') {
-                $status = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->value('status');
+            if ($row['status'] === 'canceled' && (int)$row['completed_once'] && !$review && $row['task_id'] !== '') {
+                $status = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $row['production_project_id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->value('status');
                 if ($status === 'success') {
                     Db::name(self::TABLE)->where('id', $row['id'])->update(['status' => 'success', 'cancel_requested' => 0, 'error' => '', 'update_time' => time()]);
                     return ['status' => 'success', 'episode_id' => $row['id'], 'task_id' => $row['task_id'], 'project_id' => $row['production_project_id']];

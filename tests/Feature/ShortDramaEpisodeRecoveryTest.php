@@ -110,4 +110,27 @@ class ShortDramaEpisodeRecoveryTest extends TestCase
         self::assertSame('success',$job['status']);self::assertSame('{"old_receipt":1}',$job['result_json']);
         self::assertSame($before,Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find());
     }
+    public function testCanceledCompletedWorkRequiresExplicitResumeAndReusesPaidResult(): void
+    {
+        $f=$this->fixture('success');
+        Db::name('aigc_short_drama_episode_task')->where('id',$f['ep'])->update(['status'=>'canceled','completed_once'=>1]);
+        Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->update(['status'=>'canceled']);
+        $next=Db::name('aigc_short_drama_episode_task')->insertGetId($this->scope+['project_id'=>$f['p'],'episode_number'=>2,'status'=>'pending']);
+        $before=Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find();
+        $jobBefore=Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->find();
+        $s=Episodes::lists(2000000725,7,$f['p']);
+        self::assertSame('success',$s['lists'][0]['status']);self::assertTrue($s['lists'][0]['ready']);
+        self::assertSame('canceled',$s['lists'][0]['queue_state']);self::assertTrue($s['lists'][0]['can_retry']);
+        self::assertTrue($s['paused']);self::assertSame(0,Episodes::tick(2000000725,$f['p']));
+        self::assertSame('canceled',Db::name('aigc_short_drama_episode_task')->where('id',$f['ep'])->value('status'));
+        $result=Episodes::retry(2000000725,7,$f['ep']);
+        self::assertSame('success',$result['status']);self::assertSame($f['task'],$result['task_id']);
+        $s=Episodes::lists(2000000725,7,$f['p']);self::assertFalse($s['paused']);
+        self::assertSame($next,(int)Episodes::nextInitialEpisode($s['lists'])['id']);
+        self::assertSame($before,Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find());
+        self::assertSame($jobBefore,Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->find());
+        self::assertSame(1,Db::name('aigc_short_drama_script_task')->where('project_id',$f['c'])->count());
+        self::assertFalse($s['lists'][0]['can_retry']);
+    }
+
 }
