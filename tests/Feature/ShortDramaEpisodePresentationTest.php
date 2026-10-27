@@ -22,7 +22,9 @@ class ShortDramaEpisodePresentationTest extends TestCase
         self::assertSame('success', $summary['status']);
         self::assertSame('canceled', $summary['queue_state']);
         self::assertSame('', $summary['error']);
-        self::assertFalse($summary['can_retry']);
+        // The saved result stays viewable, while explicit continuation releases
+        // the canceled queue boundary without generating or charging it again.
+        self::assertTrue($summary['can_retry']);
     }
 
     public function testCanceledEpisodeWithoutAResultStillRequiresRegeneration(): void
