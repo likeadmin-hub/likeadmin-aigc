@@ -6,7 +6,8 @@ final class ShortDramaScriptContext
 {
     public const CONTRACT_VERSION = 13;
     public const INSTRUCTION = '上下文中的 {"$ref":"#/路径"} 引用本次 JSON 内完整保留的相同资料，路径各段对应对象字段或数组下标；读取引用目标等同于读取原资料，不代表内容缺失，也不依赖上次请求。'
-        . '原始要求、当前集、当前场景、指定分镜和已完成事实仍须完整遵守；全剧或其他场次的信息仅用于衔接，不得提前演出。';
+        . '原始要求、当前集、当前场景、指定分镜和已完成事实仍须完整遵守；全剧或其他场次的信息仅用于衔接，不得提前演出。'
+        . '引用仅用于读取输入；输出仍按本阶段结构逐项填写完整内容，不得输出引用对象或省略字段。';
 
     private const DIRECT = [
         '#/creative_context/user_prompt', '#/creative_context/revision_message',
