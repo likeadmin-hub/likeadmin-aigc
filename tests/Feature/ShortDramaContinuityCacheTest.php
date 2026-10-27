@@ -29,6 +29,6 @@ class ShortDramaContinuityCacheTest extends TestCase
             self::assertSame(Continuity::dependencyStatus($rows,$versions),$changed);
             self::assertFalse(Checks::resolve(2000000731,7,$p,$rows,$versions,false)[499]['needs_review']);
             self::assertFalse(Checks::resolve(2000000732,7,$p,$rows,[],true)[499]['needs_review']);
-        }finally{Cache::delete('short_drama_continuity_v1:2000000731:7:'.$p);Cache::delete('short_drama_continuity_v1:2000000732:7:'.$p);}
+        }finally{Cache::delete('short_drama_continuity_v2:2000000731:7:'.$p);Cache::delete('short_drama_continuity_v2:2000000732:7:'.$p);}
     }
 }

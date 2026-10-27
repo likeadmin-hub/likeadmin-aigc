@@ -43,7 +43,8 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
             'multi_episode'=>false,'episode_count'=>1,'quality_review_enabled'=>false]);
         self::assertCount(12,$out['result']['storyboard']);
         self::assertSame('unreviewed',$out['result']['script_review']['status']);
-        self::assertSame('pending_review',$out['result']['_continuity']['audit_status']);
+        self::assertSame('skipped',$out['result']['_continuity']['audit_status']);
+        self::assertSame('ready',$out['result']['_continuity']['dependency_status']);
         self::assertSame([],$out['repair_llm']);
         self::assertCount(1,\app\common\service\power\MarketTextModelRuntimeService::$requests);
     }

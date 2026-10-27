@@ -102,9 +102,9 @@ class ShortDramaReviewOutcomeTest extends TestCase
         Review::generate($this->plan(),array_replace($this->request(),['_input_contract_version'=>18]),static function()use($error){throw $error;});
     }
 
-    public function testUnreviewedEpisodeBlocksDependenciesEvenWhenOptionalReviewIsOff(): void
+    public function testActualUnresolvedReviewBlocksDependenciesEvenWhenOptionalReviewIsOff(): void
     {
-        $plan=Outcome::pending($this->plan(),$this->request(),'尚未复核',[],'unreviewed');
+        $plan=Outcome::pending($this->plan(),$this->request(),'复核发现未解决问题');
         $ledger=$plan['_continuity'];$ledger['previous_digest']='';
         $next=array_replace($ledger,['audit_status'=>'verified','digest'=>'next','previous_digest'=>$ledger['digest']]);
         $rows=[['id'=>1,'status'=>'success','production_project_id'=>1,'continuity_json'=>json_encode($ledger)],
@@ -126,5 +126,38 @@ class ShortDramaReviewOutcomeTest extends TestCase
         self::assertFalse(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19]));
         self::assertTrue(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19,'quality_review_enabled'=>true]));
         self::assertFalse(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19,'quality_review_enabled'=>false]));
+    }
+
+    public function testSkippedReviewContinuesAndRetainsNarrativeMemoryWithoutClaimingVerification(): void
+    {
+        $plan=$this->plan();
+        $plan['_continuity']=['source_memory'=>['version'=>1,'blocks'=>[['text'=>'陈溪在走廊等候']]]];
+        $result=Outcome::unreviewed($plan,$this->request());
+        self::assertSame($plan['storyboard'],$result['storyboard']);
+        self::assertSame($plan['_continuity']['source_memory'],$result['_continuity']['source_memory']);
+        self::assertSame('skipped',$result['_continuity']['audit_status']);
+        self::assertSame('unreviewed',$result['script_review']['status']);
+        self::assertSame('陈溪在走廊等候',$result['_continuity']['summary']);
+        self::assertFalse(Outcome::blocksNext($result));
+        $rows=[['id'=>1,'status'=>'success','result_json'=>json_encode($result),'continuity_json'=>json_encode($result['_continuity'])]];
+        self::assertFalse(Continuity::dependencyStatus($rows,[],false)[0]['needs_review']);
+    }
+
+    public function testLegacyOptOutIsReleasedButFailedReviewAndDifferentRevisionAreNot(): void
+    {
+        $old=Outcome::pending($this->plan(),$this->request(),'旧版未复核',[],'unreviewed');
+        self::assertFalse(Outcome::blocksNext($old));
+        $row=['id'=>1,'production_project_id'=>1,'status'=>'success','result_json'=>json_encode($old),
+            'continuity_json'=>json_encode($old['_continuity'])];
+        $current=[1=>['ledger'=>$old['_continuity'],'narrative_digest'=>$old['_continuity']['digest']]];
+        $result=Continuity::dependencyStatus([$row],$current,false);
+        self::assertFalse($result[0]['needs_review']);
+        self::assertSame('skipped',json_decode($result[0]['continuity_json'],true)['audit_status']);
+        $failed=$old;$failed['script_review']['status']='needs_review';
+        self::assertTrue(Outcome::blocksNext($failed));
+        $row['result_json']=json_encode($failed);
+        self::assertTrue(Continuity::dependencyStatus([$row],$current,false)[0]['needs_review']);
+        $old['storyboard'][0]['visual_description']='角色已进入车站';
+        self::assertTrue(Outcome::blocksNext($old),'Different narrative cannot use an old opt-out to waive review');
     }
 }
