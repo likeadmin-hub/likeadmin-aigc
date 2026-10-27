@@ -58,4 +58,25 @@ class ShortDramaInterruptedRetryTest extends TestCase
         Unit::prepareExplicitRetry(2000000724,7,$task,true);
         self::assertSame($before,Db::name('aigc_short_drama_planning_unit')->where('task_id',$task)->find());
     }
+    public function testChangedContextRequiresConfirmationWithoutPreparingUnusedOldUnits(): void
+    {
+        $task=$this->fixture();$before=Db::name('aigc_short_drama_planning_unit')->where('task_id',$task)->find();
+        try{Unit::prepareExplicitRetry(2000000723,7,$task,false,true,true);self::fail('New version must be explained');}
+        catch(\RuntimeException $e){self::assertSame(Unit::CHANGED_CONTEXT_CONFIRMATION,$e->getMessage());}
+        Unit::prepareExplicitRetry(2000000723,7,$task,true,true,true);
+        self::assertSame($before,Db::name('aigc_short_drama_planning_unit')->where('task_id',$task)->find());
+        self::assertSame(1,Db::name('aigc_short_drama_planning_unit')->where('task_id',$task)->count());
+    }
+    public function testAWorkerStillHoldingOwnershipCannotBeDuplicated(): void
+    {
+        $task=$this->fixture();$lock=substr('sd_plan:'.hash('sha256','2000000723:'.$task),0,64);
+        $connection=new \think\db\connector\Mysql(Db::connect()->getConfig());
+        $connection->setDb(Db::getFacadeRoot());
+        $connection->query('SELECT GET_LOCK(?,0)',[$lock]);
+        try {
+            try{Unit::prepareExplicitRetry(2000000723,7,$task,true);self::fail('Live worker must fence retry');}
+            catch(\RuntimeException $e){self::assertSame('上次模型请求仍在收尾，请稍后再试',$e->getMessage());}
+        } finally { $connection->query('SELECT RELEASE_LOCK(?)',[$lock]); }
+        self::assertSame(1,Db::name('aigc_short_drama_planning_unit')->where('task_id',$task)->count());
+    }
 }

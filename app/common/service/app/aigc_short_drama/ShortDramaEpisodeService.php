@@ -315,6 +315,9 @@ class ShortDramaEpisodeService
                         $newTask = (string)$old['task_id'];
                         ShortDramaPlanningState::explicitRetry($tenantId, $userId, $newTask, (int)$row['production_project_id']);
                     } else {
+                        // Changed source/continuity needs a new version. Do not silently
+                        // bypass the interrupted-request confirmation in this branch.
+                        ShortDramaPlanningUnit::prepareExplicitRetry($tenantId,$userId,(string)$row['task_id'],$confirmInterrupted,true,true);
                         $created = AigcShortDramaService::createScriptPlan($tenantId, $userId, $request, (int)$row['production_project_id'], $request);
                         $newTask = $created['task_id'];
                     }

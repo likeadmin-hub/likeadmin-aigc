@@ -8,6 +8,7 @@ use RuntimeException;
 final class ShortDramaPlanningUnit
 {
     public const INTERRUPTED_CONFIRMATION = '中断部分需要重新生成，可能产生新的费用；已完成内容和原费用记录保留。请确认后继续。';
+    public const CHANGED_CONTEXT_CONFIRMATION = '中断任务的上下文已更新，不能安全复用旧回包；继续会在原项目生成新版本，可能产生新的费用，原剧本和素材保留。请确认后继续。';
     private const INTERRUPTED_SECONDS = 1800;
     /** Presentation metadata can differ between HTTP and workers; paid input cannot. */
     public static function requestSignature(array $input): string
@@ -44,19 +45,19 @@ final class ShortDramaPlanningUnit
     }
 
     /** An explicit retry starts a fresh connection budget only for calls that never reached the provider. */
-    public static function prepareExplicitRetry(int $tenant, int $user, string $task, bool $confirmInterrupted = false): void
+    public static function prepareExplicitRetry(int $tenant, int $user, string $task, bool $confirmInterrupted = false, bool $checkOnly = false, bool $newContext = false): void
     {
         $lock = '';
         try {
-            Db::transaction(static function () use ($tenant, $user, $task, $confirmInterrupted, &$lock): void {
-                self::prepareRetry($tenant, $user, $task, $confirmInterrupted, $lock);
+            Db::transaction(static function () use ($tenant, $user, $task, $confirmInterrupted, $checkOnly, $newContext, &$lock): void {
+                self::prepareRetry($tenant, $user, $task, $confirmInterrupted, $lock, $checkOnly, $newContext);
             });
         } finally {
             if ($lock !== '') Db::query('SELECT RELEASE_LOCK(?)', [$lock]);
         }
     }
 
-    private static function prepareRetry(int $tenant, int $user, string $task, bool $confirmInterrupted, string &$lock): void
+    private static function prepareRetry(int $tenant, int $user, string $task, bool $confirmInterrupted, string &$lock, bool $checkOnly, bool $newContext): void
     {
         $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task];
         $rows = Db::name('aigc_short_drama_planning_unit')->where($scope)->lock(true)->select()->toArray();
@@ -86,12 +87,13 @@ final class ShortDramaPlanningUnit
                 }
                 $interrupted[$root] = true;
             }
-            if (!in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
+            if ($checkOnly || !in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
             if ((int)$row['attempt'] >= 3 && !self::retryableBeforeSubmission((string)($row['error'] ?? ''))) {
                 throw new RuntimeException('上次模型请求的结果无法确认，不能安全重试；请新建任务并核对已完成内容');
             }
         }
-        if ($interrupted && !$confirmInterrupted) throw new RuntimeException(self::INTERRUPTED_CONFIRMATION, 409);
+        if ($interrupted && !$confirmInterrupted) throw new RuntimeException($newContext ? self::CHANGED_CONTEXT_CONFIRMATION : self::INTERRUPTED_CONFIRMATION, 409);
+        if ($checkOnly) return;
         foreach ($latest as $root => $row) {
             $restartInterrupted = isset($interrupted[$root]);
             if (!$restartInterrupted && ($row['status'] !== 'received' || !str_starts_with((string)($row['error'] ?? ''), 'validation:'))) continue;
