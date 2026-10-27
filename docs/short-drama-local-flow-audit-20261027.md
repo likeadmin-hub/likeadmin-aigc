@@ -47,7 +47,15 @@
 
 以上以离线桩、已有本地回归和只读真实收据为依据，不代表完成新的真实模型生成或测得上线后的失败率。
 
-既有 `HomeAgentResponsesProtocolTest.php` 在第 193 行的“Unrelated AI request transport changed”断言失败；用本次修改前 `bdcd16db6` 的接收器重复执行也在同一处失败。此项整体不计为通过，未为通过本次验证修改其断言或无关传输策略。
+初次核查时，既有 `HomeAgentResponsesProtocolTest.php` 在原第 193 行的“Unrelated AI request transport changed”断言失败；用修复前 `bdcd16db6` 的接收器重复执行也在同一处失败，当时未计为通过。后续专项核查已确认是测试预期过时，修正并完整通过，见下文。
+
+## 原生协议失败的后续核查与关闭
+
+- 根因：2026-10-25 提交 `e6d308992a`（`fix: keep billing selectors off initial text model requests`）已将所有文本请求统一为不携带内部产品/SKU 计费字段，保留模型与渠道路由，并以本地冻结快照计价。该提交同时新增了 `MarketTextModelPayloadContractTest::testFirstTextRequestKeepsLocalBillingFieldsOffEveryNativeProtocol`，明确覆盖这一规则。
+- 旧原生协议测试仍要求非装修请求 `include_market_context === true`，与上述已实施规则相反。它把“是否发送本地计费字段”和“是否严格要求原生 Responses 完整结束”混在同一个断言里。后者的应用范围并未随前者改变；此次失败不是正常上游返回被业务代码误拒绝的证据。
+- 修复：分别检查计费字段禁止外发、渠道保留和原生结束要求。增加六种情形的真实请求组装/本地伪流接收测试：用户调用、其他应用、未启用原生要求的装修调用、Chat 协议、原生装修调用、管理员能力探测。每种情形检查实际载荷、返回正文、模型/渠道、SSE、本地计价快照；启用严格原生要求的两种情形继续拒绝兼容协议降级。
+- 验证：`HomeAgentResponsesProtocolTest.php` 完整通过，包括此前未执行到的敏感信息脱敏、异常快照、Neuron 工具往返、原生历史续接与跨实例隔离。`MarketTextModelPayloadContractTest` 10 项/146 断言和 `MarketTextSseFramingTest` 2 项/5790 断言通过；`MarketTextUsageStreamTest.php`、PHP 语法及差异检查通过。
+- 变更仅涉及测试和本报告，不修改业务代码、计价、接口或应用版本，不需要再次重启；无真实上游调用或扣点。
 
 ## 本地验证结果
 
@@ -55,7 +63,7 @@
 - 前端在本地 `develop` 上运行提交幂等、阶段衔接、分集恢复/轮询、流恢复、打断重试、读取容错和提交状态用例：**44 tests，全部通过**。本次没有前端源码修改或重建产物。
 - `MarketTextUsageStreamTest.php` 的协议用量、usage 尾包、增量计数和完整性检查通过；载荷契约与新流式分包测试包含在上述 387 项中。
 - 变更 PHP 语法、差异空白、应用清单/API/菜单/权限 JSON 检查通过。
-- 常驻 worker 仍是审计前启动的进程。本次没有重启整个共享 worker 组，避免连带中断其他应用的在途任务；要让常驻进程完整载入新实现，应在共享队列空闲后重启。源码已按规则合入本地 `develop`，验证后返回功能分支。
+- 初次审计未重启常驻进程；随后按用户明确要求已重启共享 worker 组并平滑重载 PHP，确认短剧 worker 正常、当前契约为 v17、租户短剧首页接口返回成功。源码已按规则合入本地 `develop`，执行后返回功能分支。
 - 远端 `develop` 与本地既有的 4 个提交差异未改变；本次没有覆盖受保护的本机前端产物，也不推送 `develop`。
 
 ## 交接范围
@@ -65,6 +73,6 @@ branch: feature/short-drama-app-optimization
 server scope: 短剧生成、上下文、场景绑定、时长复核、共用流式接收器、测试及文档
 web scope: 只读核查及现有回归，无源码提交
 contract changes: 新请求 v17；结果增加时长契约元数据；无 API 路径、权限、数据库结构或扣点规则修改
-completed / remaining: 已修复六处可复现本地问题；常驻 worker 载入需空闲重启；未做新付费生成或历史数据重写
-validation: 387 项后端、44 项前端通过；一项旧原生协议测试在修改前后同点失败，详见上文
+completed / remaining: 已修复六处可复现本地问题并重启生效；原生协议旧测试问题已查明并修复；未做新付费生成或历史数据重写
+validation: 原流程 387 项后端、44 项前端通过；后续原生协议测试完整通过，另有 12 项/5936 断言及用量流回归通过，详见上文
 risks or blockers: 不宣称消除全部失败；保留上游错误的正常失败处理；旧请求继续使用冻结的上下文规则
