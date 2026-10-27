@@ -22,25 +22,29 @@ final class ShortDramaTimedScriptGeneration
             . '每场shot_durations合计等于duration_seconds；仅用户明确指定时长或时间码时要求整集合计严格匹配，默认时长只作上限参考，不能补镜头或延长静止画面凑数。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
             . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。'
             . '这是紧凑骨架，不生成任何图片、视频、三视图、音乐、负面提示词；主体与场景description各不超过120字；保留具体剧情，不写重复风格说明。';
-        if ((int)($request['_input_contract_version'] ?? 0) >= 15) {
+        if ((int)($request['_input_contract_version'] ?? 0) === 15) {
             $skeletonInput['system_prompt'] .= '每个scene_beat另须包含scene_script：action为按表演顺序排列的具体可拍动作数组，dialogue为{speaker,text}对白数组（无对白用空数组）。'
                 . '这就是分场剧本，须先写清人物行动、关系变化、关键台词和收场状态，再按其内容预算shot_durations。'
                 . '不得只写主题句、镜头术语或把不同实际地点塞进同一场。分镜阶段必须遵守这里的行动与对白，不新增关键剧情。';
+        } elseif ((int)($request['_input_contract_version'] ?? 0) >= 16) {
+            $skeletonInput['system_prompt'] .= '每场scene_beat补充简洁scene_script：action为按表演顺序的可拍动作数组，dialogue为{speaker,text}对白数组（无对白用空数组）。'
+                . '保留用户明确的动作和关键台词，不重复goal、entry、exit或全局风格说明；优先返回完整JSON，不为填字段增加新剧情。';
         }
         $skeleton = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                $skeleton = self::lockTimelineShotDurations(
+                $skeleton = self::normalizeSceneScripts(self::lockTimelineShotDurations(
                     self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192,
                         static function ($payload) use ($request, &$skeleton): void {
                             $skeleton = $payload;
-                            $prepared = self::lockTimelineShotDurations(self::canonicalSkeleton($payload), $request);
+                            $prepared = self::normalizeSceneScripts(
+                                self::lockTimelineShotDurations(self::canonicalSkeleton($payload), $request), $request);
                             if (ShortDramaInputContract::recoveryEnabled($request)) $prepared = self::normalizeSkeletonBudgets($prepared, $request);
                             $skeleton = $prepared;
                             if (empty($prepared['storyboard'])) self::assertSkeleton($prepared, $request);
                         })),
                     $request
-                );
+                ), $request);
                 if (ShortDramaInputContract::recoveryEnabled($request)) $skeleton = self::normalizeSkeletonBudgets($skeleton, $request);
                 if (!empty($skeleton['storyboard'])) {
                     if (ShortDramaDialogueSplit::enabled($request)) {
@@ -95,7 +99,9 @@ final class ShortDramaTimedScriptGeneration
                 'action' => $beat['scene_script']['action'],
                 'dialogue' => $beat['scene_script']['dialogue'],
                 'exit' => $beat['exit'],
-            ], array_keys($skeleton['scene_beats']), $skeleton['scene_beats']);
+            ] + ((int)($request['_input_contract_version'] ?? 0) >= 16
+                ? ['source' => $beat['scene_script_source'] ?? 'model'] : []),
+                array_keys($skeleton['scene_beats']), $skeleton['scene_beats']);
         }
         if ($progress) $progress('script_checkpoint', $skeleton);
         if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25,
@@ -333,6 +339,45 @@ final class ShortDramaTimedScriptGeneration
         return $plan;
     }
 
+    /** A normally returned beat must not fail only because the optional
+     * screenplay extension used another shape or was omitted. Keep its
+     * locked events as the fallback; never invent dialogue. */
+    public static function normalizeSceneScripts(array $plan, array $request): array
+    {
+        if ((int)($request['_input_contract_version'] ?? 0) < 16 || !is_array($plan['scene_beats'] ?? null)) return $plan;
+        foreach ($plan['scene_beats'] as $index => $beat) {
+            if (!is_array($beat)) continue;
+            $script = is_array($beat['scene_script'] ?? null) ? $beat['scene_script'] : [];
+            $rawActions = $script['action'] ?? $script['actions'] ?? [];
+            if (is_string($rawActions)) $rawActions = [$rawActions];
+            $actions = is_array($rawActions) ? array_values(array_filter(array_map(
+                static fn($item) => is_string($item) ? trim($item) : '', $rawActions),
+                static fn($item) => $item !== '')) : [];
+            $source = ($beat['scene_script_source'] ?? '') === 'beat_fallback'
+                ? 'beat_fallback' : ($actions ? 'model' : 'beat_fallback');
+            if (!$actions) {
+                $actions = array_values(array_filter(array_map(
+                    static fn($item) => is_string($item) ? trim($item) : '', (array)($beat['key_events'] ?? [])),
+                    static fn($item) => $item !== ''));
+            }
+            $rawDialogue = $script['dialogue'] ?? $script['dialogue_lines'] ?? [];
+            if (is_string($rawDialogue)) $rawDialogue = [$rawDialogue];
+            $dialogue = [];
+            foreach ((is_array($rawDialogue) ? $rawDialogue : []) as $line) {
+                if (is_array($line)) {
+                    $speaker = trim((string)($line['speaker'] ?? $line['character'] ?? $line['role'] ?? ''));
+                    $text = trim((string)($line['text'] ?? $line['line'] ?? $line['content'] ?? ''));
+                } elseif (is_string($line) && preg_match('/^([^：:]{1,20})[：:]\s*(.+)$/u', trim($line), $match)) {
+                    $speaker = trim($match[1]); $text = trim($match[2]);
+                } else continue;
+                if ($speaker !== '' && $text !== '') $dialogue[] = ['speaker' => $speaker, 'text' => $text];
+            }
+            $plan['scene_beats'][$index]['scene_script'] = ['action' => $actions, 'dialogue' => $dialogue];
+            $plan['scene_beats'][$index]['scene_script_source'] = $source;
+        }
+        return $plan;
+    }
+
     public static function assertSkeleton(array $plan, array $request): void
     {
         foreach (['title', 'story_outline', 'subjects', 'locations', 'scene_beats'] as $key) {
@@ -355,19 +400,22 @@ final class ShortDramaTimedScriptGeneration
             }
             ShortDramaSceneBinding::assertBeat($beat, $plan, $request);
             if ((int)($request['_input_contract_version'] ?? 0) >= 15) {
+                $strict = (int)($request['_input_contract_version'] ?? 0) === 15;
                 $script = $beat['scene_script'] ?? null;
                 if (!is_array($script) || !is_array($script['action'] ?? null) || !$script['action']
-                    || count($script['action']) > 12 || !is_array($script['dialogue'] ?? null) || count($script['dialogue']) > 12) {
+                    || ($strict && count($script['action']) > 12)
+                    || !is_array($script['dialogue'] ?? null) || ($strict && count($script['dialogue']) > 12)) {
                     throw new RuntimeException('第' . ($index + 1) . '场缺少可拍动作或对白结构，请先补全分场剧本', 422);
                 }
                 foreach ($script['action'] as $action) {
-                    if (!is_string($action) || trim($action) === '' || mb_strlen($action) > 240) {
+                    if (!is_string($action) || trim($action) === '' || ($strict && mb_strlen($action) > 240)) {
                         throw new RuntimeException('第' . ($index + 1) . '场动作需为简短、具体的可拍内容', 422);
                     }
                 }
                 foreach ($script['dialogue'] as $line) {
                     if (!is_array($line) || !is_string($line['speaker'] ?? null) || trim($line['speaker']) === ''
-                        || !is_string($line['text'] ?? null) || trim($line['text']) === '' || mb_strlen($line['text']) > 240) {
+                        || !is_string($line['text'] ?? null) || trim($line['text']) === ''
+                        || ($strict && mb_strlen($line['text']) > 240)) {
                         throw new RuntimeException('第' . ($index + 1) . '场对白须有说话人和台词', 422);
                     }
                 }

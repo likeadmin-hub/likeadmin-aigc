@@ -92,6 +92,58 @@ class ShortDramaSceneBindingTest extends TestCase
         Timed::assertSkeleton($plan,$request);
     }
 
+    public function testLatestContractUsesLockedEventsWhenSceneScriptIsMissingWithoutRetry():void
+    {
+        $plan=$this->plan();$plan['scene_beats']=[['scene_ref_id'=>'home','scene_name'=>'母亲老屋','goal'=>'找到信',
+            'entry'=>'母亲老屋内，陈溪进门','exit'=>'陈溪拆开信','key_events'=>['陈溪找到信','陈溪拆开信'],
+            'duration_seconds'=>10,'shot_durations'=>[10]]];
+        $request=['_input_contract_version'=>16,'episode_duration_policy'=>Duration::snapshot([],10,0,[])];
+        $calls=[];
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'陈溪找到信'],
+            static function($key,$input)use($plan,&$calls){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))return ['result'=>['content'=>json_encode($plan,JSON_UNESCAPED_UNICODE)]];
+                return ['result'=>['content'=>json_encode(['storyboard'=>[['shot_id'=>'s1_1','scene_ref_id'=>'home',
+                    'scene_name'=>'母亲老屋','subject_ref_ids'=>['p'],'interior_exterior'=>'interior',
+                    'visual_description'=>'母亲老屋内，陈溪找到并拆开信。','dialogue'=>'',
+                    'voice_role'=>'','speech_type'=>'none','recommended_duration_seconds'=>10]]],JSON_UNESCAPED_UNICODE)]];
+            });
+        self::assertSame(1,count(array_filter($calls,static fn($key)=>str_contains($key,'skeleton'))));
+        self::assertSame(['陈溪找到信','陈溪拆开信'],$result['payload']['scene_screenplays'][0]['action']);
+        self::assertSame([],$result['payload']['scene_screenplays'][0]['dialogue']);
+        self::assertSame('beat_fallback',$result['payload']['scene_screenplays'][0]['source']);
+    }
+
+    public function testLatestContractNormalizesDialogueAliasesAndRetainsFallbackSource():void
+    {
+        $plan=$this->plan();$plan['scene_beats']=[['key_events'=>['陈溪找到信'],
+            'scene_script'=>['actions'=>'陈溪拆开信','dialogue_lines'=>[['character'=>'陈溪','line'=>'原来如此。'],'母亲：我等你很久了。']]]];
+        $request=['_input_contract_version'=>16];
+        $normalized=Timed::normalizeSceneScripts($plan,$request);
+        self::assertSame(['陈溪拆开信'],$normalized['scene_beats'][0]['scene_script']['action']);
+        self::assertSame([['speaker'=>'陈溪','text'=>'原来如此。'],['speaker'=>'母亲','text'=>'我等你很久了。']],$normalized['scene_beats'][0]['scene_script']['dialogue']);
+        self::assertSame('model',$normalized['scene_beats'][0]['scene_script_source']);
+        unset($plan['scene_beats'][0]['scene_script']['actions']);
+        $fallback=Timed::normalizeSceneScripts($plan,$request);
+        self::assertSame('beat_fallback',Timed::normalizeSceneScripts($fallback,$request)['scene_beats'][0]['scene_script_source']);
+    }
+
+    public function testLatestContractCorrectsBeatLabelButStillRejectsCrossLocationAction():void
+    {
+        $plan=$this->plan();$plan['scene_beats']=[['scene_ref_id'=>'book','scene_name'=>'旧书屋','goal'=>'找到信',
+            'entry'=>'母亲老屋内，陈溪进门','exit'=>'陈溪拆开信','key_events'=>['陈溪找到信'],
+            'scene_script'=>['action'=>['陈溪在母亲老屋拆开信'],'dialogue'=>[]],
+            'duration_seconds'=>10,'shot_durations'=>[10]]];
+        $request=['_input_contract_version'=>16,'episode_duration_policy'=>Duration::snapshot([],10,0,[])];
+        $fixed=Binding::normalize($plan,$request);
+        self::assertSame('home',$fixed['scene_beats'][0]['scene_ref_id']);
+        self::assertSame('母亲老屋',$fixed['scene_beats'][0]['scene_name']);
+        Timed::assertSkeleton($fixed,$request);
+        $fixed['scene_beats'][0]['key_events']=['陈溪进入社区资料室'];
+        $this->expectExceptionMessage('同一场骨架跨越');
+        Timed::assertSkeleton($fixed,$request);
+    }
+
     public function testNewContractKeepsTheSceneScriptAsASeparateResultBeforeShots():void
     {
         $plan=$this->plan();$script=['action'=>['陈溪进门找到信','陈溪拆开信'],
