@@ -17,6 +17,18 @@ final class ShortDramaEpisodeReview
 
     public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null, array $saved = []): array
     {
+        try {
+            return ShortDramaReviewOutcome::complete(self::generateReviewed($base, $request, $call, $progress, $checkpoint, $saved), $request);
+        } catch (ShortDramaReviewDeferred|ShortDramaScriptConflict $error) {
+            if (!ShortDramaReviewOutcome::enabled($request)) throw $error;
+            $plan = $error instanceof ShortDramaReviewDeferred ? ($error->plan ?? $base) : $base;
+            return ShortDramaReviewOutcome::pending($plan, $request, '剧本已保存，本次剧情复核未通过；请查看问题并局部修复',
+                $error instanceof ShortDramaReviewDeferred && $error->issues ? $error->issues : [['message'=>$error->getMessage(),'shot_ids'=>[]]]);
+        }
+    }
+
+    private static function generateReviewed(array $base, array $request, callable $call, ?callable $progress, ?callable $checkpoint, array $saved): array
+    {
         if (empty($base['storyboard'])) throw new RuntimeException('缺少可复核的已保存分镜', 422);
         $signature = ShortDramaReviewCheckpoint::signature($base, $request);
         if (ShortDramaContentAcceptance::enabled($request)) {
@@ -134,7 +146,10 @@ final class ShortDramaEpisodeReview
         }
         if ($patches && ShortDramaContentAcceptance::enabled($request)) {
             $acceptance = ShortDramaContentAcceptance::inspect($result, $result['content_acceptance']['requirements'], $call, $request);
-            if ($acceptance['issues']) throw new RuntimeException('衔接修复后仍有内容问题：' . $acceptance['issues'][0]['message'], 422);
+            if ($acceptance['issues']) {
+                if (ShortDramaReviewOutcome::enabled($request)) throw new ShortDramaReviewDeferred('衔接修复后仍有内容问题', $acceptance['issues'], $result);
+                throw new RuntimeException('衔接修复后仍有内容问题：' . $acceptance['issues'][0]['message'], 422);
+            }
             $result['content_acceptance']['coverage'] = $acceptance['coverage'];
         }
         $result['_continuity'] = ['version'=>1,'episode_number'=>(int)($request['episode_number'] ?? 1),

@@ -150,7 +150,18 @@ final class ShortDramaContentAcceptance
                 }
                 return $plan;
             }
-            if ($pass === 2) throw new RuntimeException('整集内容检查尚未通过：' . implode('；', array_column(array_slice($report['issues'], 0, 3), 'message')) . '。已完成内容和收据保留，可继续修复', 422);
+            if ($pass === 2) {
+                if (ShortDramaReviewOutcome::enabled($request)) {
+                    $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'pending_review',
+                        'requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
+                    if ($repairs) {
+                        $plan['content_acceptance']['source_script_lines'] = $originalLines;
+                        $plan['script_lines'] = array_map(static fn($shot)=>trim($shot['visual_description'] . "\n" . ($shot['dialogue'] ?? '')), $plan['storyboard']);
+                    }
+                    throw new ShortDramaReviewDeferred('整集内容复核仍有疑点', $report['issues'], $plan);
+                }
+                throw new RuntimeException('整集内容检查尚未通过：' . implode('；', array_column(array_slice($report['issues'], 0, 3), 'message')) . '。已完成内容和收据保留，可继续修复', 422);
+            }
             foreach (array_chunk($report['issues'], 4) as $issues) {
                 $ids = array_unique(array_merge(...array_column($issues, 'shot_ids')));
                 $shots = array_values(array_filter($plan['storyboard'], static fn($s) => in_array($s['shot_id'], $ids, true)));
