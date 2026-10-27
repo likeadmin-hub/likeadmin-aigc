@@ -85,8 +85,8 @@ final class ShortDramaEpisodeReview
                         . '仅允许visual_description、dialogue、voice_role、speech_type、scene_ref_id、subject_ref_ids。before必须逐字等于原值，数组保持类型。保留无关剧情、对白和镜头数量；不要修改时长、素材或编号。无明确冲突返回空patches。',
                         'content' => json_encode(['conflict' => $error->getMessage(), 'previous' => $context['continuity'] ?? [],
                             'confirmed' => $context['outline'], 'shots' => $block['storyboard']], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
-                    $reply = ShortDramaStructuredResponse::audit($input, static fn($input) => $call($key . '_patch_' . substr(hash('sha256', json_encode($input)), 0, 16), $input, 4096, static fn($reply) => self::apply($block, $reply)));
-                    $candidate = self::apply($block, $reply);
+                    $reply = ShortDramaStructuredResponse::audit($input, static fn($input) => $call($key . '_patch_' . substr(hash('sha256', json_encode($input)), 0, 16), $input, 4096, static fn($reply) => self::apply($block, $reply, $request)));
+                    $candidate = self::apply($block, $reply, $request);
                     if ($candidate === $block) throw $error;
                     $block = $candidate;
                     $ledger = ShortDramaContinuity::review($block, $context, (int)($request['episode_number'] ?? 1), $audit, $verify, false, true);
@@ -133,7 +133,7 @@ final class ShortDramaEpisodeReview
             foreach ((array)($result['script_lines'] ?? []) as $index => $line) if (is_string($line)) $result['script_lines'][$index] = str_replace($patch['before'], $patch['after'], $line);
         }
         if ($patches && ShortDramaContentAcceptance::enabled($request)) {
-            $acceptance = ShortDramaContentAcceptance::inspect($result, $result['content_acceptance']['requirements'], $call);
+            $acceptance = ShortDramaContentAcceptance::inspect($result, $result['content_acceptance']['requirements'], $call, $request);
             if ($acceptance['issues']) throw new RuntimeException('衔接修复后仍有内容问题：' . $acceptance['issues'][0]['message'], 422);
             $result['content_acceptance']['coverage'] = $acceptance['coverage'];
         }
@@ -175,7 +175,7 @@ final class ShortDramaEpisodeReview
         return array_map(static fn($i) => array_intersect_key($earlier[$i], array_flip(self::SHOT_FIELDS)), $indices);
     }
 
-    public static function apply(array $plan, array $reply): array
+    public static function apply(array $plan, array $reply, array $request = []): array
     {
         if (!isset($reply['patches']) || !is_array($reply['patches']) || !array_is_list($reply['patches'])) throw new RuntimeException('复核修复未返回有效补丁', 422);
         $allowed = array_diff(self::SHOT_FIELDS, ['shot_id','recommended_duration_seconds']);
@@ -198,7 +198,9 @@ final class ShortDramaEpisodeReview
             if ($field === 'speech_type' && !in_array($patch['after'], ['character','narration','none'], true)) throw new RuntimeException('复核补丁说话类型无效', 422);
             $plan['storyboard'][$index][$field] = $patch['after']; $seen[$key] = true;
         }
-        foreach ($plan['storyboard'] as $shot) {
+        // Preserve the generation timing contract. Explicit duration edits are
+        // still forbidden above; character count is not measured speech time.
+        foreach (ShortDramaInputContract::structuredValidation($request ?: $plan) ? [] : $plan['storyboard'] as $shot) {
             if (ShortDramaDialogueSplit::requiredSeconds((string)($shot['dialogue'] ?? '')) > (float)($shot['recommended_duration_seconds'] ?? 0)) throw new RuntimeException('复核后的台词无法放入原镜头时长，请调整该镜头', 409);
         }
         $dialogue = ShortDramaDialogueContract::prepare(['subjects'=>$plan['subjects'],'storyboard'=>$plan['storyboard']]);

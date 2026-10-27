@@ -74,6 +74,22 @@ final class ShortDramaSceneBinding
         return $place;
     }
 
+    /** Validate declared references only. A mention, comparison, quotation,
+     * negation or camera direction cannot establish the shooting location. */
+    private static function assertDeclaredBinding(array $item, array $plan): void
+    {
+        $id = (string)($item['scene_ref_id'] ?? '');
+        $locations = array_column((array)($plan['locations'] ?? []), null, 'id');
+        if ($id === '' || !isset($locations[$id])) {
+            throw new RuntimeException('场景引用不存在，请使用locations中已登记的ID', 422);
+        }
+        $label = trim((string)($item['scene_name'] ?? ''));
+        $names = self::names((array)($plan['locations'] ?? []));
+        if ($label !== '' && !isset($names[$label][$id])) {
+            throw new RuntimeException('scene_name与scene_ref_id所引用的场景名称不一致', 422);
+        }
+    }
+
     private static function resolve(array $item, array $plan, bool $beat, bool $expanded = false, bool $repairBeatLabel = false, bool $relativeAware = false): array
     {
         $names = self::names((array)($plan['locations'] ?? []));
@@ -101,11 +117,13 @@ final class ShortDramaSceneBinding
         if (!self::enabled($request) || empty($plan['locations'])) return $plan;
         $plan = ShortDramaTimedScriptGeneration::canonicalSkeleton($plan);
         $contract = (int)($request['_input_contract_version'] ?? 0);
-        $plan['_scene_binding_version'] = $contract >= 17 ? 4 : ($contract >= 16 ? 3 : ($contract >= 15 ? 2 : 1));
+        $plan['_scene_binding_version'] = ShortDramaInputContract::structuredValidation($request) ? 5
+            : ($contract >= 17 ? 4 : ($contract >= 16 ? 3 : ($contract >= 15 ? 2 : 1)));
         foreach (['scene_beats','storyboard'] as $field) {
             foreach ((array)($plan[$field] ?? []) as $i => $item) {
                 if (!is_array($item)) continue;
-                $plan[$field][$i] = self::resolve($item, $plan, $field === 'scene_beats', $plan['_scene_binding_version'] >= 2,
+                if ($plan['_scene_binding_version'] >= 5) self::assertDeclaredBinding($item, $plan);
+                else $plan[$field][$i] = self::resolve($item, $plan, $field === 'scene_beats', $plan['_scene_binding_version'] >= 2,
                     $field === 'scene_beats' && $plan['_scene_binding_version'] >= 3, $plan['_scene_binding_version'] >= 4);
                 if ($field === 'storyboard') self::assertShot($plan[$field][$i], $plan);
             }
@@ -116,7 +134,10 @@ final class ShortDramaSceneBinding
     public static function assertShot(array $shot, array $plan): void
     {
         if (empty($plan['_scene_binding_version'])) return;
-        $resolved = self::resolve($shot, $plan, false, (int)$plan['_scene_binding_version'] >= 2, false, (int)$plan['_scene_binding_version'] >= 4);
+        if ((int)$plan['_scene_binding_version'] >= 5) {
+            self::assertDeclaredBinding($shot, $plan);
+            $resolved = $shot;
+        } else $resolved = self::resolve($shot, $plan, false, (int)$plan['_scene_binding_version'] >= 2, false, (int)$plan['_scene_binding_version'] >= 4);
         if (($resolved['scene_ref_id'] ?? '') !== ($shot['scene_ref_id'] ?? '')) {
             throw new RuntimeException('分镜场景引用与实际拍摄地点不一致，应绑定“'.($resolved['scene_name'] ?? '').'”，不要改写无关剧情或对白', 422);
         }
@@ -133,6 +154,10 @@ final class ShortDramaSceneBinding
     public static function assertBeat(array $beat, array $plan, array $request): void
     {
         if ((int)($request['_input_contract_version'] ?? 0) < 15) return;
+        if (ShortDramaInputContract::structuredValidation($request)) {
+            self::assertDeclaredBinding($beat, $plan);
+            return;
+        }
         $names = self::names((array)($plan['locations'] ?? []));
         $bound = (string)($beat['scene_ref_id'] ?? '');
         foreach (array_merge([(string)($beat['entry'] ?? ''), (string)($beat['exit'] ?? '')],
