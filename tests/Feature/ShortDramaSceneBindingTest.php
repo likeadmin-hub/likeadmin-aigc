@@ -6,6 +6,81 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaSceneBindingTest extends TestCase
 {
+    /** @dataProvider narratedPlaceCases */
+    public function testBoundPlaceShorthandSurvivesEveryBeatValidationField(string $field, int $contract): void
+    {
+        $plan = ['locations' => [['id' => 'office', 'name' => '人间办公室'], ['id' => 'other', 'name' => '天庭办公室']]];
+        $beat = ['scene_ref_id' => 'office', 'scene_name' => '人间办公室', 'entry' => '人间办公室内，加班',
+            'exit' => '关掉电脑', 'key_events' => ['整理文件'], 'scene_script' => ['action' => ['放下文件']]];
+        $text = '深夜办公室，林小凡独自加班';
+        if ($field === 'action') $beat['scene_script']['action'] = [$text];
+        elseif ($field === 'key_events') $beat[$field] = [$text];
+        else $beat[$field] = $text;
+        $plan['scene_beats'] = [$beat];
+        $request = ['_input_contract_version' => $contract];
+        $normalized = Binding::normalize($plan, $request);
+        Binding::assertBeat($normalized['scene_beats'][0], $normalized, $request);
+        self::assertSame($beat, $normalized['scene_beats'][0]);
+    }
+
+    public static function narratedPlaceCases(): array
+    {
+        $cases = [];
+        foreach (['entry', 'exit', 'key_events', 'action'] as $field) {
+            foreach ([15, 16, 17] as $version) $cases[$field . '-v' . $version] = [$field, $version];
+        }
+        return $cases;
+    }
+
+    /** @dataProvider declaredLocationIds */
+    public function testCompleteGenerationPreservesDeclaredLocationIdTypeAndNeedsNoRepair(string|int $locationId): void
+    {
+        $plan = $this->plan();
+        $plan['locations'] = [['id' => $locationId, 'name' => '人间办公室']];
+        $plan['scene_beats'] = [['scene_ref_id' => $locationId, 'scene_name' => '人间办公室', 'goal' => '整理文件',
+            'entry' => '深夜办公室，陈溪独自加班', 'exit' => '办公室内，陈溪关掉电脑',
+            'key_events' => ['办公室内，陈溪整理文件'], 'duration_seconds' => 10, 'shot_durations' => [10]]];
+        $request = ['_input_contract_version' => 17, 'episode_duration_policy' => Duration::snapshot([], 10, 0, [])];
+        $calls = [];
+        $out = Script::generate($request, ['max_tokens' => 8192], ['system_prompt' => '创作', 'content' => '整理文件'],
+            static function ($key) use ($plan, $locationId, &$calls) {
+                $calls[] = $key;
+                $payload = str_contains($key, 'skeleton') ? $plan : ['storyboard' => [[
+                    'shot_id' => 's1_1', 'scene_ref_id' => $locationId, 'scene_name' => '人间办公室',
+                    'subject_ref_ids' => ['p'], 'visual_description' => '办公室内，陈溪整理文件后关掉电脑。',
+                    'dialogue' => '', 'voice_role' => '', 'speech_type' => 'none', 'recommended_duration_seconds' => 10,
+                ]]];
+                return ['result' => ['content' => json_encode($payload, JSON_UNESCAPED_UNICODE)]];
+            });
+        self::assertCount(2, $calls, 'Correct upstream responses must not trigger paid repairs');
+        self::assertSame($locationId, $out['payload']['scene_beats'][0]['scene_ref_id']);
+        self::assertSame($locationId, $out['payload']['storyboard'][0]['scene_ref_id']);
+        self::assertSame($locationId, $out['payload']['locations'][0]['id']);
+        self::assertSame('办公室内，陈溪整理文件后关掉电脑。', $out['payload']['storyboard'][0]['visual_description']);
+    }
+
+    public static function declaredLocationIds(): array
+    {
+        return [['office'], ['101'], [101]];
+    }
+
+    /** @dataProvider invalidNarratedPlaces */
+    public function testShorthandDoesNotBypassUnknownConflictingOrAmbiguousPlaces(array $locations, string $message): void
+    {
+        $beat = ['scene_ref_id' => 'office', 'entry' => '办公室内，整理文件'];
+        $this->expectExceptionMessage($message);
+        Binding::assertBeat($beat, ['locations' => $locations], ['_input_contract_version' => 17]);
+    }
+
+    public static function invalidNarratedPlaces(): array
+    {
+        return [
+            [[['id' => 'office', 'name' => '人事偏殿']], '未唯一登记'],
+            [[['id' => 'office', 'name' => '人间办公室'], ['id' => 'other', 'name' => '办公室']], '同一场骨架跨越'],
+            [[['id' => 'office', 'name' => '人间办公室'], ['id' => 'other', 'name' => '人间办公室']], '未唯一登记'],
+        ];
+    }
+
     private function plan():array
     {
         return ['title'=>'来信','story_outline'=>'陈溪读信','script_lines'=>['陈溪在老屋读信'],

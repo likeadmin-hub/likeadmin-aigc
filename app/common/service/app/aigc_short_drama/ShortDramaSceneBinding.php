@@ -26,7 +26,9 @@ final class ShortDramaSceneBinding
             if ($id === '') continue;
             foreach (array_merge([(string)($location['name'] ?? '')], (array)($location['aliases'] ?? [])) as $name) {
                 if (!is_string($name) || trim($name) === '') continue;
-                $names[trim($name)][$id] = true;
+                // PHP coerces numeric-string array keys to integers. Keep the
+                // declared ID as the value so normalization preserves its type.
+                $names[trim($name)][$id] = $location['id'] ?? $location['location_id'];
             }
         }
         return $names;
@@ -61,18 +63,23 @@ final class ShortDramaSceneBinding
         return '';
     }
 
-    private static function resolve(array $item, array $plan, bool $beat, bool $expanded = false, bool $repairBeatLabel = false, bool $relativeAware = false): array
+    private static function boundPlace(string $place, array $item, array $plan, array $names): string
     {
-        $names = self::names((array)($plan['locations'] ?? []));
-        $label = trim((string)($item['scene_name'] ?? ''));
-        $text = (string)($beat ? ($item['entry'] ?? '') : ($item['visual_description'] ?? ''));
-        $place = self::placeInText($text, $names, $expanded, $relativeAware);
         // A longer registered name may be shortened in ordinary narration.
         // Accept a suffix only for the explicitly selected scene, never use it
         // to select among unrelated places (e.g. 书屋 vs 老屋).
         $bound = array_column((array)($plan['locations'] ?? []), null, 'id')[(string)($item['scene_ref_id'] ?? '')] ?? [];
         $boundName = (string)($bound['name'] ?? '');
         if ($place !== '' && !isset($names[$place]) && $boundName !== '' && str_ends_with($boundName, $place)) $place = $boundName;
+        return $place;
+    }
+
+    private static function resolve(array $item, array $plan, bool $beat, bool $expanded = false, bool $repairBeatLabel = false, bool $relativeAware = false): array
+    {
+        $names = self::names((array)($plan['locations'] ?? []));
+        $label = trim((string)($item['scene_name'] ?? ''));
+        $text = (string)($beat ? ($item['entry'] ?? '') : ($item['visual_description'] ?? ''));
+        $place = self::boundPlace(self::placeInText($text, $names, $expanded, $relativeAware), $item, $plan, $names);
         if ($place !== '' && $label !== '' && $place !== $label
             && array_keys($names[$place] ?? []) !== array_keys($names[$label] ?? [])
             && !($beat && $repairBeatLabel)) {
@@ -80,7 +87,7 @@ final class ShortDramaSceneBinding
         }
         $actual = $place !== '' ? $place : $label;
         if ($actual === '') return $item;
-        $ids = array_keys($names[$actual] ?? []);
+        $ids = array_values($names[$actual] ?? []);
         if (count($ids) !== 1) {
             throw new RuntimeException('场景语义不明确：实际地点“'.$actual.'”未唯一登记在locations中。骨架应补全真实场景或遵守用户场景限制，分镜不可误绑其他地点', 422);
         }
@@ -132,12 +139,13 @@ final class ShortDramaSceneBinding
             array_values(array_filter((array)($beat['key_events'] ?? []), 'is_string')),
             array_values(array_filter((array)($beat['scene_script']['action'] ?? []), 'is_string'))) as $text) {
             $place = self::placeInText($text, $names, true, (int)($request['_input_contract_version'] ?? 0) >= 17);
+            $place = self::boundPlace($place, $beat, $plan, $names);
             if ($place === '') continue;
-            $ids = array_keys($names[$place] ?? []);
+            $ids = array_values($names[$place] ?? []);
             if (count($ids) !== 1) {
                 throw new RuntimeException('骨架中的实际地点“' . $place . '”未唯一登记，请先修正场景定义', 422);
             }
-            if ($ids[0] !== $bound) {
+            if ((string)$ids[0] !== $bound) {
                 throw new RuntimeException('同一场骨架跨越“' . $place . '”与已绑定地点，请在骨架中拆场或修正地点后再生成分镜', 422);
             }
         }
