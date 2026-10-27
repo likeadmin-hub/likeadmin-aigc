@@ -41,16 +41,18 @@ class AppController extends BaseAdminController
             );
             $app['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $isBuiltin = DefaultAppService::isDefaultApp((string)$app['code']);
+            $canShelf = AppAccessService::isShelfableDefaultApp((string)$app['code']);
             if (!$isBuiltin && !self::isValidPaidTenantApp($tenantApp, $paidOrderExpires)) {
                 $tenantApp = [];
             } elseif (!$isBuiltin && !empty($tenantApp)) {
                 $tenantApp['expire_time'] = max((int)($tenantApp['expire_time'] ?? 0), (int)($paidOrderExpires[$app['code']] ?? 0));
             }
             $app['is_builtin'] = $isBuiltin ? 1 : 0;
+            $app['can_shelf'] = (!$isBuiltin || $canShelf) ? 1 : 0;
             $app['expire_policy'] = $isBuiltin ? AppPlanService::EXPIRE_ALLOW : ($app['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK);
             $app['is_buy'] = $isBuiltin ? 1 : (empty($tenantApp) ? 0 : 1);
-            $app['shelf_status'] = $isBuiltin ? AppAccessService::SHELF_ON : ($tenantApp['shelf_status'] ?? 'off');
-            $app['enable_status'] = $isBuiltin ? AppAccessService::ENABLED : ($tenantApp['enable_status'] ?? 'disabled');
+            $app['shelf_status'] = $isBuiltin && !$canShelf ? AppAccessService::SHELF_ON : ($tenantApp['shelf_status'] ?? ($canShelf ? 'on' : 'off'));
+            $app['enable_status'] = $isBuiltin && !$canShelf ? AppAccessService::ENABLED : ($tenantApp['enable_status'] ?? ($canShelf ? 'enabled' : 'disabled'));
             $app['expire_time'] = $isBuiltin ? 0 : ($tenantApp['expire_time'] ?? 0);
             $app = AppPlanService::enrichApp($app, $tenantApp, true);
             if ($name !== '') {
@@ -112,6 +114,7 @@ class AppController extends BaseAdminController
             $app = $apps[$item['app_code']] ?? [];
             $display = $displayMap[$item['app_code']] ?? [];
             $isBuiltin = DefaultAppService::isDefaultApp((string)$item['app_code']);
+            $canShelf = AppAccessService::isShelfableDefaultApp((string)$item['app_code']);
             $listedCodes[] = (string)$item['app_code'];
             if (self::isDisplayManagedApp((string)$item['app_code'])) {
                 $item = $this->displayManagedApp((string)$item['app_code']);
@@ -130,8 +133,9 @@ class AppController extends BaseAdminController
             $item['description'] = $app['description'] ?? '';
             $item['platform_status'] = $app['status'] ?? 'removed';
             $item['is_builtin'] = $isBuiltin ? 1 : 0;
+            $item['can_shelf'] = (!$isBuiltin || $canShelf) ? 1 : 0;
             $item['expire_policy'] = $isBuiltin ? AppPlanService::EXPIRE_ALLOW : ($app['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK);
-            if ($isBuiltin) {
+            if ($isBuiltin && !$canShelf) {
                 $item['buy_status'] = AppAccessService::BUY_PAID;
                 $item['shelf_status'] = AppAccessService::SHELF_ON;
                 $item['enable_status'] = AppAccessService::ENABLED;
@@ -167,6 +171,7 @@ class AppController extends BaseAdminController
                 'description' => $app['description'],
                 'platform_status' => $app['status'],
                 'is_builtin' => 1,
+                'can_shelf' => AppAccessService::isShelfableDefaultApp((string)$app['code']) ? 1 : 0,
                 'expire_policy' => AppPlanService::EXPIRE_ALLOW,
                 'is_expired' => 0,
                 'can_renew' => 0,
@@ -209,14 +214,14 @@ class AppController extends BaseAdminController
     public function shelf()
     {
         $appCode = (string)$this->request->post('app_code', '');
-        if ($appCode === 'system_default' || $this->isDefaultOpenedApp($appCode)) {
+        if ($appCode === 'system_default' || ($this->isDefaultOpenedApp($appCode) && !AppAccessService::isShelfableDefaultApp($appCode))) {
             return $this->fail('系统默认应用不允许上下架');
         }
         $status = (string)$this->request->post('shelf_status', AppAccessService::SHELF_ON);
+        if (!in_array($status, [AppAccessService::SHELF_ON, 'off'], true)) {
+            return $this->fail('应用上下架状态不正确');
+        }
         if (self::isDisplayManagedApp($appCode)) {
-            if (!in_array($status, [AppAccessService::SHELF_ON, 'off'], true)) {
-                return $this->fail('应用上下架状态不正确');
-            }
             AppDisplayConfigService::save($this->tenantId, $appCode, [
                 'status' => $status === AppAccessService::SHELF_ON ? 1 : 0,
             ]);
@@ -230,6 +235,10 @@ class AppController extends BaseAdminController
             return $this->success('操作成功', [], 1, 1);
         }
         $row = TenantApp::where(['tenant_id' => $this->tenantId, 'app_code' => $appCode])->findOrEmpty();
+        if ($row->isEmpty() && AppAccessService::isShelfableDefaultApp($appCode)) {
+            DefaultAppService::ensureTenantDefaultApp($this->tenantId, $appCode);
+            $row = TenantApp::where(['tenant_id' => $this->tenantId, 'app_code' => $appCode])->findOrEmpty();
+        }
         if ($row->isEmpty()) {
             return $this->fail('应用未购买');
         }

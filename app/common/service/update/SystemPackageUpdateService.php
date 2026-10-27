@@ -365,7 +365,7 @@ class SystemPackageUpdateService
             $package = $this->getPackage($packageId);
             (new SystemPackageGrantService())->ensure($package->toArray());
             $extractor = new PackageExtractService();
-            $preflight = $extractor->preflight((string)$package['local_path'], UpgradeLogic::getProjectPath(), (int)$package['package_size']);
+            $preflight = $extractor->preflight((string)$package['local_path'], UpgradeLogic::getProjectPath(), (int)$package['package_size'], (string)$package['format']);
             if (!$preflight['passed']) {
                 return $this->finishPreflight($package, $preflight);
             }

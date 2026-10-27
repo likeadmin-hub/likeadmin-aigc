@@ -77,6 +77,7 @@ class AppMenuService
             $data['create_time'] = time();
             $row = TenantSystemMenu::create($data);
         } else {
+            if ((string)$row['source'] === 'tenant') return;
             $row->save($data);
         }
         foreach (($menu['children'] ?? []) as $child) {

@@ -83,11 +83,17 @@ class DefaultAppService
         if ($tenantId <= 0 || !self::isDefaultApp($appCode)) {
             return;
         }
+        if (AppAccessService::isShelfableDefaultApp($appCode)
+            && TenantApp::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->count() > 0) {
+            return;
+        }
         $app = App::where(['code' => $appCode, 'status' => AppRegistryService::STATUS_INSTALLED])->findOrEmpty();
         if ($app->isEmpty()) {
             return;
         }
-        self::syncTenant($tenantId, $appCode, (string)$app['current_version'], '', false);
+        $tenant = Tenant::where('id', $tenantId)->field('sn,tactics')->findOrEmpty();
+        $sn = $tenant->isEmpty() ? '' : (string)($tenant['sn'] ?? '');
+        self::syncTenant($tenantId, $appCode, (string)$app['current_version'], $sn, !$tenant->isEmpty() && (int)$tenant['tactics'] === 1);
     }
 
     private static function syncTenant(int $tenantId, string $appCode, string $version, ?string $tenantSn, bool $isSplitTable): void
@@ -114,6 +120,11 @@ class DefaultAppService
         if ($row->isEmpty()) {
             $data['create_time'] = $time;
             TenantApp::create($data);
+            return;
+        }
+        if (AppAccessService::isShelfableDefaultApp($appCode)) {
+            // Do not overwrite a tenant's existing purchase, expiry or visibility settings.
+            $row->save(['version' => $version, 'update_time' => $time]);
             return;
         }
         $row->save($data);
@@ -212,6 +223,7 @@ class DefaultAppService
                 $data['create_time'] = $time;
                 $id = (int)Db::name($table)->insertGetId($data);
             } else {
+                if (($row['source'] ?? '') === 'tenant') return;
                 Db::name($table)->where('id', (int)$row['id'])->update($data);
                 $id = (int)$row['id'];
             }
