@@ -16,6 +16,13 @@ final class MarketGenerationNativeContract
     }
     public static function modes(array $metadata): array
     {
+        // Fingerprinting large native declarations is expensive across many
+        // catalogue quotes. The complete metadata remains the cache key and
+        // the scope ends before any actual admission or billing request.
+        return MarketCatalogReadScope::derive('native_contract_modes', $metadata, static fn(): array => self::buildModes($metadata));
+    }
+    private static function buildModes(array $metadata): array
+    {
         if (self::$catalog === null) self::$catalog = MarketGenerationSchema::array(@file_get_contents(getenv('MARKET_GENERATION_CONTRACTS_PATH') ?: dirname(__DIR__,4).'/resources/market/generation-contracts.json'));
         $public = (string)($metadata['upstream_metadata']['model_code'] ?? '');
         $contract = self::$catalog['models'][$public] ?? null;
