@@ -18,6 +18,7 @@ final class ShortDramaScriptGeneration
     ): array
     {
         $durationRule = ShortDramaShotDuration::rule($request);
+        if (ShortDramaSceneBinding::enabled($request)) $messages['system_prompt'] .= "\n" . ShortDramaSceneBinding::INSTRUCTION;
         if (ShortDramaDialogueSplit::enabled($request)) $messages['system_prompt'] .= "\n" . ShortDramaDialogueSplit::instruction($durationRule);
         $receipts = [];
         $calls = 0;
@@ -29,7 +30,7 @@ final class ShortDramaScriptGeneration
         $auditReserve = !empty($request['series_context']);
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
-        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory): array {
+        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory, $request): array {
             if (++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
             $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, $boundedMemory);
             unset($input['_stage_content']);
@@ -39,8 +40,9 @@ final class ShortDramaScriptGeneration
             $receipt = $provider('v3_' . $key, $input, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
-            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate): array {
+            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $request): array {
                 $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
+                if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
                 if ($validate) $validate($payload);
                 return $payload;
             }); } catch (RuntimeException $error) { $rejected = $receipt; throw $error; }
@@ -124,6 +126,7 @@ final class ShortDramaScriptGeneration
                     . "\n保留已有角色、场景ID、故事事实和顺序，只补齐或修正不合格字段。返回完整骨架JSON。";
             }
         }
+        if ($progress) $progress('script_checkpoint', $skeleton);
         $shots = [];
         foreach ($skeleton['scene_beats'] as $sceneIndex => $beat) {
             $sceneShots = [];
@@ -230,6 +233,7 @@ final class ShortDramaScriptGeneration
                 $policy = ShortDramaShotDuration::normalizeRule($durationRule);
                 throw new RuntimeException('分镜标识、素材引用或正文无效，单镜头时长须为 ' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . ' 秒', 422);
             }
+            ShortDramaSceneBinding::assertShot($shot, $plan);
         }
     }
 

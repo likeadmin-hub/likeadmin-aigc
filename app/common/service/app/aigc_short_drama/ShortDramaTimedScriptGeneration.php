@@ -82,6 +82,7 @@ final class ShortDramaTimedScriptGeneration
             }
         }
         $timeRepairs = $attempt;
+        if ($progress) $progress('script_checkpoint', $skeleton);
         if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25, 'current_step' => '已规划各场时长，正在生成分镜']);
         $shots = [];
         $contentRepairs = 0;
@@ -108,6 +109,7 @@ final class ShortDramaTimedScriptGeneration
                     . ShortDramaShotSemantics::INSTRUCTION
                     . '仅返回列出的字段，不额外生成image_prompt、video_prompt、negative_prompt、风格和素材定义；它们由现有系统根据本段字段组装。'
                     . 'visual_description每镜最多120字，composition最多40字，camera_movement最多100字，准确简练保留关键动作、位置、情绪与连续性。';
+                if (ShortDramaSceneBinding::enabled($request)) $input['system_prompt'] .= '补充输出scene_name，按实际拍摄地点核对场景绑定。';
                 $input['content'] = self::json([
                     'creative_context' => $base['content'],
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
@@ -199,6 +201,7 @@ final class ShortDramaTimedScriptGeneration
                     }
                 }
                 array_push($shots, ...$part['storyboard']);
+                if ($progress) $progress('script_checkpoint', array_replace($skeleton, ['storyboard' => self::attachTimelineRanges($shots, $request)]));
                 if ($progress) $progress('stage', ['status' => 'running', 'progress' => min(78, 25 + (int)(50 * ($sceneIndex + 1) / count($skeleton['scene_beats']))),
                     'current_step' => '已生成' . count($shots) . '个分镜，约' . round(array_sum(array_column($shots, 'recommended_duration_seconds'))) . '秒']);
             }
@@ -465,6 +468,7 @@ final class ShortDramaTimedScriptGeneration
                 throw new RuntimeException('本段标识、主体场景绑定或时长与已确认预算不一致', 422);
             }
             $dialogue = $shot['dialogue'] ?? '';
+            ShortDramaSceneBinding::assertShot($shot, $plan);
             if (!is_string($dialogue)) throw new RuntimeException('dialogue必须是带角色名的台词字符串，不能返回数组或对象', 422);
             // A deliberately generous guard catches impossible delivery, not acting style.
             $characters = self::dialogueCharacterCount($dialogue);
