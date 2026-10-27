@@ -10,9 +10,11 @@ final class ShortDramaTimedScriptGeneration
     {
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
-        $base = ['system_prompt' => $messages['system_prompt']
-                . "\n当前采用分阶段生成。上述规则中的创作、角色、风格、剧情与连续性要求完整保留；完整剧本的字段清单和输出示例由下方本阶段输出结构替代。只输出本阶段指定字段。"
-                . "\n" . ShortDramaEpisodeDuration::instruction($request) . "\n" . ShortDramaSameSceneCuts::instruction($request),
+        $system = $messages['system_prompt']
+                . "\n当前采用分阶段生成。上述规则中的创作、角色、风格、剧情与连续性要求完整保留；完整剧本的字段清单和输出示例由下方本阶段输出结构替代。只输出本阶段指定字段。";
+        $system = ShortDramaScriptContext::appendInstruction($system, ShortDramaEpisodeDuration::instruction($request), $request);
+        $system = ShortDramaScriptContext::appendInstruction($system, ShortDramaSameSceneCuts::instruction($request), $request);
+        $base = ['system_prompt' => $system,
             'content' => $messages['_stage_content'] ?? $messages['content']];
         $skeletonInput = $base;
         $skeletonInput['system_prompt'] .= "\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。"
@@ -110,14 +112,18 @@ final class ShortDramaTimedScriptGeneration
                     . '仅返回列出的字段，不额外生成image_prompt、video_prompt、negative_prompt、风格和素材定义；它们由现有系统根据本段字段组装。'
                     . 'visual_description每镜最多120字，composition最多40字，camera_movement最多100字，准确简练保留关键动作、位置、情绪与连续性。';
                 if (ShortDramaSceneBinding::enabled($request)) $input['system_prompt'] .= '补充输出scene_name，按实际拍摄地点核对场景绑定。';
-                $input['content'] = self::json([
+                $context = [
                     'creative_context' => $base['content'],
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
                     'scene_continuity' => $skeleton['scene_beats'], 'scene_beat' => $beat,
                     'required_shots' => array_map(static fn($id, $duration) => ['shot_id' => $id, 'duration_seconds' => $duration], $ids, $partDurations),
                     'shot_offset' => $offset, 'previous_shots' => array_slice($shots, -2),
                     'scene_progress' => ShortDramaSceneProgress::window($beat, count($durations), $offset, $size, array_slice($shots, $sceneStart)),
-                ]);
+                ];
+                $input['content'] = self::json($context);
+                // Only this server-built scene envelope may be shared after capacity/memory fitting.
+                if (ShortDramaScriptContext::enabled($request) && is_string($messages['_stage_content'] ?? null)
+                    && $context['creative_context'] === $messages['_stage_content']) $input['_share_script_context'] = true;
                 $input['content'] .= "\n以上全局剧情仅用于保持连续性，不要求重写整集。本次只输出" . count($ids)
                     . '个分镜，ID依次为' . implode(',', $ids) . '，对应秒数为' . implode(',', $partDurations)
                     . '。不得输出其他ID、场次或重复已经完成的分镜。忽略上下文模板要求的整集输出格式，当前仅返回storyboard数组。';
