@@ -37,6 +37,12 @@ final class ShortDramaSourceMemory
     {
         $records = [];
         foreach ($history as $number => $entry) {
+            // Budget fitting can project the same envelope again in a later stage.
+            // Already addressed excerpts must not disappear on that second projection.
+            if (($entry['verification'] ?? '') === 'source_text_not_audited' && isset($entry['excerpt'])) {
+                $records[$number] = $entry;
+                continue;
+            }
             $source = $entry['source_memory'] ?? [];
             $items = $source['records'] ?? ['summary'=>['field'=>'legacy_summary','text'=>(string)($entry['summary'] ?? '')]];
             foreach ($items as $key => $item) {
