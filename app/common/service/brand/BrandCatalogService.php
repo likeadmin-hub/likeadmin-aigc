@@ -14,7 +14,7 @@ final class BrandCatalogService
         if ($tenant->isEmpty() || (int)$tenant['disable'] !== 0 || (int)$tenant['oem_sales_enabled'] !== 1) {
             return false;
         }
-        return (int)$tenant['oem_flow_enabled'] !== 2;
+        return in_array((int)$tenant['oem_flow_enabled'], [0, 1], true);
     }
 
     public static function flowEnabled(int $tenantId): bool
