@@ -5,7 +5,7 @@ namespace app\common\service\app\aigc_short_drama;
 final class ShortDramaSceneBatch
 {
     public const CONTRACT_VERSION = 14;
-    public const POLICY = ['version' => 1, 'enabled' => false, 'max_scenes' => 2, 'max_shots' => 4];
+    public const POLICY = ['version' => 1, 'enabled' => true, 'max_scenes' => 2, 'max_shots' => 4];
 
     public static function enabled(array $request): bool
     {

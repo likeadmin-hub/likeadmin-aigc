@@ -216,4 +216,15 @@ class ShortDramaSceneBatchTest extends TestCase
         self::assertNotNull($parts[0]); self::assertNotNull($parts[1]);
         self::assertSame($shots, array_merge($parts[0]['storyboard'], $parts[1]['storyboard']));
     }
+
+    public function testActivationOnlyAppliesToNewServerStampedPolicies(): void
+    {
+        self::assertTrue(Batch::enabled(Contract::begin([])));
+        $existing = self::request(); $existing['_scene_batch_policy']['enabled'] = false;
+        self::assertFalse(Batch::enabled($existing));
+        $oversized = Contract::begin(['_scene_batch_policy' => ['enabled' => true, 'max_scenes' => 100, 'max_shots' => 1000]]);
+        self::assertSame(Batch::POLICY, $oversized['_scene_batch_policy']);
+        $old = self::request(); $old['_input_contract_version'] = 13;
+        self::assertFalse(Batch::enabled($old));
+    }
 }
