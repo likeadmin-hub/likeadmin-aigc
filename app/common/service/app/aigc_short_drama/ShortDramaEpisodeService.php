@@ -224,9 +224,9 @@ class ShortDramaEpisodeService
         return ShortDramaContinuity::dependencyStatus($rows, $current, $qualityReviewEnabled);
     }
 
-    public static function retry(int $tenantId, int $userId, int $id): array
+    public static function retry(int $tenantId, int $userId, int $id, bool $confirmInterrupted = false): array
     {
-        return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId) {
+        return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId, $confirmInterrupted) {
             $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
@@ -283,10 +283,12 @@ class ShortDramaEpisodeService
                     if ((int)($request['_generation_version'] ?? 0) >= 3
                         && $originalContext === ($request['series_context'] ?? [])
                         && (!$review || ($wasBlockReview && $previousReviewBase === ($request['revision_base_result'] ?? [])))) {
-                        ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, (string)$row['task_id']);
+                        ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, (string)$row['task_id'], $confirmInterrupted);
                         $old->save(['request_json' => self::encode($request), 'status' => 'pending',
+                            'retry_count' => (int)$old['retry_count'] + 1, 'current_step' => '等待继续未完成部分',
                             'error' => '', 'finished_at' => 0, 'update_time' => time()]);
                         $newTask = (string)$old['task_id'];
+                        ShortDramaPlanningState::explicitRetry($tenantId, $userId, $newTask, (int)$row['production_project_id']);
                     } else {
                         $created = AigcShortDramaService::createScriptPlan($tenantId, $userId, $request, (int)$row['production_project_id'], $request);
                         $newTask = $created['task_id'];
@@ -294,7 +296,7 @@ class ShortDramaEpisodeService
                 }
             }
             Db::name(self::TABLE)->where('id', $row['id'])->update(['status' => 'pending', 'task_id' => $newTask,
-                'retry_count' => (int)$row['retry_count'] + 1, 'cancel_requested' => 0, 'started_at' => 0, 'finished_at' => 0, 'error' => '', 'progress' => 0, 'update_time' => time()]);
+                'retry_count' => (int)$row['retry_count'] + 1, 'cancel_requested' => 0, 'started_at' => 0, 'finished_at' => 0, 'error' => '', 'error_code' => '', 'next_retry_at' => 0, 'progress' => 0, 'update_time' => time()]);
             self::queueJob($tenantId, $userId, (int)$row['project_id'], (int)$row['id'], (int)$row['retry_count'] + 1);
             return ['status' => 'pending', 'episode_id' => $row['id'], 'project_id' => $row['production_project_id'], 'task_id' => $newTask];
         });

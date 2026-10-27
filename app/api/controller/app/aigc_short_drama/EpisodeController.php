@@ -21,7 +21,7 @@ class EpisodeController extends BaseApiController
                 'detail' => ShortDramaEpisodeService::detail($t, $u, (int)($params['episode_id'] ?? 0)),
                 'context' => ShortDramaEpisodeService::summary(ShortDramaEpisodeService::context($t, $u, (int)($params['project_id'] ?? 0))),
                 'start' => ShortDramaEpisodeService::start($t, $u, $params),
-                'retry' => ShortDramaEpisodeService::retry($t, $u, (int)($params['episode_id'] ?? 0)),
+                'retry' => ShortDramaEpisodeService::retry($t, $u, (int)($params['episode_id'] ?? 0), filter_var($params['confirm_interrupted_retry'] ?? false, FILTER_VALIDATE_BOOLEAN)),
                 'cancel' => !empty($params['project_id'])
                     ? ShortDramaEpisodeService::cancelAll($t, $u, (int)$params['project_id'])
                     : ShortDramaEpisodeService::cancel($t, $u, (int)($params['episode_id'] ?? 0)),
