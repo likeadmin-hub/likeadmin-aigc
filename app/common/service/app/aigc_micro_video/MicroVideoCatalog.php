@@ -10,17 +10,17 @@ use think\facade\Cache;
 final class MicroVideoCatalog
 {
     private static array $cache=[];
-    public static function models(int $tenant,bool $legacy=false,string $mode='both',?array $allowedIds=null): array
+    public static function models(int $tenant,bool $legacy=false,string $mode='both',?array $allowedIds=null,bool $summary=false): array
     {
         // Share market reads only while discovering callable specifications.
         // Real quotes and admissions run after this scope has been released.
-        return MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant,$legacy,$mode,$allowedIds));
+        return MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant,$legacy,$mode,$allowedIds,$summary));
     }
-    private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds): array
+    private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds,bool $summary): array
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',MicroVideoStore::encode($allowedIds));}
-        $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset;if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
-        $sharedKey='micro_video_callable_models_v3:'.$tenant.':'.$mode.$subset;if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
+        $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset.($summary?':summary':'');if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
+        $sharedKey='micro_video_callable_models_v3:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
         $result=[];$options=AigcVideoService::marketOptions($tenant);
         foreach($options['channels']??[] as $model){
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
@@ -61,12 +61,16 @@ final class MicroVideoCatalog
                         // App adapters can normalize text-priced aliases to the same
                         // reference SKU. Display and freeze that authoritative SKU.
                         $key=implode('|',[$entry['quality'],$ratio,$duration,$reference['market_sku_id'],($frames['market_sku_id']??0)]);$specs[$key]=$refEntry;if($frameEntry)$frameSpecs[$key]=$frameEntry;
+                        // A picker needs availability and frame support only.
+                        // Full specifications are loaded separately for the active model.
+                        if($summary&&(!$hasFrames||$frameSpecs))break 3;
                     }
                 }
             }
             if(!$legacy){$specs=array_values($specs);$frameSpecs=array_values($frameSpecs);}
             if(!$specs||(!$legacy&&$mode!=='reference'&&!$frameSpecs))continue;
             $result[]=['channel_source'=>(string)($model['channel_source']??'unknown'),'channel_source_label'=>(string)($model['channel_source_label']??'渠道未标注'),'id'=>(string)$model['id'],'label'=>(string)$model['name'],'description'=>(string)($model['description']??''),'display_icon'=>(string)($model['display_icon']??''),'max_reference_images'=>$method==='image_to_video'?1:min(15,(int)$model['max_reference_images']),'specs'=>$specs,'start_end_specs'=>$frameSpecs,'generation_modes'=>$hasFrames&&$frameSpecs?['reference','start_end']:['reference'],'supports_first_last_frame'=>(bool)($hasFrames&&$frameSpecs)];
+            if($summary)$result[array_key_last($result)]['specs_complete']=false;
         }
         // Catalog discovery is advisory; exact quote/reserve always validates live.
         // A short shared cache avoids repeating market reads for simultaneous
