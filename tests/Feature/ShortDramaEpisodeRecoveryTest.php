@@ -90,4 +90,24 @@ class ShortDramaEpisodeRecoveryTest extends TestCase
         self::assertSame('failed',Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->value('status'));
         self::assertSame($before['result_json'],Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->value('result_json'));
     }
+    public function testCancelAllClosesMirrorsAndJobsWithoutChangingFees(): void
+    {
+        $f=$this->fixture();Episodes::cancelAll(2000000725,7,$f['p']);
+        foreach(['script_task','generation_task']as$table){
+            $row=Db::name('aigc_short_drama_'.$table)->where('task_id',$f['task'])->find();
+            self::assertSame('canceled',$row['status']);self::assertEquals(9,$row['user_charge_points']);
+        }
+        $job=Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->find();
+        self::assertSame('canceled',$job['status']);self::assertGreaterThan(0,(int)$job['finished_at']);
+    }
+    public function testReadingTerminalEpisodeOnlyHealsCurrentJobState(): void
+    {
+        $f=$this->fixture('success');
+        Db::name('aigc_short_drama_episode_task')->where('id',$f['ep'])->update(['status'=>'success','completed_once'=>1]);
+        $before=Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find();
+        Episodes::lists(2000000725,7,$f['p']);
+        $job=Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->find();
+        self::assertSame('success',$job['status']);self::assertSame('{"old_receipt":1}',$job['result_json']);
+        self::assertSame($before,Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find());
+    }
 }

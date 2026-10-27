@@ -44,7 +44,7 @@ final class ShortDramaPlanningUnit
         return (bool)preg_match('/SSL_connect:|Could not resolve host|Temporary failure in name resolution|Name or service not known|Network is unreachable|Failed to connect to|Connection refused|cURL error (?:6|7)\b/i', $error);
     }
 
-    /** An explicit retry starts a fresh connection budget only for calls that never reached the provider. */
+    /** Reuse received work; uncertain interrupted calls require a separately confirmed successor. */
     public static function prepareExplicitRetry(int $tenant, int $user, string $task, bool $confirmInterrupted = false, bool $checkOnly = false, bool $newContext = false): void
     {
         $lock = '';
