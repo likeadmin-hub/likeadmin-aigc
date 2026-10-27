@@ -7,6 +7,30 @@ use InvalidArgumentException;
 /** Validates published poster geometry independently of the rendering platform. */
 final class PosterLayout
 {
+    /** Check edits against the published template, including its permissions. */
+    public static function validateUserEdit(array $published, array $edited): void
+    {
+        self::validate($published);
+        self::validate($edited);
+        if (($published['canvas'] ?? null) != ($edited['canvas'] ?? null)
+            || ($published['schema_version'] ?? null) !== ($edited['schema_version'] ?? null)
+            || count($published['layers']) !== count($edited['layers'])) {
+            throw new InvalidArgumentException('海报模板已改变');
+        }
+        $originalById = [];
+        foreach ($published['layers'] as $layer) $originalById[$layer['id']] = $layer;
+        foreach ($edited['layers'] as $layer) {
+            $original = $originalById[$layer['id']] ?? null;
+            if (!$original) throw new InvalidArgumentException('海报图层已改变');
+            $allowed = [];
+            if (!empty($original['user_move'])) $allowed = array_merge($allowed, ['x', 'y']);
+            if (!empty($original['user_resize'])) $allowed = array_merge($allowed, ['w', 'h']);
+            if (($original['type'] ?? '') === 'text' && !empty($original['user_edit'])) $allowed[] = 'text';
+            foreach ($allowed as $key) { unset($original[$key], $layer[$key]); }
+            if ($original != $layer) throw new InvalidArgumentException('该图层不允许此修改');
+        }
+    }
+
     public static function validate(array $layout): void
     {
         $canvas = $layout['canvas'] ?? [];
