@@ -30,7 +30,9 @@ class ShortDramaEpisodeService
     private static function queueJob(int $tenantId, int $userId, int $projectId, int $episodeId, int $attempt = 0): void
     {
         $number=(int)Db::name(self::TABLE)->where(['id'=>$episodeId,'tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$projectId])->value('episode_number');
-        if (!ShortDramaEpisodeRange::allowed(ShortDramaEpisodeRange::load($tenantId,$userId,$projectId),$number)) return;
+        // Confirmed retries may be queued while paused, but the worker gate prevents execution.
+        $control = ShortDramaEpisodeRange::load($tenantId,$userId,$projectId);
+        if ($control !== null && $number > (int)$control['confirmed_end']) return;
         $now = time();
         $key = $tenantId . ':' . $episodeId . ':episode:' . $attempt;
         $exists = Db::name('aigc_short_drama_episode_job')->where(['tenant_id' => $tenantId, 'episode_id' => $episodeId, 'job_type' => 'episode', 'attempt' => $attempt])->find();
@@ -144,7 +146,9 @@ class ShortDramaEpisodeService
                     'outline_task_id' => $taskId, 'outline_json' => self::encode($outline),
                     'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]
                         + (($params['generation_mode']??'legacy')==='staged' ? ['generation_control'=>ShortDramaEpisodeRange::initial()] : [])) : null,
-                    'status' => 'pending', 'error' => '', 'create_time' => time(), 'update_time' => time(),
+                    'status' => 'pending', 'error' => '',
+                    'next_retry_at' => ($params['generation_mode']??'legacy')==='staged' ? ShortDramaEpisodeRange::AWAITING_CONFIRMATION : 0,
+                    'create_time' => time(), 'update_time' => time(),
                 ]);
             }
         });
@@ -572,8 +576,8 @@ class ShortDramaEpisodeService
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
-                if (!ShortDramaEpisodeRange::allowed(ShortDramaEpisodeRange::load($t,$u,$p),(int)$selected['episode_number'])) continue;
                 $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->find() ?: []);
+                if (!ShortDramaEpisodeRange::canRun(ShortDramaEpisodeRange::load($t,$u,$p),$selected)) continue;
                 // Check the selected episode itself: later due siblings must not bypass
                 // its backoff. A waiting unit must yield the worker to other series.
                 if ((int)$selected['next_retry_at'] > time()) continue;
@@ -622,8 +626,11 @@ class ShortDramaEpisodeService
                         $previous[] = self::decode($sibling['continuity_json']);
                     }
                 }
-                Db::transaction(function () use ($tenantId, $userId, &$row, $outlineTask, $previous, $snapshot) {
+                $createdChild = Db::transaction(function () use ($tenantId, $userId, &$row, $outlineTask, $previous, $snapshot) {
+                    // Serialize the first child creation with pause/range confirmation.
+                    AigcShortDramaProject::where(['id'=>$row['project_id'],'tenant_id'=>$tenantId,'user_id'=>$userId])->lock(true)->findOrEmpty();
                     $current = Db::name(self::TABLE)->where('id', $row['id'])->lock(true)->find();
+                    if (!ShortDramaEpisodeRange::canRun(ShortDramaEpisodeRange::load($tenantId,$userId,(int)$row['project_id']),$current)) return false;
                     if ($current['status'] !== 'pending' || $current['task_id'] !== '') throw new Exception('剧集状态已变化');
                     $outlineRequest = self::decode($outlineTask['request_json']);
                     $episodeRequest = ShortDramaStoryWorkflow::inheritQualityReview(
@@ -633,7 +640,9 @@ class ShortDramaEpisodeService
                     $row['task_id'] = $created['task_id'];
                     $row['production_project_id'] = $created['project_id'];
                     Db::name(self::TABLE)->where('id', $row['id'])->update(['task_id' => $row['task_id'], 'production_project_id' => $row['production_project_id'], 'update_time' => time()]);
+                    return true;
                 });
+                if (!$createdChild) return;
             }
             // A queued child may have been created by a worker loaded before
             // the review switch was introduced. Correct its frozen policy at
