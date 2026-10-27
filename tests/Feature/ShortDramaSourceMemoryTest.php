@@ -34,6 +34,16 @@ class ShortDramaSourceMemoryTest extends TestCase
     }
     public static function scales():array{return [[10],[50],[100],[500]];}
 
+    public function testRepeatedMemoryProjectionPreservesAddressedExcerpts(): void
+    {
+        $plan=$this->plan(20);
+        $source=['source_history'=>[20=>['audit_status'=>'skipped','source_memory'=>Source::capture($plan)]]];
+        $first=Memory::continuity($source,'紫铜钥匙',10000);
+        $second=Memory::continuity($first,'紫铜钥匙',10000);
+        self::assertSame($first['source_history'],$second['source_history']);
+        self::assertStringContainsString('紫铜钥匙',json_encode($second,JSON_UNESCAPED_UNICODE));
+    }
+
     public function testLegacyRequestAndReceiptsRemainUntouched(): void
     {
         $p=$this->plan(20);$p['_continuity']=['state'=>['p:location'=>'旧宅'],'open_hooks'=>['key'=>'待找到钥匙'],'audit_status'=>'skipped'];
