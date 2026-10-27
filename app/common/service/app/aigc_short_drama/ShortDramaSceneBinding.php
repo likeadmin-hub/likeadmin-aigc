@@ -54,7 +54,7 @@ final class ShortDramaSceneBinding
         return '';
     }
 
-    private static function resolve(array $item, array $plan, bool $beat, bool $expanded = false): array
+    private static function resolve(array $item, array $plan, bool $beat, bool $expanded = false, bool $repairBeatLabel = false): array
     {
         $names = self::names((array)($plan['locations'] ?? []));
         $label = trim((string)($item['scene_name'] ?? ''));
@@ -67,7 +67,8 @@ final class ShortDramaSceneBinding
         $boundName = (string)($bound['name'] ?? '');
         if ($place !== '' && !isset($names[$place]) && $boundName !== '' && str_ends_with($boundName, $place)) $place = $boundName;
         if ($place !== '' && $label !== '' && $place !== $label
-            && array_keys($names[$place] ?? []) !== array_keys($names[$label] ?? [])) {
+            && array_keys($names[$place] ?? []) !== array_keys($names[$label] ?? [])
+            && !($beat && $repairBeatLabel)) {
             throw new RuntimeException('场景语义不一致：实际画面地点“'.$place.'”与scene_name“'.$label.'”不同，请核对实际拍摄地点并保留剧情', 422);
         }
         $actual = $place !== '' ? $place : $label;
@@ -85,11 +86,13 @@ final class ShortDramaSceneBinding
     {
         if (!self::enabled($request) || empty($plan['locations'])) return $plan;
         $plan = ShortDramaTimedScriptGeneration::canonicalSkeleton($plan);
-        $plan['_scene_binding_version'] = (int)($request['_input_contract_version'] ?? 0) >= 15 ? 2 : 1;
+        $contract = (int)($request['_input_contract_version'] ?? 0);
+        $plan['_scene_binding_version'] = $contract >= 16 ? 3 : ($contract >= 15 ? 2 : 1);
         foreach (['scene_beats','storyboard'] as $field) {
             foreach ((array)($plan[$field] ?? []) as $i => $item) {
                 if (!is_array($item)) continue;
-                $plan[$field][$i] = self::resolve($item, $plan, $field === 'scene_beats', $plan['_scene_binding_version'] >= 2);
+                $plan[$field][$i] = self::resolve($item, $plan, $field === 'scene_beats', $plan['_scene_binding_version'] >= 2,
+                    $field === 'scene_beats' && $plan['_scene_binding_version'] >= 3);
                 if ($field === 'storyboard') self::assertShot($plan[$field][$i], $plan);
             }
         }
