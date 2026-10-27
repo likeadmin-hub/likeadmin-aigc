@@ -4,11 +4,19 @@ namespace app\common\service\app\aigc_llm\agent;
 
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\power\MarketTextModelRuntimeService;
+use app\common\service\power\MarketCatalogReadScope;
 
 /** Server-owned text routing and bounded creation preferences for new runs only. */
 final class AgentComposerSettings
 {
     public static function textOptions(int $tenant): array
+    {
+        // Reuse market reads only while assembling this advisory list. Actual
+        // task admission and billing run outside this request-local scope.
+        return MarketCatalogReadScope::run(static fn(): array => self::buildTextOptions($tenant));
+    }
+
+    private static function buildTextOptions(int $tenant): array
     {
         $config=AigcLlmService::config($tenant);
         $options=$config['option_config']??[];
