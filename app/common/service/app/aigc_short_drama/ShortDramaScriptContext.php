@@ -22,12 +22,6 @@ final class ShortDramaScriptContext
         return (int)($request['_input_contract_version'] ?? 0) >= self::CONTRACT_VERSION;
     }
 
-    public static function appendInstruction(string $system, string $instruction, array $request): string
-    {
-        if (self::enabled($request) && str_contains($system, $instruction)) return $system;
-        return $system . "\n" . $instruction;
-    }
-
     /** Run AFTER working-memory projection so references cannot point to a subsequently removed record. */
     public static function messages(array $messages, array $request): array
     {

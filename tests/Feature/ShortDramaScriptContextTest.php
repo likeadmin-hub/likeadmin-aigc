@@ -108,6 +108,7 @@ class ShortDramaScriptContextTest extends TestCase
         self::assertSame(array_column($old['calls'], 'key'), array_column($new['calls'], 'key'));
         self::assertCount(3, $new['calls']);
         self::assertSame($old['result']['payload'], $new['result']['payload']);
+        self::assertSame($old['calls'][0]['input']['system_prompt'], $new['calls'][0]['input']['system_prompt']);
         foreach ([1, 2] as $index) {
             $before = Response::decode(['content' => $old['calls'][$index]['input']['content']]);
             $after = Response::decode(['content' => $new['calls'][$index]['input']['content']]);
@@ -117,6 +118,7 @@ class ShortDramaScriptContextTest extends TestCase
             foreach (['current_episode', 'continuity'] as $field) self::assertArrayNotHasKey('$ref', $after['creative_context']['series_context'][$field]);
             foreach (['scene_beat', 'required_shots', 'previous_shots', 'scene_progress'] as $field) self::assertSame($before[$field], $after[$field]);
             self::assertStringContainsString('租户自定义：保留信件区别与完整台词。', $new['calls'][$index]['input']['system_prompt']);
+            self::assertSame($old['calls'][$index]['input']['system_prompt'] . "\n" . Context::INSTRUCTION, $new['calls'][$index]['input']['system_prompt']);
             self::assertLessThan($old['calls'][$index]['budget']['input_estimate'], $new['calls'][$index]['budget']['input_estimate']);
             self::assertSame($old['calls'][$index]['budget']['max_tokens'], $new['calls'][$index]['budget']['max_tokens']);
         }
@@ -128,6 +130,7 @@ class ShortDramaScriptContextTest extends TestCase
         $old = $this->generate(12, false); $new = $this->generate(Contract::VERSION, false);
         foreach ([1, 2] as $index) {
             self::assertSame($old['calls'][$index]['input']['content'], $new['calls'][$index]['input']['content']);
+            self::assertSame($old['calls'][$index]['input']['system_prompt'], $new['calls'][$index]['input']['system_prompt']);
             self::assertStringNotContainsString(Context::INSTRUCTION, $new['calls'][$index]['input']['system_prompt']);
         }
     }
@@ -196,8 +199,5 @@ class ShortDramaScriptContextTest extends TestCase
         self::assertSame($old['calls'], $again['calls']);
         $new = $this->generate(13); $again = $this->generate(13);
         foreach ($new['calls'] as $i => $call) self::assertSame(Unit::requestSignature($call['input']), Unit::requestSignature($again['calls'][$i]['input']));
-        self::assertSame("规则\n时长规则", Context::appendInstruction('规则', '时长规则', ['_input_contract_version' => 13]));
-        self::assertSame("规则\n时长规则", Context::appendInstruction("规则\n时长规则", '时长规则', ['_input_contract_version' => 13]));
-        self::assertSame("规则\n时长规则\n时长规则", Context::appendInstruction("规则\n时长规则", '时长规则', ['_input_contract_version' => 12]));
     }
 }
