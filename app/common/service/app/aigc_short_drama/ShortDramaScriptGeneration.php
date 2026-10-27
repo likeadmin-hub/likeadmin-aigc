@@ -14,7 +14,8 @@ final class ShortDramaScriptGeneration
         array $messages,
         callable $provider,
         ?callable $progress = null,
-        ?callable $normalizeSkeleton = null
+        ?callable $normalizeSkeleton = null,
+        ?callable $freezeBatches = null
     ): array
     {
         $durationRule = ShortDramaShotDuration::rule($request);
@@ -45,7 +46,16 @@ final class ShortDramaScriptGeneration
             $receipt = $provider('v3_' . $key, $input, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
-            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $request): array {
+            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $request, $key): array {
+                if (ShortDramaSceneBatch::isUnit($key, $request)) {
+                    // The paid receipt is already durable. Parse/scene failures may
+                    // fall back locally; submit, settlement and capacity errors above cannot.
+                    try { return ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? [])); }
+                    catch (RuntimeException $error) {
+                        if (!in_array($error->getCode(), [413, 422], true)) throw $error;
+                        return ['_batch_parse_error' => $error->getMessage()];
+                    }
+                }
                 $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
                 if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
                 if ($validate) $validate($payload);
@@ -63,7 +73,7 @@ final class ShortDramaScriptGeneration
         if (ShortDramaEpisodeDuration::active($request) && !ShortDramaEpisodeDuration::localRevision($request)) {
             $preflight = ['system_prompt'=>$messages['system_prompt'], 'content'=>$messages['_stage_content'] ?? $messages['content']];
             $budget = ShortDramaPlanningBudget::fitMessages($preflight, $model, 'script', 8192, $boundedMemory);
-            $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress, (int)$budget['max_tokens']);
+            $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress, (int)$budget['max_tokens'], $freezeBatches);
             return $finish($payload);
         }
         $duration = (int)($request['target_duration_seconds'] ?? 0);

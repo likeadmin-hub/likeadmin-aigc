@@ -15,7 +15,7 @@ final class ShortDramaScriptContext
         '#/creative_context/series_context/current_episode',
         '#/creative_context/series_context/continuity/state',
         '#/creative_context/series_context/continuity/open_hooks',
-        '#/scene_beat', '#/required_shots', '#/previous_shots', '#/scene_progress',
+        '#/scene_beat', '#/scene_groups', '#/required_shots', '#/previous_shots', '#/scene_progress',
     ];
 
     public static function enabled(array $request): bool
