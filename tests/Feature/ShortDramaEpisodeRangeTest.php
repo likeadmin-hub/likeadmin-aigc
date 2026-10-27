@@ -90,6 +90,28 @@ class ShortDramaEpisodeRangeTest extends TestCase
         $s=Episodes::start(self::T,7,$this->confirm($s,4));self::assertSame(4,$s['generation_control']['confirmed_end']);
         self::assertSame(2,Db::name('aigc_short_drama_episode_job')->where('project_id',$s['project_id'])->count());
     }
+    public function testWorkerCompletionCannotQueueBeyondConfirmedRange():void
+    {
+        $s=$this->fixture();$s=Episodes::start(self::T,7,$this->confirm($s,2));
+        foreach(array_slice($s['lists'],0,2)as$row){
+            $task='range_child_'.bin2hex(random_bytes(8));
+            $project=Db::name('aigc_short_drama_project')->insertGetId(['tenant_id'=>self::T,'user_id'=>7,'last_task_id'=>$task]);
+            $plan=['title'=>'原剧本','story_outline'=>'原剧情','subjects'=>[['id'=>'p','name'=>'主角']],
+                'locations'=>[['id'=>'l','name'=>'旧宅']],'storyboard'=>[['shot_id'=>'1','visual_description'=>'原动作']]];
+            Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>self::T,'user_id'=>7,'project_id'=>$project,
+                'task_id'=>$task,'status'=>'success','request_json'=>'{"_generation_version":3,"quality_review_enabled":false}',
+                'result_json'=>json_encode($plan),'billing_status'=>'deducted','user_charge_points'=>9]);
+            Db::name('aigc_short_drama_episode_task')->where('id',$row['id'])->update(['task_id'=>$task,'production_project_id'=>$project]);
+        }
+        self::assertSame(1,Episodes::tick(self::T,$s['project_id']));
+        self::assertSame(1,Episodes::tick(self::T,$s['project_id']));
+        self::assertSame(0,Episodes::tick(self::T,$s['project_id']));
+        $rows=Db::name('aigc_short_drama_episode_task')->where('project_id',$s['project_id'])->order('episode_number')->select()->toArray();
+        self::assertSame(['success','success','pending'],array_column(array_slice($rows,0,3),'status'));
+        self::assertSame(0,(int)$rows[2]['queue_job_id']);self::assertSame(0,(int)$rows[2]['production_project_id']);
+        self::assertSame(2,Db::name('aigc_short_drama_episode_job')->where('project_id',$s['project_id'])->where('status','success')->count());
+    }
+
     public function testLegacyModeAndTenantBoundaryRemainIntact():void
     {
         $s=$this->fixture(12,false);self::assertNull($s['generation_control']);
