@@ -47,7 +47,7 @@ class ShortDramaSceneBatchTest extends TestCase
         return ['system_prompt' => '租户创作规则：区分信A和信B，保持对白和场景顺序。', 'content' => $text, '_stage_content' => $trusted ? $text : null];
     }
 
-    private function run(array $counts, array $request, ?callable $alter = null, bool $trusted = true): array
+    private function generate(array $counts, array $request, ?callable $alter = null, bool $trusted = true): array
     {
         $plan = self::fixture($counts); $calls = [];
         $result = Script::generate($request, ['context_window' => 65536, 'max_output_tokens' => 8192], $this->messages($trusted),
@@ -72,7 +72,7 @@ class ShortDramaSceneBatchTest extends TestCase
     {
         $counts = [1, 1, 2, 2, 3]; $newRequest = self::request($counts); $oldRequest = $newRequest;
         $oldRequest['_input_contract_version'] = 13;
-        $old = $this->run($counts, $oldRequest); $new = $this->run($counts, $newRequest);
+        $old = $this->generate($counts, $oldRequest); $new = $this->generate($counts, $newRequest);
         self::assertCount(6, $old['calls']); self::assertCount(4, $new['calls']);
         self::assertSame($old['result']['payload']['storyboard'], $new['result']['payload']['storyboard']);
         self::assertSame(['v3_timed_skeleton_0', 'v3_timed_batch_1_2', 'v3_timed_batch_3_4', 'v3_timed_scene_5_1'], array_column($new['calls'], 'key'));
@@ -94,7 +94,7 @@ class ShortDramaSceneBatchTest extends TestCase
     /** @dataProvider badScene */
     public function testOnlyRejectedSceneIsRegeneratedAndAcceptedSceneIsKept(int $bad): void
     {
-        $result = $this->run([1, 1], self::request(), static function ($key, $payload) use ($bad) {
+        $result = $this->generate([1, 1], self::request(), static function ($key, $payload) use ($bad) {
             if ($key === 'v3_timed_batch_1_2') $payload['storyboard'][$bad]['recommended_duration_seconds'] = 7;
             return $payload;
         });
@@ -109,12 +109,12 @@ class ShortDramaSceneBatchTest extends TestCase
     public function testMalformedReceivedBatchFallsBackButRefusalDoesNot(): void
     {
         foreach ([['content' => '{"storyboard":[', 'finish_reason' => 'stop'], ['content' => '{}', 'finish_reason' => 'length']] as $response) {
-            $result = $this->run([1, 1], self::request(), static fn($key, $payload) => $key === 'v3_timed_batch_1_2' ? ['_response' => $response] : $payload);
+            $result = $this->generate([1, 1], self::request(), static fn($key, $payload) => $key === 'v3_timed_batch_1_2' ? ['_response' => $response] : $payload);
             self::assertSame(['v3_timed_skeleton_0', 'v3_timed_batch_1_2', 'v3_timed_scene_1_1', 'v3_timed_scene_2_1'], array_column($result['calls'], 'key'));
             self::assertCount(2, $result['result']['payload']['storyboard']);
         }
         $this->expectExceptionCode(403);
-        $this->run([1, 1], self::request(), static fn($key, $payload) => $key === 'v3_timed_batch_1_2' ? ['_response' => ['finish_reason' => 'refusal']] : $payload);
+        $this->generate([1, 1], self::request(), static fn($key, $payload) => $key === 'v3_timed_batch_1_2' ? ['_response' => ['finish_reason' => 'refusal']] : $payload);
     }
 
     /** @dataProvider terminalErrors */
@@ -122,7 +122,7 @@ class ShortDramaSceneBatchTest extends TestCase
     {
         $seen = [];
         try {
-            $this->run([1, 1], self::request(), static function ($key, $payload) use (&$seen, $code) {
+            $this->generate([1, 1], self::request(), static function ($key, $payload) use (&$seen, $code) {
                 $seen[] = $key;
                 if ($key === 'v3_timed_batch_1_2') throw new \RuntimeException('provider or preflight boundary', $code);
                 return $payload;
@@ -160,7 +160,7 @@ class ShortDramaSceneBatchTest extends TestCase
         $timeline['episode_duration_policy'] = Duration::snapshot([], 0, 0, [
             ['start_seconds' => 0, 'end_seconds' => 6, 'duration_seconds' => 6], ['start_seconds' => 6, 'end_seconds' => 12, 'duration_seconds' => 6]]);
         self::assertSame([], Batch::plan($timeline, $messages, $plan, 4)['groups']);
-        $custom = $this->run([1, 1], $request, null, false);
+        $custom = $this->generate([1, 1], $request, null, false);
         self::assertCount(3, $custom['calls']);
         $old = $request; $old['_input_contract_version'] = 13;
         self::assertSame([], Batch::plan($old, $messages, $plan, 4)['groups']);
