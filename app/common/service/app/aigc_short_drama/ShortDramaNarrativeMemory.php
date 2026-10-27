@@ -47,7 +47,7 @@ final class ShortDramaNarrativeMemory
     {
         $parts = [];
         foreach ($data as $key => $value) {
-            if (in_array($key, ['continuity','previous','previous_state','previous_open_hooks','previous_episodes','history',
+            if (in_array($key, ['continuity','previous','previous_state','previous_open_hooks','previous_episodes','history','source_history',
                 'response_contract','confirmed','outline','series_roadmap','memory_scope'], true)) continue;
             if (is_array($value)) $parts[] = self::query($value);
             elseif (is_string($value)) {
@@ -82,16 +82,21 @@ final class ShortDramaNarrativeMemory
         $requiredState = array_map(static fn($r) => ($r['entity_id'] ?? '') . ':' . ($r['field'] ?? ''), $review['changes'] ?? []);
         $requiredHooks = array_map(static fn($r) => preg_replace('/_resolved$/', '', (string)($r['id'] ?? '')), $review['hooks'] ?? []);
         $requiredHooks = array_merge($requiredHooks, array_column($review['hooks'] ?? [], 'id'));
-        foreach (['state'=>.55, 'open_hooks'=>.25, 'history'=>.2] as $field => $share) {
+        $shares = isset($source['source_history'])
+            ? ['state'=>.45, 'open_hooks'=>.2, 'history'=>.15, 'source_history'=>.2]
+            : ['state'=>.55, 'open_hooks'=>.25, 'history'=>.2];
+        foreach ($shares as $field => $share) {
             if (!isset($source[$field])) continue;
-            $records = $field === 'history' ? self::historyRecords((array)$source[$field]) : (array)$source[$field];
+            $records = $field === 'source_history' ? ShortDramaSourceMemory::excerpts((array)$source[$field], max(80,min(600,(int)($budget*$share)-300)))
+                : ($field === 'history' ? self::historyRecords((array)$source[$field]) : (array)$source[$field]);
             $out[$field] = self::select($records, $query, (int)($budget * $share),
                 $field === 'state' ? $requiredState : ($field === 'open_hooks' ? $requiredHooks : []));
         }
         // The full ledger remains on the server, including records not selected here.
         unset($out['fact_sources']);
         $out['memory_scope'] = ['version'=>self::VERSION, 'instruction'=>self::INSTRUCTION];
-        foreach (['state','open_hooks','history'] as $field) {
+        if (isset($source['source_history'])) $out['memory_scope']['source_instruction'] = 'source_history是已保存正文的摘要和结尾原文，未经事实审校，不是权威状态表。注意说话者、时间和否定语义；不要把角色台词直接当作事实，原文未覆盖的事件请保持未知。';
+        foreach (array_keys($shares) as $field) {
             $out['memory_scope'][$field] = ['total'=>count($source[$field] ?? []), 'included'=>count($out[$field] ?? [])];
         }
         return $out;
@@ -140,7 +145,7 @@ final class ShortDramaNarrativeMemory
                     elseif (in_array($key, ['creative_context','task'], true) && is_string($value)) {
                         $nested = json_decode($value, true);
                         if (is_array($nested)) $value = self::json($walk($nested));
-                    } elseif (is_array($value) && !in_array($key, ['previous_state','previous_open_hooks','memory_scope','history'], true)) $value = $walk($value);
+                    } elseif (is_array($value) && !in_array($key, ['previous_state','previous_open_hooks','memory_scope','history','source_history'], true)) $value = $walk($value);
                 }
                 unset($value);
                 if (isset($node['continuity'], $node['previous_episodes'])) unset($node['previous_episodes']);
