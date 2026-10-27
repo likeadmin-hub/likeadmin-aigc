@@ -35,6 +35,7 @@ class ShortDramaSceneBatchTest extends TestCase
     public static function request(array $counts = [1, 1]): array
     {
         $request = Contract::begin(['episode_duration_policy' => Duration::snapshot([], array_sum($counts) * 6, 0, [])]);
+        $request['_input_contract_version'] = 14; // Existing batching fixtures predate scene scripts.
         $request['_scene_batch_policy']['enabled'] = true;
         return $request;
     }

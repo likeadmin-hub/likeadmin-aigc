@@ -8,7 +8,9 @@ class ShortDramaProviderTimingTest extends TestCase
 {
     private function request(): array
     {
-        return Contract::begin(['episode_duration_policy' => Timing::snapshot([], 4, 0, [])]);
+        $request = Contract::begin(['episode_duration_policy' => Timing::snapshot([], 4, 0, [])]);
+        $request['_input_contract_version'] = 14; // Isolate provider timing from the new scene-script contract.
+        return $request;
     }
 
     public function testProviderFourSecondDialogueSurvivesWithoutLocalRetimingOrRepair(): void
