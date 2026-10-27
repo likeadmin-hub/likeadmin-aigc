@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
   "name": "AI短剧",
-  "version": "1.0.46",
+  "version": "1.0.47",
   "require_core": ">=1.0.272 <2.0.0",
   "description": "短剧设定与大纲确认、分段剧本生成、跨集连续性复核与独立分集制作。",
-  "changelog": "1. 区分剧本生成完成与剧情复核通过，复核有疑点时保留完整剧本并展示待处理问题。\n2. 新建剧本默认开启剧情复核，支持局部修复和主动继续复核。\n3. 待复核剧集暂停后续生成，避免未经确认的剧情影响后续衔接。",
+  "changelog": "1. 新建剧本默认关闭自动剧情复核，保留手动复核入口。\n2. 简化创作页面，移除自动复核选项及剧本页复核提示区。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
