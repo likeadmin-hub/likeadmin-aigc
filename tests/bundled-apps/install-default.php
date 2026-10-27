@@ -57,11 +57,13 @@ try{
  Db::name('tenant')->insert(['id'=>123457,'sn'=>'mvf_split','name'=>'Split fixture','tactics'=>1,'create_time'=>time(),'update_time'=>time()]);
  $splitTable=$prefix.'tenant_system_menu_mvf_split';$pdo->exec('CREATE TABLE `'.$splitTable.'` LIKE `'.$prefix.'tenant_system_menu`');$fixtureTables[]=$splitTable;
  $ownedCollision=Db::name('tenant_system_menu')->insertGetId(['tenant_id'=>123456,'name'=>'Tenant owned smart clip','source'=>'tenant','app_code'=>'smart_clip','source_menu_key'=>'smart_clip','type'=>'M']);
+ Db::name('app')->where('code','aigc_micro_video')->update(['is_builtin'=>0]);
  $upgrade=file_get_contents($root.'/upgrade/20261027_bundled_app_defaults.sql');
  check($upgrade===file_get_contents($root.'/public/upgrade/20261027_bundled_app_defaults.sql'),'Upgrade mirror differs');
  $plan=app\common\service\database\RuntimeMigrationPlan::build($upgrade);
  check($plan['prepare']==='','Bundled registration must be transactional DML');
  for($i=0;$i<2;$i++) app\common\service\database\SqlMigrationExecutor::execute($upgrade,$prefix);
+ check((int)Db::name('app')->where('code','aigc_micro_video')->value('is_builtin')===1, 'Legacy default flag was not repaired');
  foreach($bundled as $item) {
   for($i=0;$i<2;$i++) Registry::installFromLocal($item,'1.0.418');
   $app=Db::name('app')->where('code',$item)->find();
