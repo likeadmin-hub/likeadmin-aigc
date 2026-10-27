@@ -205,4 +205,15 @@ class ShortDramaSceneBatchTest extends TestCase
             catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
         }
     }
+
+    public function testPerSceneValidationDoesNotRejectGoodScenesBecauseOfAnUnrelatedLegacyBeat(): void
+    {
+        $plan = self::fixture([1, 1, 1]);
+        $plan['scene_beats'][2]['entry'] = '甲来到老屋，历史骨架未登记该地点';
+        $shots = [self::shot(['shot_id' => 's1_1', 'scene_ref_id' => 'l1', 'duration_seconds' => 6], $plan),
+            self::shot(['shot_id' => 's2_1', 'scene_ref_id' => 'l2', 'duration_seconds' => 6], $plan)];
+        $parts = Batch::partition(['storyboard' => $shots], $plan, [0, 1], self::request([1, 1, 1]));
+        self::assertNotNull($parts[0]); self::assertNotNull($parts[1]);
+        self::assertSame($shots, array_merge($parts[0]['storyboard'], $parts[1]['storyboard']));
+    }
 }
