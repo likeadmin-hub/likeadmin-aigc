@@ -91,4 +91,27 @@ class ShortDramaSceneBindingTest extends TestCase
         $this->expectExceptionMessage('缺少可拍动作或对白结构');
         Timed::assertSkeleton($plan,$request);
     }
+
+    public function testNewContractKeepsTheSceneScriptAsASeparateResultBeforeShots():void
+    {
+        $plan=$this->plan();$script=['action'=>['陈溪进门找到信','陈溪拆开信'],
+            'dialogue'=>[['speaker'=>'陈溪','text'=>'原来她一直在等我。']]];
+        $plan['scene_beats']=[['scene_ref_id'=>'home','goal'=>'找到信','entry'=>'母亲老屋内，陈溪进门','exit'=>'陈溪拆开信',
+            'key_events'=>['陈溪拆开信'],'scene_script'=>$script,'duration_seconds'=>10,'shot_durations'=>[10]]];
+        $request=['_input_contract_version'=>15,'episode_duration_policy'=>Duration::snapshot([],10,0,[])];
+        $checkpoints=[];$shotContext=[];
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'陈溪找到信'],
+            static function($key,$input)use($plan,&$shotContext){
+                if(str_contains($key,'skeleton'))return ['result'=>['content'=>json_encode($plan,JSON_UNESCAPED_UNICODE)]];
+                $shotContext=json_decode($input['content'],true);
+                return ['result'=>['content'=>json_encode(['storyboard'=>[['shot_id'=>'s1_1','scene_ref_id'=>'home',
+                    'scene_name'=>'母亲老屋','subject_ref_ids'=>['p'],'interior_exterior'=>'interior',
+                    'visual_description'=>'母亲老屋内，陈溪拆开信。','dialogue'=>'陈溪：原来她一直在等我。',
+                    'voice_role'=>'陈溪','speech_type'=>'character','recommended_duration_seconds'=>10]]],JSON_UNESCAPED_UNICODE)]];
+            },static function($event,$payload)use(&$checkpoints){if($event==='script_checkpoint')$checkpoints[]=$payload;});
+        self::assertSame($script,$shotContext['scene_beat']['scene_script']);
+        self::assertArrayNotHasKey('scene_script',$shotContext['scene_continuity'][0]);
+        self::assertSame($script['action'],$checkpoints[0]['scene_screenplays'][0]['action']);
+        self::assertSame($checkpoints[0]['scene_screenplays'],$result['payload']['scene_screenplays']);
+    }
 }

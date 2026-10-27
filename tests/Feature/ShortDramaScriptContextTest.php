@@ -104,7 +104,7 @@ class ShortDramaScriptContextTest extends TestCase
 
     public function testRealGenerationBoundaryPreservesAllFactsAndOutputWithSmallerInput(): void
     {
-        $old = $this->generate(12); $new = $this->generate(Contract::VERSION);
+        $old = $this->generate(12); $new = $this->generate(14);
         self::assertSame(array_column($old['calls'], 'key'), array_column($new['calls'], 'key'));
         self::assertCount(3, $new['calls']);
         self::assertSame($old['result']['payload'], $new['result']['payload']);
@@ -127,7 +127,7 @@ class ShortDramaScriptContextTest extends TestCase
 
     public function testCustomTemplateIsNotDecodedEvenWhenItLooksLikeJson(): void
     {
-        $old = $this->generate(12, false); $new = $this->generate(Contract::VERSION, false);
+        $old = $this->generate(12, false); $new = $this->generate(14, false);
         foreach ([1, 2] as $index) {
             self::assertSame($old['calls'][$index]['input']['content'], $new['calls'][$index]['input']['content']);
             self::assertSame($old['calls'][$index]['input']['system_prompt'], $new['calls'][$index]['input']['system_prompt']);

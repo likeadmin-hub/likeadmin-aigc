@@ -89,7 +89,9 @@ class ShortDramaReliabilityTest extends TestCase
         $skeleton = ['title' => '测试', 'story_outline' => '甲在房间说完台词', 'script_lines' => ['保留台词'],
             'subjects' => [['id' => 'p1', 'name' => '甲']], 'locations' => [['id' => 'l1', 'name' => '房间']],
             'scene_beats' => [['scene_ref_id' => 'l1', 'goal' => '说明', 'entry' => '进入', 'exit' => '离开',
-                'key_events' => ['完整台词'], 'duration_seconds' => 5, 'shot_durations' => [5]]]];
+                'key_events' => ['完整台词'], 'scene_script' => ['action' => ['甲开口说明'],
+                    'dialogue' => [['speaker' => '甲', 'text' => '完整台词']]],
+                'duration_seconds' => 5, 'shot_durations' => [5]]]];
         $calls = [];
         $result = ShortDramaTimedScriptGeneration::generate($request, ['system_prompt' => '创作', 'content' => '保留原文'],
             static function ($key) use ($skeleton, &$calls) {
