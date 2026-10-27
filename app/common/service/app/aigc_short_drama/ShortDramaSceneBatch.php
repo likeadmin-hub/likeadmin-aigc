@@ -149,7 +149,7 @@ final class ShortDramaSceneBatch
             $ids = array_map(static fn($offset) => 's' . ($index + 1) . '_' . ($offset + 1), array_keys($beat['shot_durations']));
             $part = ['storyboard' => array_values(array_filter($shots, static fn($shot) => in_array($shot['shot_id'], $ids, true)))];
             try {
-                $normalized = ShortDramaSceneBinding::normalize(array_replace($skeleton, $part), $request);
+                $normalized = ShortDramaSceneBinding::normalize(array_replace($skeleton, $part, ['scene_beats' => [$beat]]), $request);
                 $part = ['storyboard' => $normalized['storyboard']];
                 ShortDramaTimedScriptGeneration::assertPart($part, $skeleton, $beat, $ids, array_values($beat['shot_durations']), false);
                 foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
