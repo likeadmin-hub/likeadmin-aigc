@@ -71,7 +71,7 @@ class ShortDramaInterruptedRetryTest extends TestCase
     {
         $task=$this->fixture();$lock=substr('sd_plan:'.hash('sha256','2000000723:'.$task),0,64);
         $connection=new \think\db\connector\Mysql(Db::connect()->getConfig());
-        $connection->setDb(Db::getFacadeRoot());
+        $connection->setDb(\think\Container::getInstance()->make(\think\DbManager::class));
         $connection->query('SELECT GET_LOCK(?,0)',[$lock]);
         try {
             try{Unit::prepareExplicitRetry(2000000723,7,$task,true);self::fail('Live worker must fence retry');}
