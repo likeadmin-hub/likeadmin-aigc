@@ -28,10 +28,11 @@ final class ShortDramaStoryWorkflow
             || filter_var($request['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
     }
 
-    /** The series setting is authoritative for its independently queued episodes. */
+    /** Automatic generation inherits the series setting; an explicit review remains enabled. */
     public static function inheritQualityReview(array $episodeRequest, array $outlineRequest): array
     {
-        $episodeRequest['quality_review_enabled'] = self::qualityReviewEnabled($outlineRequest);
+        $episodeRequest['quality_review_enabled'] = (ShortDramaReviewOutcome::enabled($episodeRequest)
+            && !empty($episodeRequest['_continuity_review_only'])) || self::qualityReviewEnabled($outlineRequest);
         return $episodeRequest;
     }
 
