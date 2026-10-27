@@ -10,11 +10,9 @@ final class ShortDramaTimedScriptGeneration
     {
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
-        $system = $messages['system_prompt']
-                . "\n当前采用分阶段生成。上述规则中的创作、角色、风格、剧情与连续性要求完整保留；完整剧本的字段清单和输出示例由下方本阶段输出结构替代。只输出本阶段指定字段。";
-        $system = ShortDramaScriptContext::appendInstruction($system, ShortDramaEpisodeDuration::instruction($request), $request);
-        $system = ShortDramaScriptContext::appendInstruction($system, ShortDramaSameSceneCuts::instruction($request), $request);
-        $base = ['system_prompt' => $system,
+        $base = ['system_prompt' => $messages['system_prompt']
+                . "\n当前采用分阶段生成。上述规则中的创作、角色、风格、剧情与连续性要求完整保留；完整剧本的字段清单和输出示例由下方本阶段输出结构替代。只输出本阶段指定字段。"
+                . "\n" . ShortDramaEpisodeDuration::instruction($request) . "\n" . ShortDramaSameSceneCuts::instruction($request),
             'content' => $messages['_stage_content'] ?? $messages['content']];
         $skeletonInput = $base;
         $skeletonInput['system_prompt'] .= "\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。"
