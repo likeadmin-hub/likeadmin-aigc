@@ -14219,3 +14219,19 @@ INSERT IGNORE INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status
 INSERT IGNORE INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`) SELECT id,'aigc_music_cover',(SELECT current_version FROM `la_app` WHERE code='aigc_music_cover'),'paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`;
 -- Reconcile legacy built-in registry flags without changing versions or tenant settings.
 UPDATE `la_app` SET `is_builtin`=1,`status`='installed',`expire_policy`='allow' WHERE `code` IN ('system_default','open_platform','aigc_image','aigc_video','aigc_micro_video','aigc_digital_human','aigc_pic_lipsync','aigc_canvas','aigc_llm','aigc_music','aigc_music_cover');
+
+-- Distribution posters: additive, repeatable, published snapshots are immutable.
+CREATE TABLE IF NOT EXISTS `la_distribution_poster_template` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
+ `name` varchar(80) NOT NULL, `sort` int NOT NULL DEFAULT 0, `status` tinyint unsigned NOT NULL DEFAULT 0,
+ `revision` int unsigned NOT NULL DEFAULT 1, `published_version` int unsigned NOT NULL DEFAULT 0,
+ `draft_json` longtext NOT NULL, `create_time` int unsigned NOT NULL, `update_time` int unsigned NOT NULL,
+ `delete_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), KEY `idx_tenant_list` (`tenant_id`,`delete_time`,`status`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_distribution_poster_version` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `template_id` int unsigned NOT NULL,
+ `revision` int unsigned NOT NULL, `name` varchar(80) NOT NULL, `layout_json` longtext NOT NULL,
+ `admin_id` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_template_revision` (`template_id`,`revision`), KEY `idx_tenant` (`tenant_id`,`template_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

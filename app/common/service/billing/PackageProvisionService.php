@@ -354,6 +354,7 @@ class PackageProvisionService
         }
 
         $distributionMenus = [
+            ['group' => 'config', 'name' => '分销海报', 'icon' => 'el-icon-Picture', 'sort' => 80, 'perms' => 'distribution.poster/lists', 'paths' => 'posters', 'component' => 'distribution/posters', 'key' => 'posters'],
             ['group' => 'config', 'name' => '分销设置', 'icon' => 'el-icon-Setting', 'sort' => 100, 'perms' => 'distribution.distribution/config', 'paths' => 'settings', 'component' => 'distribution/settings', 'key' => 'settings'],
             ['group' => 'config', 'name' => '套餐分销', 'icon' => 'el-icon-Tickets', 'sort' => 90, 'perms' => 'distribution.distribution/packageRules', 'paths' => 'package-rule', 'component' => 'distribution/package_rule', 'key' => 'package_rule'],
             ['group' => 'promotion', 'name' => '分销概览', 'icon' => 'el-icon-DataAnalysis', 'sort' => 100, 'perms' => 'distribution.distribution/overview', 'paths' => 'overview', 'component' => 'distribution/overview', 'key' => 'overview'],
@@ -377,7 +378,11 @@ class PackageProvisionService
                 'source_menu_key' => 'core_tenant_distribution_' . $distributionMenu['key'],
             ]);
             $pageIdsByGroup[$distributionMenu['group']][] = $menuId;
-            if ($distributionMenu['key'] === 'settings') {
+            if ($distributionMenu['key'] === 'posters') {
+                foreach (['detail'=>'查看详情','saveDraft'=>'编辑草稿','publish'=>'发布海报','copy'=>'复制海报','sort'=>'调整排序','setStatus'=>'启用停用','delete'=>'删除海报'] as $action=>$label) {
+                    self::upsertMenu($table,$tenantId,['pid'=>$menuId,'type'=>'A','name'=>$label,'perms'=>'distribution.poster/'.$action,'source_menu_key'=>'core_tenant_distribution_posters_'.$action]);
+                }
+            } elseif ($distributionMenu['key'] === 'settings') {
                 self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '保存', 'perms' => 'distribution.distribution/saveConfig', 'source_menu_key' => 'core_tenant_distribution_save_config']);
             } elseif ($distributionMenu['key'] === 'package_rule') {
                 self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '保存规则', 'perms' => 'distribution.distribution/savePackageRule', 'source_menu_key' => 'core_tenant_distribution_save_package_rule']);
