@@ -15,7 +15,7 @@ class ShortDramaEpisodeRangeTest extends TestCase
         \think\facade\Env::set('short_drama.redis_host','127.0.0.1');\think\facade\Env::set('short_drama.redis_port',1);
     }
     protected function tearDown():void{if($this->transaction)Db::rollback();}
-    private function fixture(int $count=12,bool $staged=true):array
+    private function fixture(int $count=12,bool $staged=true,bool $historical=true):array
     {
         $task='range_'.bin2hex(random_bytes(8));
         $project=Db::name('aigc_short_drama_project')->insertGetId(['tenant_id'=>self::T,'user_id'=>7,'multi_episode'=>1,'episode_count'=>$count,'last_task_id'=>$task]);
@@ -27,7 +27,41 @@ class ShortDramaEpisodeRangeTest extends TestCase
             'task_id'=>$task,'status'=>'success','request_json'=>'{"quality_review_enabled":false}',
             'result_json'=>json_encode($plan),'billing_status'=>'deducted','user_charge_points'=>9]);
         $params=['project_id'=>$project,'task_id'=>$task];if($staged)$params['generation_mode']='staged';
+        if ($staged && $historical) {
+            // Persist the shape written by the retired staged flow. New starts no longer create it.
+            foreach ($plan['episodes'] as $index=>$outline) Db::name('aigc_short_drama_episode_task')->insert([
+                'tenant_id'=>self::T,'user_id'=>7,'project_id'=>$project,'episode_number'=>$index+1,'title'=>$outline['title'],
+                'outline_task_id'=>$task,'outline_json'=>json_encode($outline),'status'=>'pending','next_retry_at'=>Ranges::AWAITING_CONFIRMATION,
+                'series_json'=>$index===0?json_encode(['plan'=>$plan,'request'=>['quality_review_enabled'=>false],'generation_control'=>Ranges::initial()]):null]);
+            return Episodes::lists(self::T,7,$project);
+        }
         return Episodes::start(self::T,7,$params);
+    }
+    public function testNewSeriesRunsSequentiallyEvenWhenOldClientSendsStaged():void
+    {
+        $s=$this->fixture(500,true,false);
+        self::assertNull($s['generation_control']);
+        foreach($s['lists'] as$row)self::assertSame(0,(int)$row['next_retry_at']);
+        self::assertSame(1,Db::name('aigc_short_drama_episode_job')->where('project_id',$s['project_id'])->count());
+    }
+    public function testExplicitSequentialContinuationPreservesSavedAndCanceledContent():void
+    {
+        $s=$this->fixture(12);$s=Episodes::start(self::T,7,$this->confirm($s,2));
+        $first=$s['lists'][0]['id'];$second=$s['lists'][1]['id'];
+        Db::name('aigc_short_drama_episode_task')->where('id',$first)->update(['status'=>'success','completed_once'=>1,'result_json'=>'{"title":"保留已完成作品"}']);
+        Db::name('aigc_short_drama_episode_task')->where('id',$second)->update(['status'=>'canceled','cancel_requested'=>1]);
+        $before=Db::name('aigc_short_drama_episode_task')->where('project_id',$s['project_id'])->order('episode_number')->select()->toArray();
+        $p=['project_id'=>$s['project_id'],'action'=>'resume_sequential','control_revision'=>2];
+        $after=Episodes::start(self::T,7,$p);Episodes::start(self::T,7,$p);
+        self::assertNull($after['generation_control']);
+        self::assertSame('success',$after['lists'][0]['status']);self::assertSame('canceled',$after['lists'][1]['status']);
+        self::assertSame(0,Episodes::tick(self::T,$s['project_id']));
+        $rows=Db::name('aigc_short_drama_episode_task')->where('project_id',$s['project_id'])->order('episode_number')->select()->toArray();
+        foreach($rows as$i=>$row){
+            foreach(['outline_json','result_json','task_id','production_project_id','cancel_requested'] as$field)self::assertSame($before[$i][$field],$row[$field]);
+            self::assertSame(0,(int)$row['next_retry_at']);
+        }
+        self::assertSame(2,Episodes::decode($rows[0]['series_json'])['previous_generation_control']['confirmed_end']);
     }
     private function confirm(array $series,int $end):array
     {

@@ -144,10 +144,10 @@ class ShortDramaEpisodeService
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                     'episode_number' => $index + 1, 'title' => mb_substr($outline['title'], 0, 120),
                     'outline_task_id' => $taskId, 'outline_json' => self::encode($outline),
-                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]
-                        + (($params['generation_mode']??'legacy')==='staged' ? ['generation_control'=>ShortDramaEpisodeRange::initial()] : [])) : null,
+                    // Old clients may still send staged. New series always run in order.
+                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]) : null,
                     'status' => 'pending', 'error' => '',
-                    'next_retry_at' => ($params['generation_mode']??'legacy')==='staged' ? ShortDramaEpisodeRange::AWAITING_CONFIRMATION : 0,
+                    'next_retry_at' => 0,
                     'create_time' => time(), 'update_time' => time(),
                 ]);
             }
@@ -163,6 +163,8 @@ class ShortDramaEpisodeService
             $project=AigcShortDramaProject::where(['id'=>$projectId,'tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0])->lock(true)->findOrEmpty();
             if($project->isEmpty())throw new Exception('项目不存在');
             $rows=Db::name(self::TABLE)->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$projectId,'delete_time'=>0])->order('episode_number')->lock(true)->select()->toArray();
+            if (($params['action'] ?? '') === 'resume_sequential' && $rows
+                && ShortDramaEpisodeRange::control(self::decode($rows[0]['series_json'])) === null) return;
             $rows=self::withContinuityStatus($tenantId,$userId,$rows);
             $next=ShortDramaEpisodeRange::change($tenantId,$userId,$projectId,$rows,$params);
             if($next)self::queueJob($tenantId,$userId,$projectId,(int)$next['id'],(int)$next['attempt_number']);

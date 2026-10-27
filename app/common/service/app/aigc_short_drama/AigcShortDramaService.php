@@ -23098,6 +23098,12 @@ class AigcShortDramaService
         $streamContent = (string)($storedResult['__stream_content'] ?? '');
         $streamUpdatedAt = (int)($storedResult['__stream_updated_at'] ?? 0);
         $streamRevision = (int)($storedResult['__stream_revision'] ?? 0);
+        if (empty($storedResult['__script_checkpoint']) && in_array($status, ['pending','queued','running','failed','canceled'], true)
+            && preg_match('/^v3_(?:policy2_)?(?:timed_)?scene_/', (string)($storedResult['__stream_unit'] ?? ''))) {
+            $storedResult['__script_checkpoint'] = ShortDramaScriptPreview::fromReceipts(Db::name('aigc_short_drama_planning_unit')
+                ->where(['tenant_id'=>(int)$task['tenant_id'],'user_id'=>(int)$task['user_id'],'task_id'=>$task['task_id'],'status'=>'received'])
+                ->order('id')->field('unit_key,status,error,result_json')->select()->toArray());
+        }
         // Generation v3 is executed by the durable worker.  It saves its
         // in-progress response as a bounded preview instead of the legacy
         // append-only stream state, so a reconnecting browser must receive

@@ -96,7 +96,18 @@ final class ShortDramaEpisodeRange
         }
         if($revision===false || $revision!==(int)$control['revision'])throw new RuntimeException('阶段已在其他页面更新，请刷新后核对');
         $next=null;
-        if($action==='confirm_range') {
+        if($action==='resume_sequential') {
+            // Explicit continuation of an old staged project. Keep its outline,
+            // receipts, failed/canceled attempts and historical confirmation log.
+            $snapshot['previous_generation_control']=$control;
+            unset($snapshot['generation_control']);
+            Db::name('aigc_short_drama_episode_task')->where(['id'=>$rows[0]['id'],'tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$project])
+                ->update(['series_json'=>json_encode($snapshot,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'update_time'=>time()]);
+            Db::name('aigc_short_drama_episode_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$project,'delete_time'=>0,'status'=>'pending',
+                'next_retry_at'=>self::AWAITING_CONFIRMATION])->update(['next_retry_at'=>0,'update_time'=>time()]);
+            // The normal scheduler observes failures/cancellations before dispatch.
+            return null;
+        } elseif($action==='confirm_range') {
             $start=filter_var($params['range_start']??null,FILTER_VALIDATE_INT);$end=filter_var($params['range_end']??null,FILTER_VALIDATE_INT);
             if(!$view['can_confirm'])throw new RuntimeException($view['blocked_reason']?:'全部范围已确认');
             if($start!==$view['next_start'] || $end===false || $end<$start || $end>$view['max_end'])throw new RuntimeException('请选择紧接前一范围的连续集数，每次最多确认 10 集');

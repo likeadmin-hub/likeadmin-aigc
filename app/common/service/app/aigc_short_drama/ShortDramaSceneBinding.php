@@ -1,0 +1,111 @@
+<?php
+namespace app\common\service\app\aigc_short_drama;
+
+use RuntimeException;
+
+/** Generation-only scene binding. Never rewrites saved projects on read. */
+final class ShortDramaSceneBinding
+{
+    public const INSTRUCTION = '每个scene_beat和分镜都提供scene_name，必须是locations中实际拍摄地点的名称，并与scene_ref_id一致。'
+        . '场景ID不能仅因有效就随意绑定；老屋、书屋、资料室是不同地点。对白提到的地点、照片中的地点不是实际拍摄地点。'
+        . '一场只承载一个主要拍摄地点，跨地点移动拆为相应场次，不把出发地和目的地全部绑定同一场景。'
+        . '骨架先核对剧情实际地点：必要的新地点须在locations中定义独立稳定ID和描述；用户明确限制场景时遵守限制，在允许地点安排剧情。'
+        . '分镜严格沿用当前场次的实际地点，地点名称、室内外、画面空间与绑定场景一致，保留剧情、对白和人物关系。';
+
+    public static function enabled(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? 0) >= 12;
+    }
+
+    /** Exact names/declared aliases only. No similarity or list-order fallback. */
+    private static function names(array $locations): array
+    {
+        $names = [];
+        foreach ($locations as $location) {
+            $id = (string)($location['id'] ?? $location['location_id'] ?? '');
+            if ($id === '') continue;
+            foreach (array_merge([(string)($location['name'] ?? '')], (array)($location['aliases'] ?? [])) as $name) {
+                if (!is_string($name) || trim($name) === '') continue;
+                $names[trim($name)][$id] = true;
+            }
+        }
+        return $names;
+    }
+
+    private static function placeInText(string $text, array $names): string
+    {
+        // Inspect the setting, never dialogue or a later mention of a destination.
+        $text = trim($text);
+        $text = preg_replace('/^(?:(?:雨后|次日|当天)?(?:清晨|早晨|上午|中午|下午|傍晚|夜晚|深夜|白天|晚上)[，,：:\s]*)/u', '', $text) ?? $text;
+        $lead = preg_split('/[，,。；;\n]/u', $text, 2)[0] ?? '';
+        if (preg_match('/[“”「」"：:]|照片|回忆|想起|提到|谈到|看向|望向|指向|准备|打算|计划|曾经/u', $lead)) return '';
+        $candidates = array_keys($names);
+        // Explicit common spatial nouns catch an undeclared location, without
+        // guessing a new scene from arbitrary prose or scanning dialogue.
+        $candidates = array_unique(array_merge($candidates, ['母亲老屋','老屋','客厅','卧室','厨房','书房','教室','办公室','资料室','书屋','咖啡店']));
+        usort($candidates, static fn($a,$b) => mb_strlen($b) <=> mb_strlen($a));
+        foreach ($candidates as $name) {
+            $quoted = preg_quote($name, '/');
+            if (preg_match('/^(?:在)?' . $quoted . '(?=$|[内外里中门窗书桌柜的前后旁边，,。\s])/u', $lead)
+                || preg_match('/(?:走进|进入|回到|来到|置身于|身处|坐在|站在)' . $quoted . '(?=$|[内外里中门窗书桌柜的前后旁边，,。\s])/u', $lead)) return $name;
+        }
+        return '';
+    }
+
+    private static function resolve(array $item, array $plan, bool $beat): array
+    {
+        $names = self::names((array)($plan['locations'] ?? []));
+        $label = trim((string)($item['scene_name'] ?? ''));
+        $text = (string)($beat ? ($item['entry'] ?? '') : ($item['visual_description'] ?? ''));
+        $place = self::placeInText($text, $names);
+        // A longer registered name may be shortened in ordinary narration.
+        // Accept a suffix only for the explicitly selected scene, never use it
+        // to select among unrelated places (e.g. 书屋 vs 老屋).
+        $bound = array_column((array)($plan['locations'] ?? []), null, 'id')[(string)($item['scene_ref_id'] ?? '')] ?? [];
+        $boundName = (string)($bound['name'] ?? '');
+        if ($place !== '' && !isset($names[$place]) && $boundName !== '' && str_ends_with($boundName, $place)) $place = $boundName;
+        if ($place !== '' && $label !== '' && $place !== $label
+            && array_keys($names[$place] ?? []) !== array_keys($names[$label] ?? [])) {
+            throw new RuntimeException('场景语义不一致：实际画面地点“'.$place.'”与scene_name“'.$label.'”不同，请核对实际拍摄地点并保留剧情', 422);
+        }
+        $actual = $place !== '' ? $place : $label;
+        if ($actual === '') return $item;
+        $ids = array_keys($names[$actual] ?? []);
+        if (count($ids) !== 1) {
+            throw new RuntimeException('场景语义不明确：实际地点“'.$actual.'”未唯一登记在locations中。骨架应补全真实场景或遵守用户场景限制，分镜不可误绑其他地点', 422);
+        }
+        $item['scene_ref_id'] = $ids[0];
+        $item['scene_name'] = (string)(array_column($plan['locations'], 'name', 'id')[$ids[0]] ?? $actual);
+        return $item;
+    }
+
+    public static function normalize(array $plan, array $request): array
+    {
+        if (!self::enabled($request) || empty($plan['locations'])) return $plan;
+        $plan = ShortDramaTimedScriptGeneration::canonicalSkeleton($plan);
+        $plan['_scene_binding_version'] = 1;
+        foreach (['scene_beats','storyboard'] as $field) {
+            foreach ((array)($plan[$field] ?? []) as $i => $item) {
+                if (!is_array($item)) continue;
+                $plan[$field][$i] = self::resolve($item, $plan, $field === 'scene_beats');
+                if ($field === 'storyboard') self::assertShot($plan[$field][$i], $plan);
+            }
+        }
+        return $plan;
+    }
+
+    public static function assertShot(array $shot, array $plan): void
+    {
+        if (empty($plan['_scene_binding_version'])) return;
+        $resolved = self::resolve($shot, $plan, false);
+        if (($resolved['scene_ref_id'] ?? '') !== ($shot['scene_ref_id'] ?? '')) {
+            throw new RuntimeException('分镜场景引用与实际拍摄地点不一致，应绑定“'.($resolved['scene_name'] ?? '').'”，不要改写无关剧情或对白', 422);
+        }
+        $space = (string)($shot['interior_exterior'] ?? '');
+        $location = array_column($plan['locations'], null, 'id')[$shot['scene_ref_id'] ?? ''] ?? [];
+        $expected = (string)($location['interior_exterior'] ?? '');
+        if (in_array($expected, ['interior','exterior'], true) && in_array($space, ['interior','exterior'], true) && $space !== $expected) {
+            throw new RuntimeException('分镜室内外与绑定场景不一致，请核对实际空间，门外镜头须使用对应外景', 422);
+        }
+    }
+}
