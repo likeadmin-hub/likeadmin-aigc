@@ -153,8 +153,14 @@ class ShortDramaEpisodeService
         $project = self::project($tenantId, $userId, $projectId);
         self::importLegacy($tenantId, $userId, $project);
         $rows = Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->order('episode_number')->select()->toArray();
+        $terminalJobs = array_values(array_filter(array_map(static fn($row) =>
+            in_array($row['status'], ['success','failed','canceled'], true) ? (int)$row['queue_job_id'] : 0, $rows)));
+        // Most historical jobs already match. One read replaces hundreds of no-op UPDATEs per poll.
+        $activeJobs = $terminalJobs ? array_fill_keys(Db::name('aigc_short_drama_episode_job')
+            ->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$projectId,'job_type'=>'episode'])
+            ->whereIn('id',$terminalJobs)->whereIn('status',['pending','queued','running'])->column('id'), true) : [];
         foreach ($rows as $row) {
-            if (in_array($row['status'], ['success','failed','canceled'], true)) self::syncJob($row);
+            if (isset($activeJobs[(int)$row['queue_job_id']])) self::syncJob($row);
         }
         $storyboardCovers = AigcShortDramaService::episodeStoryboardCovers(
             $tenantId,
@@ -246,7 +252,7 @@ class ShortDramaEpisodeService
             ->whereIn('project_id', $ids)->field('project_id,continuity_json')->select()->toArray() : [];
         $current = [];
         foreach ($versions as $version) $current[(int)$version['project_id']] = self::decode($version['continuity_json']);
-        return ShortDramaContinuity::dependencyStatus($rows, $current, $qualityReviewEnabled);
+        return ShortDramaContinuityCache::resolve($tenantId, $userId, (int)$rows[0]['project_id'], $rows, $current, $qualityReviewEnabled);
     }
 
     public static function retry(int $tenantId, int $userId, int $id, bool $confirmInterrupted = false): array

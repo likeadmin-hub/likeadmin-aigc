@@ -3970,6 +3970,8 @@ class AigcShortDramaService
         $request['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $request['model_id'] ?? '');
         $agentRunId = self::resolveScriptPlanAgentRunId($tenantId, $project->toArray(), $taskId);
         $time = time();
+        $progressFloor = ShortDramaPlanningContext::isOutline($request) && ShortDramaSourceMemory::enabled($request)
+            ? min(99, max(10, (int)($taskData['progress'] ?? 10))) : 10;
         // A queued worker can race with the cancel endpoint. Only an active
         // task may enter the provider path; a terminal task must never be
         // revived by an older queue receipt.
@@ -3979,7 +3981,7 @@ class AigcShortDramaService
             'task_id' => $taskId,
         ])->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING])->update([
             'status' => self::STATUS_RUNNING,
-            'progress' => 10,
+            'progress' => $progressFloor,
             'current_step' => $planningStep,
             'started_at' => (int)($taskData['started_at'] ?? 0) > 0 ? (int)$taskData['started_at'] : $time,
             'update_time' => $time,
@@ -3989,12 +3991,12 @@ class AigcShortDramaService
         }
         self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_RUNNING, $request, $selectedModels['script_plan'] ?? [], [
             'provider' => (string)($selectedModels['script_plan']['provider'] ?? ''),
-            'progress' => 10,
+            'progress' => $progressFloor,
             'started_at' => (int)($taskData['started_at'] ?? 0) > 0 ? (int)$taskData['started_at'] : $time,
         ]);
         $emit('stage', [
             'status' => self::STATUS_RUNNING,
-            'progress' => 10,
+            'progress' => $progressFloor,
             'current_step' => $planningStep,
         ]);
 
@@ -4003,6 +4005,9 @@ class AigcShortDramaService
         $streamContent = '';
         $persistedProviderRequestId = '';
         $storyPreview = ['content' => '', 'episodes' => [], 'unit' => ''];
+        if (ShortDramaPlanningContext::isOutline($request) && ShortDramaSourceMemory::enabled($request)) {
+            $storyPreview = array_replace($storyPreview, (array)($storedResult['__story_preview'] ?? []));
+        }
         $scriptPreview = ['content' => (string)($storedResult['__stream_content'] ?? ''),
             'unit' => (string)($storedResult['__stream_unit'] ?? ''), 'revision' => (int)($storedResult['__stream_revision'] ?? 0),
             'checkpoint' => (array)($storedResult['__script_checkpoint'] ?? [])];
@@ -4018,7 +4023,7 @@ class AigcShortDramaService
                 $request,
                 (string)$project['title'],
                 $selectedModels['script_plan'] ?? [],
-                static function (string $event, array $data) use ($emit, $tenantId, $userId, $taskId, $planningStep, $storyAttempt, &$lastHeartbeatAt, &$lastStreamFlushAt, &$streamContent, &$persistedProviderRequestId, &$storyPreview, &$scriptPreview) {
+                static function (string $event, array $data) use ($emit, $tenantId, $userId, $taskId, $planningStep, $storyAttempt, &$lastHeartbeatAt, &$lastStreamFlushAt, &$streamContent, &$persistedProviderRequestId, &$storyPreview, &$scriptPreview, &$progressFloor) {
                     if ($storyAttempt !== null) {
                         $current = AigcShortDramaScriptTask::where(['tenant_id'=>$tenantId, 'user_id'=>$userId, 'task_id'=>$taskId])->field('id,status,retry_count')->findOrEmpty();
                         if ($current['status'] !== 'running' || (int)$current['retry_count'] !== $storyAttempt) throw new Exception('任务已取消或由新尝试接管');
@@ -4076,7 +4081,10 @@ class AigcShortDramaService
                         if ($event === 'story_preview_start') { $storyPreview['unit'] = $data['unit']; $storyPreview['content'] = ''; }
                         if ($event === 'delta') $storyPreview['content'] .= (string)($data['delta'] ?? $data['content'] ?? '');
                         if ($event === 'story_preview_received') $storyPreview['content'] = (string)$data['content'];
-                        if ($event === 'story_preview_saved') { $storyPreview['episodes'] = $data['episodes']; $storyPreview['content'] = ''; }
+                        if ($event === 'story_preview_saved') {
+                            if (count($data['episodes']) < count($storyPreview['episodes'])) return;
+                            $storyPreview['episodes'] = $data['episodes']; $storyPreview['content'] = '';
+                        }
                         if ($previewEvent && ($event !== 'delta' || microtime(true) - $lastStreamFlushAt >= 1)) {
                             $lastStreamFlushAt = microtime(true);
                             // Display-only state. Never concatenate units or promote a partial preview to success.
@@ -4137,6 +4145,8 @@ class AigcShortDramaService
                     }
                     if ($event === 'stage') {
                         $stageProgress = min(99, max(20, (int)($data['progress'] ?? 20)));
+                        if ($stageProgress < $progressFloor) return;
+                        $progressFloor = $stageProgress;
                         $stageStep = trim((string)($data['current_step'] ?? '剧本策划'));
                         if ($stageStep === '') {
                             $stageStep = '剧本策划';
