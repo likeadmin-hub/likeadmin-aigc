@@ -7,7 +7,7 @@ final class ShortDramaScriptPreview
     public static function project(array $plan): array
     {
         return array_intersect_key($plan, array_flip(['title', 'type_judgement', 'core_theme',
-            'story_outline', 'script_lines', 'art_style', 'subjects', 'locations', 'storyboard']));
+            'story_outline', 'script_lines', 'art_style', 'subjects', 'locations', 'scene_screenplays', 'storyboard']));
     }
 
     /** Read-only compatibility for workers that predate timed checkpoints. */

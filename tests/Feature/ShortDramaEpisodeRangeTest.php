@@ -37,12 +37,14 @@ class ShortDramaEpisodeRangeTest extends TestCase
         }
         return Episodes::start(self::T,7,$params);
     }
-    public function testNewSeriesRunsSequentiallyEvenWhenOldClientSendsStaged():void
+    public function testNewStagedSeriesWaitsForExplicitRangeConfirmation():void
     {
         $s=$this->fixture(500,true,false);
-        self::assertNull($s['generation_control']);
-        foreach($s['lists'] as$row)self::assertSame(0,(int)$row['next_retry_at']);
-        self::assertSame(1,Db::name('aigc_short_drama_episode_job')->where('project_id',$s['project_id'])->count());
+        self::assertTrue($s['generation_control']['new_workflow']);
+        self::assertSame(0,$s['generation_control']['confirmed_end']);
+        self::assertSame(10,$s['generation_control']['max_end']);
+        foreach($s['lists'] as$row)self::assertSame(Ranges::AWAITING_CONFIRMATION,(int)$row['next_retry_at']);
+        self::assertSame(0,Db::name('aigc_short_drama_episode_job')->where('project_id',$s['project_id'])->count());
     }
     public function testExplicitSequentialContinuationPreservesSavedAndCanceledContent():void
     {

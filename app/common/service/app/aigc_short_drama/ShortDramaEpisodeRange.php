@@ -70,7 +70,8 @@ final class ShortDramaEpisodeRange
             $item=ShortDramaEpisodeService::decode($row['outline_json']);
             $outline[]=array_intersect_key($item,array_flip(['episode_number','title','story_outline','conflict_point','ending_hook']));
         }
-        return ['mode'=>'staged','revision'=>(int)$control['revision'],'confirmed_end'=>$end,'paused'=>(bool)$control['paused'],
+        return ['mode'=>'staged','new_workflow'=>!empty($control['new_workflow']),
+            'revision'=>(int)$control['revision'],'confirmed_end'=>$end,'paused'=>(bool)$control['paused'],
             'active'=>$active,'draining'=>$draining,'can_confirm'=>$start<=$total && $blocked==='','blocked_reason'=>$blocked,
             'next_start'=>$start,'max_end'=>$max,'goal'=>$goal,'outline'=>$outline,
             'confirmed_ranges'=>array_map(static fn($r)=>['start'=>$r['start'],'end'=>$r['end']],$control['confirmations'])];

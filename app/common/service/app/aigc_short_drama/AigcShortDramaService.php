@@ -20552,6 +20552,8 @@ class AigcShortDramaService
             'planning_steps' => array_slice($planningSteps, 0, 8),
             'story_outline' => $storyOutline !== '' ? $storyOutline : mb_substr($prompt, 0, 500, 'UTF-8'),
             'script_lines' => (int)($request['_generation_version'] ?? 0) >= 3 ? $scriptLines : array_slice($scriptLines, 0, $multiEpisode ? 80 : 30),
+            'scene_screenplays' => (int)($request['_input_contract_version'] ?? 0) >= 15
+                ? (array)($payload['scene_screenplays'] ?? []) : [],
             'multi_episode' => $multiEpisode,
             'episode_count' => $episodeCount,
             'multi_episode_stage' => $multiEpisodeStage,
@@ -23265,6 +23267,17 @@ class AigcShortDramaService
                 ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
                 : '',
         ];
+        if ((int)($request['_generation_version'] ?? 0) >= 3 && !$isStoryWorkspace) {
+            $receiptRows = in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
+                ? Db::name('aigc_short_drama_planning_unit')->where([
+                    'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id'],
+                    'task_id' => (string)$task['task_id'],
+                ])->field('result_json')->select()->toArray() : [];
+            $response['generation_spend'] = ShortDramaPlanningSpend::fromRows(
+                $receiptRows,
+                (float)($task['user_charge_points'] ?? 0)
+            );
+        }
         return self::sanitizeUtf8Payload($response);
     }
 

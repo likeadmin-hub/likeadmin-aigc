@@ -139,21 +139,25 @@ class ShortDramaEpisodeService
                 $task->save(['request_json' => self::encode($request), 'update_time' => time()]);
             }
             $episodes = self::validateOutline($plan, (int)$project['episode_count']);
+            $staged = ($params['generation_mode'] ?? 'legacy') === 'staged';
+            $control = $staged ? ShortDramaEpisodeRange::initial() + ['new_workflow' => true] : null;
             foreach ($episodes as $index => $outline) {
                 Db::name(self::TABLE)->insert([
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                     'episode_number' => $index + 1, 'title' => mb_substr($outline['title'], 0, 120),
                     'outline_task_id' => $taskId, 'outline_json' => self::encode($outline),
-                    // Old clients may still send staged. New series always run in order.
-                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]) : null,
+                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]
+                        + ($staged ? ['generation_control' => $control] : [])) : null,
                     'status' => 'pending', 'error' => '',
-                    'next_retry_at' => 0,
+                    'next_retry_at' => $staged ? ShortDramaEpisodeRange::AWAITING_CONFIRMATION : 0,
                     'create_time' => time(), 'update_time' => time(),
                 ]);
             }
         });
         $rows = Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->order('episode_number')->select()->toArray();
-        if ($rows) self::queueJob($tenantId, $userId, $projectId, (int)$rows[0]['id'], 0);
+        if ($rows && ShortDramaEpisodeRange::control(self::decode($rows[0]['series_json'])) === null) {
+            self::queueJob($tenantId, $userId, $projectId, (int)$rows[0]['id'], 0);
+        }
         return self::lists($tenantId, $userId, $projectId);
     }
 

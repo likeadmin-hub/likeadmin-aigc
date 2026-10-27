@@ -22,6 +22,11 @@ final class ShortDramaTimedScriptGeneration
             . '每场shot_durations合计等于duration_seconds；仅用户明确指定时长或时间码时要求整集合计严格匹配，默认时长只作上限参考，不能补镜头或延长静止画面凑数。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
             . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。'
             . '这是紧凑骨架，不生成任何图片、视频、三视图、音乐、负面提示词；主体与场景description各不超过120字；保留具体剧情，不写重复风格说明。';
+        if ((int)($request['_input_contract_version'] ?? 0) >= 15) {
+            $skeletonInput['system_prompt'] .= '每个scene_beat另须包含scene_script：action为按表演顺序排列的具体可拍动作数组，dialogue为{speaker,text}对白数组（无对白用空数组）。'
+                . '这就是分场剧本，须先写清人物行动、关系变化、关键台词和收场状态，再按其内容预算shot_durations。'
+                . '不得只写主题句、镜头术语或把不同实际地点塞进同一场。分镜阶段必须遵守这里的行动与对白，不新增关键剧情。';
+        }
         $skeleton = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
@@ -82,8 +87,19 @@ final class ShortDramaTimedScriptGeneration
             }
         }
         $timeRepairs = $attempt;
+        if ((int)($request['_input_contract_version'] ?? 0) >= 15) {
+            $skeleton['scene_screenplays'] = array_map(static fn($index, $beat) => [
+                'scene_number' => $index + 1,
+                'scene_ref_id' => $beat['scene_ref_id'],
+                'entry' => $beat['entry'],
+                'action' => $beat['scene_script']['action'],
+                'dialogue' => $beat['scene_script']['dialogue'],
+                'exit' => $beat['exit'],
+            ], array_keys($skeleton['scene_beats']), $skeleton['scene_beats']);
+        }
         if ($progress) $progress('script_checkpoint', $skeleton);
-        if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25, 'current_step' => '已规划各场时长，正在生成分镜']);
+        if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25,
+            'current_step' => (int)($request['_input_contract_version'] ?? 0) >= 15 ? '分场剧本已完成，正在生成分镜' : '已规划各场时长，正在生成分镜']);
         $shots = [];
         $contentRepairs = 0;
         $dialogueRepairs = 0;
@@ -128,11 +144,18 @@ final class ShortDramaTimedScriptGeneration
                     . ShortDramaShotSemantics::INSTRUCTION
                     . '仅返回列出的字段，不额外生成image_prompt、video_prompt、negative_prompt、风格和素材定义；它们由现有系统根据本段字段组装。'
                     . 'visual_description每镜最多120字，composition最多40字，camera_movement最多100字，准确简练保留关键动作、位置、情绪与连续性。';
+                if ((int)($request['_input_contract_version'] ?? 0) >= 15) {
+                    $input['system_prompt'] .= '当前场的scene_script是已确认的分场剧本。依次拆出动作和对白，保留关键台词原意及事件顺序；不得自行改换场地或增加新冲突。';
+                }
                 if (ShortDramaSceneBinding::enabled($request)) $input['system_prompt'] .= '补充输出scene_name，按实际拍摄地点核对场景绑定。';
                 $context = [
                     'creative_context' => $base['content'],
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
-                    'scene_continuity' => $skeleton['scene_beats'], 'scene_beat' => $beat,
+                    'scene_continuity' => (int)($request['_input_contract_version'] ?? 0) >= 15
+                        ? array_map(static fn($scene) => array_intersect_key($scene,
+                            array_flip(['scene_ref_id', 'goal', 'entry', 'exit', 'key_events'])), $skeleton['scene_beats'])
+                        : $skeleton['scene_beats'],
+                    'scene_beat' => $beat,
                     'required_shots' => array_map(static fn($id, $duration) => ['shot_id' => $id, 'duration_seconds' => $duration], $ids, $partDurations),
                     'shot_offset' => $offset, 'previous_shots' => array_slice($shots, -2),
                     'scene_progress' => ShortDramaSceneProgress::window($beat, count($durations), $offset, $size, array_slice($shots, $sceneStart)),
@@ -329,6 +352,25 @@ final class ShortDramaTimedScriptGeneration
             if (empty($beat['goal']) || empty($beat['entry']) || empty($beat['exit']) || empty($beat['key_events'])
                 || !is_array($beat['shot_durations'] ?? null) || !$beat['shot_durations'] || count($beat['shot_durations']) > 40) {
                 throw new RuntimeException('场景骨架、关键事件或分镜时间预算缺失', 422);
+            }
+            ShortDramaSceneBinding::assertBeat($beat, $plan, $request);
+            if ((int)($request['_input_contract_version'] ?? 0) >= 15) {
+                $script = $beat['scene_script'] ?? null;
+                if (!is_array($script) || !is_array($script['action'] ?? null) || !$script['action']
+                    || count($script['action']) > 12 || !is_array($script['dialogue'] ?? null) || count($script['dialogue']) > 12) {
+                    throw new RuntimeException('第' . ($index + 1) . '场缺少可拍动作或对白结构，请先补全分场剧本', 422);
+                }
+                foreach ($script['action'] as $action) {
+                    if (!is_string($action) || trim($action) === '' || mb_strlen($action) > 240) {
+                        throw new RuntimeException('第' . ($index + 1) . '场动作需为简短、具体的可拍内容', 422);
+                    }
+                }
+                foreach ($script['dialogue'] as $line) {
+                    if (!is_array($line) || !is_string($line['speaker'] ?? null) || trim($line['speaker']) === ''
+                        || !is_string($line['text'] ?? null) || trim($line['text']) === '' || mb_strlen($line['text']) > 240) {
+                        throw new RuntimeException('第' . ($index + 1) . '场对白须有说话人和台词', 422);
+                    }
+                }
             }
             foreach ($beat['shot_durations'] as $duration) {
                 if (!is_numeric($duration) || $duration <= 0 || !is_finite((float)$duration)

@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Feature;
 
-use app\common\service\app\aigc_short_drama\{ShortDramaSceneBinding as Binding, ShortDramaScriptGeneration as Script, ShortDramaEpisodeDuration as Duration};
+use app\common\service\app\aigc_short_drama\{ShortDramaSceneBinding as Binding, ShortDramaScriptGeneration as Script, ShortDramaTimedScriptGeneration as Timed, ShortDramaEpisodeDuration as Duration};
 use PHPUnit\Framework\TestCase;
 
 class ShortDramaSceneBindingTest extends TestCase
@@ -66,5 +66,29 @@ class ShortDramaSceneBindingTest extends TestCase
             });
         self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_repair'],$calls);
         self::assertSame('home',$out['payload']['storyboard'][0]['scene_ref_id']);self::assertSame(1,$out['payload']['timing_diagnostics']['content_repairs']);
+    }
+
+    public function testNewContractFindsThePaidSceneEightLocationConflictInTheSkeleton():void
+    {
+        $plan=$this->plan();
+        $plan['locations']=[['id'=>'loc_lingxiao','name'=>'凌霄宝殿'],['id'=>'loc_renshisi','name'=>'人事司']];
+        $plan['scene_beats']=[['scene_ref_id'=>'loc_lingxiao','goal'=>'玉帝调整人事','entry'=>'凌霄宝殿内，玉帝宣布任命',
+            'exit'=>'玉帝离开大殿','key_events'=>['林晓站在人事司门前感叹主题'],
+            'scene_script'=>['action'=>['玉帝在凌霄宝殿宣布任命'],'dialogue'=>[['speaker'=>'玉帝','text'=>'此事交你处理。']]],
+            'duration_seconds'=>10,'shot_durations'=>[10]]];
+        $request=['_input_contract_version'=>15,'episode_duration_policy'=>Duration::snapshot([],10,0,[])];
+        try {Timed::assertSkeleton($plan,$request);self::fail('A cross-location beat reached paid storyboard generation');}
+        catch(\RuntimeException $error){self::assertSame(422,$error->getCode());self::assertStringContainsString('同一场骨架跨越',$error->getMessage());}
+        $plan['scene_beats'][0]['key_events']=['玉帝在凌霄宝殿宣布任命'];
+        Timed::assertSkeleton($plan,$request);
+    }
+
+    public function testNewContractRequiresPerformableSceneScriptBeforeStoryboards():void
+    {
+        $plan=$this->plan();$plan['scene_beats']=[['scene_ref_id'=>'home','goal'=>'找到信','entry'=>'母亲老屋内，陈溪进门','exit'=>'陈溪读完信',
+            'key_events'=>['陈溪找到信'],'duration_seconds'=>10,'shot_durations'=>[10]]];
+        $request=['_input_contract_version'=>15,'episode_duration_policy'=>Duration::snapshot([],10,0,[])];
+        $this->expectExceptionMessage('缺少可拍动作或对白结构');
+        Timed::assertSkeleton($plan,$request);
     }
 }
