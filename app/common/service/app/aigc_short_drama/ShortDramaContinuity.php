@@ -62,7 +62,7 @@ final class ShortDramaContinuity
         return $sort($value);
     }
 
-    public static function context(array $previous, bool $memory = false): array
+    public static function context(array $previous, bool $memory = false, bool $sourceMemory = false): array
     {
         $last = $previous ? $previous[count($previous) - 1] : [];
         $result = ['version' => 1, 'state' => (array)($last['state'] ?? []), 'open_hooks' => (array)($last['open_hooks'] ?? []),
@@ -80,6 +80,13 @@ final class ShortDramaContinuity
                     array_flip(['episode_number','summary','digest']));
             }
         }
+        if ($memory && $sourceMemory) {
+            $result['source_history'] = [];
+            foreach ($previous as $entry) {
+                $result['source_history'][(int)($entry['episode_number'] ?? 0)] = array_intersect_key($entry,
+                    array_flip(['episode_number','summary','digest','audit_status','source_memory']));
+            }
+        }
         return $result;
     }
 
@@ -95,7 +102,7 @@ final class ShortDramaContinuity
             $dependencyChanged = ($previousDigest !== '' && ($ledger['previous_digest'] ?? '') !== $previousDigest);
             if (($dependency['version'] ?? 0) === ShortDramaNarrativeMemory::VERSION && isset($dependency['query'], $dependency['fingerprint'])) {
                 $dependencyChanged = $dependency['fingerprint'] !== ShortDramaNarrativeMemory::dependency(
-                    self::context($previous, $dependency['history_available'] ?? true), $dependency['query']);
+                    self::context($previous, $dependency['history_available'] ?? true, !empty($dependency['source_history_available'])), $dependency['query']);
                 // Early v7 children of old outlines had no historical retrieval
                 // corpus. Compare their actual scope, never invent missing history.
                 if ($dependencyChanged && !array_key_exists('history_available', $dependency)
@@ -114,6 +121,12 @@ final class ShortDramaContinuity
                 ? '本集或前集剧情已修改，需复核连续性；原剧本和素材已保留'
                 : '连续性审校尚未完成，需继续复核；原剧本和素材已保留');
             if (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            elseif (!$qualityReviewEnabled && ($ledger['source_memory']['version'] ?? 0) === 1) {
+                // The edited source can refresh unverified memory without promoting stale audit state.
+                $saved['source_memory'] = $ledger['source_memory'];
+                $row['continuity_json'] = json_encode($saved, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                $ledger = $saved;
+            }
             $upstreamChanged = $upstreamChanged || $outdated;
             $previousDigest = $digest;
             $previous[] = $ledger;

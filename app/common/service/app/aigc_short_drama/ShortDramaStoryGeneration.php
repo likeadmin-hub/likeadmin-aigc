@@ -137,6 +137,11 @@ final class ShortDramaStoryGeneration
                     'current_step' => '已完成 ' . count($payload['episodes']) . '/' . $total . ' 集，正在生成第 ' . $start . '–' . ($start + $count - 1) . ' 集']);
                 $messages = $assemble($chunk);
                 if ($roadmap) $messages['content'] .= "\n全剧已确定的节奏分配（本批必须服从，阶段结束不等于全剧结束）：" . json_encode($roadmap, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                if (ShortDramaSourceMemory::enabled($request)) {
+                    $messages['content'] .= "\n前集大纲记忆：" . json_encode(ShortDramaSourceMemory::outline(
+                        $payload['episodes'], $roadmap, $start, (string)($request['revision_message'] ?? $request['prompt'] ?? '')
+                    ), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                }
                 $key = 'outline_' . $start . '_' . $count;
                 $batch = [];
                 $neighbors = $targetEpisode ? array_values(array_filter($sourceEpisodes,

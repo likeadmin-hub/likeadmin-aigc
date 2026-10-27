@@ -292,7 +292,7 @@ class ShortDramaEpisodeService
                         foreach ($siblings as $sibling) {
                             if ((int)$sibling['episode_number'] < (int)$row['episode_number'] && (int)$sibling['completed_once']) $previous[] = self::decode($sibling['continuity_json']);
                         }
-                        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7);
+                        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7, ShortDramaSourceMemory::enabled($request));
                         $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
                         if ($review) {
                             $version = Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId,
@@ -459,7 +459,7 @@ class ShortDramaEpisodeService
             if ($row['status'] !== 'success' || !empty($row['needs_review'])) throw new Exception('请先完成前面剧集的复核，再继续本集');
             $previous[] = self::decode($row['continuity_json']);
         }
-        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, true);
+        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, true, ShortDramaSourceMemory::enabled($request));
         $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
         return $request;
     }

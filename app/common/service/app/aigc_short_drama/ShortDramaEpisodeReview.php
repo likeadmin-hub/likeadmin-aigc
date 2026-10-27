@@ -146,6 +146,9 @@ final class ShortDramaEpisodeReview
         if ($context['_bounded_memory']) $result['_continuity']['memory_dependency'] = [
             'version'=>ShortDramaNarrativeMemory::VERSION, 'history_available'=>array_key_exists('history', $request['series_context']['continuity'] ?? []),
             'query'=>$dependencyQuery, 'fingerprint'=>$dependency];
+        if ($context['_bounded_memory'] && array_key_exists('source_history', $request['series_context']['continuity'] ?? [])) {
+            $result['_continuity']['memory_dependency']['source_history_available'] = true;
+        }
         return $result;
     }
 

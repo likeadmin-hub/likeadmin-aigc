@@ -2496,7 +2496,7 @@ class AigcShortDramaService
             'series_context' => ['outline' => (int)($request['_generation_version'] ?? 0) >= 3 ? ShortDramaPlanningContext::lockedStory($outline) : $outline,
                 'current_episode' => $currentOutline,
                 'series_roadmap' => $outline['series_roadmap'] ?? [],
-                'continuity' => ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7),
+                'continuity' => ShortDramaContinuity::context($previous, (int)($request['_input_contract_version'] ?? 0) >= 7, ShortDramaSourceMemory::enabled($request)),
                 'previous_episodes' => (int)($request['_generation_version'] ?? 0) >= 3 ? ShortDramaContinuity::context($previous)['recent_episodes'] : $previous, 'subjects' => $outline['subjects'] ?? [],
                 'locations' => $outline['locations'] ?? []],
         ]);
@@ -15257,9 +15257,11 @@ class AigcShortDramaService
 
     private static function continuityFromResult(array $result): array
     {
+        $ledger = (array)($result['_continuity'] ?? []);
+        if (($ledger['source_memory']['version'] ?? 0) === 1) $ledger['source_memory'] = ShortDramaSourceMemory::capture($result);
         return [
             'narrative_digest' => ShortDramaContinuity::fingerprint($result),
-            'ledger' => (array)($result['_continuity'] ?? []),
+            'ledger' => $ledger,
             'subjects' => array_values(array_map(static fn($item) => [
                 'id' => (string)($item['id'] ?? ''),
                 'name' => (string)($item['name'] ?? ''),
@@ -17427,8 +17429,10 @@ class AigcShortDramaService
 
     private static function generateScriptPlanResult(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
     {
-        return ShortDramaPromptCatalog::run(ShortDramaPromptWorkspace::forTask($tenantId, $request),
+        $generation = ShortDramaPromptCatalog::run(ShortDramaPromptWorkspace::forTask($tenantId, $request),
             static fn(): array => self::generateScriptPlanResultScoped($tenantId, $userId, $prompt, $request, $title, $model, $onEvent));
+        $generation['result'] = ShortDramaSourceMemory::attach($generation['result'], $request);
+        return $generation;
     }
 
     /** Shared continuity stage for fresh generation, editing and recovery. */
