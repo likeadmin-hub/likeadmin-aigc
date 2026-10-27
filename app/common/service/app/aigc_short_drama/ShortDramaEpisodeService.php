@@ -285,6 +285,20 @@ class ShortDramaEpisodeService
             ->whereIn('project_id', $ids)->field('project_id,continuity_json')->select()->toArray() : [];
         $current = [];
         foreach ($versions as $version) $current[(int)$version['project_id']] = self::decode($version['continuity_json']);
+        // The worker scans compact rows. Read full content only for old v19
+        // pending ledgers that need distinguishing opt-out from failed review.
+        $legacyIds = [];
+        foreach ($rows as $row) {
+            $ledger = self::decode($row['continuity_json'] ?? '');
+            if (!array_key_exists('result_json',$row) && ($ledger['review_policy_version'] ?? 0) >= 1
+                && ($ledger['audit_status'] ?? '') === 'pending_review') $legacyIds[] = (int)$row['id'];
+        }
+        if ($legacyIds) {
+            $plans = Db::name(self::TABLE)->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0])
+                ->whereIn('id',$legacyIds)->column('result_json','id');
+            foreach ($rows as &$row) if (isset($plans[(int)$row['id']])) $row['result_json'] = $plans[(int)$row['id']];
+            unset($row);
+        }
         return ShortDramaContinuityCache::resolve($tenantId, $userId, (int)$rows[0]['project_id'], $rows, $current, $qualityReviewEnabled);
     }
 
