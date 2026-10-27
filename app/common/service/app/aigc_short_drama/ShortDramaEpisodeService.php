@@ -397,6 +397,7 @@ class ShortDramaEpisodeService
                         'finished_at' => $now,
                         'update_time' => $now,
                     ]);
+                foreach (array_unique($pendingTaskIds) as $taskId) ShortDramaPlanningState::reconcile($tenantId,$userId,$taskId);
             }
             if ($pendingIds !== []) {
                 Db::name('aigc_short_drama_episode_job')->where([
@@ -405,6 +406,7 @@ class ShortDramaEpisodeService
                     'project_id' => $projectId,
                 ])->whereIn('episode_id', $pendingIds)->whereIn('status', ['pending', 'queued'])->update([
                     'status' => 'canceled',
+                    'finished_at' => $now,
                     'update_time' => $now,
                 ]);
                 Db::name(self::TABLE)->whereIn('id', $pendingIds)->update([
@@ -722,6 +724,7 @@ class ShortDramaEpisodeService
                     'finished_at' => $now,
                     'update_time' => $now,
                 ]);
+                foreach (array_unique($taskIds) as $taskId) ShortDramaPlanningState::reconcile($tenantId,$userId,$taskId);
             }
             Db::name('aigc_short_drama_episode_job')->where([
                 'tenant_id' => $tenantId,
@@ -729,6 +732,7 @@ class ShortDramaEpisodeService
                 'project_id' => $projectId,
             ])->whereIn('episode_id', $ids)->whereIn('status', ['pending', 'queued'])->update([
                 'status' => 'canceled',
+                'finished_at' => $now,
                 'update_time' => $now,
             ]);
             Db::name(self::TABLE)->whereIn('id', $ids)->update([
