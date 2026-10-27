@@ -36,7 +36,7 @@ final class BundledAppPackageService
     {
         $manifest=$this->manifest($code);if(!$manifest)throw new RuntimeException('本站未包含该应用，请从云端获取兼容的应用包');
         $dir=$this->codeRoot.'/app/apps/'.$code;$files=[];
-        foreach(['manifest.json','api_schema.json','menus/platform.json','menus/tenant.json','permissions/tenant.json','migrations','frontend'] as $relative)if(!file_exists($dir.'/'.$relative))throw new RuntimeException('本地应用文件不完整，请先修复系统文件');
+        foreach(['manifest.json','api_schema.json','menus/platform.json','menus/tenant.json','permissions/tenant.json','migrations'] as $relative)if(!file_exists($dir.'/'.$relative))throw new RuntimeException('本地应用文件不完整，请先修复系统文件');
         foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir,\FilesystemIterator::SKIP_DOTS),\RecursiveIteratorIterator::SELF_FIRST) as $file){
             if($file->isLink())throw new RuntimeException('本地应用不能包含链接');
             if($file->isFile()){$relative=substr($file->getPathname(),strlen($dir)+1);if($relative!=='signature.json')$files[$relative]=$file->getPathname();}
@@ -60,7 +60,7 @@ final class BundledAppPackageService
             $archive->addFromString('signature.json',json_encode(['sha256'=>$hashes],JSON_THROW_ON_ERROR));
             if(!$archive->close())throw new RuntimeException('无法保存本地应用包');
         }else{
-            $archive=new PharData($path);foreach($files as $relative=>$file)$archive->addFile($file,$relative);
+            $archive=new PharData($path);$archive->addEmptyDir('migrations');$archive->addEmptyDir('frontend');foreach($files as $relative=>$file)$archive->addFile($file,$relative);
             $archive->addFromString('signature.json',json_encode(['sha256'=>$hashes],JSON_THROW_ON_ERROR));unset($archive);
         }
         return ['path'=>$path,'format'=>$format,'sha256'=>hash_file('sha256',$path),'size'=>filesize($path),'manifest'=>$manifest];

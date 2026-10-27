@@ -15,6 +15,11 @@ try {
     bundledCheck($zip->getFromName('frontend/widget.js')==='existing built widget','deployed asset not captured');
     foreach($sig['sha256'] as $path=>$hash)bundledCheck(hash('sha256',$zip->getFromName($path))===$hash,'snapshot signature invalid');$zip->close();
     bundledCheck(!is_file($dir.'/frontend/widget.js'),'source tree mutated');
+    unlink($dir.'/frontend/README');rmdir($dir.'/frontend');
+    $withoutFrontend=$builder->create('aigc_fixture');$emptyZip=new ZipArchive();$emptyZip->open($withoutFrontend['path']);
+    bundledCheck($emptyZip->locateName('frontend/')!==false,'missing optional frontend directory in archive');
+    bundledCheck($emptyZip->getFromName('frontend/widget.js')==='existing built widget','deployed asset not included without source frontend directory');$emptyZip->close();
+    bundledCheck(!is_dir($dir.'/frontend'),'source frontend directory was created');
     symlink('/etc/passwd',$dir.'/escape');try{$builder->create('aigc_fixture');throw new LogicException('symlink accepted');}catch(RuntimeException $e){}unlink($dir.'/escape');
     echo "PASS: local package snapshots exact code and deployed assets, validates signature, uses highest disk/registry version, rejects symlinks, preserves source\n";
 } finally {if(is_dir($root)){$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);foreach($it as $f)$f->isDir()?rmdir($f->getPathname()):unlink($f->getPathname());rmdir($root);}}
