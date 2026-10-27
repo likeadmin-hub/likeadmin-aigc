@@ -29,6 +29,8 @@ class ShortDramaEpisodeService
 
     private static function queueJob(int $tenantId, int $userId, int $projectId, int $episodeId, int $attempt = 0): void
     {
+        $number=(int)Db::name(self::TABLE)->where(['id'=>$episodeId,'tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$projectId])->value('episode_number');
+        if (!ShortDramaEpisodeRange::allowed(ShortDramaEpisodeRange::load($tenantId,$userId,$projectId),$number)) return;
         $now = time();
         $key = $tenantId . ':' . $episodeId . ':episode:' . $attempt;
         $exists = Db::name('aigc_short_drama_episode_job')->where(['tenant_id' => $tenantId, 'episode_id' => $episodeId, 'job_type' => 'episode', 'attempt' => $attempt])->find();
@@ -111,6 +113,8 @@ class ShortDramaEpisodeService
     public static function start(int $tenantId, int $userId, array $params): array
     {
         $projectId = (int)($params['project_id'] ?? 0);
+        if (!empty($params['action'])) return self::rangeAction($tenantId,$userId,$projectId,$params);
+        if (!in_array($params['generation_mode']??'legacy',['legacy','staged'],true)) throw new Exception('不支持的生成方式');
         Db::transaction(function () use ($tenantId, $userId, $projectId, $params) {
             $project = AigcShortDramaProject::where(['id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock(true)->findOrEmpty();
             if ($project->isEmpty() || !(int)$project['multi_episode']) throw new Exception('多集项目不存在');
@@ -138,7 +142,8 @@ class ShortDramaEpisodeService
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                     'episode_number' => $index + 1, 'title' => mb_substr($outline['title'], 0, 120),
                     'outline_task_id' => $taskId, 'outline_json' => self::encode($outline),
-                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]) : null,
+                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]
+                        + (($params['generation_mode']??'legacy')==='staged' ? ['generation_control'=>ShortDramaEpisodeRange::initial()] : [])) : null,
                     'status' => 'pending', 'error' => '', 'create_time' => time(), 'update_time' => time(),
                 ]);
             }
@@ -146,6 +151,19 @@ class ShortDramaEpisodeService
         $rows = Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->order('episode_number')->select()->toArray();
         if ($rows) self::queueJob($tenantId, $userId, $projectId, (int)$rows[0]['id'], 0);
         return self::lists($tenantId, $userId, $projectId);
+    }
+
+    private static function rangeAction(int $tenantId,int $userId,int $projectId,array $params): array
+    {
+        Db::transaction(function()use($tenantId,$userId,$projectId,$params){
+            $project=AigcShortDramaProject::where(['id'=>$projectId,'tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0])->lock(true)->findOrEmpty();
+            if($project->isEmpty())throw new Exception('项目不存在');
+            $rows=Db::name(self::TABLE)->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$projectId,'delete_time'=>0])->order('episode_number')->lock(true)->select()->toArray();
+            $rows=self::withContinuityStatus($tenantId,$userId,$rows);
+            $next=ShortDramaEpisodeRange::change($tenantId,$userId,$projectId,$rows,$params);
+            if($next)self::queueJob($tenantId,$userId,$projectId,(int)$next['id'],(int)$next['attempt_number']);
+        });
+        return self::lists($tenantId,$userId,$projectId);
     }
 
     public static function lists(int $tenantId, int $userId, int $projectId): array
@@ -170,10 +188,14 @@ class ShortDramaEpisodeService
         $rows = self::withContinuityStatus($tenantId, $userId, $rows);
         $completed = count(array_filter($rows, static fn($r) => (int)$r['completed_once'] === 1));
         $first = self::nextInitialEpisode($rows);
-        return ['project_id' => $projectId, 'title' => $project['title'], 'multi_episode' => (bool)$project['multi_episode'],
+        $control=ShortDramaEpisodeRange::view($rows);
+        foreach($rows as &$row) if($control!==null) $row['awaiting_confirmation']=(int)$row['episode_number']>$control['confirmed_end'];
+        unset($row);
+        return ['generation_control'=>$control,'project_id' => $projectId, 'title' => $project['title'], 'multi_episode' => (bool)$project['multi_episode'],
             'episode_count' => (int)$project['episode_count'], 'outline_task_id' => $project['last_task_id'],
             'completed_count' => $completed, 'started' => count($rows) > 0,
-            'paused' => $first && (in_array($first['status'], ['failed', 'canceled'], true) || !empty($first['needs_review'])),
+            'paused' => ($control!==null && ($control['paused'] || ($first && (int)$first['episode_number']>$control['confirmed_end'])))
+                || ($first && (in_array($first['status'], ['failed', 'canceled'], true) || !empty($first['needs_review']))),
             'lists' => array_map(static function (array $row) use ($storyboardCovers): array {
                 $episode = self::summary($row);
                 $episode['cover_url'] = (string)($storyboardCovers[(int)($row['production_project_id'] ?? 0)]['url'] ?? '');
@@ -258,6 +280,8 @@ class ShortDramaEpisodeService
     public static function retry(int $tenantId, int $userId, int $id, bool $confirmInterrupted = false): array
     {
         return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId, $confirmInterrupted) {
+            $control=ShortDramaEpisodeRange::load($tenantId,$userId,(int)$row['project_id']);
+            if($control!==null && (int)$row['episode_number']>(int)$control['confirmed_end'])throw new Exception('请先确认该集所在的生成范围');
             $outlineRequest = self::outlineRequest($tenantId, $userId, $row);
             $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
@@ -341,6 +365,8 @@ class ShortDramaEpisodeService
         // An in-flight provider call cannot be recalled. Finish it once, retain its result,
         // then pause the series without submitting or billing any subsequent episodes.
         return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId) {
+            $control=ShortDramaEpisodeRange::load($tenantId,$userId,(int)$row['project_id']);
+            if($control!==null && (int)$row['episode_number']>(int)$control['confirmed_end'])throw new Exception('该集尚未确认生成，无需取消');
             if ($row['status'] === 'canceled') return ['status' => 'canceled'];
             if ($row['status'] === 'running') {
                 Db::name(self::TABLE)->where('id', $row['id'])->update(['cancel_requested' => 1, 'update_time' => time()]);
@@ -371,6 +397,8 @@ class ShortDramaEpisodeService
                 'project_id' => $projectId,
                 'delete_time' => 0,
             ])->whereIn('status', ['pending', 'running'])->order('episode_number')->lock(true)->select()->toArray();
+            $control=ShortDramaEpisodeRange::load($tenantId,$userId,$projectId);
+            if($control!==null)$rows=array_values(array_filter($rows,static fn($row)=>(int)$row['episode_number']<=(int)$control['confirmed_end']));
             if ($rows === []) {
                 return ['project_id' => $projectId, 'canceled_count' => 0, 'finishing_count' => 0];
             }
@@ -544,6 +572,7 @@ class ShortDramaEpisodeService
                 $first = self::nextInitialEpisode($rows);
                 $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
+                if (!ShortDramaEpisodeRange::allowed(ShortDramaEpisodeRange::load($t,$u,$p),(int)$selected['episode_number'])) continue;
                 $selected = array_replace($selected, Db::name(self::TABLE)->where('id', $selected['id'])->find() ?: []);
                 // Check the selected episode itself: later due siblings must not bypass
                 // its backoff. A waiting unit must yield the worker to other series.
@@ -715,6 +744,8 @@ class ShortDramaEpisodeService
                 'project_id' => $projectId,
                 'delete_time' => 0,
             ])->where('episode_number', '>', $episodeNumber)->where('status', 'pending')->lock(true)->select()->toArray();
+            $control=ShortDramaEpisodeRange::load($tenantId,$userId,$projectId);
+            if($control!==null)$rows=array_values(array_filter($rows,static fn($row)=>(int)$row['episode_number']<=(int)$control['confirmed_end']));
             if ($rows === []) return;
 
             $now = time();
