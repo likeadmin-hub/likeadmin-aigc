@@ -3913,7 +3913,11 @@ class AigcShortDramaService
             if (!ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json'])) || !in_array($task['status'], ['pending', 'queued', 'running'], true)) return false;
             if (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
-            self::executeScriptPlanTask($tenantId, $userId, $task->toArray(), static function () {});
+            $run = static fn() => self::executeScriptPlanTask($tenantId, $userId, $task->toArray(), static function () {});
+            $request = self::jsonDecode((string)$task['request_json']);
+            if (ShortDramaPlanningContext::isOutline($request) && (int)($request['_input_contract_version'] ?? 0) >= 11) {
+                ShortDramaPlanningUnit::withinDispatch($tenantId, $userId, $taskId, 4, $run);
+            } else $run();
             return true;
         } catch (\Throwable $error) {
             // Setup can fail before executeScriptPlanTask enters its provider try/catch.
