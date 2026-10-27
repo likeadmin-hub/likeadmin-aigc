@@ -1,19 +1,22 @@
--- Move the existing core menu while preserving its ID and role assignments.
--- Split-table tenants are reconciled by MenuLogic when their menus are loaded.
+-- Move only core menus. Split-table tenants are reconciled by MenuLogic.
 UPDATE `la_tenant_system_menu` AS recharge
-JOIN `la_tenant_system_menu` AS finance
-  ON finance.`tenant_id` = recharge.`tenant_id`
- AND finance.`pid` = 0 AND finance.`type` = 'M' AND finance.`paths` = 'finance'
- AND finance.`source` <> 'tenant'
-SET recharge.`pid` = finance.`id`, recharge.`update_time` = UNIX_TIMESTAMP()
-WHERE recharge.`perms` = 'recharge.recharge/getConfig'
-  AND recharge.`source` <> 'tenant' AND recharge.`pid` <> finance.`id`;
+SET `pid` = COALESCE((
+    SELECT finance.`id` FROM (SELECT `id`,`tenant_id`,`pid`,`type`,`paths`,`source` FROM `la_tenant_system_menu`) AS finance
+    WHERE finance.`tenant_id` = recharge.`tenant_id` AND finance.`pid` = 0
+      AND finance.`type` = 'M' AND finance.`paths` = 'finance' AND finance.`source` <> 'tenant'
+    ORDER BY finance.`id` LIMIT 1
+), recharge.`pid`)
+WHERE recharge.`perms` = 'recharge.recharge/getConfig' AND recharge.`source` <> 'tenant';
 
 INSERT IGNORE INTO `la_tenant_system_role_menu` (`role_id`, `menu_id`)
-SELECT roles.`role_id`, finance.`id`
-FROM `la_tenant_system_menu` AS recharge
-JOIN `la_tenant_system_menu` AS finance ON finance.`id` = recharge.`pid`
-JOIN `la_tenant_system_role_menu` AS roles ON roles.`menu_id` = recharge.`id`
-WHERE recharge.`perms` = 'recharge.recharge/getConfig'
-  AND recharge.`source` <> 'tenant' AND finance.`source` <> 'tenant'
-  AND finance.`type` = 'M' AND finance.`paths` = 'finance';
+SELECT roles.`role_id`, (
+    SELECT moved.`pid` FROM `la_tenant_system_menu` AS moved WHERE moved.`id` = roles.`menu_id`
+)
+FROM `la_tenant_system_role_menu` AS roles
+WHERE roles.`menu_id` IN (
+    SELECT recharge.`id` FROM `la_tenant_system_menu` AS recharge
+    WHERE recharge.`perms` = 'recharge.recharge/getConfig' AND recharge.`source` <> 'tenant'
+      AND EXISTS (SELECT 1 FROM `la_tenant_system_menu` AS finance
+        WHERE finance.`id` = recharge.`pid` AND finance.`tenant_id` = recharge.`tenant_id`
+          AND finance.`pid` = 0 AND finance.`type` = 'M' AND finance.`paths` = 'finance' AND finance.`source` <> 'tenant')
+);
