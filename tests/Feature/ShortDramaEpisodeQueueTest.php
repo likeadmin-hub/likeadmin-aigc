@@ -386,6 +386,47 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame(1,(int)Db::name('aigc_short_drama_episode_job')->where('episode_id',$rows[1]['id'])->count());
     }
 
+    public static function optOutVersions(): array { return [[false],[true]]; }
+
+    /** @dataProvider optOutVersions */
+    public function testTenOptOutEpisodesContinueThroughWorkerWithoutManualReview(bool $legacy): void
+    {
+        $project=$this->project(10);
+        Db::name('aigc_short_drama_script_task')->where('task_id',$project['task_id'])->update([
+            'request_json'=>json_encode(['multi_episode'=>true,'episode_count'=>10,'quality_review_enabled'=>false])]);
+        $rows=Episodes::start(self::TENANT,self::USER,$project)['lists'];
+        $previous='';
+        foreach($rows as $i=>$row) {
+            $request=['_input_contract_version'=>19,'_generation_version'=>3,'multi_episode'=>false,
+                'episode_count'=>1,'quality_review_enabled'=>false,'episode_number'=>$i+1,
+                'series_context'=>['continuity'=>['previous_digest'=>$previous]]];
+            $plan=$this->outline(10);$plan['multi_episode']=false;$plan['episode_count']=1;$plan['episodes']=[];
+            $plan['script_lines']=['调查员找到第'.($i+1).'条线索'];
+            $plan['storyboard']=[['shot_id'=>'s'.($i+1),'visual_description'=>$plan['script_lines'][0]]];
+            $outcome=\app\common\service\app\aigc_short_drama\ShortDramaReviewOutcome::class;
+            $plan=$legacy ? $outcome::pending($plan,$request,'旧版未开启复核',[],'unreviewed') : $outcome::unreviewed($plan,$request);
+            $previous=$plan['_continuity']['digest'];
+            $child=Db::name('aigc_short_drama_project')->insertGetId(['tenant_id'=>self::TENANT,'user_id'=>self::USER,
+                'title'=>'sequential opt-out fixture','multi_episode'=>0,'episode_count'=>1]);
+            $task='episode_optout_'.bin2hex(random_bytes(8));
+            Db::name('aigc_short_drama_project')->where('id',$child)->update(['last_task_id'=>$task]);
+            Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>self::TENANT,'user_id'=>self::USER,
+                'project_id'=>$child,'task_id'=>$task,'status'=>'success','result_json'=>json_encode($plan),
+                'request_json'=>json_encode($request),'update_time'=>time()]);
+            Db::name('aigc_short_drama_episode_task')->where('id',$row['id'])->update([
+                'task_id'=>$task,'production_project_id'=>$child]);
+        }
+        for($i=0;$i<10;$i++) {
+            self::assertSame(1,Episodes::tick(self::TENANT,$project['project_id']));
+            $list=Episodes::lists(self::TENANT,self::USER,$project['project_id']);
+            self::assertSame($i+1,$list['completed_count']); self::assertFalse((bool)$list['paused']);
+            self::assertFalse($list['lists'][$i]['needs_review']);
+            self::assertSame('success',$list['lists'][$i]['status']);
+            if($i<9) self::assertSame(1,(int)Db::name('aigc_short_drama_episode_job')->where('episode_id',$rows[$i+1]['id'])->count());
+        }
+        self::assertNull(Episodes::nextInitialEpisode($list['lists']));
+    }
+
     public function testCompletedEpisodeWithoutReviewRequirementCannotBeResubmitted(): void
     {
         $project = $this->project(2);

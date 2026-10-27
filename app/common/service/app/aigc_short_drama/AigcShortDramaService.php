@@ -17663,7 +17663,7 @@ class AigcShortDramaService
                 $result['_continuity']['audit_status'] = 'skipped';
             }
             if (ShortDramaReviewOutcome::enabled($request) && !empty($result['storyboard'])) {
-                $result = ShortDramaReviewOutcome::pending($result, $request, '剧本已生成，尚未进行剧情复核；复核前暂停后续剧集', [], 'unreviewed');
+                $result = ShortDramaReviewOutcome::unreviewed($result, $request);
             }
             return ['result' => $result, 'llm' => $llmResult, 'repair_llm' => [],
                 'provider' => (string)($model['provider'] ?? ''), 'model_selection' => $model,

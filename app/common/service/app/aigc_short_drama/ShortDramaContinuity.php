@@ -97,6 +97,8 @@ final class ShortDramaContinuity
             $saved = is_array($row['continuity_json'] ?? null) ? $row['continuity_json'] : (json_decode((string)($row['continuity_json'] ?? ''), true) ?: []);
             $version = $current[(int)($row['production_project_id'] ?? 0)] ?? [];
             $ledger = (array)($version['ledger'] ?? $saved);
+            $plan = is_array($row['result_json'] ?? null) ? $row['result_json'] : (json_decode((string)($row['result_json'] ?? ''), true) ?: []);
+            $ledger = ShortDramaReviewOutcome::compatibleLedger($ledger, $plan);
             $digest = (string)($version['narrative_digest'] ?? $ledger['digest'] ?? '');
             $dependency = (array)($ledger['memory_dependency'] ?? []);
             $dependencyChanged = ($previousDigest !== '' && ($ledger['previous_digest'] ?? '') !== $previousDigest);
@@ -116,7 +118,7 @@ final class ShortDramaContinuity
                 || $upstreamChanged);
             // An explicit regeneration may be pending while its previous
             // successful version remains viewable. Do not block that attempt.
-            $required = ($ledger['review_policy_version'] ?? 0) >= 1;
+            $required = ($ledger['review_policy_version'] ?? 0) >= 1 && ($ledger['audit_status'] ?? '') !== 'skipped';
             $row['needs_review'] = ($qualityReviewEnabled || $required)
                 && ($outdated || ($ledger['audit_status'] ?? '') === 'pending_review' || ($required && ($ledger['audit_status'] ?? '') !== 'verified'))
                 && ($row['status'] ?? '') === 'success';
