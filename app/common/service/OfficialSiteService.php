@@ -55,6 +55,8 @@ class OfficialSiteService
     public static function public(): array
     {
         $config = self::get();
+        $siteLogo = (string)ConfigService::get('website', 'pc_logo', '');
+        if ($siteLogo !== '') $config['basic']['logo'] = $siteLogo;
         unset($config['field_schema']);
         $config['copyright_policy'] = \app\common\service\license\CopyrightPolicyService::policy();
         $config['join_available'] = !empty(\app\common\service\brand\TenantBrandService::packageRows((int)request()->tenantId, true));
