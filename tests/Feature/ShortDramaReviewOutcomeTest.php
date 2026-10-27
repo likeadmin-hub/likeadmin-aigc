@@ -119,11 +119,12 @@ class ShortDramaReviewOutcomeTest extends TestCase
     public function testNewDefaultAndExplicitOptOutAreSeparateFromHistoricalCanvasPolicy(): void
     {
         $m=new \ReflectionMethod(Service::class,'normalizeCreateRequest');$m->setAccessible(true);
-        self::assertTrue($m->invoke(null,[],[])['quality_review_enabled']);
+        self::assertFalse($m->invoke(null,[],[])['quality_review_enabled']);
         self::assertFalse($m->invoke(null,['quality_review_enabled'=>false],[])['quality_review_enabled']);
         $canvas=['_submission_key'=>'canvas-production:test'];
         self::assertFalse(Workflow::qualityReviewEnabled($canvas));
-        self::assertTrue(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19]));
+        self::assertFalse(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19]));
+        self::assertTrue(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19,'quality_review_enabled'=>true]));
         self::assertFalse(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19,'quality_review_enabled'=>false]));
     }
 }

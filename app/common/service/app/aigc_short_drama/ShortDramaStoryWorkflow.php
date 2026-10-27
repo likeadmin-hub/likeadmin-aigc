@@ -13,8 +13,7 @@ final class ShortDramaStoryWorkflow
     public static function qualityReviewEnabled(array $request): bool
     {
         if (ShortDramaReviewOutcome::enabled($request)) {
-            return !array_key_exists('quality_review_enabled', $request)
-                || filter_var($request['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
+            return filter_var($request['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
         }
         // Canvas production and revision receipts predate the opt-out. Apply
         // the same policy when those saved tasks are resumed or advanced.
