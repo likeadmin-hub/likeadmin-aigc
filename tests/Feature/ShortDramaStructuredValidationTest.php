@@ -121,6 +121,26 @@ class ShortDramaStructuredValidationTest extends TestCase
         }
     }
 
+    public function testAcceptanceGenerationPropagatesContractWithoutLegacyProseRewriting(): void
+    {
+        $plan=$this->plan('办公室门外，陈溪等候。');
+        $plan['locations'][0]=['id'=>'hall','name'=>'办公室门外','interior_exterior'=>'exterior'];
+        $plan['storyboard'][0]=array_replace($plan['storyboard'][0],['scene_name'=>'办公室门外','interior_exterior'=>'exterior',
+            'dialogue'=>'甲，陈溪开始朗读了吗？','speech_type'=>'character','voice_role'=>'陈溪']);
+        $calls=[];
+        $out=Acceptance::generate($plan,$this->request()+['prompt'=>'等候'],static function($key,$input,$tokens,$validate)use(&$calls){
+            $data=json_decode($input['content'],true);$calls[]=$key;
+            if(isset($data['source']))$reply=['requirements'=>[]];
+            elseif(isset($data['shots']))$reply=['checks'=>[],'issues'=>[]];
+            elseif(isset($data['subjects'])&&!isset($data['legacy_dialogue']))$reply=['categories'=>array_map(static fn($s)=>['id'=>$s['id'],'category'=>$s['category']],$data['subjects'])];
+            else throw new \LogicException('Unexpected legacy repair');
+            $validate($reply);return $reply;
+        });
+        self::assertCount(3,$calls);
+        self::assertSame($plan['storyboard'],$out['storyboard']);
+        self::assertSame([],$out['content_acceptance']['repairs']);
+    }
+
     public function testReviewCannotRejectUnchangedSpeechByCharacterCountOrChangeTime(): void
     {
         $plan=$this->plan(); $plan['storyboard'][0]=array_replace($plan['storyboard'][0],
