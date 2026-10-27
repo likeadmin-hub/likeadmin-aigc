@@ -272,6 +272,23 @@ class MenuLogic extends BaseLogic
             foreach (self::systemDefaultMenuTree($systemId) as $menu) {
                 self::upsertSystemMenuTree($menuTable, $roleMenuTable, $tenantId, $menu, $systemId);
             }
+            $financeId = (int)Db::name($menuTable)->where([
+                'tenant_id' => $tenantId, 'source_menu_key' => 'core_tenant_finance',
+            ])->where('source', '<>', 'tenant')->value('id');
+            if ($financeId > 0) {
+                $rechargeId = self::upsertSystemMenu($menuTable, $tenantId, [
+                    'pid' => $financeId, 'type' => 'C', 'name' => '用户充值',
+                    'icon' => 'local-icon-fukuan', 'sort' => 10,
+                    'perms' => 'recharge.recharge/getConfig', 'paths' => 'recharge',
+                    'component' => 'app/recharge/index', 'source_menu_key' => 'core_tenant_recharge_config',
+                ], 159);
+                self::grantParentMenuToChildRoles($roleMenuTable, $rechargeId, $financeId);
+                $saveId = self::upsertSystemMenu($menuTable, $tenantId, [
+                    'pid' => $rechargeId, 'type' => 'A', 'name' => '保存',
+                    'perms' => 'recharge.recharge/setConfig', 'source_menu_key' => 'core_tenant_recharge_config_save',
+                ], 160);
+                self::grantChildMenuToParentRoles($roleMenuTable, $rechargeId, $saveId);
+            }
         } catch (Throwable) {
         }
     }
@@ -571,26 +588,6 @@ class MenuLogic extends BaseLogic
     private static function systemDefaultMenuTree(int $systemId): array
     {
         return [
-            [
-                'legacy_id' => 159,
-                'type' => 'C',
-                'name' => '用户充值',
-                'icon' => 'local-icon-fukuan',
-                'sort' => 10,
-                'perms' => 'recharge.recharge/getConfig',
-                'paths' => 'recharge',
-                'component' => 'app/recharge/index',
-                'source_menu_key' => 'core_tenant_recharge_config',
-                'children' => [
-                    [
-                        'legacy_id' => 160,
-                        'type' => 'A',
-                        'name' => '保存',
-                        'perms' => 'recharge.recharge/setConfig',
-                        'source_menu_key' => 'core_tenant_recharge_config_save',
-                    ],
-                ],
-            ],
             [
                 'legacy_id' => 70,
                 'type' => 'M',

@@ -60,7 +60,7 @@ class PackageExtractService
         ];
     }
 
-    public function preflight(string $packagePath, string $targetDir = '', int $packageSize = 0): array
+    public function preflight(string $packagePath, string $targetDir = '', int $packageSize = 0, string $format = 'zip'): array
     {
         $env = self::environment($targetDir);
         $errors = [];
@@ -81,8 +81,12 @@ class PackageExtractService
                 $errors[] = 'open_basedir 限制了更新目录: ' . $dir;
             }
         }
-        if (!$env['zip_archive'] && !$env['command']['unzip'] && !$env['command']['7z'] && !$env['phar_data'] && !$env['command']['tar']) {
-            $errors[] = '没有可用解压能力，请开启 PHP zip/PharData 或安装 unzip/7z/tar';
+        if (!in_array(strtolower($format), ['zip', 'tar', 'tar.gz', 'tgz'], true)) {
+            $errors[] = '不支持的更新包格式: ' . $format;
+        } elseif (!self::supportsFormat($env, $format)) {
+            $errors[] = in_array(strtolower($format), ['tar', 'tar.gz', 'tgz'], true)
+                ? 'tar 包无法解压，请开启 PHP PharData 或安装 tar'
+                : 'zip 包无法解压，请开启 PHP zip 扩展或安装 unzip/7z';
         }
 
         return [
@@ -90,6 +94,16 @@ class PackageExtractService
             'errors' => $errors,
             'environment' => $env,
         ];
+    }
+
+    public static function supportsFormat(array $environment, string $format): bool
+    {
+        $command = $environment['command'] ?? [];
+        return match (strtolower($format)) {
+            'zip' => !empty($environment['zip_archive']) || !empty($command['unzip']) || !empty($command['7z']),
+            'tar', 'tar.gz', 'tgz' => !empty($environment['phar_data']) || !empty($command['tar']),
+            default => false,
+        };
     }
 
     public function extract(string $packagePath, string $format = 'zip'): array

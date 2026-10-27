@@ -8,6 +8,15 @@ use think\facade\Db;
 
 final class BrandCatalogService
 {
+    public static function sellerEntryEnabled(int $tenantId): bool
+    {
+        $tenant = Tenant::withoutGlobalScope()->where('id', $tenantId)->findOrEmpty();
+        if ($tenant->isEmpty() || (int)$tenant['disable'] !== 0 || (int)$tenant['oem_sales_enabled'] !== 1) {
+            return false;
+        }
+        return in_array((int)$tenant['oem_flow_enabled'], [0, 1], true);
+    }
+
     public static function flowEnabled(int $tenantId): bool
     {
         // 0 = legacy, 1 = V2 accepting applications, 2 = V2 entry paused.

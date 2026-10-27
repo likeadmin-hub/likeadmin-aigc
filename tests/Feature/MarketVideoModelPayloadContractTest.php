@@ -293,7 +293,8 @@ class MarketVideoModelPayloadContractTest extends TestCase
             'duration' => 30,
         ]);
         self::assertSame(30, $this->invokePrivate('effectiveDurationFromMarket', $market, 30));
-        self::assertSame(30.0, $this->invokePrivate('quantity', $market, ['duration' => 30]));
+        $quantity = new ReflectionMethod(MarketVideoRuntimeService::class, 'quantity');
+        self::assertSame(30.0, $quantity->invokeArgs(null, [&$market, ['duration' => 30]]));
         $payload = $this->invokeModelPayload([
             'product_id' => 101,
             'sku_id' => 8001,

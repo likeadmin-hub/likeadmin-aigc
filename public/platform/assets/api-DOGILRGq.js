@@ -1,0 +1,1 @@
+import{r as a}from"./index-DTTZ1gRX.js";const r="/app/open_platform/",n=(e,t={})=>a.get({url:r+e,params:t},{isOpenRetry:!1}),p=(e,t={})=>a.post({url:r+e,params:t},{isOpenRetry:!1});export{p as a,n as m};

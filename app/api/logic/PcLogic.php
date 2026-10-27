@@ -23,6 +23,7 @@ use app\common\model\article\ArticleCollect;
 use app\common\model\app\App;
 use app\common\model\decorate\DecoratePage;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\brand\BrandCatalogService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\license\CopyrightPolicyService;
@@ -226,6 +227,7 @@ class PcLogic extends BaseLogic
 
         return [
             'is_oem' => (bool)OemBrandService::read(),
+            'oem_sales_enabled' => BrandCatalogService::sellerEntryEnabled((int)request()->tenantId),
             'domain' => FileService::getFileUrl(),
             'login' => $loginConfig,
             'website' => $website,

@@ -120,7 +120,7 @@ class AppPackageUpdateService
     {
         $package = $this->getPackage($packageId);
         $extractor = new PackageExtractService();
-        $preflight = $extractor->preflight((string)$package['local_path'], base_path() . 'apps', (int)$package['package_size']);
+        $preflight = $extractor->preflight((string)$package['local_path'], base_path() . 'apps', (int)$package['package_size'], (string)$package['format']);
         if (!$preflight['passed']) {
             return $this->savePreflight($package, $preflight);
         }
