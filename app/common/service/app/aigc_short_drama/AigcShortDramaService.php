@@ -20577,6 +20577,7 @@ class AigcShortDramaService
             'generation_settings' => [
                 'model' => $scriptModelName,
                 'input_contract_version' => (int)($request['_input_contract_version'] ?? 0),
+                'timing_recovery_enabled' => ShortDramaInputContract::recoveryEnabled($request),
                 'quality_review_enabled' => ShortDramaStoryWorkflow::qualityReviewEnabled($request),
                 'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
                 'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
