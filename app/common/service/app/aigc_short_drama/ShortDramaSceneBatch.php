@@ -28,6 +28,7 @@ final class ShortDramaSceneBatch
             $beats = array_values($skeleton['scene_beats']);
             for ($i = 0; $i + 1 < count($beats); $i++) {
                 if (!self::small($beats[$i]) || !self::small($beats[$i + 1])) continue;
+                if (!self::stablePlace($beats[$i], $skeleton, $request) || !self::stablePlace($beats[$i + 1], $skeleton, $request)) continue;
                 if (count($beats[$i]['shot_durations']) + count($beats[$i + 1]['shot_durations']) > min(4, $partSize)) continue;
                 $groups[] = [$i, $i + 1];
                 $i++;
@@ -41,12 +42,31 @@ final class ShortDramaSceneBatch
     {
         $count = count((array)($beat['shot_durations'] ?? []));
         if ($count < 1 || $count > 2 || !array_is_list($beat['shot_durations'])) return false;
+        foreach (['goal', 'entry', 'exit'] as $field) if (!is_string($beat[$field] ?? '')) return false;
+        if (!is_array($beat['key_events'] ?? []) || array_filter((array)($beat['key_events'] ?? []), static fn($event) => !is_string($event))) return false;
         $text = implode(' ', [(string)($beat['goal'] ?? ''), (string)($beat['entry'] ?? ''), (string)($beat['exit'] ?? ''),
             implode(' ', (array)($beat['key_events'] ?? []))]);
-        if (mb_strlen($text) > 400 || preg_match('/闪回|回忆|梦境|倒叙|蒙太奇|时间跳|交叉剪辑|平行剪辑|重大反转|真相揭晓|多年[前后]|次日|翌日/u', $text)) return false;
+        if (mb_strlen($text) > 400 || preg_match('/闪回|回忆|梦境|倒叙|蒙太奇|时间跳|交叉剪辑|平行剪辑|重大反转|真相揭晓|多年[前后]|次日|翌日|前往|穿过|走出|转场/u', $text)) return false;
         preg_match_all('/[“「"]([^”」"]+)[”」"]/u', $text, $matches);
         foreach ($matches[1] as $dialogue) {
             if (mb_strlen($dialogue) > 80 || ShortDramaDialogueSplit::requiredSeconds($dialogue) > array_sum($beat['shot_durations'])) return false;
+        }
+        return true;
+    }
+
+    /** Legacy skeletons can label a journey as one place. Such boundaries stay on the original path. */
+    private static function stablePlace(array $beat, array $skeleton, array $request): bool
+    {
+        foreach (['entry', 'exit'] as $field) {
+            $probe = $beat;
+            $probe['entry'] = $beat[$field] ?? '';
+            try {
+                $normalized = ShortDramaSceneBinding::normalize(array_replace($skeleton, ['scene_beats' => [$probe], 'storyboard' => []]), $request);
+                if (($normalized['scene_beats'][0]['scene_ref_id'] ?? null) !== $beat['scene_ref_id']) return false;
+            } catch (\RuntimeException $error) {
+                if (!in_array($error->getCode(), [409, 413, 422], true)) throw $error;
+                return false;
+            }
         }
         return true;
     }

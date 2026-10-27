@@ -185,4 +185,24 @@ class ShortDramaSceneBatchTest extends TestCase
                 return $snapshot;
             });
     }
+
+    public function testOldSkeletonWithWrongPlaceOrJourneyAndMalformedEventsCannotBeBatched(): void
+    {
+        $request = self::request(); $messages = $this->messages(); $plan = self::fixture();
+        $plan['locations'] = [['id' => 'l1', 'name' => '老屋'], ['id' => 'l2', 'name' => '社区资料室']];
+        $plan['scene_beats'][0]['scene_name'] = '社区资料室';
+        $plan['scene_beats'][0]['scene_ref_id'] = 'l2';
+        $plan['scene_beats'][0]['entry'] = '甲在老屋拆开信件';
+        self::assertSame([], Batch::plan($request, $messages, $plan, 4)['groups']);
+        $plan = self::fixture(); $plan['scene_beats'][0]['goal'] = '甲前往资料室';
+        self::assertSame([], Batch::plan($request, $messages, $plan, 4)['groups']);
+        $plan['scene_beats'][0]['goal'] = '当前事件'; $plan['scene_beats'][0]['key_events'] = [['event' => '非字符串']];
+        self::assertSame([], Batch::plan($request, $messages, $plan, 4)['groups']);
+        $plan = self::fixture();
+        $snapshot = Batch::plan($request, $messages, $plan, 4);
+        foreach ([['groups' => [[1, 0]]], ['groups' => [[0, 1], [0, 1]]], ['part_size' => 0], ['signature' => 'changed']] as $change) {
+            try { Batch::restore($snapshot, array_replace($snapshot, $change), $plan); self::fail('Corrupt plan cannot restart paid work'); }
+            catch (\RuntimeException $error) { self::assertSame(409, $error->getCode()); }
+        }
+    }
 }
