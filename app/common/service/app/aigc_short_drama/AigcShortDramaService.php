@@ -5570,15 +5570,15 @@ class AigcShortDramaService
 
     }
 
-    public static function retry(int $tenantId, int $userId, string $taskId): array
+    public static function retry(int $tenantId, int $userId, string $taskId, bool $confirmInterrupted = false): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
-        if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
+        if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id'], $confirmInterrupted);
         if (!in_array((string)($task['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
             throw new Exception('当前任务不需要重');
         }
-        return Db::transaction(function () use ($tenantId, $userId, $taskId, $task) {
+        return Db::transaction(function () use ($tenantId, $userId, $taskId, $task, $confirmInterrupted) {
             $task = AigcShortDramaScriptTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$taskId,'delete_time'=>0])->lock(true)->findOrEmpty();
             if ($task->isEmpty() || !in_array((string)$task['status'], [self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
                 throw new Exception('当前任务不需要重试');
@@ -5586,23 +5586,7 @@ class AigcShortDramaService
             ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$task['project_id'], $taskId);
             $request = self::jsonDecode((string)$task['request_json']);
             if (ShortDramaStoryWorkflow::workerOwned($request)) {
-                $inFlightUnits = (int)Db::name('aigc_short_drama_planning_unit')->where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'task_id' => $taskId,
-                    'status' => 'running',
-                ])->count();
-                if ($inFlightUnits > 0) {
-                    throw new Exception('停止已生效，当前模型请求正在收尾，请稍后输入“继续”重新提交');
-                }
-                // Received units remain immutable receipts. Only units that
-                // definitively failed before a response, or were waiting for
-                // a connection retry, may be submitted again. A still-running
-                // unit is left untouched so a quick “继续” cannot duplicate a
-                // paid provider request that is still returning. The explicit
-                // in-flight guard above makes the state transition atomic from
-                // the user perspective instead of risking a duplicate call.
-                ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, $taskId);
+                ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, $taskId, $confirmInterrupted);
                 $request['_generation_recovery_version'] = 1;
                 $task->save([
                     'request_json' => self::jsonEncode($request),
