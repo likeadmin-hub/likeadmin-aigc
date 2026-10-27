@@ -15,7 +15,8 @@ class ShortDramaInputContractTest extends TestCase
         $input = $creative + ['skill_id' => 5, 'skill_inputs' => ['x' => '不要注入'], '_skill_snapshot' => ['id' => 5], '_skill_asset_inventory' => ['x']];
         $new = Contract::begin($input);
         self::assertTrue(Contract::current($new));
-        unset($new['_input_contract_version']);
+        self::assertSame(\app\common\service\app\aigc_short_drama\ShortDramaSceneBatch::POLICY, $new['_scene_batch_policy']);
+        unset($new['_input_contract_version'], $new['_scene_batch_policy']);
         self::assertSame($creative, $new);
         self::assertFalse(Contract::current($input));
         self::assertSame(5, $input['skill_id']); // No mutation of historical snapshots.

@@ -14,7 +14,14 @@ final class ConversationSettings
     public static function resolve(int $tenant,array $preferences): array
     {
         FeatureGate::assertEnabled($tenant);
-        $settings=self::fromCatalog(AigcShortDramaService::canvasModelGroups($tenant),$preferences);
+        $groups=AigcShortDramaService::canvasModelGroups($tenant);
+        try { $configured=AigcShortDramaService::tenantTextModel($tenant); }
+        catch (\Throwable $error) { throw new RuntimeException('REASONING_MODEL_UNAVAILABLE',0,$error); }
+        foreach ($groups as &$group) if (($group['key']??'')==='script_plan') {
+            $group['default']=(string)$configured['id']; $group['options']=[$configured];
+        }
+        unset($group);
+        $settings=self::fromCatalog($groups,$preferences);
         // Validate the actual market identity/capabilities, not a display name.
         try {
             $model=MarketTextModelRuntimeService::resolveModel($tenant,$settings['reasoning_model']['id']);
@@ -30,6 +37,8 @@ final class ConversationSettings
     /** Pure catalog projection, also used by contract tests. Not authorization alone. */
     public static function fromCatalog(array $groups,array $preferences): array
     {
+        // Accept legacy clients but never let account/Skill/workflow preferences select text.
+        unset($preferences['reasoning_model']);
         $mapping=['reasoning_model'=>'script_plan','image_model'=>'image','video_model'=>'video'];
         if (array_diff(array_keys($preferences),array_merge(array_keys($mapping),['generation_mode']))) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
         $mode=$preferences['generation_mode']??'manual';

@@ -95,7 +95,8 @@ final class ShortDramaStoryGeneration
                     }
                     for ($attempt = 0; $attempt < 2; $attempt++) {
                         try {
-                            $roadmap = (array)($call('roadmap' . ($attempt ? '_repair' : ''), $roadmapInput, 1, false)['segments'] ?? []);
+                            $roadmap = (array)($call('roadmap' . ($attempt ? '_repair' : ''), $roadmapInput, 1, false,
+                                static fn(array $candidate) => ShortDramaContinuity::assertRoadmap((array)($candidate['segments'] ?? []), $total))['segments'] ?? []);
                             ShortDramaContinuity::assertRoadmap($roadmap, $total);
                             break;
                         } catch (RuntimeException $error) {
@@ -111,7 +112,7 @@ final class ShortDramaStoryGeneration
             if ($targetEpisode && ($targetEpisode < 1 || $targetEpisode > $total || array_column($sourceEpisodes, 'episode_number') !== range(1, $total))) {
                 throw new RuntimeException('原大纲集号不完整，无法安全局部修改', 422);
             }
-            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision, $roadmap, $qualityReviewEnabled): void {
+            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision, $roadmap, $qualityReviewEnabled, $targetEpisode): void {
                 $chunk = $request;
                 $chunk['episode_count'] = $count;
                 $chunk['episode_total_count'] = $total;
@@ -136,13 +137,24 @@ final class ShortDramaStoryGeneration
                     'current_step' => '已完成 ' . count($payload['episodes']) . '/' . $total . ' 集，正在生成第 ' . $start . '–' . ($start + $count - 1) . ' 集']);
                 $messages = $assemble($chunk);
                 if ($roadmap) $messages['content'] .= "\n全剧已确定的节奏分配（本批必须服从，阶段结束不等于全剧结束）：" . json_encode($roadmap, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                if (ShortDramaSourceMemory::enabled($request)) {
+                    $messages['content'] .= "\n前集大纲记忆：" . json_encode(ShortDramaSourceMemory::outline(
+                        $payload['episodes'], $roadmap, $start, (string)($request['revision_message'] ?? $request['prompt'] ?? '')
+                    ), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                }
                 $key = 'outline_' . $start . '_' . $count;
                 $batch = [];
+                $neighbors = $targetEpisode ? array_values(array_filter($sourceEpisodes,
+                    static fn(array $episode): bool => (int)$episode['episode_number'] !== $targetEpisode)) : $payload['episodes'];
+                // Cross-batch validation belongs to the durable receipt too: otherwise
+                // explicit retry sees an apparently valid receipt and repeats it forever.
+                $validateBatch = static function (array $candidate) use (&$batch, $count, $start, $qualityReviewEnabled, $neighbors): void {
+                    $batch = $candidate;
+                    $episodes = self::episodes($candidate, $count, $start, $qualityReviewEnabled);
+                    if ($qualityReviewEnabled) self::assertDistinctFromSaved($episodes, $neighbors);
+                };
                 try {
-                    $batch = $call($key, $messages, $count, false,
-                        static function ($candidate) use (&$batch, $count, $start, $qualityReviewEnabled): void {
-                            $batch = $candidate; self::episodes($candidate, $count, $start, $qualityReviewEnabled);
-                        });
+                    $batch = $call($key, $messages, $count, false, $validateBatch);
                     $episodes = self::episodes($batch, $count, $start, $qualityReviewEnabled);
                     if ($qualityReviewEnabled) self::assertDistinctFromSaved($episodes, $payload['episodes']);
                 } catch (RuntimeException $error) {
@@ -158,8 +170,7 @@ final class ShortDramaStoryGeneration
                     $messages['content'] .= "\n上次返回未通过完整性校验：" . $error->getMessage() . '。只修复本集，返回完整 JSON。';
                     if ($batch) $messages['content'] .= "\n已有结果=" . json_encode($batch, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
                         . "\n保留已生成的合格剧情字段，仅修复指出的问题，不改变已确认设定。";
-                    $episodes = self::episodes($call($key . '_repair_v2', $messages, 1, false,
-                        static fn($batch) => self::episodes($batch, 1, $start, $qualityReviewEnabled)), 1, $start, $qualityReviewEnabled);
+                    $episodes = self::episodes($call($key . '_repair_v2', $messages, 1, false, $validateBatch), 1, $start, $qualityReviewEnabled);
                     if ($qualityReviewEnabled) self::assertDistinctFromSaved($episodes, $payload['episodes']);
                 }
                 foreach ($episodes as $index => $episode) {
@@ -198,7 +209,14 @@ final class ShortDramaStoryGeneration
                         array_flip(['episode_number', 'title', 'story_outline'])), $payload['episodes'])], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
-                        $allocation = (array)($call('roadmap_timing' . ($attempt ? '_repair' : ''), $input, 1, false)['episode_durations'] ?? []);
+                        $allocation = (array)($call('roadmap_timing' . ($attempt ? '_repair' : ''), $input, 1, false,
+                            static function (array $candidate) use ($total, $timing): void {
+                                $allocation = (array)($candidate['episode_durations'] ?? []);
+                                self::assertDurationAllocation($allocation, $total, (float)$timing['target_seconds']);
+                                foreach ((array)($timing['episode_overrides'] ?? []) as $number => $seconds) {
+                                    if (abs((float)($allocation[(int)$number - 1] ?? 0) - $seconds) > 0.001) throw new RuntimeException('第' . $number . '集必须保留用户明确的' . $seconds . '秒', 422);
+                                }
+                            })['episode_durations'] ?? []);
                         self::assertDurationAllocation($allocation, $total, (float)$timing['target_seconds']);
                         foreach ((array)($timing['episode_overrides'] ?? []) as $number => $seconds) {
                             if (abs((float)($allocation[(int)$number - 1] ?? 0) - $seconds) > 0.001) throw new RuntimeException('第' . $number . '集必须保留用户明确的' . $seconds . '秒', 422);

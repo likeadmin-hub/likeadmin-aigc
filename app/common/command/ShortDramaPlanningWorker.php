@@ -1,12 +1,10 @@
 <?php
 namespace app\common\command;
 
-use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
-use think\facade\Db;
 
 class ShortDramaPlanningWorker extends Command
 {
@@ -33,22 +31,9 @@ class ShortDramaPlanningWorker extends Command
                     break;
                 }
             try {
-            $query = Db::name('aigc_short_drama_script_task')->where('delete_time', 0)->whereIn('status', ['pending', 'queued', 'running'])
-                ->whereRaw("JSON_VALID(request_json) AND COALESCE(JSON_EXTRACT(request_json, '$.episode_id'), 0) = 0")
-                ->whereRaw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(request_json, '$.source')), '') <> 'market_file_qa_parse'")
-                ->where(function ($query) {
-                    $query->whereLike('request_json', '%story_outline_v2%')->whereOr(function ($v3) {
-                        $v3->whereRaw("JSON_EXTRACT(request_json, '$._generation_version') >= 3")
-                            ->whereRaw("COALESCE(JSON_EXTRACT(request_json, '$.multi_episode'), false) = false");
-                    });
-                });
-            if ($input->getOption('task')) $query->where('task_id', $input->getOption('task'));
-            $rows = $query->order('id')->limit(20)->field('tenant_id,user_id,task_id')->select()->toArray();
-            $processed = false;
-            foreach ($rows as $row) {
-                $processed = AigcShortDramaService::runStoryPlanningTask((int)$row['tenant_id'], (int)$row['user_id'], $row['task_id']);
-                if ($processed) break;
-            }
+            $processed = \app\common\service\app\aigc_short_drama\ShortDramaPlanningDispatch::tick(
+                (string)$input->getOption('task'), 0, null, static function () use (&$stopping): bool { return $stopping; }
+            );
             if ($input->getOption('once')) { $output->writeln('processed=' . (int)$processed); return 0; }
             if (!$processed) sleep(3);
             } catch (\Throwable $error) {

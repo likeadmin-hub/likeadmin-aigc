@@ -202,7 +202,7 @@ class ScriptPlanController extends BaseApiController
     public function retry()
     {
         try {
-            return $this->success('重试成功', AigcShortDramaService::retry((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
+            return $this->success('重试成功', AigcShortDramaService::retry((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', ''), filter_var($this->request->post('confirm_interrupted_retry', false), FILTER_VALIDATE_BOOLEAN)));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

@@ -19,6 +19,7 @@ return [
         'open-platform:worker' => 'app\\common\\command\\OpenPlatformWorker',
         'short-drama:episode-worker' => 'app\common\command\ShortDramaEpisodeWorker',
         'short-drama:planning-worker' => 'app\common\command\ShortDramaPlanningWorker',
+        'short-drama:reconcile-planning' => 'app\common\command\ReconcileShortDramaPlanning',
         'short-drama:canvas-agent-worker' => 'app\common\command\ShortDramaCanvasAgentWorker',
         // 定时任务
         'site-license:refresh' => 'app\common\command\SiteLicenseRefresh',

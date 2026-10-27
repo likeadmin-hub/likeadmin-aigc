@@ -51,6 +51,10 @@ namespace app\common\service\power {
         public static array $models=[];public static array $errors=[];public static array $calls=[];
         public static function modelGroups($tenant) { return [['key'=>'script_plan','options'=>self::options($tenant)],['key'=>'vision_describe','options'=>self::options($tenant,true)]]; }
         private static function options($tenant,$vision=false) { return array_values(array_filter(self::$models,static fn($m)=>!$vision || !empty($m['supports_vision']))); }
+        public static function resolveModel($tenant,$selection,$vision=false) {
+            foreach (self::options($tenant,$vision) as $model) if ($model['id']===($selection['id']??'')) return $model;
+            throw new \Exception('configured model unavailable');
+        }
         public static function resolveRoutedModel($tenant,$selection,$vision=false) {
             $models=self::options($tenant,$vision);
             foreach($models as $m) if ($m['id']===($selection['id']??'')) return $m;

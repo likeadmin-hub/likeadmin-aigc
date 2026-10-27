@@ -23,14 +23,14 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         $selection=(array)($settings['reasoning_model']??[]);
         // This is a local market/catalog lookup. It must succeed before the
         // shared runtime creates a billable consumption record. A missing or
-        // image-incompatible browser preference intentionally resolves to an
-        // enabled tenant model here; model routing is server-owned.
+        // image-incompatible tenant model fails before billing; the frozen
+        // model is never replaced with another enabled model.
         $images=ConversationImages::urls($tenant,$user,(array)($request['context']??[]));
         if (!empty($request['context']['_input_contract_version'])) {
             $model=self::resolve($tenant,$selection,$images!==[]);
             $fitting=false;
             $allowed=(array)($request['context']['evaluation_model_allowlist']??[]);
-            foreach ([$model,...self::options($tenant,$images!==[])] as $candidate) {
+            foreach ([$model] as $candidate) {
                 if ($allowed && !in_array((string)$candidate['id'],$allowed,true)) continue;
                 try { self::outputBudget($request,$candidate,count($images));$fitting=true;break; }
                 catch (RuntimeException $error) { if ($error->getCode()!==413) throw $error; }
@@ -39,19 +39,11 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         } else self::resolve($tenant,$selection,$images!==[]);
     }
 
-    private static function options(int $tenant,bool $vision): array
-    {
-        foreach (MarketTextModelRuntimeService::modelGroups($tenant) as $group) {
-            if (($group['key']??'')===($vision?'vision_describe':'script_plan')) return (array)($group['options']??[]);
-        }
-        return [];
-    }
-
     private static function resolve(int $tenant,array $selection,bool $vision): array
     {
-        try { return MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$vision); }
+        try { return MarketTextModelRuntimeService::resolveModel($tenant,$selection,$vision); }
         catch (\Throwable $error) {
-            if ($vision && self::options($tenant,true)===[]) throw new RuntimeException('VISION_MODEL_UNAVAILABLE',0,$error);
+            if ($vision) throw new RuntimeException('VISION_MODEL_UNAVAILABLE',0,$error);
             throw $error;
         }
     }
@@ -109,7 +101,6 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         $onEvent=is_callable($request['on_event']??null)?$request['on_event']:null;
         $preferred=self::resolve($tenant,(array)($settings['reasoning_model']??[]),$images!==[]);
         $candidates=[$preferred];
-        foreach (self::options($tenant,$images!==[]) as $candidate) if ((string)$candidate['id']!==(string)$preferred['id']) $candidates[]=$candidate;
         $allowed=(array)($request['context']['evaluation_model_allowlist']??[]);
         if ($allowed) $candidates=array_values(array_filter($candidates,static fn(array $model): bool=>in_array((string)$model['id'],$allowed,true)));
         if (!$candidates) throw new RuntimeException('TEXT_MODEL_UNAVAILABLE');

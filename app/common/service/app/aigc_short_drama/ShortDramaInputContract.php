@@ -4,7 +4,7 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 10;
+    public const VERSION = 16;
 
     /** New generation delegates shot budgets and speech timing to the upstream LLM. */
     public static function providerTiming(array $request): bool
@@ -31,7 +31,8 @@ final class ShortDramaInputContract
 
     public static function begin(array $request): array
     {
-        return array_replace(self::withoutSkills($request), ['_input_contract_version' => self::VERSION]);
+        return array_replace(self::withoutSkills($request), ['_input_contract_version' => self::VERSION,
+            '_scene_batch_policy' => ShortDramaSceneBatch::POLICY]);
     }
 
     public static function formatRepair(array $messages, array $response): array

@@ -8,7 +8,9 @@ class ShortDramaProviderTimingTest extends TestCase
 {
     private function request(): array
     {
-        return Contract::begin(['episode_duration_policy' => Timing::snapshot([], 4, 0, [])]);
+        $request = Contract::begin(['episode_duration_policy' => Timing::snapshot([], 4, 0, [])]);
+        $request['_input_contract_version'] = 14; // Isolate provider timing from the new scene-script contract.
+        return $request;
     }
 
     public function testProviderFourSecondDialogueSurvivesWithoutLocalRetimingOrRepair(): void
@@ -51,4 +53,32 @@ class ShortDramaProviderTimingTest extends TestCase
         self::assertFalse(Contract::providerTiming(['_input_contract_version'=>8]));
         self::assertTrue(Contract::providerTiming($this->request()));
     }
+    public function testDefaultAggregateMismatchIsRepairedWithoutChangingAnyShotOrText(): void
+    {
+        $request=$this->request(); $request['episode_duration_policy']=['version'=>1,'source'=>'default','max_seconds'=>180];
+        $durations=[8,10,8,10,12,10,8,10,12,8,10,12,8,10,12,12];
+        $plan=['title'=>'保留剧本','scene_beats'=>[['duration_seconds'=>150,'shot_durations'=>$durations,'goal'=>'保留全部对白和动作']]];
+        $result=Timed::normalizeSkeletonBudgets($plan,$request);
+        self::assertSame(160,$result['scene_beats'][0]['duration_seconds']);
+        $expected=$plan; $expected['scene_beats'][0]['duration_seconds']=160;
+        self::assertSame($expected,$result);
+        self::assertSame($result,Timed::normalizeSkeletonBudgets($result,$request));
+    }
+
+    public function testExplicitTimingInvalidShotsAndOverBudgetPlansAreNeverRelaxed(): void
+    {
+        $base=$this->request(); $base['episode_duration_policy']=['version'=>1,'source'=>'default','max_seconds'=>180];
+        $plan=['scene_beats'=>[['duration_seconds'=>9,'shot_durations'=>[5,5]]]];
+        $explicit=$base; $explicit['episode_duration_policy']['source']='user';
+        self::assertSame($plan,Timed::normalizeSkeletonBudgets($plan,$explicit));
+        $timeline=$base; $timeline['episode_duration_policy']['timeline_segments']=[['duration_seconds'=>9]];
+        self::assertSame($plan,Timed::normalizeSkeletonBudgets($plan,$timeline));
+        foreach ([[0,10],[-1,11],['bad',10],[2,18]] as $durations) {
+            $invalid=$plan; $invalid['scene_beats'][0]['shot_durations']=$durations;
+            self::assertSame($invalid,Timed::normalizeSkeletonBudgets($invalid,$base));
+        }
+        $over=$base; $over['episode_duration_policy']['max_seconds']=9;
+        self::assertSame($plan,Timed::normalizeSkeletonBudgets($plan,$over));
+    }
+
 }
