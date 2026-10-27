@@ -7,6 +7,9 @@ use think\facade\Db;
 /** Opt-in execution boundary stored with the series snapshot, never in paid inputs. */
 final class ShortDramaEpisodeRange
 {
+    // Keep unconfirmed rows out of existing scheduler scans as well as the new gate.
+    public const AWAITING_CONFIRMATION = 2147483647;
+
     public static function initial(): array
     {
         return ['version'=>1,'revision'=>1,'confirmed_end'=>0,'paused'=>false,'confirmations'=>[]];
@@ -32,15 +35,27 @@ final class ShortDramaEpisodeRange
         return $control===null || (empty($control['paused']) && $number<=(int)$control['confirmed_end']);
     }
 
+    public static function canRun(?array $control, array $row): bool
+    {
+        if (self::allowed($control, (int)$row['episode_number'])) return true;
+        return $control !== null && !empty($control['paused']) && !empty($row['task_id'])
+            && (int)$row['episode_number'] <= (int)$control['confirmed_end']
+            && (int)$row['id'] === (int)($control['drain_episode_id'] ?? 0)
+            && (int)$row['retry_count'] === (int)($control['drain_retry_count'] ?? -1);
+    }
+
     public static function view(array $rows): ?array
     {
         if (!$rows) return null;
         $snapshot=ShortDramaEpisodeService::decode($rows[0]['series_json']??'');
         $control=self::control($snapshot);
         if ($control===null) return null;
-        $end=(int)$control['confirmed_end'];$start=$end+1;$total=count($rows);$blocked='';$active=false;
+        $end=(int)$control['confirmed_end'];$start=$end+1;$total=count($rows);$blocked='';$active=false;$draining=false;
         foreach($rows as$row) if((int)$row['episode_number']<=$end) {
-            if(in_array($row['status'],['pending','running'],true))$active=true;
+            if(in_array($row['status'],['pending','running'],true)) {
+                $active=true;
+                if(!empty($control['paused']) && self::canRun($control,$row))$draining=true;
+            }
             if($blocked==='' && ($row['status']!=='success' || !empty($row['needs_review']))) {
                 $blocked=!empty($row['needs_review'])?'请先完成前面剧集的连续性复核':
                     (in_array($row['status'],['failed','canceled'],true)?'请先继续修复或恢复当前范围内的剧集':'当前范围尚未完成');
@@ -56,7 +71,7 @@ final class ShortDramaEpisodeRange
             $outline[]=array_intersect_key($item,array_flip(['episode_number','title','story_outline','conflict_point','ending_hook']));
         }
         return ['mode'=>'staged','revision'=>(int)$control['revision'],'confirmed_end'=>$end,'paused'=>(bool)$control['paused'],
-            'active'=>$active,'can_confirm'=>$start<=$total && $blocked==='','blocked_reason'=>$blocked,
+            'active'=>$active,'draining'=>$draining,'can_confirm'=>$start<=$total && $blocked==='','blocked_reason'=>$blocked,
             'next_start'=>$start,'max_end'=>$max,'goal'=>$goal,'outline'=>$outline,
             'confirmed_ranges'=>array_map(static fn($r)=>['start'=>$r['start'],'end'=>$r['end']],$control['confirmations'])];
     }
@@ -99,13 +114,22 @@ final class ShortDramaEpisodeRange
                 // Retain timing allocations, source boundaries and material IDs.
                 $snapshot['plan']['episodes'][$number-1]=$original;
                 Db::name('aigc_short_drama_episode_task')->where(['id'=>$row['id'],'tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$project])
-                    ->update(['outline_json'=>json_encode($original,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'title'=>$original['title'],'update_time'=>time()]);
+                    ->update(['outline_json'=>json_encode($original,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'title'=>$original['title'],'next_retry_at'=>0,'update_time'=>time()]);
                 if($number===$start)$next=$row;
             }
             $control['confirmed_end']=$end;$control['paused']=false;
             $control['confirmations'][]=['key'=>$key,'fingerprint'=>$fingerprint,'start'=>$start,'end'=>$end,'confirmed_at'=>time()];
         } elseif(in_array($action,['pause_range','resume_range'],true)) {
             $control['paused']=$action==='pause_range';
+            $control['drain_episode_id']=0;$control['drain_retry_count']=-1;
+            if($control['paused']) foreach($rows as$row) {
+                if((int)$row['episode_number']<=(int)$control['confirmed_end'] && !empty($row['task_id'])
+                    && in_array($row['status'],['pending','running'],true)) {
+                    $control['drain_episode_id']=(int)$row['id'];
+                    $control['drain_retry_count']=(int)$row['retry_count'];
+                    break;
+                }
+            }
         } else throw new RuntimeException('不支持的阶段操作');
         $control['revision']++;$snapshot['generation_control']=$control;
         Db::name('aigc_short_drama_episode_task')->where(['id'=>$rows[0]['id'],'tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$project])
