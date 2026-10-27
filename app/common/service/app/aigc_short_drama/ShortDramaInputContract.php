@@ -4,7 +4,7 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 12;
+    public const VERSION = 13;
 
     /** New generation delegates shot budgets and speech timing to the upstream LLM. */
     public static function providerTiming(array $request): bool
