@@ -111,7 +111,10 @@ final class ShortDramaSceneBatch
         }
         $context = ['creative_context' => $base['content'],
             'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
-            'scene_groups' => $scenes, 'scene_continuity' => $skeleton['scene_beats'],
+            'scene_groups' => $scenes, 'scene_continuity' => (int)($request['_input_contract_version'] ?? 0) >= 15
+                ? array_map(static fn($beat) => array_intersect_key($beat,
+                    array_flip(['scene_ref_id', 'goal', 'entry', 'exit', 'key_events'])), $skeleton['scene_beats'])
+                : $skeleton['scene_beats'],
             'required_shots' => $required, 'previous_shots' => array_slice($completed, -2)];
         $input = ['system_prompt' => $base['system_prompt'] . "\n本次按原剧情顺序生成两个相邻小场景，只返回{\"storyboard\":[...]}。"
             . '按scene_groups的顺序逐场完成，严格逐项使用required_shots的shot_id、scene_ref_id和duration_seconds，不增删、换序、合并场景或挪用另一场的时长。'
@@ -122,6 +125,9 @@ final class ShortDramaSceneBatch
             . ShortDramaShotSemantics::INSTRUCTION
             . '仅输出上述分镜字段，不输出素材定义、image_prompt、video_prompt或negative_prompt；visual_description每镜最多120字、composition最多40字、camera_movement最多100字。',
             'content' => self::json($context)];
+        if ((int)($request['_input_contract_version'] ?? 0) >= 15) {
+            $input['system_prompt'] .= '每场scene_beat.scene_script为已确认的分场剧本，按其中动作、对白和事件顺序拆镜，不新增关键剧情或改换场地。';
+        }
         if (is_string($messages['_stage_content'] ?? null) && $base['content'] === $messages['_stage_content']) $input['_share_script_context'] = true;
         return $input;
     }
