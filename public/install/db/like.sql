@@ -2068,7 +2068,7 @@ VALUES (9020, 0, 119, 'A', '修改密码', '', 1, 'user.user/resetPassword', '',
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (158, 0, 0, 'M', '应用管理', 'el-icon-Postcard', 800, '', 'app', '', '', '', 0, 1, 0, 1677143430, 1710472079);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
-VALUES (159, 0, 158, 'C', '用户充值', 'local-icon-fukuan', 100, 'recharge.recharge/getConfig', 'recharge',
+VALUES (159, 0, 166, 'C', '用户充值', 'local-icon-fukuan', 100, 'recharge.recharge/getConfig', 'recharge',
         'app/recharge/index', '', '', 0, 1, 0, 1677144284, 1710471860);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (160, 0, 159, 'A', '保存', '', 0, 'recharge.recharge/setConfig', '', '', '', '', 0, 1, 0, 1677145012,

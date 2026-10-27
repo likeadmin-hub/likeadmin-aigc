@@ -379,7 +379,7 @@ VALUES (157, {tenantId}, 119, 'A', '算力调整', '', 0, 'user.user/adjustMoney
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (158, {tenantId}, 0, 'M', '应用管理', 'el-icon-Postcard', 800, '', 'app', '', '', '', 0, 1, 0, 1677143430, 1710472079);
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
-VALUES (159, {tenantId}, 179, 'C', '用户充值', 'local-icon-fukuan', 80, 'recharge.recharge/getConfig', 'recharge',
+VALUES (159, {tenantId}, 166, 'C', '用户充值', 'local-icon-fukuan', 80, 'recharge.recharge/getConfig', 'recharge',
         'app/recharge/index', '', '', 0, 1, 0, 1677144284, 1710471860);
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`create_time`,`update_time`)
 VALUES (160, {tenantId}, 159, 'A', '保存', '', 0, 'recharge.recharge/setConfig', '', '', '', '', 0, 1, 0, 1677145012,
