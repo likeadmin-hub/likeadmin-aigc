@@ -4,7 +4,7 @@
     "name": "文案改写",
     "category": "风险优化",
     "description": "润色优化",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/copy_rewrite.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -363,7 +363,7 @@
     "name": "违禁词优化",
     "category": "风险优化",
     "description": "合规检查",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/risk_optimize.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -673,7 +673,7 @@
     "name": "文案仿原创",
     "category": "风险优化",
     "description": "重写降重",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/original_rewrite.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -1052,7 +1052,7 @@
     "name": "错别字检测",
     "category": "风险优化",
     "description": "细节校对",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/typo_check.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -1315,7 +1315,7 @@
     "name": "智能写作",
     "category": "创作输出",
     "description": "多场景",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/smart_write.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -1734,7 +1734,7 @@
     "name": "带货文案",
     "category": "创作输出",
     "description": "转化成交",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/sales_copy.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -2123,7 +2123,7 @@
     "name": "口播脚本",
     "category": "创作输出",
     "description": "短视频",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/spoken_script.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -2483,7 +2483,7 @@
     "name": "短视频标题",
     "category": "创作输出",
     "description": "流量标题",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/video_title.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -2808,7 +2808,7 @@
     "name": "文案创作",
     "category": "创作输出",
     "description": "创意表达",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/copy_create.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -3143,7 +3143,7 @@
     "name": "小红书文章",
     "category": "平台图文",
     "description": "平台笔记",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/xiaohongshu_article.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -3602,7 +3602,7 @@
     "name": "公众号文章",
     "category": "平台图文",
     "description": "长图文",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/wechat_article.png",
     "document": {
       "schema_version": 1,
       "page": {
@@ -4016,7 +4016,7 @@
     "name": "文案提取",
     "category": "内容提取",
     "description": "要点提炼",
-    "icon": "resource/image/common/menu_generator.png",
+    "icon": "resource/image/copywriting/copy_extract.png",
     "document": {
       "schema_version": 1,
       "page": {
