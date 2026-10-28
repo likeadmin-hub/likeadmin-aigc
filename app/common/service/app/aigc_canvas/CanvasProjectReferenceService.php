@@ -47,6 +47,45 @@ final class CanvasProjectReferenceService
     {
         return Db::name('aigc_canvas_asset')->where(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$project,'delete_time'=>0])->where('status','<>','deleted');
     }
+    /** Resolve saved media on the bound page, without copying bytes or generating content. */
+    public static function pageMedia(array $run): array
+    {
+        $scope=Scope::fromRun($run);
+        if(($scope['app']??'')!=='aigc_canvas')return [];
+        return Scope::within($scope,static function()use($run,$scope){
+            $tenant=(int)$run['tenant_id'];$user=(int)$run['user_id'];
+            Scope::assertSession($tenant,$user,(int)$run['session_id']);
+            $project=self::project($tenant,$user);$nodes=AgentStore::json($project['nodes_json']);
+            $viewport=AgentStore::json($project['viewport_json']);
+            $pages=$viewport['pages']??[['id'=>'canvas_1','nodeIds'=>array_column($nodes,'id')]];
+            $index=array_search($scope['page_id']??'',array_column($pages,'id'),true);
+            if($index===false)throw new \InvalidArgumentException('目标页面已删除');
+            $ids=array_flip($pages[$index]['nodeIds']??[]);$out=[];
+            foreach($nodes as $node){
+                if(!isset($ids[$node['id']??''])||!in_array($node['type']??'', ['image','imageNode','video','videoNode','audio','audioNode'],true))continue;
+                $meta=(array)($node['metadata']??$node['data']??[]);
+                try{
+                    // Retain the original ID for Agent outputs; native nodes use
+                    // the same ownership/storage resolver as explicit @ references.
+                    $asset=null;
+                    if(!empty($meta['agentFileId'])){
+                        try{$asset=OpenAssets::detail($tenant,$user,(string)$meta['agentFileId']);}
+                        catch(\app\common\service\open_platform\OpenException){}
+                    }
+                    if(!$asset){
+                        $file=self::nodeFile($tenant,$user,$meta);
+                        if(!$file||!preg_match('~^(image|video|audio)/~',$file['mime']??''))continue;
+                        $id=OpenAssets::registerResult($tenant,$user,'aigc_llm',$file+['file_uri'=>$file['uri']]);
+                        if(!$id)continue;
+                        $asset=OpenAssets::detail($tenant,$user,$id);
+                    }
+                    if(!preg_match('~^(image|video|audio)/~',$asset['mime']??''))continue;
+                    $out[(string)$node['id']]=$asset+['node_id'=>(string)$node['id'],'title'=>self::nodeName($node)];
+                }catch(\app\common\service\open_platform\OpenException){continue;}
+            }
+            return $out;
+        });
+    }
     private static function item(string $kind,string $id,string $name,string $description,?array $file,bool $subject=false): array
     {
         $mime=$file['mime']??'text/plain';$url=$file?FileService::getFileUrlByStorage($file['uri'],$file['storage_scope'],$file['storage_engine'],$file['storage_domain']):'';

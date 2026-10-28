@@ -441,6 +441,7 @@ final class AgentExecutionService
         $instructions.="\n当前操作对象：".AgentStore::encode($context['focus']);
         $instructions.="\n真实任务记录（status=success 且 steps 为空只表示对话结束，不表示生成过作品）：".AgentStore::encode($context['tasks']);
         $instructions.="\n会话作品目录：".AgentStore::encode($context['artifacts']);
+        if(AgentWorkspaceScope::app()==='aigc_canvas')$instructions.="\n当前绑定页面素材候选：".AgentStore::encode($context['page_assets']??[])."。用户说这张图、刚生成的图片而会话附件为空时，先核对当前操作对象和页面素材；可用 edit_canvas_page 的 read_page 获取节点及 file_id，再用 read_session_context 的 read_asset 读取图片。不能把没有附件等同于画布没有图片。多个候选且用户未明确选定时先询问，不得擅自选图。";
         $instructions.="\n用户说这张图、刚才的文档或继续修改时，先结合当前操作对象和近期消息；有多个候选且不明确就询问。新主题与当前对象无关时清除操作对象。修改文档前必须 read_asset 读取正文，next_offset 非空表示还有未读内容。需要早期要求时 search_messages/read_message 找回原文；没有找到或没有读取的内容不能声称记得。选定已有素材时 set_creation_focus 保存，不能只在回复里说已切换。";
         $transcriptions=[];
         foreach(AgentStore::table('step')->where(['run_id'=>$run['id'],'tool_code'=>AgentTranscriptionTool::CODE,'status'=>'success'])->select()->toArray() as $step){$result=AgentStore::json($step['result'])['transcription']??[];$transcriptions[]=['file_id'=>$result['file_id']??'','preview'=>mb_substr((string)($result['text']??''),0,4000),'total_chars'=>mb_strlen((string)($result['text']??''))];}

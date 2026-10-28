@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_llm\agent;
 
 use app\common\model\app\aigc_llm\{AigcLlmSession,AigcLlmMessage};
 use app\common\service\open_platform\OpenAssets;
+use app\common\service\app\aigc_canvas\CanvasProjectReferenceService;
 use think\facade\Db;
 
 /** Durable, source-backed session memory. Reads never submit or approve generation. */
@@ -111,11 +112,24 @@ final class AgentContextService
         }else $focus=(int)$memory['focus_run_id']<=(int)$run['id']?AgentStore::json($memory['focus']):[];
         $valid=[];
         foreach(array_slice($focus['file_ids']??[],0,8) as $file){try{$valid[]=self::asset($run,(string)$file)['asset'];}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}}
+        $pageAssets=[];
+        if(!$currentAssets&&AgentTopicService::refersToImage((string)$run['content'])&&(AgentTopicService::state($run)['decision']??'')!=='clarify'){
+            $pageAssets=CanvasProjectReferenceService::pageMedia($run);
+            $images=[];
+            foreach($pageAssets as $asset)if(str_starts_with($asset['mime']??'','image/'))$images[$asset['file_id']]=$asset;
+            // An explicit attachment or existing dialogue focus wins. Multiple
+            // page images are candidates for clarification, never an arbitrary pick.
+            if(!$valid&&count($images)===1){
+                $valid=array_values($images);
+                $focus=['file_ids'=>array_keys($images),'source'=>'canvas_page','goal'=>(string)$run['content']];
+                self::storeFocus($run,$focus);
+            }
+        }
         $focus['file_ids']=array_column($valid,'file_id');
         if(!$valid)unset($focus['goal']);
         $artifacts=self::findArtifacts($run,'',0)['items'];
         $state=self::taskState($run);
-        return ['recent'=>$recent,'summary'=>$summary,'requirements'=>self::requirements($run,'',$boundary,4),'focus'=>$focus,'focus_assets'=>$valid,'artifacts'=>array_slice($artifacts,0,12),'tasks'=>$state,
+        return ['recent'=>$recent,'summary'=>$summary,'requirements'=>self::requirements($run,'',$boundary,4),'focus'=>$focus,'focus_assets'=>$valid,'page_assets'=>array_map(static fn($a)=>array_intersect_key($a,array_flip(['node_id','file_id','title','mime'])),array_values($pageAssets)),'artifacts'=>array_slice($artifacts,0,12),'tasks'=>$state,
             'current_request'=>['message_id'=>(int)($recent[array_key_last($recent)]['id']??0),'text'=>(string)$run['content']]];
     }
     private static function summaryRequests(array $run,array $ids): array
@@ -229,7 +243,10 @@ final class AgentContextService
         if(!$artifact)foreach(self::owned('run',$run)->where('id','<=',$run['id'])->where('attachments','like','%'.$file.'%')->column('attachments') as $snapshot){
             foreach(AgentStore::json($snapshot) as $asset)if(($asset['file_id']??'')===$file){$attached=true;break 2;}
         }
-        if(!$artifact&&!$attached)throw new \InvalidArgumentException('素材不属于当前会话');
+        if(!$artifact&&!$attached){
+            foreach(CanvasProjectReferenceService::pageMedia($run) as $candidate)if($candidate['file_id']===$file)return ['asset'=>$candidate,'artifact'=>null];
+            throw new \InvalidArgumentException('素材不属于当前会话或绑定画布页面');
+        }
         $asset=OpenAssets::detail((int)$run['tenant_id'],(int)$run['user_id'],$file);
         return ['asset'=>$asset,'artifact'=>$artifact];
     }
