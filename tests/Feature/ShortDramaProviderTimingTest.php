@@ -42,6 +42,26 @@ class ShortDramaProviderTimingTest extends TestCase
         self::assertNotSame($plan,Timed::normalizeSkeletonBudgets($plan,$legacy));
     }
 
+    public function testDefaultOversizedShotSplitsWithoutChangingSceneOrEpisodeBudget(): void
+    {
+        $request=$this->request(); $request['episode_duration_policy']=['version'=>1,'source'=>'default','max_seconds'=>180];
+        $plan=['title'=>'火眼金睛：数据真相', 'scene_beats'=>[
+            ['duration_seconds'=>45,'shot_durations'=>[8,10,12,15]],
+            ['duration_seconds'=>50,'shot_durations'=>[10,15,12,13]],
+            ['duration_seconds'=>40,'shot_durations'=>[10,12,18], 'key_events'=>['发现数据真相']],
+            ['duration_seconds'=>35,'shot_durations'=>[12,10,13]],
+        ]];
+        $result=Timed::normalizeSkeletonBudgets($plan,$request);
+        self::assertSame([10,12,9.0,9.0],$result['scene_beats'][2]['shot_durations']);
+        self::assertSame($plan['scene_beats'][2]['key_events'],$result['scene_beats'][2]['key_events']);
+        self::assertSame([45,50,40,35],array_column($result['scene_beats'],'duration_seconds'));
+        self::assertSame(170,array_sum(array_column($result['scene_beats'],'duration_seconds')));
+        self::assertSame($result,Timed::normalizeSkeletonBudgets($result,$request));
+
+        $fractional=['scene_beats'=>[['duration_seconds'=>21,'shot_durations'=>[4.5,16.5]]]];
+        self::assertSame([4.5,8.25,8.25],Timed::normalizeSkeletonBudgets($fractional,$request)['scene_beats'][0]['shot_durations']);
+    }
+
     public function testTotalDurationStillMustMatchUserRequest(): void
     {
         $this->expectException(\RuntimeException::class);
@@ -77,6 +97,8 @@ class ShortDramaProviderTimingTest extends TestCase
             $invalid=$plan; $invalid['scene_beats'][0]['shot_durations']=$durations;
             self::assertSame($invalid,Timed::normalizeSkeletonBudgets($invalid,$base));
         }
+        $tooMany=['scene_beats'=>[['duration_seconds'=>174,'shot_durations'=>array_merge(array_fill(0,39,4),[18])]]];
+        self::assertSame($tooMany,Timed::normalizeSkeletonBudgets($tooMany,$base));
         $over=$base; $over['episode_duration_policy']['max_seconds']=9;
         self::assertSame($plan,Timed::normalizeSkeletonBudgets($plan,$over));
     }
