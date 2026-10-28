@@ -39,6 +39,16 @@ Db::startTrans();try{
   return $id;
  };
  $image=$file('first');$otherImage=$file('second');$foreignImage=$file('foreign',$u+1);
+ // Actual generated-image records can predate MIME persistence. They must still
+ // reach visual transport without downloading or regenerating the stored file.
+ OpenStore::table('file')->where('file_id',$image)->update(['mime'=>'']);
+ check(OpenAssets::detail($t,$u,$image)['mime']==='image/png','Legacy generated image MIME missing');
+ $registered=OpenAssets::registerResult($t,$u,'aigc_image',['image_uri'=>'uploads/image-continuation-new.jpg','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']);
+ check(OpenStore::table('file')->where('file_id',$registered)->value('mime')==='image/jpeg','New native output did not retain image type');
+ $unknown=$file('unknown');OpenStore::table('file')->where('file_id',$unknown)->update(['mime'=>'','uri'=>'uploads/unknown.bin']);
+ check(OpenAssets::detail($t,$u,$unknown)['mime']==='','Unknown file promoted to image');
+ $explicitMime=$file('explicit');OpenStore::table('file')->where('file_id',$explicitMime)->update(['mime'=>'text/plain']);
+ check(OpenAssets::detail($t,$u,$explicitMime)['mime']==='text/plain','Explicit type overwritten by extension');
  $rootSession=$session();$root=T::resolve($make($rootSession,'生成樱花树下情侣的照片'),fn()=>['action'=>'new']);
  S::table('artifact')->insert(['tenant_id'=>$t,'user_id'=>$u,'session_id'=>$rootSession,'run_id'=>$root['id'],'step_id'=>0,'identity_hash'=>hash('sha256',$image),'title'=>'樱花情侣','kind'=>'image','data'=>S::encode(['file_id'=>$image]),'create_time'=>$now]);
  C::created($root,$image);
