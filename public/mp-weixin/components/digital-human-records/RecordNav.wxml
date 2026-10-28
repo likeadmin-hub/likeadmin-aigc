@@ -1,0 +1,1 @@
+<view class="topbar data-v-37b5c05c" style="{{f}}"><view class="nav-row data-v-37b5c05c" style="{{e}}"><view class="nav-btn data-v-37b5c05c" bindtap="{{b}}"><u-icon wx:if="{{a}}" class="data-v-37b5c05c" u-i="37b5c05c-0" bind:__l="__l" u-p="{{a}}"></u-icon></view><view class="page-title data-v-37b5c05c" style="{{d}}">{{c}}</view></view></view>

@@ -9,6 +9,7 @@
     "pages/index/index",
     "pages/news/news",
     "pages/user/user",
+    "pages/distribution/posters",
     "pages/distribution/distribution",
     "pages/distribution/withdrawal",
     "pages/diy/diy",

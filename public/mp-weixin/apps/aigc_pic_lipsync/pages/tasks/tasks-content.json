@@ -1,6 +1,9 @@
 {
   "component": true,
   "usingComponents": {
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page"
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
+    "record-nav": "../../../../components/digital-human-records/RecordNav",
+    "record-list": "../../../../components/digital-human-records/RecordList",
+    "record-detail": "../../../../components/digital-human-records/RecordDetail"
   }
 }

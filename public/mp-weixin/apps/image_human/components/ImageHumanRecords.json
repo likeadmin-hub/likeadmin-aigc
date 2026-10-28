@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
-    "image-human-nav": "./ImageHumanNav"
+    "record-nav": "../../../components/digital-human-records/RecordNav",
+    "record-list": "../../../components/digital-human-records/RecordList"
   }
 }
