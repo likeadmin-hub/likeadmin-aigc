@@ -154,7 +154,7 @@ class MarketTextModelRuntimeService
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?array $operatorCapabilityProbe = null): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?array $operatorCapabilityProbe = null, ?TextModelExecutionPolicy $executionPolicy = null): array
     {
         // Server-only argument for tenant-admin authoring tools; never read from params.
         if ($tenantAdminConsumption && ($tenantId <= 0 || $userId !== 0)) throw new Exception('租户后台调用身份无效');
@@ -177,6 +177,7 @@ class MarketTextModelRuntimeService
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
             : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)));
         if($operatorCapabilityProbe!==null)self::assertVisionProbeModel($operatorCapabilityProbe,$model);
+        if ($executionPolicy !== null) $executionPolicy->assertModel($model, (string)($params['source_app_code'] ?? ''));
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
@@ -358,6 +359,10 @@ class MarketTextModelRuntimeService
                 throw $e;
             }
             if (self::preserveUncertainSubmission($tenantAdminConsumption,$action,$params,$e->getMessage(),$operatorCapabilityProbe!==null)) {
+                AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation','error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
+                throw $e;
+            }
+            if ($executionPolicy !== null && $executionPolicy->preserveUncertain($e->getMessage())) {
                 AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation','error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
                 throw $e;
             }

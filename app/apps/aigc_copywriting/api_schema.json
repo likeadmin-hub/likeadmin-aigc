@@ -1,0 +1,253 @@
+{
+  "app_code": "aigc_copywriting",
+  "apis": [
+    {
+      "api_path": "app.aigc_copywriting.model/options",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:model:options:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/create",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:task:create:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:task:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:task:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/cancel",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:task:cancel:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/events",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:task:events:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:config:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:tool:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:tool:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:task:lists:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:task:detail:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/recheck",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:task:recheck:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.schema/catalog",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:schema:catalog:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.schema/validate",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:schema:validate:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.template/export",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:template:export:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.template/import",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:template:import:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.category/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:category:lists:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.category/save",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:category:save:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.category/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:category:delete:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.prompt/preview",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:prompt:preview:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:tool:lists:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/create",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:tool:create:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/save",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:tool:save:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/copy",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:tool:copy:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:tool:delete:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.tool/restore",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:tool:restore:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.page/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:page:detail:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.page/saveDraft",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:page:saveDraft:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.page/publish",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:page:publish:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.page/versions",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:page:versions:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.page/rollback",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:page:rollback:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}

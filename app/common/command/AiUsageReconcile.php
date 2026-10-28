@@ -29,6 +29,11 @@ class AiUsageReconcile extends Command
             ->select();
         $count = 0;
         foreach ($rows as $row) {
+            if ($row['app_code'] === 'aigc_copywriting') {
+                $task=\think\facade\Db::name('aigc_copywriting_task')->where('consumption_id',(int)$row['id'])->find();
+                if($task) \app\common\service\app\aigc_copywriting\CopywritingRecovery::reconcile((int)$task['tenant_id'],(int)$task['id']);
+                continue;
+            }
             if($row['app_code']==='aigc_llm'&&$row['action_code']==='agent_speech'){
                 \app\common\service\app\aigc_llm\agent\AgentSpeechTool::reconcile((int)$row['id'],(int)$row['tenant_id']);
                 $count++;continue;
