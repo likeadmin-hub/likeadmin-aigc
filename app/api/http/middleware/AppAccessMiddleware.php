@@ -30,6 +30,7 @@ class AppAccessMiddleware
 
     private function isPublicConfigDetail($request, string $appCode): bool
     {
+        if ($appCode === 'aigc_copywriting' && strtoupper($request->method()) === 'GET' && strtolower($request->controller()).'/'.strtolower($request->action()) === 'app.aigc_copywriting.config/preview') return true;
         if ($appCode === 'aigc_micro_video' && strtoupper($request->method()) === 'GET'
             && in_array(strtolower($request->controller()).'/'.strtolower($request->action()), ['app.aigc_micro_video.config/detail', 'app.aigc_micro_video.direction/lists'], true)) return true;
         return strtolower($request->controller()) === 'app.' . $appCode . '.config'

@@ -46,6 +46,16 @@
         "paths": "task",
         "component": "apps/aigc_copywriting/task",
         "sort": 20
+      },
+      {
+        "source_menu_key": "cw_editor",
+        "type": "C",
+        "name": "页面设计",
+        "perms": "app.aigc_copywriting.page/detail",
+        "paths": "editor",
+        "component": "apps/aigc_copywriting/editor",
+        "is_show": 0,
+        "sort": 0
       }
     ]
   }

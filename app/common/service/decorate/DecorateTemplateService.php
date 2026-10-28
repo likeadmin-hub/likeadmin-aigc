@@ -1467,7 +1467,7 @@ class DecorateTemplateService
             'pc-sidebar', 'pc-home-hero-grid', 'pc-text', 'pc-button',
             'rich-text', 'spacer', 'audio-player', 'button-group', 'tabs', 'video-player', 'floating-action', 'popup-promo',
             'section', 'grid', 'stack', 'horizontal-scroll', 'masonry', 'card',
-            'image-nav', 'magic-grid', 'tutorial-carousel', 'case-feed', 'app-collection',
+            'image-nav', 'magic-grid', 'tutorial-carousel', 'case-feed', 'app-collection', 'cw-tool-collection',
             'creation-entry-grid', 'recent-tasks', 'media-card', 'user-hero', 'membership-card',
             'user-stats', 'account-quota', 'asset-entries', 'service-grid', 'commerce-entries',
         ];
