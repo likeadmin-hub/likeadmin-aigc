@@ -137,15 +137,26 @@ final class AgentArtifactService
         if(!$row)throw new \InvalidArgumentException('作品不存在');
         Db::transaction(function()use($tenant,$user,$id,$favorite,$row){
             $ref=self::libraryReference($row,true);
-            if($ref && !WorkspaceAssetService::isVisible($tenant,$user,$ref))throw new \InvalidArgumentException('作品已删除');
+            if(!$ref)throw new \InvalidArgumentException('作品缺少可验证的资产关联');
+            if(!WorkspaceAssetService::isVisible($tenant,$user,$ref))throw new \InvalidArgumentException('作品已删除');
             if($ref)WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>(int)$favorite]);
             AgentStore::owner('artifact',$tenant,$user)->where('id',$id)->update(['favorite'=>(int)$favorite]);
         });
     }
+    /** Upgrade persisted Agent favorites without recreating any outputs or reviving cancellations. */
+    public static function syncLibraryFavorites(int $tenant, int $user): void
+    {
+        $rows=AgentStore::owner('artifact',$tenant,$user)->where('favorite',1)->select()->toArray();
+        foreach($rows as $row){
+            $ref=self::libraryReference($row,true);
+            if(!$ref || Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$ref])->count())continue;
+            if(WorkspaceAssetService::isVisible($tenant,$user,$ref))WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>1]);
+        }
+    }
     /** Resolve the original owned generation record, including artifacts saved before library linking. */
     private static function libraryReference(array $artifact,bool $includeDeleted=false): ?string
     {
-        if(!(int)$artifact['step_id'])return null; // Standalone documents keep their session favorite.
+        if(!(int)$artifact['step_id'])return 'agent:result:'.$artifact['id'];
         $tenant=(int)$artifact['tenant_id'];$user=(int)$artifact['user_id'];
         $step=AgentStore::owner('step',$tenant,$user)->where(['id'=>$artifact['step_id'],'run_id'=>$artifact['run_id']])->find();
         $source=$step?WorkspaceAssetService::sourceForApp($step['tool_code']):null;
@@ -153,6 +164,7 @@ final class AgentArtifactService
         $uriField=['image'=>'image_uri','video'=>'video_uri','audio'=>'audio_uri'][$artifact['kind']]??null;
         if($source && $uriField && $source!=='short_drama')$sources[$step['tool_code']]=[$source,$uriField];
         if($step && $step['tool_code']==='aigc_fitting')$sources['aigc_fitting']=['image','image_uri'];
+        if($step && $step['tool_code']===AgentSpeechTool::CODE)return 'agent:result:'.$artifact['id'];
         if(!$step||!isset($sources[$step['tool_code']])||!(int)$step['task_id'])return null;
         $data=AgentStore::json($artifact['data']);
         $file=OpenStore::owner('file',$tenant,$user)->where('file_id',$data['file_id']??'')->find();

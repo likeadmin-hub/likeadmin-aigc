@@ -11,7 +11,7 @@ final class WorkspaceAssetService
 {
     private const TABLE = 'user_asset_state';
     private const SOURCES = [
-        'image' => 'aigc_image', 'video' => 'aigc_video',
+        'image' => 'aigc_image', 'video' => 'aigc_video', 'agent' => 'aigc_llm_agent',
         'digital_human' => 'aigc_digital_human', 'image_human' => 'image_human',
         'action_transfer' => 'aigc_action_transfer', 'person_replacement' => 'aigc_person_replacement',
         'short_drama' => 'aigc_short_drama', 'canvas' => 'aigc_canvas',
@@ -39,7 +39,7 @@ final class WorkspaceAssetService
             if ($source !== 'upload' && !isset(self::SOURCES[$source])) throw new InvalidArgumentException('资产标识无效');
             if ($source === 'canvas' && $kind === 'task' && count(explode(':', $ref)) !== 4) throw new InvalidArgumentException('资产标识无效');
             if ($source === 'fitting' && $kind !== 'task') throw new InvalidArgumentException('资产标识无效');
-            if (in_array($source, ['short_drama', 'upload'], true) && $kind !== 'result') throw new InvalidArgumentException('资产标识无效');
+            if (in_array($source, ['short_drama', 'upload', 'agent'], true) && $kind !== 'result') throw new InvalidArgumentException('资产标识无效');
         }
         $patch = [];
         if (array_key_exists('favorite', $params)) {
@@ -66,6 +66,7 @@ final class WorkspaceAssetService
     {
         self::identity($tenant, $user);
         self::synchronizeDeleted($tenant, $user);
+        \app\common\service\app\aigc_llm\agent\AgentArtifactService::syncLibraryFavorites($tenant, $user);
         $states = Db::name(self::TABLE)->where(['tenant_id' => $tenant, 'user_id' => $user])->select()->toArray();
         $supplemental = [];
         // Read saved references independently of the source's recent-results limit.
@@ -164,6 +165,8 @@ final class WorkspaceAssetService
         if (!$stamp) return;
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return;
+        // Agent-only documents/speech have no generation task to delete. Library state is authoritative.
+        if ($source === 'agent') return;
         $owner = ['tenant_id'=>$tenant,'user_id'=>$user];
         if ($source === 'upload') {
             $file = Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'id'=>(int)$id,'source'=>FileEnum::SOURCE_USER,'upload_origin'=>'local']);
@@ -214,6 +217,7 @@ final class WorkspaceAssetService
     {
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return WorkspaceCanvasAssetService::owned($tenant, $user, $ref);
+        if ($source === 'agent') return self::ownedAgentArtifact($tenant, $user, (int)$id);
         if ($source === 'upload') {
             $file = ($includeDeleted ? TenantFile::withTrashed() : TenantFile::where([]))->where(['id' => (int)$id, 'tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user, 'upload_origin' => 'local'])
                 ->whereRaw('(type IN (10, 20) OR (type = 30 AND LOWER(uri) LIKE ?))', ['%.webm'])->find();
@@ -252,6 +256,23 @@ final class WorkspaceAssetService
             $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id']));
         }
         return ['source' => $source, 'ref' => $ref, 'raw' => $raw];
+    }
+
+    private static function ownedAgentArtifact(int $tenant, int $user, int $id): ?array
+    {
+        $row = Db::name('aigc_llm_agent_artifact')->where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$id])->find();
+        if (!$row) return null;
+        $data = json_decode($row['data'] ?? '{}', true) ?: [];
+        try { $file = \app\common\service\open_platform\OpenAssets::detail($tenant, $user, (string)($data['file_id'] ?? '')); }
+        catch (\app\common\service\open_platform\OpenException $error) {
+            if ($error->errorType === 'not_found') return null;
+            throw $error;
+        }
+        return ['source'=>'agent', 'ref'=>'agent:result:'.$id, 'raw'=>[
+            'id'=>$id, 'result_id'=>$id, 'title'=>$row['title'], 'asset_type'=>$row['kind'],
+            'create_time'=>$row['create_time'], 'status'=>'success', 'url'=>$file['url'],
+            'mime_type'=>$file['mime'], 'content'=>$row['kind'] === 'document' ? (string)($data['content'] ?? '') : '',
+        ]];
     }
 
     private static function presentUpload(array $row): array
