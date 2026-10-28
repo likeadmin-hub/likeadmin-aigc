@@ -4,6 +4,8 @@ namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
+use app\common\service\app\aigc_short_drama\ShortDramaCanvasPosterJobService;
+use app\common\service\FileService;
 use think\facade\Db;
 
 /** Versioned graph mutation boundary. Not exposed until all P1 writers migrate. */
@@ -440,15 +442,29 @@ final class GraphService
         return $nodes;
     }
 
-    /** Restore upload readiness from owned registered assets, never client status/IDs.
+    /** Restore upload/capture readiness from owned records, never client status/IDs.
      * Also projects legacy documents whose manual-save sanitizer dropped these fields.
-     * This is read-only; normal revision-checked saves persist the projection.
+     * Captures may register missing asset metadata; normal revision-checked saves
+     * persist the graph projection. No media is captured or generated here.
      */
     public static function registeredUploadNodes(array $document, array $nodes): array
     {
         $uploads=[];
         foreach ($nodes as $index=>$node) {
             $meta=(array)($node['metadata']??[]);
+            if (($meta['source']??'')==='video_frame' && ($node['type']??'')==='image'
+                && empty($meta['active_generation_id']) && empty($meta['canvasRunId'])) {
+                unset($meta['asset_id']);
+                if(($meta['status']??'')==='success')unset($meta['status']);
+                $asset=ShortDramaCanvasPosterJobService::frameNodeAsset($document,$node);
+                if($asset){
+                    $url=FileService::getFileUrlByStorage($asset['uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']);
+                    $meta=array_replace($meta,['asset_id'=>(int)$asset['id'],'status'=>'success','error'=>'','uri'=>$asset['uri'],'url'=>$url,'image'=>$url,
+                        'storage_scope'=>$asset['storage_scope'],'storage_engine'=>$asset['storage_engine'],'storage_domain'=>$asset['storage_domain']]);
+                }
+                $nodes[$index]['metadata']=$meta;
+                continue;
+            }
             if (($meta['source']??$meta['mediaSource']??'')!=='upload' || !in_array($node['type']??'',['image','video','audio'],true)
                 || !empty($meta['active_generation_id']) || !empty($meta['canvasRunId'])) continue;
             $uploads[$index]=$node;

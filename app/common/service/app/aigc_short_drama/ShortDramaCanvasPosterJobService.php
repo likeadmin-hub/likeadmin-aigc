@@ -103,6 +103,44 @@ class ShortDramaCanvasPosterJobService
         return $result + ['job_id' => $jobId, 'status' => $status, 'capture_time' => (float)$job['capture_time'], 'source_node_id' => $nodeId];
     }
 
+    /** Materialize an existing captured frame, including old nodes without an
+     * asset ID. Only the owned successful capture job can attest readiness. */
+    public static function frameNodeAsset(array $document, array $node): ?array
+    {
+        $meta=(array)($node['metadata']??[]);
+        $source=trim((string)($meta['uri']??$meta['url']??''));
+        $sourceNode=(string)($meta['frame_source_node_id']??'');
+        if($source===''||$sourceNode===''||empty($node['id']))return null;
+        return Db::transaction(static function()use($document,$node,$source,$sourceNode){
+            $tenant=(int)$document['tenant_id'];$user=(int)$document['user_id'];$canvas=(int)$document['id'];
+            $owned=Db::name('aigc_short_drama_canvas')->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if(!$owned)return null;
+            $jobs=Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,
+                'node_id'=>$sourceNode,'job_kind'=>'frame','status'=>'success'])->order('id','desc')->select()->toArray();
+            foreach($jobs as $job){
+                $result=json_decode((string)$job['result_json'],true)?:[];
+                $uri=(string)($result['uri']??'');
+                if($uri===''||empty($result['storage_scope'])||empty($result['storage_engine']))continue;
+                $url=FileService::getFileUrlByStorage($uri,$result['storage_scope'],$result['storage_engine'],(string)($result['storage_domain']??''));
+                if(!in_array($source,[$uri,$url],true))continue;
+                // A deleted capture asset must not be resurrected by a read or quote.
+                $assets=Db::name('aigc_short_drama_asset')->where(['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,
+                    'asset_type'=>'canvas_image','uri'=>$uri])->order('id','desc')->select()->toArray();
+                foreach($assets as $asset){
+                    $binding=json_decode((string)($asset['meta_json']??'{}'),true)?:[];
+                    if((string)($binding['node_id']??'')!==(string)$node['id'])continue;
+                    return (int)$asset['delete_time']===0&&$asset['status']==='ready'?$asset:null;
+                }
+                $asset=AigcShortDramaService::registerAsset($tenant,$user,$result+[
+                    'canvas_id'=>$canvas,'node_id'=>(string)$node['id'],'node_type'=>'image',
+                    'title'=>(string)($node['title']??'视频截帧'),'meta'=>['frame_job_id'=>(int)$job['id'],'frame_source_node_id'=>$sourceNode],
+                ]);
+                return Db::name('aigc_short_drama_asset')->where(['id'=>(int)$asset['id'],'tenant_id'=>$tenant,'user_id'=>$user])->find();
+            }
+            return null;
+        });
+    }
+
     /** @return array<int,array<string,mixed>> */
     public static function claim(string $worker, int $leaseSeconds, int $limit = 1): array
     {
