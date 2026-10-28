@@ -21,7 +21,7 @@ final class OpenAssets
         if($uri===''||empty($result['storage_scope'])||empty($result['storage_engine']))return null;
         $storage=['storage_scope'=>$result['storage_scope'],'storage_engine'=>$result['storage_engine'],'storage_domain'=>(string)($result['storage_domain']??'')];
         $id='of_'.substr(hash('sha256',OpenStore::encode([$tenantId,$userId,$app,$uri,$storage])),0,32);
-        $row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$uri,'name'=>basename((string)(parse_url($uri,PHP_URL_PATH)?:$uri)),'mime'=>(string)($result['mime']??$result['mime_type']??''),'size'=>max(0,(int)($result['size']??$result['file_size']??0))]+$storage+OpenStore::timestamp();
+        $row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$uri,'name'=>basename((string)(parse_url($uri,PHP_URL_PATH)?:$uri)),'mime'=>self::storedMime((string)(($result['mime']??'')?:($result['mime_type']??'')),$uri),'size'=>max(0,(int)($result['size']??$result['file_size']??0))]+$storage+OpenStore::timestamp();
         // The deterministic ID and unique file_id index make polling/recovery idempotent.
         $existing=OpenStore::table('file')->where('file_id',$id)->find();
         if(!$existing){
@@ -39,6 +39,19 @@ final class OpenAssets
     }
     public static function detail(int $tenantId,int $userId,string $id): array
     {
-        $row=OpenStore::owner('file',$tenantId,$userId)->where('file_id',$id)->find();if(!$row || !\app\common\service\WorkspaceAssetService::isFileVisible($tenantId,$userId,$row))throw new OpenException('not_found','素材不存在',404);return ['file_id'=>$row['file_id'],'name'=>$row['name'],'mime'=>$row['mime'],'size'=>$row['size'],'url'=>FileService::getFileUrlByStorage($row['uri'],$row['storage_scope'],$row['storage_engine'],$row['storage_domain'])];
+        $row=OpenStore::owner('file',$tenantId,$userId)->where('file_id',$id)->find();if(!$row || !\app\common\service\WorkspaceAssetService::isFileVisible($tenantId,$userId,$row))throw new OpenException('not_found','素材不存在',404);return ['file_id'=>$row['file_id'],'name'=>$row['name'],'mime'=>self::storedMime((string)($row['mime']??''),(string)$row['uri']),'size'=>$row['size'],'url'=>FileService::getFileUrlByStorage($row['uri'],$row['storage_scope'],$row['storage_engine'],$row['storage_domain'])];
+    }
+    /** Legacy native results omitted MIME. Use the owned stored path, not a
+     * client filename or provider URL; this is a routing hint, not byte validation. */
+    private static function storedMime(string $mime,string $uri): string
+    {
+        if($mime!==''&&$mime!=='application/octet-stream')return $mime;
+        $path=(string)(parse_url($uri,PHP_URL_PATH)?:$uri);
+        return match(strtolower(pathinfo($path,PATHINFO_EXTENSION))){
+            'jpg','jpeg'=>'image/jpeg','png'=>'image/png','webp'=>'image/webp','gif'=>'image/gif',
+            'mp4','m4v'=>'video/mp4','mov'=>'video/quicktime','webm'=>'video/webm',
+            'mp3'=>'audio/mpeg','wav'=>'audio/wav','m4a'=>'audio/mp4','ogg'=>'audio/ogg',
+            default=>$mime,
+        };
     }
 }
