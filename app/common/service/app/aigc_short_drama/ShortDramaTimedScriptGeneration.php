@@ -540,7 +540,8 @@ final class ShortDramaTimedScriptGeneration
             return $shots;
         }
         if (ShortDramaDialogueSplit::enabled($request)) {
-            ShortDramaEpisodeDuration::assertPlan(['storyboard' => $shots], $request);
+            // Also used by partial checkpoints. Whole-episode validation belongs
+            // after every scene has been assembled, not while stamping a prefix.
             $start = (float)$timeline[0]['start_seconds'];
             foreach ($shots as &$shot) {
                 $end = $start + (float)$shot['recommended_duration_seconds'];

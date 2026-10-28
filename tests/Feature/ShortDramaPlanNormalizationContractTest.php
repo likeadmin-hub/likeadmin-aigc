@@ -8,6 +8,32 @@ use ReflectionMethod;
 
 class ShortDramaPlanNormalizationContractTest extends TestCase
 {
+    public function testCharacterBiographiesSurvivePlanNormalizationAndEnhancement(): void
+    {
+        $biography = ['role' => '女主角', 'age' => '青年', 'background' => '离乡多年的调查员。',
+            'motivation' => '查明故人失踪的真相。', 'arc' => str_repeat('从逃避过去到直面真相。', 100)];
+        $result = $this->invoke('normalizeGeneratedPlanResult', [
+            'title' => '旧信', 'story_outline' => '林岚在旧站台发现一封关键来信。',
+            'script_lines' => ['林岚在旧站台拆开信封。'],
+            'characters' => [['name' => '林岚', 'description' => '身穿深色风衣。'] + $biography],
+            'scenes' => [['name' => '旧站台']],
+            'shots' => [['shot_id' => '1', 'visual_description' => '林岚拆开信封。']],
+        ], '旧信', [], '旧信');
+        $result = $this->invoke('enhancePlanResult', $result);
+        foreach ($biography as $field => $value) self::assertSame($value, $result['subjects'][0][$field]);
+        self::assertSame('身穿深色风衣。', $result['subjects'][0]['description']);
+    }
+
+    public function testBiographyFieldsAreOptionalAndDoNotLeakIntoLocations(): void
+    {
+        $legacy = $this->invoke('normalizeGeneratedNamedItems', [['name' => '林岚']], 'subject');
+        self::assertArrayNotHasKey('age', $legacy[0]);
+        $locations = $this->invoke('normalizeGeneratedNamedItems', [['name' => '旧站台', 'role' => '相逢之地', 'age' => '百年']], 'location');
+        self::assertSame('相逢之地', $locations[0]['description']);
+        self::assertArrayNotHasKey('age', $locations[0]);
+        self::assertArrayNotHasKey('role', $locations[0]);
+    }
+
     public function testNamedItemsAcceptProviderAliasesAndMissingDescriptions(): void
     {
         $result = $this->invoke('normalizeGeneratedPlanResult', [

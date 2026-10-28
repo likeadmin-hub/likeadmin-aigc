@@ -4,7 +4,13 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 16;
+    public const VERSION = 19;
+
+    /** Prose is creative content, not a second source of structural IDs or flags. */
+    public static function structuredValidation(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? $request['generation_settings']['input_contract_version'] ?? 0) >= 18;
+    }
 
     /** New generation delegates shot budgets and speech timing to the upstream LLM. */
     public static function providerTiming(array $request): bool

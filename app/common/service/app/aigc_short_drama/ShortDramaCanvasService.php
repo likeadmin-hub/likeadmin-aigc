@@ -437,14 +437,24 @@ class ShortDramaCanvasService
             $executionInput['business_table']=self::RUN_TABLE;
             $executionInput['business_id']=$runId;
         }
+        $createdTaskId=0;
         try {
-            $result=self::executeGenerationPayload($type,$tenantId,$userId,$executionInput);
+            $result=self::executeGenerationPayload($type,$tenantId,$userId,$executionInput,
+                static function ($task) use ($tenantId,$userId,$claim,&$createdTaskId): void {
+                    $createdTaskId=(int)$task['id'];
+                    GenerationIntentService::bindLocalTask($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],$createdTaskId);
+                });
         } catch (\app\common\service\ai\PreSubmissionRejected $error) {
             GenerationIntentService::rejected($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],$error);
             self::syncShortDramaTask($runId);
             return self::runDetail($tenantId,$userId,$runId);
         } catch (\Throwable $error) {
-            if (self::isConfirmedModelUnavailable($error)) {
+            if (in_array($type,['image','video','audio'],true) && $createdTaskId===0) {
+                // All media adapters bind before submit. No bound task means no new
+                // provider submission; expose a safe preflight failure, not an unknown charge.
+                GenerationIntentService::rejected($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],
+                    new \app\common\service\ai\PreSubmissionRejected('提交前校验未通过，请检查模型、素材及可用积分'));
+            } elseif ($type==='text' && self::isConfirmedModelUnavailable($error)) {
                 // The text market has already recorded/refunded this specific
                 // request without an upstream receipt. It is safe to expose a
                 // terminal failure and allow a new request key after switching
@@ -516,15 +526,15 @@ class ShortDramaCanvasService
         return 'submitted';
     }
 
-    private static function executeGenerationPayload(string $type,int $tenantId,int $userId,array $payload): array
+    private static function executeGenerationPayload(string $type,int $tenantId,int $userId,array $payload,?callable $onTaskCreated=null): array
     {
         return match ($type) {
             'text'=>AigcLlmService::generateText($tenantId,$userId,$payload),
             'image'=>($payload['operation']??'')==='local_redraw'
-                ? AigcLocalRedrawService::generate($tenantId,$userId,$payload)
-                : AigcImageService::generate($tenantId,$userId,$payload),
-            'video'=>AigcVideoService::generate($tenantId,$userId,$payload),
-            'audio'=>AigcMusicService::generate($tenantId,$userId,$payload),
+                ? AigcLocalRedrawService::generate($tenantId,$userId,$payload,$onTaskCreated)
+                : AigcImageService::generateWithBillingOverride($tenantId,$userId,$payload,[],$onTaskCreated),
+            'video'=>AigcVideoService::generate($tenantId,$userId,$payload,$onTaskCreated),
+            'audio'=>AigcMusicService::generate($tenantId,$userId,$payload,$onTaskCreated),
         };
     }
 
@@ -558,10 +568,27 @@ class ShortDramaCanvasService
         return self::formatRun($run);
     }
 
-    private static function refreshRun(array $run): void
+    /** Fair, bounded local reconciliation; safe when no browser is open. */
+    public static function reconcilePendingRuns(): void
     {
-        // A retained late receipt is evidence, not permission for ordinary
-        // polling to settle an unresolved submission or invoke provider sync.
+        static $nextScan=0, $cursor=0;
+        if (time()<$nextScan) return;
+        $nextScan=time()+30;
+        $rows=Db::name(self::RUN_TABLE)->where('delete_time',0)->where('id','>',$cursor)
+            ->whereIn('status',['queued','running','needs_reconciliation'])->order('id')->limit(20)->select()->toArray();
+        $cursor=$rows?(int)end($rows)['id']:0;
+        foreach ($rows as $run) {
+            try {
+                self::refreshRun($run,true);
+                GenerationIntentService::projectStatus((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+            } catch (\Throwable) { /* One unavailable historical task must not stop the worker. */ }
+        }
+    }
+
+    private static function refreshRun(array $run, bool $localOnly = false): void
+    {
+        if (!GenerationIntentService::reconcile((int)$run['tenant_id'], (int)$run['user_id'], (int)$run['id'])) return;
+        $run = Db::name(self::RUN_TABLE)->where('id', $run['id'])->find() ?: $run;
         if ((string)$run['status']==='needs_reconciliation') return;
         // Successful runs are reconciled again on detail reads. This repairs an
         // expired/raw provider URI into a storage-authorized delivery URL and
@@ -581,7 +608,7 @@ class ShortDramaCanvasService
         // Image-market tasks expose an explicit reconciliation hook. Video and
         // music runtimes publish their status through their own callback flows,
         // so reading their task rows is the non-invasive reconciliation path.
-        if ($type === 'image') {
+        if ($type === 'image' && !$localOnly) {
             try { AigcImageService::syncMarketTaskResult((int)$run['tenant_id'], $externalId, (int)$run['user_id']); } catch (\Throwable) { }
         }
         $table = $type === 'image' ? 'aigc_image_task' : ($type === 'video' ? 'aigc_video_task' : 'aigc_music_task');
@@ -1119,6 +1146,13 @@ class ShortDramaCanvasService
         }
         foreach (['quality', 'resolution', 'negative_prompt'] as $key) {
             if (isset($params[$key])) $payload[$key] = (string)$params[$key];
+        }
+        // Use the same schema-validated controls as the image/video workspace.
+        // Keep them in the saved request so preview, confirmation and submit agree.
+        // Do not accept raw provider_params or billing/identity overrides here.
+        if (in_array($type, ['image', 'video'], true) && isset($params['advanced_params'])) {
+            if (!is_array($params['advanced_params'])) throw new Exception('高级参数格式不正确');
+            $payload['advanced_params'] = $params['advanced_params'];
         }
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
     }

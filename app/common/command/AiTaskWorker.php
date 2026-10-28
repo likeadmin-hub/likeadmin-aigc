@@ -48,6 +48,7 @@ class AiTaskWorker extends Command
                     $output->writeln('Runtime generation changed; worker drained and stopped.');
                     break;
                 }
+                if ($appCode === '' || $appCode === 'aigc_short_drama') \app\common\service\app\aigc_short_drama\ShortDramaCanvasService::reconcilePendingRuns();
                 if ($appCode === '') ShortDramaCanvasPosterJobService::recoverExpired();
                 $jobs = AiTaskJobService::claim($worker, $lease, $batch, $appCode);
                 if ($jobs === []) {

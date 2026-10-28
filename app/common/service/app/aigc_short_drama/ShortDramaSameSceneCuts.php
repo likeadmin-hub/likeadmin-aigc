@@ -34,6 +34,10 @@ final class ShortDramaSameSceneCuts
     /** Validate only auto-created segments, never rewrite user-authored prompts. */
     public static function assertShot(array $shot, array $plan, array $request): void
     {
+        // Time ranges can describe one continuous move; a name in prose can
+        // be a mention or a substring. Neither proves a cut or visible actor.
+        // Keep the capability instruction; semantic review owns these claims.
+        if (ShortDramaInputContract::structuredValidation($request)) return;
         $camera = (string)($shot['camera_movement'] ?? '');
         preg_match_all('/(\d+(?:\.\d+)?)\s*(?:秒)?\s*[-–—~至到]\s*(\d+(?:\.\d+)?)\s*秒/u', $camera, $ranges, PREG_SET_ORDER);
         if (count($ranges) < 2) return;

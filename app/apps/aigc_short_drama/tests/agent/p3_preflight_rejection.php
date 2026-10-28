@@ -12,12 +12,18 @@ class P3PreflightVideo {
     public static int $sku=0;
     public static int $calls=0;
     public static bool $unknown=false;
+    public static bool $invalidInput=false;
     public static function estimate(int $tenant,array $payload): array {
         return Market::quote($tenant,['market_sku_id'=>self::$sku]+$payload);
     }
-    public static function generate($tenant,$user,$payload): array {
+    public static function generate($tenant,$user,$payload,?callable $onTaskCreated=null): array {
         self::$calls++;
-        if (self::$unknown) throw new RuntimeException('simulated response lost after submit');
+        if (self::$invalidInput) throw new InvalidArgumentException('invalid reference before task creation');
+        if (self::$unknown) {
+            $task=(int)Db::name('aigc_video_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'running','create_time'=>time(),'delete_time'=>0]);
+            if ($onTaskCreated) $onTaskCreated(['id'=>$task]);
+            throw new RuntimeException('simulated response lost after submit');
+        }
         Market::reserve($tenant,$user,'aigc_short_drama','video','aigc_video_task','p3-preflight',
             ['market_sku_id'=>self::$sku,'duration'=>5],['prompt'=>'synthetic','duration'=>5]);
         throw new LogicException('Fixture must reject before any Provider call');
@@ -30,7 +36,7 @@ try {
     Db::name('tenant')->insert(['id'=>91001,'sn'=>'p3-preflight','create_time'=>time(),'point_balance'=>0]);
     Db::name('user')->insert(['id'=>92001,'sn'=>92001,'account'=>'p3-preflight','tenant_id'=>91001,'user_money'=>100]);
     $product=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-p3-preflight','resource_type'=>'model','model_type'=>'video','name'=>'Synthetic video','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-p3-preflight','upstream_model_code'=>'isolated-p3-preflight','upstream_channel_code'=>'isolated-channel','status'=>1]);
-    P3PreflightVideo::$sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'video-call','title'=>'Synthetic video','usage_unit'=>'call','sale_points'=>2,'status'=>1,'sale_status'=>1,'locked_params'=>'{"duration":5}']);
+    P3PreflightVideo::$sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'video-call','title'=>'Synthetic video','usage_unit'=>'per_call','usage_unit_size'=>1,'source_payload'=>'{"meter_summary":"按次，总点数向上取整"}','upstream_price'=>2,'sale_points'=>2,'status'=>1,'sale_status'=>1,'locked_params'=>'{"duration":5}']);
     $canvas=Canvas::create(91001,92001,['title'=>'P3 known preflight failure'])['id'];
     Canvas::save(91001,92001,['id'=>$canvas,'nodes'=>[['id'=>1,'type'=>'video','metadata'=>[]]]]);
     $counts=static fn():array=>[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count(),Db::name('tenant_point_log')->where('tenant_id',91001)->count(),Db::name('user_account_log')->where('user_id',92001)->count()];
@@ -66,6 +72,15 @@ try {
         agentCheck($denied,'failed run remains inaccessible outside its tenant/user scope');
     }
     if (!$realApp) {
+    P3PreflightVideo::$invalidInput=true;
+    $params['request_key']='p3-invalid-input';
+    unset($params['quote_token']);
+    $quote=Canvas::quote(91001,92001,$params);
+    $params['quote_token']=Canvas::confirmQuote(91001,92001,['canvas_id'=>$canvas,'node_id'=>'1','quote_token'=>$quote['quote_token']])['quote_token'];
+    $invalid=Canvas::submitIdempotent(91001,92001,$params);
+    agentCheck($invalid['status']==='failed' && str_contains($invalid['error'],'提交前校验'),'unbound validation failure cannot strand a node in reconciliation');
+    agentCheck($before===$counts(),'unbound validation failure does not touch billing');
+    P3PreflightVideo::$invalidInput=false;
     P3PreflightVideo::$unknown=true;
     $params['request_key']='p3-unknown';
     unset($params['quote_token']);

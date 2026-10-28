@@ -39,7 +39,7 @@ try {
     ]);
     P3QuoteConfirmationVideo::$sku = Db::name('power_market_sku')->insertGetId([
         'product_id' => $product, 'sku_key' => 'video-call', 'title' => 'Isolated video call',
-        'usage_unit' => 'call', 'sale_points' => 2, 'status' => 1, 'sale_status' => 1, 'locked_params' => '{"duration":5}',
+        'usage_unit' => 'per_call', 'usage_unit_size' => 1, 'source_payload' => '{"meter_summary":"按次，总点数向上取整"}', 'upstream_price' => 2, 'sale_points' => 2, 'status' => 1, 'sale_status' => 1, 'locked_params' => '{"duration":5}',
     ]);
     $canvas = Canvas::create(91001, 92001, ['title' => 'P3 quote confirmation'])['id'];
     Canvas::save(91001, 92001, ['id' => $canvas, 'nodes' => [['id' => 1, 'type' => 'video', 'metadata' => ['content_revision' => 1]]]]);

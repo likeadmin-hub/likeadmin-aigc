@@ -11,6 +11,44 @@ use think\Container;
 /** Exercises the real script-plan assembly/normalization/repair path with a fake provider only. */
 class ShortDramaScriptPlanGenerationContractTest extends TestCase
 {
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testCompletedScriptSurvivesMalformedEditorialReceiptThroughService(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $this->silenceLog();
+        // This fixture returns a normal script, but its legacy review response
+        // lacks the new requirements shape. Exercise the real receipt boundary.
+        $out=$this->generate(['_generation_version'=>3,'_input_contract_version'=>19,
+            'multi_episode'=>false,'episode_count'=>1,'quality_review_enabled'=>true]);
+        self::assertCount(12,$out['result']['storyboard']);
+        self::assertSame('needs_review',$out['result']['script_review']['status']);
+        self::assertSame('blocked',$out['result']['_continuity']['dependency_status']);
+        self::assertSame([],$out['result']['_continuity']['state']);
+        self::assertNotEmpty($out['repair_llm']);
+        self::assertCount(4,\app\common\service\power\MarketTextModelRuntimeService::$requests);
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testNewOptOutProducesUnreviewedDraftWithoutAnyReviewCharge(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $this->silenceLog();
+        $out=$this->generate(['_generation_version'=>3,'_input_contract_version'=>19,
+            'multi_episode'=>false,'episode_count'=>1,'quality_review_enabled'=>false]);
+        self::assertCount(12,$out['result']['storyboard']);
+        self::assertSame('unreviewed',$out['result']['script_review']['status']);
+        self::assertSame('skipped',$out['result']['_continuity']['audit_status']);
+        self::assertSame('ready',$out['result']['_continuity']['dependency_status']);
+        self::assertSame([],$out['repair_llm']);
+        self::assertCount(1,\app\common\service\power\MarketTextModelRuntimeService::$requests);
+    }
+
     public function testRealProviderStructuredGenreDoesNotDiscardCompleteStoryboard(): void
     {
         $fixture = json_decode(file_get_contents(__DIR__ . '/../fixtures/short_drama_real_structured_genre.json'), true, 512, JSON_THROW_ON_ERROR);

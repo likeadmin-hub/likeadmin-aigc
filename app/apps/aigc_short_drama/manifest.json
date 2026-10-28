@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
   "name": "AI短剧",
-  "version": "1.0.43",
+  "version": "1.0.48",
   "require_core": ">=1.0.272 <2.0.0",
   "description": "短剧设定与大纲确认、分段剧本生成、跨集连续性复核与独立分集制作。",
-  "changelog": "1. 剧本骨架返回关键事件但缺少分场动作时，继续生成并标记为关键事件提纲，减少无效重试。\n2. 分场地点标签与实际拍摄地点不一致时自动校正，跨地点剧情仍会提示拆场。\n3. 保留已创建任务的生成规则。",
+  "changelog": "1. 关闭自动剧情复核时，多集按顺序连续生成。\n2. 修复未开启复核导致后续剧集暂停的问题，保留实际复核问题的暂停保护。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

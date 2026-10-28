@@ -87,6 +87,8 @@ final class CanvasGenerationParameters
             if (!isset($definitions[$path])) throw new InvalidArgumentException('当前模型不支持参数：' . $path . '，请重置高级参数');
             $field = $definitions[$path];
             $value = self::value($raw, $field);
+            $locked = self::locked($model, $path);
+            if ($locked !== null && $value != $locked) throw new InvalidArgumentException($field['label'] . '已由当前规格固定');
             if (isset($field['locked']) && $value != $field['default']) throw new InvalidArgumentException($field['label'] . '已由当前规格固定');
             $parts = explode('.', $path);
             $key = end($parts);

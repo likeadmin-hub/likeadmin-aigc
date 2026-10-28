@@ -18,8 +18,10 @@ class ShortDramaImportedScriptTest extends TestCase
     public function testParserAdapterKeepsFullSourceAndRangeAcrossNormalization(): void
     {
         $original = str_repeat('主角翻开旧信，寻找失踪者的下落。', 5000) . '结尾发现真实署名。';
+        $biography = ['role' => '女主角', 'age' => '青年', 'background' => '曾在旧宅生活的调查员。',
+            'motivation' => '寻找失踪的故人。', 'arc' => '从逃避过去到主动揭开真相。'];
         $payload = ['title' => '旧信', 'type_judgement' => ['genre'=>'悬疑'], 'core_theme' => '寻找真相', 'story_outline' => '主角从旧信发现失踪者的踪迹。',
-            'subjects' => [['id' => 's1', 'name' => '调查员', 'description' => '寻找失踪者的调查员', 'category' => 'character']],
+            'subjects' => [['id' => 's1', 'name' => '调查员', 'description' => '寻找失踪者的调查员', 'category' => 'character'] + $biography],
             'locations' => [['id' => 'l1', 'name' => '书房', 'description' => '堆满旧信的书房']], 'episodes' => []];
         for ($i = 1; $i <= 2; $i++) $payload['episodes'][] = ['episode_number' => $i, 'title' => '旧信线索' . $i,
             'story_outline' => $i === 1 ? '调查员寻找旧信，发现新的署名。' : '调查员赶往信中地址，遇见失踪者的妹妹。',
@@ -35,10 +37,16 @@ class ShortDramaImportedScriptTest extends TestCase
             self::assertSame(['start_line' => ($episode['episode_number'] - 1) * 5001 + 1, 'end_line' => $episode['episode_number'] * 5001], $episode['source_range']);
         }
         $story = ShortDramaImportedScript::storyDraft($plan);
+        foreach ($biography as $field => $value) self::assertSame($value, $story['subjects'][0][$field]);
+        $story = \app\common\service\app\aigc_short_drama\ShortDramaStoryDraft::merge($story,
+            ['subjects' => [['id' => 's1', 'role' => '用户修改的主角定位']]], 'story');
+        self::assertSame('用户修改的主角定位', $story['subjects'][0]['role']);
         self::assertSame([], $story['episodes']);
         self::assertSame('story', $story['multi_episode_stage']);
         self::assertSame([], \app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::issues($story, 'story', 2));
         $confirmed = ShortDramaImportedScript::confirmedOutline($plan, $story);
+        self::assertSame($story['subjects'], $confirmed['subjects']);
+        foreach (array_diff_key($biography, ['role' => true]) as $field => $value) self::assertSame($value, $confirmed['subjects'][0][$field]);
         self::assertSame($plan['episodes'], $confirmed['episodes']);
         self::assertSame('episodes', $confirmed['multi_episode_stage']);
         self::assertSame([], \app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::issues($confirmed, 'episodes', 2));

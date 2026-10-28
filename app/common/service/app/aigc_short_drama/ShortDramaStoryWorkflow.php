@@ -12,6 +12,9 @@ final class ShortDramaStoryWorkflow
     /** Missing on historical tasks means the original review flow. */
     public static function qualityReviewEnabled(array $request): bool
     {
+        if (ShortDramaReviewOutcome::enabled($request)) {
+            return filter_var($request['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        }
         // Canvas production and revision receipts predate the opt-out. Apply
         // the same policy when those saved tasks are resumed or advanced.
         if (in_array($request['_prompt_snapshot']['canvas_creative_policy']['version'] ?? '', ['2026-10-10.1', '2026-10-10.2'], true)) return false;
@@ -24,17 +27,22 @@ final class ShortDramaStoryWorkflow
             || filter_var($request['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
     }
 
-    /** The series setting is authoritative for its independently queued episodes. */
+    /** Automatic generation inherits the series setting; an explicit review remains enabled. */
     public static function inheritQualityReview(array $episodeRequest, array $outlineRequest): array
     {
-        $episodeRequest['quality_review_enabled'] = self::qualityReviewEnabled($outlineRequest);
+        $episodeRequest['quality_review_enabled'] = (ShortDramaReviewOutcome::enabled($episodeRequest)
+            && !empty($episodeRequest['_continuity_review_only'])) || self::qualityReviewEnabled($outlineRequest);
         return $episodeRequest;
     }
 
     public static function enabled(array $request): bool
     {
+        $outlineBatch = (int)($request['_input_contract_version'] ?? 0) >= 17
+            && !empty($request['_short_drama_episode_batch'])
+            && ($request['multi_episode_stage'] ?? '') === 'episodes'
+            && (int)($request['episode_total_count'] ?? 0) >= 2;
         return ($request['workflow_variant'] ?? '') === self::VARIANT
-            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= (!empty($request['_canvas_series_planning']) ? 1 : 2);
+            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= (!empty($request['_canvas_series_planning']) || $outlineBatch ? 1 : 2);
     }
 
     public static function workerOwned(array $request): bool

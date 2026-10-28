@@ -16,6 +16,8 @@ try {
         $id=Canvas::create(91001,92001,['title'=>'P1 '.$type.' projection'])['id'];
         Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>$type,'x'=>10,'y'=>20,'metadata'=>['prompt'=>'original','richContent'=>'<p>Old result</p>']]]]);
         $a=Intent::reserve(91001,92001,$id,'a','1',$type,['prompt'=>'A']);$a=Intent::claim(91001,92001,(int)$a['id']);
+        // A has completed, but its projection arrives after B. Uncertain submissions cannot be superseded.
+        finishFixture($a,$type,'A');
         $b=Intent::reserve(91001,92001,$id,'b','1',$type,['prompt'=>'B']);$b=Intent::claim(91001,92001,(int)$b['id']);
         finishFixture($b,$type,'B');
         $nodes=Canvas::current(91001,92001,$id)['nodes'];$nodes[0]['x']=999;
@@ -28,7 +30,6 @@ try {
         if ($type==='text') agentCheck($current['nodes'][0]['metadata']['richContent']==='','text generation removes obsolete rich-text preview');
         $revision=$current['graph_revision'];
         agentCheck(!Intent::projectResult(91001,92001,(int)$b['canvas_run_id']) && Canvas::current(91001,92001,$id)['graph_revision']===$revision,$type.' duplicate projection does not change graph revision');
-        finishFixture($a,$type,'A');
         agentCheck(!Intent::projectResult(91001,92001,(int)$a['canvas_run_id']) && Canvas::current(91001,92001,$id)['nodes'][0]['metadata'][$field]===$expected,$type.' late first result cannot replace second result');
         agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$id)->where('status','success')->count()===2,$type.' both generations remain in run history');
         $c=Intent::reserve(91001,92001,$id,'c','1',$type,['prompt'=>'C']);$c=Intent::claim(91001,92001,(int)$c['id']);
@@ -65,7 +66,10 @@ try {
     agentCheck((Canvas::runDetail(91001,92001,$runId)['status']??'')==='needs_reconciliation','run detail retains the unknown submission state');
     $after=Canvas::current(91001,92001,$id);
     agentCheck(($after['nodes'][0]['metadata']['status']??'')==='needs_reconciliation' && ($after['nodes'][0]['metadata']['error']??'')!=='','unknown run is visibly held without resubmission');
+    Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['state'=>'needs_reconciliation']);
     agentCheck(!Intent::projectStatus(91001,92001,$runId) && Canvas::current(91001,92001,$id)['graph_revision']===$after['graph_revision'],'duplicate status projection does not change graph revision');
+    // Seed an old-version history: newer runs could previously supersede an unknown run.
+    Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['state'=>'accepted']);
     $next=Intent::reserve(91001,92001,$id,'newer','1','video',['prompt'=>'newer']);
     agentCheck(!Intent::projectStatus(91001,92001,$runId) && (int)Canvas::current(91001,92001,$id)['nodes'][0]['metadata']['active_generation_id']===(int)$next['canvas_run_id'],'older unknown status cannot replace newer generation');
     $id=Canvas::create(91001,92001,['title'=>'P1 failed provider status'])['id'];

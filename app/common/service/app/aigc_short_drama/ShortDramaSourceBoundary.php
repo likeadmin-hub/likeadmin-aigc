@@ -57,6 +57,24 @@ final class ShortDramaSourceBoundary
     public static function episode(array $episode): array
     {
         $original = ShortDramaImportedScript::sourceContent($episode);
+        $scope = (array)($episode['source_scope'] ?? []);
+        if (($scope['version'] ?? 0) === 2) {
+            $range = (array)($episode['source_range'] ?? []);
+            $start = $range['start_line'] ?? null; $end = $range['end_line'] ?? null;
+            if (!in_array($scope['kind'] ?? '', ['document_line_range', 'outline_alignment'], true)
+                || ($scope['episode_number'] ?? 0) !== (int)($episode['episode_number'] ?? $episode['episode_no'] ?? 0)
+                || !is_int($start) || !is_int($end) || $start < 1 || $end < $start
+                || $end > ($scope['document_line_count'] ?? 0)
+                || $start !== ($scope['start_line'] ?? null) || $end !== ($scope['end_line'] ?? null)
+                || count(ShortDramaSourceAlignment::lines($original)) !== $end - $start + 1
+                || !preg_match('/^[a-f0-9]{64}$/', (string)($scope['document_sha256'] ?? ''))
+                || !hash_equals((string)($scope['content_sha256'] ?? ''), hash('sha256', $original))) {
+                throw new RuntimeException('本集原文与已确认的分集范围不一致，请重新解析并确认大纲', 422);
+            }
+            $episode['source_content'] = $original;
+            unset($episode['content']);
+            return $episode;
+        }
         if ($original === '') return $episode; // Ordinary outline-only creation remains valid.
         $source = self::text($original);
         $sections = self::sections($source);
@@ -76,8 +94,9 @@ final class ShortDramaSourceBoundary
         return $episode;
     }
 
-    public static function episodes(array $episodes): array
+    public static function episodes(array $episodes, string $parseMode = ''): array
     {
+        if ($parseMode === 'split_by_ai') $episodes = ShortDramaSourceAlignment::map($episodes);
         $seen = []; $ranges = [];
         foreach ($episodes as $index => &$episode) {
             $episode = self::episode($episode);
@@ -106,7 +125,7 @@ final class ShortDramaSourceBoundary
     public static function assertRequest(array $request): void
     {
         $episode = $request['series_context']['current_episode'] ?? [];
-        if (!$episode || ShortDramaImportedScript::sourceContent($episode) === '') return;
+        if (!$episode) return;
         $normalized = self::episode($episode);
         if (ShortDramaImportedScript::sourceContent($normalized) !== ShortDramaImportedScript::sourceContent($episode)) {
             throw new RuntimeException('本集原文包含其他剧集，已停止生成；请重新解析并确认分集大纲，原有结果保留', 422);

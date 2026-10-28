@@ -21,11 +21,12 @@ class ShortDramaStoryWorkflowTest extends TestCase
         self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
     }
 
-    public function testNewSubmissionsDefaultOffAndHistoricalTasksKeepReview(): void
+    public function testNewSubmissionsDefaultOffAndExplicitHistoricalPolicyIsPreserved(): void
     {
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeCreateRequest');
         $method->setAccessible(true);
         self::assertFalse($method->invoke(null, ['prompt' => '故事'], [])['quality_review_enabled']);
+        self::assertFalse($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => false], [])['quality_review_enabled']);
         self::assertTrue($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => true], [])['quality_review_enabled']);
         self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
         self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled(['quality_review_enabled' => false]));
@@ -39,6 +40,18 @@ class ShortDramaStoryWorkflowTest extends TestCase
         self::assertSame(1, $disabled['episode_number']);
         self::assertTrue(ShortDramaStoryWorkflow::inheritQualityReview($disabled, ['quality_review_enabled' => true])['quality_review_enabled']);
         self::assertTrue(ShortDramaStoryWorkflow::inheritQualityReview($disabled, [])['quality_review_enabled']);
+    }
+
+    public function testExplicitNewReviewSurvivesParentOptOutAtEveryWorkerBoundary(): void
+    {
+        $request = ['_input_contract_version'=>19, '_continuity_review_only'=>true, 'quality_review_enabled'=>true];
+        $parent = ['quality_review_enabled'=>false];
+        for ($i=0; $i<3; $i++) {
+            $request = ShortDramaStoryWorkflow::inheritQualityReview($request, $parent);
+            self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled($request));
+        }
+        unset($request['_continuity_review_only']);
+        self::assertFalse(ShortDramaStoryWorkflow::inheritQualityReview($request, $parent)['quality_review_enabled']);
     }
 
     public function testDisabledReviewKeepsStructuralChecksWithoutEditorialStoryGate(): void
