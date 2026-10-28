@@ -15834,6 +15834,10 @@ class AigcShortDramaService
                 return is_array($option) && (string)($option['id'] ?? $option['value'] ?? $option['channel_code'] ?? '') !== '';
             }));
             if (!empty($group['options'])) {
+                if (in_array($key, ['image', 'video'], true)) {
+                    $group['options'] = array_map(static fn(array $option): array =>
+                        \app\common\service\power\MarketCreationParameters::describe($option, $key), $group['options']);
+                }
                 $visibleGroups[] = $group;
             }
         }
