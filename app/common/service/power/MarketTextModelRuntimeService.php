@@ -187,6 +187,7 @@ class MarketTextModelRuntimeService
         $modelConfig = self::modelConfig($params);
         $maxTokens = self::resolveMaxTokens($model, $modelConfig);
         $generationParams = self::generationParams($model, $modelConfig);
+        if($executionPolicy!==null)$generationParams=$executionPolicy->generationParams($model,$generationParams);
         // Neuron's canonical history does not carry signed thinking blocks.
         // Do not enable a mode whose tool continuation we cannot faithfully replay.
         if (!empty($params['_agent_tool_history']) && self::protocolForModel($model) === 'anthropic_messages') {
@@ -272,6 +273,12 @@ class MarketTextModelRuntimeService
                     if ($openTextCall) {
                         $usage = self::normalizeUsage((array)($result['usage'] ?? []));
                         \app\common\service\open_platform\OpenTextLifecycle::recordResult($context, $result, $usage);
+                    }
+                    if($executionPolicy!==null&&($result['content_source']??'content')!=='content'){
+                        $usage=self::normalizeUsage((array)($result['usage']??[]));
+                        $error=new \RuntimeException('模型未返回最终正文，请调整思考模式后重新生成');
+                        self::deferSettlement($context,$result,$usage,$error,true);
+                        throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$error,$error->getMessage());
                     }
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');

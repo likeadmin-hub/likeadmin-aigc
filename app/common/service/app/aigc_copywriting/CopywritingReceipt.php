@@ -20,7 +20,7 @@ final class CopywritingReceipt
     public static function record(array $log,array $appTask,array $result,bool $complete): void
     {
         if(($log['app_code']??'')!=='aigc_copywriting'||($appTask['business_table']??'')!=='aigc_copywriting_task')throw new \InvalidArgumentException('文案回执归属不匹配');
-        $body=['tenant_id'=>(int)$log['tenant_id'],'user_id'=>(int)$log['user_id'],'task_id'=>(int)$appTask['business_id'],'consumption_id'=>(int)$log['id'],'app_task_id'=>(int)$appTask['id'],'complete'=>$complete,'result'=>$result,'received_at'=>time()];
+        $body=['tenant_id'=>(int)$log['tenant_id'],'user_id'=>(int)$log['user_id'],'task_id'=>(int)$appTask['business_id'],'consumption_id'=>(int)$log['id'],'app_task_id'=>(int)$appTask['id'],'complete'=>$complete&&($result['content_source']??'content')==='content','result'=>$result,'received_at'=>time()];
         $path=self::prepare().'/'.(int)$log['id'].'.receipt';$tmp=$path.'.'.bin2hex(random_bytes(8)).'.tmp';
         $sealed=OpenVault::seal(CopywritingStore::json($body));$fp=fopen($tmp,'xb');if(!$fp)throw new \RuntimeException('文案回执写入失败');
         try {
