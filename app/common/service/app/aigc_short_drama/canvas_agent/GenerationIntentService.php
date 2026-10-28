@@ -72,7 +72,7 @@ final class GenerationIntentService
             $row=self::owned($tenant,$user,$id);
             self::assertClaimIdentity($row,$token,$fence);
             if (!in_array($row['state'],['submitting','needs_reconciliation'],true)) throw new RuntimeException('STALE_SUBMISSION_CLAIM');
-            $table=self::mediaTable($row['node_type']);
+            $table=self::mediaTable((string)(json_decode($row['snapshot_json'],true)['type']??''));
             if (!$table || !Db::name($table)->where(['id'=>$taskId,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find()) throw new RuntimeException('GENERATION_TASK_OWNER_MISMATCH');
             if ($row['provider_task_id']!=='' && (string)$row['provider_task_id']!==(string)$taskId) throw new RuntimeException('PROVIDER_RECEIPT_CONFLICT');
             self::transition($row,['provider_task_id'=>(string)$taskId],['provider_task_id'=>(string)$taskId]);
@@ -91,7 +91,7 @@ final class GenerationIntentService
                 $row['state']='needs_reconciliation';
             }
             if ($row['state']!=='needs_reconciliation') return false;
-            $table=self::mediaTable($row['node_type']);
+            $table=self::mediaTable((string)(json_decode($row['snapshot_json'],true)['type']??''));
             if (!$table || !ctype_digit((string)$row['provider_task_id']) || (int)$row['provider_task_id']<=0) return false;
             $taskId=(int)$row['provider_task_id'];
             $task=Db::name($table)->where(['id'=>$taskId,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
