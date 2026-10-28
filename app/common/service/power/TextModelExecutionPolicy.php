@@ -18,6 +18,14 @@ final class TextModelExecutionPolicy
             throw new \InvalidArgumentException('MODEL_OR_PRICE_CHANGED');
         }
     }
+    public function prepareReceipt(): void
+    {
+        \app\common\service\app\aigc_copywriting\CopywritingReceipt::prepare();
+    }
+    public function recordReceipt(array $log,array $task,array $result,bool $complete): void
+    {
+        \app\common\service\app\aigc_copywriting\CopywritingReceipt::record($log,$task,$result,$complete);
+    }
     public function preserveUncertain(string $message): bool
     {
         return (bool)preg_match('/timeout|timed out|超时|cURL|connection|reset|empty response|无效响应|连接|任务已取消/i',$message);
