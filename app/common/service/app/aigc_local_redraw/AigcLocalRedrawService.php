@@ -111,7 +111,7 @@ class AigcLocalRedrawService
         return ['prepared' => $prepared, 'estimate' => $estimate];
     }
 
-    public static function generate(int $tenantId, int $userId, array $params): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onTaskCreated = null): array
     {
         self::assertAvailable($tenantId);
         $frozen = \app\common\service\open_platform\OpenImagePricing::prepared($tenantId, $userId, self::APP_CODE);
@@ -142,7 +142,10 @@ class AigcLocalRedrawService
         $imageResult = AigcImageService::generateWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
-        ], $handoff);
+        ], static function ($image) use ($handoff, $onTaskCreated): void {
+            if ($onTaskCreated) $onTaskCreated($image);
+            if ($handoff) $handoff($image);
+        });
         $imageTaskId = (int)($imageResult['task_id'] ?? 0);
         if ($imageTaskId <= 0) {
             throw new Exception('局部重绘任务创建失败');

@@ -66,7 +66,7 @@ final class AigcMusicMarketService
             'charge_source' => 'power_market_app_api', 'duration' => AigcMusicService::normalizeDuration($params['duration'] ?? 30)];
     }
 
-    public static function generate(int $tenantId, int $userId, array $params, array $payload, ?array $frozen): array
+    public static function generate(int $tenantId, int $userId, array $params, array $payload, ?array $frozen, ?callable $onTaskCreated = null): array
     {
         $selection = $frozen['selection'] ?? self::selection($tenantId, $params);
         // Validate current sellability, even when executing an accepted price.
@@ -110,6 +110,7 @@ final class AigcMusicMarketService
             return ['task' => $task, 'new' => true];
         });
         $task = $context['task'];
+        if ($onTaskCreated) $onTaskCreated($task);
         if ($context['new']) {
             try { Runtime::submit((int)$task['consumption_id'], $payload); }
             catch (\Throwable $error) {

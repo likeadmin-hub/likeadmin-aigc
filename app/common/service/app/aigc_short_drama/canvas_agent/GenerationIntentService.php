@@ -40,6 +40,8 @@ final class GenerationIntentService
             }
             if (!$node) throw new RuntimeException('NODE_NOT_FOUND');
             if (($node['type']??'')!==$type) throw new RuntimeException('NODE_TYPE_MISMATCH');
+            $unresolved=Db::name(self::TABLE)->where($scope+['node_id'=>$nodeId])->whereIn('state',['submitting','needs_reconciliation'])->lock(true)->find();
+            if ($unresolved) throw new RuntimeException('该节点已有提交结果待核实，请先核对任务状态');
             $now=time();
             $run=Db::name(self::RUNS)->insertGetId($scope+[
                 'node_id'=>$nodeId,'node_type'=>$type,'status'=>'queued','progress'=>0,
@@ -61,6 +63,64 @@ final class GenerationIntentService
             GraphService::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'update_time'=>$now]);
             return Db::name(self::TABLE)->where('id',$id)->find();
         });
+    }
+
+    /** Server-only task-created hook, before provider I/O. Never inferred from prompts. */
+    public static function bindLocalTask(int $tenant,int $user,int $id,string $token,int $fence,int $taskId): void
+    {
+        Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$taskId): void {
+            $row=self::owned($tenant,$user,$id);
+            self::assertClaimIdentity($row,$token,$fence);
+            if (!in_array($row['state'],['submitting','needs_reconciliation'],true)) throw new RuntimeException('STALE_SUBMISSION_CLAIM');
+            $table=self::mediaTable($row['node_type']);
+            if (!$table || !Db::name($table)->where(['id'=>$taskId,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find()) throw new RuntimeException('GENERATION_TASK_OWNER_MISMATCH');
+            if ($row['provider_task_id']!=='' && (string)$row['provider_task_id']!==(string)$taskId) throw new RuntimeException('PROVIDER_RECEIPT_CONFLICT');
+            self::transition($row,['provider_task_id'=>(string)$taskId],['provider_task_id'=>(string)$taskId]);
+        });
+    }
+
+    /** Only local durable evidence may release an uncertain submission. No submit/refund/provider call. */
+    public static function reconcile(int $tenant,int $user,int $runId): bool
+    {
+        return Db::transaction(function () use ($tenant,$user,$runId): bool {
+            $row=Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'canvas_run_id'=>$runId])->lock(true)->find();
+            if (!$row) return true; // Legacy runs retain their existing refresh path.
+            if (in_array($row['state'],['accepted','failed','canceled'],true)) return true;
+            if ($row['state']==='submitting' && (int)$row['lease_until']<=time()) {
+                self::transition($row,['state'=>'needs_reconciliation','error_code'=>'SUBMISSION_LEASE_EXPIRED','lease_until'=>0],['status'=>'needs_reconciliation','error'=>'生成提交中断，正在核对已提交任务']);
+                $row['state']='needs_reconciliation';
+            }
+            if ($row['state']!=='needs_reconciliation') return false;
+            $table=self::mediaTable($row['node_type']);
+            if (!$table || !ctype_digit((string)$row['provider_task_id']) || (int)$row['provider_task_id']<=0) return false;
+            $taskId=(int)$row['provider_task_id'];
+            $task=Db::name($table)->where(['id'=>$taskId,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->find();
+            if (!$task || (int)($task['app_task_id']??0)<=0) return false;
+            $app=Db::name('ai_app_task')->where(['id'=>(int)$task['app_task_id'],'tenant_id'=>$tenant,'user_id'=>$user,'business_table'=>$table,'business_id'=>$taskId])->find();
+            if (!$app) return false;
+            $usage=Db::name('ai_consumption_log')->where(['app_task_id'=>$app['id'],'tenant_id'=>$tenant,'user_id'=>$user])->order('id','desc')->find();
+            if (!$usage) return false;
+            $status=(string)$task['status'];
+            $billing=(string)$usage['billing_status'];
+            $failed=in_array($status,['failed','canceled'],true) && in_array($app['status'],['failed','canceled'],true) && $billing==='refunded';
+            $success=$status==='success' && $app['status']==='success' && $billing==='settled';
+            $accepted=in_array($status,['running','pending','queued','processing'],true)
+                && in_array($app['status'],['running','pending','queued','processing'],true)
+                && in_array($billing,['reserved','pending_usage'],true)
+                && trim((string)($usage['upstream_task_id']??''))!=='';
+            if (!$failed && !$success && !$accepted) return false;
+            if ($success && !Db::name(str_replace('_task','_result',$table))->where(['tenant_id'=>$tenant,'task_id'=>$taskId,'delete_time'=>0])->count()) return false;
+            self::transition($row,['state'=>$failed?'failed':'accepted','lease_until'=>0,'error_code'=>$failed?'TASK_FAILED_REFUNDED':''],[
+                // Let the normal projection refresh authoritative media, including storage metadata.
+                'status'=>$failed?$status:'running','error'=>$failed?'生成未完成，已完成退款核对，可调整后重新提交':'',
+            ]);
+            return true;
+        });
+    }
+
+    private static function mediaTable(string $type): ?string
+    {
+        return ['image'=>'aigc_image_task','video'=>'aigc_video_task','audio'=>'aigc_music_task'][$type]??null;
     }
 
     /** A prepared row is the durable outbox; only its first claimant may submit. */
@@ -102,6 +162,8 @@ final class GenerationIntentService
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$providerTaskId,$result,$synchronous): void {
             $row=self::owned($tenant,$user,$id);
             self::assertClaimIdentity($row,$token,$fence);
+            if ($row['state']==='accepted' && (string)$row['provider_task_id']===$providerTaskId) return; // Reconciler already verified this receipt.
+
             if ($row['state']==='needs_reconciliation' || ($row['state']==='submitting' && (int)$row['lease_until']<=time())) {
                 // A lease fences state advancement, not durable evidence. The
                 // original worker may receive a valid task receipt after expiry.
@@ -129,7 +191,8 @@ final class GenerationIntentService
     {
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$error): void {
             $row=self::owned($tenant,$user,$id);
-            self::assertClaim($row,$token,$fence);
+            self::assertClaimIdentity($row,$token,$fence);
+            if (!in_array($row['state'],['submitting','needs_reconciliation'],true)) throw new RuntimeException('STALE_SUBMISSION_CLAIM');
             self::transition($row,['state'=>'failed','error_code'=>'PRE_SUBMISSION_REJECTED','lease_until'=>0],[
                 'status'=>'failed','progress'=>0,'error'=>mb_substr($error->getMessage(),0,500),
             ]);

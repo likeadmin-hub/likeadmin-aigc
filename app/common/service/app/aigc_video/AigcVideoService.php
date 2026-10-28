@@ -134,9 +134,9 @@ class AigcVideoService
         $row->save($data);
     }
 
-    public static function generate(int $tenantId, int $userId, array $params): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onTaskCreated = null): array
     {
-        return self::generateMarket($tenantId, $userId, $params);
+        return self::generateMarketInternal($tenantId, $userId, $params, [], self::APP_CODE, $onTaskCreated);
     }
 
     /**
@@ -154,7 +154,7 @@ class AigcVideoService
         return self::generateMarketInternal($tenantId, $userId, $params, [], $marketAppCode);
     }
 
-    private static function generateMarketInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], string $marketAppCode = self::APP_CODE): array
+    private static function generateMarketInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], string $marketAppCode = self::APP_CODE, ?callable $onTaskCreated = null): array
     {
         $frozen=$marketAppCode===self::APP_CODE?\app\common\service\open_platform\OpenVideoPricing::forRequest($tenantId,$userId):null;
         if($frozen!==null){
@@ -212,6 +212,7 @@ class AigcVideoService
             'model_json' => $selection, 'pricing_snapshot' => (array)$quote['market_snapshot'],
             'create_time' => $now, 'update_time' => $now, 'finish_time' => 0, 'delete_time' => 0,
         ]);
+        if ($onTaskCreated) $onTaskCreated($task);
         try {
             $idempotencyKey = trim((string)($params['idempotency_key'] ?? ''));
             $businessTaskId = $idempotencyKey !== '' ? $idempotencyKey : (string)$task['id'];

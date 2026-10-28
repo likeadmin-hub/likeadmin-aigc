@@ -99,7 +99,7 @@ class AigcMusicService
         return AigcMusicMarketService::estimate($tenantId, $params);
     }
 
-    public static function generate(int $tenantId, int $userId, array $params): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onTaskCreated = null): array
     {
         $payload = self::normalizeSubmit($params, true);
         if ($payload['reference_asset_id'] > 0) {
@@ -110,7 +110,7 @@ class AigcMusicService
         $agent=\app\common\service\app\aigc_llm\agent\AgentToolContext::music($tenantId,$userId);
         $frozen=$agent??\app\common\service\open_platform\OpenToolPricing::forRequest(self::APP_CODE,$tenantId,$userId);
         if ($frozen === null || ($frozen['selection']['channel']['provider'] ?? '') === AigcMusicMarketService::PROVIDER) {
-            return AigcMusicMarketService::generate($tenantId, $userId, $params, $payload, $frozen);
+            return AigcMusicMarketService::generate($tenantId, $userId, $params, $payload, $frozen, $onTaskCreated);
         }
         // Accepted historical Agent/API snapshots retain their original billing owner.
         $selection = $frozen['selection']??AigcMusicChannelService::resolveSelection($tenantId, $params);
@@ -161,6 +161,7 @@ class AigcMusicService
         ]);
 
         \app\common\service\app\aigc_llm\agent\AgentToolContext::bindMusicTask($tenantId,$userId,(int)$task['id']);
+        if ($onTaskCreated) $onTaskCreated($task);
         $request = self::buildRequest($task, $selection, $payload);
         $result = self::providerFor((string)$selection['channel']['provider'])->generate($request);
         $task->provider_task_id = $result->providerTaskId;
