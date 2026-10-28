@@ -21308,6 +21308,13 @@ class AigcShortDramaService
             ];
             if ($prefix === 'subject') {
                 $row['category'] = $category;
+                // The story editor and subsequent outline confirmation use
+                // these biography fields independently of the visual prompt.
+                foreach (['role', 'age', 'background', 'motivation', 'arc'] as $field) {
+                    if (array_key_exists($field, $item)) {
+                        $row[$field] = ShortDramaText::value($item[$field]);
+                    }
+                }
             }
             $result[] = $row;
         }
