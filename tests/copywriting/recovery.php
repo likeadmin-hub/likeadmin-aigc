@@ -18,9 +18,12 @@ try {
     $before=Db::name('user')->where('id',$user)->value('user_money');
     Receipt::record($ctx['consumption']->toArray(),$ctx['appTask']->toArray(),['content'=>'可信回执的完整正文','provider_request_id'=>'test-request','usage'=>['prompt_tokens'=>10,'completion_tokens'=>10,'total_tokens'=>20]],true);
     $receiptPath=runtime_path().'copywriting-receipts/'.$cid.'.receipt';
+    $review=Recovery::review(1,$tenant,$id,'测试：仅记录核对说明');check($review['status']==='running','review does not settle or close task');check(Db::name('ai_consumption_log')->where('id',$cid)->value('billing_status')==='pending_usage','review changes fees by zero');
     $recovered=Recovery::reconcile($tenant,$id);check($recovered['status']==='success','complete receipt closes interrupted task');check($recovered['result_text']==='可信回执的完整正文','receipt restores unflushed final text');check($recovered['billing_state']==='settled','actual usage settled from pinned snapshot');
     Recovery::reconcile($tenant,$id);check(Db::name('user')->where('id',$user)->value('user_money')===$before,'recovery is idempotent; zero-cost fixture does not debit');
     $menus=json_decode(file_get_contents(dirname(__DIR__,2).'/app/apps/aigc_copywriting/menus/tenant.json'),true);$perms=[];$walk=function($nodes)use(&$walk,&$perms){foreach($nodes as $n){$perms[]=$n['perms']??'';$walk($n['children']??[]);}};$walk($menus);
     foreach(json_decode(file_get_contents(dirname(__DIR__,2).'/app/apps/aigc_copywriting/permissions/tenant.json'),true)as $r)check(in_array($r['api_path'],$perms,true),'action must register in tenant authorization: '.$r['api_path']);
+    $old=[];for($i=0;$i<2;$i++){$fake=$t=Store::table('task')->where('id',$id)->find();unset($fake['id']);$fake['idempotency_key']='fair_'.bin2hex(random_bytes(8));$fake['consumption_id']=0;$fake['status']='running';$fake['submission_state']='uncertain';$fake['update_time']=100+$i;$old[]=Store::table('task')->insertGetId($fake);}
+    Recovery::sweep(1);Recovery::sweep(1);foreach($old as $fid)check(Store::table('task')->where('id',$fid)->value('update_time')>1000,'unresolved tasks rotate fairly');
     echo "copywriting receipt recovery and permission registry PASS (rolled back; no provider calls)\n";
 } finally {Db::rollback();if($receiptPath&&is_file($receiptPath))unlink($receiptPath);}
