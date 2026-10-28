@@ -1,0 +1,10 @@
+<?php
+declare(strict_types=1);
+namespace app\common\service\app\aigc_copywriting;
+use think\facade\Db;
+use app\common\service\app\DefaultAppService;
+final class CopywritingBootstrap {
+ public static function ensureSystem():array {$manifest=json_decode(file_get_contents(dirname(__DIR__,4).'/apps/aigc_copywriting/manifest.json'),true,512,JSON_THROW_ON_ERROR);$data=['code'=>'aigc_copywriting','name'=>'智能文案','icon'=>$manifest['icon']??'resource/image/common/menu_generator.png','description'=>$manifest['description'],'category'=>'system','client_tags'=>'tenant,pc,uniapp','is_builtin'=>1,'sort'=>95,'current_version'=>$manifest['version'],'status'=>'installed','expire_policy'=>'allow','install_time'=>time(),'update_time'=>time()];$old=Db::name('app')->where('code','aigc_copywriting')->find();if($old)Db::name('app')->where('id',$old['id'])->update($data);else Db::name('app')->insert($data);foreach($manifest['frontend_entries']as $entry){$where=['app_code'=>'aigc_copywriting','terminal'=>$entry['terminal'],'entry_key'=>$entry['entry_key']];$row=Db::name('app_frontend_entry')->where($where)->find();$values=$where+['name'=>$entry['name'],'path'=>$entry['path'],'icon'=>$entry['icon']??'resource/image/common/menu_generator.png','sort'=>95,'status'=>1,'meta'=>CopywritingStore::json($entry['meta']??[]),'update_time'=>time()];if($row)Db::name('app_frontend_entry')->where('id',$row['id'])->update($values);else Db::name('app_frontend_entry')->insert($values+['create_time'=>time()]);}return ['status'=>'ready'];}
+ public static function ensureTenant(int $tenantId):array {DefaultAppService::ensureTenantDefaultApp($tenantId,'aigc_copywriting');return CopywritingSeeder::ensureTenant($tenantId);}
+ public static function migrate():void {$sql=file_get_contents(dirname(__DIR__,4).'/apps/aigc_copywriting/migrations/install.sql');\app\common\service\database\SqlMigrationExecutor::execute($sql,(string)config('database.connections.mysql.prefix','la_'));self::ensureSystem();foreach(Db::name('tenant')->column('id')as $id)self::ensureTenant((int)$id);}
+}

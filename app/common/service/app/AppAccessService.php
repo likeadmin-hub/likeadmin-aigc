@@ -33,10 +33,11 @@ class AppAccessService
         'aigc_music_cover',
         ...self::SHELFABLE_DEFAULT_APP_CODES,
     ];
-    public const DEFAULT_SYSTEM_APP_CODES = ['system_default', 'open_platform'];
+    public const DEFAULT_SYSTEM_APP_CODES = ['system_default', 'open_platform', 'aigc_copywriting'];
     public const DEFAULT_APP_CODES = [
         'system_default',
         'open_platform',
+        'aigc_copywriting',
         'aigc_image',
         'aigc_video',
         'aigc_micro_video',

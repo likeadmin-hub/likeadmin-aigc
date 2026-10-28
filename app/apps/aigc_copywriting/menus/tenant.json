@@ -1,0 +1,52 @@
+[
+  {
+    "source_menu_key": "aigc_copywriting",
+    "app_code": "aigc_copywriting",
+    "source": "app",
+    "type": "M",
+    "name": "智能文案",
+    "icon": "el-icon-EditPen",
+    "sort": 95,
+    "perms": "",
+    "paths": "smart-copywriting",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "cw_index",
+        "type": "C",
+        "name": "功能管理",
+        "perms": "app.aigc_copywriting.tool/lists",
+        "paths": "index",
+        "component": "apps/aigc_copywriting/index",
+        "sort": 50
+      },
+      {
+        "source_menu_key": "cw_category",
+        "type": "C",
+        "name": "分类管理",
+        "perms": "app.aigc_copywriting.category/lists",
+        "paths": "category",
+        "component": "apps/aigc_copywriting/category",
+        "sort": 40
+      },
+      {
+        "source_menu_key": "cw_home",
+        "type": "C",
+        "name": "首页DIY",
+        "perms": "app.aigc_copywriting.tool/lists",
+        "paths": "home",
+        "component": "apps/aigc_copywriting/home",
+        "sort": 30
+      },
+      {
+        "source_menu_key": "cw_task",
+        "type": "C",
+        "name": "生成记录",
+        "perms": "app.aigc_copywriting.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_copywriting/task",
+        "sort": 20
+      }
+    ]
+  }
+]

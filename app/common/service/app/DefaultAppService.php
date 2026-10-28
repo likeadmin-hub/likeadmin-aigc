@@ -99,6 +99,9 @@ class DefaultAppService
     private static function syncTenant(int $tenantId, string $appCode, string $version, ?string $tenantSn, bool $isSplitTable): void
     {
         self::upsertTenantApp($tenantId, $appCode, $version);
+        if ($appCode === 'aigc_copywriting' && $tenantId > 0) {
+            \app\common\service\app\aigc_copywriting\CopywritingSeeder::ensureTenant($tenantId);
+        }
         $table = $isSplitTable && $tenantSn ? 'tenant_system_menu_' . $tenantSn : 'tenant_system_menu';
         self::syncTenantMenusToTable($tenantId, $appCode, $table);
     }
