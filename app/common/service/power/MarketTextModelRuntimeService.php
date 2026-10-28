@@ -183,6 +183,7 @@ class MarketTextModelRuntimeService
             $model['input']['tenant_price'] = 0;
             $model['output']['tenant_price'] = 0;
         }
+        if ($executionPolicy !== null) $executionPolicy->prepareReceipt();
         $modelConfig = self::modelConfig($params);
         $maxTokens = self::resolveMaxTokens($model, $modelConfig);
         $generationParams = self::generationParams($model, $modelConfig);
@@ -249,6 +250,14 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if ($executionPolicy !== null) {
+                        try {$executionPolicy->recordReceipt($context['consumption']->toArray(),$context['appTask']->toArray(),$result,true);}
+                        catch (\Throwable $receiptError) {
+                            $usage=self::normalizeUsage((array)($result['usage']??[]));
+                            try {self::deferSettlement($context,$result,$usage,$receiptError);} catch(\Throwable $ignored) {}
+                            throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$receiptError);
+                        }
+                    }
                     if ($homeAgent) {
                         try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, true); }
                         catch (\Throwable $receiptError) {
@@ -336,6 +345,7 @@ class MarketTextModelRuntimeService
             if($e instanceof TextSettlementPending)throw $e;
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
                 $result = $e->partialResult;
+                if($executionPolicy!==null){try{$executionPolicy->recordReceipt($context['consumption']->toArray(),$context['appTask']->toArray(),$result,false);}catch(\Throwable $ignored){}}
                 if ($homeAgent) {
                     try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, false); }
                     catch (\Throwable $receiptError) { Log::error('Agent partial text receipt failed for consumption '.$context['consumption']['id'].': '.get_class($receiptError)); }
@@ -536,6 +546,26 @@ class MarketTextModelRuntimeService
                 'finish_time' => $now,
                 'update_time' => $now,
             ]);
+        });
+    }
+
+    /** Reuse a durable provider receipt; this method performs no upstream request. */
+    public static function settleCopywritingReceipt(int $tenantId,int $userId,int $consumptionId,array $receipt): string
+    {
+        return Db::transaction(function()use($tenantId,$userId,$consumptionId,$receipt){
+            $c=AiConsumptionLog::where(['id'=>$consumptionId,'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_copywriting'])->lock(true)->find();
+            if(!$c)throw new \InvalidArgumentException('文案消费记录不存在');
+            $task=AiAppTask::where(['id'=>$c['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_copywriting','business_table'=>'aigc_copywriting_task'])->lock(true)->find();
+            if(!$task||(int)$task['business_id']!==(int)$receipt['task_id']||(int)$receipt['consumption_id']!==$consumptionId)throw new \InvalidArgumentException('文案回执任务不匹配');
+            if(in_array((string)$c['billing_status'],['settled','refunded'],true))return (string)$c['billing_status'];
+            if(empty($receipt['complete']))return 'pending_usage';
+            $result=$receipt['result'];$usage=self::normalizeUsage((array)($result['usage']??[]));$snapshot=(array)$c['price_snapshot'];
+            if(!self::canSettleUsageFromSnapshot($snapshot,$usage))return 'pending_usage';
+            if((int)$usage['prompt_tokens']<=0&&(int)$usage['completion_tokens']<=0)$usage['prompt_tokens']=(int)$usage['total_tokens'];
+            if((string)$c['billing_status']==='settlement_failed')$c->save(['billing_status'=>'pending_usage']);
+            $actual=self::quote($snapshot,(int)$usage['prompt_tokens'],(int)$usage['completion_tokens']);
+            self::settle(['consumption'=>$c,'appTask'=>$task],$actual,$usage,$result,0);
+            return (string)AiConsumptionLog::where('id',$consumptionId)->value('billing_status');
         });
     }
 

@@ -56,6 +56,139 @@
         "component": "apps/aigc_copywriting/editor",
         "is_show": 0,
         "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_1",
+        "type": "A",
+        "name": "智能文案taskdetail",
+        "perms": "app.aigc_copywriting.task/detail",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_2",
+        "type": "A",
+        "name": "智能文案taskrecheck",
+        "perms": "app.aigc_copywriting.task/recheck",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_3",
+        "type": "A",
+        "name": "智能文案schemacatalog",
+        "perms": "app.aigc_copywriting.schema/catalog",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_4",
+        "type": "A",
+        "name": "智能文案schemavalidate",
+        "perms": "app.aigc_copywriting.schema/validate",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_5",
+        "type": "A",
+        "name": "智能文案templateexport",
+        "perms": "app.aigc_copywriting.template/export",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_6",
+        "type": "A",
+        "name": "智能文案templateimport",
+        "perms": "app.aigc_copywriting.template/import",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_8",
+        "type": "A",
+        "name": "智能文案categorysave",
+        "perms": "app.aigc_copywriting.category/save",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_9",
+        "type": "A",
+        "name": "智能文案categorydelete",
+        "perms": "app.aigc_copywriting.category/delete",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_10",
+        "type": "A",
+        "name": "智能文案promptpreview",
+        "perms": "app.aigc_copywriting.prompt/preview",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_12",
+        "type": "A",
+        "name": "智能文案toolcreate",
+        "perms": "app.aigc_copywriting.tool/create",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_13",
+        "type": "A",
+        "name": "智能文案toolsave",
+        "perms": "app.aigc_copywriting.tool/save",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_14",
+        "type": "A",
+        "name": "智能文案toolcopy",
+        "perms": "app.aigc_copywriting.tool/copy",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_15",
+        "type": "A",
+        "name": "智能文案tooldelete",
+        "perms": "app.aigc_copywriting.tool/delete",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_16",
+        "type": "A",
+        "name": "智能文案toolrestore",
+        "perms": "app.aigc_copywriting.tool/restore",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_18",
+        "type": "A",
+        "name": "智能文案pagesaveDraft",
+        "perms": "app.aigc_copywriting.page/saveDraft",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_19",
+        "type": "A",
+        "name": "智能文案pagepublish",
+        "perms": "app.aigc_copywriting.page/publish",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_20",
+        "type": "A",
+        "name": "智能文案pageversions",
+        "perms": "app.aigc_copywriting.page/versions",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_21",
+        "type": "A",
+        "name": "智能文案pagerollback",
+        "perms": "app.aigc_copywriting.page/rollback",
+        "sort": 0
+      },
+      {
+        "source_menu_key": "cw_action_22",
+        "type": "A",
+        "name": "智能文案草稿预览",
+        "perms": "app.aigc_copywriting.page/previewToken",
+        "sort": 0
       }
     ]
   }

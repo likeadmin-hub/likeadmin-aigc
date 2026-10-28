@@ -22,6 +22,7 @@ class AiUsageReconcile extends Command
     protected function execute(Input $input, Output $output): int
     {
         $limit = max(1, min(500, (int)$input->getOption('limit')));
+        \app\common\service\app\aigc_copywriting\CopywritingRecovery::sweep($limit);
         $rows = AiConsumptionLog::whereIn('run_status', ['reserved', 'submitted', 'running', 'success', 'music_reserved', 'music_submitting', 'music_running'])
             ->whereIn('billing_status', ['reserved', 'pending_usage'])
             ->order(['refresh_requested_at' => 'asc', 'id' => 'asc'])
