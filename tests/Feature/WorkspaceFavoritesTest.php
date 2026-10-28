@@ -21,6 +21,17 @@ Db::startTrans();try{
   denied(fn()=>W::update($tenant+1,$user,['refs'=>[$ref],'favorite'=>1]));denied(fn()=>W::update($tenant,$user+1,['refs'=>[$ref],'favorite'=>1]));
   W::update($tenant,$user,['refs'=>[$ref],'favorite'=>0]);
   check(!array_filter(W::read($tenant,$user)['supplemental'],fn($r)=>$r['ref']===$ref),'Cancellation persisted');
+  $deleteServices=['pic_lipsync'=>\app\common\service\app\aigc_pic_lipsync\AigcPicLipsyncService::class,'image_human'=>\app\common\service\app\image_human\ImageHumanService::class,'digital_human'=>\app\common\service\app\aigc_digital_human\AigcDigitalHumanService::class];
+  if(isset($deleteServices[$source])){
+   $service=$deleteServices[$source];
+   try{$service::deleteTask($tenant,$task,$user+1);throw new RuntimeException('Cross-user deletion accepted');}catch(\Exception $e){check($e->getMessage()!=='Cross-user deletion accepted','Delete ownership');}
+   W::update($tenant,$user,['refs'=>[$ref],'favorite'=>1]);
+   $service::deleteTask($tenant,$task,$user);
+   check((int)Db::name($table.'_task')->where('id',$task)->value('delete_time')>0,'History task soft-deleted');
+   check((int)Db::name($table.'_result')->where('id',$result)->value('delete_time')>0,'History result soft-deleted');
+   check(!array_filter(W::read($tenant,$user)['supplemental'],fn($r)=>$r['ref']===$ref),'Deleted history is removed from asset favorites');
+  }
+
  }
  foreach(['document','audio'] as $kind){
   $file='of_'.bin2hex(random_bytes(16));OpenStore::table('file')->insert($owner+$storage+['file_id'=>$file,'uri'=>'uploads/favorite-fixture.'.($kind==='audio'?'mp3':'md'),'name'=>'favorite fixture','mime'=>$kind==='audio'?'audio/mpeg':'text/markdown','size'=>1]+OpenStore::timestamp());
