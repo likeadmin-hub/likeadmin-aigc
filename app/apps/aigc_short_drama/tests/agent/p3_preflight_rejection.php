@@ -19,7 +19,7 @@ class P3PreflightVideo {
         self::$calls++;
         if (self::$unknown) {
             $task=(int)Db::name('aigc_video_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'running','create_time'=>time(),'delete_time'=>0]);
-            if ($onTaskCreated) $onTaskCreated($task);
+            if ($onTaskCreated) $onTaskCreated(['id'=>$task]);
             throw new RuntimeException('simulated response lost after submit');
         }
         Market::reserve($tenant,$user,'aigc_short_drama','video','aigc_video_task','p3-preflight',
@@ -34,7 +34,7 @@ try {
     Db::name('tenant')->insert(['id'=>91001,'sn'=>'p3-preflight','create_time'=>time(),'point_balance'=>0]);
     Db::name('user')->insert(['id'=>92001,'sn'=>92001,'account'=>'p3-preflight','tenant_id'=>91001,'user_money'=>100]);
     $product=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-p3-preflight','resource_type'=>'model','model_type'=>'video','name'=>'Synthetic video','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-p3-preflight','upstream_model_code'=>'isolated-p3-preflight','upstream_channel_code'=>'isolated-channel','status'=>1]);
-    P3PreflightVideo::$sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'video-call','title'=>'Synthetic video','usage_unit'=>'call','sale_points'=>2,'status'=>1,'sale_status'=>1,'locked_params'=>'{"duration":5}']);
+    P3PreflightVideo::$sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'video-call','title'=>'Synthetic video','usage_unit'=>'per_call','sale_points'=>2,'status'=>1,'sale_status'=>1,'locked_params'=>'{"duration":5}']);
     $canvas=Canvas::create(91001,92001,['title'=>'P3 known preflight failure'])['id'];
     Canvas::save(91001,92001,['id'=>$canvas,'nodes'=>[['id'=>1,'type'=>'video','metadata'=>[]]]]);
     $counts=static fn():array=>[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count(),Db::name('tenant_point_log')->where('tenant_id',91001)->count(),Db::name('user_account_log')->where('user_id',92001)->count()];
