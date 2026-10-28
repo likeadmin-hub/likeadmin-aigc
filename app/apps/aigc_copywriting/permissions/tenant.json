@@ -130,5 +130,11 @@
     "name": "智能文案pagerollback",
     "api_path": "app.aigc_copywriting.page/rollback",
     "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:page:previewToken:tenant_admin",
+    "name": "智能文案草稿预览",
+    "api_path": "app.aigc_copywriting.page/previewToken",
+    "api_method": "POST"
   }
 ]

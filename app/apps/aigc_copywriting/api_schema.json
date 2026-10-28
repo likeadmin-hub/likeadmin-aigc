@@ -248,6 +248,30 @@
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_copywriting.task/events",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:task:events:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.config/preview",
+      "api_method": "GET",
+      "permission_key": "aigc_copywriting:config:preview:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_copywriting.page/previewToken",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:page:previewToken:tenant_admin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
     }
   ]
 }

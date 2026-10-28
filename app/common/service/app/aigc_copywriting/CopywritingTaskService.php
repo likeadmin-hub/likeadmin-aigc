@@ -11,7 +11,7 @@ final class CopywritingTaskService
         $key=(string)($input['idempotency_key']??'');
         if(!preg_match('/^[a-zA-Z0-9_-]{16,100}$/D',$key))throw new \InvalidArgumentException('请求标识不正确');
         $shape=array_intersect_key($input,array_flip(['tool_id','version_id','values','model_selection','source_task_id']));
-        $hash=hash('sha256',CopywritingStore::json($shape));
+        $hash=self::requestHash($shape);
         $where=['tenant_id'=>$tenantId,'user_id'=>$userId,'idempotency_key'=>$key];
         $old=CopywritingStore::table('task')->where($where)->find();
         if($old)return self::sameRequest($old,$hash);
@@ -22,12 +22,18 @@ final class CopywritingTaskService
         $version=CopywritingStore::owned('version',$tenantId,(int)$page['published_version_id']);
         $document=CopywritingStore::decode($version['document_json']);
         $source=(int)($input['source_task_id']??0);
-        if($source)self::owned($tenantId,$userId,$source);
+        if($source){$original=self::owned($tenantId,$userId,$source);if((int)$original['tool_id']!==(int)$tool['id'])throw new \InvalidArgumentException('原任务不属于当前功能');if(in_array($original['status'],['pending','running'],true))throw new \InvalidArgumentException('请先等待或停止当前生成');}
         $prompt=CopywritingPromptService::render($document,(array)($input['values']??[]));
         $model=CopywritingModelService::resolve($tenantId,$document,$input['model_selection']??'');
         $data=$where+['tool_id'=>$tool['id'],'version_id'=>$version['id'],'source_task_id'=>$source,'request_hash'=>$hash,'input_snapshot'=>CopywritingStore::json($prompt['normalized_values']),'prompt_snapshot'=>CopywritingStore::json($prompt),'model_snapshot'=>CopywritingStore::json($model),'execution_fingerprint'=>TextModelExecutionPolicy::fingerprint($model),'result_text'=>''];
         try{$id=CopywritingStore::insert('task',$data);}catch(\Throwable $e){$old=CopywritingStore::table('task')->where($where)->find();if($old)return self::sameRequest($old,$hash);throw $e;}
         return self::detail($tenantId,$userId,$id);
+    }
+    public static function requestHash(array $input): string
+    {
+        $shape=['tool_id'=>(int)($input['tool_id']??0),'version_id'=>(int)($input['version_id']??0),'values'=>(array)($input['values']??[]),'model_selection'=>(string)($input['model_selection']??''),'source_task_id'=>(int)($input['source_task_id']??0)];
+        $sort=function(&$v)use(&$sort){if(!is_array($v))return;if(!array_is_list($v))ksort($v);foreach($v as &$item)$sort($item);};
+        $sort($shape);return hash('sha256',CopywritingStore::json($shape));
     }
     private static function sameRequest(array $old,string $hash): array
     {

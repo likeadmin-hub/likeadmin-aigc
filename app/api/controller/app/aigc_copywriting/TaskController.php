@@ -7,7 +7,7 @@ class TaskController extends Controller {
  public function lists(){return $this->call(fn()=>Tasks::lists($this->tenant(),$this->userId,(int)$this->request->get('page_no',1)));}
  public function cancel(){return $this->call(fn()=>Tasks::cancel($this->tenant(),$this->userId,(int)$this->request->post('id')));}
  public function events(){
-  $tenant=$this->tenant();$id=(int)$this->request->get('id');$after=(int)$this->request->get('after_seq',0);
+  $tenant=$this->tenant();$id=(int)$this->request->param('id');$after=(int)$this->request->param('after_seq',0);
   try{Tasks::owned($tenant,$this->userId,$id);}catch(\Throwable $e){return $this->fail($e->getMessage());}
   header('Content-Type: text/event-stream; charset=utf-8');header('Cache-Control: no-cache, no-transform');header('X-Accel-Buffering: no');
   while(ob_get_level()>0)@ob_end_flush();$started=microtime(true);$lastBeat=0;
