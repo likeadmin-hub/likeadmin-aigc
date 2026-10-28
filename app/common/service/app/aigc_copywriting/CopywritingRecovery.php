@@ -23,7 +23,8 @@ final class CopywritingRecovery
         }
         $state=['settled'=>'settled','refunded'=>'refunded','deducted'=>'settled'][$c['billing_status']]??'pending_usage';
         $changes=['billing_state'=>$state];
-        if($receipt&&!empty($receipt['complete'])){
+        if($receipt&&($receipt['result']['content_source']??'content')!=='content'){$changes+=['result_text'=>'','status'=>'failed','submission_state'=>'finished','error'=>'模型未返回最终正文，请调整思考模式后重新生成','lease_until'=>0,'finished_at'=>time()];}
+        elseif($receipt&&!empty($receipt['complete'])){
             $changes+=['result_text'=>(string)($receipt['result']['content']??''),'provider_request_id'=>(string)($receipt['result']['provider_request_id']??$task['provider_request_id']),'submission_state'=>'finished','lease_until'=>0,'finished_at'=>time(),'status'=>!empty($task['cancel_requested'])?'canceled':'success','error'=>''];
         }elseif($state==='refunded'&&$c['run_status']==='failed'&&in_array($task['status'],['pending','running'],true)){
             $changes+=['status'=>'failed','submission_state'=>'finished','error'=>(string)$c['error_message'],'lease_until'=>0,'finished_at'=>time()];

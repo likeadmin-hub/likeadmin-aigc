@@ -18,6 +18,16 @@ final class TextModelExecutionPolicy
             throw new \InvalidArgumentException('MODEL_OR_PRICE_CHANGED');
         }
     }
+    public function generationParams(array $model,array $params): array
+    {
+        // Smart copywriting needs final copy immediately, not a reasoning transcript.
+        // DeepSeek official guide: https://api-docs.deepseek.com/guides/thinking_mode/
+        if(str_contains(strtolower((string)($model['model_code']??'')),'deepseek')){
+            if(($model['protocol']??'')==='openai_responses')$params['reasoning']=['effort'=>'none'];
+            else $params['thinking']=['type'=>'disabled'];
+        }
+        return $params;
+    }
     public function prepareReceipt(): void
     {
         \app\common\service\app\aigc_copywriting\CopywritingReceipt::prepare();
