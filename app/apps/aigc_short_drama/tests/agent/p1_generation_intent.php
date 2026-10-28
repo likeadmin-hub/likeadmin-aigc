@@ -9,6 +9,11 @@ function intentReject(callable $call,string $expected): void {
     try {$call();} catch (RuntimeException $error) {agentCheck($error->getMessage()===$expected,$expected);return;}
     throw new RuntimeException('Expected '.$expected);
 }
+function freshIntentCanvas(): int {
+    $id=(int)Canvas::create(91001,92001,['title'=>'Independent intent scenario'])['id'];
+    Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>'text','metadata'=>['content_revision'=>3]]]]);
+    return $id;
+}
 Db::startTrans();
 try {
     Db::name('tenant')->insert(['id'=>91001,'sn'=>'intent-fixture','create_time'=>time(),'point_balance'=>100]);
@@ -53,17 +58,20 @@ try {
     intentReject(fn()=>Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'other',[],true),'PROVIDER_RECEIPT_CONFLICT');
     Intent::unknown(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version']);
     agentCheck(Db::name(Intent::TABLE)->where('id',$claim['id'])->value('error_code')==='LATE_ACCEPTANCE_RECORDED','later unknown observation cannot erase receipt evidence');
+    $id=freshIntentCanvas(); // Each scenario must not bypass an earlier unresolved submission.
     $expired=Intent::reserve(91001,92001,$id,'expired','1','text',$input);
     $claim=Intent::claim(91001,92001,(int)$expired['id']);
     Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['lease_until'=>time()-1]);
     agentCheck(Intent::expire(91001,92001,(int)$claim['id']) && Intent::claim(91001,92001,(int)$claim['id'])===null,'expired submit enters reconciliation instead of being requeued');
     Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'stale',[],true);
     agentCheck(Db::name(Intent::TABLE)->where('id',$claim['id'])->value('provider_task_id')==='stale','expired worker retains task reference without advancing state');
+    $id=freshIntentCanvas(); // Each scenario must not bypass an earlier unresolved submission.
     $slow=Intent::reserve(91001,92001,$id,'slow','1','text',$input);
     $claim=Intent::claim(91001,92001,(int)$slow['id']);
     Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['lease_until'=>time()-1]);
     Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'slow-receipt',[],true);
     agentCheck(Db::name(Intent::TABLE)->where('id',$claim['id'])->value('state')==='needs_reconciliation','late receipt before expiry scanner also remains unresolved');
+    $id=freshIntentCanvas(); // Each scenario must not bypass an earlier unresolved submission.
     $timeout=Intent::reserve(91001,92001,$id,'timeout','1','text',$input);
     $claim=Intent::claim(91001,92001,(int)$timeout['id']);
     Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['lease_until'=>time()-1]);
@@ -77,19 +85,23 @@ try {
     Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['lease_until'=>time()-1]);
     Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],(string)$videoTask,[],false);
     agentCheck(Canvas::runDetail(91001,92001,(int)$claim['canvas_run_id'])['status']==='needs_reconciliation','ordinary media polling cannot resolve a fenced late receipt');
+    $id=freshIntentCanvas(); // Each scenario must not bypass an earlier unresolved submission.
     $moved=Intent::reserve(91001,92001,$id,'movement','1','text',$input);
     $nodes=Canvas::current(91001,92001,$id)['nodes'];$nodes[0]['x']=999;
     Canvas::save(91001,92001,['id'=>$id,'nodes'=>$nodes]);
     agentCheck(Intent::claim(91001,92001,(int)$moved['id'])!==null,'moving node does not invalidate frozen generation input');
+    $id=freshIntentCanvas(); // Each scenario must not bypass an earlier unresolved submission.
     $older=Intent::reserve(91001,92001,$id,'prepared-older','1','text',$input);
     $newer=Intent::reserve(91001,92001,$id,'prepared-newer','1','text',$input);
     agentCheck(Intent::claim(91001,92001,(int)$older['id'])===null && Db::name(Intent::TABLE)->where('id',$older['id'])->value('error_code')==='GENERATION_SUPERSEDED_BEFORE_SUBMIT','superseded prepared generation is canceled before any provider call');
     agentCheck(Intent::claim(91001,92001,(int)$newer['id'])!==null,'latest prepared generation remains eligible to submit');
+    $id=freshIntentCanvas(); // Each scenario must not bypass an earlier unresolved submission.
     $edited=Intent::reserve(91001,92001,$id,'edited','1','text',$input);
     $nodes=Canvas::current(91001,92001,$id)['nodes'];
     $nodes[0]['metadata']['prompt']='User changed prompt';
     Canvas::save(91001,92001,['id'=>$id,'nodes'=>$nodes]);
     agentCheck(Intent::claim(91001,92001,(int)$edited['id'])===null && Db::name(Intent::TABLE)->where('id',$edited['id'])->value('error_code')==='INPUT_CHANGED_BEFORE_SUBMIT','content change before claim cancels stale generation without submission');
+    $id=freshIntentCanvas(); // Each scenario must not bypass an earlier unresolved submission.
     $deleted=Intent::reserve(91001,92001,$id,'deleted','1','text',$input);
     Canvas::save(91001,92001,['id'=>$id,'nodes'=>[],'removed_node_ids'=>['1']]);
     agentCheck(Intent::claim(91001,92001,(int)$deleted['id'])===null && Db::name(Intent::TABLE)->where('id',$deleted['id'])->value('state')==='canceled','node deleted before claim never reaches downstream');
