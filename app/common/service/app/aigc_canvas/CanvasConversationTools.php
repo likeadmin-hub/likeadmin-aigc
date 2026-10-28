@@ -29,7 +29,10 @@ final class CanvasConversationTools
         return self::withPage($run,function(array &$nodes,array &$edges,array &$page)use($run,$input){
             $action=(string)($input['action']??'');
             $ids=$page['nodeIds'];$index=array_column($nodes,null,'id');
-            if($action==='read_page')return ['page'=>['id'=>$page['id'],'name'=>$page['name']],'nodes'=>array_map(static function($id)use($index){$n=$index[$id]??[];return ['id'=>$id,'type'=>$n['type']??'','title'=>$n['title']??'','position'=>$n['position']??[],'prompt'=>$n['metadata']['prompt']??'','content'=>mb_substr((string)($n['metadata']['content']??''),0,3000),'file_id'=>$n['metadata']['agentFileId']??''];},array_slice($ids,0,100)),'truncated'=>count($ids)>100];
+            if($action==='read_page'){
+                $media=CanvasProjectReferenceService::pageMedia($run);
+                return ['page'=>['id'=>$page['id'],'name'=>$page['name']],'nodes'=>array_map(static function($id)use($index,$media){$n=$index[$id]??[];return ['id'=>$id,'type'=>$n['type']??'','title'=>$n['metadata']['title']??$n['title']??'','position'=>$n['position']??[],'prompt'=>$n['metadata']['prompt']??'','content'=>mb_substr((string)($n['metadata']['content']??''),0,3000),'file_id'=>$media[$id]['file_id']??''];},array_slice($ids,0,100)),'truncated'=>count($ids)>100];
+            }
             if($action==='add_node'){
                 $type=(string)($input['type']??'text');if(!in_array($type,['text','image','video','audio'],true))throw new \InvalidArgumentException('节点类型无效');
                 $id='agent_node_'.substr(hash('sha256',AgentStore::encode([$run['id'],$input])),0,24);
