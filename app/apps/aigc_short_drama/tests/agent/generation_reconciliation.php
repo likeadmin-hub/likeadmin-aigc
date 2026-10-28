@@ -47,6 +47,10 @@ try {
         agentCheck(!Intent::reconcile(91001,92001,$run),'unrelated business evidence rejected '.$type);
         Db::name('ai_app_task')->where('id',$f['app'])->update(['business_id'=>$f['task']]);
         agentCheck(Intent::reconcile(91001,92001,$run),'settled completed result restores projection path '.$type);
+        $detail=Canvas::runDetail(91001,92001,$run);
+        agentCheck($detail['status']==='success' && !empty($detail['results'][0]['url']),'detail read restores completed media '.$type);
+        $node=Canvas::current(91001,92001,$f['canvas'])['nodes'][0];
+        agentCheck(($node['metadata']['status']??'')==='success' && !empty($node['metadata']['url']),'recovered result projects into the saved node '.$type);
     }
     $f=recFixture('video','running','reserved');$id=(int)$f['claim']['id'];
     Db::name(Intent::TABLE)->where('id',$id)->update(['state'=>'submitting','lease_until'=>time()+120]);

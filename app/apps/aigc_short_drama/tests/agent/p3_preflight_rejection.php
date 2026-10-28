@@ -12,11 +12,13 @@ class P3PreflightVideo {
     public static int $sku=0;
     public static int $calls=0;
     public static bool $unknown=false;
+    public static bool $invalidInput=false;
     public static function estimate(int $tenant,array $payload): array {
         return Market::quote($tenant,['market_sku_id'=>self::$sku]+$payload);
     }
     public static function generate($tenant,$user,$payload,?callable $onTaskCreated=null): array {
         self::$calls++;
+        if (self::$invalidInput) throw new InvalidArgumentException('invalid reference before task creation');
         if (self::$unknown) {
             $task=(int)Db::name('aigc_video_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'running','create_time'=>time(),'delete_time'=>0]);
             if ($onTaskCreated) $onTaskCreated(['id'=>$task]);
@@ -70,6 +72,15 @@ try {
         agentCheck($denied,'failed run remains inaccessible outside its tenant/user scope');
     }
     if (!$realApp) {
+    P3PreflightVideo::$invalidInput=true;
+    $params['request_key']='p3-invalid-input';
+    unset($params['quote_token']);
+    $quote=Canvas::quote(91001,92001,$params);
+    $params['quote_token']=Canvas::confirmQuote(91001,92001,['canvas_id'=>$canvas,'node_id'=>'1','quote_token'=>$quote['quote_token']])['quote_token'];
+    $invalid=Canvas::submitIdempotent(91001,92001,$params);
+    agentCheck($invalid['status']==='failed' && str_contains($invalid['error'],'提交前校验'),'unbound validation failure cannot strand a node in reconciliation');
+    agentCheck($before===$counts(),'unbound validation failure does not touch billing');
+    P3PreflightVideo::$invalidInput=false;
     P3PreflightVideo::$unknown=true;
     $params['request_key']='p3-unknown';
     unset($params['quote_token']);
