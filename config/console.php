@@ -5,6 +5,8 @@
 return [
     // 指令定义
     'commands' => [
+        'copywriting:worker' => 'app\common\command\CopywritingWorker',
+        'copywriting:repair' => 'app\common\command\CopywritingRepair',
         'point-alert:maintain' => 'app\\common\\command\\PointAlertMaintain',
         'micro-video:worker' => 'app\\common\\command\\MicroVideoWorkerCommand',
         'canvas:adapt-projects' => 'app\\common\\command\\CanvasAdaptProjects',

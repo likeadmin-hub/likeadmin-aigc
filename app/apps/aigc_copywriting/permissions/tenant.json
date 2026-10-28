@@ -1,0 +1,134 @@
+[
+  {
+    "permission_key": "aigc_copywriting:task:lists:tenant_admin",
+    "name": "智能文案tasklists",
+    "api_path": "app.aigc_copywriting.task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:task:detail:tenant_admin",
+    "name": "智能文案taskdetail",
+    "api_path": "app.aigc_copywriting.task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:task:recheck:tenant_admin",
+    "name": "智能文案taskrecheck",
+    "api_path": "app.aigc_copywriting.task/recheck",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:schema:catalog:tenant_admin",
+    "name": "智能文案schemacatalog",
+    "api_path": "app.aigc_copywriting.schema/catalog",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:schema:validate:tenant_admin",
+    "name": "智能文案schemavalidate",
+    "api_path": "app.aigc_copywriting.schema/validate",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:template:export:tenant_admin",
+    "name": "智能文案templateexport",
+    "api_path": "app.aigc_copywriting.template/export",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:template:import:tenant_admin",
+    "name": "智能文案templateimport",
+    "api_path": "app.aigc_copywriting.template/import",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:category:lists:tenant_admin",
+    "name": "智能文案categorylists",
+    "api_path": "app.aigc_copywriting.category/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:category:save:tenant_admin",
+    "name": "智能文案categorysave",
+    "api_path": "app.aigc_copywriting.category/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:category:delete:tenant_admin",
+    "name": "智能文案categorydelete",
+    "api_path": "app.aigc_copywriting.category/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:prompt:preview:tenant_admin",
+    "name": "智能文案promptpreview",
+    "api_path": "app.aigc_copywriting.prompt/preview",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:tool:lists:tenant_admin",
+    "name": "智能文案toollists",
+    "api_path": "app.aigc_copywriting.tool/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:tool:create:tenant_admin",
+    "name": "智能文案toolcreate",
+    "api_path": "app.aigc_copywriting.tool/create",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:tool:save:tenant_admin",
+    "name": "智能文案toolsave",
+    "api_path": "app.aigc_copywriting.tool/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:tool:copy:tenant_admin",
+    "name": "智能文案toolcopy",
+    "api_path": "app.aigc_copywriting.tool/copy",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:tool:delete:tenant_admin",
+    "name": "智能文案tooldelete",
+    "api_path": "app.aigc_copywriting.tool/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:tool:restore:tenant_admin",
+    "name": "智能文案toolrestore",
+    "api_path": "app.aigc_copywriting.tool/restore",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:page:detail:tenant_admin",
+    "name": "智能文案pagedetail",
+    "api_path": "app.aigc_copywriting.page/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:page:saveDraft:tenant_admin",
+    "name": "智能文案pagesaveDraft",
+    "api_path": "app.aigc_copywriting.page/saveDraft",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:page:publish:tenant_admin",
+    "name": "智能文案pagepublish",
+    "api_path": "app.aigc_copywriting.page/publish",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:page:versions:tenant_admin",
+    "name": "智能文案pageversions",
+    "api_path": "app.aigc_copywriting.page/versions",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:page:rollback:tenant_admin",
+    "name": "智能文案pagerollback",
+    "api_path": "app.aigc_copywriting.page/rollback",
+    "api_method": "POST"
+  }
+]
