@@ -42,7 +42,7 @@ final class ShortDramaSourceAlignment
     /** Keep separators in their original bytes, including CRLF and the last newline. */
     public static function lines(string $source): array
     {
-        return preg_split('/(?<=\n)/', $source, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        return preg_split('/(?<=\n)|(?<=\r)(?!\n)/', $source, -1, PREG_SPLIT_NO_EMPTY) ?: [];
     }
 
     private static function isPartition(array $ranges, int $lineCount): bool
@@ -61,7 +61,7 @@ final class ShortDramaSourceAlignment
     {
         $count = count($episodes); $length = count($lines);
         // Bound both memory and work. Never guess equal-sized slices when evidence is absent.
-        if ($length < $count || $count * $length > 1000000) self::fail();
+        if ($length < $count || $count * $length > 250000 || array_sum(array_map('strlen', $lines)) > 2000000) self::fail();
         $vocabularies = []; $frequency = [];
         foreach ($episodes as $episode) {
             $fields = [];
@@ -71,6 +71,7 @@ final class ShortDramaSourceAlignment
             foreach (['opening_state','closing_state'] as $field) {
                 if (is_string($episode['continuity'][$field] ?? null)) $fields[] = $episode['continuity'][$field];
             }
+            if (array_sum(array_map('strlen', $fields)) > 50000) self::fail();
             $tokens = self::tokens(implode("\n", $fields));
             $vocabularies[] = $tokens;
             foreach ($tokens as $token => $_) $frequency[$token] = ($frequency[$token] ?? 0) + 1;
