@@ -18,7 +18,7 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
 
     public static function terminals(): array
     {
-        return [['canceled', 'failed'], ['success', 'failed'], ['canceled', 'success'], ['success', 'success'], ['canceled', 'malformed'], ['success', 'malformed'], ['running', 'success']];
+        return [['failed', 'success'], ['failed', 'malformed'], ['failed', 'failed'], ['canceled', 'failed'], ['success', 'failed'], ['canceled', 'success'], ['success', 'success'], ['canceled', 'malformed'], ['success', 'malformed'], ['running', 'success']];
     }
 
     /** @dataProvider terminals */

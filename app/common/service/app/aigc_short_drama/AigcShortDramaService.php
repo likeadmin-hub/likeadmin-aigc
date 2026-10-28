@@ -8966,10 +8966,10 @@ class AigcShortDramaService
     /** Persist a terminal file_qa market result as the project's editable multi-episode outline. */
     private static function syncMarketFileQaScriptTask(array $taskRow): void
     {
-        // A late market receipt must not resurrect a canceled task or replace
+        // A late market receipt must not resurrect a failed/canceled task or replace
         // an already published result. Conditional writes below also cover a
         // cancellation/completion racing this stale task snapshot.
-        if (in_array((string)($taskRow['status'] ?? ''), [self::STATUS_SUCCESS, self::STATUS_CANCELED], true)) return;
+        if (in_array((string)($taskRow['status'] ?? ''), [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) return;
         $taskId = (string)($taskRow['task_id'] ?? '');
         $tenantId = (int)($taskRow['tenant_id'] ?? 0);
         $userId = (int)($taskRow['user_id'] ?? 0);
@@ -8984,7 +8984,7 @@ class AigcShortDramaService
         if ($runStatus !== 'success') {
             $message = self::friendlyGenerationError((string)($consumption['error_message'] ?? '剧本解析失败'));
             $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
-                ->whereNotIn('status', [self::STATUS_SUCCESS, self::STATUS_CANCELED])->update([
+                ->whereNotIn('status', [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED])->update([
                 'status' => $runStatus === 'canceled' ? self::STATUS_CANCELED : self::STATUS_FAILED,
                 'progress' => 100, 'current_step' => $runStatus === 'canceled' ? '剧本解析已取消' : '剧本解析失败',
                 'billing_status' => (string)$consumption['billing_status'], 'error' => $message,
@@ -9005,7 +9005,7 @@ class AigcShortDramaService
         } catch (\Throwable $e) {
             $message = self::friendlyGenerationError($e->getMessage());
             $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
-                ->whereNotIn('status', [self::STATUS_SUCCESS, self::STATUS_CANCELED])->update([
+                ->whereNotIn('status', [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED])->update([
                 'status' => self::STATUS_FAILED, 'progress' => 100, 'current_step' => '解析结果不完整', 'error' => $message,
                 'billing_status' => (string)$consumption['billing_status'], 'finished_at' => time(), 'update_time' => time(),
             ]);
@@ -9019,7 +9019,7 @@ class AigcShortDramaService
             $project = AigcShortDramaProject::where(['id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock(true)->findOrEmpty();
             $task = AigcShortDramaScriptTask::where('id', (int)$taskRow['id'])->lock(true)->findOrEmpty();
             if ($project->isEmpty() || $task->isEmpty() || (string)$project['last_task_id'] !== $taskId
-                || in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_CANCELED], true)) return;
+                || in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) return;
             $request['episode_count'] = (int)$plan['episode_count'];
             $request['episode_total_count'] = (int)$plan['episode_count'];
             $request['multi_episode'] = true;
@@ -9056,7 +9056,8 @@ class AigcShortDramaService
     private static function fileQaParsePlan(array $result, array $request, string $fallbackTitle): array
     {
         $source = is_array($result['short_drama_plan'] ?? null) ? $result['short_drama_plan'] : (is_array($result['plan'] ?? null) ? $result['plan'] : $result);
-        $episodes = ShortDramaSourceBoundary::episodes(array_values(array_filter((array)($source['episodes'] ?? []), 'is_array')));
+        $episodes = ShortDramaSourceBoundary::episodes(array_values(array_filter((array)($source['episodes'] ?? []), 'is_array')),
+            (string)($request['parse_mode'] ?? $result['parse_mode'] ?? ''));
         $count = count($episodes);
         if ($count < 2 || $count > self::SCRIPT_MAX_EPISODES || (int)($source['episode_count'] ?? $count) !== $count) {
             throw new Exception('解析结果的有效剧集数必须为 2～' . self::SCRIPT_MAX_EPISODES . '，且与 episodes 一致');
