@@ -449,7 +449,9 @@ final class ShortDramaTimedScriptGeneration
      * Keep each scene's proposed total; explicit timelines remain authoritative. */
     public static function normalizeSkeletonBudgets(array $plan, array $request): array
     {
-        if (ShortDramaInputContract::providerTiming($request)) return self::normalizeDefaultSceneTotals($plan, $request);
+        if (ShortDramaInputContract::providerTiming($request)) {
+            return self::normalizeDefaultSceneTotals(self::splitDefaultOversizedShots($plan, $request), $request);
+        }
         if (!empty($plan['storyboard']) || !empty(ShortDramaEpisodeDuration::policy($request)['timeline_segments'])) return $plan;
         $rule = ShortDramaShotDuration::rule($request);
         $min = (float)$rule['min_seconds']; $max = (float)$rule['max_seconds'];
@@ -485,6 +487,44 @@ final class ShortDramaTimedScriptGeneration
             $plan['scene_beats'][$index]['duration_seconds'] = $total;
         }
         return $plan;
+    }
+
+    /** Split only oversized provisional shots. Keep scene totals, order and all
+     * creative content; invalid or user-locked timing still goes to repair. */
+    private static function splitDefaultOversizedShots(array $plan, array $request): array
+    {
+        $policy = ShortDramaEpisodeDuration::policy($request);
+        if (($policy['source'] ?? '') !== 'default' || !empty($policy['timeline_segments'])
+            || !empty($plan['storyboard']) || !is_array($plan['scene_beats'] ?? null)) return $plan;
+        $rule = ShortDramaShotDuration::rule($request);
+        $min = (float)$rule['min_seconds']; $max = (float)$rule['max_seconds'];
+        $updated = $plan;
+        $episodeTotal = 0.0;
+        foreach ($plan['scene_beats'] as $index => $beat) {
+            if (!is_array($beat)) return $plan;
+            $original = $beat['shot_durations'] ?? null;
+            if (!is_array($original) || !$original || count($original) > 40) return $plan;
+            $durations = [];
+            foreach ($original as $duration) {
+                if (!is_numeric($duration) || !is_finite((float)$duration) || (float)$duration < $min) return $plan;
+                $seconds = (float)$duration;
+                if ($seconds <= $max) {
+                    $durations[] = $duration;
+                    continue;
+                }
+                $count = (int)ceil($seconds / $max);
+                if ($count > 40 || count($durations) + $count > 40) return $plan;
+                $part = $seconds / $count;
+                if ($part < $min) return $plan;
+                array_push($durations, ...array_fill(0, $count, $part));
+            }
+            if (count($durations) > 40) return $plan;
+            $episodeTotal += array_sum($original);
+            $updated['scene_beats'][$index]['shot_durations'] = $durations;
+        }
+        if (is_numeric($policy['max_seconds'] ?? null)
+            && $episodeTotal > (float)$policy['max_seconds'] + 0.001) return $plan;
+        return $updated;
     }
 
     /** Correct derived sums only. Shot timing and user-locked totals remain authoritative. */
