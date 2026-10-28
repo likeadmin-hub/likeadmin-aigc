@@ -15,9 +15,13 @@ class P3PreflightVideo {
     public static function estimate(int $tenant,array $payload): array {
         return Market::quote($tenant,['market_sku_id'=>self::$sku]+$payload);
     }
-    public static function generate($tenant,$user,$payload): array {
+    public static function generate($tenant,$user,$payload,?callable $onTaskCreated=null): array {
         self::$calls++;
-        if (self::$unknown) throw new RuntimeException('simulated response lost after submit');
+        if (self::$unknown) {
+            $task=(int)Db::name('aigc_video_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'running','create_time'=>time(),'delete_time'=>0]);
+            if ($onTaskCreated) $onTaskCreated($task);
+            throw new RuntimeException('simulated response lost after submit');
+        }
         Market::reserve($tenant,$user,'aigc_short_drama','video','aigc_video_task','p3-preflight',
             ['market_sku_id'=>self::$sku,'duration'=>5],['prompt'=>'synthetic','duration'=>5]);
         throw new LogicException('Fixture must reject before any Provider call');
