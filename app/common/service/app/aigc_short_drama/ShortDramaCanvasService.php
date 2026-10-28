@@ -1120,6 +1120,13 @@ class ShortDramaCanvasService
         foreach (['quality', 'resolution', 'negative_prompt'] as $key) {
             if (isset($params[$key])) $payload[$key] = (string)$params[$key];
         }
+        // Use the same schema-validated controls as the image/video workspace.
+        // Keep them in the saved request so preview, confirmation and submit agree.
+        // Do not accept raw provider_params or billing/identity overrides here.
+        if (in_array($type, ['image', 'video'], true) && isset($params['advanced_params'])) {
+            if (!is_array($params['advanced_params'])) throw new Exception('高级参数格式不正确');
+            $payload['advanced_params'] = $params['advanced_params'];
+        }
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
     }
 
