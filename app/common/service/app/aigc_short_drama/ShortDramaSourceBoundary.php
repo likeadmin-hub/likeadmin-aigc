@@ -57,7 +57,6 @@ final class ShortDramaSourceBoundary
     public static function episode(array $episode): array
     {
         $original = ShortDramaImportedScript::sourceContent($episode);
-        if ($original === '') return $episode; // Ordinary outline-only creation remains valid.
         $scope = (array)($episode['source_scope'] ?? []);
         if (($scope['version'] ?? 0) === 2) {
             $range = (array)($episode['source_range'] ?? []);
@@ -76,6 +75,7 @@ final class ShortDramaSourceBoundary
             unset($episode['content']);
             return $episode;
         }
+        if ($original === '') return $episode; // Ordinary outline-only creation remains valid.
         $source = self::text($original);
         $sections = self::sections($source);
         $number = (int)($episode['episode_number'] ?? $episode['episode_no'] ?? 0);
@@ -125,7 +125,7 @@ final class ShortDramaSourceBoundary
     public static function assertRequest(array $request): void
     {
         $episode = $request['series_context']['current_episode'] ?? [];
-        if (!$episode || ShortDramaImportedScript::sourceContent($episode) === '') return;
+        if (!$episode) return;
         $normalized = self::episode($episode);
         if (ShortDramaImportedScript::sourceContent($normalized) !== ShortDramaImportedScript::sourceContent($episode)) {
             throw new RuntimeException('本集原文包含其他剧集，已停止生成；请重新解析并确认分集大纲，原有结果保留', 422);

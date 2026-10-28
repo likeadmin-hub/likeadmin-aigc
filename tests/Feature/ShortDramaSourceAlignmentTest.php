@@ -84,4 +84,52 @@ class ShortDramaSourceAlignmentTest extends TestCase
         $this->expectExceptionCode(422);
         Source::episodes($episodes, 'split_by_ai');
     }
+
+    public function testMissingMappedSourceCannotBypassTheProductionGuard(): void
+    {
+        [, $episodes] = $this->fixture();
+        $mapped = Source::episodes($episodes, 'split_by_ai');
+        $mapped[1]['source_content'] = '';
+        $this->expectExceptionCode(422);
+        Source::assertRequest(['series_context'=>['current_episode'=>$mapped[1]]]);
+    }
+
+    public function testSingleLineDocumentCannotBeArbitrarilyDivided(): void
+    {
+        [, $episodes] = $this->fixture();
+        foreach ($episodes as &$episode) $episode['content'] = '所有情节只有一行，没有可确认的分集范围';
+        $this->expectExceptionCode(422);
+        Source::episodes($episodes, 'split_by_ai');
+    }
+
+    public function testCarriageReturnOnlyDocumentKeepsItsBytes(): void
+    {
+        [$source, $episodes] = $this->fixture();
+        $source = str_replace("\r\n", "\r", $source);
+        foreach ($episodes as &$episode) $episode['content'] = $source;
+        $mapped = Source::episodes($episodes, 'split_by_ai');
+        self::assertSame($source, implode('', array_column($mapped, 'source_content')));
+        self::assertSame($mapped, Source::episodes($mapped));
+    }
+
+    public function testParserNormalizationAndStoryConfirmationKeepTheMapping(): void
+    {
+        [$source, $episodes] = $this->fixture();
+        foreach ($episodes as $index => &$episode) {
+            $episode += ['title'=>'归途' . ($index + 1),'story_outline'=>$episode['summary'],
+                'conflict_point'=>'两人面对眼前的难题。','ending_hook'=>'两人需要作出新的抉择。'];
+        }
+        $payload = ['parse_mode'=>'split_by_ai','title'=>'归途','type_judgement'=>'剧情','core_theme'=>'共同成长',
+            'story_outline'=>'两人相识后共同生活，最后出发远航。','episodes'=>$episodes,
+            'subjects'=>[['name'=>'少女','description'=>'善良的少女','category'=>'character']],
+            'locations'=>[['name'=>'书店','description'=>'旧城的书店']]];
+        $adapter = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'fileQaParsePlan');
+        $adapter->setAccessible(true);
+        $plan = $adapter->invoke(null, $payload, [], '归途');
+        $import = \app\common\service\app\aigc_short_drama\ShortDramaImportedScript::class;
+        $confirmed = $import::confirmedOutline($plan, $import::storyDraft($plan));
+        self::assertSame($source, implode('', array_column($confirmed['episodes'], 'source_content')));
+        self::assertSame($plan['episodes'], $confirmed['episodes']);
+        foreach ($confirmed['episodes'] as $item) Source::assertRequest(['series_context'=>['current_episode'=>$item]]);
+    }
 }
