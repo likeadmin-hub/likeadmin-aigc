@@ -37,7 +37,7 @@ final class CopywritingRecovery
     public static function sweep(int $limit=20): int
     {
         $rows=CopywritingStore::table('task')->where(function($q){$q->where('submission_state','uncertain')->whereOr('billing_state','pending_usage');})->where('update_time','<',time()-30)->order('update_time')->limit($limit)->select()->toArray();
-        foreach($rows as $row){try{self::reconcile((int)$row['tenant_id'],(int)$row['id']);}catch(\Throwable $e){\think\facade\Log::error('Copywriting recovery pending: '.$row['id'].' '.get_class($e));}}
+        foreach($rows as $row){try{self::reconcile((int)$row['tenant_id'],(int)$row['id']);}catch(\Throwable $e){\think\facade\Log::error('Copywriting recovery pending: '.$row['id'].' '.get_class($e));}finally{CopywritingStore::table('task')->where(['tenant_id'=>$row['tenant_id'],'id'=>$row['id']])->update(['update_time'=>time()]);}}
         return count($rows);
     }
 
@@ -47,6 +47,6 @@ final class CopywritingRecovery
         CopywritingStore::owned('task',$tenantId,$id);
         CopywritingStore::table('task')->where(['id'=>$id,'tenant_id'=>$tenantId])->update(['review_state'=>'reviewed','review_note'=>mb_substr($note,0,1000),'reviewer_id'=>$adminId,'reviewed_at'=>time()]);
         CopywritingStore::audit($tenantId,$adminId,'review_uncertain','task',$id);
-        return self::reconcile($tenantId,$id);
+        return CopywritingTaskService::publicTask(CopywritingStore::owned('task',$tenantId,$id));
     }
 }

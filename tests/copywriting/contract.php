@@ -11,3 +11,5 @@ check(P::render($d,['topic'=>'输入 {{other}}'])['user_prompt']==='主题 输�
 $d['fields'][]=['id'=>'b','key'=>'emoji','type'=>'switch','default'=>false,'on_prompt'=>'添加表情','off_prompt'=>'不添加表情'];$d['prompt']['user_template']='{{topic}} {{emoji}}';check(str_contains(P::render($d,['topic'=>'正文','emoji'=>false])['user_prompt'],'不添加表情'),'false retained');
 try{P::render($d,['topic'=>'']);throw new RuntimeException('required not enforced');}catch(InvalidArgumentException $e){}
 echo "copywriting contract PASS\n";
+
+$request=(new app\Request())->withPost(['document'=>['schema_version'=>1,'zero'=>0,'flag'=>false,'text'=>'  keep whitespace  ']]);$raw=$request->post('document',[],null);check($raw['schema_version']===1&&$raw['zero']===0&&$raw['flag']===false&&$raw['text']==='  keep whitespace  ','structured request values must bypass global trim');

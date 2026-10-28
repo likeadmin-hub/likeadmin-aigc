@@ -2,7 +2,7 @@
 namespace app\api\controller\app\aigc_copywriting;
 use app\common\service\app\aigc_copywriting\{CopywritingStore as Store,CopywritingToolService as Tools,CopywritingCategoryService as Categories,CopywritingPageService as Pages,CopywritingDocument as Document,CopywritingPromptService as Prompts,CopywritingModelService as Models,CopywritingTaskService as Tasks,CopywritingEventService as Events,CopywritingRecovery as Recovery};
 class TaskController extends Controller {
- public function create(){return $this->call(fn()=>Tasks::create($this->tenant(),$this->userId,$this->request->post()));}
+ public function create(){return $this->call(fn()=>Tasks::create($this->tenant(),$this->userId,$this->request->post('',null,null)));}
  public function detail(){return $this->call(fn()=>Tasks::detail($this->tenant(),$this->userId,(int)$this->request->get('id')));}
  public function lists(){return $this->call(fn()=>Tasks::lists($this->tenant(),$this->userId,(int)$this->request->get('page_no',1)));}
  public function cancel(){return $this->call(fn()=>Tasks::cancel($this->tenant(),$this->userId,(int)$this->request->post('id')));}
