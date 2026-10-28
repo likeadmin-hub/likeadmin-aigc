@@ -1,0 +1,1 @@
+import{g as a,o as e,c as n,M as c,_ as o}from"./entry.e8367a5d.js";const r=a({__name:"CanvasUiIcon",props:{src:{}},setup(t){return(s,_)=>(e(),n("span",{class:"canvas-ui-icon","aria-hidden":"true",style:c({maskImage:`url(${JSON.stringify(s.src)})`,WebkitMaskImage:`url(${JSON.stringify(s.src)})`})},null,4))}});const p=o(r,[["__scopeId","data-v-cfc33574"]]);export{p as C};

@@ -34,6 +34,16 @@
   ],
   "subPackages": [
     {
+      "root": "apps/aigc_copywriting",
+      "pages": [
+        "pages/index/index",
+        "pages/tool/index",
+        "pages/history/index",
+        "pages/result/index",
+        "pages/preview/index"
+      ]
+    },
+    {
       "root": "packages",
       "pages": [
         "pages/404/404",

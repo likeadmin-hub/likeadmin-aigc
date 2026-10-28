@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "uni-document-renderer": "../../components/copywriting/UniDocumentRenderer"
+  }
+}

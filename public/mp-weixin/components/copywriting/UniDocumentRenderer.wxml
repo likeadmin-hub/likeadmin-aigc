@@ -1,0 +1,1 @@
+<view class="cw-mobile" style="{{b}}"><uni-node wx:for="{{a}}" wx:for-item="node" wx:key="a" u-i="{{node.b}}" bind:__l="__l" u-p="{{node.c}}"/></view>

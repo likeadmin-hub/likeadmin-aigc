@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "recursive-node": "./UniNode"
+  }
+}
