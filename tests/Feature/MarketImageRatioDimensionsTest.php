@@ -49,4 +49,13 @@ class MarketImageRatioDimensionsTest extends TestCase
         $s=['resource_type'=>'model','model_code'=>'ratio-size-fixture','locked_params'=>[],'market_metadata'=>$this->metadata()];
         $this->expectException(\InvalidArgumentException::class);Images::prepareRequest($s,['prompt'=>'Fixture','ratio'=>'16:9','quality'=>'2K']);
     }
+    public function testAutoSizeMeaningComesFromTheDeclaredDomain(): void
+    {
+        $method=new \ReflectionMethod(Images::class,'skuQuality');$meta=$this->metadata();
+        self::assertSame('',$method->invoke(null,[],['image_size'=>'auto'],$meta));
+        $meta['params_schema']['image_size']['enum']=['auto','1024x1024'];
+        self::assertSame('auto',$method->invoke(null,[],['image_size'=>'auto'],$meta));
+        $meta['params_schema']['image_size']['enum']=['1:1','2K'];
+        self::assertSame(['1:1'],(new \ReflectionMethod(Images::class,'ratioOptions'))->invoke(null,[],$meta));
+    }
 }

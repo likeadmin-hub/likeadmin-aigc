@@ -103,7 +103,7 @@ class MarketImageModelRuntimeService
             foreach ($catalogueSkus[(int)$product['id']]['available'] ?? [] as $market) {
                 $sku = $market['sku'];
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
-                $quality = self::skuQuality($sku, $locked);
+                $quality = self::skuQuality($sku, $locked, $meta);
                 $skus[] = [
                     'market_sku_id' => (int)$sku['id'],
                     'sku_key' => (string)$sku['sku_key'],
@@ -867,7 +867,7 @@ class MarketImageModelRuntimeService
         foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
             $sku = (array)$market['sku'];
             $locked = self::arrayValue($sku['locked_params'] ?? []);
-            $lockedQuality = self::skuQuality($sku, $locked);
+            $lockedQuality = self::skuQuality($sku, $locked, self::metadata($product));
             $choices = self::skuQualityChoices($sku, self::metadata($product), $product);
             $nativeMode = MarketGenerationMaterials::select(self::metadata($product), $selection)['native_mode'] ?? '';
             if (!empty($locked['generation_type']) && $nativeMode !== '' && $locked['generation_type'] !== $nativeMode) continue;
@@ -917,7 +917,7 @@ class MarketImageModelRuntimeService
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $requestedQuality = self::selectionQuality($selection);
-        $lockedQuality = self::skuQuality($market['sku'], $locked);
+        $lockedQuality = self::skuQuality($market['sku'], $locked, self::metadata($market['product']));
         if (!self::pricedParametersMatch($locked, $selection)) throw new Exception('所选图片 SKU 不支持当前参数');
         $choices = self::skuQualityChoices($market['sku'], self::metadata($market['product']), $market['product']);
         $nativeMode = MarketGenerationMaterials::select(self::metadata($market['product']), $selection)['native_mode'] ?? '';
@@ -968,7 +968,7 @@ class MarketImageModelRuntimeService
         }
         $outputQuality = self::firstValue($locked, ['resolution', 'image_size'])
             ?: self::firstValue($providerParams, ['resolution', 'image_size'])
-            ?: self::skuQuality($snapshot, $locked)
+            ?: self::skuQuality($snapshot, $locked, self::metadata($snapshot))
             ?: $requestedResolution
             ?: self::firstValue($defaultParams, ['resolution', 'image_size'])
             ?: $requestedQuality;
@@ -1681,14 +1681,16 @@ class MarketImageModelRuntimeService
         if (!empty($locked['_billing_resolution_tier'])) {
             return array_map('strtolower', MarketGenerationSchema::choices(['enum'=>$locked['_billing_resolution_tier']]));
         }
-        $quality = self::skuQuality($sku, $locked);
+        $quality = self::skuQuality($sku, $locked, $meta);
         return $quality !== '' ? [$quality] : self::modelQualityOptions($product, $meta);
     }
 
-    private static function skuQuality(array $sku, array $locked): string
+    private static function skuQuality(array $sku, array $locked, array $meta = []): string
     {
         $quality = self::firstValue($locked, ['quality', 'resolution']);
-        if($quality===''&&!preg_match('/^(?:\d+:\d+|auto|adaptive|original)$/iD',(string)($locked['image_size']??'')))$quality=self::firstValue($locked,['image_size']);
+        $schema=MarketGenerationSchema::properties(self::arrayValue($meta['params_schema']??[]));
+        $ratioSize=preg_match('/^\d+:\d+$/D',(string)($locked['image_size']??''))||MarketGenerationSchema::isAspectRatioDefinition($schema['image_size']??[]);
+        if($quality===''&&!$ratioSize)$quality=self::firstValue($locked,['image_size']);
         if ($quality !== '') {
             return strtolower($quality);
         }
@@ -1794,7 +1796,7 @@ class MarketImageModelRuntimeService
         $values = MarketGenerationSchema::choices(['enum'=>$meta['supported_ratios'] ?? $meta['ratios'] ?? []]);
         if ($values === []) foreach (['aspect_ratio','ratio','image_size'] as $field) {
             $choices = MarketGenerationSchema::choices($schema[$field] ?? []);
-            if ($field === 'image_size'&&!MarketGenerationSchema::isAspectRatioDefinition($schema[$field]??[])) $choices = [];
+            if ($field === 'image_size'&&!MarketGenerationSchema::isAspectRatioDefinition($schema[$field]??[])) $choices = array_values(array_filter($choices,static fn($v)=>preg_match('/^\d+:\d+$/D',(string)$v)));
             if ($choices !== []) { $values = $choices; break; }
         }
         if ($values === [] && self::isQwenImageModel($modelCode)) $values = self::QWEN_IMAGE_RATIOS;
