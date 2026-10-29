@@ -186,7 +186,7 @@ final class ShortDramaScriptGeneration
                     $part = $call($key, $input, 1600 + $size * 650, static function ($candidate) use (&$partial, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule): void {
                         $partial = $candidate;
                         self::assertShots($candidate, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
-                    });
+                    }, ShortDramaInputContract::preciseRecovery($request) ? static function ($candidate) use (&$partial): void { $partial = $candidate; } : null);
                     self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                 } catch (RuntimeException $error) {
                     if (!in_array($error->getCode(), [413, 422], true)) throw $error;

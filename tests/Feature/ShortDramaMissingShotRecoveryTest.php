@@ -397,6 +397,23 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
             ['patches'=>[['scene_index'=>0,'fields'=>['goal'=>'补全','entry'=>'篡改']]]]);
     }
 
+    public function testSceneFieldIsCapturedBeforeExtraLocationNormalizationFails(): void
+    {
+        $plan=self::skeleton(true);$request=['_input_contract_version'=>23,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
+        $bad=self::shot(2);$bad['scene_name']='走廊';$bad['dialogue']='甲：原台词。';
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],
+            static function($key)use(&$calls,$plan,$bad){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$payload=$plan;
+                elseif(str_ends_with($key,'_fields_v1'))$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['scene_name'=>'房间']]]];
+                else $payload=['locations'=>$plan['locations'],'storyboard'=>[self::shot(1),$bad,self::shot(3)]];
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+            });
+        $bad['scene_name']='房间';
+        self::assertSame([self::shot(1),$bad,self::shot(3)],$result['payload']['storyboard']);
+        self::assertStringEndsWith('_fields_v1',end($calls));
+    }
+
     public function testVersion20KeepsOriginalWholePartRepair(): void
     {
         $request=['_input_contract_version'=>20,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
