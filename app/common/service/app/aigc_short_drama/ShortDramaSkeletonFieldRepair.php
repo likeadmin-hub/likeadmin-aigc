@@ -21,11 +21,23 @@ final class ShortDramaSkeletonFieldRepair
             if ($timed && (empty($beat['key_events']) || !is_array($beat['key_events']))) $fields[] = 'key_events';
             if (!$timed && (!is_int($beat['shot_count'] ?? null) || $beat['shot_count'] < 1 || $beat['shot_count'] > 40)) $fields[] = 'shot_count';
             $id = $beat['scene_ref_id'] ?? null;
-            if (!in_array($id, array_column($plan['locations'], 'id'), true)) $fields[] = 'scene_ref_id';
+            if (!in_array($id, array_column($plan['locations'], 'id'), true)) {
+                $label = trim((string)($beat['scene_name'] ?? '')); $matches = [];
+                foreach ($plan['locations'] as $location) {
+                    $names = array_merge([(string)($location['name'] ?? '')], (array)($location['aliases'] ?? []));
+                    if ($label !== '' && in_array($label, $names, true)) $matches[] = $location['id'];
+                }
+                // Without a uniquely declared name, selecting a place would be a guess.
+                if (count($matches) !== 1) return [];
+                $fields[] = 'scene_ref_id';
+            }
             elseif (is_string($beat['scene_name'] ?? null) && trim($beat['scene_name']) !== '') {
                 $location = $locations[$id] ?? [];
                 $names = array_merge([(string)($location['name'] ?? '')], (array)($location['aliases'] ?? []));
-                if (!in_array(trim($beat['scene_name']), $names, true)) $fields[] = 'scene_name';
+                if (!in_array(trim($beat['scene_name']), $names, true)) {
+                    if (!ShortDramaSceneBinding::safeLabelRepair(['visual_description'=>$beat['entry'] ?? ''], $beat, $plan)) return [];
+                    $fields[] = 'scene_name';
+                }
             }
             if ($fields) $targets[] = ['scene_index'=>$index, 'fields'=>$fields,
                 'original'=>array_intersect_key($beat, array_flip($fields))];
