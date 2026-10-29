@@ -465,6 +465,7 @@ class MarketImageModelRuntimeService
             try {
                 return ['response' => $microVideo?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
+                MarketProviderReceipt::record($consumptionId,(int)$e->getCode(),$e->receipt());
                 if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
                 if (!self::shouldRetrySubmit($e, $attempt, $singleAttempt)) {
                     throw $e;
