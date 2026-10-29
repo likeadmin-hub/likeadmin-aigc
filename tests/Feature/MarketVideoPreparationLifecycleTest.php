@@ -14,7 +14,7 @@ use think\facade\Db;
 class MarketVideoPreparationLifecycleTest extends TestCase
 {
     /** @dataProvider resources */
-    public function testPreparedQuotesReservationsAndRefundsAreConsistent(string $resource): void
+    public function testPreparedQuotesReservationsAndRefundsAreConsistent(string $resource, array $meter): void
     {
         if (getenv('AIGC_VIDEO_PREPARATION_DB_TESTS') !== '1') self::markTestSkipped('Explicit local rollback fixture only');
         (new \think\App())->initialize();
@@ -43,7 +43,7 @@ class MarketVideoPreparationLifecycleTest extends TestCase
             $sku = PowerMarketSku::create(['product_id' => $product['id'], 'sku_key' => $key, 'title' => 'Offline fixture',
                 'locked_params' => ['duration' => 4, 'resolution' => '720P'], 'usage_unit' => 'output_second', 'usage_unit_size' => 1,
                 'upstream_price' => 1, 'sale_points' => 1, 'sale_status' => 1, 'status' => 1,
-                'source_payload' => ['meter_summary' => '生成秒数，总点数向上取整'], 'create_time' => time(), 'update_time' => time()]);
+                'source_payload' => $meter, 'create_time' => time(), 'update_time' => time()]);
             $request = ['resource_type' => $resource, 'model_id' => ($resource === 'model' ? 'market_video_model:' : 'market_video_app:') . $product['id'],
                 'market_sku_id' => $sku['id'], 'prompt' => 'Offline fixture', 'duration' => 4, 'quality' => '720P', 'ratio' => '1:1', 'generation_method' => 'text_to_video'];
             if ($resource === 'app_api') $request['upstream_app_code'] = 'full_video';
@@ -76,7 +76,15 @@ class MarketVideoPreparationLifecycleTest extends TestCase
         self::assertSame(0, (int)Db::name('power_market_product')->where('product_code', $key)->count());
     }
 
-    public static function resources(): array { return [['model'], ['app_api']]; }
+    public static function resources(): array
+    {
+        $rows = [];
+        foreach (['model','app_api'] as $resource) foreach ([
+            ['meter_summary'=>'生成秒数，总点数向上取整'],
+            ['meter_contract'=>['version'=>1,'basis'=>'output','rounding'=>'ceil']],
+        ] as $meter) $rows[] = [$resource,$meter];
+        return $rows;
+    }
     private function balances(int $user): array
     {
         return ['tenant' => (float)Db::name('tenant')->where('id', 1)->value('point_balance'),

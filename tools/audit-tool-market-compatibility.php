@@ -4,20 +4,36 @@ require dirname(__DIR__) . '/runtime-loader.php';
 (new AigcRuntimeApp(dirname(__DIR__)))->initialize();
 
 use app\common\model\power\PowerMarketProduct;
+use app\common\model\power\PowerMarketSku;
 use app\common\service\app\aigc_canvas\CanvasModelRouterService;
 use app\common\service\power\MarketGenerationCatalogService;
+use app\common\service\power\MarketGenerationCompatibilityAudit as Audit;
 use app\common\service\power\MarketGenerationMaterials;
 use app\common\service\power\MarketGenerationSchema;
 use app\common\service\power\MarketImageModelRuntimeService;
+use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketVideoRuntimeService;
+use think\facade\Db;
 
-$args = getopt('', ['tenant-id:']);
+$args = getopt('', ['tenant-id:', 'probe-requests']);
 $tenantRaw = (string)($args['tenant-id'] ?? '');
 if (!preg_match('/^[1-9][0-9]*$/', $tenantRaw)) {
-    fwrite(STDERR, "Usage: php tools/audit-tool-market-compatibility.php --tenant-id=TENANT_ID\n");
+    fwrite(STDERR, "Usage: php tools/audit-tool-market-compatibility.php --tenant-id=TENANT_ID [--probe-requests]\n");
     exit(1);
 }
 $tenantId = (int)$tenantRaw;
+$probe = array_key_exists('probe-requests', $args);
+$captured = json_decode((string)file_get_contents(dirname(__DIR__).'/tests/fixtures/canvas-generation-market-contracts.json'), true, 512, JSON_THROW_ON_ERROR);
+$samples = [];
+foreach ((array)($captured['contracts'] ?? []) as $sample) {
+    $key = ($sample['type'] ?? '').':'.($sample['resource_type'] ?? '').':';
+    $key .= ($sample['resource_type'] ?? '') === 'model' ? ($sample['model_code'] ?? '').':'.($sample['channel_code'] ?? '') : ($sample['app_code'] ?? '');
+    $samples[$key] = MarketGenerationSchema::array($sample['params_schema'] ?? []);
+}
+// Enforce the read-only promise even if a catalogue dependency later adds writes.
+Db::execute('SET TRANSACTION READ ONLY');
+Db::startTrans();
+try {
 $path = getenv('MARKET_GENERATION_CONTRACTS_PATH') ?: dirname(__DIR__) . '/resources/market/generation-contracts.json';
 $contractFile = is_readable($path) ? json_decode((string)file_get_contents($path), true) : null;
 $contractModels = is_array($contractFile['models'] ?? null) ? $contractFile['models'] : null;
@@ -37,6 +53,7 @@ $report = [
     'tenant_id' => $tenantId,
     'generated_at' => date(DATE_ATOM),
     'scope' => 'tenant catalog and local metadata only; model visibility and fingerprint do not prove end-to-end compatibility',
+    'request_probes' => $probe ? 'one synthetic request per mode/scenario and visible SKU; no quote, media inspection, uploads or upstream calls' : 'disabled',
     'models' => [],
     'unavailable_applications' => [],
 ];
@@ -49,15 +66,15 @@ foreach (['image', 'video'] as $type) {
         $id = (string)($option['id'] ?? '');
         $productId = (int)($option['market_product_id'] ?? 0);
         $resource = (string)($option['resource_type'] ?? '');
+        $product = PowerMarketProduct::where('id', $productId)->find();
+        $runtime = $type === 'image' ? MarketImageModelRuntimeService::class : MarketVideoRuntimeService::class;
+        $metadata = $product ? (new ReflectionMethod($runtime, 'metadata'))->invoke(null, $product->toArray()) : [];
         $contractStatus = 'unverified_app_adapter';
         if ($resource === 'model') {
             $contractStatus = 'unknown';
-            $product = PowerMarketProduct::where('id', $productId)->find();
             if ($product && $contractModels !== null) {
                 // Use the same merged metadata as the respective runtime. Reflection is
                 // restricted to this developer tool and never invokes submission.
-                $runtime = $type === 'image' ? MarketImageModelRuntimeService::class : MarketVideoRuntimeService::class;
-                $metadata = (new ReflectionMethod($runtime, 'metadata'))->invoke(null, $product->toArray());
                 $code = (string)($metadata['upstream_metadata']['model_code'] ?? '');
                 if ($code === '') $contractStatus = 'missing_model_code';
                 elseif (!isset($contractModels[$code])) $contractStatus = 'missing_local_contract';
@@ -98,6 +115,33 @@ foreach (['image', 'video'] as $type) {
                 'native_mode' => (string)($mode['native_mode'] ?? ''), 'materials' => $materials];
         }
         $dramaDefaultGroup = $type === 'video' || $resource === 'model';
+        $skuIds = array_values(array_map(static fn($sku) => (int)($sku['market_sku_id'] ?? 0), (array)($option['skus'] ?? [])));
+        $skuRows = $skuIds === [] ? [] : PowerMarketSku::where('product_id', $productId)->whereIn('id', $skuIds)->select()->toArray();
+        $skuMatrix = [];
+        foreach ($skuRows as $sku) {
+            $row = Audit::sku($type, $resource, $sku);
+            if ($probe && $product) {
+                $snapshot = ['resource_type'=>$resource, 'model_code'=>(string)($option['model_code'] ?? $product['upstream_model_code']),
+                    'channel_code'=>(string)$product['upstream_channel_code'], 'app_code'=>(string)$product['upstream_app_code'],
+                    'api_code'=>(string)$product['upstream_api_code'], 'sku_id'=>(int)$sku['id'], 'sku_key'=>(string)$sku['sku_key'],
+                    'market_metadata'=>$metadata, 'params_schema'=>$metadata['params_schema'] ?? [],
+                    'locked_params'=>MarketGenerationSchema::array($sku['locked_params'] ?? []),
+                    'max_reference_images'=>(int)($option['max_reference_images'] ?? 0)];
+                $prepare = match (true) {
+                    $type === 'video' => static fn($request) => MarketVideoRuntimeService::prepareRequest($snapshot, $request)->nativeInput,
+                    $resource === 'model' => static fn($request) => MarketImageModelRuntimeService::prepareRequest($snapshot, $request, $tenantId)->nativeInput,
+                    ($product['upstream_app_code'] ?? '') === 'nano_banana' => static fn($request) => (new ReflectionMethod(MarketNanoBananaAppRuntimeService::class, 'payload'))->invoke(null, $snapshot, $request, '', $tenantId),
+                    default => null,
+                };
+                $row['request_cases'] = $prepare === null ? [['status'=>'unregistered_probe']] : array_map(
+                    static fn($case) => Audit::probe($case, $prepare), Audit::cases($type, $option)
+                );
+            }
+            $skuMatrix[] = $row;
+        }
+        $sampleKey = $type.':'.$resource.':'.($resource === 'model'
+            ? (string)($option['model_code'] ?? $product['upstream_model_code'] ?? '').':'.(string)($product['upstream_channel_code'] ?? '')
+            : (string)($product['upstream_app_code'] ?? ''));
         $report['models'][] = [
             'generation_type' => $type, 'id' => $id, 'product_id' => $productId,
             'resource_type' => $resource, 'name' => (string)($option['name'] ?? ''),
@@ -108,14 +152,20 @@ foreach (['image', 'video'] as $type) {
                 'short_drama' => $dramaDefaultGroup ? 'listed_in_model_group' : 'not_in_default_model_group',
             ],
             'scenario_compatibility' => 'unverified',
+            'scenario_matrix' => Audit::scenarios($type, $option, $metadata),
+            'declaration_review' => Audit::review($schema, $samples[$sampleKey] ?? null),
+            'sku_matrix' => $skuMatrix,
             'parameters' => $fields,
             'material_modes' => $modes,
             'reference_limits' => array_intersect_key($option, array_flip(['max_reference_images', 'max_reference_videos', 'max_reference_audios', 'max_reference_assets'])),
             'ratio_options' => $option['ratio_options'] ?? [],
             'duration_options' => $option['duration_options'] ?? [],
             'resolution_options' => $option['resolution_options'] ?? [],
-            'sku_ids' => array_values(array_map(static fn($sku) => (int)($sku['market_sku_id'] ?? 0), (array)($option['skus'] ?? []))),
+            'sku_ids' => $skuIds,
         ];
     }
 }
 echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
+} finally {
+    Db::rollback();
+}
