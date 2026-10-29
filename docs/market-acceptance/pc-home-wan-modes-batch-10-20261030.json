@@ -1,0 +1,4608 @@
+{
+  "observed_at": "2026-10-30T04:25:28+08:00",
+  "observations": [
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 688,
+      "sku_id": 688,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "native_mode": "text_to_video",
+      "scenario": "text_audio",
+      "requested_sku_id": 689,
+      "sku_id": 689,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "native_mode": "image_to_video",
+      "scenario": "first_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "native_mode": "image_to_video",
+      "scenario": "pair_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 2,
+      "video_slots": 0,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 690,
+      "sku_id": 690,
+      "resolution": "1080P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 1440,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "generation_method": "omni_reference",
+      "native_mode": "image_to_video",
+      "scenario": "continuation_audio",
+      "requested_sku_id": 691,
+      "sku_id": 691,
+      "resolution": "720P",
+      "duration": 15,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 15,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_image",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 0,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_video",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 1,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 2,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 192,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 692,
+      "sku_id": 692,
+      "resolution": "1080P",
+      "duration": 10,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 2,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 128,
+      "billing_basis": "output",
+      "billing_quantity": 2,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "native_mode": "reference_to_video",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 693,
+      "sku_id": 693,
+      "resolution": "720P",
+      "duration": 10,
+      "image_slots": 3,
+      "video_slots": 3,
+      "audio_slots": 1,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 0,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_auto",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "auto"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_studio",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 960,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 686,
+      "sku_id": 686,
+      "resolution": "1080P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 480,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 0,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 640,
+      "billing_basis": "output",
+      "billing_quantity": 10,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "generation_method": "omni_reference",
+      "native_mode": "",
+      "scenario": "edit_image_origin",
+      "requested_sku_id": 687,
+      "sku_id": 687,
+      "resolution": "720P",
+      "duration": 5,
+      "image_slots": 1,
+      "video_slots": 1,
+      "audio_slots": 0,
+      "points": 320,
+      "billing_basis": "output",
+      "billing_quantity": 5,
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "explicit_settings": {
+        "seed": 0,
+        "watermark": false,
+        "prompt_extend": false,
+        "audio_setting": "origin"
+      },
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_and_frozen_preparation_equal"
+    }
+  ],
+  "failed_cases": [],
+  "negative_cases": [
+    {
+      "scenario": "two_continuation_videos",
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "base_sku_id": 691,
+      "status": "expected_rejection",
+      "error_fingerprint": "5af2b5e1e4931c608b57f87c5725f912b89c41957df3911c56a95a4f586cf2c8"
+    },
+    {
+      "scenario": "tail_without_first",
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:pair",
+      "base_sku_id": 691,
+      "status": "expected_rejection",
+      "error_fingerprint": "af0275a3aaf51d8630957c36a89bb70431b4493f5390a1eea0f4e9475c9dbbce"
+    },
+    {
+      "scenario": "six_combined_references",
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "base_sku_id": 693,
+      "status": "expected_rejection",
+      "error_fingerprint": "527c1f7e1ef3f971e16de3897c8a4a67392070221bb988bc9c84b391346c0449"
+    },
+    {
+      "scenario": "reference_audio_only",
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "base_sku_id": 693,
+      "status": "expected_rejection",
+      "error_fingerprint": "30fe01f6496e49c5364f5a31bf2101c0979076d68a33da78b5561ac7b73b3f65"
+    },
+    {
+      "scenario": "two_edit_images",
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "base_sku_id": 687,
+      "status": "expected_rejection",
+      "error_fingerprint": "bd98554523e07dfc7af06c99d9b5c381f31b6a8d85c4390d88be29a1811f3c72"
+    },
+    {
+      "scenario": "undeclared_audio_setting",
+      "channel": "market_video_model:340",
+      "entry": "pc_home",
+      "material_mode": "default:0",
+      "base_sku_id": 687,
+      "status": "expected_rejection",
+      "error_fingerprint": "94d2f09182d6f9fbd5189cfa7460e5cd0488c836b8b45107e6d018ee7267c8cb"
+    },
+    {
+      "scenario": "fractional_duration",
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "image_to_video:continuation",
+      "base_sku_id": 691,
+      "status": "expected_rejection",
+      "error_fingerprint": "a338d6f4c8e5c54a273cfa9bead687227c3502774fa8a292ce15d93789263e86"
+    }
+  ],
+  "batch": 10,
+  "baseline": "tenant-1-baseline-20261030.json",
+  "baseline_identity_observed_at": "2026-10-30T01:16:40+08:00",
+  "identity_bindings": {
+    "market_video_model:341": {
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:341",
+        "product_id": 341,
+        "resource_type": "model",
+        "model_code": "official-33-edd5f5d10474773d7d",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "baseline_declaration_fingerprint": "d3d05fa6f4d8d6bd068c9048b7a7be6d7eabb4b0252a0cfde84f199a459c5dac"
+    },
+    "market_video_model:340": {
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:340",
+        "product_id": 340,
+        "resource_type": "model",
+        "model_code": "official-33-2426300fd4da58cf52",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "baseline_declaration_fingerprint": "0c46fd6a05e241d5c0e048ac325bd1f5190011c60adf51337fada769c209ed67"
+    }
+  },
+  "public_projection_sha256": {
+    "market_video_model:341": "a78724861c7e52118b7d73d84acae35a90a5b14bab46b0c3685738f12cf88b67",
+    "market_video_model:340": "dca2fffcdaf149f0b44c9fe04d2fe8214bc69ee3d4c7d17e377b9ea3bb050334"
+  },
+  "catalogue_source": "Read-only creationConfig(1) at 2026-10-30T04:14:07+08:00; five public channels read, only Wan model resources 341 and 340 exercised. Historical declaration fingerprints retain baseline date.",
+  "source_commits": {
+    "server_runtime": "881e1a07e",
+    "web_rules": "472cbe4c",
+    "web_guidance_filter": "126c4f65",
+    "web": "f9872eed"
+  },
+  "resolved_sku_observations": [
+    {
+      "index": 64,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 65,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 66,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 67,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 68,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 69,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 70,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 71,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_image",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 72,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 73,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 74,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 75,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 76,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 77,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 78,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 79,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_video",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 80,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 81,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 82,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 83,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 84,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 85,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 86,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 87,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "reference_mixed",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 88,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 89,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 90,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 91,
+      "channel": "market_video_model:341",
+      "entry": "pc_studio",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 92,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 93,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 690,
+      "resolution": "1080P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 692,
+      "after_requested_sku_id": 692,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 94,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 2,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    },
+    {
+      "index": 95,
+      "channel": "market_video_model:341",
+      "entry": "pc_home",
+      "material_mode": "reference_to_video:4",
+      "generation_method": "omni_reference",
+      "scenario": "five_references_plus_frame_audio",
+      "requested_sku_id": 691,
+      "resolution": "720P",
+      "duration": 10,
+      "reason": "sku_changed",
+      "error_fingerprint": "7380c800a9e8476990ac6cb080880e8ddd862f7dd4ab515915102177391b6683",
+      "before_status": "requested_sku_changed_by_backend",
+      "after_sku_id": 693,
+      "after_requested_sku_id": 693,
+      "after_status": "frontend_and_backend_sku_equal"
+    }
+  ],
+  "material_guidance_projection": [
+    {
+      "channel": "market_video_model:357",
+      "modes": [
+        {
+          "key": ":text",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        },
+        {
+          "key": ":first",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        },
+        {
+          "key": ":pair",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        },
+        {
+          "key": ":reference",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        }
+      ]
+    },
+    {
+      "channel": "market_video_model:356",
+      "modes": [
+        {
+          "key": ":text",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        },
+        {
+          "key": ":first",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        },
+        {
+          "key": ":pair",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        },
+        {
+          "key": ":reference",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧／首尾帧不能与参考素材同时使用。",
+            "参考文件与参考链接不能同时提供。"
+          ]
+        }
+      ]
+    },
+    {
+      "channel": "market_video_model:345",
+      "modes": [
+        {
+          "key": ":reference",
+          "rule_messages": [
+            "循环帧可以与相同的首帧／尾帧同传，不能与另一张不同的首帧或尾帧同传。",
+            "中间关键帧最多 4 张，时间须大于 0、小于生成时长，任意两帧间隔至少 1/3 秒。",
+            "输入图片 为必填，必须提供 1 张参考图；首帧、尾帧不能替代该必填字段。首帧、尾帧可与参考图同用；循环帧与中间帧为额外图片输入。"
+          ]
+        },
+        {
+          "key": ":first",
+          "rule_messages": [
+            "循环帧可以与相同的首帧／尾帧同传，不能与另一张不同的首帧或尾帧同传。",
+            "中间关键帧最多 4 张，时间须大于 0、小于生成时长，任意两帧间隔至少 1/3 秒。",
+            "输入图片 为必填，必须提供 1 张参考图；首帧、尾帧不能替代该必填字段。首帧、尾帧可与参考图同用；循环帧与中间帧为额外图片输入。"
+          ]
+        },
+        {
+          "key": ":last",
+          "rule_messages": [
+            "循环帧可以与相同的首帧／尾帧同传，不能与另一张不同的首帧或尾帧同传。",
+            "中间关键帧最多 4 张，时间须大于 0、小于生成时长，任意两帧间隔至少 1/3 秒。",
+            "输入图片 为必填，必须提供 1 张参考图；首帧、尾帧不能替代该必填字段。首帧、尾帧可与参考图同用；循环帧与中间帧为额外图片输入。"
+          ]
+        },
+        {
+          "key": ":pair",
+          "rule_messages": [
+            "循环帧可以与相同的首帧／尾帧同传，不能与另一张不同的首帧或尾帧同传。",
+            "中间关键帧最多 4 张，时间须大于 0、小于生成时长，任意两帧间隔至少 1/3 秒。",
+            "输入图片 为必填，必须提供 1 张参考图；首帧、尾帧不能替代该必填字段。首帧、尾帧可与参考图同用；循环帧与中间帧为额外图片输入。"
+          ]
+        }
+      ]
+    },
+    {
+      "channel": "market_video_model:341",
+      "modes": [
+        {
+          "key": "text_to_video:0",
+          "rule_messages": []
+        },
+        {
+          "key": "image_to_video:first",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧图片与续写视频至少提供一项；尾帧须搭配首帧。"
+          ]
+        },
+        {
+          "key": "image_to_video:pair",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧图片与续写视频至少提供一项；尾帧须搭配首帧。"
+          ]
+        },
+        {
+          "key": "image_to_video:continuation",
+          "rule_messages": [
+            "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+            "首帧图片与续写视频至少提供一项；尾帧须搭配首帧。"
+          ]
+        },
+        {
+          "key": "reference_to_video:4",
+          "rule_messages": [
+            "参考图片与参考视频至少提供一项。",
+            "参考图片与参考视频合计最多 5 个；可另提供 1 张首帧和 1 个参考音频。"
+          ]
+        }
+      ]
+    },
+    {
+      "channel": "market_video_model:340",
+      "modes": [
+        {
+          "key": "default:0",
+          "rule_messages": []
+        }
+      ]
+    }
+  ],
+  "cross_entry_pairs": {
+    "count": 64,
+    "entries": [
+      "pc_studio",
+      "pc_home"
+    ],
+    "equality": "All recorded fields except entry compare equal for each channel/mode/scenario/resolution/duration key.",
+    "scope": "Production frontend computed selectors and shared projection; not browser navigation/interaction."
+  },
+  "browser": {
+    "status": "blocked_connection_closed",
+    "completed_scenarios": 0,
+    "screenshot": null,
+    "detail": "Browser connection timed out during model selection, then closed. New material guidance and Wan mode interactions have not been verified on the page in this batch. No synthetic upload or Generate click completed in this batch."
+  },
+  "validation": {
+    "pc_tests": 146,
+    "skips": 0,
+    "finite_preparation_cases_passed": 128,
+    "finite_preparation_cases_failed": 0,
+    "negative_rejections": 7,
+    "database": "Read-only current catalogue and estimate/preparation; no reservations, tasks, refunds or existing-row changes.",
+    "backend_phpunit": "Not rerun because backend business source unchanged; previous batch 233 tests are not counted as this batch execution.",
+    "known_static_failures_from_batch08": 4,
+    "known_static_failures_retested": false,
+    "live_generation": "not_performed"
+  },
+  "smart_duration": {
+    "resource": "market_video_model:340",
+    "cases": 16,
+    "native_duration": 0,
+    "quoted_output_quantity_ceiling": 10,
+    "basis": "output",
+    "scope": "Estimate and frozen preparation only; output duration and final supplier settlement not tested."
+  },
+  "acceptance": "Finite local checkpoints only. The two model resources are distinct from Wan app API; no full model or entry acceptance. No new full native contracts.",
+  "remaining": {
+    "full_legacy_contracts": 18,
+    "opaque_structures": 14,
+    "application_options_uncovered": 13,
+    "pixel_skus": 2,
+    "seedance_token_skus": 6,
+    "browser_guidance_and_wan_modes": "Not verified due connection failure; resume first when browser is available.",
+    "other_entries_and_parameters": "Not fully covered.",
+    "static_test_maintenance": 4
+  }
+}
