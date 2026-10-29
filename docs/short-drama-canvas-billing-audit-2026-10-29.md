@@ -59,7 +59,7 @@ tenant_id=1 的 tenant_app_config.extra 顶层键：
 | 租户后台文本工具 | 第五个服务端参数 tenantAdminConsumption 仅允许 tenantId>0、userId=0；把 input/output.tenant_price 置0，保留成本价 | 同文件:157-185，generate |
 | 后台 Skill 草稿优化 | 使用 tenantId、userId=0、tenantAdminConsumption=true；返回 billing | server/app/common/service/app/aigc_short_drama/AigcShortDramaService.php:2620-2645，optimizeSkillDraft |
 | Canvas 普通用户文本 | 统一委托 MarketTextModelRuntimeService::generate，未加入租户补贴策略 | server/app/common/service/app/aigc_canvas/AigcCanvasService.php:1436-1445，llmText |
-| 短剧用户文本 | 冻结租户文本模型后，以真实 userId 调用共享运行时 | server/app/common/service/app/aigc_short_drama/AigcShortDramaService.php:16849-16860、16945-16948 |
+| 短剧用户文本 | 冻结有效文本模型后，以真实 userId 调用共享运行时；本轮模型恢复允许用户显式选择，未改变承担关系 | server/app/common/service/app/aigc_short_drama/AigcShortDramaService.php，resolveSelectedModels / generateWithModelFallback |
 
 后台“选择统一文本模型”和“承担此模型费用”是两个不同配置。web/tenant/src/views/apps/aigc_short_drama/config.vue:80-85 只选择文本模型；web/tenant/src/views/apps/aigc_canvas/config.vue:46-53 只选择节点提示词优化开关和模型。
 
@@ -257,4 +257,4 @@ tenant_id=1 的 tenant_app_config.extra 顶层键：
 
 本文没有执行真实端到端模型调用、资金扣除/退款、数据库修复、部署或发布；没有宣称上述建议已经实现。历史本地账本可能包含fixture，只作为动作与账本结构存在的证据。
 
-待主任务整合：承担方默认策略与完整优化方案、模型排序/能力恢复、array类型修复、实际浏览器费用可见性、隔离PHP测试与真实供应商回执验收。其他协作修改可能导致行号漂移，最终应按本文函数名再校正引用。
+主任务已整合模型选择/官方排序与 array 类型修复，定向测试和页面检查记录在 [完整流程方案](short-drama-canvas-flow-optimization-2026-10-29.md)。承担方策略、预算、统一费用展示、真实供应商回执验收仍待实施；本次模型菜单页面检查不能代替费用页面或真实结算验收。其他协作修改可能导致行号漂移，排查时以本文函数名定位。
