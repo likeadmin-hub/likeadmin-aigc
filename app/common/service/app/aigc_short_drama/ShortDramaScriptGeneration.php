@@ -172,6 +172,12 @@ final class ShortDramaScriptGeneration
                         $targets = ShortDramaShotFieldRepair::targets($partial, $ids, $skeleton, $beat, $durationRule, null,
                             static fn($shot, $index) => self::assertShots(['storyboard'=>[$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule));
                         if ($targets) {
+                            if (ShortDramaInputContract::mixedStoryboardRecovery($request) && $progress) {
+                                $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids,
+                                    static fn($shot, $index) => self::assertShots(['storyboard'=>[$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule));
+                                if ($prefix) $progress('script_checkpoint', array_replace($skeleton,
+                                    ['storyboard'=>array_merge($shots, $sceneShots, $prefix)]));
+                            }
                             $verify = static function ($reply) use ($partial, $targets, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule): void {
                                 self::assertShots(ShortDramaShotFieldRepair::apply($partial, $targets, $reply), $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                             };
@@ -188,6 +194,9 @@ final class ShortDramaScriptGeneration
                         if ($accepted === null && ShortDramaInputContract::mixedStoryboardRecovery($request)) {
                             $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $durationRule, null, $validatePartialShot);
                             if ($targets) {
+                                $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids, $validatePartialShot);
+                                if ($prefix && $progress) $progress('script_checkpoint', array_replace($skeleton,
+                                    ['storyboard'=>array_merge($shots, $sceneShots, $prefix)]));
                                 $verify = static function ($reply) use ($partial, $targets, $ids, $validatePartialShot): void {
                                     $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
                                     if (ShortDramaPartialStoryboard::accepted($patched, $ids, $validatePartialShot) === null)

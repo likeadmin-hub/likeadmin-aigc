@@ -4,6 +4,22 @@ namespace app\common\service\app\aigc_short_drama;
 /** Preserve only unambiguous, individually valid shots from a received part. */
 final class ShortDramaPartialStoryboard
 {
+    /** A draft may display only the individually validated prefix before any gap. */
+    public static function validPrefix(array $part, array $ids, callable $validate): array
+    {
+        $prefix = [];
+        foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
+            if (!is_array($shot) || ($shot['shot_id'] ?? null) !== ($ids[$index] ?? null)) break;
+            try { $validate($shot, $index); }
+            catch (\RuntimeException $error) {
+                if (!in_array($error->getCode(), [409, 413, 422], true)) throw $error;
+                break;
+            }
+            $prefix[] = $shot;
+        }
+        return $prefix;
+    }
+
     /** Return field targets only for an ordered, unambiguous incomplete part. */
     public static function fieldTargets(array $part, array $ids, array $plan, array $beat, array $rule, ?array $durations, callable $validate): array
     {
