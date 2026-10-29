@@ -315,6 +315,24 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_fields_v1','v3_timed_scene_1_1_fields_v1_repair'],$calls);
     }
 
+    public function testTimedMissingShotFieldRepairKeepsItsValidContent(): void
+    {
+        $request=['_input_contract_version'=>22,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
+        $bad=self::shot(2);$bad['visual_description']='';$bad['dialogue']='甲：已有台词。';
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],
+            static function($key)use(&$calls,$bad){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
+                elseif(str_ends_with($key,'_missing_2_fields_v1'))$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'补全第二镜头']]]];
+                elseif(str_ends_with($key,'_missing_2'))$payload=['storyboard'=>[$bad]];
+                else $payload=['storyboard'=>[self::shot(1),self::shot(3)]];
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+            });
+        $bad['visual_description']='补全第二镜头';
+        self::assertSame([self::shot(1),$bad,self::shot(3)],$result['payload']['storyboard']);
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_missing_2','v3_timed_scene_1_1_missing_2_fields_v1'],$calls);
+    }
+
     public function testVersion20KeepsOriginalWholePartRepair(): void
     {
         $request=['_input_contract_version'=>20,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];

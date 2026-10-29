@@ -339,15 +339,38 @@ final class ShortDramaTimedScriptGeneration
                                         . "\n只补充缺失分镜 {$id}，时长 {$partDurations[$index]} 秒。已保留分镜仅供衔接，不得重写或重复。只返回该分镜的storyboard数组。";
                                     $missingKey = 'timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_missing_' . ($offset + $index + 1);
                                     for ($missingAttempt = 0; $missingAttempt < 2; $missingAttempt++) {
+                                        $missingPartial = null;
                                         try {
                                             $missing = $call($missingKey . ($missingAttempt ? '_repair' : ''), $missingInput, 2550,
-                                                static fn($value) => self::assertPart($value, $skeleton, $beat, [$id], [$partDurations[$index]], false));
+                                                static function ($value) use (&$missingPartial, $skeleton, $beat, $id, $partDurations, $index): void {
+                                                    $missingPartial = $value;
+                                                    self::assertPart($value, $skeleton, $beat, [$id], [$partDurations[$index]], false);
+                                                });
                                             self::assertPart($missing, $skeleton, $beat, [$id], [$partDurations[$index]], false);
                                             ShortDramaSameSceneCuts::assertShot($missing['storyboard'][0], $skeleton, $request);
                                             $accepted[$index] = $missing['storyboard'][0];
                                             if (ShortDramaInputContract::mixedStoryboardRecovery($request)) $savePartial();
                                             break;
                                         } catch (RuntimeException $missingError) {
+                                            if (ShortDramaInputContract::mixedStoryboardRecovery($request) && !$missingAttempt
+                                                && $missingError->getCode() === 422 && is_array($missingPartial)) {
+                                                $validateMissing = static function ($shot) use ($skeleton, $beat, $id, $partDurations, $index, $request): void {
+                                                    self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$id], [$partDurations[$index]], false);
+                                                    ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                                };
+                                                $targets = ShortDramaShotFieldRepair::targets($missingPartial, [$id], $skeleton, $beat, $rule, [$partDurations[$index]], $validateMissing);
+                                                if ($targets) {
+                                                    $verify = static function ($reply) use ($missingPartial, $targets, $validateMissing): void {
+                                                        $patched = ShortDramaShotFieldRepair::apply($missingPartial, $targets, $reply);
+                                                        $validateMissing($patched['storyboard'][0]);
+                                                    };
+                                                    $missing = ShortDramaShotFieldRepair::request($call, $missingKey . '_fields_v1', $missingInput, $missingPartial, $targets, $verify);
+                                                    $accepted[$index] = $missing['storyboard'][0];
+                                                    $savePartial();
+                                                    $contentRepairs++;
+                                                    break;
+                                                }
+                                            }
                                             if ($missingAttempt || !in_array($missingError->getCode(), [413, 422], true)) throw $missingError;
                                             $missingInput['content'] .= "\n仅修复缺失分镜：" . $missingError->getMessage();
                                         }
