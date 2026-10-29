@@ -4,6 +4,7 @@ namespace Tests\Feature;
 use app\common\service\power\MarketGenerationMediaInputs as Inputs;
 use app\common\service\power\MarketGenerationMedia as Media;
 use app\common\service\power\MarketGenerationMeter as Meter;
+use app\common\service\power\MarketVideoRuntimeService as Videos;
 use PHPUnit\Framework\TestCase;
 
 class MarketMixedMediaBillingTest extends TestCase
@@ -71,4 +72,27 @@ class MarketMixedMediaBillingTest extends TestCase
         Media::seconds(['video_url'=>'https://fixtures.invalid/video'],false,static fn()=>$value);
     }
     public static function invalidMeasurements(): array {return [[0],[-1],[INF],[NAN],['5'],[[]]];}
+
+    /** @dataProvider applicationInputs */
+    public function testRegisteredApplicationsUseTheSamePreparedImageAndVideoMeterInputs(string $app,array $locked,array $kinds): void
+    {
+        $assets=[];foreach($kinds as$kind)$assets[]=['type'=>$kind,'role'=>'reference_'.$kind,'url'=>'https://fixtures.invalid/'.$kind];
+        $s=['resource_type'=>'app_api','app_code'=>$app,'locked_params'=>$locked,
+            'billing_meter'=>['version'=>1,'basis'=>'output','rounding'=>'ceil','reference_images'=>['free'=>0,'numerator'=>1,'denominator'=>2]]];
+        $request=['prompt'=>'Offline fixture','duration'=>4,'ratio'=>'1:1','reference_assets'=>$assets];
+        $p=Videos::prepareRequest($s,$request);
+        self::assertSame(Videos::prepareRequest($s,$request)->nativeInput,$p->nativeInput);
+        self::assertSame(in_array('image',$kinds,true)?1:0,$p->meterContext['reference_images']);
+        $seen=null;$compound=['version'=>1,'basis'=>'output_plus_video','rounding'=>'ceil'];
+        $context=Meter::context($compound,$p->nativeInput,static function($input)use(&$seen){$seen=$input;return 2.5;});
+        self::assertSame(in_array('video',$kinds,true)?2.5:0.0,$context['reference_video_seconds']);
+        if(in_array('video',$kinds,true))self::assertSame(['video_urls'=>['https://fixtures.invalid/video']],$seen);
+        else self::assertNull($seen);
+    }
+    public static function applicationInputs(): array
+    {
+        return [['full_video',[],['image','video','audio']],['seedance',[],['image','video','audio']],
+            ['happy_horse',[],['image','video']],['wan',['model'=>'wan2.7-r2v'],['image','audio']],
+            ['wan',['model'=>'wan2.7-videoedit'],['image','video']]];
+    }
 }
