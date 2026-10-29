@@ -105,6 +105,30 @@ final class MarketGenerationContractReview
         return array_values(array_unique($missing));
     }
 
+    /** Explicit offline compilation after source review. Output is not written or enabled by this method. */
+    public static function reviewedCatalogue(array $bundle,string $sourceArtifact): array
+    {
+        $candidates=self::candidates($bundle,$sourceArtifact)['candidates'];$contracts=[];
+        foreach ($candidates as $i=>$candidate) {
+            $entry=$bundle['entries'][$i];
+            if (!is_string($entry['revision'] ?? null) || trim($entry['revision'])===''
+                || !is_array($entry['binding_declaration']['params_schema'] ?? null)
+                || !is_array($entry['binding_declaration']['material_capabilities'] ?? null)) throw new InvalidArgumentException('缺少审核合同版本或原始声明绑定');
+            foreach ($entry['declaration']['material_capabilities']['modes'] as $mode) foreach ((array)($mode['fields'] ?? []) as $field) {
+                if (str_contains((string)($field['field'] ?? ''),'.')) throw new InvalidArgumentException('嵌套素材路径尚未实现共享计数与角色校验');
+            }
+            $contract=array_intersect_key($candidate,array_flip(['generation_type','model_code','channel_code','public_model_code','generation_protocol','modes','source']));
+            $contract['revision']=$entry['revision'];
+            $contract['declaration_fingerprint']=MarketGenerationReviewedContract::digest([
+                $entry['binding_declaration']['params_schema'],$entry['binding_declaration']['material_capabilities']]);
+            $contract['material_capabilities']=$entry['declaration']['material_capabilities'];
+            $contract['contract_digest']=MarketGenerationReviewedContract::contractDigest($contract);
+            MarketGenerationReviewedContract::assertRecord($contract);
+            $contracts[]=$contract;
+        }
+        return ['version'=>2,'contracts'=>$contracts];
+    }
+
     /** Produce review candidates, never the active generation-contracts catalogue. */
     public static function candidates(array $bundle, string $sourceArtifact): array
     {

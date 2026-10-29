@@ -8,6 +8,8 @@ final class MarketGenerationMaterials
 {
     public static function contract(array $metadata): array
     {
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if ($reviewed!==null) return $reviewed['material_capabilities'];
         return MarketGenerationSchema::array($metadata['material_capabilities'] ?? $metadata['upstream_metadata']['material_capabilities'] ?? []);
     }
 

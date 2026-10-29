@@ -981,6 +981,7 @@ class MarketVideoRuntimeService
             MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot);
             $payload = self::modelPayload($snapshot, $request, $idempotency);
             if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) === []) $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, $payload, $request);
+            MarketGenerationReviewedContract::validatePayload($snapshot,$request,$payload);
             $prepared = PreparedMarketGeneration::model($payload, $meter, $request);
         } else {
             // Validate registration before allowing a legacy default adapter to
@@ -1062,7 +1063,8 @@ class MarketVideoRuntimeService
 
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
     {
-        if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) !== []) {
+        if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) !== []
+            && MarketGenerationAdapterRegistry::modelProtocol('video',$snapshot)==='native_v1') {
             $request['reference_assets'] = array_map(static function ($asset) { $asset['url'] = AigcVideoReferenceAssetService::publicUrl($asset); return $asset; }, AigcVideoReferenceAssetService::normalize($request, 100));
             unset($request['reference_images']);
             return array_merge(self::marketContext($snapshot, 'power_market_video'), MarketGenerationRequest::payload($snapshot, $request), ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)$snapshot['channel_code'], 'idempotency_key'=>$idempotency]);
@@ -3291,7 +3293,7 @@ class MarketVideoRuntimeService
                 }
             }
         }
-        return MarketModelCapabilities::applyMetadata($product, Q4VideoContract::metadata($product, $metadata));
+        return MarketModelCapabilities::applyMetadata($product, MarketGenerationReviewedContract::attachProduct($product,Q4VideoContract::metadata($product, $metadata),'video'));
     }
     private static function inheritReferenceModelMetadata(array $product, array $metadata): array
     {

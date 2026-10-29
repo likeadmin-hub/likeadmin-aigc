@@ -255,6 +255,7 @@ class MarketImageModelRuntimeService
             self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt),
             $snapshot['billing_meter'] ?? null
         );
+        MarketGenerationReviewedContract::validatePayload($snapshot,$request,$prepared->nativeInput,$deferMissingPrompt);
         MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput, static fn($asset)=>
             ($asset['type'] ?? 'image') === 'image' ? (MarketImageReferenceUrlService::resolve([(string)$asset['url']], $tenantId)[0] ?? '') : $asset['url']);
         return $prepared;
@@ -942,7 +943,8 @@ class MarketImageModelRuntimeService
 
     private static function payload(array $snapshot, array $request, string $idempotencyKey, int $tenantId = 0, bool $deferMissingPrompt = false): array
     {
-        if (MarketGenerationMaterials::modes(self::metadata($snapshot)) !== []) {
+        if (MarketGenerationMaterials::modes(self::metadata($snapshot)) !== []
+            && MarketGenerationAdapterRegistry::modelProtocol('image',$snapshot)==='native_v1') {
             $request['reference_images'] = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
             return array_merge(self::marketContext($snapshot), MarketGenerationRequest::payload($snapshot, $request, $deferMissingPrompt), ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)($snapshot['channel_code'] ?? ''), 'idempotency_key'=>$idempotencyKey]);
         }
@@ -1744,10 +1746,10 @@ class MarketImageModelRuntimeService
     {
         $direct = self::arrayValue($product['market_metadata'] ?? []);
         if ($direct !== []) {
-            return MarketModelCapabilities::applyMetadata($product, MarketGenerationSourceIdentity::metadata($product,$direct));
+            return MarketModelCapabilities::applyMetadata($product, MarketGenerationReviewedContract::attachProduct($product,MarketGenerationSourceIdentity::metadata($product,$direct),'image'));
         }
         $source = self::arrayValue($product['source_payload'] ?? []);
-        return MarketModelCapabilities::applyMetadata($product, MarketGenerationSourceIdentity::metadata($product,self::arrayValue($source['market_metadata'] ?? [])));
+        return MarketModelCapabilities::applyMetadata($product, MarketGenerationReviewedContract::attachProduct($product,MarketGenerationSourceIdentity::metadata($product,self::arrayValue($source['market_metadata'] ?? [])),'image'));
     }
     private static function productDescription(array $product, array $metadata = []): string
     {
