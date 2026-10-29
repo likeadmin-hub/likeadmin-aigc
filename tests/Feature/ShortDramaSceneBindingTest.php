@@ -6,6 +6,20 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaSceneBindingTest extends TestCase
 {
+    public function testSceneFieldRecoveryCannotHideExplicitDifferentLocation(): void
+    {
+        $plan=['_scene_binding_version'=>5,'subjects'=>[['id'=>'p','name'=>'甲']],
+            'locations'=>[['id'=>'room','name'=>'房间','interior_exterior'=>'interior'],['id'=>'hall','name'=>'走廊','interior_exterior'=>'exterior']]];
+        $beat=['scene_ref_id'=>'room'];
+        $shot=['shot_id'=>'s1','scene_ref_id'=>'room','scene_name'=>'走廊','subject_ref_ids'=>['p'],
+            'visual_description'=>'在走廊，甲拿出钥匙','dialogue'=>'甲：开门。','recommended_duration_seconds'=>6];
+        $targets=\app\common\service\app\aigc_short_drama\ShortDramaShotFieldRepair::targets(
+            ['storyboard'=>[$shot]],['s1'],$plan,$beat,['min_seconds'=>4,'max_seconds'=>15],[6],
+            static fn($shot)=>Binding::assertShot($shot,$plan),true);
+        self::assertSame([],$targets);
+        self::assertFalse(Binding::safeLabelRepair(array_replace($shot,['scene_name'=>'房间','visual_description'=>'房间门外，甲等候']),$beat,$plan));
+    }
+
     /** @dataProvider narratedPlaceCases */
     public function testBoundPlaceShorthandSurvivesEveryBeatValidationField(string $field, int $contract): void
     {

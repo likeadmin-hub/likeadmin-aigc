@@ -15,7 +15,7 @@ final class ShortDramaShotFieldRepair
             if (!is_array($shot) || ($shot['shot_id'] ?? null) !== $ids[$index]) return [];
             $fields = [];
             if (($shot['scene_ref_id'] ?? null) !== ($beat['scene_ref_id'] ?? null)) $fields[] = 'scene_ref_id';
-            if ($sceneFields && (int)($plan['_scene_binding_version'] ?? 0) >= 5) {
+            if ($sceneFields && (int)($plan['_scene_binding_version'] ?? 0) >= 5 && ShortDramaSceneBinding::safeLabelRepair($shot, $beat, $plan)) {
                 $location = null;
                 foreach ((array)($plan['locations'] ?? []) as $item) {
                     if (is_array($item) && ($item['id'] ?? null) === ($beat['scene_ref_id'] ?? null)) { $location = $item; break; }
