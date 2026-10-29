@@ -4381,6 +4381,10 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
+        if (!empty($params['story_preview_edit'])) {
+            return ShortDramaStoryPreviewDraft::save($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0),
+                (string)($params['draft_token'] ?? ''), (string)($params['text'] ?? ''));
+        }
         if (!empty($params['draft_resolve'])) {
             return ShortDramaEditableDraft::resolve($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0),
                 (string)($params['draft_token'] ?? ''), (string)($params['shot_id'] ?? ''), (string)($params['field'] ?? ''), (string)($params['choice'] ?? ''));
@@ -23295,6 +23299,9 @@ class AigcShortDramaService
                 'draft_version' => ShortDramaStoryDraft::version($request), 'readonly' => $locked || $status !== self::STATUS_SUCCESS,
                 'can_confirm' => !$locked && $status === self::STATUS_SUCCESS && !$issues, 'issues' => $issues,
                 'saved_at' => (int)($request['_story_draft']['saved_at'] ?? 0)];
+            $storyWorkspace['preview_backup'] = ShortDramaStoryPreviewDraft::view((int)$task['tenant_id'], (int)$task['user_id'],
+                (string)$task['task_id'], in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
+                    ? (array)($storedResult['__story_preview'] ?? []) : []);
         }
         $response = [
             'visual_dependency_catalog' => $result !== null ? ShortDramaVisualDependencies::catalog($result) : null,
@@ -23342,6 +23349,11 @@ class AigcShortDramaService
             $response['editable_draft'] = ShortDramaEditableDraft::view((int)$task['tenant_id'], (int)$task['user_id'],
                 (string)$task['task_id'], (array)($storedResult['__script_checkpoint'] ?? []));
             if ($response['editable_draft']) $response['editable_draft']['merge_supported'] = (int)($request['_generation_version'] ?? 0) >= 3;
+        }
+        if ($status === self::STATUS_SUCCESS && !$isStoryWorkspace && empty($request['multi_episode'])
+            && (int)($request['_generation_version'] ?? 0) < 3) {
+            $response['editable_draft'] = ShortDramaEditableDraft::view((int)$task['tenant_id'], (int)$task['user_id'], (string)$task['task_id'], []);
+            if ($response['editable_draft']) $response['editable_draft']['merge_supported'] = false;
         }
         if ((int)($request['_generation_version'] ?? 0) >= 3 && !$isStoryWorkspace) {
             $receiptRows = in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
