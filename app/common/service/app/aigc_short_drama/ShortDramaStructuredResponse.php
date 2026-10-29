@@ -19,8 +19,10 @@ final class ShortDramaStructuredResponse
         elseif ($allowPrefix && str_starts_with($content, '{')) {
             // The preceding fields must form a complete top-level object by
             // themselves. A quoted or nested storyboard can never satisfy this.
-            preg_match_all('/"storyboard"\s*:\s*\[/', $content, $matches, PREG_OFFSET_CAPTURE);
-            foreach (array_slice($matches[0], 0, 32) as [$token, $position]) {
+            $search = 0;
+            for ($attempt = 0; $attempt < 32 && preg_match('/"storyboard"\s*:\s*\[/', $content, $match, PREG_OFFSET_CAPTURE, $search); $attempt++) {
+                [$token, $position] = $match[0];
+                $search = $position + strlen($token);
                 $prefix = substr($content, 0, $position);
                 $decoded = json_decode($prefix . '"__recovery_probe__":null}', true);
                 if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)
