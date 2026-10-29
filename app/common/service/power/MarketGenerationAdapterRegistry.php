@@ -33,7 +33,15 @@ final class MarketGenerationAdapterRegistry
     public static function runtime(string $type, array $selection): string
     {
         $selection = array_replace(MarketGenerationSchema::array($selection['params'] ?? []), $selection);
+        foreach (['model_id', 'channel', 'image_model_id', 'video_model_id'] as $key) {
+            $id = (string)($selection[$key] ?? '');
+            if (($type === 'video' && preg_match('/^market_(?:image_model|nano_banana):/', $id))
+                || ($type === 'image' && preg_match('/^market_video_(?:model|app):/', $id))) {
+                throw new InvalidArgumentException('所选市场资源不属于当前生成类型');
+            }
+        }
         if (self::resourceType($selection) === 'model') {
+            if (!empty($selection['model_type']) && $selection['model_type'] !== $type) throw new InvalidArgumentException('模型类型与当前工具不一致');
             return self::MODELS[$type] ?? throw new InvalidArgumentException('该类型尚未注册模型适配器');
         }
         if ($type === 'video') {
@@ -41,7 +49,11 @@ final class MarketGenerationAdapterRegistry
             if ($app !== '' && !self::supportsVideoApplication($app)) throw new InvalidArgumentException('该视频应用尚未注册适配器');
             return MarketVideoAppRuntimeService::class;
         }
-        return self::application($selection);
+        $adapter = self::application($selection);
+        if ($type === 'image' && !in_array($adapter, [MarketNanoBananaAppRuntimeService::class, MarketGenericImageAppRuntimeService::class], true)) {
+            throw new InvalidArgumentException('该应用不能用于图片生成');
+        }
+        return $adapter;
     }
 
     public static function application(array $selection): string

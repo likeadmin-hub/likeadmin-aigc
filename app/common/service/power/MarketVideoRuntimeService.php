@@ -29,8 +29,6 @@ use think\facade\Log;
  */
 class MarketVideoRuntimeService
 {
-    private const MODEL_TASK_PATH = '/api/v1/tasks';
-    private const MODEL_QUERY_PATH = '/api/v1/tasks/{task_id}';
     private const WAN_THREE_MIN_DURATION_SECONDS = 2;
     private const WAN_THREE_MAX_DURATION_SECONDS = 30;
 

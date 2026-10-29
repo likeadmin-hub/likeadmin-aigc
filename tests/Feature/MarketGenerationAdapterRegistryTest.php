@@ -59,7 +59,9 @@ class MarketGenerationAdapterRegistryTest extends TestCase
         return [[['resource_type' => 'model', 'channel' => 'market_video_app:1']],
             [['resource_type' => 'app_api', 'model_id' => 'market_video_model:1']],
             [['model_id' => 'market_video_model:1', 'channel' => 'market_video_app:1']],
-            [['resource_type' => 'arbitrary-runtime-class']]];
+            [['resource_type' => 'arbitrary-runtime-class']],
+            [['model_id' => 'market_image_model:1']],
+            [['resource_type' => 'model', 'model_type' => 'image']]];
     }
 
     public function testUnknownApplicationNeverFallsBackToWanTransport(): void
@@ -72,5 +74,11 @@ class MarketGenerationAdapterRegistryTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         MarketApplicationApiRuntimeService::quote(1, ['app_code' => 'full_video'], 4);
+    }
+
+    public function testRegisteredVideoApplicationCannotBecomeAnImageModel(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        Registry::runtime('image', ['resource_type' => 'app_api', 'app_code' => 'full_video']);
     }
 }
