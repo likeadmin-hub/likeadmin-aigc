@@ -89,12 +89,13 @@ final class MarketGenerationMaterialPath
         $protocol=$contract['generation_protocol']??'';$type=$contract['generation_type']??'';$kind=$field['kind']??'';
         $supported=$type==='image'&&in_array($protocol,['qwen_image_v1','image_messages_v1'],true)&&$kind==='image';
         $supported=$supported||($type==='video'&&in_array($protocol,['wan_video_media_v1','video_input_parameters_v1','h3_content_v1'],true)&&in_array($kind,['image','video','audio'],true));
+        $supported=$supported||($type==='video'&&in_array($protocol,['wan_video_media_v1','video_input_parameters_v1'],true)&&in_array($kind,['file','link'],true));
         if(!$supported)throw new InvalidArgumentException('该协议尚未实现此嵌套素材的共享计数与角色校验');
         if($type==='video'&&str_contains($field['field'],'*')&&empty($field['item_match']))throw new InvalidArgumentException('混合视频素材必须声明分类字段');
         if($type==='video'&&str_contains($field['field'],'*')){
             $role=$field['role']??'reference';
             if(!in_array($role,['first','last','reference'],true)||($role!=='reference'&&$kind!=='image'))throw new InvalidArgumentException('素材角色与编码器不一致');
-            $tag=$role==='reference'?'reference_'.$kind:($role==='first'?'first_frame':'last_frame');
+            $tag=$role==='reference'?(in_array($kind,['file','link'],true)?$kind:'reference_'.$kind):($role==='first'?'first_frame':'last_frame');
             $expected=$protocol==='h3_content_v1'?['type'=>$kind.'_url','role'=>$tag]:['type'=>$tag];
             $actual=(array)$field['item_match'];ksort($expected);ksort($actual);
             if($actual!==$expected)throw new InvalidArgumentException('素材分类与编码器的类型或角色不一致');

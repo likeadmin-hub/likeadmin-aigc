@@ -108,7 +108,7 @@ final class MarketGenerationMaterials
             if (!is_array($asset)) continue;
             $url = (string)($asset['url'] ?? $asset['uri'] ?? '');
             if ($url === '') continue;
-            $assets[] = $asset + ['url'=>$url, 'type'=>'image', 'role'=>'reference_image'];
+            $assets[] = $asset + ['url'=>$url, 'type'=>'image', 'role'=>'reference_'.($asset['type']??'image')];
         }
         foreach ($assets === [] ? (array)($request['reference_images'] ?? []) : [] as $url) {
             if (is_string($url) && $url !== '') $assets[] = ['url'=>$url,'type'=>'image','role'=>'reference_image'];
@@ -231,6 +231,14 @@ final class MarketGenerationMaterials
         foreach (['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'] as $kind=>$key) if (array_key_exists($key,$overrides) && $counts[$kind]>(int)$overrides[$key]) throw new InvalidArgumentException('素材数量超过当前模型上限');
         foreach ($mode['fields'] as $field) {
             $count = MarketGenerationMaterialPath::count($payload,$field);
+            $provider=(array)($request['provider_params']??[]);
+            if(MarketGenerationReviewedContract::selected($metadata)!==null&&str_contains($field['field'],'.')&&MarketGenerationMaterialPath::count($provider,$field)>0
+                && MarketGenerationMaterialPath::values($provider,$field['field'],(array)($field['item_match']??[]))!==MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[])))
+                throw new InvalidArgumentException('当前协议无法完整保留此原生素材参数，请使用统一素材输入');
+            if(in_array($field['kind']??'',['file','link'],true)&&MarketGenerationReviewedContract::selected($metadata)!==null){
+                foreach(MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[]))as$value)
+                    foreach(is_array($value)?$value:[$value]as$url)MarketGenerationMaterialEncoding::assertDocumentUrl((string)$url);
+            }
             $minimum = !empty($field['required']) ? max(1, (int)($field['minimum'] ?? 0)) : 0;
             $maximum = $field['maximum'] ?? null;
             if ($count < $minimum || ($maximum !== null && $count > (int)$maximum)) throw new InvalidArgumentException('素材数量不符合当前方式要求：' . $field['field']);
