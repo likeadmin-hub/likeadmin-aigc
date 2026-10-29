@@ -610,6 +610,9 @@ class PowerMarketService
             return $api;
         }
         $detail = self::developerDocDetailForAppApi($appCode, $apiCode, (int)($api['id'] ?? $api['api_id'] ?? 0));
+        $identity=['app_code'=>$appCode,'api_code'=>$apiCode];
+        if (isset($api['id']) || isset($api['api_id'])) $identity['api_id']=$api['id'] ?? $api['api_id'];
+        if (!MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail)) return $api;
         $pricing = self::arrayValue($detail['api_pricing'] ?? []);
         $doc = self::arrayValue($detail['doc'] ?? []);
         if ($pricing === [] && $doc === []) {

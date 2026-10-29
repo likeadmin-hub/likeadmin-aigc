@@ -14,10 +14,20 @@ use app\common\service\power\PowerMarketService as Market;
 use app\common\service\app\UpstreamPricingService as Upstream;
 use think\facade\Db;
 
-$args=getopt('',['tenant-id:','catalogue','timeout:']);$tenant=(string)($args['tenant-id'] ?? '');
+$args=getopt('',['tenant-id:','catalogue','timeout:','known-documents','applications']);$tenant=(string)($args['tenant-id'] ?? '');
+$known=array_key_exists('known-documents',$args);$applications=array_key_exists('applications',$args);
 $catalogue=array_key_exists('catalogue',$args);$timeoutRaw=(string)($args['timeout'] ?? '60');
 if (!preg_match('/^[1-9][0-9]*$/D',$tenant) || !preg_match('/^[1-9][0-9]*$/D',$timeoutRaw) || (int)$timeoutRaw>60) {
-    fwrite(STDERR,"Usage: php tools/audit-upstream-generation-contracts.php --tenant-id=TENANT_ID [--catalogue] [--timeout=1..60]\n");exit(1);
+    fwrite(STDERR,"Usage: php tools/audit-upstream-generation-contracts.php --tenant-id=TENANT_ID [--catalogue] [--timeout=1..60] [--known-documents] [--applications]\n");exit(1);
+}
+$knownModels=[];$knownApplications=[];
+if($known){
+    $previous=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-platform-contract-flow-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+    foreach($previous['models']as$m)if(($m['platform_identity_verified']??false)&&!empty($m['published_doc_slug']))
+        $knownModels[$m['generation_type'].'|'.$m['model_code'].'|'.$m['channel_code']]=$m['published_doc_slug'];
+    $guidance=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-legacy-published-guidance-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+    foreach($guidance['application_entries']??[]as$a){parse_str(parse_url($a['url'],PHP_URL_QUERY)??'',$query);
+        if(is_string($query['slug']??null))$knownApplications[$a['app_code'].'|'.$a['api_code']]=$query['slug'];}
 }
 // getSource can repair old schemas; refuse before entering that path in a read-only audit.
 $table=(new UpdateSource())->db()->getTable();$columns=Db::query('SHOW COLUMNS FROM `'.str_replace('`','``',$table).'`');
@@ -34,7 +44,8 @@ try {
         'scope'=>'Platform GET detail versus saved machine metadata for missing/changed local native contracts; no sync, task, quote, upload or point writes',
         'source'=>$catalogue ? 'configured market GET /api/v1/models?type=image|video&detail=1; exact model/channel identity'
             : 'configured market developerDocTree/developerDocDetail GET APIs; same resolver as production synchronization',
-        'catalogue_reads'=>[],'models'=>[]];
+        'known_document_fallback'=>$known?'previously verified published slugs; identity rechecked on every response':'disabled',
+        'catalogue_reads'=>[],'models'=>[],'applications'=>[]];
     $remoteByIdentity=[];
     if ($catalogue) foreach (['image','video'] as $type) {
         try {
@@ -47,7 +58,9 @@ try {
         } catch (\Throwable $e) { $report['catalogue_reads'][$type]=['status'=>'unavailable','error_type'=>get_class($e)]; }
         fwrite(STDERR,'Read '.$type.' catalogue: '.$report['catalogue_reads'][$type]['status'].PHP_EOL);
     }
-    foreach (['image','video'] as $type) foreach (Catalogue::options((int)$tenant,$type)['channels'] as $option) {
+    $options=[];
+    foreach(['image','video']as$type)$options[$type]=Catalogue::options((int)$tenant,$type)['channels'];
+    foreach (['image','video'] as $type) foreach ($options[$type] as $option) {
         if (($option['resource_type'] ?? '') !== 'model') continue;
         $product=Product::where('id',(int)$option['market_product_id'])->find()->toArray();
         $metadata=(new ReflectionMethod($type==='image'?Images::class:Videos::class,'metadata'))->invoke(null,$product);
@@ -65,11 +78,14 @@ try {
         $upstream=(array)($metadata['upstream_metadata'] ?? []);
         // Reuse exact model-ID/document binding and its bounded, credential-safe GET transport.
         $detail=(new ReflectionMethod(Market::class,'developerDocDetailForModel'))->invoke(null,$upstream);
+        $lookup='document_tree';
+        $knownSlug=$knownModels[$type.'|'.$identity['model_code'].'|'.$identity['channel_code']]??'';
+        if($detail===[]&&$knownSlug!=='')try{$detail=Upstream::queryDeveloperDocDetail($knownSlug);$lookup='verified_prior_slug';}catch(\Throwable){$lookup='known_slug_unavailable';}
         $pricing=(array)($detail['model_pricing'] ?? []);
         $modelId=Identity::modelId($upstream);
         $returnedCode=(string)($pricing['model_code'] ?? '');
         $bound=$returnedCode === $identity['model_code'] && Identity::matchesDetail($upstream,$detail);
-        $row=$identity+['local_native_snapshot'=>'missing_or_changed','platform_identity_verified'=>$bound];
+        $row=$identity+['local_native_snapshot'=>'missing_or_changed','platform_identity_verified'=>$bound,'lookup_strategy'=>$lookup];
         $row+=Review::platformData($metadata,$bound ? $detail : []);
         $slug=(string)($detail['doc']['slug'] ?? '');
         if ($slug !== '') $row['published_doc_slug']=$slug;
@@ -80,5 +96,19 @@ try {
         $report['models'][]=$row;
         fwrite(STDERR,'Reviewed '.count($report['models']).' model declarations'.PHP_EOL);
     }
+    if($applications){$seen=[];foreach(['image','video']as$type)foreach($options[$type]as$option){
+        if(($option['resource_type']??'')!=='app_api')continue;
+        $product=Product::find((int)$option['market_product_id'])->toArray();
+        $identity=['app_code'=>$product['upstream_app_code'],'api_code'=>$product['upstream_api_code']];
+        $key=$identity['app_code'].'|'.$identity['api_code'];if(isset($seen[$key]))continue;$seen[$key]=true;
+        $metadata=(new ReflectionMethod($type==='image'?Images::class:Videos::class,'metadata'))->invoke(null,$product);
+        $detail=(new ReflectionMethod(Market::class,'developerDocDetailForAppApi'))->invoke(null,$identity['app_code'],$identity['api_code'],0);
+        $lookup='document_tree_or_api_slug';
+        if($detail===[]&&isset($knownApplications[$key]))try{$detail=Upstream::queryDeveloperDocDetail($knownApplications[$key]);$lookup='verified_prior_slug';}catch(\Throwable){$lookup='known_slug_unavailable';}
+        $bound=Identity::matchesApplicationDetail($identity,$detail);
+        $report['applications'][]=$identity+['resource_type'=>'app_api','generation_type'=>$type,'platform_identity_verified'=>$bound,
+            'lookup_strategy'=>$lookup,'read_state'=>$bound?'read':'unavailable_or_identity_mismatch']+Review::applicationData($metadata,$bound?$detail:[]);
+        fwrite(STDERR,'Reviewed '.count($report['applications']).' application API declarations'.PHP_EOL);
+    }}
     echo json_encode($report,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),PHP_EOL;
 } finally { Db::rollback(); }

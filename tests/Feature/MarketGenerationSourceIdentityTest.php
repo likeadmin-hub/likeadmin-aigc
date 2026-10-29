@@ -93,4 +93,17 @@ class MarketGenerationSourceIdentityTest extends TestCase
         self::assertSame('OpenAIYI',$pending[0]['channel_code']);
         self::assertFalse($pending[0]['platform_identity_verified']);
     }
+
+    public function testApplicationPricingIdentityIsIndependentOfModelsAndOtherApis(): void
+    {
+        $identity=['app_code'=>'wan','api_code'=>'create','api_id'=>37];
+        $detail=['api_pricing'=>['app_code'=>'wan','code'=>'create','id'=>37,'params_schema'=>['private'=>'not returned']]];
+        self::assertTrue(Identity::matchesApplicationDetail($identity,$detail));
+        foreach([['app_code'=>'other'],['code'=>'query'],['id'=>38],['id'=>'37suffix'],['id'=>true]]as$change)
+            self::assertFalse(Identity::matchesApplicationDetail($identity,['api_pricing'=>array_replace($detail['api_pricing'],$change)]));
+        self::assertFalse(Identity::matchesApplicationDetail($identity,['model_pricing'=>$detail['api_pricing']]));
+        self::assertFalse(Identity::matchesApplicationDetail(['app_code'=>'wan'],$detail));
+        self::assertFalse(Identity::matchesApplicationDetail(array_replace($identity,['api_id'=>'37suffix']),$detail));
+        unset($identity['api_id']);self::assertTrue(Identity::matchesApplicationDetail($identity,$detail));
+    }
 }

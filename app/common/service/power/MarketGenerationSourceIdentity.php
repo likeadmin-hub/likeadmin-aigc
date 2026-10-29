@@ -55,4 +55,18 @@ final class MarketGenerationSourceIdentity
         return self::modelId($model)>0 && self::modelId($model)===self::positiveId($pricing['model_id'] ?? 0)
             && $code!=='' && $code===(string)($pricing['model_code'] ?? '');
     }
+
+    public static function matchesApplicationDetail(array $identity,array $detail): bool
+    {
+        $pricing=(array)($detail['api_pricing'] ?? []);
+        $app=$identity['app_code'] ?? '';$api=$identity['api_code'] ?? '';
+        if (!is_string($app)||$app===''||!is_string($api)||$api===''||($pricing['app_code']??null)!==$app
+            || ($pricing['api_code']??$pricing['code']??null)!==$api
+            || (isset($pricing['code'])&&$pricing['code']!==$api)) return false;
+        if (array_key_exists('api_id',$identity)) {
+            $expected=self::positiveId($identity['api_id']);
+            if ($expected===0 || $expected!==self::positiveId($pricing['api_id']??$pricing['id']??0)) return false;
+        }
+        return true;
+    }
 }
