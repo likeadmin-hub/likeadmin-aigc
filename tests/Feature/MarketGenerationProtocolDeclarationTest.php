@@ -99,6 +99,9 @@ class MarketGenerationProtocolDeclarationTest extends TestCase
             ['code'=>'wan'],['code'=>'create','params_schema'=>['prompt'=>['type'=>'string']],'generation_protocol'=>'wan_edit_v1']);
         self::assertSame('wan_edit_v1',$metadata['generation_protocol']);
         self::assertSame('create',$metadata['api_code']);
+        $merged=(new ReflectionMethod(PowerMarketService::class,'mergeAppApiRequestFields'))->invoke(null,
+            ['id'=>22,'code'=>'create'],[['id'=>22,'code'=>'create','generation_protocol'=>'wan_edit_v1','params_schema'=>['prompt'=>['type'=>'string']]]]);
+        self::assertSame('wan_edit_v1',$merged['generation_protocol']);
     }
 
     public function testCompatibleQwenProtocolKeepsItsSingleImageAdmissionConstraint(): void

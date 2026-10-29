@@ -42,11 +42,16 @@ class MarketNanoBananaLifecycleTest extends TestCase
                 'upstream_price'=>3,'sale_points'=>3,'sale_status'=>1,'status'=>1,'source_payload'=>$source,
                 'create_time'=>time(),'update_time'=>time()]);
             Prices::manual(0,(int)$product['id'],(int)$sku['id'],3);Prices::manual(1,(int)$product['id'],(int)$sku['id'],5);
+            $override=[];
+            if($outcome==='retail_success'){
+                Db::name('power_market_price_rule')->where(['owner_id'=>1,'scope_type'=>'global','scope_id'=>0])->update(['follow_apps'=>0]);
+                $override=['user_unit_price'=>9,'tenant_cost_points'=>8];
+            }
             $request=['channel'=>'market_nano_banana:'.$product['id'].':'.base64_encode('nano-banana-2'),
                 'market_sku_id'=>(int)$sku['id'],'prompt'=>'Offline fixture','quality'=>'1K','ratio'=>'1:1','quantity'=>2,
                 'reference_images'=>['https://fixtures.invalid/a.png','https://fixtures.invalid/b.png']];
-            $quote=Nano::quote(1,$request,2);
-            $reserve=static fn($id)=>Nano::reserve(1,$user,'generate',$id,$request,$request,2,'aigc_image','aigc_image_task');
+            $quote=Nano::quote(1,$request,2,$override);
+            $reserve=static fn($id)=>Nano::reserve(1,$user,'generate',$id,$request,$request,2,'aigc_image','aigc_image_task',$override);
             $reserved=$reserve($key);$duplicate=$reserve($key);
             self::assertSame($reserved['consumption_id'],$duplicate['consumption_id']);
             $log=AiConsumptionLog::find($reserved['consumption_id']);$snapshot=$log['price_snapshot'];
@@ -55,18 +60,25 @@ class MarketNanoBananaLifecycleTest extends TestCase
             self::assertEquals($quote['market_snapshot'],array_intersect_key($snapshot,$quote['market_snapshot']));
             self::assertSame('3.000000',$snapshot['pricing_rules']['platform']['price']);
             $expected=$meter==='image'?[8.0,13.0]:($meter==='call'?[3.0,5.0]:[6.0,10.0]);
+            if($outcome==='retail_success')$expected=[8.0,18.0];
             self::assertSame($expected,[(float)$log['reserved_tenant_cost'],(float)$log['reserved_user_price']]);
             self::assertSame(round($before['user']-$expected[1],2),$this->state($user)['user']);
             self::assertSame(1,$this->state($user)['consumptions']-$before['consumptions']);
             Prices::manual(0,(int)$product['id'],(int)$sku['id'],30);Prices::manual(1,(int)$product['id'],(int)$sku['id'],50);
-            if ($outcome==='success') {
+            if (in_array($outcome,['success','retail_success'],true)) {
                 $settle=new ReflectionMethod(Nano::class,'settle');
                 $complete=static fn()=>$settle->invoke(null,(int)$log['id'],[['url'=>'https://fixtures.invalid/result.png']],'fixture-request','fixture-task',[]);
                 $complete();$settled=$this->state($user);$complete();self::assertSame($settled,$this->state($user));
                 $cost=$meter==='image'?[5.0,8.0]:[3.0,5.0];
+                if($outcome==='retail_success')$cost=[5.0,9.0];
                 self::assertSame($cost,[(float)AiConsumptionLog::find($log['id'])['actual_tenant_cost'],(float)AiConsumptionLog::find($log['id'])['actual_user_price']]);
                 self::assertSame(round($before['user']-$cost[1],2),$settled['user']);
                 self::assertSame('settled',AiConsumptionLog::find($log['id'])['billing_status']);
+                $repair=new ReflectionMethod(Nano::class,'repairCompletedResult');
+                $images=[['url'=>'https://fixtures.invalid/result.png'],['url'=>'https://fixtures.invalid/extra.png']];
+                $repair->invoke(null,(int)$log['id'],$images);$repair->invoke(null,(int)$log['id'],$images);
+                self::assertSame($settled,$this->state($user),'Metadata repair must not back-charge a historical result');
+                self::assertSame($cost,[(float)AiConsumptionLog::find($log['id'])['actual_tenant_cost'],(float)AiConsumptionLog::find($log['id'])['actual_user_price']]);
             } else {
                 if ($outcome==='invalid_submit' || $outcome==='changed_material_submit') {
                     $invalid=$request;
@@ -98,6 +110,7 @@ class MarketNanoBananaLifecycleTest extends TestCase
             if($meter==='call'&&$outcome==='changed_material_submit')continue;
             $rows[]=[$meter,$outcome];
         }
+        $rows[]=['image','retail_success'];
         return $rows;
     }
 
