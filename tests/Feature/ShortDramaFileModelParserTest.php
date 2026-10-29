@@ -23,4 +23,10 @@ final class ShortDramaFileModelParserTest extends TestCase
     {
         $this->expectException(\RuntimeException::class);$p=$this->plan();$p['episodes'][1]['source_range']['end_line']=3;Parser::attachSource($p,"甲\n乙\n丙\n丁");
     }
+    public function testExecutionMarkerCannotTurnAnImportedRevisionIntoAnotherParse():void
+    {
+        $request=['source'=>'market_file_qa_parse','_file_parse_model'=>['model'=>['id'=>'65'],'text'=>'原文']];
+        self::assertTrue(Parser::applies($request));$request['source']='revision';self::assertFalse(Parser::applies($request));
+        $request['source']='imported_outline_confirmation';self::assertFalse(Parser::applies($request));
+    }
 }

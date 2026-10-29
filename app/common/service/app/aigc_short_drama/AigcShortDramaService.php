@@ -3950,7 +3950,7 @@ class AigcShortDramaService
             if (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
             $request = self::jsonDecode((string)$task['request_json']);
-            if (!empty($request['_file_parse_model'])) {
+            if (ShortDramaFileModelParser::applies($request)) {
                 self::executeUploadedModelParse($tenantId,$userId,$task->toArray(),$request);
                 return true;
             }
@@ -3973,14 +3973,24 @@ class AigcShortDramaService
     {
         $taskId=(string)$task['task_id'];
         $bind=static function(string $event,array $data)use($task,$taskId,$tenantId,$userId):void{
-            if($event==='app_task'){
-                AigcShortDramaScriptTask::where('id',$task['id'])->update(['app_task_id'=>(int)$data['app_task_id'],'status'=>self::STATUS_RUNNING,'current_step'=>'正在解析剧本文件','update_time'=>time()]);
-                AigcShortDramaGenerationTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$taskId])->update([
-                    'app_task_id'=>(int)$data['app_task_id'],'consumption_id'=>(int)$data['consumption_id'],'status'=>self::STATUS_RUNNING,'update_time'=>time()]);
-            }
+            if($event==='app_task')ShortDramaFileModelParser::bind($tenantId,$userId,$task,$data);
         };
-        $result=ShortDramaFileModelParser::run($tenantId,$userId,$task,$request,$bind,
-            static fn(array $parsed):array=>self::fileQaParsePlan($parsed,$request,(string)$task['prompt']));
+        try{
+            $result=ShortDramaFileModelParser::run($tenantId,$userId,$task,$request,$bind,
+                static fn(array $parsed):array=>self::fileQaParsePlan($parsed,$request,(string)$task['prompt']));
+        }catch(\Throwable $error){
+            $current=self::findTask($tenantId,$userId,$taskId);
+            if(!in_array($current['status'],['pending','queued','running'],true)||(int)$current['retry_count']!==(int)$task['retry_count'])return;
+            if(in_array($error->getCode(),[413,422],true)&&ShortDramaPlanningUnit::continueValidation($tenantId,$userId,$taskId))
+                $error=new \RuntimeException('已保留解析回包，正在修复结构化结果',425,$error);
+            if($error->getCode()===425){
+                AigcShortDramaScriptTask::where('id',$task['id'])->where('retry_count',$task['retry_count'])->whereIn('status',['pending','queued','running'])
+                    ->update(['status'=>'queued','current_step'=>$error->getMessage(),'update_time'=>time()]);
+                AigcShortDramaGenerationTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$taskId])->whereIn('status',['pending','queued','running'])->update(['status'=>'queued','update_time'=>time()]);
+                return;
+            }
+            throw $error;
+        }
         $c=AiConsumptionLog::where(['id'=>(int)$result['receipt']['consumption_id'],'tenant_id'=>$tenantId,'user_id'=>$userId])->findOrEmpty();
         if($c->isEmpty())throw new Exception('解析用量回执不存在');
         $summary=(array)$c['response_summary'];$summary['parse_result']=$result['parsed'];$c->save(['response_summary'=>$summary]);
@@ -5314,6 +5324,7 @@ class AigcShortDramaService
             $request['confirmed_story_version'] = (int)$params['draft_version'];
             $request['multi_episode_stage'] = 'episodes';
             $request['source'] = 'imported_outline_confirmation';
+            unset($request['_file_parse_model']);
             unset($request['_story_draft'], $request['_submission_key'], $request['_submission_hash'], $request['_prompt_requests'], $request['_execution_attempt']);
             $request['_prompt_task_id'] = $id;
             AigcShortDramaScriptTask::create([
@@ -5521,6 +5532,7 @@ class AigcShortDramaService
         $request['revision_message'] = $message;
         // An explicit edit is an LLM revision, not another file parser poll.
         if (self::isMarketFileQaParseRequest($request)) $request['source'] = 'revision';
+        unset($request['_file_parse_model']);
         if (($request['submission']['type'] ?? '') === 'script_upload') $request['submission']['type'] = 'script_revision';
         $request['revision_base_task_id'] = $taskId;
         $request['revision_base_result'] = $revisionBaseResult;
@@ -9029,6 +9041,9 @@ class AigcShortDramaService
         $summary = $consumption['response_summary'] ?? [];
         $summary = is_array($summary) ? $summary : self::jsonDecode((string)$summary);
         $parseResult = is_array($summary['parse_result'] ?? null) ? (array)$summary['parse_result'] : [];
+        // The text consumption settles before the worker validates and publishes
+        // its durable parse receipt. Polling must wait through that window.
+        if (ShortDramaFileModelParser::applies($request) && $parseResult === []) return;
         try {
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
             $request = self::finalizeUploadedTimingPolicy($request, (int)$plan['episode_count']);

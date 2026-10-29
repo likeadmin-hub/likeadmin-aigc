@@ -232,19 +232,16 @@ class MarketTextModelRuntimeService
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
         $context = self::createConsumption($tenantId, $userId, $model, $action, $requestSummary, $reserve, (int)($params['parent_app_task_id'] ?? 0), $appCode, $businessTable, $businessId);
-        if ($onEvent) {
-            $onEvent('app_task', [
-                'app_task_id' => (int)$context['appTask']['id'],
-                'consumption_id' => (int)$context['consumption']['id'],
-            ]);
-        }
-
         $openTextCall = \app\common\service\open_platform\OpenCallContext::id() !== '';
         $result = null;
         $usage = [];
         $started = microtime(true);
         $requestTimeout = self::resolveRequestTimeout($params);
         try {
+            if ($onEvent) $onEvent('app_task', [
+                'app_task_id' => (int)$context['appTask']['id'],
+                'consumption_id' => (int)$context['consumption']['id'],
+            ]);
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
             $transportOptions = self::initialTransportOptions($model,$params,$tenantAdminConsumption,$operatorCapabilityProbe!==null);
@@ -1878,7 +1875,7 @@ class MarketTextModelRuntimeService
             || (int)($state['delta_count'] ?? 0) > 0;
         $hasNativePartial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']);
         $hasExpectedPartial = !empty($state['responses_expected']) && ($hasOutput || !empty($state['usage']));
-        $partial = $hasNativePartial || $hasExpectedPartial || $hasOutput ? [
+        $partial = $hasNativePartial || $hasExpectedPartial || $hasOutput || !empty($state['usage']) ? [
             'content' => (string)($state['content'] ?? ''),
             'content_source' => (string)($state['content_source']??'content'),
             'protocol_evidence' => self::protocolEvidence($state),
