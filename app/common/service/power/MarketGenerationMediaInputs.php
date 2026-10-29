@@ -16,7 +16,7 @@ final class MarketGenerationMediaInputs
                 };
                 foreach($value as$key=>$child){
                     if(is_string($key)&&in_array($key,['prompt','text','negative_prompt','description','callback_url','webhook','model','channel','role','type','name'],true))continue;
-                    $next=is_int($key)?$kind:(preg_match('/video|clip/i',(string)$key)?'video':(preg_match('/audio|voice/i',(string)$key)?'audio':(preg_match('/image|frame/i',(string)$key)?'image':$kind)));
+                    $next=is_int($key)?$kind:(preg_match('/video|clip/i',(string)$key)?'video':(preg_match('/audio|voice/i',(string)$key)?'audio':($key==='loop_url'||preg_match('/image|frame/i',(string)$key)?'image':$kind)));
                     $walk($child,$next);
                 }return;
             }
