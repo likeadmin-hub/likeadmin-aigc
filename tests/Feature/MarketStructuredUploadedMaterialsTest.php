@@ -71,7 +71,7 @@ class MarketStructuredUploadedMaterialsTest extends TestCase
         self::assertCount(3,Inputs::visualUrls($native));
         $visual=static fn($url)=>['kind'=>$url===self::IMAGE?'image':'video','duration'=>$url===self::IMAGE?0:6.0];
         $media=Media::inputs($native,$visual);self::assertCount(1,$media['image']);self::assertCount(2,$media['video']);self::assertCount(1,$media['audio']);
-        $contract=['version'=>1,'basis'=>'output_plus_video','rounding'=>'ceil'];
+        $contract=Meter::contract(['meter_contract'=>['version'=>1,'basis'=>'output_plus_video','rounding'=>'ceil']]);
         $ctx=Meter::context($contract,$native,static function($input){self::assertCount(2,$input['video_urls']);return 12.0;},$visual);
         self::assertSame(['reference_images'=>1,'reference_video_seconds'=>12.0],$ctx);
         $old=['billing_meter'=>$contract,'usage_unit_size'=>1,'meter_context'=>['reference_images'=>0,'reference_video_seconds'=>0.0]];
