@@ -214,8 +214,7 @@ class MarketImageModelRuntimeService
         $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, 0, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
-        self::assertReferenceImagesAllowed($market, $selection, $deferMissingPrompt);
-        $market = self::meterMarket($market, $selection, $deferMissingPrompt);
+        $market = self::meterMarket($market, $selection, $deferMissingPrompt, $tenantId);
         return self::quoteMarket($market, $quantity, $billingOverride) + ['follow_market_prices' => MarketPriceRuleService::followsApps($tenantId)];
     }
 
@@ -223,22 +222,38 @@ class MarketImageModelRuntimeService
     public static function openPlatformAdmissionQuote(int $tenantId, array $selection, int $quantity): array
     {
         $market = self::resolve($tenantId, $selection);
-        self::assertReferenceImagesAllowed($market, $selection);
-        $market = self::meterMarket($market, $selection);
+        $market = self::meterMarket($market, $selection, false, $tenantId);
         return ['market' => $market, 'quote' => self::quoteMarket($market, $quantity, [])];
     }
 
-    private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false): array
+    private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false, int $tenantId = 0): array
     {
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
         // Legacy image channels priced each requested image even when their unit was per_call.
         // Only an explicit supplier meter may change that established contract.
-        if ($meter['summary'] === '') return $market;
-        $native = self::payload(self::snapshot($market), $selection, 'estimate', 0, $deferMissingPrompt);
-        $market['billing_meter'] = $meter;
-        $market['meter_context'] = MarketGenerationMeter::context($meter, $native);
+        if ($meter['summary'] !== '') $market['billing_meter'] = $meter;
+        // Fixed-price legacy models also need full preflight before a quote or
+        // reservation. Their historical per-image billing semantics stay intact.
+        $prepared = self::prepareRequest(self::snapshot($market), $selection, $tenantId, $deferMissingPrompt);
+        if ($meter['summary'] !== '') $market['meter_context'] = $prepared->meterContext;
         return $market;
+    }
+
+    /** Shared compilation for estimates, reservation and outbound submission. No task or point writes. */
+    public static function prepareRequest(array $snapshot, array $request, int $tenantId = 0, bool $deferMissingPrompt = false): PreparedMarketGeneration
+    {
+        $metadata = self::metadata($snapshot);
+        if (MarketGenerationMaterials::modes($metadata) === []) {
+            $count = count(array_filter((array)($request['reference_images'] ?? [])));
+            $limit = self::referenceImageLimitFromSnapshot($snapshot);
+            if ($count > 0 && !self::supportsReferenceImages($metadata)) throw new Exception('所选图片模型不支持参考图');
+            if ($limit > 0 && $count > $limit) throw new Exception('所选图片模型最多支持 ' . $limit . ' 张参考图');
+        }
+        return PreparedMarketGeneration::model(
+            self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt),
+            $snapshot['billing_meter'] ?? null
+        );
     }
 
     private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
@@ -284,8 +299,7 @@ class MarketImageModelRuntimeService
         $quantity = max(1, $quantity);
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         self::assertImageQuantity($market, $quantity);
-        self::assertReferenceImagesAllowed($market, $request);
-        $market = self::meterMarket($market, $request);
+        $market = self::meterMarket($market, $request, false, $tenantId);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         if ($deferredUsage && $billingOverride !== []) {
             throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
@@ -345,7 +359,15 @@ class MarketImageModelRuntimeService
         }
         $microSubmission=MicroVideoSubmission::applies($consumption->toArray());
         $price = (array)$consumption['price_snapshot'];
-        $payload = MarketModelTaskRequest::payload(self::payload($price, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']));
+        try {
+            $payload = self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput;
+        } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
+            // Preparation failed before outbound I/O; release the reservation
+            // through the existing idempotent refund path.
+            self::fail($consumptionId, $e->getMessage(), 'request_invalid');
+            throw $e;
+        }
         if ($tenantAdminConsumption) {
             // Commit a claim before outbound I/O. A restarted worker must never replay it.
             $claimed = AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update(['run_status' => 'submitting', 'update_time' => time()]);
@@ -954,7 +976,9 @@ class MarketImageModelRuntimeService
         $params = self::providerParamsForFlatPayload($params, $schema);
         $referenceImages = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
         if (self::usesStructuredTaskPayload($snapshot)) {
-            return self::structuredTaskPayload($snapshot, $request, $params, $referenceImages, $ratio, $outputQuality, $imageSize, $idempotencyKey);
+            return MarketGenerationRequest::normalizeLegacyPayload($snapshot,
+                self::structuredTaskPayload($snapshot, $request, $params, $referenceImages, $ratio, $outputQuality, $imageSize, $idempotencyKey),
+                $request, $deferMissingPrompt);
         }
         $hasSchema = $schema !== [];
         $payload = array_filter(array_merge(self::marketContext($snapshot), [
@@ -997,7 +1021,9 @@ class MarketImageModelRuntimeService
             // Prefer the name declared by the synchronized model schema.
             $payload[self::referenceImageField($snapshot)] = $referenceImages;
         }
-        return array_filter(array_merge($params, $payload), static fn($v) => $v !== '' && $v !== [] && $v !== null);
+        return MarketGenerationRequest::normalizeLegacyPayload($snapshot,
+            array_filter(array_merge($params, $payload), static fn($v) => $v !== '' && $v !== [] && $v !== null),
+            $request, $deferMissingPrompt);
     }
 
     private static function providerParamsForFlatPayload(array $params, array $schema): array
