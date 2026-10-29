@@ -380,7 +380,7 @@ class CanvasModelRouterService
 
     private static function videoMarketRuntime(array $selection): string
     {
-        return \app\common\service\power\MarketGenerationAdapterRegistry::runtime('video', $params);
+        return \app\common\service\power\MarketGenerationAdapterRegistry::runtime('video', $selection);
     }
 
     private static function marketOption(string $value, array $market): array
