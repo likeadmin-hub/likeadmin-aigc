@@ -6791,11 +6791,10 @@ class AigcShortDramaService
                 : (self::isImageGenerationTask($taskType)
                 ? self::estimateImageGenerationBilling($tenantId, $userId, $taskType, $shotPayload, $config, $params)
                 : self::estimateGenerationBilling($taskType, $shotPayload, $config, $params)));
-        if (self::isImageGenerationTask($taskType)
-            && in_array((string)($billing['market_snapshot']['model_code'] ?? ''), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)) {
-            MarketImageModelRuntimeService::qwenDimensionSummary(
+        if (self::isImageGenerationTask($taskType) && !empty($billing['market_snapshot'])) {
+            MarketImageModelRuntimeService::dimensionSummary(
                 (array)$billing['market_snapshot'],
-                self::withQwenImageDimensions((array)$billing['market_snapshot'],
+                MarketImageModelRuntimeService::withDimensionSelection((array)$billing['market_snapshot'],
                     self::shortDramaImageParams($tenantId, $shotPayload, $params, $taskType, self::currentProjectPlanRaw($tenantId, $userId, $projectId)), $params)
             );
         }
@@ -7590,7 +7589,7 @@ class AigcShortDramaService
                 }
             }
             $taskType = (string)($generation['task_type'] ?? 'shot_image');
-            $imageParams = self::withQwenImageDimensions((array)($billing['market_snapshot'] ?? []),
+            $imageParams = MarketImageModelRuntimeService::withDimensionSelection((array)($billing['market_snapshot'] ?? []),
                 self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan), $params);
             $imageParams = self::shortDramaImageReferenceParams($tenantId, $userId, $projectId, $shot, $params, $taskType, $plan, $imageParams, (array)($billing['market_snapshot'] ?? []));
             AigcShortDramaGenerationTask::where([
@@ -11905,24 +11904,6 @@ class AigcShortDramaService
         return !empty($filtered) ? implode('、', $filtered) : trim($negativePrompt);
     }
 
-    private static function withQwenImageDimensions(array $snapshot, array $imageParams, array $params): array
-    {
-        if (!in_array((string)($snapshot['model_code'] ?? ''), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)) {
-            return $imageParams;
-        }
-        $selection = array_replace((array)($params['params'] ?? []), $params);
-        foreach (['size', 'image_size', 'resolution'] as $key) {
-            if (isset($selection[$key])) $imageParams[$key] = $selection[$key];
-        }
-        // Only pass dimension overrides, not arbitrary provider parameters.
-        $provider = (array)($selection['provider_params'] ?? []);
-        $imageParams['provider_params'] = array_intersect_key($provider, array_flip(['size', 'image_size', 'resolution']));
-        if (isset($provider['parameters']['size'])) {
-            $imageParams['provider_params']['parameters']['size'] = $provider['parameters']['size'];
-        }
-        return $imageParams;
-    }
-
     private static function shortDramaImageReferenceParams(int $tenantId, int $userId, int $projectId, array $shot, array $params, string $taskType, array $plan, array $imageParams, array $marketSnapshot): array
     {
         if ($taskType === 'shot_image') {
@@ -15435,7 +15416,7 @@ class AigcShortDramaService
                     $params['ratio'] = $params['aspect_ratio'] = $ratio;
                 }
                 $snapshot = self::isNanoBananaImageSelection($params) ? [] : MarketImageModelRuntimeService::selectionSnapshot($tenantId, $params);
-                $imageParams = self::withQwenImageDimensions($snapshot, self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan), $params);
+                $imageParams = MarketImageModelRuntimeService::withDimensionSelection($snapshot, self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan), $params);
                 $imageParams = self::shortDramaImageReferenceParams($tenantId, $userId, $projectId, $shot, $params, $taskType, $plan, $imageParams, $snapshot);
                 $quoteParams = array_replace($params, $imageParams);
                 if (self::isNanoBananaImageSelection($params)) {
@@ -16176,8 +16157,7 @@ class AigcShortDramaService
 
     private static function marketVideoRuntime(array $selection): string
     {
-        $value = implode('|', array_map('strval', [$selection['resource_type'] ?? '', $selection['model_id'] ?? '', $selection['channel'] ?? '']));
-        return str_contains($value, 'app_api') || str_contains($value, 'market_video_app:') ? MarketVideoAppRuntimeService::class : MarketVideoModelRuntimeService::class;
+        return \app\common\service\power\MarketGenerationAdapterRegistry::runtime('video', $selection);
     }
 
     /** Prepares request details without consulting the legacy video channel/spec tables. */

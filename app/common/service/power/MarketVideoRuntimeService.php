@@ -222,7 +222,8 @@ class MarketVideoRuntimeService
         // Otherwise an impossible request can receive a misleading price.
         self::assertAssets($market, $selection);
         self::assertTextToVideoRatio($market, $selection);
-        $quantity = self::quantity($market, $selection);
+        $prepared = self::prepareMarketRequest($market, $selection);
+        $quantity = self::quantity($market, $selection, $prepared);
         return self::quoteMarket($market, $quantity);
     }
 
@@ -232,7 +233,8 @@ class MarketVideoRuntimeService
         $market=self::resolve($tenantId,$selection);
         self::assertAssets($market,$selection);self::assertTextToVideoRatio($market,$selection);
         if(self::isDeferredUsageSku($market['sku']))throw new \app\common\service\open_platform\OpenException('pricing_unavailable','当前视频规格缺少可信的实际用量额度边界',503);
-        return ['market'=>$market,'quote'=>self::quoteMarket($market,self::quantity($market,$selection))];
+        $prepared = self::prepareMarketRequest($market, $selection);
+        return ['market'=>$market,'quote'=>self::quoteMarket($market,self::quantity($market,$selection,$prepared))];
     }
 
     /**
@@ -404,7 +406,9 @@ class MarketVideoRuntimeService
         $market = self::resolve($tenantId, $selection);
         self::assertAssets($market, $request);
         self::assertTextToVideoRatio($market, $request);
-        $quantity = self::quantity($market, self::billingRequest($selection, $request));
+        $billingRequest = self::billingRequest($selection, $request);
+        $prepared = self::prepareMarketRequest($market, $billingRequest);
+        $quantity = self::quantity($market, $billingRequest, $prepared);
         $quote = self::applyBillingOverride(self::quoteMarket($market, $quantity), $billingOverride);
         $deferredUsage = self::isDeferredUsageSku($market['sku']);
         if ($deferredUsage && $billingOverride !== []) {
@@ -800,6 +804,7 @@ class MarketVideoRuntimeService
 
     public static function isSupportedAppProduct(array $product): bool
     {
+        if (!MarketGenerationAdapterRegistry::supportsVideoApplication((string)($product['upstream_app_code'] ?? ''))) return false;
         // The market catalogue is the source of truth for an app API's
         // business category. Video-capable adapters such as lip-sync or
         // action-transfer must not be promoted to video-generation options.
@@ -956,29 +961,57 @@ class MarketVideoRuntimeService
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
     {
+        $prepared = self::prepareRequest($snapshot, $request, $idempotency);
+        if (MarketGenerationAdapterRegistry::requiresAssetPreparation($snapshot)) {
+            self::seedanceAssets($request, $consumptionId);
+            // Uploads preserve the original reservation's material metering.
+            // Their asset IDs replace URLs only in the supplier request.
+            $prepared = $prepared->withApplicationInput(self::appPayload($snapshot,
+                self::requestWithReferenceAliases($request), $idempotency));
+        }
+        $plan = MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
+        return self::request($plan['method'], self::origin() . $plan['path'], $prepared->nativeInput);
+    }
+
+    /** No supplier uploads or task/point writes: safe before quote/reservation. */
+    public static function prepareRequest(array $snapshot, array $request, string $idempotency = ''): PreparedMarketGeneration
+    {
+        $request = self::requestWithReferenceAliases($request);
+        $meter = $snapshot['billing_meter'] ?? null;
+        if (MarketGenerationAdapterRegistry::resourceType($snapshot) === PowerMarketService::TYPE_MODEL) {
+            return PreparedMarketGeneration::model(self::modelPayload($snapshot, $request, $idempotency), $meter);
+        }
+        // Validate registration before allowing a legacy default adapter to
+        // interpret an unknown app as a Wan request.
+        MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
+        return PreparedMarketGeneration::application(self::appPayload($snapshot, $request, $idempotency), $meter);
+    }
+
+    private static function prepareMarketRequest(array &$market, array $request): PreparedMarketGeneration
+    {
+        if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
+        $meter = MarketGenerationMeter::contract($market['sku']);
+        if ($meter['summary'] !== '') $market['billing_meter'] = $meter;
+        $prepared = self::prepareRequest(self::snapshot($market, 1), $request);
+        if ($meter['summary'] !== '') $market['meter_context'] = $prepared->meterContext;
+        return $prepared;
+    }
+
+    private static function requestWithReferenceAliases(array $request): array
+    {
         // Providers address references by their typed ordinal, while the UI
         // keeps the user's readable @asset-name prompt intact for auditing.
         $request['prompt'] = AigcVideoReferenceAssetService::promptWithReferenceAliases(
             (string)($request['prompt'] ?? ''),
             $request
         );
-        if (($snapshot['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL) return self::request('POST', self::origin() . self::MODEL_TASK_PATH, MarketModelTaskRequest::payload(self::modelPayload($snapshot, $request, $idempotency)));
-        $app = (string)$snapshot['app_code'];
-        if ($app === 'seedance') self::seedanceAssets($request, $consumptionId);
-        return self::request('POST', self::endpoint($app, (string)$snapshot['api_code']), self::appPayload($snapshot, $request, $idempotency));
+        return $request;
     }
 
     private static function queryRequest(array $snapshot, string $taskId): array
     {
-        if (($snapshot['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL) return self::request('GET', self::origin() . str_replace('{task_id}', rawurlencode($taskId), self::MODEL_QUERY_PATH), [], true);
-        $app = (string)$snapshot['app_code']; $url = self::endpoint($app, 'query');
-        // Application APIs declare their HTTP method independently. The
-        // full_video query endpoint is POST-only; keep the legacy adapters'
-        // existing contracts while sending its task ID in the request body.
-        if ($app === 'happy_horse' || $app === 'full_video') {
-            return self::request('POST', $url, ['task_id' => $taskId], true);
-        }
-        return self::request('GET', $url . '?task_id=' . rawurlencode($taskId), [], true);
+        $plan = MarketGenerationAdapterRegistry::transport($snapshot, 'query', $taskId);
+        return self::request($plan['method'], self::origin() . $plan['path'], $plan['payload'], true);
     }
 
     /** Only user-facing generation options declared by this model may cross the boundary. */
@@ -3039,7 +3072,7 @@ class MarketVideoRuntimeService
         return array_replace($selection, $request);
     }
 
-    private static function quantity(array &$market, array $selection): float
+    private static function quantity(array &$market, array $selection, ?PreparedMarketGeneration $prepared = null): float
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
@@ -3047,9 +3080,9 @@ class MarketVideoRuntimeService
         $meter = MarketGenerationMeter::contract($market['sku']);
         if ($meter['summary'] !== '') {
             $market['billing_meter'] = $meter;
-            $native = MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
-                ? MarketGenerationRequest::payload(self::snapshot($market, 1), $selection) : $selection;
-            $market['meter_context'] = MarketGenerationMeter::context($meter, $native);
+            $native = $prepared?->nativeInput ?? (MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
+                ? MarketGenerationRequest::payload(self::snapshot($market, 1), $selection) : $selection);
+            $market['meter_context'] = $prepared?->meterContext ?? MarketGenerationMeter::context($meter, $native);
             if ($meter['basis'] === 'input') return MarketGenerationMedia::seconds($native);
             if (in_array($meter['basis'], ['output_plus_video', 'output_plus_max_video'], true)) $unit = 'output_second';
         }
@@ -3061,7 +3094,7 @@ class MarketVideoRuntimeService
             }
             $metadata=self::metadata($market['product']);
             if (MarketGenerationMaterials::modes($metadata)!==[]) {
-                $native=MarketGenerationRequest::payload(self::snapshot($market,1),$selection);
+                $native=$prepared?->nativeInput ?? MarketGenerationRequest::payload(self::snapshot($market,1),$selection);
                 if ($unit==='input_second') return max(1,MarketGenerationMedia::seconds($native));
                 $seconds=(float)($native['duration'] ?? $native['seconds'] ?? $native['video_duration'] ?? 0);
                 if ($seconds>0) return max(1,$seconds);

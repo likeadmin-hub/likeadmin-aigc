@@ -368,8 +368,7 @@ class AigcVideoService
 
     private static function marketRuntime(array $selection): string
     {
-        $value = implode('|', array_map('strval', [$selection['resource_type'] ?? '', $selection['model_id'] ?? '', $selection['channel'] ?? '']));
-        return str_contains($value, 'app_api') || str_contains($value, 'market_video_app:') ? MarketVideoAppRuntimeService::class : MarketVideoModelRuntimeService::class;
+        return \app\common\service\power\MarketGenerationAdapterRegistry::runtime('video', $selection);
     }
 
     private static function findRecentMarketDuplicateTask(int $tenantId, int $userId, string $prompt, array $selection, array $params): ?AigcVideoTask

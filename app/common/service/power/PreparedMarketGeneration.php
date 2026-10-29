@@ -16,4 +16,15 @@ final class PreparedMarketGeneration
         $native = MarketModelTaskRequest::payload($payload);
         return new self($native, $billingMeter, $billingMeter === null ? [] : MarketGenerationMeter::context($billingMeter, $native));
     }
+
+    public static function application(array $payload, ?array $billingMeter = null): self
+    {
+        return new self($payload, $billingMeter, $billingMeter === null ? [] : MarketGenerationMeter::context($billingMeter, $payload));
+    }
+
+    /** Supplier uploads replace URLs with asset IDs without changing reserved metering. */
+    public function withApplicationInput(array $payload): self
+    {
+        return new self($payload, $this->billingMeter, $this->meterContext);
+    }
 }

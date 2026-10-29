@@ -71,34 +71,7 @@ class MarketApplicationApiRuntimeService
 
     public static function adapterForSelection(array $selection): string
     {
-        if (($selection['runtime_adapter'] ?? '') === 'music_operation' && ($selection['upstream_app_code'] ?? $selection['app_code'] ?? '') === 'music_generation') return MarketMusicOperationRuntimeService::class;
-        $value = (string)($selection['upstream_app_code'] ?? $selection['app_code'] ?? $selection['application_code'] ?? '');
-        if ($value === 'nano_banana' || MarketNanoBananaAppRuntimeService::isSelection($selection)) {
-            return MarketNanoBananaAppRuntimeService::class;
-        }
-        if ($value === MarketLipsyncAppRuntimeService::UPSTREAM_APP_CODE) return MarketLipsyncAppRuntimeService::class;
-        if ($value === MarketPicLipsyncAppRuntimeService::UPSTREAM_APP_CODE) {
-            return MarketPicLipsyncAppRuntimeService::class;
-        }
-        if ($value === 'music_generation') {
-            return MarketMusicAppRuntimeService::class;
-        }
-        if ($value === 'file_qa') {
-            return MarketFileQaAppRuntimeService::class;
-        }
-        if ($value === MarketSeedSvcAppRuntimeService::UPSTREAM_APP_CODE) {
-            return MarketSeedSvcAppRuntimeService::class;
-        }
-        if ($value === MarketGeoAppRuntimeService::UPSTREAM_APP_CODE || MarketGeoAppRuntimeService::isSelection($selection)) {
-            return MarketGeoAppRuntimeService::class;
-        }
-        if ($value === MarketGenericImageAppRuntimeService::UPSTREAM_APP_CODE) {
-            return MarketGenericImageAppRuntimeService::class;
-        }
-        if ((string)($selection['runtime_adapter'] ?? '') === 'generic_image') {
-            return MarketGenericImageAppRuntimeService::class;
-        }
-        throw new Exception('No market application API adapter is registered for this selection');
+        return MarketGenerationAdapterRegistry::application($selection);
     }
 
     public static function adapterForConsumption(int $consumptionId): string
