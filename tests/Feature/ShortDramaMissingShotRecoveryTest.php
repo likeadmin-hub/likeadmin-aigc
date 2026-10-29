@@ -389,6 +389,21 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         self::assertSame('needs_review',$merged['script_review']['status']);
     }
 
+    public function testTruncatedTimedSkeletonSavesCompletePrefixAndUsesItAsRepairContext(): void
+    {
+        $request=['_input_contract_version'=>26,'episode_duration_policy'=>Duration::snapshot([],0,0,[])]; $checkpoints=[];
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],
+            static function($key,$input){
+                if($key==='v3_timed_skeleton_0') return ['result'=>['content'=>'{"title":"钥匙","story_outline":"甲找钥匙后离开","subjects":[{"id":"p1","name":"甲"}],"scene_beats":[{"goal":"截断','finish_reason'=>'length']];
+                if($key==='v3_timed_skeleton_1') { self::assertStringContainsString('甲找钥匙后离开',$input['content']); $payload=self::skeleton(true); }
+                elseif(str_starts_with($key,'v3_timed_scene_')) $payload=['storyboard'=>[self::shot(1),self::shot(2),self::shot(3)]];
+                else throw new \RuntimeException('Unexpected unit '.$key);
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+            },static function($event,$data)use(&$checkpoints){ if($event==='script_checkpoint') $checkpoints[]=$data; });
+        self::assertSame('钥匙',$checkpoints[0]['title']); self::assertSame('p1',$checkpoints[0]['subjects'][0]['id']);
+        self::assertArrayNotHasKey('scene_beats',$checkpoints[0]); self::assertCount(3,$result['payload']['storyboard']);
+    }
+
     public function testSceneLabelAndInteriorConflictRepairsOnlyThoseFields(): void
     {
         $plan=self::skeleton(true);$plan['locations'][0]['interior_exterior']='interior';

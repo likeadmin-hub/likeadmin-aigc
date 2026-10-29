@@ -4231,7 +4231,13 @@ class AigcShortDramaService
             $result = $generation['result'];
             if ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode']) && !ShortDramaStoryWorkflow::enabled($request)) {
                 $draft = ShortDramaEditableDraft::load($tenantId, $userId, $taskId);
-                if (!empty($draft['edits'])) $result = ShortDramaEditableDraft::merge($result, $draft, $request);
+                if (!empty($draft['edits'])) {
+                    try { $result = ShortDramaEditableDraft::merge($result, $draft, $request); }
+                    catch (\RuntimeException $error) {
+                        if ($storyAttempt !== null) ShortDramaEditableDraft::captureConflict($tenantId, $userId, $taskId, $storyAttempt, $result);
+                        throw $error;
+                    }
+                }
             }
             $result = self::attachSelectedSubjectReferences($result, $request);
             $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? '')) ?: self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
@@ -4375,6 +4381,10 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
+        if (!empty($params['draft_resolve'])) {
+            return ShortDramaEditableDraft::resolve($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0),
+                (string)($params['draft_token'] ?? ''), (string)($params['shot_id'] ?? ''), (string)($params['field'] ?? ''), (string)($params['choice'] ?? ''));
+        }
         if (!empty($params['draft_edit'])) {
             return ShortDramaEditableDraft::save($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0),
                 (string)($params['draft_token'] ?? ''), (string)($params['shot_id'] ?? ''), (array)($params['fields'] ?? []));
@@ -23161,6 +23171,10 @@ class AigcShortDramaService
                 ->where(['tenant_id'=>(int)$task['tenant_id'],'user_id'=>(int)$task['user_id'],'task_id'=>$task['task_id'],'status'=>'received'])
                 ->order('id')->field('unit_key,status,error,result_json')->select()->toArray());
         }
+        if (empty($storedResult['__script_checkpoint']) && in_array($status, ['failed','canceled'], true)
+            && (int)($request['_generation_version'] ?? 0) < 3 && empty($request['multi_episode'])) {
+            $storedResult['__script_checkpoint'] = ShortDramaScriptPreview::legacyCheckpoint($storedResult);
+        }
         // Generation v3 is executed by the durable worker.  It saves its
         // in-progress response as a bounded preview instead of the legacy
         // append-only stream state, so a reconnecting browser must receive
@@ -23323,10 +23337,11 @@ class AigcShortDramaService
                 : '',
         ];
         if (in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true) && !$isStoryWorkspace
-            && (int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode'])
+            && empty($request['multi_episode'])
             && !ShortDramaStoryWorkflow::enabled($request)) {
             $response['editable_draft'] = ShortDramaEditableDraft::view((int)$task['tenant_id'], (int)$task['user_id'],
                 (string)$task['task_id'], (array)($storedResult['__script_checkpoint'] ?? []));
+            if ($response['editable_draft']) $response['editable_draft']['merge_supported'] = (int)($request['_generation_version'] ?? 0) >= 3;
         }
         if ((int)($request['_generation_version'] ?? 0) >= 3 && !$isStoryWorkspace) {
             $receiptRows = in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)

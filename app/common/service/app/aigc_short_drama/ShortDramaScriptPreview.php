@@ -4,6 +4,17 @@ namespace app\common\service\app\aigc_short_drama;
 /** Display-only accepted history, never an editable or billable result. */
 final class ShortDramaScriptPreview
 {
+    /** Old streams may be offered as drafts only when the entire JSON object is intact. */
+    public static function legacyCheckpoint(array $state): array
+    {
+        $content=trim((string)($state['__stream_content'] ?? ''));
+        $content=preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $content) ?? $content;
+        if (!str_starts_with($content,'{') || !is_array(json_decode($content,true)) || json_last_error() !== JSON_ERROR_NONE) return [];
+        try { $plan=ShortDramaStructuredResponse::decode(['content'=>$content]); }
+        catch (\Throwable) { return []; }
+        return self::project($plan);
+    }
+
     /** User-facing hints describe only saved content and a coarse recent stage. */
     public static function recoveryInfo(array $state, string $status, string $error = ''): array
     {
