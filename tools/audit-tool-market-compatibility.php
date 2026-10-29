@@ -63,6 +63,7 @@ $report = [
     'scope' => 'tenant catalog and local metadata only; model visibility and fingerprint do not prove end-to-end compatibility',
     'request_probes' => $probe ? 'one synthetic request per mode/scenario and visible SKU; no quote, media inspection, uploads or upstream calls' : 'disabled',
     'structured_probes' => $structured ? 'finite synthetic recipes; expected results exclude SKU restrictions and measured media' : 'disabled',
+    'sku_rejection_diagnostics' => $structured ? 'pure compiler control without SKU locks after a positive fixture is rejected; no quote or submission' : 'disabled',
     'models' => [],
     'unavailable_applications' => [],
 ];
@@ -143,14 +144,16 @@ foreach (['image', 'video'] as $type) {
                     'market_metadata'=>$metadata, 'params_schema'=>$metadata['params_schema'] ?? [],
                     'locked_params'=>MarketGenerationSchema::array($sku['locked_params'] ?? []),
                     'max_reference_images'=>(int)($option['max_reference_images'] ?? 0)];
-                $prepare = match (true) {
-                    $type === 'video' => static fn($request) => MarketVideoRuntimeService::prepareRequest($snapshot, $request)->nativeInput,
-                    $resource === 'model' => static fn($request) => MarketImageModelRuntimeService::prepareRequest($snapshot, $request, $tenantId)->nativeInput,
-                    ($product['upstream_app_code'] ?? '') === 'nano_banana' => static fn($request) => MarketNanoBananaAppRuntimeService::prepareRequest($snapshot, $request, '', $tenantId)->nativeInput,
+                $compile = match (true) {
+                    $type === 'video' => static fn($frozen,$request) => MarketVideoRuntimeService::prepareRequest($frozen, $request)->nativeInput,
+                    $resource === 'model' => static fn($frozen,$request) => MarketImageModelRuntimeService::prepareRequest($frozen, $request, $tenantId)->nativeInput,
+                    ($product['upstream_app_code'] ?? '') === 'nano_banana' => static fn($frozen,$request) => MarketNanoBananaAppRuntimeService::prepareRequest($frozen, $request, '', $tenantId)->nativeInput,
                     default => null,
                 };
-                $row['request_cases'] = $prepare === null ? [['status'=>'unregistered_probe']] : array_map(
-                    static fn($case) => Audit::probe($case, $prepare, $snapshot['locked_params']), Audit::cases($type, $option, $structured ? $metadata : null)
+                $row['request_cases'] = $compile === null ? [['status'=>'unregistered_probe']] : array_map(
+                    static fn($case) => $structured ? Audit::probeWithSkuDiagnostics($case,$snapshot,$compile)
+                        : Audit::probe($case, static fn($request)=>$compile($snapshot,$request), $snapshot['locked_params']),
+                    Audit::cases($type, $option, $structured ? $metadata : null)
                 );
             }
             $skuMatrix[] = $row;

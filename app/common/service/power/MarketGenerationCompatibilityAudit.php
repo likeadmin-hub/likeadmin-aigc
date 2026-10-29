@@ -177,6 +177,26 @@ final class MarketGenerationCompatibilityAudit
         }
     }
 
+    /** Diagnostics only: the unlocked control is never a quote/admission/submission candidate. */
+    public static function probeWithSkuDiagnostics(array $case, array $snapshot, callable $prepare): array
+    {
+        $locked=MarketGenerationSchema::array($snapshot['locked_params'] ?? []);
+        $result=self::probe($case,static fn($request)=>$prepare($snapshot,$request),$locked);
+        if (($case['expected'] ?? '') !== 'constructed' || $result['status'] !== 'rejected') return $result;
+        $control=$snapshot;$control['locked_params']=[];
+        $controlResult=self::probe($case,static fn($request)=>$prepare($control,$request));
+        $category='unresolved_local_constraint';
+        if ($locked !== [] && $controlResult['status']==='constructed') {
+            $category='sku_locked_parameter_combination';
+            try {
+                $mode=MarketGenerationMaterials::select(MarketGenerationRequest::metadata($snapshot),$case['request']);
+                if (isset($locked['generation_type']) && $mode !== null && $locked['generation_type']!==$mode['native_mode']) $category='sku_generation_mode_conflict';
+            } catch (\Throwable) { /* No reason or rejected data is disclosed. */ }
+        }
+        return $result+['rejection_category'=>$category,'diagnostic_control_status'=>$controlResult['status'],
+            'diagnostic_scope'=>'same frozen schema without SKU locks; diagnostic only, never eligible for submission'];
+    }
+
     private static function contains(array $native, array $expected): bool
     {
         foreach ($expected as $key=>$value) {

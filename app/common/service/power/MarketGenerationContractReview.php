@@ -29,6 +29,15 @@ final class MarketGenerationContractReview
         ];
     }
 
+    public static function catalogueData(array $metadata, array $declaration): array
+    {
+        $result=self::platformData($metadata,$declaration === [] ? [] : ['model_pricing'=>$declaration]);
+        $result['catalogue_declaration_available']=$result['platform_detail_available'];
+        unset($result['platform_detail_available'],$result['published_document_available']);
+        $result['source_projection']='model_catalogue_detail';
+        return $result;
+    }
+
     public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = []): array
     {
         $rows = [];
