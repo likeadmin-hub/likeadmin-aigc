@@ -91,6 +91,8 @@ final class MarketGenerationReviewedContract
             || !hash_equals($contract['contract_digest'],self::contractDigest($contract))) {
             throw new InvalidArgumentException('审核合同内容或指纹不完整');
         }
+        foreach($contract['material_capabilities']['modes']as$mode)foreach((array)($mode['fields']??[])as$field)
+            if(str_contains((string)($field['field']??''),'.'))MarketGenerationMaterialPath::assertNestedField($contract,$contract['modes'][$mode['code']],$field);
     }
 
     /** Validate the encoded business body without changing its supplier protocol or transport envelope. */

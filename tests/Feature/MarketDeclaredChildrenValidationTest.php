@@ -49,6 +49,7 @@ class MarketDeclaredChildrenValidationTest extends TestCase
     {
         $fixture=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/canvas-generation-market-contracts.json'),true);
         $metadata=array_values(array_filter($fixture['contracts'],static fn($c)=>($c['model_code']??'')==='qwen-image-3.0'))[0];
+        $metadata['supports_reference_images']=true;$metadata['max_reference_images']=3;
         $snapshot=['model_code'=>'qwen-image-3.0','channel_code'=>'dashscope_compatible','market_metadata'=>$metadata,'locked_params'=>[]];
         $this->expectException(\Exception::class);$this->expectExceptionMessage('direct');
         Images::prepareRequest($snapshot,['prompt'=>'fixture','reference_images'=>['https://fixtures.invalid/a.png'],

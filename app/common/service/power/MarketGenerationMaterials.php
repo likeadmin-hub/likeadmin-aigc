@@ -23,11 +23,12 @@ final class MarketGenerationMaterials
     private static function buildModes(array $metadata): array
     {
         $result = [];
+        $reviewed=MarketGenerationReviewedContract::selected($metadata)!==null;
         $declared = (array)(self::contract($metadata)['modes'] ?? []);
         $expanded = [];
         foreach ($declared as $mode) {
             if (!is_array($mode)) continue;
-            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f)=>is_array($f) && !str_contains((string)($f['field'] ?? ''), '.')));
+            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f)=>is_array($f) && ($reviewed || !str_contains((string)($f['field'] ?? ''), '.'))));
             $frames = array_values(array_filter($fields, static fn($f)=>in_array($f['role'] ?? '', ['first','last'],true)));
             if (empty($mode['view_key']) && count($frames) === 2 && !array_filter($frames, static fn($f)=>!empty($f['required']))) {
                 $base = array_values(array_filter($fields, static fn($f)=>!in_array($f['role'] ?? '', ['first','last'],true)));
@@ -42,7 +43,7 @@ final class MarketGenerationMaterials
         }
         foreach ($expanded as $index => $mode) {
             if (!is_array($mode)) continue;
-            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f) => is_array($f) && !str_contains((string)($f['field'] ?? ''), '.')));
+            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f) => is_array($f) && ($reviewed || !str_contains((string)($f['field'] ?? ''), '.'))));
             $roles = array_column($fields, 'role');
             $kinds = array_unique(array_column($fields, 'kind'));
             $code = (string)($mode['code'] ?? '');
@@ -89,7 +90,7 @@ final class MarketGenerationMaterials
             $current = 0;
             foreach ($mode['fields'] as $field) {
                 $matched = self::matching($assets, $field, $mode['method']);
-                if (!empty($values[$field['field']])) $current += 8;
+                if (MarketGenerationMaterialPath::count($values,$field)>0) $current += 8;
                 elseif ($matched !== []) $current += 4;
                 elseif (!empty($field['required'])) $current -= 20;
             }
@@ -163,6 +164,8 @@ final class MarketGenerationMaterials
         $result = [];
         foreach ($mode['fields'] as $field) {
             $name = $field['field'];
+            // Nested image bodies are built by their registered encoder and checked afterwards.
+            if (str_contains($name,'.')) continue;
             if (array_key_exists($name, $params) && $params[$name] !== '' && $params[$name] !== []) { $result[$name] = $params[$name]; continue; }
             $matched = self::matching($assets, $field, $mode['method']);
             if ($matched === []) continue;
@@ -207,19 +210,18 @@ final class MarketGenerationMaterials
         $overrides=(array)($metadata['_local_capability_overrides'] ?? []);
         if (($overrides['supports_first_last_frame'] ?? null)===false && $mode['method']==='start_end') throw new InvalidArgumentException('当前模型已停用首尾帧方式');
         $counts=['image'=>0,'video'=>0,'audio'=>0];
-        foreach ($mode['fields'] as $field) if (isset($counts[$field['kind'] ?? ''])) { $value=$payload[$field['field']] ?? null; $counts[$field['kind']]+=is_array($value)?count($value):(($value!==null && $value!=='')?1:0); }
+        foreach ($mode['fields'] as $field) if (isset($counts[$field['kind'] ?? ''])) $counts[$field['kind']]+=MarketGenerationMaterialPath::count($payload,$field);
         if (($overrides['supports_reference_images'] ?? null)===false && $counts['image']>0) throw new InvalidArgumentException('当前模型已停用图片参考');
         foreach (['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'] as $kind=>$key) if (array_key_exists($key,$overrides) && $counts[$kind]>(int)$overrides[$key]) throw new InvalidArgumentException('素材数量超过当前模型上限');
         foreach ($mode['fields'] as $field) {
-            $value = $payload[$field['field']] ?? null;
-            $count = is_array($value) ? count($value) : (($value !== null && $value !== '') ? 1 : 0);
+            $count = MarketGenerationMaterialPath::count($payload,$field);
             $minimum = !empty($field['required']) ? max(1, (int)($field['minimum'] ?? 0)) : 0;
             $maximum = $field['maximum'] ?? null;
             if ($count < $minimum || ($maximum !== null && $count > (int)$maximum)) throw new InvalidArgumentException('素材数量不符合当前方式要求：' . $field['field']);
         }
         $declared = array_column($mode['fields'], 'field');
         foreach (self::modes($metadata) as $other) foreach ($other['fields'] as $field) {
-            if (!in_array($field['field'], $declared, true) && !empty($payload[$field['field']])) throw new InvalidArgumentException('当前生成方式不支持此素材：' . $field['field']);
+            if (!in_array($field['field'], $declared, true) && MarketGenerationMaterialPath::count($payload,$field)>0) throw new InvalidArgumentException('当前生成方式不支持此素材：' . $field['field']);
         }
         foreach (self::assets($request) as $asset) {
             if (!array_filter($mode['fields'], static fn($field) => self::matching([$asset], $field, $mode['method']) !== [])) throw new InvalidArgumentException('当前生成方式不支持已添加的素材角色');
