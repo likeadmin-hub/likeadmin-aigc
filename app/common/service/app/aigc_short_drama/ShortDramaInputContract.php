@@ -4,7 +4,12 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 24;
+    public const VERSION = 25;
+
+    public static function wrappedTruncatedRecovery(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? 0) >= 25;
+    }
 
     public static function segmentedContinuation(array $request): bool
     {

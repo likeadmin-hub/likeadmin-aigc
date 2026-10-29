@@ -4229,6 +4229,10 @@ class AigcShortDramaService
                 $request['model_id'] = (string)($effectiveModel['id'] ?? $request['model_id'] ?? '');
             }
             $result = $generation['result'];
+            if ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode']) && !ShortDramaStoryWorkflow::enabled($request)) {
+                $draft = ShortDramaEditableDraft::load($tenantId, $userId, $taskId);
+                if (!empty($draft['edits'])) $result = ShortDramaEditableDraft::merge($result, $draft, $request);
+            }
             $result = self::attachSelectedSubjectReferences($result, $request);
             $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? '')) ?: self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
             if ($projectRatio !== '') {
@@ -4371,6 +4375,10 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
+        if (!empty($params['draft_edit'])) {
+            return ShortDramaEditableDraft::save($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0),
+                (string)($params['draft_token'] ?? ''), (string)($params['shot_id'] ?? ''), (array)($params['fields'] ?? []));
+        }
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('Task has been canceled');
         }
@@ -23309,11 +23317,17 @@ class AigcShortDramaService
             'stream_updated_at' => $streamUpdatedAt,
             'stream_revision' => $streamRevision,
             'stream_checkpoint' => ShortDramaScriptPreview::project((array)($storedResult['__script_checkpoint'] ?? [])),
-            'recovery_info' => ShortDramaScriptPreview::recoveryInfo($storedResult, $status),
+            'recovery_info' => ShortDramaScriptPreview::recoveryInfo($storedResult, $status, (string)($task['error'] ?? '')),
             'error' => in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
                 ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
                 : '',
         ];
+        if (in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true) && !$isStoryWorkspace
+            && (int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode'])
+            && !ShortDramaStoryWorkflow::enabled($request)) {
+            $response['editable_draft'] = ShortDramaEditableDraft::view((int)$task['tenant_id'], (int)$task['user_id'],
+                (string)$task['task_id'], (array)($storedResult['__script_checkpoint'] ?? []));
+        }
         if ((int)($request['_generation_version'] ?? 0) >= 3 && !$isStoryWorkspace) {
             $receiptRows = in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
                 ? Db::name('aigc_short_drama_planning_unit')->where([

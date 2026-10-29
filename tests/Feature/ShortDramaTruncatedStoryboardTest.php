@@ -40,4 +40,18 @@ class ShortDramaTruncatedStoryboardTest extends TestCase
         }
         self::assertNull(Response::partialStoryboard(['content'=>'{"title":"a","storyboard":['.$shot,'finish_reason'=>'refusal'],true));
     }
+
+    public function testRecognizedEnvelopesAndShotsAliasAreVersionGatedAndSafe(): void
+    {
+        $shot = ['shot_id'=>'s1_1', 'visual_description'=>'完整画面'];
+        $encoded = json_encode($shot, JSON_UNESCAPED_UNICODE);
+        $content = '{"data":{"result":{"title":"故事","shots":['.$encoded.',{"shot_id":"s1_2","dialogue":"未完成';
+        self::assertNull(Response::partialStoryboard(['content'=>$content,'finish_reason'=>'length'], true));
+        self::assertSame(['storyboard'=>[$shot]], Response::partialStoryboard(['content'=>$content,'finish_reason'=>'length'], true, true));
+        foreach (['{"unknown":{"shots":['.$encoded, '{"data":{"shots":['.$encoded.'],"storyboard":[]',
+            '{"data":{"broken":,"shots":['.$encoded, '{"data":{"shots":['.$encoded.',{"bad":]}'] as $invalid) {
+            self::assertNull(Response::partialStoryboard(['content'=>$invalid,'finish_reason'=>'length'], true, true));
+        }
+        self::assertNull(Response::partialStoryboard(['content'=>$content,'finish_reason'=>'content_filter'], true, true));
+    }
 }
