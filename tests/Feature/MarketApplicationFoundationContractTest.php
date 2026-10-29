@@ -61,12 +61,11 @@ class MarketApplicationFoundationContractTest extends TestCase
 
     public function testGenericCreateApiDoesNotSilentlyBecomeMusicAdapter(): void
     {
-        $this->expectException(Exception::class);
-        MarketApplicationApiRuntimeService::adapterForSelection([
+        self::assertSame(\app\common\service\power\MarketVideoAppRuntimeService::class, MarketApplicationApiRuntimeService::adapterForSelection([
             'resource_type' => 'app_api',
             'upstream_app_code' => 'full_video',
             'api_code' => 'create',
-        ]);
+        ]));
     }
 
     public function testCatalogExposesOnlyTheThreeGenerationTypes(): void
@@ -76,22 +75,13 @@ class MarketApplicationFoundationContractTest extends TestCase
 
     public function testImageModelSelectorsKeepTheirSupportedMarketSources(): void
     {
-        $root = dirname(__DIR__, 2);
-        $sources = [
-            (string)file_get_contents($root . '/app/common/service/app/aigc_image/AigcImageChannelService.php'),
-            (string)file_get_contents($root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'),
-        ];
-
-        foreach ($sources as $source) {
-            self::assertStringNotContainsString('MarketNanoBananaAppRuntimeService::options', $source);
-            self::assertStringContainsString('MarketImageModelRuntimeService::', $source);
+        $selectors = ['market_image_model:93' => \app\common\service\power\MarketImageModelRuntimeService::class,
+            'market_nano_banana:1:' . base64_encode('nano-banana-2') => \app\common\service\power\MarketNanoBananaAppRuntimeService::class];
+        foreach ($selectors as $selector => $runtime) {
+            $normalized = \app\common\service\app\aigc_image\AigcImageChannelService::normalizeRuntimeChannelCode($selector);
+            self::assertSame($selector, $normalized);
+            self::assertSame($runtime, \app\common\service\power\MarketGenerationAdapterRegistry::runtime('image', ['channel' => $normalized]));
         }
-
-        // The native canvas supports both model SKUs and Nano Banana app SKUs.
-        // The retired Agent selector had a different, model-only contract.
-        $canvas = (string)file_get_contents($root . '/app/common/service/app/aigc_canvas/CanvasModelRouterService.php');
-        self::assertStringContainsString('MarketImageModelRuntimeService::options', $canvas);
-        self::assertStringContainsString('MarketNanoBananaAppRuntimeService::options', $canvas);
     }
 
     public function testTextFallbackOnlyAcceptsExplicitUnavailableModelErrors(): void

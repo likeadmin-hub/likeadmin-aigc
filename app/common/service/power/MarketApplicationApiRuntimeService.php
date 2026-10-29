@@ -14,6 +14,9 @@ class MarketApplicationApiRuntimeService
         if ($adapter === MarketGenericImageAppRuntimeService::class) {
             return $adapter::options($tenantId, $upstreamAppCode);
         }
+        if ($adapter === MarketVideoAppRuntimeService::class) {
+            return array_values(array_filter($adapter::options($tenantId), static fn(array $option): bool => ($option['app_code'] ?? '') === $upstreamAppCode));
+        }
         return $adapter::options($tenantId);
     }
 
@@ -26,7 +29,7 @@ class MarketApplicationApiRuntimeService
     public static function quote(int $tenantId, array $selection, int $quantity = 1): array
     {
         $adapter = self::adapterForSelection($selection);
-        return $adapter === MarketMusicAppRuntimeService::class
+        return in_array($adapter, [MarketMusicAppRuntimeService::class, MarketVideoAppRuntimeService::class], true)
             ? $adapter::quote($tenantId, $selection)
             : $adapter::quote($tenantId, $selection, $quantity);
     }
@@ -44,6 +47,10 @@ class MarketApplicationApiRuntimeService
     ): array
     {
         $adapter = self::adapterForSelection($selection);
+        if ($adapter === MarketVideoAppRuntimeService::class) {
+            return $adapter::reserve($tenantId, $userId, $appCode !== '' ? $appCode : 'aigc_video', $action,
+                $businessTable !== '' ? $businessTable : 'aigc_short_drama_generation_task', $businessTaskId, $selection, $request);
+        }
         if ($adapter === MarketMusicAppRuntimeService::class) {
             return $adapter::reserve(
                 $tenantId,
