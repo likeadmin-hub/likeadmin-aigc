@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use app\common\service\power\MarketImageModelRuntimeService;
 use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketVideoRuntimeService;
+use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\app\aigc_canvas\CanvasGenerationParameters;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -148,5 +150,51 @@ class LegacyMarketCatalogueParityTest extends TestCase
         if ($app === 'seedance' || $app === 'full_video') self::assertSame(self::IMAGE, $payload['content'][1]['image_url']['url']);
         elseif ($app === 'happy_horse') self::assertSame(self::IMAGE, $payload['media'][0]['url']);
         else self::assertSame([self::IMAGE], $payload[$field]);
+    }
+
+    public function testCanvasAdvancedAudioSettingReachesHappyHorseAdapter(): void
+    {
+        $option = ['resource_type' => 'app_api', 'params_schema' => [
+            'audio_setting' => ['type' => 'string', 'enum' => ['retain', 'replace']],
+        ]];
+        $input = CanvasGenerationParameters::apply([
+            'prompt' => 'fixture prompt', 'duration' => 5,
+            'advanced_params' => ['audio_setting' => 'retain'],
+        ], $option, 'video');
+        $normalized = self::call(AigcCanvasService::class, 'normalizeVideoParams', $input, 1, 1, false);
+        $payload = self::call(MarketVideoRuntimeService::class, 'appPayload', [
+            'app_code' => 'happy_horse', 'locked_params' => [],
+        ], $normalized, 'fixture');
+        self::assertSame('retain', $payload['audio_setting']);
+    }
+
+    public function testCanvasRejectsInvalidAdvancedAudioSetting(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        CanvasGenerationParameters::apply(['advanced_params' => ['audio_setting' => 'unsupported']], [
+            'resource_type' => 'app_api', 'params_schema' => ['audio_setting' => ['type' => 'string', 'enum' => ['retain', 'replace']]],
+        ], 'video');
+    }
+
+    /** @dataProvider videoApplications */
+    public function testVideoApplicationQuoteAndSubmissionUseSameBillingQuantity(string $app, array $locked, string $field): void
+    {
+        $market = [
+            'product' => ['resource_type' => 'app_api', 'upstream_app_code' => $app, 'source_payload' => []],
+            'sku' => ['locked_params' => $locked, 'usage_unit' => 'output_second'],
+        ];
+        $selection = ['duration' => 5, 'resolution' => '720p'];
+        $request = ['duration' => 8, 'resolution' => '720p'];
+        $merged = self::call(MarketVideoRuntimeService::class, 'billingRequest', $selection, $request);
+        $method = new ReflectionMethod(MarketVideoRuntimeService::class, 'quantity');
+        $quoteArgs = [&$market, $request];
+        $quoteQuantity = $method->invokeArgs(null, $quoteArgs);
+        $submitArgs = [&$market, $merged];
+        $submitQuantity = $method->invokeArgs(null, $submitArgs);
+        self::assertSame(8.0, $quoteQuantity);
+        self::assertSame($quoteQuantity, $submitQuantity);
+        $market['sku']['usage_unit'] = 'per_call';
+        $callArgs = [&$market, $merged];
+        self::assertSame(1.0, $method->invokeArgs(null, $callArgs));
     }
 }

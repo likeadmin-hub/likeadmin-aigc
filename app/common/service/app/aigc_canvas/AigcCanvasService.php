@@ -2422,7 +2422,7 @@ class AigcCanvasService
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
         ]), PHP_INT_MAX);
-        return array_replace(array_intersect_key($params, array_flip(['material_mode', 'seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
+        return array_replace(array_intersect_key($params, array_flip(['material_mode', 'seed', 'audio', 'audio_setting', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
