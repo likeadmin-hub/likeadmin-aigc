@@ -22,4 +22,22 @@ class ShortDramaTruncatedStoryboardTest extends TestCase
         }
         self::assertNull(Response::partialStoryboard(['content'=>'{"storyboard":['.$shot,'finish_reason'=>'content_filter']));
     }
+
+    public function testOptionalCompleteTopLevelFieldsCanPrecedeTheTruncatedStoryboard(): void
+    {
+        $shot=['shot_id'=>'s1_1','dialogue'=>'甲：完整台词。'];
+        $content='{"title":"故事","info":{"text":"保留括号 } 和逗号, "},"storyboard":['.json_encode($shot,JSON_UNESCAPED_UNICODE).',{"shot_id":"s1_2","dialogue":"截断';
+        self::assertNull(Response::partialStoryboard(['content'=>$content,'finish_reason'=>'length']));
+        self::assertSame(['storyboard'=>[$shot]],Response::partialStoryboard(['content'=>$content,'finish_reason'=>'length'],true));
+    }
+
+    public function testExtendedExtractionRejectsNestedOrAmbiguousPrefix(): void
+    {
+        $shot='{"shot_id":"s1_1"}';
+        foreach (['{"nested":{"storyboard":['.$shot, '{"title":"bad","storyboard":[],"storyboard":['.$shot,
+            '{"broken": ,"storyboard":['.$shot, '{"storyboard":"text", "storyboard":['.$shot] as $content) {
+            self::assertNull(Response::partialStoryboard(['content'=>$content,'finish_reason'=>'length'],true));
+        }
+        self::assertNull(Response::partialStoryboard(['content'=>'{"title":"a","storyboard":['.$shot,'finish_reason'=>'refusal'],true));
+    }
 }

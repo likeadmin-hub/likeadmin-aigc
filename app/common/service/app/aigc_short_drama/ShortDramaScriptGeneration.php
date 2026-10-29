@@ -31,8 +31,12 @@ final class ShortDramaScriptGeneration
         $auditReserve = !empty($request['series_context']);
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
-        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null, ?callable $capture = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory, $request): array {
-            if (++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
+        // Durable dispatch limits fresh submissions; replaying receipts does not
+        // consume a later segment's allowance. Other callers keep the old cap.
+        $segmented = ShortDramaInputContract::segmentedContinuation($request)
+            && ShortDramaPlanningUnit::hasDispatch((string)($request['_prompt_task_id'] ?? ''));
+        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null, ?callable $capture = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory, $request, $segmented): array {
+            if (!$segmented && ++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
             $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, $boundedMemory);
             if (!empty($input['_share_script_context'])) {
                 $input = ShortDramaScriptContext::messages($input, $request);
@@ -40,8 +44,10 @@ final class ShortDramaScriptGeneration
                 $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $budget['max_tokens']);
             }
             unset($input['_stage_content']);
-            $reservedOutput += $budget['max_tokens'];
-            if ($reservedOutput > $outputLimit) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
+            if (!$segmented) {
+                $reservedOutput += $budget['max_tokens'];
+                if ($reservedOutput > $outputLimit) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
+            }
             ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
             $receipt = $provider('v3_' . $key, $input, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
@@ -54,7 +60,7 @@ final class ShortDramaScriptGeneration
                     catch (RuntimeException $error) {
                         if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                         if (ShortDramaInputContract::preciseRecovery($request)) {
-                            $partial = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []));
+                            $partial = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::segmentedContinuation($request));
                             if ($partial !== null) return $partial;
                         }
                         return ['_batch_parse_error' => $error->getMessage()];
@@ -64,7 +70,7 @@ final class ShortDramaScriptGeneration
                 catch (RuntimeException $error) {
                     if ((!ShortDramaInputContract::preciseRecovery($request) && empty($receipt['_safe_recovery'])) || !in_array($error->getCode(), [413,422], true)
                         || !preg_match('/^(?:timed_scene_|scene_)/', $key)
-                        || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? [])))) throw $error;
+                        || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::segmentedContinuation($request)))) throw $error;
                 }
                 if ($capture) $capture($payload);
                 if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);

@@ -21,6 +21,11 @@ final class ShortDramaPlanningUnit
         finally { self::$dispatchBudget = $previous; }
     }
 
+    public static function hasDispatch(string $task): bool
+    {
+        return $task !== '' && self::$dispatchBudget !== null && self::$dispatchBudget['task'] === $task;
+    }
+
     private static function claimDispatchCall(int $tenant, int $user, string $task): void
     {
         if (self::$dispatchBudget === null || self::$dispatchBudget['tenant'] !== $tenant
