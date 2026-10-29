@@ -816,11 +816,7 @@ class MarketImageModelRuntimeService
 
     private static function settlementAmounts(array $snapshot, int $quantity, float $billedQuantity, bool $deferredUsage): array
     {
-        $tenant = $deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['platform_price'] ?? 0), $billedQuantity, $snapshot) : MarketGenerationMeter::price((float)($snapshot['platform_price'] ?? 0), $quantity, $snapshot);
-        $user = array_key_exists('fixed_user_unit_price', $snapshot)
-            ? self::points((float)$snapshot['fixed_user_unit_price'] * $quantity)
-            : ($deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['tenant_price'] ?? 0), $billedQuantity, $snapshot) : MarketGenerationMeter::price((float)($snapshot['tenant_price'] ?? 0), $quantity, $snapshot));
-        return [$tenant, $user];
+        return MarketGenerationImageBilling::amounts($snapshot, $quantity, $billedQuantity, $deferredUsage);
     }
 
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */

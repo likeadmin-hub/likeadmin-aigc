@@ -48,6 +48,13 @@ final class MarketGenerationMeter
         return ($contract['source'] ?? '') === 'structured' || ($contract['summary'] ?? '') !== '';
     }
 
+    public static function hasDeclaration(array $sku): bool
+    {
+        $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
+        return array_key_exists('meter_contract', $source) || array_key_exists('meter_contract', $sku)
+            || trim((string)($source['meter_summary'] ?? $sku['meter_summary'] ?? '')) !== '';
+    }
+
     /** Adapters without shared meter settlement must reject new declarations. */
     public static function assertLegacyPricing(array $sku): void
     {
