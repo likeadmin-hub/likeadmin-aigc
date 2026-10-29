@@ -52,4 +52,12 @@ final class MarketPriceWriteTransactionTest extends TestCase
             } finally { Db::rollback(); }
         } finally { Db::execute("DROP TEMPORARY TABLE IF EXISTS `$table`"); }
     }
+    public function testAColdConnectionDoesNotRequireAnEarlierUnrelatedQuery():void
+    {
+        if(getenv('MARKET_PRICE_DB_TESTS')!=='local-existing')self::markTestSkipped('Local transaction only');
+        (new \think\App())->initialize();
+        $connection=Db::connect('mysql',true);
+        self::assertFalse($connection->getPdo());
+        self::assertSame('cold-write',Transaction::run(static fn()=>'cold-write'));
+    }
 }

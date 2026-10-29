@@ -28,7 +28,8 @@ final class MarketPriceWriteTransaction
     {
         $connection = Db::connect();
         // The outer owner is responsible for recovering its whole transaction.
-        $nested = $connection->getPdo()->inTransaction();
+        $pdo = $connection->getPdo();
+        $nested = $pdo !== false && $pdo->inTransaction();
         for ($attempt = 0; ; ++$attempt) {
             try { return $connection->transaction($write); }
             catch (Throwable $error) {
