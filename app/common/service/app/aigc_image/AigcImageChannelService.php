@@ -701,6 +701,9 @@ class AigcImageChannelService
                         if (!isset($channel['qualities'][$quality])) {
                             $channel['qualities'][$quality] = [
                             'value' => $quality,
+                            // Older consumers read value || quality. Keep an empty
+                            // dimension sentinel without losing its priced ratios.
+                            'quality' => $quality,
                             'label' => (string)$spec['quality_label'],
                             'ratios' => [],
                             ];
