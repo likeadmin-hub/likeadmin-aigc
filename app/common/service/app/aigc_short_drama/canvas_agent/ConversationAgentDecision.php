@@ -55,6 +55,8 @@ final class ConversationAgentDecision
         // Memory is optional advisory metadata. Some models put it beside the
         // action arguments; normalize only that documented metadata placement.
         if (is_array($raw) && is_array($raw['action']??null)) {
+            if (isset($raw['message']) && is_string($raw['message'])) unset($raw['message']);
+            if (isset($raw['action']['message']) && is_string($raw['action']['message'])) unset($raw['action']['message']);
             if (array_key_exists('remember',$raw['action'])) {
                 if (array_key_exists('remember',$raw) && $raw['remember']!==$raw['action']['remember']) throw new RuntimeException('INVALID_AGENT_INTENT');
                 $raw['remember']=$raw['action']['remember'];unset($raw['action']['remember']);

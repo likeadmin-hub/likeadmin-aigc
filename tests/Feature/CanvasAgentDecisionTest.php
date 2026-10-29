@@ -35,6 +35,7 @@ class CanvasAgentDecisionTest extends TestCase
     {
         $reply=self::reply('configure_project',self::intake(['story_direction'=>'篮球场重逢','unsupported_field'=>'无此表单字段']));
         $reply['action']['remember']=$reply['remember'];unset($reply['remember']);
+        $reply['message']='辅助说明';$reply['action']['message']='执行前辅助说明';
         $parsed=Decision::parse(json_encode($reply),$this->context());
         self::assertSame('start_project',$parsed['decision']['action']['name']);
         self::assertSame([], $parsed['decision']['remember']);
