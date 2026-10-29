@@ -88,6 +88,31 @@ class MarketVideoPreparationTest extends TestCase
         ];
     }
 
+    /** @dataProvider preparedDurations */
+    public function testExplicitApplicationMeterUsesPreparedDurationInsteadOfBusinessSelection(array $native, float $expected): void
+    {
+        $market = ['product'=>['resource_type'=>'app_api','upstream_app_code'=>'full_video','source_payload'=>[]],
+            'sku'=>['usage_unit'=>'business_unit','locked_params'=>[],
+                'meter_contract'=>['version'=>1,'basis'=>'output','rounding'=>'ceil']]];
+        $prepared = \app\common\service\power\PreparedMarketGeneration::application($native);
+        $args = [&$market, ['duration'=>4], $prepared];
+        self::assertSame($expected, (new ReflectionMethod(Videos::class,'quantity'))->invokeArgs(null,$args));
+    }
+
+    public static function preparedDurations(): array
+    {
+        return [[['duration'=>8],8.0], [['parameters'=>['duration'=>6]],6.0],
+            [['num_frames'=>97,'frames_per_second'=>24],97/24]];
+    }
+
+    public function testImageMeterCannotBeUsedForVideoQuote(): void
+    {
+        $market = ['sku'=>['usage_unit'=>'business_unit', 'meter_contract'=>['version'=>1,'basis'=>'image','rounding'=>'ceil']]];
+        $this->expectExceptionMessage('该视频模型计费数量规则尚未适配');
+        $args = [&$market,[]];
+        (new ReflectionMethod(Videos::class,'prepareMarketRequest'))->invokeArgs(null,$args);
+    }
+
     /** @dataProvider rejectedRequests */
     public function testNativeParameterAndMaterialConstraintsStillReject(array $changes): void
     {
