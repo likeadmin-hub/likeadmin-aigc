@@ -146,7 +146,7 @@ final class ShortDramaScriptGeneration
         foreach ($skeleton['scene_beats'] as $sceneIndex => $beat) {
             $sceneShots = [];
             $count = (int)$beat['shot_count'];
-            $expand = function (int $start, int $size, string $suffix = '') use (&$expand, &$sceneShots, &$shots, $beat, $sceneIndex, $skeleton, $messages, $call, $progress, $durationRule): void {
+            $expand = function (int $start, int $size, string $suffix = '') use (&$expand, &$sceneShots, &$shots, $beat, $sceneIndex, $skeleton, $messages, $call, $progress, $durationRule, $request): void {
                 $input = self::stageMessages($messages, '分场分镜', '只返回 {"storyboard":[...]}，不重复人物和场景列表，不生成其他场景。按 scene_beat.goal/entry/exit 衔接剧情。每镜头包含 shot_id、scene_ref_id、subject_ref_ids、visual_description、dialogue、voice_role、speech_type、recommended_duration_seconds，沿用素材中其他镜头字段。recommended_duration_seconds 必须为 ' . $durationRule['min_seconds'] . '-' . $durationRule['max_seconds'] . ' 秒。严格使用指定ID及数量，不补造事件、不提前结束场景。', $durationRule);
                 $input['content'] .= "\n分段任务=" . json_encode([
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
@@ -166,7 +166,7 @@ final class ShortDramaScriptGeneration
                     self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                 } catch (RuntimeException $error) {
                     if (!in_array($error->getCode(), [413, 422], true)) throw $error;
-                    if ($error->getCode() === 422 && $error->getMessage() === '本段分镜数量不完整' && is_array($partial) && $size > 1) {
+                    if (ShortDramaInputContract::partialStoryboardRecovery($request) && $error->getCode() === 422 && $error->getMessage() === '本段分镜数量不完整' && is_array($partial) && $size > 1) {
                         $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1));
                         $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
                             static fn($shot, $index) => self::assertShots(['storyboard' => [$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule));
