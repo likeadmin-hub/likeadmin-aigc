@@ -138,6 +138,7 @@ class ShortDramaEpisodeRecoveryTest extends TestCase
         $f=$this->fixture('failed');
         $task=Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find();
         $request=json_decode($task['request_json'],true);$request['_input_contract_version']=23;
+        $request['series_context']['continuity']=Continuity::context([],true,true);
         Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->update([
             'request_json'=>json_encode($request,JSON_UNESCAPED_UNICODE),
             'error'=>'本集已达到自动处理上限，已保留完成内容，请缩小生成范围']);
