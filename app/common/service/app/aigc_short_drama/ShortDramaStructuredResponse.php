@@ -8,14 +8,29 @@ final class ShortDramaStructuredResponse
 {
     /** Extract only complete objects from an explicitly top-level storyboard array.
      * The caller must validate IDs, ordering, fields and scene ownership. */
-    public static function partialStoryboard(array $response): ?array
+    public static function partialStoryboard(array $response, bool $allowPrefix = false): ?array
     {
         if (in_array((string)($response['finish_reason'] ?? ''), ['content_filter','refusal','safety'], true)) return null;
         $content = trim((string)($response['content'] ?? ''));
         $content = preg_replace('/^\x{FEFF}/u', '', $content) ?? $content;
         $content = preg_replace('/^```(?:json)?\s*/u', '', $content) ?? $content;
-        if (!preg_match('/^\{\s*"storyboard"\s*:\s*\[/', $content, $match)) return null;
-        $offset = strlen($match[0]); $length = strlen($content); $shots = []; $expectComma = false;
+        $offset = null;
+        if (preg_match('/^\{\s*"storyboard"\s*:\s*\[/', $content, $match)) $offset = strlen($match[0]);
+        elseif ($allowPrefix && str_starts_with($content, '{')) {
+            // The preceding fields must form a complete top-level object by
+            // themselves. A quoted or nested storyboard can never satisfy this.
+            preg_match_all('/"storyboard"\s*:\s*\[/', $content, $matches, PREG_OFFSET_CAPTURE);
+            foreach (array_slice($matches[0], 0, 32) as [$token, $position]) {
+                $prefix = substr($content, 0, $position);
+                $decoded = json_decode($prefix . '"__recovery_probe__":null}', true);
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)
+                    || array_key_exists('storyboard', $decoded) || !array_key_exists('__recovery_probe__', $decoded)) continue;
+                $offset = $position + strlen($token);
+                break;
+            }
+        }
+        if ($offset === null) return null;
+        $length = strlen($content); $shots = []; $expectComma = false;
         while ($offset < $length) {
             while ($offset < $length && str_contains(" \t\r\n", $content[$offset])) $offset++;
             if ($offset >= $length || $content[$offset] === ']') break;

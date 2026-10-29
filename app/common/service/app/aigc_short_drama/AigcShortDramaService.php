@@ -3350,14 +3350,16 @@ class AigcShortDramaService
         ];
     }
 
-    private static function persistScriptPlanStreamState(int $tenantId, int $userId, string $taskId, string $streamContent, string $providerRequestId = '', string $error = '', int $revision = 0, array $checkpoint = [], string $unit = ''): void
+    private static function persistScriptPlanStreamState(int $tenantId, int $userId, string $taskId, string $streamContent, string $providerRequestId = '', string $error = '', int $revision = 0, array $checkpoint = [], string $unit = '', ?int $expectedAttempt = null): void
     {
-        AigcShortDramaScriptTask::where([
+        $query = AigcShortDramaScriptTask::where([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'task_id' => $taskId,
             'delete_time' => 0,
-        ])->update([
+        ]);
+        if ($expectedAttempt !== null) $query = $query->where(['status'=>self::STATUS_RUNNING, 'retry_count'=>$expectedAttempt]);
+        $query->update([
             'result_json' => self::jsonEncode(self::scriptPlanStreamState($streamContent, $providerRequestId, $error, $revision)
                 + ['__script_checkpoint' => $checkpoint, '__stream_unit' => $unit]),
             'provider_request_id' => $providerRequestId,
@@ -3880,7 +3882,10 @@ class AigcShortDramaService
             // The series advisory lock is held by the caller. Reuse completed
             // receipts after a restart; ambiguous in-flight receipts stop safely.
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
-            return self::executeScriptPlanTask($tenantId, $userId, $task->getData(), $emit);
+            $request = self::jsonDecode((string)$task['request_json']);
+            $run = static fn() => self::executeScriptPlanTask($tenantId, $userId, $task->getData(), $emit);
+            return ShortDramaInputContract::segmentedContinuation($request)
+                ? ShortDramaPlanningUnit::withinDispatch($tenantId, $userId, $taskId, 4, $run) : $run();
         }
         $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $episodeWorker ? $task->getData() : $task->toArray());
         $taskData = self::recoverCompletedScriptPlanTask($tenantId, $userId, $taskData);
@@ -3922,7 +3927,8 @@ class AigcShortDramaService
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
             $run = static fn() => self::executeScriptPlanTask($tenantId, $userId, $task->toArray(), static function () {});
             $request = self::jsonDecode((string)$task['request_json']);
-            if (ShortDramaPlanningContext::isOutline($request) && (int)($request['_input_contract_version'] ?? 0) >= 11) {
+            if ((ShortDramaPlanningContext::isOutline($request) && (int)($request['_input_contract_version'] ?? 0) >= 11)
+                || (ShortDramaInputContract::segmentedContinuation($request) && (int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode']))) {
                 ShortDramaPlanningUnit::withinDispatch($tenantId, $userId, $taskId, 4, $run);
             } else $run();
             return true;
@@ -4340,7 +4346,12 @@ class AigcShortDramaService
             }
             $message = self::scriptPlanProviderError($e->getMessage());
             Log::write('AI short drama script stream failed: task=' . $taskId . ' project=' . $projectId . ' error=' . $e->getMessage());
-            if ($streamContent !== '') {
+            if ($storyAttempt !== null && (int)($request['_generation_version'] ?? 0) >= 3 && !ShortDramaStoryWorkflow::enabled($request)) {
+                // The previous stream buffer can be stale after a resumed unit.
+                // Keep the current accepted checkpoint and its unit on failure.
+                self::persistScriptPlanStreamState($tenantId, $userId, $taskId, (string)$scriptPreview['content'], $persistedProviderRequestId, $message,
+                    (int)$scriptPreview['revision'], (array)$scriptPreview['checkpoint'], (string)$scriptPreview['unit'], $storyAttempt);
+            } elseif ($streamContent !== '') {
                 self::persistScriptPlanStreamState($tenantId, $userId, $taskId, $streamContent, $persistedProviderRequestId, $message);
             }
             if (!ShortDramaPlanningState::failExecution($tenantId, $userId, $taskId, $e, $message, $storyAttempt, $persistedProviderRequestId)) {
@@ -23297,6 +23308,7 @@ class AigcShortDramaService
             'stream_updated_at' => $streamUpdatedAt,
             'stream_revision' => $streamRevision,
             'stream_checkpoint' => ShortDramaScriptPreview::project((array)($storedResult['__script_checkpoint'] ?? [])),
+            'recovery_info' => ShortDramaScriptPreview::recoveryInfo($storedResult, $status),
             'error' => in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
                 ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
                 : '',

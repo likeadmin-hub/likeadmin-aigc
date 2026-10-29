@@ -353,4 +353,36 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertCount(1,Db::name('aigc_short_drama_planning_unit')->where($scope)->whereLike('unit_key','v3_policy2_timed_scene_1_1_retry_1_%')->select()->toArray());
     }
     public static function ineligibleLegacyReceipts(): array { return [[19,false],[20,true]]; }
+
+    public function testLongScriptContinuesAcrossDispatchesWithoutReplayingPaidCalls(): void
+    {
+        $counts=array_fill(0,24,9);$plan=ShortDramaSceneBatchTest::fixture($counts);
+        $request=ShortDramaSceneBatchTest::request($counts);$request['_input_contract_version']=24;$request['_prompt_task_id']=$this->task;
+        $text='{"user_prompt":"按顺序保留全部场景"}';$messages=['system_prompt'=>'保持剧情与对白','content'=>$text,'_stage_content'=>$text];$calls=[];
+        $provider=function($key,$input)use($plan,&$calls):array{
+            return Unit::call(self::TENANT,7,$this->task,'v3_policy2_'.substr($key,3),$input,static function()use($key,$input,$plan,&$calls){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$payload=$plan;
+                else {
+                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
+                    $payload=['storyboard'=>array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs)];
+                }
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+            },true);
+        };
+        $run=fn()=>Script::generate($request,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
+            fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
+        $result=null;$turns=0;
+        do {
+            $before=count($calls);
+            try {$result=Unit::withinDispatch(self::TENANT,7,$this->task,4,$run);}
+            catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
+            self::assertLessThanOrEqual(4,count($calls)-$before);self::assertLessThan(30,++$turns);
+        } while($result===null);
+        self::assertCount(216,$result['payload']['storyboard']);
+        self::assertGreaterThan(48,count($calls));
+        self::assertCount(count(array_unique($calls)),$calls);
+        $count=count($calls);self::assertSame($result['payload'],Unit::withinDispatch(self::TENANT,7,$this->task,4,$run)['payload']);self::assertCount($count,$calls);
+    }
 }
