@@ -71,9 +71,22 @@ foreach (['image', 'video'] as $type) {
             }
         }
         $fields = [];
-        foreach (MarketGenerationSchema::properties(MarketGenerationSchema::array($option['params_schema'] ?? [])) as $field => $definition) {
-            $fields[] = ['name' => (string)$field, 'type' => (string)($definition['type'] ?? ''),
-                'required' => in_array($field, (array)($option['params_schema']['required'] ?? []), true) || !empty($definition['required'])];
+        $schema = MarketGenerationSchema::array($option['params_schema'] ?? []);
+        foreach (MarketGenerationSchema::properties($schema) as $field => $definition) {
+            $item = ['name' => (string)$field, 'type' => $definition['type'] ?? '',
+                'required' => in_array($field, (array)($schema['required'] ?? []), true) || !empty($definition['required'])];
+            foreach (['minimum', 'maximum', 'minItems', 'maxItems'] as $bound) {
+                if (is_numeric($definition[$bound] ?? null)) $item[$bound] = $definition[$bound];
+            }
+            // Choices are only reported for short, non-sensitive scalar values.
+            // URLs and free-form values may contain user or provider secrets.
+            $choices = MarketGenerationSchema::choices($definition);
+            $safeChoices = array_values(array_filter($choices, static fn($choice) =>
+                !is_string($choice) || (strlen($choice) <= 80 && preg_match('/^[\pL\pN_.:+ -]+$/u', $choice))
+            ));
+            if ($safeChoices !== []) $item['choices'] = $safeChoices;
+            if (count($safeChoices) !== count($choices)) $item['choices_redacted'] = true;
+            $fields[] = $item;
         }
         $modes = [];
         foreach ((array)($option['material_modes'] ?? []) as $mode) {
