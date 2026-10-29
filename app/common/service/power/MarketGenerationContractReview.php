@@ -29,7 +29,7 @@ final class MarketGenerationContractReview
         ];
     }
 
-    public static function ledger(array $captured, array $observations, array $guidance = []): array
+    public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = []): array
     {
         $rows = [];
         foreach ($observations['entries'] as $entry) {
@@ -42,15 +42,21 @@ final class MarketGenerationContractReview
             $documents = array_values(array_filter((array)($guidance['entries'] ?? []), static fn($d)=>
                 ($d['generation_type'] ?? '') === $entry['generation_type'] && ($d['model_code'] ?? '') === $entry['model_code']
                 && ($d['channel_code'] ?? '') === $entry['channel_code']));
+            $platform=array_values(array_filter((array)($platformFlow['models'] ?? []),static fn($m)=>
+                ($m['generation_type'] ?? '') === $entry['generation_type'] && ($m['model_code'] ?? '') === $entry['model_code']
+                && ($m['channel_code'] ?? '') === $entry['channel_code']));
             $rows[] = array_intersect_key($entry,array_flip(['generation_type','model_code','channel_code'])) + [
                 'protocol_family'=>MarketGenerationAdapterRegistry::modelProtocol($entry['generation_type'], ['model_code'=>$entry['model_code'],'market_metadata'=>$metadata]),
-                'evidence_status'=>$documents === [] ? 'public_declaration_only' : 'published_guidance_reviewed',
+                'evidence_status'=>!empty($platform[0]['platform_identity_verified']) ? 'platform_detail_reviewed'
+                    : ($documents === [] ? 'public_declaration_only' : 'published_guidance_reviewed'),
                 'source'=>$observations['model_source'], 'observed_at'=>$observations['model_catalogue_observed_at'],
                 'parameter_fingerprint'=>MarketGenerationCompatibilityAudit::fingerprint($schema),
                 'recorded_observation_matches'=>MarketGenerationCompatibilityAudit::fingerprint($schema) === $entry['current_parameter_fingerprint'],
                 'opaque_fields'=>self::incomplete($schema),
                 'published_guidance'=>$documents,
                 'guidance_observed_at'=>$documents === [] ? null : ($guidance['observed_at'] ?? null),
+                'platform_detail_observation'=>$platform[0] ?? null,
+                'platform_observed_at'=>$platform === [] ? null : ($platformFlow['observed_at'] ?? null),
                 'missing_evidence'=>['authoritative_admission_schema','material_modes_and_conditions','sku_binding_and_pricing'],
                 'native_contract_importable'=>false, 'live_generation'=>'unverified',
             ];
