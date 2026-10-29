@@ -18,7 +18,8 @@ class MarketGenerationMaterialPreservationTest extends TestCase
         $snapshot = ['resource_type'=>'model','model_code'=>$code,'channel_code'=>$metadata['channel_code'],
             'locked_params'=>[],'market_metadata'=>$metadata,'params_schema'=>$metadata['params_schema']];
         $this->expectExceptionMessage('不支持部分参考素材');
-        Videos::prepareRequest($snapshot, ['prompt'=>'Offline fixture','duration'=>8,'ratio'=>'9:16',
+        $choices=\app\common\service\power\MarketGenerationSchema::durationChoices($metadata['params_schema']['duration'] ?? []);
+        Videos::prepareRequest($snapshot, ['prompt'=>'Offline fixture','duration'=>$choices[0] ?? 8,'ratio'=>'9:16',
             'generation_method'=>$kind === 'video' ? 'video_edit' : 'audio_reference',
             'reference_assets'=>[['type'=>$kind,'role'=>'reference_'.$kind,'url'=>'https://fixtures.invalid/reference.'.$kind]]]);
     }
