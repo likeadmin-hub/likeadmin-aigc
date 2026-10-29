@@ -124,7 +124,9 @@ final class MarketGenerationContractReview
                 || !is_array($entry['binding_declaration']['params_schema'] ?? null)
                 || !is_array($entry['binding_declaration']['material_capabilities'] ?? null)) throw new InvalidArgumentException('缺少审核合同版本或原始声明绑定');
             foreach ($entry['declaration']['material_capabilities']['modes'] as $mode) foreach ((array)($mode['fields'] ?? []) as $field) {
-                if (str_contains((string)($field['field'] ?? ''),'.')) throw new InvalidArgumentException('嵌套素材路径尚未实现共享计数与角色校验');
+                if (str_contains((string)($field['field'] ?? ''),'.')) {
+                    MarketGenerationMaterialPath::assertNestedField($candidate,$entry['modes'][$mode['code']],$field);continue;
+                }
                 if ($candidate['generation_protocol']!=='native_v1') {
                     $definition=$entry['modes'][$mode['code']]['schema']['properties'][$field['field']] ?? [];
                     if (!in_array($field['kind'] ?? '',['image','video','audio'],true)
