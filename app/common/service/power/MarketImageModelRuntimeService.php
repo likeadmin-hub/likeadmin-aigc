@@ -890,7 +890,10 @@ class MarketImageModelRuntimeService
         $metadata = self::metadata($market['product']);
         $schema = MarketGenerationSchema::properties(self::arrayValue($metadata['params_schema'] ?? []));
         $nDescription = (string)($schema['n']['description'] ?? '');
-        $singleImage = MarketGenerationAdapterRegistry::modelProtocol('image', $market['product']) === 'qwen_image_v1'
+        $singleImage = MarketGenerationAdapterRegistry::modelProtocol('image', [
+                'model_code'=>$market['product']['upstream_model_code'] ?? '', 'market_metadata'=>$metadata,
+                'locked_params'=>self::arrayValue($market['sku']['locked_params'] ?? []),
+            ]) === 'qwen_image_v1'
             || preg_match('/(?:仅支持|固定为|only supports|fixed to)\s*1\b/ui', $nDescription) === 1;
         if ($singleImage) {
             throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');

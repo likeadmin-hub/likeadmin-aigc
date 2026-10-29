@@ -140,4 +140,13 @@ class MarketGenerationProtocolDeclarationTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         Registry::modelProtocol('video',$product);
     }
+
+    public function testSkuProtocolPolicyAlsoAppliesToImageQuoteQuantity(): void
+    {
+        $this->expectExceptionMessage('仅支持生成 1 张图片');
+        (new ReflectionMethod(Images::class,'assertImageQuantity'))->invoke(null,[
+            'product'=>['upstream_model_code'=>'compatible-next','source_payload'=>[]],
+            'sku'=>['locked_params'=>['_generation_protocol'=>'qwen_image_v1']],
+        ],2);
+    }
 }
