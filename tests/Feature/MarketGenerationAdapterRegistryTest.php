@@ -67,4 +67,10 @@ class MarketGenerationAdapterRegistryTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         \app\common\service\power\MarketVideoRuntimeService::prepareRequest(['resource_type' => 'app_api', 'app_code' => 'not-registered'], ['prompt' => 'fixture']);
     }
+
+    public function testVideoApplicationFacadeNeverIgnoresAnImageStyleBatchQuantity(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        MarketApplicationApiRuntimeService::quote(1, ['app_code' => 'full_video'], 4);
+    }
 }

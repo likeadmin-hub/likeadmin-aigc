@@ -29,6 +29,7 @@ class MarketApplicationApiRuntimeService
     public static function quote(int $tenantId, array $selection, int $quantity = 1): array
     {
         $adapter = self::adapterForSelection($selection);
+        if ($adapter === MarketVideoAppRuntimeService::class && $quantity !== 1) throw new \InvalidArgumentException('视频应用每次仅支持提交一个生成请求');
         return in_array($adapter, [MarketMusicAppRuntimeService::class, MarketVideoAppRuntimeService::class], true)
             ? $adapter::quote($tenantId, $selection)
             : $adapter::quote($tenantId, $selection, $quantity);
@@ -48,6 +49,7 @@ class MarketApplicationApiRuntimeService
     {
         $adapter = self::adapterForSelection($selection);
         if ($adapter === MarketVideoAppRuntimeService::class) {
+            if ($quantity !== 1) throw new \InvalidArgumentException('视频应用每次仅支持提交一个生成请求');
             return $adapter::reserve($tenantId, $userId, $appCode !== '' ? $appCode : 'aigc_video', $action,
                 $businessTable !== '' ? $businessTable : 'aigc_short_drama_generation_task', $businessTaskId, $selection, $request);
         }
