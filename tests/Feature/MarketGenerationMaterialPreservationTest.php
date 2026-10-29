@@ -49,4 +49,14 @@ class MarketGenerationMaterialPreservationTest extends TestCase
         self::assertCount(4,$prepared->nativeInput['content']);
         Materials::assertPreserved(['reference_assets'=>$assets], $prepared->nativeInput);
     }
+
+    public function testCanonicalStorageUrlCanChangeWithoutLosingMaterialSlots(): void
+    {
+        $url='https://fixtures.invalid/stored.png';
+        $request=['reference_images'=>['tenant/material.png','tenant/material.png']];
+        $canonical=static fn($asset)=>$asset['url']==='tenant/material.png'?$url:$asset['url'];
+        Materials::assertPreserved($request,['image_urls'=>[$url,$url]],$canonical);
+        $this->expectException(InvalidArgumentException::class);
+        Materials::assertPreserved($request,['image_urls'=>[$url]],$canonical);
+    }
 }

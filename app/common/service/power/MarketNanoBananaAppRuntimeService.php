@@ -216,7 +216,8 @@ class MarketNanoBananaAppRuntimeService
         $payload = array_replace($payload, $options, array_intersect_key((array)($snapshot['locked_params'] ?? []), $properties));
         if ($deferMissingPrompt && $missingPrompt) unset($payload['prompt']);
         $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, $payload, $request, $deferMissingPrompt);
-        MarketGenerationMaterials::assertPreserved($request, $payload);
+        MarketGenerationMaterials::assertPreserved($request, $payload, static fn($asset)=>
+            ($asset['type'] ?? 'image') === 'image' ? (MarketImageReferenceUrlService::resolve([(string)$asset['url']], $tenantId)[0] ?? '') : $asset['url']);
         return PreparedMarketGeneration::application($payload, $snapshot['billing_meter'] ?? null, $request);
     }
 
