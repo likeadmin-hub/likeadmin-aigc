@@ -568,7 +568,7 @@ class PowerMarketService
         foreach ($rows as $row) {
             if (!is_array($row) || ($row['code'] ?? '') !== ($api['code'] ?? '') || empty($api['code'])) continue;
             if (!empty($api['id']) && !empty($row['id']) && (int)$api['id'] !== (int)$row['id']) continue;
-            foreach (['params_schema', 'default_params', 'api_doc', 'endpoint_path', 'method', 'call_type'] as $field) {
+            foreach (['params_schema', 'default_params', 'api_doc', 'endpoint_path', 'method', 'call_type', 'generation_protocol'] as $field) {
                 if (!self::metadataValuePresent($api[$field] ?? null) && self::metadataValuePresent($row[$field] ?? null)) $api[$field] = $row[$field];
             }
             if (self::metadataValuePresent($row['params_schema'] ?? null)) $api['request_schema_source'] = 'app_detail';
