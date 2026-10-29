@@ -54,7 +54,11 @@ class MarketImagePreparationTest extends TestCase
         $s = $this->snapshot();
         $model = ['value' => 'fixture', 'resource_type' => 'model', 'params_schema' => $s['market_metadata']['params_schema']];
         $input = $this->request();
-        $canvas = (new ReflectionMethod(AigcCanvasService::class, 'normalizeImageParams'))->invoke(null, $input, 0, 0, false);
+        $configured = MarketCreationParameters::applyOptions($input, [$model], 'image');
+        // The real canvas applies advanced controls before normalization, then
+        // carries provider_params into both pricing and generateMarketImage.
+        $canvas = array_replace($configured,
+            (new ReflectionMethod(AigcCanvasService::class, 'normalizeImageParams'))->invoke(null, $configured, 0, 0, false));
         $drama = (new ReflectionMethod(ShortDramaCanvasService::class, 'generationPayload'))->invoke(null, 'image', $input, 0, 0, 1, false);
         $expected = null;
         foreach ([$input, $canvas, $drama] as $request) {
@@ -129,7 +133,7 @@ class MarketImagePreparationTest extends TestCase
         $snapshot = ['model_code' => 'qwen-image-3.0', 'channel_code' => 'fixture', 'market_metadata' => [
             'max_reference_images' => 2, 'params_schema' => ['input' => ['type' => 'object', 'required' => '1', 'example' => ['messages' => []]],
                 'parameters' => ['type' => 'object', 'required' => '1', 'example' => ['n' => 1]]]]];
-        $native = Images::prepareRequest($snapshot, $this->request())->nativeInput;
+        $native = Images::prepareRequest($snapshot, array_replace($this->request(), ['quality' => '1k']))->nativeInput;
         self::assertSame('Offline fixture', $native['input']['messages'][0]['content'][1]['text']);
         self::assertSame(1, $native['parameters']['n']);
     }
