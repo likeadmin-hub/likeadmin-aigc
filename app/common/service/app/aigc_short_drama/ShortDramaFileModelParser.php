@@ -7,6 +7,23 @@ use RuntimeException;
 /** An explicitly selected text model parses locally extracted, immutable upload text. */
 final class ShortDramaFileModelParser
 {
+    public static function applies(array $request):bool
+    {
+        return ($request['source']??'')==='market_file_qa_parse'&&!empty($request['_file_parse_model']);
+    }
+
+    public static function bind(int $tenant,int $user,array $task,array $data):void
+    {
+        \think\facade\Db::transaction(static function()use($tenant,$user,$task,$data):void{
+            $q=\think\facade\Db::name('aigc_short_drama_script_task')->where(['id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user]);
+            $current=(clone $q)->lock(true)->find();
+            if(!$current||!in_array($current['status'],['pending','queued','running'],true)||(int)$current['retry_count']!==(int)$task['retry_count'])
+                throw new RuntimeException('剧本解析已停止或本次执行已失效，未提交新的模型请求',409);
+            $q->update(['app_task_id'=>(int)$data['app_task_id'],'status'=>'running','current_step'=>'正在解析剧本文件','update_time'=>time()]);
+            \think\facade\Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task['task_id']])
+                ->whereIn('status',['pending','queued','running'])->update(['app_task_id'=>(int)$data['app_task_id'],'consumption_id'=>(int)$data['consumption_id'],'status'=>'running','update_time'=>time()]);
+        });
+    }
     public static function request(array $task,array $request):array
     {
         $f=$request['_file_parse_model'];$lines=ShortDramaSourceAlignment::lines($f['text']);$numbered='';
@@ -25,7 +42,7 @@ final class ShortDramaFileModelParser
             static fn(array $p):array=>MarketTextModelRuntimeService::generate($tenant,$user,$p,$onEvent),true);
         $plan=ShortDramaPlanningUnit::validate($receipt,static function()use($receipt,$request,$validate):array{
             $parsed=self::attachSource(ShortDramaStructuredResponse::decode($receipt),$request['_file_parse_model']['text']);
-            $validate($parsed);return $parsed;
+            try{$validate($parsed);}catch(\Throwable $error){throw new RuntimeException($error->getMessage(),422,$error);}return $parsed;
         });
         return ['receipt'=>$receipt,'parsed'=>$plan];
     }
