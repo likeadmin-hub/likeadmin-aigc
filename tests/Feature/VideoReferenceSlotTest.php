@@ -6,6 +6,7 @@ use app\common\service\ai\ReferenceMentionPromptService as Mentions;
 use app\common\service\app\aigc_video\AigcVideoReferenceAssetService as Assets;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\power\MarketGenerationMeter as Meter;
+use app\common\service\power\MarketGenerationMedia as Media;
 use app\common\service\power\MarketVideoRuntimeService as Videos;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
@@ -61,7 +62,8 @@ class VideoReferenceSlotTest extends TestCase
         $native=Videos::prepareRequest($snapshot,$request)->nativeInput;
         self::assertSame(['text','video_url','video_url'],array_column($native['content'],'type'));
         self::assertStringNotContainsString('reference_slot_id',json_encode($native));
-        self::assertSame(12.0,Meter::context(['version'=>1,'basis'=>'output_plus_video'],$native,static fn()=>6.0)['reference_video_seconds']);
+        self::assertSame(12.0,Meter::context(['version'=>1,'basis'=>'output_plus_video'],$native,
+            static fn(array $input): float=>Media::seconds($input,false,static fn()=>6.0))['reference_video_seconds']);
         $request['reference_assets'][]=$this->video('c');
         $this->expectException(\InvalidArgumentException::class);
         Videos::prepareRequest($snapshot,$request);
