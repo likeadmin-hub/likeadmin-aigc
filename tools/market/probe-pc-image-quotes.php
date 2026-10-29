@@ -8,12 +8,13 @@ require dirname(__DIR__, 2) . '/runtime-loader.php';
 
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\power\MarketGenerationImageProbeFixtures;
 use think\facade\Db;
 
-$args = getopt('', ['tenant-id:']);
+$args = getopt('', ['tenant-id:', 'image-role-recipes']);
 $tenantRaw = (string)($args['tenant-id'] ?? '');
 if (!preg_match('/^[1-9][0-9]*$/D', $tenantRaw)) {
-    fwrite(STDERR, "Usage: php tools/market/probe-pc-image-quotes.php --tenant-id=TENANT_ID\n");
+    fwrite(STDERR, "Usage: php tools/market/probe-pc-image-quotes.php --tenant-id=TENANT_ID [--image-role-recipes]\n");
     exit(1);
 }
 $tenantId = (int)$tenantRaw;
@@ -46,21 +47,25 @@ try {
             foreach ($mode['fields'] ?? [] as $field) {
                 if (($field['kind'] ?? 'image') !== 'image' || ($field['role'] ?? 'reference') !== 'reference') $special = true;
             }
-            if ($special) {
-                $rows[] = $base + ['scenario' => 'special_material', 'status' => 'requires_special_material_recipe'];
-                continue;
-            }
             $upload = ['id' => 'synthetic-image', 'type' => 'image', 'name' => 'Offline synthetic fixture',
                 'url' => 'blob:http://localhost:3000/acceptance-fixture', 'uri' => 'https://fixtures.invalid/upload.png',
                 'isObjectUrl' => true, 'uploading' => false];
             $requests = ['text' => []];
             if (!empty($mode['fields'])) $requests = ['browser_upload_dto' => [$upload]];
             elseif (!$mode && (int)($channel['max_reference_images'] ?? 0) > 0) $requests['browser_upload_dto'] = [$upload];
+            if ($special) {
+                $recipes = array_key_exists('image-role-recipes', $args) ? MarketGenerationImageProbeFixtures::recipes($mode) : null;
+                if ($recipes === null) {
+                    $rows[] = $base + ['scenario' => 'special_material', 'status' => 'requires_special_material_recipe'];
+                    continue;
+                }
+                $requests = $recipes;
+            }
             foreach ($requests as $scenario => $assets) {
                 $request = ['channel' => $channel['code'], 'model_id' => $channel['code'], 'market_sku_id' => $id,
                     'quality' => $spec['quality'], 'ratio' => $spec['ratio'], 'prompt' => 'Offline acceptance fixture',
                     'quantity' => 1, 'reference_assets' => $assets,
-                    'reference_images' => $assets ? ['https://fixtures.invalid/upload.png'] : []];
+                    'reference_images' => array_column($assets, 'uri')];
                 if ($mode) $request['material_mode'] = $mode['key'];
                 try {
                     $quote = AigcImageService::estimate($tenantId, $request);
@@ -84,7 +89,8 @@ try {
     Db::rollback();
 }
 echo json_encode(['version' => 1, 'tenant_id' => $tenantId, 'observed_at' => date(DATE_ATOM),
-    'scope' => 'One first dimension combination per public PC image SKU; excludes special material recipes, browser UI and generation.',
+    'scope' => 'One first dimension combination per public PC image SKU; optional declared flat image/mask recipes; excludes browser UI, opaque structures and generation.',
+    'image_role_recipes' => array_key_exists('image-role-recipes', $args),
     'summary' => ['observations' => count($rows), 'statuses' => array_count_values(array_column($rows, 'status')),
         'changed_sku' => count(array_filter($rows, static fn($row) => $row['status'] === 'quoted' && $row['selected_sku'] !== $row['requested_sku']))],
     'observations' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), "\n";
