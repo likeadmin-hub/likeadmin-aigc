@@ -26,6 +26,18 @@ class MarketGenerationContractReviewTest extends TestCase
         self::assertSame([],Review::platformData($metadata,$detail)['platform_schema_opaque_paths']);
     }
 
+    public function testCatalogueProjectionCannotClaimDocumentOrRuntimeReadiness(): void
+    {
+        $schema=['images'=>['type'=>'array','items'=>['type'=>'string']]];
+        $r=Review::catalogueData(['params_schema'=>$schema],['params_schema'=>$schema]);
+        self::assertTrue($r['catalogue_declaration_available']);
+        self::assertSame('model_catalogue_detail',$r['source_projection']);
+        self::assertSame('unverified',$r['runtime_readiness']);
+        self::assertArrayNotHasKey('published_document_available',$r);
+        self::assertArrayNotHasKey('platform_detail_available',$r);
+        self::assertFalse(Review::catalogueData([],[])['catalogue_declaration_available']);
+    }
+
     public function testLedgerBindsAll18IdentitiesWithoutInventingNativeContracts(): void
     {
         $read=static fn($name)=>json_decode(file_get_contents(dirname(__DIR__).'/fixtures/'.$name),true,512,JSON_THROW_ON_ERROR);

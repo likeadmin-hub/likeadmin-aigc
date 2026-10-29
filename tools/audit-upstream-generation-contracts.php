@@ -11,10 +11,14 @@ use app\common\service\power\MarketGenerationSourceIdentity as Identity;
 use app\common\service\power\MarketImageModelRuntimeService as Images;
 use app\common\service\power\MarketVideoRuntimeService as Videos;
 use app\common\service\power\PowerMarketService as Market;
+use app\common\service\app\UpstreamPricingService as Upstream;
 use think\facade\Db;
 
-$args=getopt('',['tenant-id:']);$tenant=(string)($args['tenant-id'] ?? '');
-if (!preg_match('/^[1-9][0-9]*$/D',$tenant)) {fwrite(STDERR,"Usage: php tools/audit-upstream-generation-contracts.php --tenant-id=TENANT_ID\n");exit(1);}
+$args=getopt('',['tenant-id:','catalogue','timeout:']);$tenant=(string)($args['tenant-id'] ?? '');
+$catalogue=array_key_exists('catalogue',$args);$timeoutRaw=(string)($args['timeout'] ?? '60');
+if (!preg_match('/^[1-9][0-9]*$/D',$tenant) || !preg_match('/^[1-9][0-9]*$/D',$timeoutRaw) || (int)$timeoutRaw>60) {
+    fwrite(STDERR,"Usage: php tools/audit-upstream-generation-contracts.php --tenant-id=TENANT_ID [--catalogue] [--timeout=1..60]\n");exit(1);
+}
 // getSource can repair old schemas; refuse before entering that path in a read-only audit.
 $table=(new UpdateSource())->db()->getTable();$columns=Db::query('SHOW COLUMNS FROM `'.str_replace('`','``',$table).'`');
 $fields=array_column($columns,'Field');
@@ -28,13 +32,36 @@ Db::execute('SET TRANSACTION READ ONLY');Db::startTrans();
 try {
     $report=['tenant_id'=>(int)$tenant,'observed_at'=>date(DATE_ATOM),
         'scope'=>'Platform GET detail versus saved machine metadata for missing/changed local native contracts; no sync, task, quote, upload or point writes',
-        'source'=>'configured market developerDocTree/developerDocDetail GET APIs; same resolver as production synchronization','models'=>[]];
+        'source'=>$catalogue ? 'configured market GET /api/v1/models?type=image|video&detail=1; exact model/channel identity'
+            : 'configured market developerDocTree/developerDocDetail GET APIs; same resolver as production synchronization',
+        'catalogue_reads'=>[],'models'=>[]];
+    $remoteByIdentity=[];
+    if ($catalogue) foreach (['image','video'] as $type) {
+        try {
+            $remote=Upstream::queryModels($type,true,(int)$timeoutRaw);
+            $report['catalogue_reads'][$type]=['status'=>'read','rows'=>count($remote)];
+            foreach ($remote as $model) {
+                $key=$type.'|'.($model['model_code'] ?? $model['code'] ?? '').'|'.($model['channel_code'] ?? '');
+                $remoteByIdentity[$key][]=$model;
+            }
+        } catch (\Throwable $e) { $report['catalogue_reads'][$type]=['status'=>'unavailable','error_type'=>get_class($e)]; }
+        fwrite(STDERR,'Read '.$type.' catalogue: '.$report['catalogue_reads'][$type]['status'].PHP_EOL);
+    }
     foreach (['image','video'] as $type) foreach (Catalogue::options((int)$tenant,$type)['channels'] as $option) {
         if (($option['resource_type'] ?? '') !== 'model') continue;
         $product=Product::where('id',(int)$option['market_product_id'])->find()->toArray();
         $metadata=(new ReflectionMethod($type==='image'?Images::class:Videos::class,'metadata'))->invoke(null,$product);
         if (Native::modes($metadata) !== []) continue;
         $identity=['generation_type'=>$type,'model_code'=>$product['upstream_model_code'],'channel_code'=>$product['upstream_channel_code']];
+        if ($catalogue) {
+            $matches=$remoteByIdentity[$type.'|'.$identity['model_code'].'|'.$identity['channel_code']] ?? [];
+            $bound=count($matches)===1;
+            $row=$identity+['local_native_snapshot'=>'missing_or_changed','platform_identity_verified'=>$bound,
+                'read_state'=>$bound ? 'read' : (count($matches)>1 ? 'ambiguous_identity' : 'missing_or_unavailable')];
+            $row+=Review::catalogueData($metadata,$bound ? $matches[0] : []);
+            $report['models'][]=$row;
+            continue;
+        }
         $upstream=(array)($metadata['upstream_metadata'] ?? []);
         // Reuse exact model-ID/document binding and its bounded, credential-safe GET transport.
         $detail=(new ReflectionMethod(Market::class,'developerDocDetailForModel'))->invoke(null,$upstream);
