@@ -131,6 +131,7 @@ final class MarketGenerationContractReview
                 || !is_array($entry['binding_declaration']['params_schema'] ?? null)
                 || !is_array($entry['binding_declaration']['material_capabilities'] ?? null)) throw new InvalidArgumentException('缺少审核合同版本或原始声明绑定');
             foreach ($entry['declaration']['material_capabilities']['modes'] as $mode) foreach ((array)($mode['fields'] ?? []) as $field) {
+                if(isset($field['item_match'])&&!str_contains((string)($field['field']??''),'.'))throw new InvalidArgumentException('素材分类必须使用数组项路径');
                 if (str_contains((string)($field['field'] ?? ''),'.')) {
                     MarketGenerationMaterialPath::assertNestedField($candidate,$entry['modes'][$mode['code']],$field);continue;
                 }

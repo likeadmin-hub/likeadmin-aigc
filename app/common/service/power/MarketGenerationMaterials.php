@@ -85,11 +85,12 @@ final class MarketGenerationMaterials
         if ($candidates === []) throw new InvalidArgumentException('当前模型不支持所选生成方式');
         $assets = self::assets($request);
         $values = MarketGenerationSchema::array($request['provider_params'] ?? []);
+        $strictRoles=MarketGenerationReviewedContract::selected($metadata)!==null;
         $best = null; $score = -PHP_INT_MAX;
         foreach ($candidates as $mode) {
             $current = 0;
             foreach ($mode['fields'] as $field) {
-                $matched = self::matching($assets, $field, $mode['method']);
+                $matched = self::matching($assets, $field, $mode['method'],$strictRoles);
                 if (MarketGenerationMaterialPath::count($values,$field)>0) $current += 8;
                 elseif ($matched !== []) $current += 4;
                 elseif (!empty($field['required'])) $current -= 20;
@@ -136,15 +137,18 @@ final class MarketGenerationMaterials
         }
     }
 
-    private static function matching(array $assets, array $field, string $method): array
+    private static function matching(array $assets, array $field, string $method,bool $strictRoles=false): array
     {
         $role = (string)($field['role'] ?? 'reference');
         $kind = (string)($field['kind'] ?? 'image');
         $name = (string)($field['field'] ?? '');
         $images = array_values(array_filter($assets, static fn($a) => ($a['type'] ?? 'image') === 'image'));
-        return array_values(array_filter($assets, static function ($asset) use ($role,$kind,$name,$images,$method): bool {
-            if (isset($asset['field']) && $asset['field'] !== '') return $asset['field'] === $name;
+        return array_values(array_filter($assets, static function ($asset) use ($role,$kind,$name,$images,$method,$strictRoles): bool {
             if (($asset['type'] ?? 'image') !== $kind) return false;
+            if (isset($asset['field']) && $asset['field'] !== '') {
+                if($asset['field']!==$name)return false;
+                if(!$strictRoles)return true;
+            }
             $assetRole = (string)($asset['role'] ?? 'reference_' . $kind);
             if ($role === 'first') return $assetRole === 'first_frame_image' || ($method === 'image_to_video' && count($images) === 1 && $assetRole === 'reference_image');
             if ($role === 'last') return $assetRole === 'last_frame_image' || ($method === 'last_frame' && count($images) === 1 && $assetRole === 'reference_image');
@@ -196,6 +200,17 @@ final class MarketGenerationMaterials
 
     public static function billingInputs(array $metadata, array $request): array
     {
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if($reviewed!==null&&$reviewed['generation_protocol']!=='native_v1'){
+            self::assertSingleMaterialSource($metadata,$request);
+            $mode=self::select($metadata,$request);$values=(array)($request['provider_params']??[]);$assets=self::assets($request);$video=false;$image=false;
+            foreach((array)($mode['fields']??[])as$field){
+                $present=MarketGenerationMaterialPath::count($values,$field)>0 || self::matching($assets,$field,$mode['method'],true)!==[];
+                if($present&&$field['kind']==='video')$video=true;
+                if($present&&$field['kind']==='image'&&in_array($field['role']??'',['first','frames'],true))$image=true;
+            }
+            return ['_billing_video_input'=>$video,'_billing_image_input'=>$image];
+        }
         $values=self::serialize($metadata,$request);
         $video=false;
         foreach (['reference_video_urls','video_urls','video_url','video_list','first_clip_url'] as $key) if (!empty($values[$key])) $video=true;
@@ -205,6 +220,7 @@ final class MarketGenerationMaterials
 
     public static function validate(array $metadata, array $request, array $payload): void
     {
+        self::assertSingleMaterialSource($metadata,$request);
         $mode = self::select($metadata, $request);
         if ($mode === null) return;
         $overrides=(array)($metadata['_local_capability_overrides'] ?? []);
@@ -219,12 +235,24 @@ final class MarketGenerationMaterials
             $maximum = $field['maximum'] ?? null;
             if ($count < $minimum || ($maximum !== null && $count > (int)$maximum)) throw new InvalidArgumentException('素材数量不符合当前方式要求：' . $field['field']);
         }
-        $declared = array_column($mode['fields'], 'field');
+        $declared = array_map([MarketGenerationMaterialPath::class,'signature'],$mode['fields']);
         foreach (self::modes($metadata) as $other) foreach ($other['fields'] as $field) {
-            if (!in_array($field['field'], $declared, true) && MarketGenerationMaterialPath::count($payload,$field)>0) throw new InvalidArgumentException('当前生成方式不支持此素材：' . $field['field']);
+            if (!in_array(MarketGenerationMaterialPath::signature($field), $declared, true) && MarketGenerationMaterialPath::count($payload,$field)>0) throw new InvalidArgumentException('当前生成方式不支持此素材：' . $field['field']);
         }
+        $groups=[];foreach($mode['fields']as$field)if(!empty($field['item_match']))$groups[$field['field']]=($groups[$field['field']]??0)+MarketGenerationMaterialPath::count($payload,$field);
+        foreach($groups as$path=>$count)if($count!==MarketGenerationMaterialPath::count($payload,['field'=>$path]))throw new InvalidArgumentException('当前生成方式包含未声明的素材分类');
         foreach (self::assets($request) as $asset) {
-            if (!array_filter($mode['fields'], static fn($field) => self::matching([$asset], $field, $mode['method']) !== [])) throw new InvalidArgumentException('当前生成方式不支持已添加的素材角色');
+            $strictRoles=MarketGenerationReviewedContract::selected($metadata)!==null;
+            if (!array_filter($mode['fields'], static fn($field) => self::matching([$asset], $field, $mode['method'],$strictRoles) !== [])) throw new InvalidArgumentException('当前生成方式不支持已添加的素材角色');
         }
+    }
+
+    private static function assertSingleMaterialSource(array $metadata,array $request): void
+    {
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if($reviewed===null||$reviewed['generation_protocol']==='native_v1'||self::assets($request)===[])return;
+        $provider=(array)($request['provider_params']??[]);
+        foreach(self::modes($metadata)as$mode)foreach($mode['fields']as$field)
+            if(MarketGenerationMaterialPath::count($provider,$field)>0)throw new InvalidArgumentException('请勿同时使用业务素材和原生参数提供同一请求的素材');
     }
 }
