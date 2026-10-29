@@ -6,7 +6,7 @@ use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\power\MarketCatalogReadScope;
 
-/** Server-owned text routing and bounded creation preferences for new runs only. */
+/** Validate explicit market selections; existing configuration remains the default for new runs. */
 final class AgentComposerSettings
 {
     public static function textOptions(int $tenant): array
@@ -30,11 +30,12 @@ final class AgentComposerSettings
         $options['defaults']['model']=$configured!==''?$configured:(in_array($default,$codes,true)?$default:(string)($codes[0]??''));
         return $options;
     }
-    public static function textModel(int $tenant,bool $vision=false): string
+    public static function textModel(int $tenant,bool $vision=false,string $selection=''): string
     {
-        $model=(string)(self::textOptions($tenant)['defaults']['model']??'');
+        $model=trim($selection);
+        if($model==='')$model=(string)(self::textOptions($tenant)['defaults']['model']??'');
         if($model==='')throw new \InvalidArgumentException('后台尚未配置可用的 Agent 文本模型');
-        try{MarketTextModelRuntimeService::resolveAgentModel($tenant,$model,$vision);}catch(\Exception $e){throw new \InvalidArgumentException('后台 Agent 文本模型不可用：'.$e->getMessage());}
+        try{MarketTextModelRuntimeService::resolveAgentModel($tenant,$model,$vision);}catch(\Exception $e){throw new \InvalidArgumentException('所选 Agent 文本模型不可用：'.$e->getMessage());}
         return $model;
     }
     public static function generation($input): array
