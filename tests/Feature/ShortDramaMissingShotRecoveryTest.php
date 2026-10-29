@@ -167,13 +167,29 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
                 static function($key)use(&$calls){
                     $calls[]=$key;
                     if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
-                    elseif(str_ends_with($key,'_fields_v1'))$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'修复','dialogue'=>'篡改']]]];
+                    elseif(str_contains($key,'_fields_v1'))$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'修复','dialogue'=>'篡改']]]];
                     else {$shots=[self::shot(1),self::shot(2),self::shot(3)];$shots[1]['visual_description']='';$payload=['storyboard'=>$shots];}
                     return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
                 });
             self::fail('Out-of-scope field must be rejected');
         } catch(\RuntimeException $error){self::assertSame('分镜字段修复范围无效',$error->getMessage());}
-        self::assertCount(3,$calls);self::assertStringEndsWith('_fields_v1',$calls[2]);
+        self::assertCount(4,$calls);self::assertStringEndsWith('_fields_v1_repair',$calls[3]);
+    }
+
+    public function testMalformedFieldPatchRetriesOnlyThePatchAndPreservesOriginalShots(): void
+    {
+        $request=['_input_contract_version'=>21,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],static function($key)use(&$calls){
+            $calls[]=$key;
+            if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
+            elseif(str_ends_with($key,'_fields_v1'))$payload=['patches'=>[]];
+            elseif(str_ends_with($key,'_fields_v1_repair'))$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'已补全']]]];
+            else {$shots=[self::shot(1),self::shot(2),self::shot(3)];$shots[1]['visual_description']='';$payload=['storyboard'=>$shots];}
+            return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+        });
+        self::assertSame('已补全',$result['payload']['storyboard'][1]['visual_description']);
+        self::assertSame(self::shot(1),$result['payload']['storyboard'][0]);self::assertSame(self::shot(3),$result['payload']['storyboard'][2]);
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_fields_v1','v3_timed_scene_1_1_fields_v1_repair'],$calls);
     }
 
     public function testVersion20KeepsOriginalWholePartRepair(): void

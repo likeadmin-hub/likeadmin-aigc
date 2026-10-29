@@ -175,9 +175,7 @@ final class ShortDramaScriptGeneration
                             $verify = static function ($reply) use ($partial, $targets, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule): void {
                                 self::assertShots(ShortDramaShotFieldRepair::apply($partial, $targets, $reply), $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                             };
-                            $patch = $call($key . '_fields_v1', ShortDramaShotFieldRepair::messages($input, $targets, $partial), 1800 + count($targets) * 300, $verify);
-                            $verify($patch);
-                            $part = ShortDramaShotFieldRepair::apply($partial, $targets, $patch);
+                            $part = ShortDramaShotFieldRepair::request($call, $key . '_fields_v1', $input, $partial, $targets, $verify);
                             foreach ($part['storyboard'] as $shot) $sceneShots[] = $shot;
                             if ($progress) $progress('script_checkpoint', array_replace($skeleton, ['storyboard'=>array_merge($shots, $sceneShots)]));
                             return;
