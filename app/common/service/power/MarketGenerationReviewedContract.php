@@ -106,6 +106,11 @@ final class MarketGenerationReviewedContract
         $mode=MarketGenerationMaterials::select($metadata,$request);
         $key=(string)($mode['native_mode'] ?? '');
         $schema=MarketGenerationNativeContract::schema($metadata,$key);
+        $duration=MarketGenerationNativeContract::durationDefinition($metadata,$key);
+        if($duration!==[])foreach(['duration','seconds','video_duration']as$alias)if(array_key_exists($alias,$request)){
+            $normalized=MarketGenerationSchema::normalize(['duration'=>$duration],['duration'=>$request[$alias]],'',false);
+            MarketGenerationSchema::validate(['duration'=>$duration],$normalized);break;
+        }
         foreach ((array)($request['provider_params'] ?? []) as $name=>$_) {
             if (!array_key_exists($name,MarketGenerationSchema::properties($schema)) && !in_array($name,['material_mode','generation_type'],true)) throw new InvalidArgumentException('当前审核合同不支持此参数');
         }
