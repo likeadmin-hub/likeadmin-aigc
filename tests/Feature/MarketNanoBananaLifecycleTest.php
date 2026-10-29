@@ -50,7 +50,10 @@ class MarketNanoBananaLifecycleTest extends TestCase
             $reserved=$reserve($key);$duplicate=$reserve($key);
             self::assertSame($reserved['consumption_id'],$duplicate['consumption_id']);
             $log=AiConsumptionLog::find($reserved['consumption_id']);$snapshot=$log['price_snapshot'];
-            self::assertSame($quote['market_snapshot'],$snapshot);
+            // JSON persistence canonicalizes integral floats and the shared
+            // consumption model adds the authoritative owner price-rule trace.
+            self::assertEquals($quote['market_snapshot'],array_intersect_key($snapshot,$quote['market_snapshot']));
+            self::assertSame('3.000000',$snapshot['pricing_rules']['platform']['price']);
             $expected=$meter==='image'?[8.0,13.0]:($meter==='call'?[3.0,5.0]:[6.0,10.0]);
             self::assertSame($expected,[(float)$log['reserved_tenant_cost'],(float)$log['reserved_user_price']]);
             self::assertSame(round($before['user']-$expected[1],2),$this->state($user)['user']);
