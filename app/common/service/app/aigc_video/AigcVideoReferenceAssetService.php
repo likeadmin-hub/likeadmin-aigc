@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_video;
 
 use app\common\service\FileService;
+use app\common\service\ai\ReferenceMaterialSlot;
 use Exception;
 
 class AigcVideoReferenceAssetService
@@ -260,6 +261,8 @@ class AigcVideoReferenceAssetService
             'url' => $url !== '' ? $url : $uri,
             'name' => $name,
         ];
+        $slotId = ReferenceMaterialSlot::id($asset);
+        if ($slotId !== '') $normalized['reference_slot_id'] = $slotId;
         foreach (['field','parameters'] as $key) if (isset($asset[$key])) $normalized[$key] = $asset[$key];
         $role = trim((string)($asset['role'] ?? ''));
         $allowedRoles = match ($type) {
@@ -304,18 +307,25 @@ class AigcVideoReferenceAssetService
         $frameSources=array_values(array_filter($assets,static fn(array $asset): bool => in_array($asset['role']??'',$frames,true)));
         foreach ($assets as $asset) {
             $role=(string)($asset['role']??'');
-            if ($role==='' && array_filter($frameSources,static fn(array $frame): bool => self::sameMediaSource($asset,$frame))) continue;
+            if ($role==='' && array_filter($frameSources,static fn(array $frame): bool => self::sameMediaSource($asset,$frame)
+                && !ReferenceMaterialSlot::distinct($asset,$frame))) continue;
             $slot=!empty($asset['field'])?'field:'.$asset['field']:($role ?: 'reference_image');
             $duplicate=null;
             foreach ($unique as $index=>$existing) {
                 $existingRole=(string)($existing['role']??'');
                 $existingSlot=!empty($existing['field'])?'field:'.$existing['field']:($existingRole ?: 'reference_image');
-                if ($slot===$existingSlot && self::sameMediaSource($asset,$existing)) { $duplicate=$index; break; }
+                if ($slot!==$existingSlot || ($asset['type']??'')!==($existing['type']??'')
+                    || ReferenceMaterialSlot::distinct($asset,$existing)) continue;
+                if (self::sameMediaSource($asset,$existing)) { $duplicate=$index; break; }
+                if (ReferenceMaterialSlot::id($asset)!=='' && ReferenceMaterialSlot::id($asset)===ReferenceMaterialSlot::id($existing)) {
+                    throw new Exception('同一参考素材槽位不能绑定不同文件');
+                }
             }
             if ($duplicate!==null) {
                 if (empty($unique[$duplicate]['generation_method']) && !empty($asset['generation_method'])) {
                     $unique[$duplicate]['generation_method']=$asset['generation_method'];
                 }
+                if (empty($unique[$duplicate]['reference_slot_id']) && !empty($asset['reference_slot_id'])) $unique[$duplicate]['reference_slot_id']=$asset['reference_slot_id'];
                 continue;
             }
             $unique[]=$asset;
