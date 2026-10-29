@@ -293,7 +293,14 @@ class MarketImageModelRuntimeService
         bool $tenantAdminConsumption = false
     ): array {
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
-        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, $userId, $tenantAdminConsumption);
+        // Business apps resolve owned material IDs into URLs after choosing a
+        // model. Admission must select the SKU using those exact prepared
+        // materials, just as quote and submission do. Keep routing authority
+        // in selection; never replace it from an arbitrary request field.
+        $materialSelection = array_replace($selection, array_intersect_key($request, array_flip([
+            'reference_assets', 'reference_images', 'generation_method', 'generation_type', 'material_mode',
+        ])));
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $materialSelection), $tenantId, $userId, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
         $quantity = max(1, $quantity);
