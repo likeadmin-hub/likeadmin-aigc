@@ -100,4 +100,11 @@ class MarketGenerationProtocolDeclarationTest extends TestCase
         self::assertSame('wan_edit_v1',$metadata['generation_protocol']);
         self::assertSame('create',$metadata['api_code']);
     }
+
+    public function testCompatibleQwenProtocolKeepsItsSingleImageAdmissionConstraint(): void
+    {
+        $this->expectExceptionMessage('仅支持生成 1 张图片');
+        Images::prepareRequest(['model_code'=>'compatible-next','market_metadata'=>['generation_protocol'=>'qwen_image_v1']],
+            ['prompt'=>'Offline fixture','quantity'=>2]);
+    }
 }

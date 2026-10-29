@@ -243,6 +243,7 @@ class MarketImageModelRuntimeService
     public static function prepareRequest(array $snapshot, array $request, int $tenantId = 0, bool $deferMissingPrompt = false): PreparedMarketGeneration
     {
         MarketGenerationAdapterRegistry::modelProtocol('image', $snapshot);
+        if (self::isQwenImage($snapshot) && (int)($request['quantity'] ?? 1) > 1) throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');
         $metadata = self::metadata($snapshot);
         if (MarketGenerationMaterials::modes($metadata) === []) {
             $count = count(array_filter((array)($request['reference_images'] ?? [])));
@@ -886,10 +887,10 @@ class MarketImageModelRuntimeService
         if ($quantity <= 1) {
             return;
         }
-        $modelCode = strtolower(trim((string)($market['product']['upstream_model_code'] ?? '')));
-        $schema = self::arrayValue(self::metadata($market['product'])['params_schema'] ?? []);
+        $metadata = self::metadata($market['product']);
+        $schema = MarketGenerationSchema::properties(self::arrayValue($metadata['params_schema'] ?? []));
         $nDescription = (string)($schema['n']['description'] ?? '');
-        $singleImage = in_array($modelCode, ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)
+        $singleImage = MarketGenerationAdapterRegistry::modelProtocol('image', $market['product']) === 'qwen_image_v1'
             || preg_match('/(?:仅支持|固定为|only supports|fixed to)\s*1\b/ui', $nDescription) === 1;
         if ($singleImage) {
             throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');
