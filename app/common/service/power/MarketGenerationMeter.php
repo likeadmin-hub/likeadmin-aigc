@@ -87,31 +87,15 @@ final class MarketGenerationMeter
         return $contract;
     }
 
-    public static function context(array $contract, array $native): array
+    public static function context(array $contract, array $native, ?callable $measure = null): array
     {
-        $images = [];
-        $video = [];
-        $walk = static function ($value, string $kind = '') use (&$walk, &$images, &$video): void {
-            if (is_array($value)) {
-                // Media arrays such as Happy Horse's [{type,image/url}]
-                // carry their meaning in a discriminator, not in the key.
-                $type = is_scalar($value['type'] ?? null) ? strtolower((string)$value['type']) : '';
-                if (in_array($type, ['image', 'image_url', 'input_image'], true)) $kind = 'image';
-                elseif (in_array($type, ['video', 'video_url', 'input_video'], true)) $kind = 'video';
-                foreach ($value as $key=>$child) {
-                    $next = is_int($key) ? $kind : (preg_match('/video|clip/i',(string)$key) ? 'video' : (preg_match('/image|frame/i',(string)$key) ? 'image' : $kind));
-                    $walk($child, $next);
-                }
-            } elseif (is_string($value)) {
-                if ($kind === 'image' && preg_match('~^(https?://|data:image/)~i', $value)) $images[] = $value;
-                if ($kind === 'video' && preg_match('~^https?://~i', $value)) $video[] = $value;
-            }
-        };
-        $walk($native);
+        $media=MarketGenerationMediaInputs::extract($native);$images=$media['image'];$video=$media['video'];
         // Count submitted slots, including repeated URLs; canonical native input has no UI aliases.
         $context = ['reference_images'=>count($images), 'reference_video_seconds'=>0];
         if (in_array($contract['basis'], ['output_plus_video','output_plus_max_video'], true) && $video !== []) {
-            $context['reference_video_seconds'] = MarketGenerationMedia::seconds(['video_urls'=>$video]);
+            $seconds=$measure!==null?$measure(['video_urls'=>$video]):MarketGenerationMedia::seconds(['video_urls'=>$video]);
+            if((!is_int($seconds)&&!is_float($seconds))||!is_finite((float)$seconds)||$seconds<=0)throw new InvalidArgumentException('参考视频实测时长无效');
+            $context['reference_video_seconds']=(float)$seconds;
         }
         if ($contract['basis'] === 'megapixel') {
             // Resolution labels and browser metadata do not prove billed pixel dimensions.

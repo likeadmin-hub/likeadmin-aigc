@@ -7,17 +7,16 @@ use InvalidArgumentException;
 /** Measured media facts for source-duration quotes. Browser duration metadata is never authoritative. */
 final class MarketGenerationMedia
 {
-    public static function seconds(array $input, bool $estimateWithoutTimedInput = false): float
+    public static function seconds(array $input, bool $estimateWithoutTimedInput = false, ?callable $probe = null): float
     {
         $totals=['video'=>0.0,'audio'=>0.0];$count=0;
-        $walk=static function($value,string $kind='') use (&$walk,&$totals,&$count): void {
-            if(is_array($value)) { foreach($value as $key=>$child) {
-                $next=is_int($key)?$kind:(preg_match('/video|first_clip/i',(string)$key)?'video':(preg_match('/audio|voice/i',(string)$key)?'audio':(preg_match('/image|frame/i',(string)$key)?'':$kind)));
-                $walk($child,$next);
-            } return; }
-            if(isset($totals[$kind]) && is_string($value) && preg_match('~^https?://~i',$value)) { $totals[$kind]+=self::probe($value,$kind);$count++; }
-        };
-        $walk($input);
+        $media=MarketGenerationMediaInputs::extract($input);
+        foreach(array_keys($totals)as$kind)foreach($media[$kind]as$url){
+            if(!preg_match('~^https?://~i',$url))throw new InvalidArgumentException('计费素材缺少可核验的音视频地址');
+            $duration=$probe!==null?$probe($url,$kind):self::probe($url,$kind);
+            if((!is_int($duration)&&!is_float($duration))||!is_finite((float)$duration)||$duration<=0)throw new InvalidArgumentException('素材实测时长无效');
+            $totals[$kind]+=$duration;$count++;
+        }
         $seconds=max($totals);
         if($count===0 && $estimateWithoutTimedInput)return 60.0; // Same conservative estimate as the upstream meter; actual receipt is mandatory.
         if($seconds<=0)throw new InvalidArgumentException('无法核验计费素材时长，请上传有效音视频素材');
