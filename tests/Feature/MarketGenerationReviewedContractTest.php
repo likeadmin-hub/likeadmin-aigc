@@ -179,6 +179,24 @@ class MarketGenerationReviewedContractTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);Review::reviewedCatalogue($b,self::ARTIFACT);
     }
 
+    public function testCompoundMaterialsCannotUseFlatArrayCounting(): void
+    {
+        $b=$this->bundle();$b['entries'][0]['modes']['image_to_image']['schema']['properties']['image_urls']=[
+            'type'=>'array','items'=>['type'=>'object','properties'=>['url'=>['type'=>'string']]]];
+        $this->expectException(\InvalidArgumentException::class);Review::reviewedCatalogue($b,self::ARTIFACT);
+    }
+
+    public function testCatalogueCacheEndsBeforeAnotherAdmissionRead(): void
+    {
+        $b=$this->bundle();$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));
+        \app\common\service\power\MarketCatalogReadScope::run(function()use($b){
+            self::assertSame('synthetic-v1',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
+            $b['entries'][0]['revision']='synthetic-v2';$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));
+            self::assertSame('synthetic-v1',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
+        });
+        self::assertSame('synthetic-v2',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
+    }
+
     public function testMissingVersionCannotCompileAnActiveFormat(): void
     {
         $b=$this->bundle();unset($b['entries'][0]['revision']);
