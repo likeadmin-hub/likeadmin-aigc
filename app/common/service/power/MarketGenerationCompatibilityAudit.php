@@ -97,7 +97,7 @@ final class MarketGenerationCompatibilityAudit
     }
 
     /** One representative input per mode (or legacy scenario); never material/parameter examples. */
-    public static function cases(string $type, array $option): array
+    public static function cases(string $type, array $option, ?array $structuredMetadata = null): array
     {
         $base = ['prompt'=>'Offline compatibility fixture', 'quantity'=>1];
         foreach (['ratio'=>'ratio_options','quality'=>'resolution_options','duration'=>'duration_options'] as $key=>$list) {
@@ -141,6 +141,11 @@ final class MarketGenerationCompatibilityAudit
                     }, 'url'=>'https://fixtures.invalid/audit-'.count($assets).'.'.(['image'=>'png','video'=>'mp4','audio'=>'mp3'][$kind])];
                 }
             }
+            if ($skip && $structuredMetadata !== null) {
+                $fixtures = MarketGenerationAuditFixtures::cases($mode, $request,
+                    MarketGenerationNativeContract::rules($structuredMetadata, (string)($mode['native_mode'] ?? '')));
+                if ($fixtures !== []) { array_push($result, ...$fixtures); continue; }
+            }
             $request['reference_assets'] = $assets;
             $request['reference_images'] = array_column(array_filter($assets, static fn($a)=>$a['type'] === 'image'), 'url');
             $result[] = ['case'=>(string)$mode['key'], 'request'=>$request, 'skip'=>$skip];
@@ -152,9 +157,11 @@ final class MarketGenerationCompatibilityAudit
     public static function probe(array $case, callable $prepare): array
     {
         $result = ['case'=>$case['case'], 'scope'=>'one synthetic input; no quote, settlement or upstream validation'];
+        if (isset($case['expected'])) $result += ['mode_case'=>$case['mode_case'], 'expected_without_sku'=>$case['expected'], 'fixture_scope'=>$case['fixture_scope']];
         if ($case['skip']) return $result + ['status'=>'needs_structured_fixture'];
         try {
             $native = $prepare($case['request']);
+            if (isset($case['expected']) && !self::contains($native, (array)($case['request']['provider_params'] ?? []))) return $result + ['status'=>'structured_parameter_not_forwarded'];
             $leaves = [];
             array_walk_recursive($native, static function ($value) use (&$leaves): void { if (is_string($value)) $leaves[] = $value; });
             $missing = array_diff(array_column($case['request']['reference_assets'], 'url'), $leaves);
@@ -165,5 +172,15 @@ final class MarketGenerationCompatibilityAudit
             // Exceptions may contain a rejected input value: do not print raw messages.
             return $result + ['status'=>'rejected', 'error_type'=>get_class($e)];
         }
+    }
+
+    private static function contains(array $native, array $expected): bool
+    {
+        foreach ($expected as $key=>$value) {
+            if (!array_key_exists($key, $native)) return false;
+            if (is_array($value)) { if (!is_array($native[$key]) || !self::contains($native[$key], $value)) return false; }
+            elseif ($native[$key] !== $value) return false;
+        }
+        return true;
     }
 }

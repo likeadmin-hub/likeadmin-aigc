@@ -15,14 +15,15 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketVideoRuntimeService;
 use think\facade\Db;
 
-$args = getopt('', ['tenant-id:', 'probe-requests']);
+$args = getopt('', ['tenant-id:', 'probe-requests', 'structured-probes']);
 $tenantRaw = (string)($args['tenant-id'] ?? '');
 if (!preg_match('/^[1-9][0-9]*$/', $tenantRaw)) {
-    fwrite(STDERR, "Usage: php tools/audit-tool-market-compatibility.php --tenant-id=TENANT_ID [--probe-requests]\n");
+    fwrite(STDERR, "Usage: php tools/audit-tool-market-compatibility.php --tenant-id=TENANT_ID [--probe-requests] [--structured-probes]\n");
     exit(1);
 }
 $tenantId = (int)$tenantRaw;
-$probe = array_key_exists('probe-requests', $args);
+$structured = array_key_exists('structured-probes', $args);
+$probe = array_key_exists('probe-requests', $args) || $structured;
 $captured = json_decode((string)file_get_contents(dirname(__DIR__).'/tests/fixtures/canvas-generation-market-contracts.json'), true, 512, JSON_THROW_ON_ERROR);
 $samples = [];
 foreach ((array)($captured['contracts'] ?? []) as $sample) {
@@ -54,6 +55,7 @@ $report = [
     'generated_at' => date(DATE_ATOM),
     'scope' => 'tenant catalog and local metadata only; model visibility and fingerprint do not prove end-to-end compatibility',
     'request_probes' => $probe ? 'one synthetic request per mode/scenario and visible SKU; no quote, media inspection, uploads or upstream calls' : 'disabled',
+    'structured_probes' => $structured ? 'finite synthetic recipes; expected results exclude SKU restrictions and measured media' : 'disabled',
     'models' => [],
     'unavailable_applications' => [],
 ];
@@ -141,7 +143,7 @@ foreach (['image', 'video'] as $type) {
                     default => null,
                 };
                 $row['request_cases'] = $prepare === null ? [['status'=>'unregistered_probe']] : array_map(
-                    static fn($case) => Audit::probe($case, $prepare), Audit::cases($type, $option)
+                    static fn($case) => Audit::probe($case, $prepare), Audit::cases($type, $option, $structured ? $metadata : null)
                 );
             }
             $skuMatrix[] = $row;
