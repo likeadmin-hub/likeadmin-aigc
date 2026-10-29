@@ -6,7 +6,7 @@ use InvalidArgumentException;
 /** Offline evidence and candidate import only. Never grants runtime capability. */
 final class MarketGenerationContractReview
 {
-    public static function ledger(array $captured, array $observations): array
+    public static function ledger(array $captured, array $observations, array $guidance = []): array
     {
         $rows = [];
         foreach ($observations['entries'] as $entry) {
@@ -16,18 +16,24 @@ final class MarketGenerationContractReview
                 && ($c['model_code'] ?? '') === $entry['model_code'] && ($c['channel_code'] ?? '') === $entry['channel_code']));
             if (count($matches) !== 1) throw new InvalidArgumentException('合同证据身份缺失或重复');
             $metadata = $matches[0]; $schema = $metadata['params_schema'];
+            $documents = array_values(array_filter((array)($guidance['entries'] ?? []), static fn($d)=>
+                ($d['generation_type'] ?? '') === $entry['generation_type'] && ($d['model_code'] ?? '') === $entry['model_code']
+                && ($d['channel_code'] ?? '') === $entry['channel_code']));
             $rows[] = array_intersect_key($entry,array_flip(['generation_type','model_code','channel_code'])) + [
                 'protocol_family'=>MarketGenerationAdapterRegistry::modelProtocol($entry['generation_type'], ['model_code'=>$entry['model_code'],'market_metadata'=>$metadata]),
-                'evidence_status'=>'public_declaration_only',
+                'evidence_status'=>$documents === [] ? 'public_declaration_only' : 'published_guidance_reviewed',
                 'source'=>$observations['model_source'], 'observed_at'=>$observations['model_catalogue_observed_at'],
                 'parameter_fingerprint'=>MarketGenerationCompatibilityAudit::fingerprint($schema),
                 'recorded_observation_matches'=>MarketGenerationCompatibilityAudit::fingerprint($schema) === $entry['current_parameter_fingerprint'],
                 'opaque_fields'=>self::incomplete($schema),
+                'published_guidance'=>$documents,
+                'guidance_observed_at'=>$documents === [] ? null : ($guidance['observed_at'] ?? null),
                 'missing_evidence'=>['authoritative_admission_schema','material_modes_and_conditions','sku_binding_and_pricing'],
                 'native_contract_importable'=>false, 'live_generation'=>'unverified',
             ];
         }
-        return ['version'=>1,'scope'=>'Evidence ledger only; no native contract or capability is inferred','entries'=>$rows];
+        return ['version'=>1,'scope'=>'Evidence ledger only; no native contract or capability is inferred','entries'=>$rows,
+            'application_guidance'=>(array)($guidance['application_entries'] ?? [])];
     }
 
     /** Detect unknown child structures, including composition branches, without copying examples. */

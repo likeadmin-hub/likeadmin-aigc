@@ -34,6 +34,25 @@ class MarketGenerationContractReviewTest extends TestCase
         self::assertSame(['urls[]'],Review::incomplete(['urls'=>['type'=>'array','items'=>['example'=>'https://fixtures.invalid/a.png']]]));
     }
 
+    public function testPublishedGuidanceAddsEvidenceWithoutCompletingMachineContracts(): void
+    {
+        $read=static fn($name)=>json_decode(file_get_contents(dirname(__DIR__).'/fixtures/'.$name),true,512,JSON_THROW_ON_ERROR);
+        $guidance=$read('market-legacy-published-guidance-review-20261029.json');
+        $ledger=Review::ledger($read('canvas-generation-market-contracts.json'),$read('market-legacy-declaration-review-20261029.json'),$guidance);
+        $reviewed=array_filter($ledger['entries'],static fn($r)=>$r['evidence_status']==='published_guidance_reviewed');
+        self::assertCount(5,$reviewed);
+        self::assertCount(3,$ledger['application_guidance']);
+        self::assertSame(['wan','happy_horse','full_video'],array_column($ledger['application_guidance'],'app_code'));
+        self::assertSame(['create','submit','submit'],array_column($ledger['application_guidance'],'api_code'));
+        foreach ($reviewed as $row) {
+            self::assertFalse($row['native_contract_importable']);
+            self::assertNotEmpty($row['published_guidance'][0]['unresolved']);
+        }
+        $h3=array_values(array_filter($reviewed,static fn($r)=>$r['model_code']==='h3-video'))[0];
+        self::assertContains('introduction_mentions_tail_only_but_detailed_rules_require_first_frame',$h3['published_guidance'][0]['unresolved']);
+        self::assertSame('model_code_matches_but_channel_not_explicit_in_document',$h3['published_guidance'][0]['channel_binding']);
+    }
+
     private static function bundle(): array
     {
         $schema=['type'=>'object','properties'=>['prompt'=>['type'=>'string'],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>2]],'required'=>['prompt']];
