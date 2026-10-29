@@ -97,6 +97,40 @@ class MarketGenerationContractReviewTest extends TestCase
         }
     }
 
+    public function testFullCatalogueEvidenceDoesNotReplaceDocumentHistoryOrGrantNativeContracts(): void
+    {
+        $read=static fn($name)=>json_decode(file_get_contents(dirname(__DIR__).'/fixtures/'.$name),true,512,JSON_THROW_ON_ERROR);
+        $captured=$read('canvas-generation-market-contracts.json');$observations=$read('market-legacy-declaration-review-20261029.json');
+        $docs=$read('market-platform-contract-flow-review-20261029.json');$catalogue=$read('market-platform-catalogue-review-20261029.json');
+        $ledger=Review::ledger($captured,$observations,[],$docs,$catalogue);
+        self::assertCount(18,$ledger['entries']);
+        foreach ($ledger['entries'] as $entry) {
+            self::assertSame('platform_catalogue_reviewed',$entry['evidence_status']);
+            self::assertSame($catalogue['observed_at'],$entry['catalogue_observed_at']);
+            self::assertFalse($entry['native_contract_importable']);
+            self::assertSame('unverified',$entry['live_generation']);
+            self::assertSame(0,$entry['platform_catalogue_observation']['platform_material_mode_count']);
+        }
+        $gpt=array_values(array_filter($ledger['entries'],static fn($e)=>$e['model_code']==='gpt-image-2' && $e['channel_code']==='OpenAIYI'))[0];
+        self::assertFalse($gpt['platform_detail_observation']['platform_identity_verified']);
+        self::assertTrue($gpt['platform_catalogue_observation']['platform_identity_verified']);
+        $catalogue['models'][]=$catalogue['models'][0];
+        $ambiguous=Review::ledger($captured,$observations,[],$docs,$catalogue)['entries'];
+        self::assertCount(17,array_filter($ambiguous,static fn($e)=>$e['evidence_status']==='platform_catalogue_reviewed'));
+    }
+
+    public function testRecordedGptOpenaiyiIdentityCannotBeReplacedWithVip(): void
+    {
+        $record=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/market-gpt-image-openaiyi-identity-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+        $identity=\app\common\service\power\MarketGenerationSourceIdentity::class;
+        $model=array_intersect_key($record['local_resource'],array_flip(['model_code','channel_code']));
+        $bound=$identity::bind($model,$record['platform_resource']);
+        self::assertSame(96,$bound['model_id']);
+        self::assertTrue($identity::matchesDetail($bound,['model_pricing'=>$record['platform_resource']]));
+        $vip=$record['platform_resource'];$vip['model_id']=103;$vip['model_code']='gpt-image-2-vip';
+        self::assertFalse($identity::matchesDetail($bound,['model_pricing'=>$vip]));
+    }
+
     private static function bundle(): array
     {
         $schema=['type'=>'object','properties'=>['prompt'=>['type'=>'string'],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>2]],'required'=>['prompt']];
