@@ -35,7 +35,8 @@ $observations=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/ma
 $legacyReviews=[];
 $guidance=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-legacy-published-guidance-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
 $platformFlow=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-platform-contract-flow-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
-foreach (\app\common\service\power\MarketGenerationContractReview::ledger($captured,$observations,$guidance,$platformFlow)['entries'] as $review) {
+$catalogueFlow=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-platform-catalogue-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+foreach (\app\common\service\power\MarketGenerationContractReview::ledger($captured,$observations,$guidance,$platformFlow,$catalogueFlow)['entries'] as $review) {
     $legacyReviews[$review['generation_type'].':model:'.$review['model_code'].':'.$review['channel_code']]=$review;
 }
 // Enforce the read-only promise even if a catalogue dependency later adds writes.

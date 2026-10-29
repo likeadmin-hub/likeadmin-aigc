@@ -2,10 +2,52 @@
 namespace Tests\Feature;
 
 use app\common\service\power\MarketGenerationCompatibilityAudit as Audit;
+use app\common\service\power\MarketGenerationMaterials as Materials;
+use app\common\service\power\MarketGenerationNativeContract as Native;
+use app\common\service\power\MarketImageModelRuntimeService as Images;
+use app\common\service\power\MarketVideoRuntimeService as Videos;
 use PHPUnit\Framework\TestCase;
 
 class MarketGenerationSkuDiagnosticsTest extends TestCase
 {
+    public static function reviewedSkuCases(): array
+    {
+        $read=static fn($name)=>json_decode(file_get_contents(dirname(__DIR__).'/fixtures/'.$name),true,512,JSON_THROW_ON_ERROR);
+        $review=$read('market-sku-rejection-review-20261029.json');
+        $entries=array_column($read('market-structured-public-contracts-20261029.json')['entries'],null,'model_code');
+        $skus=array_column($review['skus'],null,'sku_id');$rows=[];
+        foreach ($review['cases'] as $observed) {
+            $entry=$entries[$observed['model_code']];$sku=$skus[$observed['sku_id']];
+            if ($sku['model_code']!==$entry['model_code'] || $sku['channel_code']!==$entry['channel_code']) {
+                throw new \LogicException('Reviewed SKU fixture identity mismatch');
+            }
+            $cases=Audit::cases($entry['generation_type'],$entry['options']+['material_modes'=>Materials::modes($entry['metadata'])],$entry['metadata']);
+            $matches=array_values(array_filter($cases,static fn($c)=>$c['case']===$observed['case']));
+            if (count($matches)!==1) throw new \LogicException('Reviewed synthetic case missing or ambiguous');
+            $rows[$observed['sku_id'].':'.$observed['case']]=[$entry,$sku,$matches[0],$observed];
+        }
+        if (count($rows)!==124 || count($skus)!==23) throw new \LogicException('Reviewed SKU coverage changed');
+        return $rows;
+    }
+
+    /** @dataProvider reviewedSkuCases */
+    public function testRecordedSkuRejectionWithActualFrozenNativeCompiler(array $entry,array $sku,array $case,array $observed): void
+    {
+        self::assertNotEmpty(Native::modes($entry['metadata']));
+        self::assertSame('constructed',$case['expected']);
+        $snapshot=['resource_type'=>'model','model_code'=>$entry['model_code'],'channel_code'=>$entry['channel_code'],
+            'market_metadata'=>$entry['metadata'],'locked_params'=>$sku['locked_params'],'sku_id'=>$sku['sku_id']];
+        $before=$snapshot;
+        $prepare=$entry['generation_type']==='image'
+            ? static fn($frozen,$request)=>Images::prepareRequest($frozen,$request)->nativeInput
+            : static fn($frozen,$request)=>Videos::prepareRequest($frozen,$request)->nativeInput;
+        $result=Audit::probeWithSkuDiagnostics($case,$snapshot,$prepare);
+        self::assertSame('rejected',$result['status']);
+        self::assertSame($observed['rejection_category'],$result['rejection_category']);
+        self::assertSame('constructed',$result['diagnostic_control_status']);
+        self::assertSame($before,$snapshot);
+    }
+
     private function case(string $expected='constructed'): array
     {
         return ['case'=>'text#fixture','mode_case'=>'text','expected'=>$expected,'fixture_scope'=>'offline','skip'=>false,

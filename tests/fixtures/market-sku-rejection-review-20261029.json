@@ -1,0 +1,1239 @@
+{
+    "observed_at": "2026-10-29T22:06:53+08:00",
+    "scope": "Only public business SKU locks and synthetic case IDs; no prices, credentials, user materials, HTTP or point writes",
+    "skus": [
+        {
+            "sku_id": 788,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "4k",
+                "generation_type": "image_to_video"
+            }
+        },
+        {
+            "sku_id": 789,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "4k",
+                "generation_type": "image_to_video"
+            }
+        },
+        {
+            "sku_id": 791,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "1080p",
+                "generation_type": "image_to_video"
+            }
+        },
+        {
+            "sku_id": 793,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "720p",
+                "generation_type": "image_to_video"
+            }
+        },
+        {
+            "sku_id": 792,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "720p",
+                "generation_type": "image_to_video"
+            }
+        },
+        {
+            "sku_id": 790,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "1080p",
+                "generation_type": "image_to_video"
+            }
+        },
+        {
+            "sku_id": 795,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "4k",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": false
+            }
+        },
+        {
+            "sku_id": 799,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "1080p",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": false
+            }
+        },
+        {
+            "sku_id": 797,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "1080p",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": true
+            }
+        },
+        {
+            "sku_id": 798,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "1080p",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": false
+            }
+        },
+        {
+            "sku_id": 800,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "720p",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": true
+            }
+        },
+        {
+            "sku_id": 794,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "4k",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": true
+            }
+        },
+        {
+            "sku_id": 801,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "720p",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": false
+            }
+        },
+        {
+            "sku_id": 802,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "720p",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": false
+            }
+        },
+        {
+            "sku_id": 796,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "4k",
+                "generation_type": "reference_to_video",
+                "_billing_video_input": false
+            }
+        },
+        {
+            "sku_id": 787,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "720p",
+                "generation_type": "text_to_video"
+            }
+        },
+        {
+            "sku_id": 785,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "1080p",
+                "generation_type": "text_to_video"
+            }
+        },
+        {
+            "sku_id": 783,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": false,
+                "resolution": "4k",
+                "generation_type": "text_to_video"
+            }
+        },
+        {
+            "sku_id": 782,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "4k",
+                "generation_type": "text_to_video"
+            }
+        },
+        {
+            "sku_id": 786,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "720p",
+                "generation_type": "text_to_video"
+            }
+        },
+        {
+            "sku_id": 784,
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "locked_params": {
+                "audio": true,
+                "resolution": "1080p",
+                "generation_type": "text_to_video"
+            }
+        },
+        {
+            "sku_id": 490,
+            "model_code": "official-33-bf8474d9d1c7136651",
+            "channel_code": "official",
+            "locked_params": {
+                "resolution": "720p",
+                "generation_type": "keyframe_to_video",
+                "_billing_video_input": false
+            }
+        },
+        {
+            "sku_id": 489,
+            "model_code": "official-33-bf8474d9d1c7136651",
+            "channel_code": "official",
+            "locked_params": {
+                "resolution": "1080p",
+                "generation_type": "keyframe_to_video",
+                "_billing_video_input": false
+            }
+        }
+    ],
+    "cases": [
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 788,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 788,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 788,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 788,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 789,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 789,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 789,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 789,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 791,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 791,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 791,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 791,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 793,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 793,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 793,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 793,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 792,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 792,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 792,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 792,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 790,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 790,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 790,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 790,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_locked_parameter_combination",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 795,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_locked_parameter_combination",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 799,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 799,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 799,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 799,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 799,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 799,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 797,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 797,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 797,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 797,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 797,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 797,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_locked_parameter_combination",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 798,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_locked_parameter_combination",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 800,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 800,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 800,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 800,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 800,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 800,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 794,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 794,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 794,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 794,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 794,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 794,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_locked_parameter_combination",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 801,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_locked_parameter_combination",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 802,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 802,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 802,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 802,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 802,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 802,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 796,
+            "case": "text_to_video:0#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 796,
+            "case": "text_to_video:0#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 796,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 796,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 796,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 796,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 787,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 787,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 787,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 787,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 787,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 787,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 785,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 785,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 785,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 785,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 785,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 785,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 783,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 783,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 783,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 783,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 783,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 783,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 782,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 782,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 782,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 782,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 782,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 782,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 786,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 786,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 786,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 786,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 786,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 786,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 784,
+            "case": "image_to_video:first#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 784,
+            "case": "image_to_video:first#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 784,
+            "case": "image_to_video:pair#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 784,
+            "case": "image_to_video:pair#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 784,
+            "case": "reference_to_video:3#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "sku_id": 784,
+            "case": "reference_to_video:3#custom_shots",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-bf8474d9d1c7136651",
+            "sku_id": 490,
+            "case": "reference_to_video:4#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-bf8474d9d1c7136651",
+            "sku_id": 490,
+            "case": "reference_to_video:4#video_subject:elements",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-bf8474d9d1c7136651",
+            "sku_id": 489,
+            "case": "reference_to_video:4#structured",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        },
+        {
+            "model_code": "official-33-bf8474d9d1c7136651",
+            "sku_id": 489,
+            "case": "reference_to_video:4#video_subject:elements",
+            "actual_status": "rejected",
+            "rejection_category": "sku_generation_mode_conflict",
+            "unlocked_control_status": "constructed"
+        }
+    ]
+}

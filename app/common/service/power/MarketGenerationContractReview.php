@@ -38,7 +38,7 @@ final class MarketGenerationContractReview
         return $result;
     }
 
-    public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = []): array
+    public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = [], array $catalogueFlow = []): array
     {
         $rows = [];
         foreach ($observations['entries'] as $entry) {
@@ -54,10 +54,16 @@ final class MarketGenerationContractReview
             $platform=array_values(array_filter((array)($platformFlow['models'] ?? []),static fn($m)=>
                 ($m['generation_type'] ?? '') === $entry['generation_type'] && ($m['model_code'] ?? '') === $entry['model_code']
                 && ($m['channel_code'] ?? '') === $entry['channel_code']));
+            $catalogue=array_values(array_filter((array)($catalogueFlow['models'] ?? []),static fn($m)=>
+                ($m['generation_type'] ?? '') === $entry['generation_type'] && ($m['model_code'] ?? '') === $entry['model_code']
+                && ($m['channel_code'] ?? '') === $entry['channel_code']));
+            $catalogueBound=count($catalogue)===1 && ($catalogue[0]['platform_identity_verified'] ?? false)===true
+                && ($catalogue[0]['read_state'] ?? '')==='read';
             $rows[] = array_intersect_key($entry,array_flip(['generation_type','model_code','channel_code'])) + [
                 'protocol_family'=>MarketGenerationAdapterRegistry::modelProtocol($entry['generation_type'], ['model_code'=>$entry['model_code'],'market_metadata'=>$metadata]),
-                'evidence_status'=>!empty($platform[0]['platform_identity_verified']) ? 'platform_detail_reviewed'
-                    : ($documents === [] ? 'public_declaration_only' : 'published_guidance_reviewed'),
+                'evidence_status'=>$catalogueBound ? 'platform_catalogue_reviewed'
+                    : (!empty($platform[0]['platform_identity_verified']) ? 'platform_detail_reviewed'
+                        : ($documents === [] ? 'public_declaration_only' : 'published_guidance_reviewed')),
                 'source'=>$observations['model_source'], 'observed_at'=>$observations['model_catalogue_observed_at'],
                 'parameter_fingerprint'=>MarketGenerationCompatibilityAudit::fingerprint($schema),
                 'recorded_observation_matches'=>MarketGenerationCompatibilityAudit::fingerprint($schema) === $entry['current_parameter_fingerprint'],
@@ -66,6 +72,8 @@ final class MarketGenerationContractReview
                 'guidance_observed_at'=>$documents === [] ? null : ($guidance['observed_at'] ?? null),
                 'platform_detail_observation'=>$platform[0] ?? null,
                 'platform_observed_at'=>$platform === [] ? null : ($platformFlow['observed_at'] ?? null),
+                'platform_catalogue_observation'=>$catalogueBound ? $catalogue[0] : null,
+                'catalogue_observed_at'=>$catalogueBound ? ($catalogueFlow['observed_at'] ?? null) : null,
                 'missing_evidence'=>['authoritative_admission_schema','material_modes_and_conditions','sku_binding_and_pricing'],
                 'native_contract_importable'=>false, 'live_generation'=>'unverified',
             ];
