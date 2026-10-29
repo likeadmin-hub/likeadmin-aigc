@@ -23,6 +23,8 @@ final class MarketGenerationNativeContract
     }
     private static function buildModes(array $metadata): array
     {
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if ($reviewed!==null) return $reviewed['modes'];
         if (self::$catalog === null) self::$catalog = MarketGenerationSchema::array(@file_get_contents(getenv('MARKET_GENERATION_CONTRACTS_PATH') ?: dirname(__DIR__,4).'/resources/market/generation-contracts.json'));
         $public = (string)($metadata['upstream_metadata']['model_code'] ?? '');
         $contract = self::$catalog['models'][$public] ?? null;

@@ -1,0 +1,164 @@
+<?php
+namespace Tests\Feature;
+
+use app\common\service\power\MarketGenerationContractReview as Review;
+use app\common\service\power\MarketGenerationReviewedContract as Reviewed;
+use app\common\service\power\MarketGenerationMaterials as Materials;
+use app\common\service\power\MarketGenerationNativeContract as Native;
+use app\common\service\power\MarketGenerationAdapterRegistry as Registry;
+use app\common\service\power\MarketImageModelRuntimeService as Images;
+use app\common\service\power\MarketVideoRuntimeService as Videos;
+use PHPUnit\Framework\TestCase;
+
+class MarketGenerationReviewedContractTest extends TestCase
+{
+    private const ARTIFACT='Synthetic reviewed validator fixture; no provider calls';
+    private const IMAGE='https://fixtures.invalid/reference.png';
+    private string $catalogue;
+    private $previous;
+
+    protected function setUp(): void
+    {
+        $this->previous=getenv('MARKET_REVIEWED_GENERATION_CONTRACTS_PATH');
+        $this->catalogue=tempnam(sys_get_temp_dir(),'reviewed-contract-');
+        putenv('MARKET_REVIEWED_GENERATION_CONTRACTS_PATH='.$this->catalogue);
+        $this->write(['version'=>2,'contracts'=>[]]);
+    }
+    protected function tearDown(): void
+    {
+        unlink($this->catalogue);
+        putenv($this->previous===false ? 'MARKET_REVIEWED_GENERATION_CONTRACTS_PATH' : 'MARKET_REVIEWED_GENERATION_CONTRACTS_PATH='.$this->previous);
+    }
+    private function write(array $catalogue): void {file_put_contents($this->catalogue,json_encode($catalogue,JSON_THROW_ON_ERROR));}
+
+    private function bundle(string $type='image',string $channel='fixture-channel'): array
+    {
+        $schema=['type'=>'object','properties'=>['prompt'=>['type'=>'string','minLength'=>1],
+            'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>2],
+            'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],
+            'resolution'=>['type'=>'string','enum'=>['1k','2k']]],'required'=>['prompt']];
+        if($type==='video')$schema['properties']['duration']=['type'=>'integer','minimum'=>4,'maximum'=>8];
+        $text=$type==='image'?'text_to_image':'text_to_video';$reference=$type==='image'?'image_to_image':'reference_to_video';
+        $raw=$schema['properties'];unset($raw['image_urls']['items'],$raw['image_urls']['maxItems']);
+        return ['version'=>1,'source'=>['kind'=>'gateway_validator','reference'=>'fixture/validator.json','revision'=>'synthetic-v1',
+            'reviewed_at'=>'2026-10-29T22:00:00+08:00','artifact_sha256'=>hash('sha256',self::ARTIFACT)],
+            'entries'=>[['generation_type'=>$type,'model_code'=>'fixture-'.$type,'channel_code'=>$channel,'public_model_code'=>'fixture-'.$type,
+                'generation_protocol'=>$type==='image'?'flat_image_v1':'flat_video_v1','revision'=>'synthetic-v1',
+                'binding_declaration'=>['params_schema'=>$raw,'material_capabilities'=>[]],
+                'declaration'=>['params_schema'=>$schema,'material_capabilities'=>['modes'=>[
+                    ['code'=>$text,'view_key'=>'text','method'=>$text,'fields'=>[]],
+                    ['code'=>$reference,'view_key'=>'reference','method'=>$type==='image'?'image_to_image':'image_reference',
+                        'fields'=>[['field'=>'image_urls','kind'=>'image','role'=>'reference','required'=>true,'maximum'=>2]]]]]],
+                'modes'=>[$text=>['schema'=>$schema,'rules'=>[]],$reference=>['schema'=>$schema,'rules'=>[]]]]]];
+    }
+    private function product(array $bundle): array
+    {
+        $e=$bundle['entries'][0];return ['resource_type'=>'model','upstream_model_code'=>$e['model_code'],
+            'upstream_channel_code'=>$e['channel_code'],'market_metadata'=>$e['binding_declaration']+[
+                'upstream_metadata'=>['model_code'=>$e['public_model_code'],'channel_code'=>$e['channel_code']]]];
+    }
+    private function frozen(array $bundle): array
+    {
+        $e=$bundle['entries'][0];$p=$this->product($bundle);
+        return ['resource_type'=>'model','model_code'=>$e['model_code'],'channel_code'=>$e['channel_code'],'locked_params'=>[],
+            'market_metadata'=>Reviewed::attachProduct($p,$p['market_metadata'],$e['generation_type'])];
+    }
+
+    public function testCompilerBindsRawDeclarationWithoutOverwritingItWithTheSupplement(): void
+    {
+        $b=$this->bundle();$catalogue=Review::reviewedCatalogue($b,self::ARTIFACT);$this->write($catalogue);
+        $s=$this->frozen($b);$raw=$b['entries'][0]['binding_declaration']['params_schema'];
+        self::assertSame($raw,$s['market_metadata']['params_schema']);
+        self::assertArrayNotHasKey('items',$raw['image_urls']);
+        self::assertNotEmpty(Native::modes($s['market_metadata']));
+        self::assertSame('string',Native::schema($s['market_metadata'],'image_to_image')['properties']['image_urls']['items']['type']);
+        self::assertSame('flat_image_v1',Registry::modelProtocol('image',$s));
+        self::assertSame('synthetic-v1',Reviewed::selected($s['market_metadata'])['revision']);
+    }
+
+    public function testSameModelInTwoChannelsKeepsIndependentContracts(): void
+    {
+        $a=$this->bundle();$b=$this->bundle('image','other-channel');
+        $b['entries'][0]['revision']='synthetic-other';
+        $catalogue=Review::reviewedCatalogue($a,self::ARTIFACT);
+        $catalogue['contracts'][]=Review::reviewedCatalogue($b,self::ARTIFACT)['contracts'][0];$this->write($catalogue);
+        self::assertSame('synthetic-v1',Reviewed::selected($this->frozen($a)['market_metadata'])['revision']);
+        self::assertSame('synthetic-other',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
+        $p=$this->product($a);$p['upstream_channel_code']='unregistered';
+        self::assertArrayNotHasKey(Reviewed::PIN,Reviewed::attachProduct($p,$p['market_metadata'],'image'));
+        self::assertArrayNotHasKey(Reviewed::PIN,Reviewed::attachProduct($this->product($a),$p['market_metadata'],'video'));
+    }
+
+    public function testFrozenRevisionSurvivesCatalogueReplacementAndAnOldSnapshotDoesNotAdoptIt(): void
+    {
+        $b=$this->bundle();$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));$s=$this->frozen($b);
+        $b['entries'][0]['revision']='synthetic-v2';$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));
+        self::assertSame('synthetic-v1',Reviewed::selected($s['market_metadata'])['revision']);
+        self::assertSame('synthetic-v2',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
+        $this->write(['version'=>2,'contracts'=>[]]);
+        self::assertSame('flat_image_v1',Registry::modelProtocol('image',$s));
+        $old=$s;unset($old['market_metadata'][Reviewed::PIN]);
+        self::assertSame($old['market_metadata'],Reviewed::attachProduct($old,$old['market_metadata'],'image'));
+    }
+
+    public function testMaterialContractDoesNotSwitchTheExistingFlatImageEncoder(): void
+    {
+        $b=$this->bundle();$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));$s=$this->frozen($b);
+        $request=['prompt'=>'fixture prompt','ratio'=>'1:1','quality'=>'1k','material_mode'=>'reference','reference_images'=>[self::IMAGE]];
+        $first=Images::prepareRequest($s,$request);$second=Images::prepareRequest($s,$request);
+        self::assertSame($first->nativeInput,$second->nativeInput);
+        self::assertSame([self::IMAGE],$first->nativeInput['image_urls']);
+        self::assertSame('fixture prompt',$first->nativeInput['prompt']);
+        self::assertSame('fixture-image',$first->nativeInput['model']);
+        self::assertSame('fixture-channel',$first->nativeInput['channel']);
+    }
+
+    /** @dataProvider rejectedImages */
+    public function testReviewedPreparationPreservesMaterialSkuAndAdvancedParameterChecks(string $case): void
+    {
+        $b=$this->bundle();$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));$s=$this->frozen($b);
+        $r=['prompt'=>'fixture','ratio'=>'1:1','quality'=>'1k','material_mode'=>'reference','reference_images'=>[self::IMAGE]];
+        switch($case){
+            case 'over_limit':$r['reference_images']=array_fill(0,3,self::IMAGE);break;
+            case 'missing_reference':$r['reference_images']=[];break;
+            case 'wrong_mode':$r['material_mode']='text';break;
+            case 'sku_mode':$s['locked_params']['generation_type']='text_to_image';break;
+            case 'unknown_control':$r['provider_params']=['private_option'=>'do not silently discard'];break;
+            case 'local_disable':$s['market_metadata']['_local_capability_overrides']=['supports_reference_images'=>false];break;
+        }
+        $this->expectException(\InvalidArgumentException::class);Images::prepareRequest($s,$r);
+    }
+    public static function rejectedImages(): array {return array_map(static fn($s)=>[$s],['over_limit','missing_reference','wrong_mode','sku_mode','unknown_control','local_disable']);}
+
+    /** @dataProvider invalidBindings */
+    public function testInvalidBindingsCannotFallBackToALegacyContract(string $kind): void
+    {
+        $b=$this->bundle();$catalogue=Review::reviewedCatalogue($b,self::ARTIFACT);$this->write($catalogue);$s=$this->frozen($b);
+        switch($kind){
+            case 'channel':$s['channel_code']='other';break;
+            case 'type':$s['resource_type']='app_api';break;
+            case 'raw':$s['market_metadata']['params_schema']['prompt']['type']='number';break;
+            case 'digest':$s['market_metadata'][Reviewed::PIN]['revision']='changed';break;
+            case 'public_alias':$s['market_metadata']['upstream_metadata']['model_code']='different';break;
+            case 'duplicate':$catalogue['contracts'][]=$catalogue['contracts'][0];$this->write($catalogue);$s=$this->frozen($b);break;
+            case 'new_declaration':$p=$this->product($b);$p['market_metadata']['params_schema']['prompt']['type']='number';$s['market_metadata']=Reviewed::attachProduct($p,$p['market_metadata'],'image');break;
+        }
+        $this->expectException(\InvalidArgumentException::class);Registry::modelProtocol('image',$s);
+    }
+    public static function invalidBindings(): array {return array_map(static fn($s)=>[$s],['channel','type','raw','digest','public_alias','duplicate','new_declaration']);}
+
+    public function testMissingVersionCannotCompileAnActiveFormat(): void
+    {
+        $b=$this->bundle();unset($b['entries'][0]['revision']);
+        $this->expectException(\InvalidArgumentException::class);Review::reviewedCatalogue($b,self::ARTIFACT);
+    }
+
+    public function testVideoKeepsItsFlatProtocolAndBusinessFields(): void
+    {
+        $b=$this->bundle('video');$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));$s=$this->frozen($b);
+        $r=['prompt'=>'fixture','ratio'=>'1:1','duration'=>4,'quality'=>'1k','material_mode'=>'text'];
+        $prepared=Videos::prepareRequest($s,$r);
+        self::assertSame('flat_video_v1',Registry::modelProtocol('video',$s));
+        self::assertSame('fixture',$prepared->nativeInput['prompt']);self::assertSame(4,$prepared->nativeInput['duration']);
+    }
+}

@@ -47,6 +47,12 @@ final class MarketGenerationAdapterRegistry
         $metadata=MarketGenerationSchema::array($snapshot['market_metadata'] ?? $source['market_metadata'] ?? []);
         $declared=self::declaredProtocol($snapshot,$metadata);
         if ($declared !== null && !in_array($declared,self::MODEL_PROTOCOLS[$type] ?? [],true)) throw new InvalidArgumentException('模型生成协议未注册或类型不匹配');
+        $reviewed=MarketGenerationReviewedContract::assertSnapshot($snapshot,$type);
+        if ($reviewed!==null) {
+            $protocol=$reviewed['generation_protocol'];
+            if (!in_array($protocol,self::MODEL_PROTOCOLS[$type] ?? [],true) || ($declared!==null && $declared!==$protocol)) throw new InvalidArgumentException('审核合同与模型生成协议不一致');
+            return $protocol;
+        }
         // A serializer hint must not bypass a model's material contract.
         if (MarketGenerationMaterials::contract($metadata)['modes'] ?? []) return 'native_v1';
         if ($declared === 'native_v1') throw new InvalidArgumentException('原生生成协议缺少素材合同');
