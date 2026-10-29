@@ -6,6 +6,29 @@ use InvalidArgumentException;
 /** Offline evidence and candidate import only. Never grants runtime capability. */
 final class MarketGenerationContractReview
 {
+    /** Inspect the actual platform response, independently of the local native snapshot file. */
+    public static function platformData(array $metadata, array $detail): array
+    {
+        $pricing=(array)($detail['model_pricing'] ?? []);
+        $schema=is_array($pricing['params_schema'] ?? null) ? $pricing['params_schema'] : [];
+        $material=MarketGenerationMaterials::contract($pricing);
+        $upstream=(array)($metadata['upstream_metadata'] ?? []);
+        $contractFields=['params_schema','material_capabilities','generation_contract','native_contract','request_schema','validation_rules'];
+        return [
+            'platform_detail_available'=>$pricing !== [],
+            'platform_contract_fields'=>array_values(array_intersect($contractFields,array_keys($pricing))),
+            'saved_upstream_contract_fields'=>array_values(array_intersect($contractFields,array_keys($upstream))),
+            'platform_schema_opaque_paths'=>$schema === [] ? null : self::incomplete($schema),
+            'saved_schema_opaque_paths'=>self::incomplete((array)($metadata['params_schema'] ?? [])),
+            'platform_schema_matches_saved'=>$schema === [] ? null : MarketGenerationCompatibilityAudit::fingerprint($schema)
+                === MarketGenerationCompatibilityAudit::fingerprint((array)($metadata['params_schema'] ?? [])),
+            'platform_material_mode_count'=>count((array)($material['modes'] ?? [])),
+            'saved_material_mode_count'=>count((array)(MarketGenerationMaterials::contract($metadata)['modes'] ?? [])),
+            'published_document_available'=>trim((string)($detail['doc']['content'] ?? '')) !== '',
+            'runtime_readiness'=>'unverified','sku_pricing'=>'unverified','live_generation'=>'unverified',
+        ];
+    }
+
     public static function ledger(array $captured, array $observations, array $guidance = []): array
     {
         $rows = [];

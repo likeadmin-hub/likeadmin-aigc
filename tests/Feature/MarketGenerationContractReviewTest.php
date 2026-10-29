@@ -6,6 +6,26 @@ use PHPUnit\Framework\TestCase;
 
 class MarketGenerationContractReviewTest extends TestCase
 {
+    public function testPlatformParametersAndLocalNativeSnapshotAreDifferentEvidenceLayers(): void
+    {
+        $schema=['image_urls'=>['type'=>'array']];
+        $metadata=['params_schema'=>$schema,'upstream_metadata'=>['params_schema'=>$schema]];
+        $detail=['model_pricing'=>['params_schema'=>$schema,'tenant_price'=>999,'api_key'=>'never print'],
+            'doc'=>['content'=>'Published prose can be richer; do not parse it as a machine contract']];
+        $r=Review::platformData($metadata,$detail);
+        self::assertTrue($r['platform_detail_available']);
+        self::assertTrue($r['platform_schema_matches_saved']);
+        self::assertSame(['image_urls[]'],$r['platform_schema_opaque_paths']);
+        self::assertSame(0,$r['platform_material_mode_count']);
+        self::assertSame('unverified',$r['runtime_readiness']);
+        self::assertStringNotContainsString('never print',json_encode($r));
+        self::assertStringNotContainsString('999',json_encode($r));
+        self::assertNull(Review::platformData($metadata,[])['platform_schema_matches_saved']);
+        $detail['model_pricing']['params_schema']['image_urls']['items']=['type'=>'string'];
+        self::assertFalse(Review::platformData($metadata,$detail)['platform_schema_matches_saved']);
+        self::assertSame([],Review::platformData($metadata,$detail)['platform_schema_opaque_paths']);
+    }
+
     public function testLedgerBindsAll18IdentitiesWithoutInventingNativeContracts(): void
     {
         $read=static fn($name)=>json_decode(file_get_contents(dirname(__DIR__).'/fixtures/'.$name),true,512,JSON_THROW_ON_ERROR);
