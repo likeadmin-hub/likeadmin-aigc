@@ -22,6 +22,7 @@ use app\common\model\user\User;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\user\RegisterBonusService;
+use app\common\service\user\UserAccountService;
 use app\common\service\membership\MembershipService;
 use app\common\service\distribution\DistributionService;
 use app\common\service\wechat\WeChatConfigService;
@@ -54,6 +55,9 @@ class LoginLogic extends BaseLogic
     public static function register(array $params)
     {
         try {
+            if (UserAccountService::exists((string)$params['account'])) {
+                throw new \RuntimeException(UserAccountService::DUPLICATE_MESSAGE);
+            }
             $userSn = User::createUserSn();
             $passwordSalt = Config::get('project.unique_identification');
             $password = create_password($params['password'], $passwordSalt);
@@ -80,7 +84,7 @@ class LoginLogic extends BaseLogic
 
             return true;
         } catch (\Exception $e) {
-            self::setError($e->getMessage());
+            self::setError(UserAccountService::isDuplicateAccount($e) ? UserAccountService::DUPLICATE_MESSAGE : $e->getMessage());
             return false;
         }
     }

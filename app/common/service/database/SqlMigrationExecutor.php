@@ -18,6 +18,14 @@ class SqlMigrationExecutor
         bool $ignoreDuplicateColumn = true,
         string $prefixStyle = 'mysql'
     ): void {
+        if (preg_match('/^-- likeadmin:seed-builtin-distribution-posters-v1\s*$/m', $content)) {
+            \app\common\service\distribution\BuiltinPosterService::migrate($prefix, $connection);
+            return;
+        }
+        if (preg_match('/^-- likeadmin:migrate-tenant-user-accounts-v1\s*$/m', $content)) {
+            TenantUserAccountMigration::run($prefix, $connection);
+            return;
+        }
         if (preg_match('/^-- likeadmin:migrate-pc-wechat-bindings-v1\s*$/m', $content)) {
             PcWechatMigration::run($prefix, $connection);
             return;
