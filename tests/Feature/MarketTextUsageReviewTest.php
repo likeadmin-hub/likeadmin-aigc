@@ -6,6 +6,56 @@ use app\common\model\ai\{AiAppTask,AiConsumptionLog};
 use app\common\service\power\MarketTextUsageReview;
 final class MarketTextUsageReviewTest extends TestCase
 {
+    private function closureFixture():array
+    {
+        $key='close'.bin2hex(random_bytes(10));$tenant=1999999759;$user=7;
+        $t=AiAppTask::create(['tenant_id'=>$tenant,'user_id'=>$user,'task_no'=>$key,'app_code'=>'aigc_short_drama','action_code'=>'script_plan','status'=>'success','idempotency_key'=>$key]);
+        $c=AiConsumptionLog::create(['tenant_id'=>$tenant,'user_id'=>$user,'app_task_id'=>$t['id'],'consume_no'=>$key,'app_code'=>'aigc_short_drama','model_code'=>'fixture',
+            'run_status'=>'success','billing_status'=>'settlement_failed','error_code'=>'provider_usage_missing','upstream_request_id'=>'chatcmpl-fixture','usage_snapshot'=>['provider_reported'=>false],
+            'response_summary'=>['output_length'=>99],'actual_user_price'=>0,'actual_tenant_cost'=>0,'reserved_user_price'=>0,'reserved_tenant_cost'=>0]);
+        $input=['system_prompt'=>'系统','content'=>'原文','model_selection'=>['model_code'=>'fixture'],'model_config'=>['max_tokens'=>100,'enable_thinking'=>false]];
+        $unit=Db::name('aigc_short_drama_planning_unit')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$key,'unit_key'=>'fixture','status'=>'received',
+            'request_json'=>json_encode($input),'result_json'=>json_encode(['result'=>['consumption_id'=>(int)$c['id'],'provider_request_id'=>'chatcmpl-fixture']])]);
+        $wire=['model'=>'fixture','stream'=>true,'messages'=>[['role'=>'system','content'=>'系统'],['role'=>'user','content'=>'原文']],
+            'max_tokens'=>100,'enable_thinking'=>false,'stream_options'=>['include_usage'=>true]];
+        $task=['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'model_code'=>'fixture','status'=>3,'actual_points'=>0,'error_code'=>'curl_error','request_params'=>$wire];
+        $proof=['task'=>$task,'factory'=>['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'model_code'=>'fixture','status'=>'failed','actual_points'=>0],
+            'user_logs'=>[['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'action'=>'freeze','points'=>-2],['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'action'=>'unfreeze','points'=>2]],
+            'tenant_logs'=>[['task_id'=>'upstream-fixture','tenant_id'=>18,'action'=>2,'points'=>1],['task_id'=>'upstream-fixture','tenant_id'=>18,'action'=>4,'points'=>1]]];
+        return [$c,$unit,$proof,$t];
+    }
+
+    public function testExactFailedRequestClosesOnceWithoutChangingOutputOrMissingUsage():void
+    {
+        if(getenv('AGENT_MODEL_DB_TESTS')!=='local-existing')self::markTestSkipped('Local rollback only');
+        (new \think\App())->initialize();Db::startTrans();try{
+            [$c,$unit,$proof,$task]=$this->closureFixture();$id=(int)$c['id'];
+            $preview=MarketTextUsageReview::resolveFailedPlanning(1999999759,7,$id,$unit,$proof);
+            self::assertSame('refunded',$preview['disposition']);self::assertSame('settlement_failed',AiConsumptionLog::find($id)['billing_status']);
+            foreach([1,2]as$n)MarketTextUsageReview::resolveFailedPlanning(1999999759,7,$id,$unit,$proof,true);
+            $saved=AiConsumptionLog::find($id);self::assertSame('refunded',$saved['billing_status']);self::assertSame('failed',$saved['run_status']);
+            self::assertSame(['provider_reported'=>false],$saved['usage_snapshot']);self::assertSame(99,$saved['response_summary']['output_length']);
+            self::assertSame(1,(int)Db::name('ai_consumption_event')->where(['consumption_id'=>$id,'event_type'=>'usage_resolved'])->count());
+            self::assertSame('failed',AiAppTask::find($task['id'])['status']);
+        }finally{Db::rollback();}
+    }
+
+    /** @dataProvider invalidProofs */
+    public function testClosureRejectsUnprovenFailure(string $case):void
+    {
+        if(getenv('AGENT_MODEL_DB_TESTS')!=='local-existing')self::markTestSkipped('Local rollback only');
+        (new \think\App())->initialize();Db::startTrans();try{
+            [$c,$unit,$p]=$this->closureFixture();
+            if($case==='content')$p['task']['request_params']['messages'][1]['content']='其他请求';
+            if($case==='charged')$p['factory']['actual_points']=1;
+            if($case==='refund')$p['user_logs'][1]['points']=1;
+            if($case==='owner')$p['factory']['user_id']=99;
+            if($case==='localcharge')$c->save(['actual_user_price'=>1]);
+            $this->expectException(\RuntimeException::class);MarketTextUsageReview::resolveFailedPlanning(1999999759,7,(int)$c['id'],$unit,$p,true);
+        }finally{Db::rollback();}
+    }
+    public static function invalidProofs():array{return [['content'],['charged'],['refund'],['owner'],['localcharge']];}
+
     public function testMissingUsageReviewPreservesDeliveredOutputAndNeverInventsACharge():void
     {
         if(getenv('AGENT_MODEL_DB_TESTS')!=='local-existing')self::markTestSkipped('Local rollback only');
