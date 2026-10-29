@@ -4304,6 +4304,8 @@ class AigcShortDramaService
                 $result['generation_settings']['ratio'] = $projectRatio;
             }
             $billing = self::scriptPlanBillingFromLlm($generation, $prompt, $result, $selectedModels['script_plan'] ?? []);
+            $recordedBilling = ShortDramaTaskBilling::resolve($tenantId,$userId,$taskId);
+            if ($recordedBilling !== null) $billing = array_replace($billing,$recordedBilling);
             $finishTime = time();
 
             Db::startTrans();
