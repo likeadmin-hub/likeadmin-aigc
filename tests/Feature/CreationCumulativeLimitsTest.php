@@ -39,6 +39,13 @@ final class CreationCumulativeLimitsTest extends TestCase
         self::assertFalse(AgentStore::requiresConfirmation(['mode'=>'auto','budget'=>1],1000));
         self::assertTrue(AgentStore::requiresConfirmation(['mode'=>'ask','budget'=>1],1000));
     }
+    public function testUnknownPlanningContextCannotInventA32768TokenFailure():void
+    {
+        $b=\app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::stage(str_repeat('完整剧本',30000),['max_output_tokens'=>8192],'script');
+        self::assertSame(8192,$b['max_tokens']);self::assertSame(0,$b['context']);
+        $this->expectException(\RuntimeException::class);
+        \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::stage(str_repeat('完整剧本',30000),['context_window'=>32768],'script');
+    }
     public function testAdvertisedOutputCapacityIsNotClippedToGeneric32768OrRaisedTo256(): void
     {
         self::assertSame(65536,\app\common\service\power\TextModelCapacity::output(['max_output_tokens'=>65536],65536));

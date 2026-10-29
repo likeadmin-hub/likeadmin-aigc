@@ -188,22 +188,12 @@ class ShortDramaStoryGenerationTest extends TestCase
         catch (\RuntimeException $e) { self::assertSame(422, $e->getCode()); }
         self::assertSame(3, $calls); // two-episode request, one-episode request, one repair; stop.
     }
-    public function testCapacityUsesConservativeFallbackAndRejectsOversizeInput(): void
+    public function testUnknownContextKeepsPerCallOutputAndDoesNotInventAnInputCap():void
     {
-        $budget = ShortDramaPlanningBudget::calculate('灵感', [], 10, true);
-        self::assertSame('conservative_fallback', $budget['source']);
-        self::assertSame(5, $budget['count']);
-        self::assertGreaterThanOrEqual(1024, $budget['margin']);
-        $this->expectException(\RuntimeException::class);
-        ShortDramaPlanningBudget::calculate(str_repeat('长', 30000), [], 1, true);
-    }
-
-    public function testMissingContextMetadataKeepsConservativeInputBudget(): void
-    {
-        $budget = ShortDramaPlanningBudget::calculate(str_repeat('x', 33400), ['max_tokens' => 65536], 3, true);
-        self::assertSame('conservative_fallback', $budget['source']);
-        self::assertSame(32768, $budget['context']);
-        self::assertLessThan(3, $budget['count']);
+        $budget=ShortDramaPlanningBudget::calculate(str_repeat('长',30000),[],10,true);
+        self::assertSame('unknown',$budget['source']);self::assertSame(5,$budget['count']);self::assertSame(0,$budget['margin']);
+        $budget=ShortDramaPlanningBudget::calculate(str_repeat('x',33400),['max_tokens'=>65536],3,true);
+        self::assertSame(0,$budget['context']);self::assertSame(3,$budget['count']);
     }
 
     public function testInvalidStoryJsonGetsOneRepairWithStageBoundedOutputBudget(): void

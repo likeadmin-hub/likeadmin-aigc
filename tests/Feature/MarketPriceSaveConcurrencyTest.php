@@ -54,6 +54,19 @@ final class MarketPriceSaveConcurrencyTest extends TestCase
         self::assertEquals($price,Db::name('tenant_power_market_sku_price')->where(['tenant_id'=>1,'sku_id'=>$id])->value('sale_points'));
     }
 
+    public function testPlatformOldEditorCannotOverwriteANewerRule():void
+    {
+        $sku=$this->sku();$id=(int)$sku['id'];$product=(int)$sku['product_id'];
+        $old=(float)Rules::platform($sku)['price']+20;
+        \app\common\service\power\PowerMarketService::savePrices($product,[['sku_id'=>$id,'sale_points'=>$old,'sale_status'=>1]]);
+        $changed=$old+17;
+        Rules::manual(0,$product,$id,$changed);
+        $before=Rules::rules(0);
+        try{\app\common\service\power\PowerMarketService::savePrices($product,[['sku_id'=>$id,'sale_points'=>$changed+1,'expected_sale_points'=>$old,'sale_status'=>1]]);self::fail('Old editor overwrote rule');}
+        catch(\Exception $e){self::assertStringContainsString('价格已更新',$e->getMessage());}
+        self::assertSame($before,Rules::rules(0));
+    }
+
     public function testPlatformStateOnlyAndStaleEditorHaveTheSameProtection(): void
     {
         $sku=$this->sku(); $id=(int)$sku['id'];$product=(int)$sku['product_id'];
