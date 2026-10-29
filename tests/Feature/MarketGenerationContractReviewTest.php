@@ -31,6 +31,7 @@ class MarketGenerationContractReviewTest extends TestCase
         self::assertSame(['items[]/oneOf/0','items[]/oneOf/1/$ref'],$missing);
         self::assertStringNotContainsString('private-ref',json_encode($missing));
         self::assertStringNotContainsString('do not print',json_encode($missing));
+        self::assertSame(['urls[]'],Review::incomplete(['urls'=>['type'=>'array','items'=>['example'=>'https://fixtures.invalid/a.png']]]));
     }
 
     private static function bundle(): array
@@ -45,7 +46,8 @@ class MarketGenerationContractReviewTest extends TestCase
 
     public function testReviewedImportProducesInactiveCandidatesAndPreservesChannelIdentity(): void
     {
-        $bundle=self::bundle();$second=$bundle['entries'][0];$second['channel_code']='another-channel';$bundle['entries'][]=$second;
+        $bundle=self::bundle();$bundle['source']['api_key']='must not copy';
+        $second=$bundle['entries'][0];$second['channel_code']='another-channel';$bundle['entries'][]=$second;
         $out=Review::candidates($bundle,'offline source artifact');
         self::assertCount(2,$out['candidates']);
         foreach ($out['candidates'] as $candidate) {
@@ -55,6 +57,7 @@ class MarketGenerationContractReviewTest extends TestCase
             self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/',$candidate['fingerprint']);
         }
         self::assertArrayNotHasKey('models',$out); // Cannot masquerade as the active contract catalogue.
+        self::assertStringNotContainsString('must not copy',json_encode($out));
     }
 
     /** @dataProvider invalidBundles */
@@ -64,6 +67,8 @@ class MarketGenerationContractReviewTest extends TestCase
         switch ($kind) {
             case 'source': $b['source']['kind']='public_example';break;
             case 'hash': $b['source']['artifact_sha256']=str_repeat('0',64);break;
+            case 'credential_url': $b['source']['reference']='https://user:secret@fixtures.invalid/source';break;
+            case 'query_url': $b['source']['reference']='https://fixtures.invalid/source?key=secret';break;
             case 'identity': unset($b['entries'][0]['channel_code']);break;
             case 'duplicate': $b['entries'][]=array_reverse($b['entries'][0],true);break;
             case 'protocol': $b['entries'][0]['generation_protocol']='h3_content_v1';break;
@@ -81,6 +86,6 @@ class MarketGenerationContractReviewTest extends TestCase
 
     public static function invalidBundles(): array
     {
-        return array_map(static fn($s)=>[$s],['source','hash','identity','duplicate','protocol','opaque','modes','material','rule','condition','keyword','type']);
+        return array_map(static fn($s)=>[$s],['source','hash','credential_url','query_url','identity','duplicate','protocol','opaque','modes','material','rule','condition','keyword','type']);
     }
 }

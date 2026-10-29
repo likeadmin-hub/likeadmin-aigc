@@ -36,6 +36,8 @@ final class MarketGenerationContractReview
         $missing = [];
         $walk = static function (array $d, string $p) use (&$walk,&$missing): void {
             if (isset($d['$ref'])) $missing[] = $p.'/$ref';
+            if (!isset($d['type']) && !isset($d['properties']) && !isset($d['oneOf']) && !isset($d['anyOf'])
+                && !isset($d['allOf']) && !isset($d['$ref']) && !isset($d['enum']) && !array_key_exists('const',$d)) $missing[]=$p;
             $types = (array)($d['type'] ?? []);
             if (in_array('array',$types,true) && (!isset($d['items']) || !is_array($d['items']) || $d['items'] === [])) $missing[] = $p.'[]';
             if (in_array('object',$types,true) && !isset($d['properties']) && !isset($d['oneOf'])
@@ -55,12 +57,17 @@ final class MarketGenerationContractReview
     public static function candidates(array $bundle, string $sourceArtifact): array
     {
         if (($bundle['version'] ?? null) !== 1) throw new InvalidArgumentException('合同导入版本不支持');
-        $source = $bundle['source'] ?? [];
+        $source = array_intersect_key((array)($bundle['source'] ?? []),array_flip(['kind','reference','revision','reviewed_at','artifact_sha256']));
         if (!in_array($source['kind'] ?? '', ['gateway_validator','versioned_official_schema'],true)
             || !is_string($source['reference'] ?? null) || trim($source['reference']) === ''
             || !is_string($source['revision'] ?? null) || trim($source['revision']) === ''
             || !is_string($source['reviewed_at'] ?? null) || strtotime($source['reviewed_at']) === false
             || !hash_equals(hash('sha256',$sourceArtifact),(string)($source['artifact_sha256'] ?? ''))) throw new InvalidArgumentException('缺少已复核合同来源或原始文件指纹不符');
+        if (preg_match('~^[a-z][a-z0-9+.-]*://~i',$source['reference'])) {
+            $url=parse_url($source['reference']);
+            if (!$url || !in_array($url['scheme'] ?? '',['https','http'],true) || isset($url['user']) || isset($url['pass'])
+                || isset($url['query']) || isset($url['fragment'])) throw new InvalidArgumentException('合同来源不能包含认证信息');
+        }
         $candidates = []; $identities = [];
         foreach ((array)($bundle['entries'] ?? []) as $entry) {
             foreach (['generation_type','model_code','channel_code','public_model_code','generation_protocol'] as $key) {
