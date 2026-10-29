@@ -1,6 +1,7 @@
 <?php
 require dirname(__DIR__).'/app/common/service/power/MarketGenerationSchema.php';
 require dirname(__DIR__).'/app/common/service/power/MarketGenerationMeter.php';
+require dirname(__DIR__).'/app/common/service/power/MarketGenerationMediaInputs.php';
 use app\common\service\power\MarketGenerationMeter as M;
 $checks=0;
 function eq($actual,$expected,$message){global $checks;if($actual!==$expected)throw new RuntimeException($message.': '.json_encode([$actual,$expected]));$checks++;}
