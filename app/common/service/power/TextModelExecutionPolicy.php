@@ -20,11 +20,26 @@ final class TextModelExecutionPolicy
     }
     public function generationParams(array $model,array $params): array
     {
-        // Smart copywriting needs final copy immediately, not a reasoning transcript.
-        // DeepSeek official guide: https://api-docs.deepseek.com/guides/thinking_mode/
-        if(str_contains(strtolower((string)($model['model_code']??'')),'deepseek')){
-            if(($model['protocol']??'')==='openai_responses')$params['reasoning']=['effort'=>'none'];
-            else $params['thinking']=['type'=>'disabled'];
+        // App-scoped hard opt-out, after market defaults and before serialization.
+        // Do not silently retry by dropping these controls or changing the model.
+        $code=strtolower((string)($model['model_code']??''));
+        $protocol=(string)($model['protocol']??'openai_chat');
+        $declared=$params;
+        foreach (['enable_thinking','thinking','reasoning','reasoning_effort','thinking_budget','budget_tokens','reasoning_budget'] as $key) unset($params[$key]);
+        if ($protocol==='anthropic_messages') {
+            $params['thinking']=['type'=>'disabled'];
+        } elseif ($protocol==='openai_responses' && (preg_match('/(?:^|\/)gpt-(?:5|6)(?:[.\-]|$)/',$code) || array_key_exists('reasoning',$declared))) {
+            $params['reasoning']=['effort'=>'none'];
+        } elseif (str_contains($code,'qwen')) {
+            $params['enable_thinking']=false;
+        } elseif (str_contains($code,'deepseek')) {
+            $params['thinking']=['type'=>'disabled'];
+        } elseif (preg_match('/(?:^|\/)gpt-(?:5|6)(?:[.\-]|$)/',$code) || array_key_exists('reasoning_effort',$declared) || array_key_exists('reasoning',$declared)) {
+            $params['reasoning_effort']='none';
+        }
+        if (!isset($params['thinking']) && !isset($params['reasoning']) && !isset($params['reasoning_effort']) && !array_key_exists('enable_thinking',$params)) {
+            if (array_key_exists('enable_thinking',$declared)) $params['enable_thinking']=false;
+            elseif (array_key_exists('thinking',$declared)) $params['thinking']=['type'=>'disabled'];
         }
         return $params;
     }
