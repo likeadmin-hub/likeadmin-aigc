@@ -60,4 +60,12 @@ class MarketGenerationStructuredFixtureTest extends TestCase
         self::assertSame('structured_parameter_not_forwarded',Audit::probe($case,static fn()=>$native)['status']);
         self::assertSame('constructed',Audit::probe($case,static fn()=>$case['request']['provider_params'])['status']);
     }
+
+    public function testSkuLocksMayReplaceSyntheticControlChoices(): void
+    {
+        $case=['case'=>'fixture','mode_case'=>'fixture','expected'=>'constructed','fixture_scope'=>'offline','skip'=>false,
+            'request'=>['provider_params'=>['sound'=>false,'mode'=>'std'],'reference_assets'=>[]]];
+        self::assertSame('constructed',Audit::probe($case,static fn()=>['sound'=>true,'mode'=>'pro'],['sound'=>true,'mode'=>'pro'])['status']);
+        self::assertSame('structured_parameter_not_forwarded',Audit::probe($case,static fn()=>['sound'=>true,'mode'=>'pro'])['status']);
+    }
 }

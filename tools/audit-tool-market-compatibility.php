@@ -31,6 +31,11 @@ foreach ((array)($captured['contracts'] ?? []) as $sample) {
     $key .= ($sample['resource_type'] ?? '') === 'model' ? ($sample['model_code'] ?? '').':'.($sample['channel_code'] ?? '') : ($sample['app_code'] ?? '');
     $samples[$key] = MarketGenerationSchema::array($sample['params_schema'] ?? []);
 }
+$observations=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-legacy-declaration-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+$legacyReviews=[];
+foreach (\app\common\service\power\MarketGenerationContractReview::ledger($captured,$observations)['entries'] as $review) {
+    $legacyReviews[$review['generation_type'].':model:'.$review['model_code'].':'.$review['channel_code']]=$review;
+}
 // Enforce the read-only promise even if a catalogue dependency later adds writes.
 Db::execute('SET TRANSACTION READ ONLY');
 Db::startTrans();
@@ -143,7 +148,7 @@ foreach (['image', 'video'] as $type) {
                     default => null,
                 };
                 $row['request_cases'] = $prepare === null ? [['status'=>'unregistered_probe']] : array_map(
-                    static fn($case) => Audit::probe($case, $prepare), Audit::cases($type, $option, $structured ? $metadata : null)
+                    static fn($case) => Audit::probe($case, $prepare, $snapshot['locked_params']), Audit::cases($type, $option, $structured ? $metadata : null)
                 );
             }
             $skuMatrix[] = $row;
@@ -151,10 +156,14 @@ foreach (['image', 'video'] as $type) {
         $sampleKey = $type.':'.$resource.':'.($resource === 'model'
             ? (string)($option['model_code'] ?? $product['upstream_model_code'] ?? '').':'.(string)($product['upstream_channel_code'] ?? '')
             : (string)($product['upstream_app_code'] ?? ''));
+        $contractEvidence=$legacyReviews[$sampleKey] ?? null;
+        if ($contractEvidence !== null) $contractEvidence['current_parameters_match_recorded']=hash_equals(
+            $contractEvidence['parameter_fingerprint'],Audit::fingerprint(MarketGenerationSchema::array($metadata['params_schema'] ?? [])));
         $report['models'][] = [
             'generation_type' => $type, 'id' => $id, 'product_id' => $productId,
             'resource_type' => $resource, 'name' => (string)($option['name'] ?? ''),
             'native_contract' => $contractStatus,
+            'contract_evidence' => $contractEvidence,
             'tool_catalog_visibility' => [
                 'standalone_' . $type => 'listed',
                 'canvas' => in_array($id, $canvasIds[$type], true) ? 'listed' : 'not_listed_or_unknown',
