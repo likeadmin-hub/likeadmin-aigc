@@ -26,6 +26,14 @@ final class PosterRasterService
         if (!in_array($scope, ['tenant', 'platform'], true) || !in_array($engine, ['local', 'qcloud', 'aliyun', 'qiniu'], true)) {
             throw new RuntimeException(self::UNAVAILABLE);
         }
+        // Shipped artwork is an immutable, explicit allowlist; it never uses storage URLs.
+        $builtin = self::builtinPath($receipt);
+        if ($builtin !== null) {
+            if (!is_file($builtin) || filesize($builtin) > self::MAX_BYTES) throw new RuntimeException(self::UNAVAILABLE);
+            $bytes = file_get_contents($builtin);
+            if ($bytes === false) throw new RuntimeException(self::UNAVAILABLE);
+            return self::raster($bytes);
+        }
         try {
             $config = StorageConfigService::getStoredFileConfig($tenantId, $scope, $engine);
             // Config fallback must not silently move a receipt to another storage scope/engine.
@@ -57,6 +65,22 @@ final class PosterRasterService
             // Provider responses may include credentials, signatures and internal object paths.
             throw new RuntimeException(self::UNAVAILABLE);
         }
+    }
+
+    private static function builtinPath(array $receipt): ?string
+    {
+        $allowed = ['nocturne', 'atelier', 'playground', 'odyssey'];
+        foreach ($allowed as $key) {
+            if (($receipt['uri'] ?? '') !== 'resource/distribution-posters/'.$key.'.png') continue;
+            if (($receipt['storage_scope'] ?? '') !== 'platform' || ($receipt['storage_engine'] ?? '') !== 'local'
+                || ($receipt['storage_domain'] ?? '') !== '' || (int)($receipt['source'] ?? -1) !== 0
+                || (int)($receipt['source_id'] ?? -1) !== 0) throw new RuntimeException(self::UNAVAILABLE);
+            $root = realpath(public_path().'resource/distribution-posters');
+            $path = realpath(public_path().$receipt['uri']);
+            if (!$root || !$path || dirname($path) !== $root || basename($path) !== $key.'.png') throw new RuntimeException(self::UNAVAILABLE);
+            return $path;
+        }
+        return null;
     }
 
     private static function key(string $uri, string $engine, array $storage): string

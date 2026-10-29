@@ -38,6 +38,7 @@ final class PosterService
     }
     public static function lists(int $tenantId, array $input, bool $user=false): array {
         if ($user) DistributionService::assertEnabled($tenantId);
+        BuiltinPosterService::ensure($tenantId);
         $q=self::query($tenantId);
         if ($user) $q->where('status',1)->where('published_version','>',0);
         if (!$user && trim((string)($input['keyword']??''))!=='') $q->whereLike('name','%'.trim($input['keyword']).'%');
@@ -147,11 +148,14 @@ final class PosterService
     public static function code(int $tenantId,int $userId,array $input): array {
         self::published($tenantId,(int)($input['id']??0));
         $profile=self::profile($tenantId,$userId);
+        $channel=$input['channel']??'mini';
+        if (!in_array($channel,['mini','h5'],true)) throw new RuntimeException('推广码渠道无效');
+        if ($channel==='h5') return PosterH5CodeService::code($tenantId,$userId,$profile);
         $scene='t='.$tenantId.'&i='.$profile['invite_code'];
         if (strlen($scene)>32) throw new RuntimeException('推广码参数超长，请联系管理员');
         $wechat=new WeChatMnpService($tenantId);
         $identity=$wechat->posterIdentity();
-        $key=hash('sha256',$tenantId.'|'.$userId.'|'.$identity.'|'.$scene.'|release|v1');
+        $key=hash('sha256',$tenantId.'|'.$userId.'|mini|'.$identity.'|'.$scene.'|release|v1');
         $lock=SubmitLockService::acquire('distribution.poster.code.'.$key,$tenantId,$userId);
         try {
             $dir=runtime_path().'distribution-posters/';

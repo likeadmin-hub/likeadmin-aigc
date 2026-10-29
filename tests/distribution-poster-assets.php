@@ -106,6 +106,14 @@ namespace {
     $local=$receipt;$local['storage_engine']='local';$local['uri']='uploads/fixture.png';file_put_contents($fixtureDir.'/uploads/fixture.png',$png);
     check(PosterRasterService::read($local,7,microtime(true)+4)['base64']===base64_encode($png),'Local receipt failed');
     file_put_contents($fixtureDir.'/outside.png',$png);symlink($fixtureDir.'/outside.png',$fixtureDir.'/uploads/escape.png');$local['uri']='uploads/escape.png';rejected(fn()=>PosterRasterService::read($local,7,microtime(true)+4));
+    mkdir($fixtureDir.'/resource/distribution-posters',0700,true);
+    $builtin=$receipt;$builtin['uri']='resource/distribution-posters/nocturne.png';$builtin['storage_scope']='platform';$builtin['storage_engine']='local';$builtin['storage_domain']='';
+    file_put_contents($fixtureDir.'/'.$builtin['uri'],$png);
+    check(PosterRasterService::read($builtin,7,microtime(true)+4)['base64']===base64_encode($png),'Shipped builtin receipt failed');
+    foreach(['tenant_id'=>8,'source'=>1,'source_id'=>9,'storage_scope'=>'tenant','storage_engine'=>'qcloud','storage_domain'=>'https://foreign.test'] as $key=>$value){$bad=$builtin;$bad[$key]=$value;rejected(fn()=>PosterRasterService::read($bad,7,microtime(true)+4));}
+    foreach(['resource/distribution-posters/../../.env','resource/distribution-posters/unknown.png','resource/distribution-posters/%6eocturne.png','/resource/distribution-posters/nocturne.png'] as $uri){$bad=$builtin;$bad['uri']=$uri;rejected(fn()=>PosterRasterService::read($bad,7,microtime(true)+4));}
+    unlink($fixtureDir.'/'.$builtin['uri']);symlink($fixtureDir.'/outside.png',$fixtureDir.'/'.$builtin['uri']);rejected(fn()=>PosterRasterService::read($builtin,7,microtime(true)+4));unlink($fixtureDir.'/'.$builtin['uri']);
+    rmdir($fixtureDir.'/resource/distribution-posters');rmdir($fixtureDir.'/resource');
     unlink($fixtureDir.'/uploads/escape.png');unlink($fixtureDir.'/uploads/fixture.png');unlink($fixtureDir.'/outside.png');rmdir($fixtureDir.'/uploads');rmdir($fixtureDir);
     echo "PASS poster asset boundaries: $checks checks (tenant/qualification/publish/version/receipts/private COS/bounds/raster/local paths); no external I/O\n";
 }
