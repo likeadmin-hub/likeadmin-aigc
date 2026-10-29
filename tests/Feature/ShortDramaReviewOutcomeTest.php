@@ -95,6 +95,31 @@ class ShortDramaReviewOutcomeTest extends TestCase
         return [[425,'等待继续生成'],[409,'计费结算失败'],[429,'上游限流'],[499,'用户取消'],[500,'数据库写入失败'],[422,'provider rejected request'],[413,'provider capacity failure']];
     }
 
+    /** @dataProvider technicalFailures */
+    public function testTechnicalReviewFailureKeepsDraftWithoutConvertingFailureToSuccess(int $code, string $message): void
+    {
+        $base=$this->plan();$request=array_replace($this->request(),['_input_contract_version'=>21]);$saved=[];
+        $error=new \RuntimeException($message,$code);
+        try {
+            Review::generate($base,$request,static function()use($error){throw $error;},null,
+                static function($plan,$reviewed,$resume)use(&$saved){$saved[]=compact('plan','reviewed','resume');});
+            self::fail('Technical failure must remain visible');
+        } catch(\RuntimeException $caught){self::assertSame($error,$caught);}
+        self::assertCount(1,$saved);self::assertSame($base,$saved[0]['plan']);self::assertSame(0,$saved[0]['reviewed']);
+        self::assertSame(\app\common\service\app\aigc_short_drama\ShortDramaReviewCheckpoint::signature($base,$request),$saved[0]['resume']['signature']);
+    }
+
+    public function testReviewResumeDoesNotOverwriteExistingCheckpointWithInitialDraft(): void
+    {
+        $base=$this->plan();$request=array_replace($this->request(),['_input_contract_version'=>21]);
+        $saved=['protocol_version'=>3,'reviewed_shots'=>1,'plan'=>$base,'resume'=>['signature'=>\app\common\service\app\aigc_short_drama\ShortDramaReviewCheckpoint::signature($base,$request)]];
+        $writes=[];
+        try {Review::generate($base,$request,static function(){throw new \RuntimeException('provider unavailable',503);},null,
+            static function($plan,$reviewed,$resume)use(&$writes){$writes[]=compact('plan','reviewed','resume');},$saved);self::fail('Expected provider failure');}
+        catch(\RuntimeException $error){self::assertSame(503,$error->getCode());}
+        self::assertSame([],$writes);
+    }
+
     public function testOldFrozenRequestsKeepFailureBehavior(): void
     {
         $error=new Deferred('整集内容检查尚未通过');

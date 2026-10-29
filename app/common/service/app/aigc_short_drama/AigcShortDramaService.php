@@ -17489,9 +17489,10 @@ class AigcShortDramaService
                     $rejected = $receipt;
                     throw $error;
                 }
-            }, $onEvent, static function(array $plan, int $reviewed, array $resume) use ($tenantId, $userId, $request, &$receipts): void {
+            }, $onEvent, static function(array $plan, int $reviewed, array $resume) use ($tenantId, $userId, $request, $onEvent, &$receipts): void {
                 $resume['receipts'] = $receipts;
                 ShortDramaReviewCheckpoint::save($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $plan, $reviewed, $resume);
+                if ($onEvent && ShortDramaInputContract::shotFieldRecovery($request)) $onEvent('script_checkpoint', $plan);
             }, $checkpoint);
         if (!empty($result['content_acceptance']['repairs'])) $result = self::enhancePlanResult($result);
         return ['result'=>$result, 'llm'=>self::mergeScriptPlanLlmResults($receipts)];

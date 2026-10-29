@@ -136,4 +136,56 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         self::assertSame(['s1_1','s1_2','s2_1'],array_column($result['payload']['storyboard'],'shot_id'));
         self::assertSame(['v3_timed_skeleton_0','v3_timed_batch_1_2','v3_timed_scene_1_1_missing_2'],$calls);
     }
+
+    /** @dataProvider fieldRepairModes */
+    public function testFieldRepairPreservesOtherFieldsAndNeighborShots(bool $timed): void
+    {
+        $request=['_input_contract_version'=>21];
+        if ($timed) $request['episode_duration_policy']=Duration::snapshot([],0,0,[]);
+        $calls=[];$original=[self::shot(1),self::shot(2),self::shot(3)];$original[1]['visual_description']='';
+        $result=Script::generate($request,['max_tokens'=>$timed?8192:4096],['system_prompt'=>'创作','content'=>'故事'],
+            static function($key,$input)use(&$calls,$timed,$original){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$payload=self::skeleton($timed);
+                elseif(str_ends_with($key,'_fields_v1')) {
+                    self::assertStringContainsString('原始镜头内容1',$input['content']);
+                    $payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'补全第二镜头']]]];
+                } else $payload=['storyboard'=>$original];
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+            });
+        $expected=$original;$expected[1]['visual_description']='补全第二镜头';
+        self::assertSame($expected,$result['payload']['storyboard']);
+        self::assertCount(3,$calls);self::assertStringEndsWith('_fields_v1',$calls[2]);
+    }
+    public static function fieldRepairModes(): array { return [[false],[true]]; }
+
+    public function testFieldRepairCannotModifyValidDialogueOrGenerateUnknownTargets(): void
+    {
+        $request=['_input_contract_version'=>21,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
+        try {
+            Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],
+                static function($key)use(&$calls){
+                    $calls[]=$key;
+                    if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
+                    elseif(str_ends_with($key,'_fields_v1'))$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'修复','dialogue'=>'篡改']]]];
+                    else {$shots=[self::shot(1),self::shot(2),self::shot(3)];$shots[1]['visual_description']='';$payload=['storyboard'=>$shots];}
+                    return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+                });
+            self::fail('Out-of-scope field must be rejected');
+        } catch(\RuntimeException $error){self::assertSame('分镜字段修复范围无效',$error->getMessage());}
+        self::assertCount(3,$calls);self::assertStringEndsWith('_fields_v1',$calls[2]);
+    }
+
+    public function testVersion20KeepsOriginalWholePartRepair(): void
+    {
+        $request=['_input_contract_version'=>20,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],static function($key)use(&$calls){
+            $calls[]=$key;
+            if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
+            else {$shots=[self::shot(1),self::shot(2),self::shot(3)];if(!str_ends_with($key,'_repair'))$shots[1]['visual_description']='';$payload=['storyboard'=>$shots];}
+            return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+        });
+        self::assertCount(3,$result['payload']['storyboard']);
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_repair'],$calls);
+    }
 }
