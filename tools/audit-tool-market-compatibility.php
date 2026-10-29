@@ -82,9 +82,15 @@ foreach (['image', 'video'] as $type) {
         $runtime = $type === 'image' ? MarketImageModelRuntimeService::class : MarketVideoRuntimeService::class;
         $metadata = $product ? (new ReflectionMethod($runtime, 'metadata'))->invoke(null, $product->toArray()) : [];
         $contractStatus = 'unverified_app_adapter';
+        $reviewedContract=null;
         if ($resource === 'model') {
             $contractStatus = 'unknown';
-            if ($product && $contractModels !== null) {
+            $selectedContract=\app\common\service\power\MarketGenerationReviewedContract::selected($metadata);
+            if ($selectedContract!==null) {
+                $contractStatus='matched_reviewed_contract';
+                $reviewedContract=array_intersect_key($selectedContract,array_flip(['revision','generation_type','model_code','channel_code',
+                    'public_model_code','generation_protocol','declaration_fingerprint','contract_digest','sku_pricing','live_generation']));
+            } elseif ($product && $contractModels !== null) {
                 // Use the same merged metadata as the respective runtime. Reflection is
                 // restricted to this developer tool and never invokes submission.
                 $code = (string)($metadata['upstream_metadata']['model_code'] ?? '');
@@ -178,6 +184,7 @@ foreach (['image', 'video'] as $type) {
             'generation_type' => $type, 'id' => $id, 'product_id' => $productId,
             'resource_type' => $resource, 'name' => (string)($option['name'] ?? ''),
             'native_contract' => $contractStatus,
+            'reviewed_contract' => $reviewedContract,
             'contract_evidence' => $contractEvidence,
             'tool_catalog_visibility' => [
                 'standalone_' . $type => 'listed',

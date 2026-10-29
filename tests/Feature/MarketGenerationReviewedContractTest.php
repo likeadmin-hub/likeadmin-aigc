@@ -74,6 +74,8 @@ class MarketGenerationReviewedContractTest extends TestCase
         self::assertSame('string',Native::schema($s['market_metadata'],'image_to_image')['properties']['image_urls']['items']['type']);
         self::assertSame('flat_image_v1',Registry::modelProtocol('image',$s));
         self::assertSame('synthetic-v1',Reviewed::selected($s['market_metadata'])['revision']);
+        self::assertSame('unverified',Reviewed::selected($s['market_metadata'])['sku_pricing']);
+        self::assertSame('unverified',Reviewed::selected($s['market_metadata'])['live_generation']);
     }
 
     public function testSameModelInTwoChannelsKeepsIndependentContracts(): void
@@ -197,6 +199,7 @@ class MarketGenerationReviewedContractTest extends TestCase
         foreach (['image'=>Images::class,'video'=>Videos::class] as $type=>$runtime) {
             $b=$this->bundle($type);$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));
             $product=$this->product($b);$product['id']=990001;$product['source_payload']=['market_metadata'=>$product['market_metadata']];
+            $product['upstream_app_code']='';$product['upstream_api_code']='';
             $market=['product'=>$product,'sku'=>['id'=>990002,'sku_key'=>'offline','locked_params'=>[],
                 'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>2],'tenant_price'=>3,'reference_limit'=>2];
             $method=new \ReflectionMethod($runtime,'snapshot');

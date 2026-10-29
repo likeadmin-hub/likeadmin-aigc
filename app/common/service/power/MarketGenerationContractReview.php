@@ -116,6 +116,7 @@ final class MarketGenerationContractReview
     /** Explicit offline compilation after source review. Output is not written or enabled by this method. */
     public static function reviewedCatalogue(array $bundle,string $sourceArtifact): array
     {
+        if (!is_array($bundle['entries'] ?? null) || !array_is_list($bundle['entries'])) throw new InvalidArgumentException('审核合同必须使用有序条目列表');
         $candidates=self::candidates($bundle,$sourceArtifact)['candidates'];$contracts=[];
         foreach ($candidates as $i=>$candidate) {
             $entry=$bundle['entries'][$i];
@@ -130,6 +131,7 @@ final class MarketGenerationContractReview
             $contract['declaration_fingerprint']=MarketGenerationReviewedContract::digest([
                 $entry['binding_declaration']['params_schema'],$entry['binding_declaration']['material_capabilities']]);
             $contract['material_capabilities']=$entry['declaration']['material_capabilities'];
+            $contract['sku_pricing']='unverified';$contract['live_generation']='unverified';
             $contract['contract_digest']=MarketGenerationReviewedContract::contractDigest($contract);
             MarketGenerationReviewedContract::assertRecord($contract);
             $contracts[]=$contract;
