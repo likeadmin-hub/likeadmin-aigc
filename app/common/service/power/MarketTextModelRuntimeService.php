@@ -1421,8 +1421,7 @@ class MarketTextModelRuntimeService
             throw self::providerException('模型未返回要求的原生Responses完整回复，未执行本轮工具；费用待核对', false, $state);
         }
         try {
-            AnthropicMessagesAdapter::assertComplete($state);
-            ResponsesMessagesAdapter::assertComplete($state);
+            self::assertStreamComplete($state);
         } catch (\RuntimeException $error) {
             // An incomplete tool response must not fall back to a different model.
             $state['native_error_code'] = empty($state['responses_complete']) && !empty($state['responses']) ? 'responses_missing_completion' : 'native_output_validation';
@@ -1863,17 +1862,27 @@ class MarketTextModelRuntimeService
         ];
     }
 
+    private static function assertStreamComplete(array $state):void
+    {
+        AnthropicMessagesAdapter::assertComplete($state);
+        ResponsesMessagesAdapter::assertComplete($state);
+        if(empty($state['anthropic'])&&empty($state['responses'])&&empty($state['legacy_terminal_seen'])){
+            $state['native_error_code']='legacy_missing_completion';
+            throw self::providerException('文本模型响应中断，未收到完成回执；已保留收到的内容，费用待核对',false,$state);
+        }
+    }
+
     private static function providerException(string $message, bool $fallbackAllowed, array $state = []): Exception
     {
         $hasOutput = !empty($state['content']) || !empty($state['reasoning']) || !empty($state['tool_calls'])
             || (int)($state['delta_count'] ?? 0) > 0;
         $hasNativePartial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']);
         $hasExpectedPartial = !empty($state['responses_expected']) && ($hasOutput || !empty($state['usage']));
-        $partial = $hasNativePartial || $hasExpectedPartial ? [
+        $partial = $hasNativePartial || $hasExpectedPartial || $hasOutput ? [
             'content' => (string)($state['content'] ?? ''),
             'content_source' => (string)($state['content_source']??'content'),
             'protocol_evidence' => self::protocolEvidence($state),
-            'provider_request_id' => (string)$state['request_id'],
+            'provider_request_id' => (string)($state['request_id'] ?? ''),
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],
