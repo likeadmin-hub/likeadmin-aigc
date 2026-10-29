@@ -633,6 +633,8 @@ class ShortDramaCanvasService
         }, $results), static fn(array $item): bool => $item['url'] !== ''));
         $payload = json_decode((string)$run['result_json'], true) ?: [];
         if ($urls) $payload['results'] = $urls;
+        $payload['provider_task_id'] = (string)($task['provider_task_id'] ?? '');
+        $payload['provider_request_id'] = (string)($task['provider_request_id'] ?? '');
         Db::name(self::RUN_TABLE)->where('id', $run['id'])->update([
             'status' => $status, 'progress' => $status === 'success' ? 100 : max(25, (int)($task['progress'] ?? 25)),
             'error' => (string)($task['error'] ?? $task['error_msg'] ?? ''),
@@ -1590,5 +1592,5 @@ class ShortDramaCanvasService
             ],
         ];
     }
-    private static function formatRun(array $row): array { $result = self::decode((string)$row['result_json']); return ['id' => (int)$row['id'], 'node_id' => (string)$row['node_id'], 'type' => (string)$row['node_type'], 'status' => (string)$row['status'], 'progress' => (int)$row['progress'], 'error' => (string)$row['error'], 'result' => $result, 'results' => (array)($result['results'] ?? $result['images'] ?? $result['videos'] ?? [])]; }
+    private static function formatRun(array $row): array { $result = self::decode((string)$row['result_json']); return ['provider_task_id' => (string)($result['provider_task_id'] ?? ''), 'provider_request_id' => (string)($result['provider_request_id'] ?? ''), 'id' => (int)$row['id'], 'node_id' => (string)$row['node_id'], 'type' => (string)$row['node_type'], 'status' => (string)$row['status'], 'progress' => (int)$row['progress'], 'error' => (string)$row['error'], 'result' => $result, 'results' => (array)($result['results'] ?? $result['images'] ?? $result['videos'] ?? [])]; }
 }

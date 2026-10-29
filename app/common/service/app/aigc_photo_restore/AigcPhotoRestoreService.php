@@ -624,7 +624,7 @@ class AigcPhotoRestoreService
             $row['image_uri'] = (string)($first['image_uri'] ?? '');
             $row['source_image_url'] = self::imageUrl((string)($row['source_image'] ?? ''));
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -640,7 +640,7 @@ class AigcPhotoRestoreService
             'pending' => '排队中',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function restoreType(int $tenantId, string $code, bool $requireEnabled = false): array

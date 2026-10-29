@@ -57,6 +57,7 @@ class MarketSeedSvcAppRuntimeService
                 if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
                 $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $options[] = [
+                    ...MarketModelSource::product($product),
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'value' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'label' => (string)($sku['title'] ?: ($product['name'] ?? '音色修改、AI翻唱 API')),
@@ -90,7 +91,7 @@ class MarketSeedSvcAppRuntimeService
                 ];
             }
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     public static function quote(int $tenantId, array $selection, int $quantity = 1): array

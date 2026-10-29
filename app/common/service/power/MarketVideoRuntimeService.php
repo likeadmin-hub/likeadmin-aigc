@@ -194,7 +194,7 @@ class MarketVideoRuntimeService
                 'sort' => (int)$product['id'],
             ];
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     /** Expose only sellable generation variants to every catalogue consumer. */

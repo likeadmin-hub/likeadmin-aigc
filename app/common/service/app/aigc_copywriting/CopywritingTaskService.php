@@ -47,7 +47,7 @@ final class CopywritingTaskService
     }
     public static function publicTask(array $row): array
     {
-        $public=array_intersect_key($row,array_flip(['id','tool_id','version_id','source_task_id','status','submission_state','billing_state','result_text','error','cancel_requested','last_seq','started_at','finished_at','create_time']));
+        $public=array_intersect_key($row,array_flip(['id','tool_id','version_id','source_task_id','status','submission_state','billing_state','result_text','error','cancel_requested','last_seq','started_at','finished_at','create_time','provider_request_id']));
         $public['values']=CopywritingStore::decode($row['input_snapshot']);
         $public['model']=CopywritingModelService::publicModel(CopywritingStore::decode($row['model_snapshot']));
         $version=CopywritingStore::owned('version',(int)$row['tenant_id'],(int)$row['version_id']);

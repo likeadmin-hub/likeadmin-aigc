@@ -811,7 +811,7 @@ class AigcStyleTransferService
             $row['source_image_url'] = self::imageUrl((string)($row['source_image'] ?? ''));
             $row['style_image_url'] = self::imageUrl((string)($row['style_image'] ?? ''));
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -827,7 +827,7 @@ class AigcStyleTransferService
             'canceled' => '已取消',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function formatTemplate(array $row): array

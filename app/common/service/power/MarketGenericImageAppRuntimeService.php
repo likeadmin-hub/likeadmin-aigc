@@ -43,6 +43,7 @@ class MarketGenericImageAppRuntimeService
                 if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $options[] = [
+                    ...MarketModelSource::product($product),
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'value' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'market_product_id' => (int)$product['id'],
@@ -76,7 +77,7 @@ class MarketGenericImageAppRuntimeService
                 ];
             }
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     public static function isSelection(array $selection): bool

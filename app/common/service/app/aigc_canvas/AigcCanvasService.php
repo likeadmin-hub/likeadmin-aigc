@@ -1903,7 +1903,8 @@ class AigcCanvasService
         $data['project_id'] = (int)($row['project_id'] ?? 0);
         $data['source_task_id'] = (int)($row['source_task_id'] ?? 0);
         $data['status'] = (string)($result['status'] ?? $data['status'] ?? '');
-        $data['provider_task_id'] = (string)($result['provider_task_id'] ?? ($data['source_task_id'] ?: ''));
+        $data['provider_task_id'] = (string)($result['provider_task_id'] ?? '');
+        $data['provider_request_id'] = (string)($result['provider_request_id'] ?? '');
         $data['params_json'] = $params;
         $data['result_json'] = $result;
         $data['prompt'] = (string)($data['prompt'] ?? $params['prompt'] ?? $params['content'] ?? '');
