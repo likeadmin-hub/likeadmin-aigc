@@ -146,4 +146,23 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertCount(3, $calls);
         self::assertSame($receipts, Db::name('aigc_short_drama_planning_unit')->where('task_id', $this->task)->column('result_json', 'unit_key'));
     }
+
+    public function testReviewProviderFailureLeavesTenantScopedDraftCheckpoint(): void
+    {
+        $plan=ShortDramaSceneBatchTest::fixture([1,1]);
+        $plan['storyboard']=[ShortDramaSceneBatchTest::shot(['shot_id'=>'s1_1','scene_ref_id'=>'l1','duration_seconds'=>6],$plan)];
+        $request=ShortDramaSceneBatchTest::request([1,1]);$request['_input_contract_version']=21;
+        $checkpoint=\app\common\service\app\aigc_short_drama\ShortDramaReviewCheckpoint::class;
+        $review=\app\common\service\app\aigc_short_drama\ShortDramaEpisodeReview::class;
+        try {
+            $review::generate($plan,$request,static function(){throw new \RuntimeException('provider unavailable',503);},null,
+                function($draft,$reviewed,$resume)use($checkpoint){$checkpoint::save(self::TENANT,7,$this->task,$draft,$reviewed,$resume);});
+            self::fail('Provider error must remain visible');
+        } catch(\RuntimeException $error){self::assertSame(503,$error->getCode());}
+        $saved=$checkpoint::load(self::TENANT,7,$this->task);
+        self::assertSame('draft',$saved['content_status']);self::assertSame($plan,$saved['plan']);
+        self::assertSame([],$checkpoint::load(self::TENANT+1,7,$this->task));
+        self::assertSame([],$checkpoint::load(self::TENANT,8,$this->task));
+        self::assertSame('running',Db::name('aigc_short_drama_script_task')->where('task_id',$this->task)->value('status'));
+    }
 }
