@@ -65,7 +65,7 @@ final class MarketGenerationAdapterRegistry
             $value=strtolower(trim((string)$value));$compact=preg_replace('/[^a-z0-9]+/','',$value) ?: '';
             if (preg_match('/(?:^|[-_\s])h3(?:[-_\s]|$)/',$value) || str_starts_with($compact,'h3')) return 'h3_content_v1';
         }
-        if ($code === 'wan3.0-video') return 'wan_video_media_v1';
+        if ($code === 'wan3.0-video' || strtolower((string)($snapshot['channel_code'] ?? $snapshot['upstream_channel_code'] ?? '')) === 'wan3.0-video') return 'wan_video_media_v1';
         if (str_starts_with($code,'veo3.1-')) return 'veo_video_v1';
         return isset($schema['input'],$schema['parameters']) ? 'video_input_parameters_v1' : 'flat_video_v1';
     }

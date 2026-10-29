@@ -1706,6 +1706,8 @@ class MarketVideoRuntimeService
     private static function assertWanAppAssets(array $market, array $assets): void
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
+        $protocol = MarketGenerationAdapterRegistry::applicationProtocol('wan', ['locked_params'=>$locked,
+            'source_payload'=>$market['product']['source_payload'] ?? []]);
         $model = trim((string)($locked['model'] ?? ''));
         if ($model === '') {
             $model = $assets['video'] !== [] ? 'wan2.7-videoedit'
@@ -1714,13 +1716,13 @@ class MarketVideoRuntimeService
         if (count($assets['audio']) > 1) {
             throw new Exception('Wan 2.7 supports only one reference audio');
         }
-        if ($model === 'wan2.7-r2v' && (count($assets['image']) < 1 || count($assets['image']) > 2 || $assets['video'] !== [])) {
+        if (($protocol === 'wan_reference_v1' || $model === 'wan2.7-r2v') && (count($assets['image']) < 1 || count($assets['image']) > 2 || $assets['video'] !== [])) {
             throw new Exception('Wan 2.7 r2v requires one or two reference images and no video');
         }
-        if ($model === 'wan2.7-videoedit' && (count($assets['video']) !== 1 || count($assets['image']) > 4)) {
+        if (($protocol === 'wan_edit_v1' || $model === 'wan2.7-videoedit') && (count($assets['video']) !== 1 || count($assets['image']) > 4)) {
             throw new Exception('Wan 2.7 videoedit requires one video and at most four reference images');
         }
-        if ($model === 'wan2.7' && ($assets['video'] !== [] || count($assets['image']) > 2)) {
+        if (($protocol === 'wan_text_v1' || $model === 'wan2.7') && ($assets['video'] !== [] || count($assets['image']) > 2)) {
             throw new Exception('Wan 2.7 text mode accepts at most two images and no video');
         }
     }
@@ -2479,12 +2481,7 @@ class MarketVideoRuntimeService
 
     private static function isWanThreeProduct(array $product): bool
     {
-        foreach (['upstream_model_code', 'upstream_channel_code', 'model_code', 'channel_code'] as $key) {
-            if (strtolower(trim((string)($product[$key] ?? ''))) === 'wan3.0-video') {
-                return true;
-            }
-        }
-        return false;
+        return ($product['resource_type'] ?? '') !== 'app_api' && MarketGenerationAdapterRegistry::modelProtocol('video', $product) === 'wan_video_media_v1';
     }
 
     /** First/last-frame adapters always need exactly two image inputs. */
@@ -2671,14 +2668,7 @@ class MarketVideoRuntimeService
     }
     private static function isH3Product(array $product): bool
     {
-        foreach (['upstream_model_code', 'upstream_channel_code', 'name'] as $key) {
-            $value = strtolower(trim((string)($product[$key] ?? '')));
-            $compact = preg_replace('/[^a-z0-9]+/', '', $value) ?: '';
-            if (preg_match('/(?:^|[-_\s])h3(?:[-_\s]|$)/', $value) === 1 || str_starts_with($compact, 'h3')) {
-                return true;
-            }
-        }
-        return false;
+        return ($product['resource_type'] ?? '') !== 'app_api' && MarketGenerationAdapterRegistry::modelProtocol('video', $product) === 'h3_content_v1';
     }
     private static function defaultConcreteTextToVideoRatio(array $skus, array $metadata): string
     {
@@ -3123,6 +3113,10 @@ class MarketVideoRuntimeService
     }
     private static function skuInputMode(array $locked): string
     {
+        $declared = match ($locked['_generation_protocol'] ?? '') {
+            'wan_edit_v1'=>'video_edit', 'wan_reference_v1'=>'image_reference', 'wan_text_v1'=>'text_to_video', default=>null,
+        };
+        if ($declared !== null) return $declared;
         $model = strtolower((string)($locked['model'] ?? ''));
         if ($model === 'grok-imagine-video-1.5') return 'image_reference';
         if (str_contains($model, 'a2v') || str_contains($model, 'audio2video') || str_contains($model, 'audio-to-video')) return 'audio_reference';
@@ -3170,6 +3164,14 @@ class MarketVideoRuntimeService
             return in_array($requestedMode, ['text_to_video', 'image_reference', 'video_edit', 'audio_reference'], true);
         }
         $app = strtolower((string)($product['upstream_app_code'] ?? ''));
+        if ($app === 'wan') {
+            $protocol = MarketGenerationAdapterRegistry::applicationProtocol('wan', ['locked_params'=>$locked,
+                'source_payload'=>$product['source_payload'] ?? []]);
+            $declared = match ($protocol) {
+                'wan_edit_v1'=>'video_edit', 'wan_reference_v1'=>'image_reference', 'wan_text_v1'=>'text_to_video', default=>null,
+            };
+            if ($declared !== null) return $requestedMode === $declared;
+        }
         if ($app === 'grok_video' && strtolower((string)($locked['model'] ?? '')) === 'grok-imagine-video-1.5') {
             return $requestedMode === 'image_reference';
         }

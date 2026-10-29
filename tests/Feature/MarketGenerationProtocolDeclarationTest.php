@@ -107,4 +107,23 @@ class MarketGenerationProtocolDeclarationTest extends TestCase
         Images::prepareRequest(['model_code'=>'compatible-next','market_metadata'=>['generation_protocol'=>'qwen_image_v1']],
             ['prompt'=>'Offline fixture','quantity'=>2]);
     }
+
+    public function testProtocolDeclarationsAlsoGovernSharedSkuEligibility(): void
+    {
+        foreach(['h3_content_v1'=>'isH3Product','wan_video_media_v1'=>'isWanThreeProduct'] as $protocol=>$method){
+            $product=['resource_type'=>'model','upstream_model_code'=>'compatible-next','source_payload'=>['market_metadata'=>['generation_protocol'=>$protocol]]];
+            self::assertTrue((new ReflectionMethod(Videos::class,$method))->invoke(null,$product));
+        }
+        $q4=['resource_type'=>'model','upstream_model_code'=>'compatible-next','source_payload'=>['market_metadata'=>['generation_protocol'=>'q4_video_v1']]];
+        self::assertTrue(\app\common\service\power\Q4VideoContract::matches($q4));
+        $locked=['model'=>'compatible-wan-next','_generation_protocol'=>'wan_edit_v1'];
+        self::assertSame('video_edit',(new ReflectionMethod(Videos::class,'skuInputMode'))->invoke(null,$locked));
+        $product=['resource_type'=>'app_api','upstream_app_code'=>'wan'];
+        $admit=new ReflectionMethod(Videos::class,'skuSupportsInputMode');
+        self::assertTrue($admit->invoke(null,'text_to_video','video_edit',$product,$locked));
+        self::assertFalse($admit->invoke(null,'text_to_video','image_reference',$product,$locked));
+        $this->expectExceptionMessage('at most four reference images');
+        (new ReflectionMethod(Videos::class,'assertWanAppAssets'))->invoke(null,['product'=>$product,'sku'=>['locked_params'=>$locked]],
+            ['image'=>array_fill(0,5,'https://fixtures.invalid/a.png'),'video'=>['https://fixtures.invalid/a.mp4'],'audio'=>[]]);
+    }
 }
