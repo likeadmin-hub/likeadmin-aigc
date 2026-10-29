@@ -88,4 +88,23 @@ class MarketGenerationCompatibilityAuditTest extends TestCase
         self::assertArrayNotHasKey('prompt',$cases[0]['request']);
         self::assertSame('constructed', Audit::probe($cases[0], static fn()=>[])['status']);
     }
+
+    public function testReadOnlyCurrentReviewBindsDeclarationsWithoutGrantingCapabilities(): void
+    {
+        $fixtures = dirname(__DIR__).'/fixtures/';
+        $review = json_decode(file_get_contents($fixtures.'market-legacy-declaration-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+        $captured = json_decode(file_get_contents($fixtures.'canvas-generation-market-contracts.json'),true,512,JSON_THROW_ON_ERROR);
+        self::assertCount(24,$review['entries']);
+        self::assertSame(31,array_sum(array_column($review['entries'],'catalogue_options')));
+        foreach ($review['entries'] as $entry) {
+            $matches = array_values(array_filter($captured['contracts'],static fn($c)=>$c['resource_type'] === $entry['resource_type'] && (
+                $entry['resource_type'] === 'model' ? $c['model_code'] === $entry['model_code'] && $c['channel_code'] === $entry['channel_code']
+                    : $c['app_code'] === $entry['app_code']
+            )));
+            self::assertCount(1,$matches);
+            self::assertSame(Audit::fingerprint($matches[0]['params_schema']),$entry['captured_parameter_fingerprint']);
+            self::assertSame($entry['captured_parameter_fingerprint'],$entry['current_parameter_fingerprint']);
+            self::assertArrayNotHasKey('supported',$entry);
+        }
+    }
 }

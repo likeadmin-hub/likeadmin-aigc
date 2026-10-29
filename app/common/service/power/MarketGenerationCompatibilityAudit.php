@@ -4,6 +4,11 @@ namespace app\common\service\power;
 /** Developer diagnostics only. No enablement decisions, HTTP, quotes, tasks or point writes. */
 final class MarketGenerationCompatibilityAudit
 {
+    public static function fingerprint(array $schema): string
+    {
+        return hash('sha256', json_encode(self::canonical($schema), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    }
+
     public static function review(array $schema, ?array $captured): array
     {
         $properties = MarketGenerationSchema::properties($schema);
