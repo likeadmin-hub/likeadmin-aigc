@@ -130,6 +130,32 @@ class LegacyMarketCatalogueParityTest extends TestCase
         ]);
     }
 
+    public function testLegacyImageModelStillRejectsReferencesAboveItsLimit(): void
+    {
+        $this->expectExceptionMessage('最多支持 1 张参考图');
+        self::call(MarketImageModelRuntimeService::class, 'assertReferenceImagesAllowed', [
+            'product' => ['source_payload' => ['market_metadata' => ['supports_reference_images' => true, 'max_reference_images' => 1]]],
+            'reference_limit' => 1,
+        ], ['reference_images' => [self::IMAGE, 'https://fixtures.invalid/other.png']]);
+    }
+
+    public function testSeedanceRejectsWebSearchWithReferences(): void
+    {
+        $this->expectExceptionMessage('联网搜索仅支持文生视频');
+        self::call(MarketVideoRuntimeService::class, 'appPayload', ['app_code' => 'seedance', 'locked_params' => []], [
+            'prompt' => 'fixture prompt', 'tools' => [['type' => 'web_search']],
+            'reference_assets' => [['type' => 'image', 'role' => 'reference_image', 'url' => self::IMAGE]],
+        ], 'fixture');
+    }
+
+    public function testGrokApplicationRejectsUnsupportedAudio(): void
+    {
+        $this->expectExceptionMessage('仅支持参考图片');
+        self::call(MarketVideoRuntimeService::class, 'appPayload', ['app_code' => 'grok_video', 'locked_params' => []], [
+            'prompt' => 'fixture prompt', 'reference_assets' => [['type' => 'audio', 'role' => 'reference_audio', 'url' => 'https://fixtures.invalid/audio.mp3']],
+        ], 'fixture');
+    }
+
     public static function videoApplications(): array
     {
         return [
@@ -187,12 +213,17 @@ class LegacyMarketCatalogueParityTest extends TestCase
         $request = ['duration' => 8, 'resolution' => '720p'];
         $merged = self::call(MarketVideoRuntimeService::class, 'billingRequest', $selection, $request);
         $method = new ReflectionMethod(MarketVideoRuntimeService::class, 'quantity');
-        $quoteArgs = [&$market, $request];
-        $quoteQuantity = $method->invokeArgs(null, $quoteArgs);
-        $submitArgs = [&$market, $merged];
-        $submitQuantity = $method->invokeArgs(null, $submitArgs);
-        self::assertSame(8.0, $quoteQuantity);
-        self::assertSame($quoteQuantity, $submitQuantity);
+        // Grok loads its reference model metadata from the database for
+        // duration-metered SKUs. Its per-call path is isolated here; the
+        // separate Grok pricing tests cover its SKU meter selection.
+        if ($app !== 'grok_video') {
+            $quoteArgs = [&$market, $request];
+            $quoteQuantity = $method->invokeArgs(null, $quoteArgs);
+            $submitArgs = [&$market, $merged];
+            $submitQuantity = $method->invokeArgs(null, $submitArgs);
+            self::assertSame(8.0, $quoteQuantity);
+            self::assertSame($quoteQuantity, $submitQuantity);
+        }
         $market['sku']['usage_unit'] = 'per_call';
         $callArgs = [&$market, $merged];
         self::assertSame(1.0, $method->invokeArgs(null, $callArgs));
