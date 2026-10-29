@@ -2407,6 +2407,7 @@ class AigcCanvasService
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => self::normalizeReferenceImages($params, $tenantId, $userId, $persistInlineImages),
+            ...array_intersect_key($params, ['material_mode' => true]),
             ...(!empty($params['style']) ? ['style' => (string)$params['style']] : []),
             'channel' => (string)($params['channel'] ?? $params['model'] ?? ''),
             'quality' => (string)($params['quality'] ?? ''),
@@ -2421,7 +2422,7 @@ class AigcCanvasService
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
         ]), PHP_INT_MAX);
-        return array_replace(array_intersect_key($params, array_flip(['seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
+        return array_replace(array_intersect_key($params, array_flip(['material_mode', 'seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
@@ -2496,7 +2497,7 @@ class AigcCanvasService
             }
         }
         $normalized = [];
-        foreach (array_slice($images, 0, 12) as $image) {
+        foreach ($images as $image) {
             $image = trim((string)$image);
             if ($image === '') {
                 continue;
