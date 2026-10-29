@@ -66,43 +66,37 @@ class PowerMarketService
      */
     public static function savePrices(int $productId, array $prices, ?array $capabilityOverrides = null, int $adminId = 0): void
     {
-        $product = PowerMarketProduct::findOrEmpty($productId);
-        if ($product->isEmpty()) {
-            throw new Exception('商品不存在');
-        }
-        if ($capabilityOverrides !== null) {
-            if ($product['resource_type'] !== self::TYPE_MODEL || $adminId <= 0) throw new Exception('仅平台管理员可校正模型能力');
-            $capabilityOverrides = MarketModelCapabilities::validate($capabilityOverrides);
-        }
-        $skuById = [];
-        foreach (PowerMarketSku::where('product_id', $productId)->where('status', 1)->select()->toArray() as $sku) {
-            $skuById[(int)$sku['id']] = $sku;
-        }
-        Db::transaction(function () use ($prices, $skuById, $productId, $capabilityOverrides, $adminId): void {
+        $prices = MarketPriceWriteInput::rows($prices);
+        if ($capabilityOverrides !== null) $capabilityOverrides = MarketModelCapabilities::validate($capabilityOverrides);
+        MarketPriceWriteTransaction::run(function () use ($prices, $productId, $capabilityOverrides, $adminId): void {
+            MarketPriceRuleService::lockOwner(0);
+            $product = PowerMarketProduct::where('id', $productId)->lock(true)->findOrEmpty();
+            if ($product->isEmpty()) throw new Exception('商品不存在');
             if ($capabilityOverrides !== null) {
-                $locked = PowerMarketProduct::where('id', $productId)->lock(true)->findOrEmpty();
-                if ($locked->isEmpty()) throw new Exception('商品不存在');
-                $snapshot = self::arrayValue($locked['source_payload']);
-                $snapshot[MarketModelCapabilities::KEY] = ['identity'=>MarketModelCapabilityVerification::identity($locked->toArray()),
+                if ($product['resource_type'] !== self::TYPE_MODEL || $adminId <= 0) throw new Exception('仅平台管理员可校正模型能力');
+                $snapshot = self::arrayValue($product['source_payload']);
+                $snapshot[MarketModelCapabilities::KEY] = ['identity'=>MarketModelCapabilityVerification::identity($product->toArray()),
                     'values'=>$capabilityOverrides, 'admin_id'=>$adminId, 'updated_at'=>time()];
-                $locked->save(['source_payload'=>$snapshot]);
+                $product->save(['source_payload'=>$snapshot]);
+            }
+            $skuById = [];
+            foreach (PowerMarketSku::where('product_id', $productId)->where('status', 1)->order('id')->lock(true)->select()->toArray() as $sku) {
+                $skuById[(int)$sku['id']] = $sku;
             }
             foreach ($prices as $price) {
-                $skuId = (int)($price['sku_id'] ?? $price['id'] ?? 0);
-                if ($skuId <= 0 || !isset($skuById[$skuId])) {
-                    throw new Exception('计费 SKU 不存在');
+                $skuId = $price['sku_id'];
+                if (!isset($skuById[$skuId])) throw new Exception('计费 SKU 不存在');
+                $sku = $skuById[$skuId];
+                $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
+                $data = ['sale_status' => (int)($price['sale_status'] ?? $price['status'] ?? 1) === 1 ? 1 : 0, 'update_time' => time()];
+                if ($writePrice) {
+                    MarketPriceWriteInput::assertExpected($price, (float)$sku['sale_points']);
+                    $sale = $price['sale_points'];
+                    if ($sale < max(0, (float)($sku['upstream_price'] ?? 0))) throw new Exception('租户成本价不能低于上游结算价');
+                    MarketPriceRuleService::manual(0, $productId, $skuId, $sale);
+                    $data['sale_points'] = $sale;
                 }
-                $cost = max(0, (float)($skuById[$skuId]['upstream_price'] ?? 0));
-                $sale = round(max(0, (float)($price['sale_points'] ?? 0)), 6);
-                if ($sale < $cost) {
-                    throw new Exception('租户成本价不能低于上游结算价');
-                }
-                if (($price['manual_override'] ?? true) !== false) MarketPriceRuleService::manual(0, $productId, $skuId, $sale);
-                PowerMarketSku::where('id', $skuId)->update([
-                    'sale_points' => $sale,
-                    'sale_status' => (int)($price['sale_status'] ?? $price['status'] ?? 1) === 1 ? 1 : 0,
-                    'update_time' => time(),
-                ]);
+                PowerMarketSku::where('id', $skuId)->update($data);
             }
         });
     }
@@ -115,9 +109,11 @@ class PowerMarketService
             throw new Exception('请选择模型商品');
         }
         $saleStatus = $saleStatus === 1 ? 1 : 0;
-        return PowerMarketSku::whereIn('product_id', $productIds)
-            ->where('status', 1)
-            ->update(['sale_status' => $saleStatus, 'update_time' => time()]);
+        return MarketPriceWriteTransaction::run(static function () use ($productIds, $saleStatus): int {
+            MarketPriceRuleService::lockOwner(0);
+            return PowerMarketSku::whereIn('product_id', $productIds)->where('status', 1)
+                ->update(['sale_status' => $saleStatus, 'update_time' => time()]);
+        });
     }
 
     /**

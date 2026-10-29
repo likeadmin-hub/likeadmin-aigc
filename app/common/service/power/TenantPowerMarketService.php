@@ -259,44 +259,36 @@ class TenantPowerMarketService
         if ($tenantId <= 0) {
             throw new Exception('租户信息无效');
         }
-        $product = PowerMarketProduct::where(['id' => $productId, 'status' => 1])->findOrEmpty();
-        if ($product->isEmpty()) {
-            throw new Exception('商品已下架，不能配置');
-        }
-        $skuById = [];
-        foreach (PowerMarketSku::where('product_id', $productId)->select()->toArray() as $sku) {
-            $skuById[(int)$sku['id']] = $sku;
-        }
-        Db::transaction(function () use ($tenantId, $productId, $prices, $skuById): void {
+        $prices = MarketPriceWriteInput::rows($prices);
+        MarketPriceWriteTransaction::run(function () use ($tenantId, $productId, $prices): void {
+            // All price writers acquire owner 0, tenant, product, then SKU in that order.
+            MarketPriceRuleService::lockOwner($tenantId);
+            $product = PowerMarketProduct::where(['id' => $productId, 'status' => 1])->lock(true)->findOrEmpty();
+            if ($product->isEmpty()) throw new Exception('商品已下架，不能配置');
+            $skuById = [];
+            foreach (PowerMarketSku::where('product_id', $productId)->order('id')->lock(true)->select()->toArray() as $sku) {
+                $skuById[(int)$sku['id']] = $sku;
+            }
             foreach ($prices as $price) {
-                $skuId = (int)($price['sku_id'] ?? $price['id'] ?? 0);
-                if ($skuId <= 0 || !isset($skuById[$skuId])) {
-                    throw new Exception('计费 SKU 不存在');
+                $skuId = $price['sku_id'];
+                if (!isset($skuById[$skuId])) throw new Exception('计费 SKU 不存在');
+                $sku = $skuById[$skuId];
+                if (!self::isPlatformAvailableSku($sku)) throw new Exception('平台商品已下架，不能配置');
+                $row = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->lock(true)->findOrEmpty();
+                $current = MarketPriceRuleService::tenant($tenantId, $sku, $row->isEmpty() ? null : $row->toArray());
+                $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
+                $sale = $writePrice ? $price['sale_points'] : (float)$current['tenant']['price'];
+                if ($writePrice) {
+                    MarketPriceWriteInput::assertExpected($price, (float)$current['tenant']['price']);
+                    if ($sale < (float)$current['platform']['price']) throw new Exception('租户售价不能低于平台成本价');
+                    MarketPriceRuleService::manual($tenantId, $productId, $skuId, $sale);
                 }
-                $platformEnabled = self::isPlatformAvailableSku($skuById[$skuId]);
-                if (!$platformEnabled) {
-                    throw new Exception('平台商品已下架，不能配置');
-                }
-                $cost = max(0, (float)($skuById[$skuId]['sale_points'] ?? 0));
-                $sale = round(max(0, (float)($price['sale_points'] ?? 0)), 6);
-                if ($sale < $cost) {
-                    throw new Exception('租户售价不能低于平台成本价');
-                }
-                if (($price['manual_override'] ?? true) !== false) MarketPriceRuleService::manual($tenantId, $productId, $skuId, $sale);
-                $row = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->findOrEmpty();
-                $data = [
-                    'tenant_id' => $tenantId,
-                    'sku_id' => $skuId,
-                    'sale_points' => $sale,
-                    'sale_status' => (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0,
-                    'update_time' => time(),
-                ];
-                if ($row->isEmpty()) {
-                    $data['create_time'] = time();
-                    TenantPowerMarketSkuPrice::create($data);
-                } else {
-                    $row->save($data);
-                }
+                $data = ['tenant_id' => $tenantId, 'sku_id' => $skuId,
+                    'sale_status' => (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0, 'update_time' => time()];
+                // A shelf switch must never write a stale price or turn inheritance into manual pricing.
+                if ($writePrice || $row->isEmpty()) $data['sale_points'] = $sale;
+                if ($row->isEmpty()) TenantPowerMarketSkuPrice::create($data + ['create_time' => time()]);
+                else $row->save($data);
             }
         });
     }
@@ -363,16 +355,16 @@ class TenantPowerMarketService
         }
 
         $skuIds = array_values(array_unique(array_map(static fn (array $sku): int => (int)$sku['id'], $skus)));
-        $configured = TenantPowerMarketSkuPrice::where('tenant_id', $tenantId)
-            ->whereIn('sku_id', $skuIds)
-            ->select()
-            ->toArray();
-        $configuredBySku = array_column($configured, null, 'sku_id');
         $saleStatus = $saleStatus === 1 ? 1 : 0;
         $now = time();
 
-        Db::transaction(function () use ($tenantId, $skus, $configuredBySku, $saleStatus, $now): void {
+        MarketPriceWriteTransaction::run(function () use ($tenantId, $skuIds, $saleStatus, $now): void {
+            MarketPriceRuleService::lockOwner($tenantId);
+            $skus = PowerMarketSku::whereIn('id', $skuIds)->order('id')->lock(true)->select()->toArray();
+            $configuredBySku = array_column(TenantPowerMarketSkuPrice::where('tenant_id', $tenantId)
+                ->whereIn('sku_id', $skuIds)->order('sku_id')->lock(true)->select()->toArray(), null, 'sku_id');
             foreach ($skus as $sku) {
+                if (!self::isPlatformAvailableSku($sku)) throw new Exception('平台商品状态已更新，请刷新后重试');
                 $skuId = (int)$sku['id'];
                 $configured = $configuredBySku[$skuId] ?? null;
                 if ($configured !== null) {
