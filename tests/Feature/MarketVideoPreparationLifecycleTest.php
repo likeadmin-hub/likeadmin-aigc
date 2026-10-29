@@ -31,7 +31,8 @@ class MarketVideoPreparationLifecycleTest extends TestCase
             $metadata = ['params_schema' => ['properties' => [
                 'prompt' => ['type' => 'string'], 'duration' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 8],
                 'resolution' => ['type' => 'string', 'enum' => ['720P']], 'aspect_ratio' => ['type' => 'string', 'enum' => ['1:1']],
-            ], 'required' => ['prompt', 'duration']], 'supported_durations' => [4], 'supported_ratios' => ['1:1'], 'supported_resolutions' => ['720P']];
+            ], 'required' => ['prompt', 'duration']], 'category_code' => 'video', 'category_name' => '视频生成',
+                'supported_durations' => [4], 'supported_ratios' => ['1:1'], 'supported_resolutions' => ['720P']];
             if ($resource === 'model') $metadata['material_capabilities'] = ['modes' => [['code' => 'text_to_video', 'method' => 'text_to_video', 'fields' => []]]];
             $product = PowerMarketProduct::create(['product_code' => $key, 'name' => 'Offline phase 2 fixture', 'resource_type' => $resource,
                 'model_type' => 'video', 'source_code' => 'offline-fixture', 'upstream_resource_key' => $key,
