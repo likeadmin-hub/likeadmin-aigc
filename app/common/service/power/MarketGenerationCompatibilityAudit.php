@@ -179,7 +179,8 @@ final class MarketGenerationCompatibilityAudit
         foreach ($expected as $key=>$value) {
             if (!array_key_exists($key, $native)) return false;
             if (is_array($value)) { if (!is_array($native[$key]) || !self::contains($native[$key], $value)) return false; }
-            elseif ($native[$key] !== $value) return false;
+            elseif ($native[$key] !== $value && !(is_numeric($native[$key]) && is_numeric($value)
+                && !is_string($native[$key]) && !is_string($value) && $native[$key] == $value)) return false;
         }
         return true;
     }
