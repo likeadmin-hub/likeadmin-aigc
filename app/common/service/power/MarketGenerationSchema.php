@@ -119,7 +119,14 @@ final class MarketGenerationSchema
         } elseif (in_array($type, ['integer','number'], true) && is_numeric($value)) {
             if ($type !== 'integer' || (float)$value === (float)(int)$value) $value = $type === 'integer' ? (int)$value : (float)$value;
         } elseif ($type === 'string' && is_scalar($value)) $value = is_bool($value) ? ($value ? 'true' : 'false') : (string)$value;
-        elseif ($type === 'object' && is_array($value)) $value = self::normalize($definition, $value);
+        elseif ($type === 'object' && is_array($value)) {
+            // Closed nested inputs must reject unknown children before
+            // normalization can erase them. Root branch filtering is separate.
+            if (($definition['additionalProperties'] ?? true) === false) {
+                foreach ($value as $key=>$_) if (!isset($definition['properties'][$key])) throw new InvalidArgumentException('当前参数组合不支持：'.$path.'.'.$key);
+            }
+            $value = self::normalize($definition, $value);
+        }
         elseif ($type === 'array' && is_array($value)) $value = array_map(static fn($v) => self::value((array)($definition['items'] ?? []), $v, $path . '[]'), array_values($value));
         $options = self::choices($definition);
         foreach ($options as $option) {
