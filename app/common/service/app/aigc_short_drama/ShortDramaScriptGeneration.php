@@ -68,11 +68,16 @@ final class ShortDramaScriptGeneration
                 }
                 try { $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? [])); }
                 catch (RuntimeException $error) {
+                    if ($capture && ShortDramaInputContract::truncatedObjectPrefix($request) && in_array($error->getCode(), [413,422], true)
+                        && preg_match('/^(?:script|skeleton|timed_skeleton_\d+)$/', $key)) {
+                        $prefix=ShortDramaStructuredResponse::partialObjectPrefix((array)($receipt['result'] ?? []));
+                        if ($prefix) $capture($prefix);
+                    }
                     if ((!ShortDramaInputContract::preciseRecovery($request) && empty($receipt['_safe_recovery'])) || !in_array($error->getCode(), [413,422], true)
                         || !preg_match('/^(?:timed_scene_|scene_)/', $key)
                         || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::extendedTruncatedRecovery($request), ShortDramaInputContract::wrappedTruncatedRecovery($request)))) throw $error;
                 }
-                if ($capture) $capture($payload);
+                if ($capture && $key !== 'script') $capture($payload);
                 if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
                 if ($validate) $validate($payload);
                 return $payload;
@@ -99,7 +104,9 @@ final class ShortDramaScriptGeneration
         $revision = !empty($request['revision_message']) || !empty($request['revision_target']);
         if ($revision || ($budget['max_tokens'] >= 6000 && $duration < 120)) {
             try {
-                $payload = $call('script', $messages, 12000, $revision ? null : static fn($plan) => self::assertPlan($plan));
+                $payload = $call('script', $messages, 12000, $revision ? null : static fn($plan) => self::assertPlan($plan),
+                    !$revision && ShortDramaInputContract::truncatedObjectPrefix($request) && $progress
+                        ? static function ($partial) use ($progress): void { $progress('script_checkpoint', $partial); } : null);
                 if (!$revision) self::assertPlan($payload);
                 return $finish($payload);
             } catch (RuntimeException $error) {
@@ -151,6 +158,7 @@ final class ShortDramaScriptGeneration
                 }
                 break;
             } catch (RuntimeException $error) {
+                if ($skeleton && $progress && ShortDramaInputContract::truncatedObjectPrefix($request)) $progress('script_checkpoint', $skeleton);
                 if (ShortDramaInputContract::preciseRecovery($request) && !$attempt && $error->getCode() === 422 && $skeleton) {
                     $targets = ShortDramaSkeletonFieldRepair::targets($skeleton, false);
                     if ($targets) {

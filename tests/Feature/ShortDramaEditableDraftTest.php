@@ -69,4 +69,44 @@ class ShortDramaEditableDraftTest extends TestCase
             self::assertSame('新画面',Draft::load($scope['tenant_id'],7,$scope['task_id'])['plan']['storyboard'][0]['visual_description']);
         } finally { Db::rollback(); }
     }
+
+    public function testConflictChoiceRebasesOnlyTheSelectedFieldAndProtectsStaleRequests(): void
+    {
+        if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to transactional local DB tests');
+        (new \think\App())->initialize(); Db::startTrans();
+        try {
+            $scope=['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>'test_conflict_'.bin2hex(random_bytes(8))];
+            $plan=$this->plan();
+            Db::name('aigc_short_drama_script_task')->insert($scope+['project_id'=>17,'status'=>'failed','retry_count'=>1,
+                'request_json'=>'{"_generation_version":3}','result_json'=>json_encode(['__script_checkpoint'=>$plan],JSON_UNESCAPED_UNICODE),
+                'create_time'=>1,'update_time'=>1]);
+            $view=Draft::view($scope['tenant_id'],7,$scope['task_id'],$plan);
+            $saved=Draft::save($scope['tenant_id'],7,$scope['task_id'],17,$view['token'],'s1_1',['visual_description'=>'用户画面','dialogue'=>'甲：用户台词']);
+            Db::name('aigc_short_drama_script_task')->where($scope)->update(['status'=>'running']);
+            $candidate=$plan; $candidate['storyboard'][0]['visual_description']='新生成画面'; $candidate['storyboard'][0]['dialogue']='甲：新生成台词';
+            Draft::captureConflict($scope['tenant_id'],7,$scope['task_id'],0,$candidate);
+            self::assertEmpty(Draft::view($scope['tenant_id'],7,$scope['task_id'],$plan)['conflicts']);
+            Draft::captureConflict($scope['tenant_id'],7,$scope['task_id'],1,$candidate);
+            Db::name('aigc_short_drama_script_task')->where($scope)->update(['status'=>'failed']);
+            $view=Draft::view($scope['tenant_id'],7,$scope['task_id'],$plan);
+            self::assertCount(2,$view['conflicts']); self::assertSame('新生成画面',$view['conflicts'][0]['generated']);
+            try { Draft::resolve($scope['tenant_id'],7,$scope['task_id'],17,$saved['token'],'s1_1','visual_description','draft'); self::fail('Stale token accepted'); }
+            catch (\RuntimeException $error) { self::assertSame(409,$error->getCode()); }
+            $resolved=Draft::resolve($scope['tenant_id'],7,$scope['task_id'],17,$view['token'],'s1_1','visual_description','draft');
+            $resolved=Draft::resolve($scope['tenant_id'],7,$scope['task_id'],17,$resolved['token'],'s1_1','dialogue','generated');
+            self::assertEmpty($resolved['conflicts']);
+            $merged=Draft::merge($candidate,Draft::load($scope['tenant_id'],7,$scope['task_id']),[]);
+            self::assertSame('用户画面',$merged['storyboard'][0]['visual_description']);
+            self::assertSame('甲：新生成台词',$merged['storyboard'][0]['dialogue']);
+            self::assertSame('needs_review',$merged['script_review']['status']);
+        } finally { Db::rollback(); }
+    }
+
+    public function testLegacyStreamIsEditableOnlyIfTheWholeObjectIsIntact(): void
+    {
+        $json=json_encode($this->plan(),JSON_UNESCAPED_UNICODE);
+        self::assertSame($this->plan(),Preview::legacyCheckpoint(['__stream_content'=>$json]));
+        self::assertSame([],Preview::legacyCheckpoint(['__stream_content'=>$json.'{"unfinished":']));
+        self::assertSame([],Preview::legacyCheckpoint(['__stream_content'=>substr($json,0,-1)]));
+    }
 }

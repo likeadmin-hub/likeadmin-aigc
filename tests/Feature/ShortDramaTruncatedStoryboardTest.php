@@ -54,4 +54,15 @@ class ShortDramaTruncatedStoryboardTest extends TestCase
         }
         self::assertNull(Response::partialStoryboard(['content'=>$content,'finish_reason'=>'content_filter'], true, true));
     }
+
+    public function testTruncatedObjectPrefixOnlyReturnsCompleteUnambiguousProperties(): void
+    {
+        $content='{"data":{"title":"故事","story_outline":"含括号 }、逗号, 和引号\\\"","subjects":[{"id":"c1"}],"locations":[{"id":"l1"}],"scene_beats":[{"goal":"截断';
+        $prefix=Response::partialObjectPrefix(['content'=>$content,'finish_reason'=>'length']);
+        self::assertSame('故事',$prefix['title']); self::assertSame('c1',$prefix['subjects'][0]['id']);
+        self::assertArrayNotHasKey('scene_beats',$prefix);
+        foreach (['{"title":"甲","title":"乙","bad":', '{"title":"甲","broken": ,"next":',
+            '{"title":"甲","nested":[}],"next":'] as $bad) self::assertSame([],Response::partialObjectPrefix(['content'=>$bad]));
+        self::assertSame([],Response::partialObjectPrefix(['content'=>$content,'finish_reason'=>'refusal']));
+    }
 }

@@ -85,6 +85,7 @@ final class ShortDramaTimedScriptGeneration
                 self::assertSkeleton($skeleton, $request);
                 break;
             } catch (RuntimeException $e) {
+                if ($skeleton && $progress && ShortDramaInputContract::truncatedObjectPrefix($request)) $progress('script_checkpoint', $skeleton);
                 if (ShortDramaInputContract::preciseRecovery($request) && !$attempt && $e->getCode() === 422 && $skeleton) {
                     $targets = ShortDramaSkeletonFieldRepair::targets($skeleton, true);
                     if ($targets) {

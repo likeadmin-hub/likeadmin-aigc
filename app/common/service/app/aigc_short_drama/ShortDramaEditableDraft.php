@@ -28,7 +28,8 @@ final class ShortDramaEditableDraft
         $plan = is_array($saved['plan'] ?? null) ? $saved['plan'] : ShortDramaScriptPreview::project($checkpoint);
         $revision = (int)($saved['revision'] ?? 0);
         if (!is_array($plan['storyboard'] ?? null) || !$plan['storyboard']) return [];
-        return ['plan'=>$plan, 'token'=>self::token($plan, $revision), 'edited'=>!empty($saved['edits'])];
+        return ['plan'=>$plan, 'token'=>self::token($plan, $revision), 'edited'=>!empty($saved['edits']),
+            'conflicts'=>self::conflicts((array)($saved['candidate'] ?? []), (array)($saved['edits'] ?? []))];
     }
 
     public static function save(int $tenant, int $user, string $task, int $project, string $token, string $shotId, array $fields): array
@@ -44,7 +45,7 @@ final class ShortDramaEditableDraft
             if (!$owner || ($project > 0 && (int)$owner['project_id'] !== $project)) throw new RuntimeException('任务不存在', 404);
             if (!in_array($owner['status'], ['failed','canceled'], true)) throw new RuntimeException('当前任务状态已变化，请刷新后再编辑草稿', 409);
             $request = json_decode((string)$owner['request_json'], true) ?: [];
-            if ((int)($request['_generation_version'] ?? 0) < 3 || !empty($request['multi_episode']) || ShortDramaStoryWorkflow::enabled($request)) {
+            if (!empty($request['multi_episode']) || ShortDramaStoryWorkflow::enabled($request)) {
                 throw new RuntimeException('当前任务暂不支持编辑草稿', 409);
             }
             $rowScope=$scope+['unit_key'=>self::KEY];
@@ -55,6 +56,7 @@ final class ShortDramaEditableDraft
             $checkpoint=(array)($state['__script_checkpoint'] ?? []);
             if (!$checkpoint) $checkpoint=ShortDramaScriptPreview::fromReceipts(Db::name('aigc_short_drama_planning_unit')->where($scope)
                 ->where('status','received')->order('id')->field('unit_key,status,error,result_json')->select()->toArray());
+            if (!$checkpoint && (int)($request['_generation_version'] ?? 0) < 3) $checkpoint=ShortDramaScriptPreview::legacyCheckpoint($state);
             $plan=is_array($saved['plan'] ?? null) ? $saved['plan'] : ShortDramaScriptPreview::project($checkpoint);
             $revision=(int)($saved['revision'] ?? 0);
             if (!hash_equals(self::token($plan,$revision),$token)) throw new RuntimeException('草稿已更新，请刷新后再保存', 409);
@@ -76,11 +78,79 @@ final class ShortDramaEditableDraft
             }
             if (empty($edits[$shotId])) unset($edits[$shotId]);
             $revision++;
-            $payload=['version'=>1,'revision'=>$revision,'plan'=>$plan,'edits'=>$edits];
+            $payload=['version'=>1,'revision'=>$revision,'plan'=>$plan,'edits'=>$edits,'candidate'=>(array)($saved['candidate'] ?? [])];
             if ($row) Db::name('aigc_short_drama_planning_unit')->where($rowScope)->update(['result_json'=>self::json($payload),'update_time'=>time()]);
             else Db::name('aigc_short_drama_planning_unit')->insert($rowScope+['status'=>'checkpoint','attempt'=>0,'request_json'=>'{}',
                 'result_json'=>self::json($payload),'create_time'=>time(),'update_time'=>time()]);
-            return ['plan'=>$plan,'token'=>self::token($plan,$revision),'edited'=>!empty($edits)];
+            return ['plan'=>$plan,'token'=>self::token($plan,$revision),'edited'=>!empty($edits),
+                'conflicts'=>self::conflicts($payload['candidate'],$edits), 'merge_supported'=>(int)($request['_generation_version'] ?? 0) >= 3];
+        });
+    }
+
+    /** Capture only the accepted result of the still-current attempt. */
+    public static function captureConflict(int $tenant, int $user, string $task, int $attempt, array $candidate): void
+    {
+        Db::transaction(static function () use ($tenant,$user,$task,$attempt,$candidate): void {
+            $scope=['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task];
+            $owner=Db::name('aigc_short_drama_script_task')->where($scope+['delete_time'=>0])->lock(true)->find();
+            if (!$owner || $owner['status'] !== 'running' || (int)$owner['retry_count'] !== $attempt) return;
+            $row=Db::name('aigc_short_drama_planning_unit')->where($scope+['unit_key'=>self::KEY,'status'=>'checkpoint'])->lock(true)->find();
+            $saved=$row ? json_decode((string)$row['result_json'],true) : null;
+            if (!is_array($saved['plan'] ?? null) || !self::conflicts($candidate,(array)($saved['edits'] ?? []))) return;
+            $saved['candidate']=ShortDramaScriptPreview::project($candidate);
+            $saved['revision']=(int)($saved['revision'] ?? 0)+1;
+            Db::name('aigc_short_drama_planning_unit')->where('id',$row['id'])->update(['result_json'=>self::json($saved),'update_time'=>time()]);
+        });
+    }
+
+    /** Only unique shot IDs and string fields can be rebased safely. */
+    public static function conflicts(array $candidate, array $edits): array
+    {
+        if (!$candidate || !$edits) return [];
+        $indexed=[]; $duplicates=[];
+        foreach ((array)($candidate['storyboard'] ?? []) as $shot) {
+            $id=is_array($shot) ? ($shot['shot_id'] ?? null) : null;
+            if (!is_string($id) || $id === '') continue;
+            if (isset($indexed[$id])) $duplicates[$id]=true;
+            $indexed[$id]=$shot;
+        }
+        $result=[];
+        foreach ($edits as $id=>$changes) foreach ((array)$changes as $field=>$change) {
+            if (!isset(self::LIMITS[$field]) || !is_array($change) || !is_string($change['before'] ?? null) || !is_string($change['after'] ?? null)) continue;
+            $valid=isset($indexed[$id]) && !isset($duplicates[$id]) && is_string($indexed[$id][$field] ?? '');
+            $current=$valid ? ($indexed[$id][$field] ?? '') : null;
+            if (!$valid || $current !== $change['before']) $result[]=['shot_id'=>(string)$id,'field'=>$field,'before'=>$change['before'],
+                'draft'=>$change['after'],'generated'=>$current,'can_keep_draft'=>$valid];
+        }
+        return $result;
+    }
+
+    public static function resolve(int $tenant, int $user, string $task, int $project, string $token, string $shotId, string $field, string $choice): array
+    {
+        if (!isset(self::LIMITS[$field]) || !in_array($choice,['draft','generated'],true)) throw new RuntimeException('冲突处理选项无效',422);
+        return Db::transaction(static function () use ($tenant,$user,$task,$project,$token,$shotId,$field,$choice): array {
+            $scope=['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task];
+            $owner=Db::name('aigc_short_drama_script_task')->where($scope+['delete_time'=>0])->lock(true)->find();
+            if (!$owner || ($project > 0 && (int)$owner['project_id'] !== $project)) throw new RuntimeException('任务不存在',404);
+            if (!in_array($owner['status'],['failed','canceled'],true)) throw new RuntimeException('任务状态已变化，请刷新',409);
+            $row=Db::name('aigc_short_drama_planning_unit')->where($scope+['unit_key'=>self::KEY,'status'=>'checkpoint'])->lock(true)->find();
+            $saved=$row ? json_decode((string)$row['result_json'],true) : null;
+            if (!is_array($saved['plan'] ?? null) || !hash_equals(self::token($saved['plan'],(int)($saved['revision'] ?? 0)),$token)) throw new RuntimeException('草稿已更新，请刷新后再处理',409);
+            $conflict=null; foreach (self::conflicts((array)($saved['candidate'] ?? []),(array)($saved['edits'] ?? [])) as $item)
+                if ($item['shot_id'] === $shotId && $item['field'] === $field) { $conflict=$item; break; }
+            if (!$conflict) throw new RuntimeException('冲突已变化，请刷新后再处理',409);
+            if ($choice === 'draft' && !$conflict['can_keep_draft']) throw new RuntimeException('生成结果没有可唯一对应的镜头，无法直接合并',409);
+            if ($choice === 'draft') $saved['edits'][$shotId][$field]['before']=$conflict['generated'];
+            else {
+                unset($saved['edits'][$shotId][$field]);
+                if (!$saved['edits'][$shotId]) unset($saved['edits'][$shotId]);
+                if ($conflict['can_keep_draft']) foreach ($saved['plan']['storyboard'] as &$shot) if (($shot['shot_id'] ?? '') === $shotId) { $shot[$field]=$conflict['generated']; break; }
+                unset($shot);
+            }
+            $saved['revision']=(int)$saved['revision']+1;
+            Db::name('aigc_short_drama_planning_unit')->where('id',$row['id'])->update(['result_json'=>self::json($saved),'update_time'=>time()]);
+            return ['plan'=>$saved['plan'],'token'=>self::token($saved['plan'],$saved['revision']), 'edited'=>!empty($saved['edits']),
+                'conflicts'=>self::conflicts((array)$saved['candidate'],(array)$saved['edits']), 'merge_supported'=>true];
         });
     }
 
