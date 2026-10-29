@@ -89,6 +89,13 @@ final class ShortDramaTimedScriptGeneration
             } catch (RuntimeException $e) {
                 if ($skeleton && $progress && ShortDramaInputContract::truncatedObjectPrefix($request)) $progress('script_checkpoint', $skeleton);
                 if (ShortDramaInputContract::preciseRecovery($request) && !$attempt && $e->getCode() === 422 && $skeleton) {
+                    if(ShortDramaMaterialContract::missing($skeleton)) {
+                        $skeleton=ShortDramaMaterialContract::repair($call,'timed_skeleton_top_fields_v1',$skeletonInput,$skeleton);
+                        $skeleton=self::normalizeSceneScripts(self::lockTimelineShotDurations(self::canonicalSkeleton($skeleton),$request),$request);
+                        if(ShortDramaInputContract::recoveryEnabled($request)) $skeleton=self::normalizeSkeletonBudgets($skeleton,$request);
+                        self::assertSkeleton($skeleton,$request);
+                        break;
+                    }
                     $targets = ShortDramaSkeletonFieldRepair::targets($skeleton, true);
                     if ($targets) {
                         $prepare = static function (array $plan) use ($request): array {

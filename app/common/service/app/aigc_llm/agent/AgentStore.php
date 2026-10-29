@@ -40,10 +40,9 @@ final class AgentStore
     }
     public static function requiresConfirmation(array $preferences,float $total): bool
     {
-        // Only historical run snapshots retain a budget; new preferences omit it.
-        // Never expand the authorization of a previously submitted paid task.
-        return ($preferences['mode']??'ask')!=='auto'
-            || (array_key_exists('budget',$preferences)&&$total>(float)$preferences['budget']);
+        // Explicit manual/auto authorization stays intact. Retired cumulative
+        // budgets, including frozen old preferences, cannot stop creation.
+        return ($preferences['mode']??'ask')!=='auto';
     }
     public static function preferences(int $tenant,int $user,?array $input=null): array
     {

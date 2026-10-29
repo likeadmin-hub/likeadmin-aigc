@@ -35,7 +35,7 @@ final class MarketNeuronProvider implements AIProviderInterface
     }
     public function chat(Message ...$messages): ProviderResponse
     {
-        if (++$this->calls > 8) throw new \RuntimeException('本轮操作较多，请缩小任务范围后继续');
+        ++$this->calls;
         $schemas = array_map(static fn($tool) => [
             'type'=>'function', 'function'=>['name'=>$tool->getName(), 'description'=>$tool->getDescription(), 'parameters'=>$tool->getInputSchema()],
         ], $this->tools);
@@ -49,7 +49,7 @@ final class MarketNeuronProvider implements AIProviderInterface
         $result = self::visibleResult(($this->transport)($request));
         if (empty($result['tool_calls']) && $this->validateReply !== null) {
             $correction=($this->validateReply)((string)($result['content']??''));
-            if ($correction && !$this->repairAttempted && $this->calls < 8) {
+            if ($correction && !$this->repairAttempted) {
                 $this->repairAttempted=true;
                 ++$this->calls;
                 $request['system_prompt'].="\n".$correction;

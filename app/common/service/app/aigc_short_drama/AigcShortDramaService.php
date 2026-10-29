@@ -4355,6 +4355,9 @@ class AigcShortDramaService
             if ($storyAttempt !== null) {
                 $current = self::findTask($tenantId, $userId, $taskId);
                 if ($current['status'] !== 'running' || (int)$current['retry_count'] !== $storyAttempt) return self::formatTask($current->toArray(), true);
+                if (in_array($e->getCode(), [413,422], true) && ShortDramaPlanningUnit::continueValidation($tenantId,$userId,$taskId)) {
+                    $e = new \RuntimeException('已保存完成内容，正在继续修复未完成部分', 425, $e);
+                }
                 if ($e->getCode() === 425) {
                     $current->save(['status' => self::STATUS_QUEUED, 'current_step' => $e->getMessage(), 'update_time' => time()]);
                     self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_QUEUED, $request, $selectedModels['script_plan'] ?? [], ['progress' => (int)$current['progress']]);
@@ -17596,19 +17599,14 @@ class AigcShortDramaService
     /** Shared continuity stage for fresh generation, editing and recovery. */
     private static function reviewScriptPlanContinuity(int $tenantId, int $userId, array $base, array $request, array $model, ?callable $onEvent): array
     {
-        $receipts = []; $calls = 0; $rejected = [];
+        $receipts = []; $rejected = [];
         $request['_review_model_signature'] = hash('sha256', self::jsonEncode($model));
         $checkpoint = ShortDramaReviewCheckpoint::load($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''));
-        $callLimit = min(512, max(24, count((array)($base['storyboard'] ?? [])) * 12));
         if (($checkpoint['resume']['signature'] ?? '') === ShortDramaReviewCheckpoint::signature($base, $request)) {
             $receipts = (array)($checkpoint['resume']['receipts'] ?? []);
         }
         $result = ShortDramaEpisodeReview::generate($base, $request,
-            static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$calls, &$rejected, $callLimit): array {
-                if (++$calls > $callLimit) {
-                    if (ShortDramaReviewOutcome::enabled($request)) throw new ShortDramaReviewDeferred('本次复核已达到处理上限，剧本已保存，可稍后继续复核', [], null, 429);
-                    throw new \RuntimeException('复核已达到本次处理上限，原剧本保留，请缩小修改范围', 429);
-                }
+            static function (string $key, array $input, int $desired, ?callable $validate = null) use ($tenantId, $userId, $request, $model, $onEvent, &$receipts, &$rejected): array {
                 if ($onEvent) $onEvent('heartbeat', []);
                 $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, (int)($request['_input_contract_version'] ?? 0) >= 7);
                 ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
