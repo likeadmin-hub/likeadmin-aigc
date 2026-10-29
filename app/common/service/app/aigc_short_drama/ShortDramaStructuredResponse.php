@@ -12,6 +12,7 @@ final class ShortDramaStructuredResponse
         if (in_array($response['finish_reason'] ?? '', ['content_filter','refusal','safety'], true)) return [];
         try { $content=trim(self::text($response['content'] ?? null)); } catch(RuntimeException $error) { return []; }
         $content=preg_replace('/^\x{FEFF}|^```(?:json)?\s*/u','',$content) ?? $content;
+        try { self::uniqueKeys($content); } catch (RuntimeException $error) { return []; }
         for ($depth=0;$depth<3;$depth++) {
             if (!preg_match('/^\{\s*"(?:data|result|plan|payload)"\s*:\s*(?=\{)/',$content,$wrapper)) break;
             $content=substr($content,strlen($wrapper[0]));
@@ -43,12 +44,21 @@ final class ShortDramaStructuredResponse
 
     /** Extract only complete objects from an explicitly top-level storyboard array.
      * The caller must validate IDs, ordering, fields and scene ownership. */
-    public static function partialStoryboard(array $response, bool $allowPrefix = false, bool $extendedShapes = false): ?array
+    public static function partialStoryboard(array $response, bool $allowPrefix = false, bool $extendedShapes = false, bool $strict = false): ?array
     {
         if (in_array($response['finish_reason'] ?? '', ['content_filter','refusal','safety'], true)) return null;
         try { $content=trim(self::text($response['content'] ?? null)); } catch(RuntimeException $error) { return null; }
         $content = preg_replace('/^\x{FEFF}/u', '', $content) ?? $content;
         $content = preg_replace('/^```(?:json)?\s*/u', '', $content) ?? $content;
+        // Prefix recovery may not undo strict validation by silently replacing
+        // duplicate properties or choosing between complete business objects.
+        try { self::uniqueKeys($content); } catch (RuntimeException $error) { return null; }
+        if ($strict) {
+            try { self::decode(['content'=>$content], true); }
+            catch (RuntimeException $error) {
+                if ($error->getMessage() !== '模型输出不是完整 JSON，已保存返回内容') return null;
+            }
+        }
         if ($extendedShapes) {
             // Only the documented single-key envelope names are recognized;
             // arbitrary nested objects are never interpreted as a storyboard.

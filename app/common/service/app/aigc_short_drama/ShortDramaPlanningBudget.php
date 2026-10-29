@@ -94,25 +94,15 @@ final class ShortDramaPlanningBudget
         $output = $limits['max_output_tokens'];
         if ($output <= 0) $output = max(1200, (int)($model['_planning_fallback']['planning_output_fallback'] ?? 8192));
         $output = TextModelCapacity::output($model, $output);
-        $fallbackContext = max(2048, (int)($model['_planning_fallback']['planning_context_fallback'] ?? 32768));
-        $metadataContext = $limits['context_window'];
-        // `max_tokens` is a completion cap, not proof of an input-context
-        // window. Never inflate the input allowance from it: doing so can turn
-        // an early, actionable validation error into a provider-side context
-        // overflow. Providers without published context metadata use the
-        // conservative application fallback instead.
-        if ($metadataContext > 0) {
-            $context = $metadataContext;
-            $source = 'model_metadata';
-        } else {
-            $context = $fallbackContext;
-            $source = 'conservative_fallback';
-        }
-        $margin = max(1024, (int)ceil($context * .15));
+        // An unknown provider context is not an application input ceiling.
+        // Keep the per-call output allowance, and enforce only published limits.
+        $context = $limits['context_window'];
+        $source = $context > 0 ? 'model_metadata' : 'unknown';
+        $margin = $context > 0 ? max(1024, (int)ceil($context * .15)) : 0;
         if ($limits['max_input_tokens'] > 0 && $tokens > $limits['max_input_tokens']) {
             throw new RuntimeException('输入内容超过当前模型的输入容量，请减少输入或选择更大容量模型', 413);
         }
-        $available = min($output, $context - $margin - $tokens);
+        $available = $context > 0 ? min($output, $context - $margin - $tokens) : $output;
         return ['output_capacity' => max(0, $available), 'input_estimate' => $tokens,
             'input_bytes' => $bytes, 'context' => $context, 'margin' => $margin, 'source' => $source, 'estimator' => 'mixed_utf8_heuristic'];
     }
