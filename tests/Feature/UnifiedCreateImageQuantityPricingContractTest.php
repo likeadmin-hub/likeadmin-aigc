@@ -6,13 +6,14 @@ use PHPUnit\Framework\TestCase;
 
 class UnifiedCreateImageQuantityPricingContractTest extends TestCase
 {
-    public function testUnifiedCreateImagePriceDisplayUsesCurrentQuantity(): void
+    public function testCompiledCreationRouteIncludesQuantityAndServerQuote(): void
     {
-        $source = \Tests\Support\CompiledAssets::source('pc/pages/ai/create.vue');
-        self::assertStringContainsString('Number.parseInt(optionState.value.count, 10)', $source);
-        self::assertStringContainsString('Number(selectedUnitPrice.value) * selectedQuantity.value', $source);
-        self::assertStringContainsString('quantity:', \Tests\Support\CompiledAssets::pcPage('ai/create'));
-        self::assertStringContainsString('selectedQuantity.value', $source);
+        // Runtime quantity, total-price and stale-response behavior is covered
+        // by web/pc/tests/generation-quote-behavior.test.mjs against the page's
+        // actual computed values and shared quote composable.
+        $page = \Tests\Support\CompiledAssets::pcPage('ai/create');
+        self::assertStringContainsString('quantity:', $page);
+        self::assertStringContainsString('user_charge_points', $page);
     }
 
 }
