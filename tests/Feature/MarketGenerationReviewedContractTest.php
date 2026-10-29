@@ -196,6 +196,7 @@ class MarketGenerationReviewedContractTest extends TestCase
             self::assertSame('synthetic-v1',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
             $b['entries'][0]['revision']='synthetic-v2';$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));
             self::assertSame('synthetic-v1',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
+            return [];
         });
         self::assertSame('synthetic-v2',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);
     }
