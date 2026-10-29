@@ -61,8 +61,6 @@ class MarketImageModelRuntimeService
      * market product only publishes its size pricing attributes.
      */
     private const QWEN_IMAGE_RATIOS = ['1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21'];
-    private const SUBMIT_PATH = '/api/v1/tasks';
-    private const TASK_PATH = '/api/v1/tasks/{task_id}';
     /** Explicit supplier rejections only; never retry an ambiguous timeout. */
     private const SUBMIT_MAX_ATTEMPTS = 3;
     private const SUBMIT_RETRY_DELAYS_MS = [700, 1800];
@@ -653,7 +651,8 @@ class MarketImageModelRuntimeService
             return self::responseFromConsumption($c->toArray());
         }
         try {
-            $response = self::request('GET', self::origin() . str_replace('{task_id}', rawurlencode($taskId), self::TASK_PATH));
+            $plan = MarketGenerationAdapterRegistry::transport((array)$c['price_snapshot'], 'query', $taskId);
+            $response = self::request($plan['method'], self::origin() . $plan['path'], $plan['payload']);
             $status = self::status($response); if(MicroVideoSubmission::applies($c->toArray())&&!in_array($status,['failed','error','canceled','cancelled'],true))MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id']);
             if ($images !== []) { self::retainMicroImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
