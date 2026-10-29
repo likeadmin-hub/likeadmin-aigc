@@ -9,7 +9,9 @@ final class MarketGenerationApplicationProtocol
     public static function nano(array $snapshot, array $request, string $idempotency, array $references, array $context, string $resolution): array
     {
         MarketGenerationAdapterRegistry::applicationProtocol('nano_banana', $snapshot);
-        $payload = array_merge(MarketGenerationSchema::array($snapshot['locked_params'] ?? []), $context, [
+        $locked = array_filter(MarketGenerationSchema::array($snapshot['locked_params'] ?? []),
+            static fn($key)=>is_string($key) && !str_starts_with($key,'_') && $key !== 'pricing_variant', ARRAY_FILTER_USE_KEY);
+        $payload = array_merge($locked, $context, [
             'action'=>$references === [] ? 'generate' : 'edit', 'prompt'=>(string)($request['prompt'] ?? ''),
             'image_urls'=>$references, 'idempotency_key'=>$idempotency,
         ]);

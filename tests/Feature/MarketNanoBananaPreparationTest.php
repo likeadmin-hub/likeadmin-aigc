@@ -143,4 +143,12 @@ class MarketNanoBananaPreparationTest extends TestCase
         $ratios=(new ReflectionMethod(Nano::class,'ratioOptions'))->invoke(null,$this->market()['product'],'new-variant');
         self::assertContains('1:1',$ratios);self::assertContains('auto',$ratios);self::assertContains('21:9',$ratios);
     }
+
+    public function testSkuProtocolDeclarationIsNeverForwardedAsASupplierParameter(): void
+    {
+        $snapshot=$this->snapshot();$snapshot['locked_params']['_generation_protocol']='nano_banana_v1';
+        $native=Nano::prepareRequest($snapshot,$this->request())->nativeInput;
+        self::assertArrayNotHasKey('_generation_protocol',$native);
+        self::assertSame('edit',$native['action']);
+    }
 }

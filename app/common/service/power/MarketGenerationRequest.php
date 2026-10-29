@@ -115,6 +115,12 @@ final class MarketGenerationRequest
         unset($definition);
         if (isset($schema['properties'])) $schema['properties'] = $properties;
         else $schema = array_replace($schema, $properties);
+        // Legacy encoders may convert an integer duration for transport. Check
+        // the supplied value too, so a fraction cannot silently be truncated.
+        if (array_key_exists('duration', $request) && isset($properties['duration'])) {
+            $duration = MarketGenerationSchema::normalize(['duration'=>$properties['duration']], ['duration'=>$request['duration']], '', false);
+            MarketGenerationSchema::validate(['duration'=>$properties['duration']], $duration);
+        }
         $values = array_intersect_key($payload, $properties);
         foreach ($properties as $name => $definition) {
             if (!array_key_exists($name, $values)) continue;
