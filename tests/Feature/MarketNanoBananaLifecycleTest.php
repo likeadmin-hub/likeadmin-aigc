@@ -80,15 +80,17 @@ class MarketNanoBananaLifecycleTest extends TestCase
                 self::assertSame($settled,$this->state($user),'Metadata repair must not back-charge a historical result');
                 self::assertSame($cost,[(float)AiConsumptionLog::find($log['id'])['actual_tenant_cost'],(float)AiConsumptionLog::find($log['id'])['actual_user_price']]);
             } else {
-                if ($outcome==='invalid_submit' || $outcome==='changed_material_submit') {
+                if (in_array($outcome,['invalid_submit','changed_material_submit','token_submit'],true)) {
                     $invalid=$request;
                     if ($outcome==='invalid_submit') $invalid['prompt']='';
                     else $invalid['reference_images']=['https://fixtures.invalid/a.png'];
                     // Legacy fixed-price snapshots have no material-dependent fee to conflict.
                     if ($outcome==='changed_material_submit' && $meter==='legacy') $invalid['prompt']='';
                     $noTransport=$snapshot;$noTransport['app_code']='offline-no-transport';
+                    if($outcome==='token_submit')$noTransport['usage_unit']='token';
                     $log->save(['price_snapshot'=>$noTransport]);
                     $expectedError=$invalid['prompt']===''?'请输入提示词':'提交素材与预占计费快照不一致';
+                    if($outcome==='token_submit')$expectedError='Token 费用上限';
                     try { Nano::submit((int)$log['id'],$invalid);self::fail('Preflight should reject before any provider call'); }
                     catch (\Exception $e) { self::assertStringContainsString($expectedError,$e->getMessage()); }
                     self::assertSame('request_invalid',AiConsumptionLog::find($log['id'])['error_code']);
@@ -111,6 +113,7 @@ class MarketNanoBananaLifecycleTest extends TestCase
             $rows[]=[$meter,$outcome];
         }
         $rows[]=['image','retail_success'];
+        $rows[]=['legacy','token_submit'];
         return $rows;
     }
 
