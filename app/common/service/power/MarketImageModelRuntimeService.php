@@ -368,7 +368,8 @@ class MarketImageModelRuntimeService
         $price = (array)$consumption['price_snapshot'];
         try {
             $payload = $frozenNative ?? self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput;
-            $payload['idempotency_key'] = (string)$consumption['consume_no'];
+            // The model task endpoint forbids local idempotency fields.
+            // Replay safety is owned by the durable claim and explicit rejection.
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Preparation failed before outbound I/O; release the reservation
@@ -452,8 +453,7 @@ class MarketImageModelRuntimeService
     /**
      * Retries only a response that explicitly proves no provider task was
      * accepted (429/5xx or a documented temporary-capacity response). The
-     * immutable consumption number is already present in the payload as the
-     * provider idempotency key, so every attempt is one logical paid request.
+     * immutable consumption number remains the local receipt identity; retries are allowed only after proven non-acceptance.
      *
      * @return array{response:array<string,mixed>,attempts:int}
      */
