@@ -86,7 +86,19 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
             '_disable_transient_retry'=>true,
             // Internal callable: runs after Provider response but before usage
             // settlement, so a blocked reply is never published.
-            '_result_validator'=>$validator,
+            '_result_validator'=>$validator===null ? null : static function(array $result) use($validator,$tenant,$user,$request): void {
+                try { $validator($result); }
+                catch (\Throwable $error) {
+                    // Private evidence for completed-but-invalid structured replies.
+                    // Never expose model instructions, source attachments or raw JSON in public events.
+                    $dir=runtime_path().'canvas-agent-response-receipts';
+                    if(!is_dir($dir))mkdir($dir,0700,true);
+                    $body=json_encode(['tenant_id'=>$tenant,'user_id'=>$user,'run_id'=>(int)($request['run_id']??0),'result'=>$result,'error'=>$error->getMessage()],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+                    $file=$dir.'/'.$tenant.'-'.$user.'-'.(int)($request['run_id']??0).'-'.bin2hex(random_bytes(8)).'.sealed';
+                    file_put_contents($file,\app\common\service\open_platform\OpenVault::seal($body),LOCK_EX);chmod($file,0600);
+                    throw $error;
+                }
+            },
         ];
         $runtimeRequest['_require_final_content']=!empty($request['context']['_input_contract_version']);
         $runtimeRequest['_disable_model_fallback']=true;
