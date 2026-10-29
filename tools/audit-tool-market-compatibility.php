@@ -119,7 +119,7 @@ foreach (['image', 'video'] as $type) {
         $skuRows = $skuIds === [] ? [] : PowerMarketSku::where('product_id', $productId)->whereIn('id', $skuIds)->select()->toArray();
         $skuMatrix = [];
         foreach ($skuRows as $sku) {
-            $row = Audit::sku($type, $resource, $sku);
+            $row = Audit::sku($type, $resource, $sku, (string)($product['upstream_app_code'] ?? ''));
             if ($probe && $product) {
                 $snapshot = ['resource_type'=>$resource, 'model_code'=>(string)($option['model_code'] ?? $product['upstream_model_code']),
                     'channel_code'=>(string)$product['upstream_channel_code'], 'app_code'=>(string)$product['upstream_app_code'],
@@ -130,7 +130,7 @@ foreach (['image', 'video'] as $type) {
                 $prepare = match (true) {
                     $type === 'video' => static fn($request) => MarketVideoRuntimeService::prepareRequest($snapshot, $request)->nativeInput,
                     $resource === 'model' => static fn($request) => MarketImageModelRuntimeService::prepareRequest($snapshot, $request, $tenantId)->nativeInput,
-                    ($product['upstream_app_code'] ?? '') === 'nano_banana' => static fn($request) => (new ReflectionMethod(MarketNanoBananaAppRuntimeService::class, 'payload'))->invoke(null, $snapshot, $request, '', $tenantId),
+                    ($product['upstream_app_code'] ?? '') === 'nano_banana' => static fn($request) => MarketNanoBananaAppRuntimeService::prepareRequest($snapshot, $request, '', $tenantId)->nativeInput,
                     default => null,
                 };
                 $row['request_cases'] = $prepare === null ? [['status'=>'unregistered_probe']] : array_map(

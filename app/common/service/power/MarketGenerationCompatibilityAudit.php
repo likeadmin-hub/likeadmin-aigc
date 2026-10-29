@@ -68,16 +68,17 @@ final class MarketGenerationCompatibilityAudit
         return array_values($rows);
     }
 
-    public static function sku(string $type, string $resource, array $sku): array
+    public static function sku(string $type, string $resource, array $sku, string $appCode = ''): array
     {
         $result = ['market_sku_id'=>(int)($sku['id'] ?? 0),
             'locked_parameter_names'=>array_keys(MarketGenerationSchema::array($sku['locked_params'] ?? [])),
             'selectable_parameter_names'=>array_keys(MarketGenerationSchema::array($sku['selectable_params'] ?? [])),
             'meter_status'=>'unverified', 'meter'=>null, 'scenario_pricing'=>'unverified'];
         try {
-            if ($type === 'image' && $resource === 'app_api') {
+            if ($type === 'image' && $resource === 'app_api' && ($appCode !== 'nano_banana' || !MarketGenerationMeter::hasDeclaration($sku))) {
                 MarketGenerationMeter::assertLegacyPricing($sku);
-                $result['meter_status'] = 'legacy_application_pricing';
+                $result['meter_status'] = MarketUsageSettlementService::isActualUsageSku($sku) && $appCode === 'nano_banana'
+                    ? 'requires_submission_token_budget' : 'legacy_application_pricing';
                 return $result;
             }
             if (MarketUsageSettlementService::isActualUsageSku($sku)) {

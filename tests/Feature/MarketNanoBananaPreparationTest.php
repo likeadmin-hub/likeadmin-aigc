@@ -137,4 +137,10 @@ class MarketNanoBananaPreparationTest extends TestCase
         $this->expectExceptionMessage('Token 费用上限');
         (new ReflectionMethod(Nano::class,'meterMarket'))->invoke(null,$market,$this->request(),0);
     }
+
+    public function testApplicationJsonSchemaRatiosDoNotDependOnASiblingImageModel(): void
+    {
+        $ratios=(new ReflectionMethod(Nano::class,'ratioOptions'))->invoke(null,$this->market()['product'],'new-variant');
+        self::assertContains('1:1',$ratios);self::assertContains('auto',$ratios);self::assertContains('21:9',$ratios);
+    }
 }

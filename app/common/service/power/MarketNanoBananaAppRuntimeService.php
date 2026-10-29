@@ -782,6 +782,7 @@ class MarketNanoBananaAppRuntimeService
     private static function collectDocumentedOptions($schema, array $wanted, array &$values): void
     {
         $schema = self::arrayValue($schema);
+        $schema = self::arrayValue($schema['properties'] ?? $schema);
         foreach ($schema as $key => $field) {
             $field = self::arrayValue($field);
             $name = strtolower(trim((string)($field['code'] ?? $field['name'] ?? $field['key'] ?? $field['param_path'] ?? (is_string($key) ? $key : ''))));
