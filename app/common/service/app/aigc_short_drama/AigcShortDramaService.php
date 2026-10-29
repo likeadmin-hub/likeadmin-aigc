@@ -23633,7 +23633,7 @@ class AigcShortDramaService
             'bgm_prompt' => (string)($row['bgm_prompt'] ?? ''),
             'sound_effect' => (string)($row['sound_effect'] ?? ''),
             'scene_ref_id' => (string)($row['scene_ref_id'] ?? ''),
-            'subject_ref_ids' => self::jsonDecode((string)($row['subject_ref_ids'] ?? '')),
+            'subject_ref_ids' => self::arrayFromJsonField($row['subject_ref_ids'] ?? []),
             'selected_image_asset_id' => (int)($row['selected_image_asset_id'] ?? 0),
             'selected_video_asset_id' => (int)($row['selected_video_asset_id'] ?? 0),
             'selected_image_asset' => [],
