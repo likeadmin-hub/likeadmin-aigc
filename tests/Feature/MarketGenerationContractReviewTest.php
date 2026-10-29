@@ -73,6 +73,18 @@ class MarketGenerationContractReviewTest extends TestCase
         self::assertSame('model_code_matches_but_channel_not_explicit_in_document',$h3['published_guidance'][0]['channel_binding']);
     }
 
+    public function testMachineDetailReviewIsPrimaryEvidenceWithoutImplyingRuntimeReadiness(): void
+    {
+        $read=static fn($name)=>json_decode(file_get_contents(dirname(__DIR__).'/fixtures/'.$name),true,512,JSON_THROW_ON_ERROR);
+        $ledger=Review::ledger($read('canvas-generation-market-contracts.json'),$read('market-legacy-declaration-review-20261029.json'),
+            $read('market-legacy-published-guidance-review-20261029.json'),$read('market-platform-contract-flow-review-20261029.json'));
+        self::assertCount(17,array_filter($ledger['entries'],static fn($r)=>$r['evidence_status']==='platform_detail_reviewed'));
+        foreach ($ledger['entries'] as $entry) {
+            self::assertFalse($entry['native_contract_importable']);
+            self::assertNotEmpty($entry['platform_observed_at']);
+        }
+    }
+
     private static function bundle(): array
     {
         $schema=['type'=>'object','properties'=>['prompt'=>['type'=>'string'],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>2]],'required'=>['prompt']];

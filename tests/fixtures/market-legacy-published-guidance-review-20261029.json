@@ -3,7 +3,6 @@
   "observed_at": "2026-10-29T21:06:51+08:00",
   "method": "Read rendered published model documents only; no debug, upload, draft generation or task submission",
   "scope": "Reviewed guidance fragments, not complete native contracts or capability grants",
-  "other_legacy_options": "13 corresponding model entries not found in the currently visible documentation table of contents",
   "entries": [
     {
       "generation_type": "image",
@@ -390,5 +389,19 @@
         "current_sku_prices"
       ]
     }
-  ]
+  ],
+  "initial_visibility_observation": {
+    "observed_at": "2026-10-29T21:06:51+08:00",
+    "model_documents_found": 5,
+    "note": "13 corresponding entries were not visible before the owner removed document hiding; this is historical visibility, not contract availability."
+  },
+  "current_platform_detail_observation": {
+    "observed_at": "2026-10-29T21:33:13+08:00",
+    "source": "market-platform-contract-flow-review-20261029.json",
+    "models_read_with_verified_identity": 17,
+    "remaining_identity": [
+      "image:gpt-image-2:OpenAIYI"
+    ],
+    "note": "Platform machine-detail discovery supersedes the initial menu visibility count. Published guidance fragments remain partial evidence."
+  }
 }

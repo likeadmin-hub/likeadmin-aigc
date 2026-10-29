@@ -68,4 +68,20 @@ class MarketGenerationSourceIdentityTest extends TestCase
         self::assertSame(94,Identity::modelId(['pricing_v2'=>['resource_id'=>94]]));
         self::assertSame(0,Identity::modelId(['id'=>94]));
     }
+
+    public function testReadOnlyPlatformAuditSeparatesSuccessfulBindingFromCompleteContracts(): void
+    {
+        $r=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/market-platform-contract-flow-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+        self::assertCount(18,$r['models']);
+        $read=array_filter($r['models'],static fn($m)=>$m['read_state']==='read');
+        self::assertCount(17,$read);
+        foreach ($read as $m) {
+            self::assertTrue($m['platform_identity_verified']);
+            self::assertSame('unverified',$m['runtime_readiness']);
+        }
+        $pending=array_values(array_filter($r['models'],static fn($m)=>$m['read_state']!=='read'));
+        self::assertSame('gpt-image-2',$pending[0]['model_code']);
+        self::assertSame('OpenAIYI',$pending[0]['channel_code']);
+        self::assertFalse($pending[0]['platform_identity_verified']);
+    }
 }
