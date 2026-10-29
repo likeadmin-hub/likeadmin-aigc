@@ -58,4 +58,44 @@ class MarketImageRatioDimensionsTest extends TestCase
         $meta['params_schema']['image_size']['enum']=['1:1','2K'];
         self::assertSame(['1:1'],(new \ReflectionMethod(Images::class,'ratioOptions'))->invoke(null,[],$meta));
     }
+
+    public function testRequiredSizeRatioFlowsFromCatalogueThroughUploadedImagePreparation(): void
+    {
+        $meta=['params_schema'=>['size'=>['type'=>'string','required'=>true,'enum'=>['1:1','3:2','2:3']],
+            'prompt'=>['type'=>'string'],'files_url'=>['type'=>'array','items'=>['type'=>'string','format'=>'uri'],'maxItems'=>5]],
+            'material_capabilities'=>['modes'=>[['code'=>'','fields'=>[
+                ['field'=>'files_url','kind'=>'image','role'=>'reference','required'=>false,'maximum'=>5]]]]]];
+        self::assertSame(['1:1','3:2','2:3'],(new \ReflectionMethod(Images::class,'ratioOptions'))->invoke(null,[],$meta));
+        self::assertSame(['2:3'],(new \ReflectionMethod(Images::class,'ratioOptions'))->invoke(null,['size'=>'2:3'],$meta));
+        self::assertSame([],(new \ReflectionMethod(Images::class,'modelQualityOptions'))->invoke(null,[],$meta));
+        $snapshot=['resource_type'=>'model','model_code'=>'required-size-fixture','locked_params'=>[],'market_metadata'=>$meta];
+        $request=['prompt'=>'Fixture','ratio'=>'3:2','quality'=>'','reference_assets'=>[['type'=>'image',
+            'url'=>'blob:http://localhost:3000/fixture','uri'=>'https://fixtures.invalid/reference.png']]];
+        $prepared=Images::prepareRequest($snapshot,$request);
+        self::assertSame('3:2',$prepared->nativeInput['size']);
+        self::assertSame(['https://fixtures.invalid/reference.png'],$prepared->nativeInput['files_url']);
+        self::assertArrayNotHasKey('resolution',$prepared->nativeInput);
+        self::assertSame($prepared->nativeInput,Images::prepareRequest($snapshot,$request)->nativeInput);
+        $request['ratio']='4:3';$this->expectException(\InvalidArgumentException::class);
+        Images::prepareRequest($snapshot,$request);
+    }
+
+    /** @dataProvider unsupportedSizeDimensions */
+    public function testRatioSizeDoesNotSwallowInvalidResolutionOrAnUnselectedRequiredSize(array $request): void
+    {
+        $meta=$this->metadata();$meta['params_schema']['size']=$meta['params_schema']['image_size'];
+        $meta['params_schema']['size']['required']=true;unset($meta['params_schema']['image_size']);
+        $snapshot=['resource_type'=>'model','model_code'=>'required-size-fixture','locked_params'=>[],'market_metadata'=>$meta];
+        $this->expectException(\InvalidArgumentException::class);Images::prepareRequest($snapshot,['prompt'=>'Fixture']+$request);
+    }
+    public static function unsupportedSizeDimensions(): array
+    {
+        return [[['ratio'=>'16:9','quality'=>'2K']],[['ratio'=>'16:9','quality'=>'1:1']],[[]]];
+    }
+
+    public function testPixelSizeEnumsRemainSeparateFromAspectRatios(): void
+    {
+        $meta=['params_schema'=>['size'=>['type'=>'string','enum'=>['1024x1024','1536x1024']]]];
+        self::assertSame([],(new \ReflectionMethod(Images::class,'ratioOptions'))->invoke(null,[],$meta));
+    }
 }
