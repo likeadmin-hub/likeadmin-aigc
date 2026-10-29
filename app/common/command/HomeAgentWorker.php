@@ -6,9 +6,10 @@ use app\common\service\app\aigc_llm\agent\AgentExecutionService;
 
 final class HomeAgentWorker extends Command
 {
-    protected function configure(){ $this->setName('home-agent:worker')->setDescription('首页创作 Agent 执行与任务恢复')->addOption('once',null,Option::VALUE_NONE,'处理一个任务后退出')->addOption('tenant',null,Option::VALUE_OPTIONAL,'Restrict to a tenant',0)->addOption('run',null,Option::VALUE_OPTIONAL,'Restrict to a run',0); }
+    protected function configure(){ $this->setName('home-agent:worker')->setDescription('首页创作 Agent 执行与任务恢复')->addOption('once',null,Option::VALUE_NONE,'处理一个任务后退出')->addOption('tenant',null,Option::VALUE_REQUIRED,'Restrict to a tenant',0)->addOption('run',null,Option::VALUE_REQUIRED,'Restrict to a run',0); }
     protected function execute(Input $input,Output $output): int
     {
+        foreach(["tenant", "run"] as $key)if(filter_var($input->getOption($key),FILTER_VALIDATE_INT)===false)throw new \InvalidArgumentException('Invalid worker scope');
         $tenant=(int)$input->getOption('tenant');$run=(int)$input->getOption('run');
         if($tenant<0 || $run<0 || ($run>0 && $tenant<=0))throw new \InvalidArgumentException('A scoped run requires its tenant');
         $running=true;$lastReconcile=0;$health=null;

@@ -16,6 +16,10 @@ class AiTaskWorker extends Command
         $this->setName('ai:task-worker')
             ->setDescription('处理 AI 异步结果、转存和结算任务')
             ->addOption('app', null, Option::VALUE_OPTIONAL, '只处理指定应用的结果任务', '')
+            ->addOption('once', null, Option::VALUE_NONE, 'Process one result batch')
+            ->addOption('consumption', null, Option::VALUE_REQUIRED, 'Restrict to one owned consumption', 0)
+            ->addOption('tenant', null, Option::VALUE_REQUIRED, 'Owner tenant for a scoped consumption', 0)
+            ->addOption('user', null, Option::VALUE_REQUIRED, 'Owner user for a scoped consumption', 0)
             ->addOption('worker', null, Option::VALUE_OPTIONAL, 'Worker 类型', 'result')
             ->addOption('sleep', null, Option::VALUE_OPTIONAL, '空队列休眠秒数', 1)
             ->addOption('lease', null, Option::VALUE_OPTIONAL, '任务租约秒数', 90)
@@ -30,6 +34,20 @@ class AiTaskWorker extends Command
         }
         $appCode = trim((string)$input->getOption('app'));
         if ($appCode !== '' && !preg_match('/^[a-z][a-z0-9_]*$/D', $appCode)) { $output->writeln('Invalid app code.'); return 1; }
+        $scope=[];
+        foreach(['consumption','tenant','user'] as $key){
+            $value=filter_var($input->getOption($key),FILTER_VALIDATE_INT);
+            if($value===false || $value<0)throw new \InvalidArgumentException('Invalid result worker scope');
+            $scope[$key]=$value;
+        }
+        $consumptionId=$scope['consumption'];
+        if($consumptionId || $scope['tenant'] || $scope['user']){
+            if(!$consumptionId || !$scope['tenant'] || !$scope['user'])throw new \InvalidArgumentException('Scoped consumption requires tenant and user');
+            $consumption=\app\common\model\ai\AiConsumptionLog::where(['id'=>$consumptionId,'tenant_id'=>$scope['tenant'],'user_id'=>$scope['user']])->findOrEmpty();
+            if($consumption->isEmpty() || ($appCode!=='' && $appCode!==(string)$consumption['app_code']))throw new \InvalidArgumentException('Consumption does not belong to requested scope');
+            // Transfer jobs bind an asset rather than app_task_id; the consumption owns both.
+            $appCode='';
+        }
         $sleep = max(1, (int)$input->getOption('sleep'));
         $lease = max(10, (int)$input->getOption('lease'));
         $batch = max(1, min(100, (int)$input->getOption('batch')));
@@ -48,11 +66,12 @@ class AiTaskWorker extends Command
                     $output->writeln('Runtime generation changed; worker drained and stopped.');
                     break;
                 }
-                if ($appCode === '' || $appCode === 'aigc_short_drama') \app\common\service\app\aigc_short_drama\ShortDramaCanvasService::reconcilePendingRuns();
-                if ($appCode === '') ShortDramaCanvasPosterJobService::recoverExpired();
-                $jobs = AiTaskJobService::claim($worker, $lease, $batch, $appCode);
+                if (!$consumptionId && ($appCode === '' || $appCode === 'aigc_short_drama')) \app\common\service\app\aigc_short_drama\ShortDramaCanvasService::reconcilePendingRuns();
+                if (!$consumptionId && $appCode === '') ShortDramaCanvasPosterJobService::recoverExpired();
+                $jobs = AiTaskJobService::claim($worker, $lease, $batch, $appCode, $consumptionId);
                 if ($jobs === []) {
-                    if ($appCode !== '') { sleep($sleep); continue; }
+                    if ($input->getOption('once')) break;
+                    if ($consumptionId || $appCode !== '') { sleep($sleep); continue; }
                     $posterJobs = ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1);
                     foreach ($posterJobs as $posterJob) {
                         try {
@@ -97,9 +116,10 @@ class AiTaskWorker extends Command
                     $output->writeln('Runtime generation changed; claimed task batch completed.');
                     break;
                 }
+                if ($input->getOption('once')) break;
                 // Do not starve lightweight canvas previews while a tenant has
                 // a sustained stream of provider-result jobs.
-                foreach ($appCode === '' ? ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1) : [] as $posterJob) {
+                foreach (!$consumptionId && $appCode === '' ? ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1) : [] as $posterJob) {
                     try {
                         ShortDramaCanvasPosterJobService::run($posterJob);
                         $output->writeln(sprintf('[poster:%d] success', (int)$posterJob['id']));

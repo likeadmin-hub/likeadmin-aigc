@@ -14,13 +14,14 @@ class ShortDramaEpisodeWorker extends Command
     {
         $this->setName('short-drama:episode-worker')
             ->addOption('once', null, Option::VALUE_NONE, 'Process at most one episode')
-            ->addOption('tenant', null, Option::VALUE_OPTIONAL, 'Restrict to a tenant', 0)
-            ->addOption('project', null, Option::VALUE_OPTIONAL, 'Restrict to a series project', 0)
+            ->addOption('tenant', null, Option::VALUE_REQUIRED, 'Restrict to a tenant', 0)
+            ->addOption('project', null, Option::VALUE_REQUIRED, 'Restrict to a series project', 0)
             ->setDescription('Generate confirmed short drama episodes sequentially');
     }
 
     protected function execute(Input $input, Output $output)
     {
+        foreach(["tenant", "project"] as $key)if(filter_var($input->getOption($key),FILTER_VALIDATE_INT)===false)throw new \InvalidArgumentException('Invalid worker scope');
         $tenant=(int)$input->getOption('tenant');$project=(int)$input->getOption('project');
         if($tenant<0 || $project<0 || ($project>0 && $tenant<=0))throw new \InvalidArgumentException('A scoped project requires its tenant');
         @set_time_limit(0);
