@@ -3059,6 +3059,7 @@ class AigcShortDramaService
             // Parse per-episode prose only after the real episode count is known;
             // the first numbered episode must not become a global target.
             $sourceRequest['target_duration_seconds'] = min(7200, max(0, (int)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0)));
+            $sourceRequest['duration_source'] = $sourceRequest['target_duration_seconds'] > 0 ? 'user' : 'auto';
             $sourceRequest['multi_episode'] = true;
             $sourceRequest['episode_count'] = 2;
             $sourceRequest['episode_total_count'] = 2;
@@ -3093,7 +3094,7 @@ class AigcShortDramaService
         }
         $sourceRequest = ShortDramaInputContract::begin($sourceRequest);
         $config = $config ?? self::publicConfig($tenantId);
-        $sourceRequest['_upload_timing_rule_snapshot'] = ShortDramaEpisodeDuration::normalize((array)($config['episode_duration_rule'] ?? []));
+        $sourceRequest = self::freezeUploadedTimingRule($sourceRequest, $config);
         unset($sourceRequest['_submission_key'], $sourceRequest['_submission_hash']);
         $sourceRequest = array_replace($sourceRequest, $receipt);
         if ($receipt) $idempotencyKey = $receipt['_submission_key'];
@@ -17354,6 +17355,15 @@ class AigcShortDramaService
     }
 
     /** The rule is frozen at submission; the episode count becomes known after parsing. */
+    private static function freezeUploadedTimingRule(array $request, array $config): array
+    {
+        // A new upload is a new submission: replace inherited tenant defaults,
+        // but never discard a parent's explicit user or timeline requirement.
+        if ((ShortDramaEpisodeDuration::policy($request)['source'] ?? '') === 'default') $request['episode_duration_policy']=[];
+        $request['_upload_timing_rule_snapshot']=ShortDramaEpisodeDuration::normalize((array)($config['episode_duration_rule'] ?? []));
+        return $request;
+    }
+
     private static function finalizeUploadedTimingPolicy(array $request, int $episodeCount): array
     {
         $rule=$request['_upload_timing_rule_snapshot'] ?? null;
@@ -17364,6 +17374,7 @@ class AigcShortDramaService
         if (!empty($rule['enabled']) || $explicit) {
             $params=array_replace($request,['multi_episode'=>true,'episode_count'=>$episodeCount]);
             $request['episode_duration_policy']=self::episodeDurationSnapshot($prompt,$params,['episode_duration_rule'=>$rule],true);
+            $request['duration_source']=$request['episode_duration_policy']['source'];
         }
         return $request;
     }

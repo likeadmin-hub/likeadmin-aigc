@@ -315,6 +315,14 @@ class ShortDramaEpisodeDurationTest extends TestCase
         $disabled['target_duration_seconds']=90;
         self::assertSame('user',$this->invoke('finalizeUploadedTimingPolicy',$disabled,17)['episode_duration_policy']['source']);
         $legacy=['prompt'=>'旧任务']; self::assertSame($legacy,$this->invoke('finalizeUploadedTimingPolicy',$legacy,17));
+        $previous=['episode_duration_policy'=>ShortDramaEpisodeDuration::snapshot([],0,0,[]), 'prompt'=>'故事'];
+        $fresh=$this->invoke('freezeUploadedTimingRule',$previous,['episode_duration_rule'=>$rule]);
+        self::assertSame([],$fresh['episode_duration_policy']);
+        self::assertSame(180,$fresh['_upload_timing_rule_snapshot']['max_seconds']);
+        self::assertSame(180,$this->invoke('finalizeUploadedTimingPolicy',$fresh,17)['episode_duration_policy']['max_seconds']);
+        $previous['episode_duration_policy']=ShortDramaEpisodeDuration::snapshot([],90,0,[]);
+        $explicit=$this->invoke('freezeUploadedTimingRule',$previous,['episode_duration_rule'=>$rule]);
+        self::assertSame($previous['episode_duration_policy'],$this->invoke('finalizeUploadedTimingPolicy',$explicit,17)['episode_duration_policy']);
     }
 
     public function testUploadedEpisodeTimecodeAndExplicitDurationOverrideDefaults(): void
@@ -328,6 +336,8 @@ class ShortDramaEpisodeDurationTest extends TestCase
         self::assertCount(2,$policy['timeline_segments']);
         $explicit=$this->invoke('uploadedEpisodeTimingPolicy',$request,['source_content'=>"本集时长：90秒\n故事"],$default);
         self::assertSame('user',$explicit['source']); self::assertEquals(90,$explicit['target_seconds']);
+        $explicit=$this->invoke('uploadedEpisodeTimingPolicy',$request,['source_content'=>"本集时长：1.5分钟\n故事"],$default);
+        self::assertEquals(90,$explicit['target_seconds']);
         self::assertSame($default,$this->invoke('uploadedEpisodeTimingPolicy',[], $episode,$default));
         $this->expectExceptionMessage('时间码、输入时长与所选时长不一致');
         $this->invoke('uploadedEpisodeTimingPolicy',$request,$episode,ShortDramaEpisodeDuration::snapshot($rule,90,0,[]));
