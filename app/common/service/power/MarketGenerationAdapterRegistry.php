@@ -30,6 +30,69 @@ final class MarketGenerationAdapterRegistry
         MarketGenericImageAppRuntimeService::UPSTREAM_APP_CODE => MarketGenericImageAppRuntimeService::class,
     ];
 
+    private const MODEL_PROTOCOLS = [
+        'image'=>['native_v1','flat_image_v1','image_messages_v1','qwen_image_v1'],
+        'video'=>['native_v1','flat_video_v1','video_input_parameters_v1','wan_video_media_v1','h3_content_v1','q4_video_v1','veo_video_v1'],
+    ];
+    private const APPLICATION_PROTOCOLS = [
+        'nano_banana'=>['nano_banana_v1'], 'seedance'=>['seedance_content_v1'],
+        'wan'=>['wan_auto_v1','wan_reference_v1','wan_edit_v1','wan_text_v1'],
+        'grok_video'=>['grok_video_v1'], 'happy_horse'=>['happy_horse_media_v1'], 'full_video'=>['full_video_content_v1'],
+    ];
+
+    /** Serializer selection is separate from capability, material and SKU validation. */
+    public static function modelProtocol(string $type, array $snapshot): string
+    {
+        $source=MarketGenerationSchema::array($snapshot['source_payload'] ?? []);
+        $metadata=MarketGenerationSchema::array($snapshot['market_metadata'] ?? $source['market_metadata'] ?? []);
+        $declared=self::declaredProtocol($snapshot,$metadata);
+        if ($declared !== null && !in_array($declared,self::MODEL_PROTOCOLS[$type] ?? [],true)) throw new InvalidArgumentException('模型生成协议未注册或类型不匹配');
+        // A serializer hint must not bypass a model's material contract.
+        if (MarketGenerationMaterials::contract($metadata)['modes'] ?? []) return 'native_v1';
+        if ($declared === 'native_v1') throw new InvalidArgumentException('原生生成协议缺少素材合同');
+        if ($declared !== null) return $declared;
+        $code=strtolower(trim((string)($snapshot['model_code'] ?? $snapshot['upstream_model_code'] ?? '')));
+        $schema=MarketGenerationSchema::properties(MarketGenerationSchema::array($metadata['params_schema'] ?? $snapshot['params_schema'] ?? []));
+        if ($type === 'image') {
+            if (in_array($code,['qwen-image-3.0','qwen-image-3.0-pro'],true)) return 'qwen_image_v1';
+            $doc=strtolower((string)($metadata['developer_doc_content'] ?? $metadata['api_doc'] ?? ''));
+            return (isset($schema['input'],$schema['parameters']) || (str_contains($doc,'input.messages') && str_contains($doc,'parameters.')))
+                ? 'image_messages_v1' : 'flat_image_v1';
+        }
+        if ($type !== 'video') throw new InvalidArgumentException('该类型尚未注册生成协议');
+        if ($code === 'q4-preview-video') return 'q4_video_v1';
+        foreach ([$code,$snapshot['channel_code'] ?? $snapshot['upstream_channel_code'] ?? '',$snapshot['name'] ?? ''] as $value) {
+            $value=strtolower(trim((string)$value));$compact=preg_replace('/[^a-z0-9]+/','',$value) ?: '';
+            if (preg_match('/(?:^|[-_\s])h3(?:[-_\s]|$)/',$value) || str_starts_with($compact,'h3')) return 'h3_content_v1';
+        }
+        if ($code === 'wan3.0-video') return 'wan_video_media_v1';
+        if (str_starts_with($code,'veo3.1-')) return 'veo_video_v1';
+        return isset($schema['input'],$schema['parameters']) ? 'video_input_parameters_v1' : 'flat_video_v1';
+    }
+
+    public static function applicationProtocol(string $app, array $snapshot): string
+    {
+        $source=MarketGenerationSchema::array($snapshot['source_payload'] ?? []);
+        $metadata=MarketGenerationSchema::array($snapshot['market_metadata'] ?? $source['market_metadata'] ?? []);
+        $profiles=self::APPLICATION_PROTOCOLS[$app] ?? [];
+        if ($profiles === []) throw new InvalidArgumentException('应用生成协议未注册');
+        $declared=self::declaredProtocol($snapshot,$metadata);
+        if ($declared !== null && !in_array($declared,$profiles,true)) throw new InvalidArgumentException('应用生成协议未注册或不属于当前应用');
+        return $declared ?? $profiles[0];
+    }
+
+    private static function declaredProtocol(array $snapshot, array $metadata): ?string
+    {
+        $locked=MarketGenerationSchema::array($snapshot['locked_params'] ?? []);
+        foreach ([[$snapshot,'generation_protocol'],[$locked,'_generation_protocol'],[$metadata,'generation_protocol'],
+            [MarketGenerationSchema::array($metadata['upstream_metadata'] ?? []),'generation_protocol']] as [$source,$key]) {
+            if (!array_key_exists($key,$source)) continue;
+            if (!is_string($source[$key]) || $source[$key] === '') throw new InvalidArgumentException('生成协议声明格式不正确');
+            return $source[$key];
+        }
+        return null;
+    }
+
     public static function runtime(string $type, array $selection): string
     {
         $selection = array_replace(MarketGenerationSchema::array($selection['params'] ?? []), $selection);

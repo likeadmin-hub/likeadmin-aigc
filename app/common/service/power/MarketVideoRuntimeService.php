@@ -965,7 +965,8 @@ class MarketVideoRuntimeService
             self::seedanceAssets($request, $consumptionId);
             // Uploads preserve the original reservation's material metering.
             // Their asset IDs replace URLs only in the supplier request.
-            $prepared = $prepared->withApplicationInput(self::appPayload($snapshot, $request, $idempotency));
+            $prepared = $prepared->withApplicationInput(MarketGenerationRequest::normalizeLegacyPayload($snapshot,
+                self::appPayload($snapshot, $request, $idempotency), $request));
         }
         $plan = MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
         return self::request($plan['method'], self::origin() . $plan['path'], $prepared->nativeInput);
@@ -977,12 +978,16 @@ class MarketVideoRuntimeService
         $request = self::requestWithReferenceAliases($request);
         $meter = $snapshot['billing_meter'] ?? null;
         if (MarketGenerationAdapterRegistry::resourceType($snapshot) === PowerMarketService::TYPE_MODEL) {
-            $prepared = PreparedMarketGeneration::model(self::modelPayload($snapshot, $request, $idempotency), $meter, $request);
+            MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot);
+            $payload = self::modelPayload($snapshot, $request, $idempotency);
+            if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) === []) $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, $payload, $request);
+            $prepared = PreparedMarketGeneration::model($payload, $meter, $request);
         } else {
             // Validate registration before allowing a legacy default adapter to
             // interpret an unknown app as a Wan request.
             MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
-            $prepared = PreparedMarketGeneration::application(self::appPayload($snapshot, $request, $idempotency), $meter, $request);
+            $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, self::appPayload($snapshot, $request, $idempotency), $request);
+            $prepared = PreparedMarketGeneration::application($payload, $meter, $request);
         }
         MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput);
         return $prepared;
@@ -1064,7 +1069,7 @@ class MarketVideoRuntimeService
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
         $schema = self::arrayValue($snapshot['params_schema'] ?? []);
-        if (Q4VideoContract::matches($snapshot)) {
+        if (MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'q4_video_v1') {
             return Q4VideoContract::payload($snapshot, array_replace($request, array_intersect_key($locked, array_flip(Q4VideoContract::OPTIONS))), $assets, self::resolution($locked) ?: self::value($request, ['quality','resolution']), self::duration($locked) ?: (int)($request['duration'] ?? 5), $idempotency, self::marketContext($snapshot, 'power_market_video'));
         }
         $locked = array_merge(self::declaredVideoOptions($schema, $request), $locked);
@@ -1192,19 +1197,12 @@ class MarketVideoRuntimeService
 
     private static function isH3Snapshot(array $snapshot): bool
     {
-        return self::isH3Product([
-            'upstream_model_code' => (string)($snapshot['model_code'] ?? ''),
-            'upstream_channel_code' => (string)($snapshot['channel_code'] ?? ''),
-        ]);
+        return MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'h3_content_v1';
     }
 
     private static function usesStructuredModelTaskPayload(array $snapshot): bool
     {
-        $schema = self::arrayValue($snapshot['params_schema'] ?? []);
-        if (array_key_exists('input', $schema) && array_key_exists('parameters', $schema)) {
-            return true;
-        }
-        return strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video';
+        return in_array(MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot), ['wan_video_media_v1','video_input_parameters_v1'], true);
     }
 
     private static function structuredModelPayload(array $snapshot, array $request, array $locked, string $prompt, string $ratio, string $resolution, int $duration, string $idempotency): array
@@ -1224,7 +1222,7 @@ class MarketVideoRuntimeService
         $parameters = array_merge($providerParams, $locked, $parameters);
 
         if ($prompt !== '') {
-            $input['prompt'] = strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video'
+            $input['prompt'] = MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'wan_video_media_v1'
                 ? self::wanThreeReferencePrompt($prompt) : $prompt;
         }
         $media = self::structuredModelMedia($request);
@@ -1249,7 +1247,7 @@ class MarketVideoRuntimeService
             }
         }
         if (!isset($request['audio']) && isset($request['generate_audio']) && $request['generate_audio'] !== ''
-            && (strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video'
+            && (MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'wan_video_media_v1'
                 || self::schemaDeclaresParameter(self::arrayValue($snapshot['params_schema'] ?? []), 'audio'))) {
             $audio = filter_var($request['generate_audio'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             if ($audio === null || !is_scalar($request['generate_audio'])) throw new Exception('生成音频参数格式不正确');
@@ -1313,38 +1311,12 @@ class MarketVideoRuntimeService
 
     private static function isVeoThreeSnapshot(array $snapshot): bool
     {
-        return str_starts_with(strtolower((string)($snapshot['model_code'] ?? '')), 'veo3.1-');
+        return MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'veo_video_v1';
     }
 
     private static function structuredModelMedia(array $request): array
     {
-        $media = [];
-        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
-            $url = AigcVideoReferenceAssetService::publicUrl($asset);
-            if ($url === '') {
-                continue;
-            }
-            $type = (string)($asset['type'] ?? '');
-            if ($type === 'image') {
-                $media[] = [
-                    'type' => match ((string)($asset['role'] ?? 'reference_image')) {
-                        'first_frame_image' => 'first_frame',
-                        'last_frame_image' => 'last_frame',
-                        default => 'reference_image',
-                    },
-                    'url' => $url,
-                ];
-                continue;
-            }
-            if ($type === 'video') {
-                $media[] = ['type' => 'reference_video', 'url' => $url];
-                continue;
-            }
-            if ($type === 'audio') {
-                $media[] = ['type' => 'reference_audio', 'url' => $url];
-            }
-        }
-        return $media;
+        return MarketGenerationMaterialEncoding::wanMedia($request);
     }
 
     private static function filterEmptyPayload(array $payload): array
@@ -1391,31 +1363,7 @@ class MarketVideoRuntimeService
 
     private static function h3Content(array $request, string $prompt): array
     {
-        $content = [['type' => 'text', 'text' => $prompt]];
-        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
-            $type = (string)($asset['type'] ?? '');
-            $url = AigcVideoReferenceAssetService::publicUrl($asset);
-            if ($url === '') {
-                continue;
-            }
-            if ($type === 'image') {
-                $role = match ((string)($asset['role'] ?? 'reference_image')) {
-                    'first_frame_image' => 'first_frame',
-                    'last_frame_image' => 'last_frame',
-                    default => 'reference_image',
-                };
-                $content[] = ['type' => 'image_url', 'image_url' => ['url' => $url], 'role' => $role];
-                continue;
-            }
-            if ($type === 'video') {
-                $content[] = ['type' => 'video_url', 'video_url' => ['url' => $url], 'role' => 'reference_video'];
-                continue;
-            }
-            if ($type === 'audio') {
-                $content[] = ['type' => 'audio_url', 'audio_url' => ['url' => $url], 'role' => 'reference_audio'];
-            }
-        }
-        return $content;
+        return MarketGenerationMaterialEncoding::content($request, $prompt);
     }
 
     private static function schemaParameterName(array $snapshot, array $candidates, string $fallback): string
@@ -1535,90 +1483,13 @@ class MarketVideoRuntimeService
 
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
-        $app = (string)$snapshot['app_code'];
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
-        $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0);
-        $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']);
-        // Pricing variants choose the local SKU only; they are not provider parameters.
-        $locked = array_filter($locked, static fn($key): bool => is_string($key)
-            && !str_starts_with($key, '_') && $key !== 'pricing_variant', ARRAY_FILTER_USE_KEY);
-        if ($app === 'full_video') {
-            $prompt = trim((string)($request['prompt'] ?? ''));
-            if ($prompt === '') {
-                throw new Exception('full_video generation requires a text prompt.');
-            }
-            foreach (['prompt', 'content', 'aspect_ratio', 'ratio', 'size', 'quality', 'n', 'negative_prompt', 'image_urls', 'video_urls', 'audio_urls'] as $key) {
-                unset($locked[$key]);
-            }
-            $ratio = self::payloadRatio($snapshot, $request, $assets);
-            if ($ratio === '' && ($assets['image'] !== [] || $assets['video'] !== [] || $assets['audio'] !== [])) {
-                $ratio = 'adaptive';
-            }
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), [
-                'model' => trim((string)($locked['model'] ?? $snapshot['model_code'] ?? '')) ?: 'full-video',
-                'content' => self::h3Content($request, $prompt),
-                'resolution' => strtoupper($resolution ?: '480P'),
-                'duration' => $duration > 0 ? $duration : null,
-                'ratio' => $ratio,
-                'aigc_watermark' => $request['aigc_watermark'] ?? $request['aigcWatermark'] ?? null,
-                'callback_url' => $request['callback_url'] ?? $request['callbackUrl'] ?? null,
-                'idempotency_key' => $idempotency,
-            ]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
-        }
-        if ($app === 'happy_horse') {
-            $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
-            $model = self::happyHorseModel($locked, $assets, $method);
-            $media = array_merge(
-                array_map(static fn(string $url): array => ['url' => $url, 'type' => 'video'], $assets['video']),
-                array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image'])
-            );
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'watermark', 'audio_setting', 'callback_url']), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => in_array($model, ['happyhorse-1.1-i2v', 'happyhorse-1.0-video-edit'], true) ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
-        }
-        if ($app === 'seedance') {
-            if (!empty($request['tools']) && array_filter($assets)) throw new Exception('联网搜索仅支持文生视频');
-            $content = self::seedanceContent($request);
-            $hasVideo = in_array('video_url', array_column($content, 'type'), true);
-            foreach (['image_urls', 'video_urls', 'audio_urls', 'content'] as $key) {
-                unset($locked[$key]);
-            }
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'draft', 'frames', 'watermark', 'camera_fixed', 'service_tier', 'tools', 'callback_url']), ['model' => (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video')), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
-        }
-        if ($app === 'grok_video') {
-            if ($assets['video'] !== [] || $assets['audio'] !== []) throw new Exception('当前 Grok 视频接口仅支持参考图片，请移除视频或音频素材');
-            $model = trim((string)($locked['model'] ?? $snapshot['model_code'] ?? 'grok-video'));
-            if ($model === 'grok-imagine-video-1.5' && $assets['image'] === []) throw new Exception('Grok 标准版需要至少一张参考图片');
-            if ($model === 'grok-imagine-video-1.5' && $duration > 15) throw new Exception('Grok 标准版仅支持 1–15 秒');
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'aspect_ratio' => (string)($request['aspect_ratio'] ?? $request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
-        }
-        $model = trim((string)($locked['model'] ?? ''));
-        if ($model === '') {
-            $model = trim((string)($snapshot['model_code'] ?? ''));
-        }
-        if ($model === '') {
-            $model = $assets['video'] !== [] ? 'wan2.7-videoedit' : ($assets['image'] !== [] ? 'wan2.7-r2v' : 'wan2.7');
-        }
-        foreach (['image_urls', 'image_with_roles', 'video_urls', 'audio_urls', 'audio_url'] as $key) {
-            unset($locked[$key]);
-        }
-        $payload = array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'watermark', 'negative_prompt', 'prompt_extend', 'metadata', 'callback_url']), [
-            'model' => $model,
-            'prompt' => trim((string)($request['prompt'] ?? '')),
-            'resolution' => $resolution,
-            'duration' => $duration > 0 ? $duration : null,
-            'size' => (string)($request['ratio'] ?? ''),
-            'idempotency_key' => $idempotency,
-        ]);
-        if ($model === 'wan2.7-r2v') {
-            $payload['image_with_roles'] = self::wanImageWithRoles($request);
-        } elseif ($model === 'wan2.7-videoedit') {
-            $payload['image_urls'] = $assets['image'];
-            $payload['video_urls'] = $assets['video'];
-        } elseif ($model === 'wan2.7') {
-            $payload['image_urls'] = $assets['image'];
-        }
-        $payload['audio_url'] = $assets['audio'][0] ?? null;
-        return array_filter($payload, static fn($value) => $value !== '' && $value !== [] && $value !== null);
+        return MarketGenerationApplicationProtocol::video($snapshot, $request, $idempotency, $assets,
+            self::marketContext($snapshot, 'power_market_app_api'),
+            self::resolution($locked) ?: self::value($request, ['resolution','quality']),
+            self::duration($locked) ?: (int)($request['duration'] ?? 0),
+            static fn() => self::payloadRatio($snapshot, $request, $assets));
     }
 
     private static function appRequestOptions(array $request, array $allowed): array
@@ -1628,58 +1499,19 @@ class MarketVideoRuntimeService
 
     private static function happyHorseModel(array $locked, array $assets, string $method): string
     {
-        $model = trim((string)($locked['model'] ?? ''));
-        if ($model !== '') return $model;
-        if ($assets['video'] !== []) return 'happyhorse-1.0-video-edit';
-        if ($assets['image'] === []) return 'happyhorse-1.1-t2v';
-        return count($assets['image']) === 1
-            && !in_array($method, ['image_reference', 'omni_reference', 'multi_frame'], true)
-            ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-r2v';
+        return MarketGenerationApplicationProtocol::happyHorseModel($locked, $assets, $method);
     }
 
     /** Seedance accepts multimodal media in content, not top-level URL arrays. */
     private static function seedanceContent(array $request): array
     {
-        $content = [['type' => 'text', 'text' => trim((string)($request['prompt'] ?? ''))]];
-        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
-            $type = (string)($asset['type'] ?? '');
-            $url = trim((string)($asset['url'] ?? $asset['uri'] ?? ''));
-            if ($url === '') continue;
-            if (!str_starts_with($url, 'asset://')) {
-                $url = AigcVideoReferenceAssetService::publicUrl($asset);
-            }
-            if ($type === 'image') {
-                $role = match ((string)($asset['role'] ?? '')) {
-                    'first_frame_image' => 'first_frame',
-                    'last_frame_image' => 'last_frame',
-                    default => 'reference_image',
-                };
-                $content[] = ['type' => 'image_url', 'role' => $role, 'image_url' => ['url' => $url]];
-            } elseif ($type === 'video') {
-                $content[] = ['type' => 'video_url', 'role' => 'reference_video', 'video_url' => ['url' => $url]];
-            } elseif ($type === 'audio') {
-                $content[] = ['type' => 'audio_url', 'role' => 'reference_audio', 'audio_url' => ['url' => $url]];
-            }
-        }
-        return $content;
+        return MarketGenerationMaterialEncoding::seedance($request);
     }
 
     /** Wan 2.7 r2v requires typed image roles, unlike videoedit's image_urls. */
     private static function wanImageWithRoles(array $request): array
     {
-        $images = [];
-        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
-            if (($asset['type'] ?? '') !== 'image') continue;
-            $url = AigcVideoReferenceAssetService::publicUrl($asset);
-            if ($url === '') continue;
-            $role = match ((string)($asset['role'] ?? '')) {
-                'first_frame_image' => 'first_frame',
-                'last_frame_image' => 'last_frame',
-                default => 'reference_image',
-            };
-            $images[] = ['url' => $url, 'role' => $role];
-        }
-        return $images;
+        return MarketGenerationMaterialEncoding::wanImages($request);
     }
 
     private static function seedanceAssets(array &$request, int $consumptionId): void

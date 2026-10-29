@@ -535,6 +535,7 @@ class PowerMarketService
             'supports_vision', 'supports_reasoning',
             'max_reference_images', 'max_reference_audios', 'max_reference_videos',
             'max_reference_assets',
+            'generation_protocol',
         ] as $field) {
             foreach ([$api, $app, $apiCapabilities, $appCapabilities] as $source) {
                 if (array_key_exists($field, $source) && self::metadataValuePresent($source[$field])) {
