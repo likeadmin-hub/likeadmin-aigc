@@ -1,0 +1,763 @@
+{
+    "tenant_id": 1,
+    "observed_at": "2026-10-29T23:09:14+08:00",
+    "scope": "Platform GET detail versus saved machine metadata for missing/changed local native contracts; no sync, task, quote, upload or point writes",
+    "source": "configured market developerDocTree/developerDocDetail GET APIs; same resolver as production synchronization",
+    "known_document_fallback": "previously verified published slugs; identity rechecked on every response",
+    "catalogue_reads": [],
+    "models": [
+        {
+            "generation_type": "image",
+            "model_code": "nano-banana-2.1",
+            "channel_code": "Google",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5",
+            "channel_code": "OpenAIYI",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5-flare",
+            "channel_code": "OpenAIYI",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5-sunburst",
+            "channel_code": "OpenAIYI",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "nano-banana-2",
+            "channel_code": "Google",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "nano-banana-pro",
+            "channel_code": "Google",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenaiM",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenAIYI",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "document_tree",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2-fast",
+            "channel_code": "openaiD",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2-pro",
+            "channel_code": "OpenaiM",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "qwen-image-3.0-pro",
+            "channel_code": "dashscope_compatible",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree",
+            "platform_detail_available": true,
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "saved_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "platform_expanded_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "saved_expanded_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "published_doc_slug": "model-100",
+            "read_state": "read"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "qwen-image-3.0",
+            "channel_code": "dashscope_compatible",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree",
+            "platform_detail_available": true,
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "saved_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "platform_expanded_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "saved_expanded_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "published_doc_slug": "model-102",
+            "read_state": "read"
+        },
+        {
+            "generation_type": "video",
+            "model_code": "q4-preview-video",
+            "channel_code": "q4_video",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree",
+            "platform_detail_available": true,
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": [],
+            "saved_schema_opaque_paths": [],
+            "platform_expanded_schema_opaque_paths": [],
+            "saved_expanded_schema_opaque_paths": [],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "published_doc_slug": "model-q4-preview-video",
+            "read_state": "read"
+        },
+        {
+            "generation_type": "video",
+            "model_code": "h3-video",
+            "channel_code": "minimax",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree",
+            "platform_detail_available": true,
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": [],
+            "saved_schema_opaque_paths": [],
+            "platform_expanded_schema_opaque_paths": [],
+            "saved_expanded_schema_opaque_paths": [],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "published_doc_slug": "model-h3-video",
+            "read_state": "read"
+        },
+        {
+            "generation_type": "video",
+            "model_code": "grok-video",
+            "channel_code": "xAIQ",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "video",
+            "model_code": "veo3.1-fast",
+            "channel_code": "xAIQ",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "video",
+            "model_code": "veo3.1-pro",
+            "channel_code": "xAIQ",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": false,
+            "lookup_strategy": "known_slug_unavailable",
+            "platform_detail_available": false,
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "read_state": "unavailable_or_unpublished"
+        },
+        {
+            "generation_type": "video",
+            "model_code": "wan3.0-video",
+            "channel_code": "dashscope_compatible",
+            "local_native_snapshot": "missing_or_changed",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree",
+            "platform_detail_available": true,
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [
+                "params_schema"
+            ],
+            "platform_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "saved_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "platform_expanded_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "saved_expanded_schema_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "published_doc_slug": "model-101",
+            "read_state": "read"
+        }
+    ],
+    "applications": [
+        {
+            "app_code": "nano_banana",
+            "api_code": "submit",
+            "resource_type": "app_api",
+            "generation_type": "image",
+            "platform_identity_verified": false,
+            "lookup_strategy": "document_tree_or_api_slug",
+            "read_state": "unavailable_or_identity_mismatch",
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "api_declaration_available": false,
+            "source_projection": "application_doc_detail"
+        },
+        {
+            "app_code": "seedance",
+            "api_code": "create",
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree_or_api_slug",
+            "read_state": "read",
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [],
+            "platform_schema_opaque_paths": [
+                "tools[]",
+                "content[]"
+            ],
+            "saved_schema_opaque_paths": [
+                "tools[]",
+                "content[]"
+            ],
+            "platform_expanded_schema_opaque_paths": [
+                "tools[]",
+                "content[].audio_url",
+                "content[].image_url",
+                "content[].video_url"
+            ],
+            "saved_expanded_schema_opaque_paths": [
+                "tools[]",
+                "content[].audio_url",
+                "content[].image_url",
+                "content[].video_url"
+            ],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "api_declaration_available": true,
+            "source_projection": "application_doc_detail"
+        },
+        {
+            "app_code": "wan",
+            "api_code": "create",
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree_or_api_slug",
+            "read_state": "read",
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [],
+            "platform_schema_opaque_paths": [
+                "metadata",
+                "image_urls[]",
+                "video_urls[]",
+                "image_with_roles[]"
+            ],
+            "saved_schema_opaque_paths": [
+                "metadata",
+                "image_urls[]",
+                "video_urls[]",
+                "image_with_roles[]"
+            ],
+            "platform_expanded_schema_opaque_paths": [
+                "image_urls[]",
+                "video_urls[]"
+            ],
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]",
+                "video_urls[]"
+            ],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "api_declaration_available": true,
+            "source_projection": "application_doc_detail"
+        },
+        {
+            "app_code": "grok_video",
+            "api_code": "submit",
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "platform_identity_verified": false,
+            "lookup_strategy": "document_tree_or_api_slug",
+            "read_state": "unavailable_or_identity_mismatch",
+            "platform_contract_fields": [],
+            "saved_upstream_contract_fields": [],
+            "platform_schema_opaque_paths": null,
+            "saved_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_expanded_schema_opaque_paths": null,
+            "saved_expanded_schema_opaque_paths": [
+                "image_urls[]"
+            ],
+            "platform_schema_matches_saved": null,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": false,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "api_declaration_available": false,
+            "source_projection": "application_doc_detail"
+        },
+        {
+            "app_code": "happy_horse",
+            "api_code": "submit",
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "platform_identity_verified": true,
+            "lookup_strategy": "verified_prior_slug",
+            "read_state": "read",
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [],
+            "platform_schema_opaque_paths": [
+                "media[]"
+            ],
+            "saved_schema_opaque_paths": [
+                "media[]"
+            ],
+            "platform_expanded_schema_opaque_paths": [],
+            "saved_expanded_schema_opaque_paths": [],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "api_declaration_available": true,
+            "source_projection": "application_doc_detail"
+        },
+        {
+            "app_code": "full_video",
+            "api_code": "submit",
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "platform_identity_verified": true,
+            "lookup_strategy": "document_tree_or_api_slug",
+            "read_state": "read",
+            "platform_contract_fields": [
+                "params_schema"
+            ],
+            "saved_upstream_contract_fields": [],
+            "platform_schema_opaque_paths": [
+                "content[]"
+            ],
+            "saved_schema_opaque_paths": [
+                "content[]"
+            ],
+            "platform_expanded_schema_opaque_paths": [
+                "content[]"
+            ],
+            "saved_expanded_schema_opaque_paths": [
+                "content[]"
+            ],
+            "platform_schema_matches_saved": true,
+            "platform_material_mode_count": 0,
+            "saved_material_mode_count": 0,
+            "published_document_available": true,
+            "runtime_readiness": "unverified",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified",
+            "api_declaration_available": true,
+            "source_projection": "application_doc_detail"
+        }
+    ]
+}

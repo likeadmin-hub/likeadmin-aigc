@@ -43,7 +43,8 @@ try {
     $report=['tenant_id'=>(int)$tenant,'observed_at'=>date(DATE_ATOM),
         'scope'=>'Platform GET detail versus saved machine metadata for missing/changed local native contracts; no sync, task, quote, upload or point writes',
         'source'=>$catalogue ? 'configured market GET /api/v1/models?type=image|video&detail=1; exact model/channel identity'
-            : 'configured market developerDocTree/developerDocDetail GET APIs; same resolver as production synchronization',
+            : ($known ? 'configured market developerDocTree/developerDocDetail GET APIs with prior verified slugs; exact response identity required'
+                : 'configured market developerDocTree/developerDocDetail GET APIs; same resolver as production synchronization'),
         'known_document_fallback'=>$known?'previously verified published slugs; identity rechecked on every response':'disabled',
         'catalogue_reads'=>[],'models'=>[],'applications'=>[]];
     $remoteByIdentity=[];

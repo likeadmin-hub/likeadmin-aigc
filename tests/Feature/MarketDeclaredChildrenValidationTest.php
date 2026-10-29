@@ -64,4 +64,17 @@ class MarketDeclaredChildrenValidationTest extends TestCase
         self::assertSame($good,Request::normalizeLegacyPayload($s,$good,[]));
         $this->expectException(\InvalidArgumentException::class);Request::normalizeLegacyPayload($s,['media'=>[['type'=>'video','url'=>['wrong shape']]]],[]);
     }
+    public function testHistoricalQwenReservationRetainsItsOriginalEffectiveOption(): void
+    {
+        $fixture=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/canvas-generation-market-contracts.json'),true);
+        $metadata=array_values(array_filter($fixture['contracts'],static fn($c)=>($c['model_code']??'')==='qwen-image-3.0'))[0];
+        $metadata['supports_reference_images']=true;$metadata['max_reference_images']=3;
+        $s=['product_id'=>990001,'sku_id'=>990002,'model_code'=>'qwen-image-3.0','channel_code'=>'dashscope_compatible',
+            'market_metadata'=>$metadata,'locked_params'=>[]];
+        $r=['prompt'=>'fixture','reference_images'=>['https://fixtures.invalid/a.png'],
+            'provider_params'=>['parameters'=>['prompt_extend_mode'=>'agent']]];
+        self::assertSame('direct',Images::prepareRequest($s,$r)->nativeInput['parameters']['prompt_extend_mode']);
+        $s['generation_validation_revision']=8;
+        $this->expectException(\Exception::class);$this->expectExceptionMessage('direct');Images::prepareRequest($s,$r);
+    }
 }
