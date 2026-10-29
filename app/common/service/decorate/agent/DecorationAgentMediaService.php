@@ -226,11 +226,14 @@ final class DecorationAgentMediaService
         if(($request['purpose']??'')==='design'||!empty($request['reference_design_slot_id']))self::assertDesignReferenceModel($tenant,$selection,count($resolved['reference_images']??[]));
     }
 
-    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $request = [],int $slotId=0): array
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $request = [],int $slotId=0, bool $futurePrompt = false): array
     {
         self::assertTenant($tenantId);
         $resolved=self::referenceRequest($tenantId, $request,$slotId);self::assertDesignRequestReferences($tenantId,$selection,$request,$resolved);
-        $quote = MarketImageModelRuntimeService::quote($tenantId, $selection, $quantity, [], true);
+        $quoteRequest = array_replace($selection, $resolved);
+        $quote = $futurePrompt
+            ? MarketImageModelRuntimeService::quoteForFuturePrompt($tenantId, $quoteRequest, $quantity, true)
+            : MarketImageModelRuntimeService::quote($tenantId, $quoteRequest, $quantity, [], true);
         $quote['actual_tenant_cost_points'] = (float)$quote['tenant_cost_points'];
         $quote['cost_known'] = (string)$quote['settlement_mode'] !== 'actual_usage';
         return $quote;
@@ -242,9 +245,13 @@ final class DecorationAgentMediaService
         self::assertTenant($tenant);
         $fresh=DecorationAgentDesignService::confirmedDesign($tenant,$admin,(int)$approved['run_id'],(string)$approved['hash']);
         if($fresh!==$approved)throw new \InvalidArgumentException('已确认设计版本已变化');
-        DecorationAgentDesignService::referenceBytes($tenant,$admin,$approved);
+        $read=DecorationAgentDesignService::referenceBytes($tenant,$admin,$approved);
         DecorationAgentDesignExtraction::operation($request);self::assertDesignReferenceModel($tenant,$selection,1);
-        $quote=MarketImageModelRuntimeService::quote($tenant,$selection,1,[],true);
+        $resolved=array_replace($selection, array_intersect_key($request,array_flip(['ratio','aspect_ratio','quality','size','image_size','resolution'])), [
+            'prompt'=>DecorationAgentDesignExtraction::prompt($request,$approved),
+            'reference_images'=>['data:'.$read['mime_type'].';base64,'.base64_encode($read['bytes'])],
+        ]);
+        $quote=MarketImageModelRuntimeService::quote($tenant,$resolved,1,[],true);
         $quote['cost_known']=(string)$quote['settlement_mode']!=='actual_usage';return $quote;
     }
 

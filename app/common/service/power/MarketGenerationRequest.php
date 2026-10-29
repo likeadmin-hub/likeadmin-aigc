@@ -32,7 +32,7 @@ final class MarketGenerationRequest
         return true; // Admission still validates the complete exact-mode schema and materials.
     }
 
-    public static function payload(array $snapshot, array $request): array
+    public static function payload(array $snapshot, array $request, bool $deferMissingPrompt = false): array
     {
         $metadata = self::metadata($snapshot);
         $mode = MarketGenerationMaterials::select($metadata, $request);
@@ -75,8 +75,16 @@ final class MarketGenerationRequest
         $schema = MarketGenerationSchema::branch($schema, $params);
         $params = MarketGenerationSchema::normalize($schema, $params, $native);
         MarketGenerationMaterials::validate($metadata, $request, $params);
-        MarketGenerationSchema::validate($schema, $params, $native);
-        MarketGenerationSchema::validate($originalSchema, $params, $native);
+        // Only a business-owned preliminary estimate may defer a prompt that
+        // has not been created yet. An explicitly supplied empty prompt is
+        // still invalid, as are all other fields and material combinations.
+        $providerParams = (array)($request['provider_params'] ?? []);
+        $deferred = $deferMissingPrompt
+            && !array_key_exists('prompt', $request) && !array_key_exists('content', $request)
+            && !array_key_exists('prompt', $providerParams) && !array_key_exists('content', $providerParams)
+            && !isset($params['prompt']) && !isset($params['content']) ? ['prompt', 'content'] : [];
+        MarketGenerationSchema::validate($schema, $params, $native, '', $deferred);
+        MarketGenerationSchema::validate($originalSchema, $params, $native, '', $deferred);
         MarketGenerationRules::validate(MarketGenerationNativeContract::rules($metadata, $native), $params);
         return $params;
     }
