@@ -83,10 +83,11 @@ class MarketImagePreparationTest extends TestCase
         $method->invoke(null, $this->market(), array_replace($this->request(), ['quality' => '8k']));
     }
 
-    public function testMeterContextUsesPreciselyThePreparedSubmission(): void
+    /** @dataProvider imageMeters */
+    public function testMeterContextUsesPreciselyThePreparedSubmission(array $source): void
     {
         $market = $this->market();
-        $market['sku']['source_payload'] = ['meter_summary' => '生成张数 + 超过1的参考图片张数×1/2，总点数向上取整'];
+        $market['sku']['source_payload'] = $source;
         $request = $this->request();
         $request['reference_images'][] = 'https://fixture.invalid/second.png';
         $quoted = (new ReflectionMethod(Images::class, 'meterMarket'))->invoke(null, $market, $request);
@@ -96,6 +97,15 @@ class MarketImagePreparationTest extends TestCase
         self::assertSame(2, $submitted->meterContext['reference_images']);
         self::assertSame(5.0, MarketGenerationMeter::price(3, 1, $snapshot));
         self::assertSame('4K', $submitted->nativeInput['image_size']);
+    }
+
+    public static function imageMeters(): array
+    {
+        return [
+            [['meter_summary' => '生成张数 + 超过1的参考图片张数×1/2，总点数向上取整']],
+            [['meter_contract' => ['version'=>1, 'basis'=>'image', 'rounding'=>'ceil',
+                'reference_images'=>['free'=>1, 'numerator'=>1, 'denominator'=>2]]]],
+        ];
     }
 
     /** @dataProvider invalidInput */

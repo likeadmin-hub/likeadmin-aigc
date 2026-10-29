@@ -11,7 +11,13 @@ final class MarketGenerationMeter
         $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
         $summary = trim((string)($source['meter_summary'] ?? $sku['meter_summary'] ?? ''));
         $unit = strtolower((string)($sku['usage_unit'] ?? ''));
-        $contract = ['version'=>1, 'summary'=>$summary, 'unit'=>$unit, 'round_up'=>false, 'basis'=>''];
+        // A malformed explicit declaration must never fall back to a cheaper
+        // legacy unit or a human-readable summary. Only this finite grammar is executable.
+        if (array_key_exists('meter_contract', $source) || array_key_exists('meter_contract', $sku)) {
+            return self::structured(array_key_exists('meter_contract', $source) ? $source['meter_contract'] : $sku['meter_contract'], $summary, $unit);
+        }
+        $contract = ['version'=>1, 'summary'=>$summary, 'unit'=>$unit, 'round_up'=>false, 'basis'=>'',
+            'source'=>$summary === '' ? 'legacy_unit' : 'legacy_summary'];
         $suffix = '，总点数向上取整';
         if ($summary !== '') {
             if (!str_ends_with($summary, $suffix)) throw new InvalidArgumentException('模型计费规则尚未适配，请同步并核验模型价格');
@@ -34,6 +40,43 @@ final class MarketGenerationMeter
             };
         }
         if ($contract['basis'] === '') throw new InvalidArgumentException('模型计费数量规则缺失，请同步并核验模型价格');
+        return $contract;
+    }
+
+    public static function isExplicit(array $contract): bool
+    {
+        return ($contract['source'] ?? '') === 'structured' || ($contract['summary'] ?? '') !== '';
+    }
+
+    /** Adapters without shared meter settlement must reject new declarations. */
+    public static function assertLegacyPricing(array $sku): void
+    {
+        $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
+        if (array_key_exists('meter_contract', $source) || array_key_exists('meter_contract', $sku)) {
+            throw new InvalidArgumentException('该应用尚未接入结构化计费，请核验应用计费适配');
+        }
+    }
+
+    private static function structured($value, string $summary, string $unit): array
+    {
+        $invalid = static fn() => new InvalidArgumentException('模型结构化计费规则无效或尚未适配，请同步并核验模型价格');
+        if (!is_array($value) || array_diff(array_keys($value), ['version','basis','rounding','reference_images']) !== []
+            || ($value['version'] ?? null) !== 1
+            || !in_array($value['basis'] ?? null, ['call','image','output','input','output_plus_video','output_plus_max_video','megapixel'], true)
+            || !in_array($value['rounding'] ?? null, ['ceil','half_up_6'], true)) throw $invalid();
+        $contract = ['version'=>1, 'source'=>'structured', 'summary'=>$summary, 'unit'=>$unit,
+            'basis'=>$value['basis'], 'round_up'=>$value['rounding'] === 'ceil'];
+        if (array_key_exists('reference_images', $value)) {
+            $term = $value['reference_images'];
+            if (!in_array($value['basis'], ['image','output_plus_video'], true) || !is_array($term)
+                || array_diff(array_keys($term), ['free','numerator','denominator']) !== []
+                || count($term) !== 3) throw $invalid();
+            foreach (['free','numerator','denominator'] as $field) {
+                if (!is_int($term[$field] ?? null) || $term[$field] < ($field === 'denominator' ? 1 : 0)
+                    || $term[$field] > 1000000) throw $invalid();
+            }
+            $contract += ['free_images'=>$term['free'], 'image_numerator'=>$term['numerator'], 'image_denominator'=>$term['denominator']];
+        }
         return $contract;
     }
 

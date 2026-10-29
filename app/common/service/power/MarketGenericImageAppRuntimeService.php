@@ -88,6 +88,7 @@ class MarketGenericImageAppRuntimeService
     public static function quote(int $tenantId, array $selection, int $quantity = 1): array
     {
         $market = self::resolve($tenantId, $selection);
+        MarketGenerationMeter::assertLegacyPricing($market['sku']);
         $quantity = max(1, $quantity);
         $deferred = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         return [
@@ -101,6 +102,7 @@ class MarketGenericImageAppRuntimeService
     public static function reserve(int $tenantId, int $userId, string $action, string $businessTaskId, array $selection, array $request, int $quantity = 1, string $appCode = self::APP_CODE, string $businessTable = 'aigc_watermark_removal_task'): array
     {
         $market = self::resolve($tenantId, $selection);
+        MarketGenerationMeter::assertLegacyPricing($market['sku']);
         $quantity = max(1, $quantity);
         $deferred = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         $tenantCost = $deferred ? 0 : self::points((float)$market['sku']['sale_points'] * $quantity);

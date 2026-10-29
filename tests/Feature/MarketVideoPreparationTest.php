@@ -59,12 +59,13 @@ class MarketVideoPreparationTest extends TestCase
         }
     }
 
-    public function testQuoteAndReservationMeterPreciselyThePreparedSubmission(): void
+    /** @dataProvider outputMeters */
+    public function testQuoteAndReservationMeterPreciselyThePreparedSubmission(array $source, string $unit, float $expectedQuantity, float $expectedPrice): void
     {
         $market = ['product' => ['id' => 991001, 'resource_type' => 'model', 'model_type' => 'video', 'upstream_model_code' => 'new-declared-video',
             'upstream_channel_code' => 'fixture', 'upstream_app_code' => '', 'upstream_api_code' => '', 'source_payload' => ['market_metadata' => $this->metadata()]],
-            'sku' => ['id' => 991002, 'sku_key' => 'fixture', 'locked_params' => [], 'usage_unit' => 'output_second', 'usage_unit_size' => 1,
-                'upstream_price' => 2.5, 'sale_points' => 2.5, 'source_payload' => ['meter_summary' => '生成秒数，总点数向上取整']], 'tenant_price' => 2.5];
+            'sku' => ['id' => 991002, 'sku_key' => 'fixture', 'locked_params' => [], 'usage_unit' => $unit, 'usage_unit_size' => 1,
+                'upstream_price' => 2.5, 'sale_points' => 2.5, 'source_payload' => $source], 'tenant_price' => 2.5];
         $request = $this->request();
         $prepare = new ReflectionMethod(Videos::class, 'prepareMarketRequest');
         $quantity = new ReflectionMethod(Videos::class, 'quantity');
@@ -74,8 +75,17 @@ class MarketVideoPreparationTest extends TestCase
         $submitted = Videos::prepareRequest($snapshot, $request);
         self::assertSame($quoted->nativeInput, $submitted->nativeInput);
         self::assertSame($quoted->meterContext, $snapshot['meter_context']);
-        self::assertSame(4.0, $count);
-        self::assertSame(10.0, MarketGenerationMeter::price(2.5, $count, $snapshot));
+        self::assertSame($expectedQuantity, $count);
+        self::assertSame($expectedPrice, MarketGenerationMeter::price(2.5, $count, $snapshot));
+    }
+
+    public static function outputMeters(): array
+    {
+        return [
+            [['meter_summary'=>'生成秒数，总点数向上取整'], 'output_second', 4.0, 10.0],
+            [['meter_contract'=>['version'=>1, 'basis'=>'output', 'rounding'=>'ceil']], 'business_unit', 4.0, 10.0],
+            [['meter_contract'=>['version'=>1, 'basis'=>'call', 'rounding'=>'ceil']], 'output_second', 1.0, 3.0],
+        ];
     }
 
     /** @dataProvider rejectedRequests */
