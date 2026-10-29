@@ -1,0 +1,239 @@
+{
+  "observed_at": "2026-10-30T01:55:38+08:00",
+  "scope": "Read-only per-slot estimates and frozen/fresh preparation; no batch/task creation, reservation or supplier submission",
+  "observations": [
+    {
+      "scenario": "character_edit_quality_slots_1",
+      "channel": "market_image_model:274",
+      "material_mode": "image_edit:2",
+      "sku_id": 377,
+      "per_request_quantity": 1,
+      "requested_slots": 1,
+      "status": "quoted_and_frozen_preparation_equal",
+      "per_slot_points": 96,
+      "display_points": 96,
+      "native_material_counts": {
+        "image_url": 1,
+        "reference_image_urls": 1,
+        "mask_url": 1
+      }
+    },
+    {
+      "scenario": "character_edit_quality_slots_2",
+      "channel": "market_image_model:274",
+      "material_mode": "image_edit:2",
+      "sku_id": 377,
+      "per_request_quantity": 1,
+      "requested_slots": 2,
+      "status": "quoted_and_frozen_preparation_equal",
+      "per_slot_points": 96,
+      "display_points": 192,
+      "native_material_counts": {
+        "image_url": 1,
+        "reference_image_urls": 1,
+        "mask_url": 1
+      }
+    },
+    {
+      "scenario": "character_multi_group_balanced_slots_2",
+      "channel": "market_image_model:274",
+      "material_mode": "image_to_image:1",
+      "sku_id": 374,
+      "per_request_quantity": 1,
+      "requested_slots": 2,
+      "status": "quoted_and_frozen_preparation_equal",
+      "per_slot_points": 72,
+      "display_points": 144,
+      "native_material_counts": {
+        "image_url": 1,
+        "reference_image_urls": 1,
+        "reference_mask_urls": 1
+      }
+    },
+    {
+      "scenario": "qwen_mask_1k_slots_2",
+      "channel": "market_image_model:302",
+      "material_mode": "image_to_image:1",
+      "sku_id": 456,
+      "per_request_quantity": 1,
+      "requested_slots": 2,
+      "status": "quoted_and_frozen_preparation_equal",
+      "per_slot_points": 16,
+      "display_points": 32,
+      "native_material_counts": {
+        "image_urls": 1,
+        "mask_url": 1
+      }
+    },
+    {
+      "scenario": "qwen_mask_2k_slots_2",
+      "channel": "market_image_model:302",
+      "material_mode": "image_to_image:1",
+      "sku_id": 455,
+      "per_request_quantity": 1,
+      "requested_slots": 2,
+      "status": "quoted_and_frozen_preparation_equal",
+      "per_slot_points": 32,
+      "display_points": 64,
+      "native_material_counts": {
+        "image_urls": 1,
+        "mask_url": 1
+      }
+    },
+    {
+      "scenario": "qwen_no_mask_2k_slots_2",
+      "channel": "market_image_model:302",
+      "material_mode": "image_to_image:1",
+      "sku_id": 455,
+      "per_request_quantity": 1,
+      "requested_slots": 2,
+      "status": "quoted_and_frozen_preparation_equal",
+      "per_slot_points": 32,
+      "display_points": 64,
+      "native_material_counts": {
+        "image_urls": 1
+      }
+    },
+    {
+      "scenario": "qwen_mask_with_two_inputs_rejected",
+      "channel": "market_image_model:302",
+      "material_mode": "image_to_image:1",
+      "sku_id": 456,
+      "status": "expected_contract_rejection",
+      "reason": "mask_requires_exactly_one_input"
+    }
+  ],
+  "open_findings": [
+    {
+      "channel": "market_image_model:274",
+      "material_mode": "image_edit:2",
+      "sku_id": 377,
+      "scenario": "no_explicit_rendering_speed",
+      "public_default": "BALANCED",
+      "prepared_rendering_speed": "QUALITY",
+      "per_slot_points": 96,
+      "status": "open_default_display_mismatch"
+    },
+    {
+      "channel": "market_image_model:273",
+      "material_mode": "image_edit:2",
+      "sku_id": 370,
+      "scenario": "no_explicit_rendering_speed",
+      "public_default": "BALANCED",
+      "prepared_rendering_speed": "TURBO",
+      "per_slot_points": 14,
+      "status": "open_default_display_mismatch"
+    }
+  ],
+  "baseline": "tenant-1-baseline-20261030.json",
+  "baseline_identity_observed_at": "2026-10-30T01:16:40+08:00",
+  "identity_bindings": {
+    "market_image_model:274": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:274",
+        "product_id": 274,
+        "resource_type": "model",
+        "model_code": "official-33-99f7864e9c69192f6b",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "9c73a9ba9ba9c505ed605afd572ed120a7bb4ba513363cc1f66b8b8cd1479a40"
+    },
+    "market_image_model:273": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:273",
+        "product_id": 273,
+        "resource_type": "model",
+        "model_code": "official-33-a89cf866c234f6089d",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "d18b59c9eda4ce28d4de53aa92e484c7b2ef87de60c590166cc8bebc12888f97"
+    },
+    "market_image_model:302": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:302",
+        "product_id": 302,
+        "resource_type": "model",
+        "model_code": "official-33-fbfd4ec9543263b5c5",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "eea1a5218b65d20a8ad7992338349c6763fc3f09144dfb60b688eafd7041f838"
+    }
+  },
+  "source_commits": {
+    "web_group_labels": "7583f5aa",
+    "web_model_change": "7e3e2502",
+    "server_business_baseline": "3feec8e8b"
+  },
+  "acceptance": "Partial observations; open default mismatches block complete acceptance. No new native contract or supplier generation certified.",
+  "browser_observations": [
+    {
+      "channel": "market_image_model:274",
+      "entry": "pc_studio",
+      "material_mode": "image_edit:2",
+      "scenario": "three_required_image_groups",
+      "status": "partial_observed",
+      "asset_groups": [
+        "input_image",
+        "character_reference",
+        "mask"
+      ],
+      "display_points_by_output_slots": {
+        "1": 96,
+        "2": 192
+      },
+      "sku_status": "not_directly_observed"
+    },
+    {
+      "channel": "market_image_model:274",
+      "entry": "pc_studio",
+      "material_mode": "image_to_image:1",
+      "scenario": "optional_reference_mask_and_distinct_image_groups",
+      "status": "partial_observed",
+      "requested_output_slots": 2,
+      "display_points": 144,
+      "sku_status": "not_directly_observed"
+    },
+    {
+      "channel": "market_image_model:302",
+      "entry": "pc_studio",
+      "material_mode": "image_to_image:1",
+      "scenario": "switch_model_keeps_all_three_assets_and_validates_mask_constraint",
+      "status": "expected_contract_rejection",
+      "reason": "two_input_images_plus_mask",
+      "before_fix": "unrecognized_previous_model_fields_prevented_mode_selection"
+    },
+    {
+      "channel": "market_image_model:302",
+      "entry": "pc_studio",
+      "material_mode": "image_to_image:1",
+      "scenario": "one_input_one_optional_mask_after_switch",
+      "status": "partial_observed",
+      "requested_output_slots": 2,
+      "display_points_by_resolution": {
+        "1k": 32,
+        "2k": 64
+      },
+      "sku_status": "not_directly_observed"
+    },
+    {
+      "channel": "market_image_model:302",
+      "entry": "pc_studio",
+      "material_mode": "image_to_image:1",
+      "scenario": "remove_optional_mask_keep_input",
+      "status": "partial_observed",
+      "requested_output_slots": 2,
+      "resolution": "2k",
+      "display_points": 64,
+      "sku_status": "not_directly_observed"
+    }
+  ]
+}
