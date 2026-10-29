@@ -7,7 +7,7 @@ use NeuronAI\Chat\Messages\{UserMessage,AssistantMessage};
 function check(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);}
 function denied(callable $work):void{try{$work();}catch(AgentContextCapacityExceeded){return;}throw new RuntimeException('Expected explicit capacity rejection');}
 
-check(P::inputBudget([])===24000,'Missing metadata fallback changed');
+check(P::inputBudget([])===0,'Missing metadata invented a capacity limit');
 check(P::inputBudget(['context_window'=>128000])===119808,'Context did not reserve normal output');
 check(P::inputBudget(['context_window'=>32000,'max_input_tokens'=>12000])===12000,'Input-only limit ignored');
 check(P::inputBudget(['context_window'=>100,'max_output_tokens'=>8192])===1,'Invalid capacity became unbounded');

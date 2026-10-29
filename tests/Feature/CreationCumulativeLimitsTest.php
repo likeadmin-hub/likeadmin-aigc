@@ -44,4 +44,24 @@ final class CreationCumulativeLimitsTest extends TestCase
         self::assertSame(65536,\app\common\service\power\TextModelCapacity::output(['max_output_tokens'=>65536],65536));
         self::assertSame(128,\app\common\service\power\TextModelCapacity::output(['max_output_tokens'=>128],512));
     }
+    public function testUnknownInputCapacityDoesNotBecomeAnInvented24000TokenStop(): void
+    {
+        self::assertSame(0,MarketNeuronProvider::inputBudget([]));
+        $messages=[['role'=>'user','content'=>str_repeat('完整剧本不能被截掉。',6000)]];
+        self::assertSame($messages,MarketNeuronProvider::fitContext($messages,'规则',[],0));
+        self::assertSame(12000,MarketNeuronProvider::inputBudget(['context_window'=>32000,'max_input_tokens'=>12000]));
+        $this->expectException(\app\common\service\app\aigc_llm\agent\AgentContextCapacityExceeded::class);
+        MarketNeuronProvider::fitContext($messages,'规则',[],12000);
+    }
+    public function testPlanValidationCanContinueUntilARealToolCallInsteadOfAOneRepairCeiling():void
+    {
+        $calls=0;
+        $provider=new MarketNeuronProvider('selected',static function()use(&$calls):array{
+            if(++$calls<4)return ['content'=>'声称已保存的方案'];
+            return ['content'=>'','tool_calls'=>[['id'=>'actual-call','function'=>['name'=>'plan_creation','arguments'=>'{}']]]];
+        },static fn(string $reply)=>$reply==='声称已保存的方案'?'必须保存真实方案':null);
+        $result=$provider->chat(new UserMessage('按原方式继续'));
+        self::assertInstanceOf(\NeuronAI\Chat\Messages\ToolCallMessage::class,$result->message());
+        self::assertSame(4,$calls);
+    }
 }

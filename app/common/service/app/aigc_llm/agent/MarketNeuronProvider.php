@@ -17,11 +17,10 @@ final class MarketNeuronProvider implements AIProviderInterface
     private string $instructions = '';
     private array $tools = [];
     private int $calls = 0;
-    private bool $repairAttempted = false;
     /** Native continuation evidence lives only in this run's provider instance. */
     private array $responsesHistory = [];
 
-    public function __construct(private string $model, private \Closure $transport, private ?\Closure $validateReply = null, private int $inputBudget = 24000) {}
+    public function __construct(private string $model, private \Closure $transport, private ?\Closure $validateReply = null, private int $inputBudget = 0) {}
     public function getModel(): string { return $this->model; }
     public function systemPrompt(SystemMessage|string|null $prompt): AIProviderInterface
     {
@@ -47,20 +46,17 @@ final class MarketNeuronProvider implements AIProviderInterface
         ];
         $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas,$this->inputBudget);
         $result = self::visibleResult(($this->transport)($request));
-        if (empty($result['tool_calls']) && $this->validateReply !== null) {
+        $baseInstructions=$request['system_prompt'];
+        while (empty($result['tool_calls']) && $this->validateReply !== null) {
             $correction=($this->validateReply)((string)($result['content']??''));
-            if ($correction && !$this->repairAttempted) {
-                $this->repairAttempted=true;
-                ++$this->calls;
-                $request['system_prompt'].="\n".$correction;
-                $request['tool_choice']='required';
-                $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas,$this->inputBudget);
-                $result=self::visibleResult(($this->transport)($request));
-            }
-            if (empty($result['tool_calls']) && ($this->validateReply)((string)($result['content']??''))) {
-                // Do not leave a fictional plan in the conversation when repair fails.
-                $result['content']='本次尚未创建可执行的生成方案，没有提交生成任务。请重试；方案校验通过后会按所选运行模式继续。';
-            }
+            if (!$correction) break;
+            ++$this->calls;
+            // Reuse the original evidence and one correction, never accumulate duplicate prompts.
+            // The metered transport checkpoints cancellation and leases for every real request.
+            $request['system_prompt']=$baseInstructions."\n".$correction;
+            $request['tool_choice']='required';
+            $request['messages']=self::fitContext($request['messages'],$request['system_prompt'],$schemas,$this->inputBudget);
+            $result=self::visibleResult(($this->transport)($request));
         }
         $calls=[];
         if (!empty($result['tool_calls']) && !empty($result['_responses_output'])) {
@@ -138,17 +134,17 @@ final class MarketNeuronProvider implements AIProviderInterface
     {
         return hash('sha256', json_encode(array_column($calls, 'id'), JSON_THROW_ON_ERROR));
     }
-    /** Capacity protection, not a token-saving target. Reserve the configured output allowance. */
+    /** Honor declared per-request capacity; zero means the provider has not advertised a limit. */
     public static function inputBudget(array $model): int
     {
         $capacity=\app\common\service\power\TextModelCapacity::metadata($model);
         $limits=[];
         if($capacity['max_input_tokens']>0)$limits[]=$capacity['max_input_tokens'];
         if($capacity['context_window']>0)$limits[]=max(1,$capacity['context_window']-\app\common\service\power\TextModelCapacity::output($model,0));
-        return $limits?min($limits):24000;
+        return $limits?min($limits):0;
     }
     /** Preserve complete supplied evidence. Reject overflow before transport, never silently drop turns. */
-    public static function fitContext(array $messages,string $instructions,array $tools,int $budget=24000): array
+    public static function fitContext(array $messages,string $instructions,array $tools,int $budget=0): array
     {
         $estimate=static function($value):int{
             $text=is_string($value)?$value:AgentStore::encode($value);
@@ -167,7 +163,7 @@ final class MarketNeuronProvider implements AIProviderInterface
             }
             return $total;
         };
-        if($size($messages)>$budget)throw new AgentContextCapacityExceeded('本轮完整上下文超出可处理容量，未删减原文或提交本次模型请求。请分段处理资料，或请管理员配置更大上下文的模型后继续');
+        if($budget>0 && $size($messages)>$budget)throw new AgentContextCapacityExceeded('本轮完整上下文超出可处理容量，未删减原文或提交本次模型请求。请分段处理资料，或请管理员配置更大上下文的模型后继续');
         return $messages;
     }
 }
