@@ -992,6 +992,7 @@ class MarketVideoRuntimeService
     {
         if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
+        if (in_array($meter['basis'], ['image','megapixel'], true)) throw new Exception('该视频模型计费数量规则尚未适配');
         if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
         $prepared = self::prepareRequest(self::snapshot($market, 1), $request);
         if (MarketGenerationMeter::isExplicit($meter)) $market['meter_context'] = $prepared->meterContext;
@@ -3095,12 +3096,14 @@ class MarketVideoRuntimeService
                 if ($durations!==[]) return max($durations);
             }
             $metadata=self::metadata($market['product']);
-            if (MarketGenerationMaterials::modes($metadata)!==[]) {
+            if (MarketGenerationMaterials::modes($metadata)!==[] || (MarketGenerationMeter::isExplicit($meter) && $prepared !== null)) {
                 $native=$prepared?->nativeInput ?? MarketGenerationRequest::payload(self::snapshot($market,1),$selection);
                 if ($unit==='input_second') return max(1,MarketGenerationMedia::seconds($native));
-                $seconds=(float)($native['duration'] ?? $native['seconds'] ?? $native['video_duration'] ?? 0);
-                if ($seconds>0) return max(1,$seconds);
-                if (isset($native['num_frames'],$native['frames_per_second']) && (float)$native['frames_per_second']>0) return max(1,(float)$native['num_frames']/(float)$native['frames_per_second']);
+                foreach ([$native, self::arrayValue($native['parameters'] ?? [])] as $parameters) {
+                    $seconds=(float)($parameters['duration'] ?? $parameters['seconds'] ?? $parameters['video_duration'] ?? 0);
+                    if (is_finite($seconds) && $seconds>0) return max(1,$seconds);
+                    if (isset($parameters['num_frames'],$parameters['frames_per_second']) && (float)$parameters['frames_per_second']>0) return max(1,(float)$parameters['num_frames']/(float)$parameters['frames_per_second']);
+                }
                 // The upstream meter estimates an unspecified generated clip at 60 seconds.
                 // This is an estimate, never a duration sent to the model or a hard limit;
                 // the actual measured receipt is mandatory for final settlement.

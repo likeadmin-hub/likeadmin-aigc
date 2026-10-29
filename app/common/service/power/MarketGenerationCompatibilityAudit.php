@@ -75,10 +75,15 @@ final class MarketGenerationCompatibilityAudit
                 $result['meter_status'] = 'legacy_application_pricing';
                 return $result;
             }
+            if (MarketUsageSettlementService::isActualUsageSku($sku)) {
+                $result['meter_status'] = 'requires_submission_token_budget';
+                return $result;
+            }
             $meter = MarketGenerationMeter::contract($sku);
             $result['meter'] = array_intersect_key($meter, array_flip(['source','basis','round_up','free_images','image_numerator','image_denominator']));
             $result['meter_status'] = $meter['basis'] === 'megapixel' ? 'requires_verified_pixels' : 'recognized';
             if ($type === 'image' && !in_array($meter['basis'], ['call','image','megapixel'], true)) $result['meter_status'] = 'unsupported_meter';
+            if ($type === 'video' && in_array($meter['basis'], ['image','megapixel'], true)) $result['meter_status'] = 'unsupported_meter';
         } catch (\InvalidArgumentException) {
             $result['meter_status'] = 'unsupported_or_invalid_meter';
         }

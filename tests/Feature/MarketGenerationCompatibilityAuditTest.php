@@ -52,6 +52,7 @@ class MarketGenerationCompatibilityAuditTest extends TestCase
         self::assertSame('unsupported_or_invalid_meter', Audit::sku('image','app_api',$sku)['meter_status']);
         $sku['meter_contract']['basis'] = 'megapixel';
         self::assertSame('requires_verified_pixels', Audit::sku('image','model',$sku)['meter_status']);
+        self::assertSame('requires_submission_token_budget', Audit::sku('video','app_api',['usage_unit'=>'token'])['meter_status']);
     }
 
     public function testProbeUsesTheActualPureCompilerAndDetectsDroppedMaterials(): void
