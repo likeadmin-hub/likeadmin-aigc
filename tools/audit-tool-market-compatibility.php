@@ -183,6 +183,11 @@ foreach (['image', 'video'] as $type) {
         $report['models'][] = [
             'generation_type' => $type, 'id' => $id, 'product_id' => $productId,
             'resource_type' => $resource, 'name' => (string)($option['name'] ?? ''),
+            'model_code' => (string)($option['model_code'] ?? $product['upstream_model_code'] ?? ''),
+            'channel_code' => (string)($product['upstream_channel_code'] ?? ''),
+            'app_code' => (string)($product['upstream_app_code'] ?? ''),
+            'api_code' => (string)($product['upstream_api_code'] ?? ''),
+            'declaration_fingerprint' => Audit::fingerprint($schema),
             'native_contract' => $contractStatus,
             'reviewed_contract' => $reviewedContract,
             'contract_evidence' => $contractEvidence,
