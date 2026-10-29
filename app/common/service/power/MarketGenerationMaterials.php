@@ -287,7 +287,7 @@ final class MarketGenerationMaterials
                 if(self::structuredUrlMatches((array)$child,$value[$key],$asset,$next))return true;
             }
         }elseif(($schema['type']??'')==='string'&&$kind!==''&&is_string($value)
-            &&(($schema['format']??'')==='uri'||isset($schema['pattern']))){
+            &&(($schema['format']??'')==='uri'||preg_match('/https?|oss|asset|data:/i',(string)($schema['pattern']??'')))){
             return $value===($asset['url']??$asset['uri']??'')&&($kind===($asset['type']??'image')||($kind==='visual'&&in_array($asset['type']??'image',['image','video'],true)));
         }
         return false;
