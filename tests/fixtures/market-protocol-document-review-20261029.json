@@ -1,0 +1,459 @@
+{
+    "observed_at": "2026-10-29T22:54:50+08:00",
+    "scope": "Verified published document identities and schema gaps only; previous evidence retained; no activation or writes",
+    "entries": [
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "nano-banana-2.1",
+            "channel_code": "Google",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-nano-banana-2-1",
+            "doc_content_sha256": "607a05f03f49ba5c1fe7ea43768f1f33f10f6b101e5f4ebc92afd5ff3c6b31c8",
+            "raw_schema_fingerprint": "801c88d3f7f628d9f8b52fcb9253d6297aa16fc14362f6e75f52a4bfd2b48ea7",
+            "expanded_opaque_paths": [],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5",
+            "channel_code": "OpenAIYI",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-gpt-image-2-5",
+            "doc_content_sha256": "135488ad42adfde9665af0bfb7c833b768c497add9b6679b2400987e4490fad0",
+            "raw_schema_fingerprint": "a5d8f02c9bb7503821ab2225e6ba04a8b8d1c0a5394ce2839b20d24792b21c28",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5-flare",
+            "channel_code": "OpenAIYI",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-gpt-image-2-5-flare",
+            "doc_content_sha256": "2f6bffae6f8fa07bcd77fb6aa9af40cba583ed33caeaca87265f1264d7ee17d5",
+            "raw_schema_fingerprint": "2e472421e887ea79c0819966af86e2612a6d3058114bb4a090902c7891b86160",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5-sunburst",
+            "channel_code": "OpenAIYI",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-gpt-image-2-5-sunburst",
+            "doc_content_sha256": "7dd49b609b086078add0bfe2f7f540c1d4efe01ad244c5d93fec1b2748edbaa0",
+            "raw_schema_fingerprint": "f43ac76971838c532ed730a673723018cde6c71c0bb3fb0f12306a1b859aaf26",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "nano-banana-2",
+            "channel_code": "Google",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-nano-banana-2-google",
+            "doc_content_sha256": "1dac592c48fedadef81761d71fc322a4af9f4bbc3ba7a6a9922990445e3d3b62",
+            "raw_schema_fingerprint": "a84bfb45418d24be8ec88f1bcf000dc2170e3af99153940e946dea3ea99b9e6f",
+            "expanded_opaque_paths": [
+                "urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "nano-banana-pro",
+            "channel_code": "Google",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-nano-banana-pro-google",
+            "doc_content_sha256": "28719cca6ab510efaf6cf3a4a357e84dedd2959b541725cc37697b40860f8893",
+            "raw_schema_fingerprint": "a84bfb45418d24be8ec88f1bcf000dc2170e3af99153940e946dea3ea99b9e6f",
+            "expanded_opaque_paths": [
+                "urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenaiM",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-gpt-image-2-openaim",
+            "doc_content_sha256": "fb8046020a732c0426d55c825f673fedbd48fcb4fcba5f54c2d280bf4c350161",
+            "raw_schema_fingerprint": "5f0093e2ac0b448958d7cb43b81641de4f4fdd6566fc8b835ffc27f0c27a66c2",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenAIYI",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": false,
+            "read_state": "unavailable_or_unbound",
+            "doc_slug": null,
+            "doc_content_sha256": null,
+            "raw_schema_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "gpt-image-2-fast",
+            "channel_code": "openaiD",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-gpt-image-2-fast-openaid",
+            "doc_content_sha256": "eeabb37eed3e960d668c58c834111c199e487898f3a0513028b1169d745e9e42",
+            "raw_schema_fingerprint": "ca3e36a99f653460780a4d4620c288567e0419b5226db561eccf8869f2210c36",
+            "expanded_opaque_paths": [],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "gpt-image-2-pro",
+            "channel_code": "OpenaiM",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-gpt-image-2-pro-openaim",
+            "doc_content_sha256": "6c0096c1262e95a14392d33d038a34a6a39067ad31c07adb048725f4f7d274ac",
+            "raw_schema_fingerprint": "2fa1bb1719ac93947a6a2d4cf5326b58aab4a06783cf811af549ec446ecd4055",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "qwen-image-3.0-pro",
+            "channel_code": "dashscope_compatible",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-100",
+            "doc_content_sha256": "c2355672518deef68fb8931663e360ad8c0496ee71f187db9c955400c1f26a4f",
+            "raw_schema_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d",
+            "expanded_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "image",
+            "model_code": "qwen-image-3.0",
+            "channel_code": "dashscope_compatible",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-102",
+            "doc_content_sha256": "6b2375b2d90fd5beff56455956161f1e00e100253e0470e194cec9ae10728ab0",
+            "raw_schema_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d",
+            "expanded_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "app_api",
+            "generation_type": "image",
+            "model_code": "",
+            "channel_code": "",
+            "app_code": "nano_banana",
+            "api_code": "submit",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "nano-banana-submit",
+            "doc_content_sha256": "c16d31b410757f80b028c969d0ee0b8764c8a23a0e2c74bfe22c8e7bab3a4dee",
+            "raw_schema_fingerprint": "a69b3c7bcd1f6c882d0d923d4e297ed3062501730455b573eb890620a6c2da70",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "video",
+            "model_code": "q4-preview-video",
+            "channel_code": "q4_video",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-q4-preview-video",
+            "doc_content_sha256": "f680fa9cd390368012ed880547351f89468cb523453554ab8b4b56c39ae96d0f",
+            "raw_schema_fingerprint": "36cfd36887a1c2f239210fe0efdb36127c5e084bef0865c70da8b0b677daa572",
+            "expanded_opaque_paths": [],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "video",
+            "model_code": "h3-video",
+            "channel_code": "minimax",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-h3-video",
+            "doc_content_sha256": "3375d79840d89a42c781f20526e53704a353f24cfedc63525bee903fd98f5081",
+            "raw_schema_fingerprint": "bc990385ba679881c0bfac47b246cc769a8462e4817b7b7dcf874ce1698ade0c",
+            "expanded_opaque_paths": [],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "video",
+            "model_code": "grok-video",
+            "channel_code": "xAIQ",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-grok-video-xaiq",
+            "doc_content_sha256": "849f591df569ed6b5c0fcc09910973c45b4ed063f7f93ec88c5e8b7dfd7b8ed9",
+            "raw_schema_fingerprint": "2e46a6d811feb381b269b296d739fd1a459b3ebd8ace8df8bda891db00f0aacc",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "video",
+            "model_code": "veo3.1-fast",
+            "channel_code": "xAIQ",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": false,
+            "read_state": "unavailable",
+            "doc_slug": null,
+            "doc_content_sha256": null,
+            "raw_schema_fingerprint": "aca6f8e829382369732c9d54a38a01e65292187aa2c90bf6b1f6cd86b82ed049",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "video",
+            "model_code": "veo3.1-pro",
+            "channel_code": "xAIQ",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "m-veo3-1-pro-xaiq",
+            "doc_content_sha256": "3145d08a8ed7a96a1f988b5347f97828279bf8abbb027eb21b8fd6cde844dcc7",
+            "raw_schema_fingerprint": "9b1761df753ba94be29e32aac9dd38251e42f4e0da8d3f7a295fb07d535c9c8c",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "model",
+            "generation_type": "video",
+            "model_code": "wan3.0-video",
+            "channel_code": "dashscope_compatible",
+            "app_code": "",
+            "api_code": "",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "model-101",
+            "doc_content_sha256": "2059719e426370f5069a8d01920367a8daa6f074c1a116080a9229ac8fc453ff",
+            "raw_schema_fingerprint": "1f7b90fc5cb91aaebfbd5ea83687de3ab79ee0c84c89bc2c1d849cdd2d2f631f",
+            "expanded_opaque_paths": [
+                "input",
+                "parameters"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "model_code": "",
+            "channel_code": "",
+            "app_code": "seedance",
+            "api_code": "create",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "seedance-create",
+            "doc_content_sha256": "a0adb286d4c8de17ebdac90d7ad3fb970e30a02679a042e2d9ee5beebb152a92",
+            "raw_schema_fingerprint": "93945452ce70415a0e9e24e591dbee90e893db1402d9272f176452a1734c4423",
+            "expanded_opaque_paths": [
+                "tools[]",
+                "content[].audio_url",
+                "content[].image_url",
+                "content[].video_url"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "model_code": "",
+            "channel_code": "",
+            "app_code": "wan",
+            "api_code": "create",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "wan-create",
+            "doc_content_sha256": "7cf2b2c4a511de47a5c6da30987d7b12bef5a249f6b91ce3bc640fa577a5a6c5",
+            "raw_schema_fingerprint": "e24cafddc4f2d41e04b82d5c576cc491f04c9d996b288afebbd7c5350bb0d9a0",
+            "expanded_opaque_paths": [
+                "image_urls[]",
+                "video_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "model_code": "",
+            "channel_code": "",
+            "app_code": "grok_video",
+            "api_code": "submit",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "grok-video-submit",
+            "doc_content_sha256": "c9506dfd38e97296ead73f21560fc5a68c568e7caa5d9cd6ea58bc1eff47f230",
+            "raw_schema_fingerprint": "eb11315a25c103703f7ff93a812907b5360c487d3e51c16306bf85d90488e95a",
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "model_code": "",
+            "channel_code": "",
+            "app_code": "happy_horse",
+            "api_code": "submit",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "happy-horse-submit-a34",
+            "doc_content_sha256": "c18bdf9f5402cc77884182a895dee2775658a139a4fd1c50994f0cad319badb8",
+            "raw_schema_fingerprint": "8bd9c666b6854c002d02fce8d4259074f132df6048dc1a72f7d8f80029cfc962",
+            "expanded_opaque_paths": [],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        },
+        {
+            "resource_type": "app_api",
+            "generation_type": "video",
+            "model_code": "",
+            "channel_code": "",
+            "app_code": "full_video",
+            "api_code": "submit",
+            "document_identity_verified": true,
+            "read_state": "verified",
+            "doc_slug": "full-video-submit",
+            "doc_content_sha256": "4f38ced61aa89d5b5deeeefcc04d0b83f9c47d3e13a0a8c6bb8bb85aa4b8b4d2",
+            "raw_schema_fingerprint": "d6492b26fb2e024aab16eef4690c62b56b40e4be51937d52bde071ba13fd8a9d",
+            "expanded_opaque_paths": [
+                "content[]"
+            ],
+            "native_contract_status": "not_activated",
+            "sku_pricing": "unverified",
+            "live_generation": "unverified"
+        }
+    ]
+}

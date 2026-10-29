@@ -12,6 +12,7 @@ class MarketNestedImageMaterialsTest extends TestCase
 {
     private const PATH='input.messages.*.content.*.image';
     private const IMAGE='https://fixtures.invalid/a.png';
+    private static function images(int $count): array {return array_map(static fn($n)=>'https://fixtures.invalid/reference-'.$n.'.png',range(1,$count));}
     private function bundle(): array
     {
         $content=['anyOf'=>[
@@ -44,7 +45,7 @@ class MarketNestedImageMaterialsTest extends TestCase
     public function testActualQwenEncoderPreservesMultipleReferencesAndTypedControls(): void
     {
         $s=$this->snapshot($this->bundle());$before=$s;
-        $r=['prompt'=>'fixture','ratio'=>'1:1','reference_images'=>array_fill(0,3,self::IMAGE),
+        $r=['prompt'=>'fixture','ratio'=>'1:1','reference_images'=>self::images(3),
             'provider_params'=>['parameters'=>['seed'=>0,'watermark'=>false,'size'=>'1024*1024']]];
         $a=Images::prepareRequest($s,$r);$b=Images::prepareRequest($s,$r);
         self::assertSame($a->nativeInput,$b->nativeInput);
@@ -57,9 +58,9 @@ class MarketNestedImageMaterialsTest extends TestCase
     public function testNestedMaterialLimitsModesAndRolesRemainEnforced(string $case): void
     {
         $s=$this->snapshot($this->bundle());$r=['prompt'=>'fixture','material_mode'=>'reference','reference_images'=>[self::IMAGE]];
-        switch($case){case 'over_limit':$r['reference_images']=array_fill(0,4,self::IMAGE);break;
+        switch($case){case 'over_limit':$r['reference_images']=self::images(4);break;
             case 'wrong_mode':$r['material_mode']='text';break;case 'missing':$r['reference_images']=[];break;
-            case 'local_limit':$r['reference_images']=array_fill(0,2,self::IMAGE);$s['market_metadata']['_local_capability_overrides']=['max_reference_images'=>1];break;
+            case 'local_limit':$r['reference_images']=self::images(2);$s['market_metadata']['_local_capability_overrides']=['max_reference_images'=>1];break;
             case 'wrong_role':unset($r['reference_images']);$r['reference_assets']=[['type'=>'image','role'=>'last_frame_image','url'=>self::IMAGE]];break;
             case 'sku_mode':$s['locked_params']['generation_type']='text_to_image';break;}
         $this->expectException(\InvalidArgumentException::class);Images::prepareRequest($s,$r);
