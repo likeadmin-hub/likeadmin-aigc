@@ -141,6 +141,8 @@ class MarketGenerationReviewedContractTest extends TestCase
             case 'type':$s['resource_type']='app_api';break;
             case 'raw':$s['market_metadata']['params_schema']['prompt']['type']='number';break;
             case 'digest':$s['market_metadata'][Reviewed::PIN]['revision']='changed';break;
+            case 'format':$s['market_metadata'][Reviewed::PIN]['format_version']=3;
+                $s['market_metadata'][Reviewed::PIN]['contract_digest']=Reviewed::contractDigest($s['market_metadata'][Reviewed::PIN]);break;
             case 'public_alias':$s['market_metadata']['upstream_metadata']['model_code']='different';break;
             case 'metadata_channel':$s['market_metadata']['upstream_metadata']['channel_code']='different';break;
             case 'duplicate':$catalogue['contracts'][]=$catalogue['contracts'][0];$this->write($catalogue);$s=$this->frozen($b);break;
@@ -148,7 +150,7 @@ class MarketGenerationReviewedContractTest extends TestCase
         }
         $this->expectException(\InvalidArgumentException::class);Registry::modelProtocol('image',$s);
     }
-    public static function invalidBindings(): array {return array_map(static fn($s)=>[$s],['channel','type','raw','digest','public_alias','metadata_channel','duplicate','new_declaration']);}
+    public static function invalidBindings(): array {return array_map(static fn($s)=>[$s],['channel','type','raw','digest','format','public_alias','metadata_channel','duplicate','new_declaration']);}
 
     public function testNestedQwenEncoderIsNotReplacedByTheMaterialContract(): void
     {
@@ -188,6 +190,7 @@ class MarketGenerationReviewedContractTest extends TestCase
 
     public function testCatalogueCacheEndsBeforeAnotherAdmissionRead(): void
     {
+        (new \think\App(dirname(__DIR__,2).'/'))->initialize();
         $b=$this->bundle();$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));
         \app\common\service\power\MarketCatalogReadScope::run(function()use($b){
             self::assertSame('synthetic-v1',Reviewed::selected($this->frozen($b)['market_metadata'])['revision']);

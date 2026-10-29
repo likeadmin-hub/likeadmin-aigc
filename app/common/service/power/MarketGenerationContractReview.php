@@ -135,6 +135,7 @@ final class MarketGenerationContractReview
                 }
             }
             $contract=array_intersect_key($candidate,array_flip(['generation_type','model_code','channel_code','public_model_code','generation_protocol','modes','source']));
+            $contract['format_version']=2;
             $contract['revision']=$entry['revision'];
             $contract['declaration_fingerprint']=MarketGenerationReviewedContract::digest([
                 $entry['binding_declaration']['params_schema'],$entry['binding_declaration']['material_capabilities']]);

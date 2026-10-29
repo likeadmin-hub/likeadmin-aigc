@@ -85,7 +85,7 @@ final class MarketGenerationReviewedContract
             'declaration_fingerprint','contract_digest'] as $key) {
             if (!is_string($contract[$key] ?? null) || $contract[$key]==='') throw new InvalidArgumentException('审核合同身份或版本不完整');
         }
-        if (!in_array($contract['generation_type'],['image','video'],true) || empty($contract['modes'])
+        if (($contract['format_version'] ?? null)!==2 || !in_array($contract['generation_type'],['image','video'],true) || empty($contract['modes'])
             || empty($contract['material_capabilities']['modes']) || empty($contract['source']['artifact_sha256'])
             || !preg_match('/^[a-f0-9]{64}$/D',$contract['declaration_fingerprint'])
             || !hash_equals($contract['contract_digest'],self::contractDigest($contract))) {
