@@ -42,6 +42,11 @@ class MarketLegacyNativeDurationTest extends TestCase
                 try{Videos::quote(1,$request+['duration'=>$duration]);self::fail('Malformed or undeclared signed duration must be rejected before negotiation');}
                 catch(\Exception$e){self::assertMatchesRegularExpression('/整数|智能时长/',$e->getMessage());}
             }
+            $user=(int)Db::name('user')->where('tenant_id',1)->value('id');
+            foreach([4.5,'4.5']as$duration){
+                try{Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key.'-bad',$request+['duration'=>4],$request+['duration'=>$duration]);self::fail('Reservation must validate the original duration before replacing it');}
+                catch(\Exception$e){self::assertStringContainsString('整数',$e->getMessage());}
+            }
             foreach([3=>4,9=>8,-1=>-1]as$requested=>$expected){
                 $normalized=Videos::normalizeDurationSelection(1,$request+['duration'=>$requested],$requested);
                 self::assertSame($expected,$normalized['duration']);

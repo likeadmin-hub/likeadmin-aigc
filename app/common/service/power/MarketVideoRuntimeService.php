@@ -418,7 +418,7 @@ class MarketVideoRuntimeService
         $request['duration'] = (int)$normalized['duration'];
         CanvasVideoPromptSubmissionGuard::assertPrepared($appCode, $selection);
         $market = self::resolve($tenantId, $selection);
-        if(MarketGenerationReviewedContract::selected(self::metadata($market['product']))!==null)self::assertWholeDuration($originalDuration);
+        if(MarketGenerationNativeContract::modes(self::metadata($market['product']))!==[])self::assertWholeDuration($originalDuration);
         self::assertAssets($market, $request);
         self::assertTextToVideoRatio($market, $request);
         $billingRequest = self::billingRequest($selection, $request);
