@@ -41,7 +41,6 @@ try {
         $pricing=(array)($detail['model_pricing'] ?? []);
         $modelId=Identity::modelId($upstream);
         $returnedCode=(string)($pricing['model_code'] ?? '');
-        $returnedId=(int)($pricing['model_id'] ?? 0);
         $bound=$returnedCode === $identity['model_code'] && Identity::matchesDetail($upstream,$detail);
         $row=$identity+['local_native_snapshot'=>'missing_or_changed','platform_identity_verified'=>$bound];
         $row+=Review::platformData($metadata,$bound ? $detail : []);
