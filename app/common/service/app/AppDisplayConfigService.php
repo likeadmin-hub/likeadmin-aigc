@@ -36,6 +36,7 @@ class AppDisplayConfigService
     ];
 
     public const DEFAULT_APP_CODES = [
+        'aigc_copywriting',
         'aigc_image',
         'aigc_video',
         'aigc_micro_video',
@@ -68,6 +69,7 @@ class AppDisplayConfigService
     ];
 
     private const DEFAULTS = [
+        'aigc_copywriting' => ['title'=>'智能文案','description'=>'12类文案功能，选择模型，实时生成与改写。','sort'=>93],
         'aigc_image' => [
             'title' => '图片生成',
             'description' => '输入提示词或参考图，快速生成高质量图片。',

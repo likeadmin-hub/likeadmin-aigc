@@ -21,7 +21,9 @@ namespace {
         $options = Runtime::options(1);
         musicCheck($options !== [], 'Fixture needs a synced music generate SKU');
         $sku = (int)$options[0]['market_sku_id']; $product = (int)$options[0]['market_product_id'];
-        Db::name('power_market_sku')->where('id', $sku)->update(['sale_points' => 3]);
+        Db::name('power_market_sku')->where('id', $sku)->update(['upstream_price' => 1, 'sale_points' => 3]);
+        \app\common\service\power\MarketPriceRuleService::manual(0, $product, $sku, 3);
+        \app\common\service\power\MarketPriceRuleService::manual(1, $product, $sku, 7);
         $priceQuery = Db::name('tenant_power_market_sku_price')->where(['tenant_id' => 1, 'sku_id' => $sku]);
         if ($priceQuery->find()) $priceQuery->update(['sale_points' => 7, 'sale_status' => 1]);
         else Db::name('tenant_power_market_sku_price')->insert(['tenant_id' => 1, 'sku_id' => $sku, 'sale_points' => 7, 'sale_status' => 1, 'create_time' => time(), 'update_time' => time()]);

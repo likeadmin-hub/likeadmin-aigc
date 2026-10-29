@@ -1,0 +1,1 @@
+async function n(s,e){try{return await s(!1)}catch(t){const a=typeof t=="string"?t:(t==null?void 0:t.msg)||(t==null?void 0:t.message)||"";if(!a.startsWith("中断部分需要重新生成，可能产生新的费用")&&!a.startsWith("中断任务的上下文已更新，不能安全复用旧回包"))throw t;if(!await e(a))throw"cancel";return s(!0)}}export{n as r};

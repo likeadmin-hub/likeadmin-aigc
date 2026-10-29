@@ -112,4 +112,28 @@ class WeChatMnpService
     }
 
 
+    public function posterIdentity(): string
+    {
+        if ($this->useOpenPlatform) return OpenPlatformService::posterIdentity($this->tenantId);
+        return 'direct:'.(string)$this->config['app_id'];
+    }
+
+    public function posterCode(string $scene): string
+    {
+        $payload = ['scene'=>$scene,'page'=>'pages/decoration-tab/tab-0','check_path'=>true,'env_version'=>'release','width'=>430,'is_hyaline'=>false];
+        try {
+            $bytes = $this->useOpenPlatform
+                ? OpenPlatformService::authorizedPosterCode($this->tenantId,$payload)
+                : $this->app->getClient()->postJson('wxa/getwxacodeunlimit',$payload)->getContent();
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('专属码生成失败，请检查小程序配置及发布状态后重试');
+        }
+        $image = @getimagesizefromstring($bytes);
+        if (!$image || !in_array($image['mime'],['image/png','image/jpeg'],true) || strlen($bytes)>2097152) {
+            $body=json_decode($bytes,true); $code=(int)($body['errcode']??0);
+            throw new \RuntimeException('微信未返回有效小程序码（'.$code.'），请检查授权和正式版首页');
+        }
+        return $bytes;
+    }
+
 }

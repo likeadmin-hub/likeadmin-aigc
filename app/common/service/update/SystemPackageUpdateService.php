@@ -630,6 +630,7 @@ class SystemPackageUpdateService
     {
         if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('运行时应用同步只能由更新器子进程执行');
         $result = $this->syncBuiltinApps($extractPath, $version);
+        \app\common\service\app\aigc_copywriting\CopywritingBootstrap::ensureSystem();
         DefaultAppService::syncAllTenants();
         PackageProvisionService::syncAllTenants();
         return $result;

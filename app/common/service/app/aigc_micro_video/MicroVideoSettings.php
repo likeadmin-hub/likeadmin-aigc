@@ -24,7 +24,7 @@ final class MicroVideoSettings
     public static function save(int $tenant,array $params): void
     {
         $params=is_array($params['config']??null)?$params['config']:$params;$config=array_replace(self::get($tenant),array_intersect_key($params,self::defaults()));
-        $ids=array_values(array_unique(array_map('strval',(array)$config['video_model_ids'])));$available=array_column(MicroVideoCatalog::models($tenant,false,'reference'),'id');
+        $ids=array_values(array_unique(array_map('strval',(array)$config['video_model_ids'])));$available=array_column(MicroVideoCatalog::models($tenant,false,'reference',$ids),'id');
         if(array_diff($ids,$available))throw new InvalidArgumentException('勾选的模型暂不可用');
         if($ids)MicroVideoPolicy::allowedModel((string)$config['default_model_id'],$ids);elseif($config['default_model_id']!=='')throw new InvalidArgumentException('默认模型必须属于支持模型');
         foreach(['vision_model_id','script_model_id'] as $key)if($config[$key]!=='')MarketTextModelRuntimeService::resolveModel($tenant,(string)$config[$key],$key==='vision_model_id');
@@ -37,9 +37,15 @@ final class MicroVideoSettings
         $values=['config_json'=>MicroVideoStore::encode($config),'update_time'=>time()];
         Db::transaction(function()use($tenant,$values){MicroVideoStore::table('config')->extra('IGNORE')->insert(['tenant_id'=>$tenant,'config_json'=>'{}','create_time'=>time(),'update_time'=>time()]);MicroVideoStore::table('config')->where('tenant_id',$tenant)->lock(true)->find();MicroVideoStore::table('config')->where('tenant_id',$tenant)->update($values);});
     }
-    public static function detail(int $tenant,bool $admin=false): array
+    public static function detail(int $tenant,bool $admin=false,bool $summary=false): array
     {
-        $config=self::get($tenant);$all=MicroVideoCatalog::models($tenant,false,'reference',$admin?null:(array)$config['video_model_ids']);$models=array_values(array_filter($all,fn($m)=>in_array($m['id'],$config['video_model_ids'],true)));
+        $config=self::get($tenant);$summary=$admin&&$summary;
+        $all=MicroVideoCatalog::models($tenant,false,'reference',$admin?null:(array)$config['video_model_ids'],$summary);
+        if($summary&&$config['default_model_id']!==''){
+            $full=MicroVideoCatalog::models($tenant,false,'reference',[(string)$config['default_model_id']]);
+            foreach($all as &$model)if($full&&$model['id']===$full[0]['id'])$model=$full[0]+['specs_complete'=>true];unset($model);
+        }
+        $models=array_values(array_filter($all,fn($m)=>in_array($m['id'],$config['video_model_ids'],true)));
         $out=array_intersect_key($config,array_flip(['status','default_model_id','default_quality','default_ratio','target_duration_options','max_images','max_segments']));
         $frameModels=MicroVideoFrameCatalog::models($tenant);$out+=['frames_enabled'=>(int)$config['frames_enabled'],'frame_models'=>array_values(array_filter($frameModels,fn($m)=>in_array($m['id'],$config['frame_model_ids'],true))),'default_frame_model_id'=>$config['default_frame_model_id'],'default_frame_quality'=>$config['default_frame_quality']];
         $out+=['models'=>$models,'directions'=>self::directions($tenant,false),'duration_notice'=>self::NOTICE];

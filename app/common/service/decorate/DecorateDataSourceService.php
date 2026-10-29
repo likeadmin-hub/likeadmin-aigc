@@ -19,6 +19,7 @@ class DecorateDataSourceService
     {
         return [
             ['key' => 'article', 'name' => '文章资讯', 'terminal' => ['mobile', 'pc'], 'params' => ['limit', 'sort']],
+            ['key' => 'copywriting_tools', 'name' => '智能文案功能', 'terminal' => ['mobile', 'pc'], 'params' => ['limit', 'category_code', 'tool_codes']],
             ['key' => 'ai_tools', 'name' => 'AI工具入口', 'terminal' => ['mobile', 'pc'], 'params' => ['limit']],
             ['key' => 'image_cases', 'name' => '图片案例', 'terminal' => ['mobile', 'pc'], 'params' => ['limit']],
             ['key' => 'video_cases', 'name' => '视频案例', 'terminal' => ['mobile', 'pc'], 'params' => ['limit']],
@@ -97,6 +98,7 @@ class DecorateDataSourceService
             'video_cases' => self::cases($tenantId, ['aigc_video'], ['limit' => $limit, 'media_type' => 'video']),
             'digital_human_cases' => self::cases($tenantId, ['aigc_digital_human', 'image_human'], ['limit' => $limit]),
             'app_entries' => AppFrontendManifestService::tenantEntries($tenantId, (string)($params['terminal'] ?? $context['terminal'] ?? 'pc')),
+            'copywriting_tools' => self::copywritingTools($tenantId, $limit, $params, $context),
             'ai_tools' => self::aiTools($tenantId, $limit),
             'assets' => [],
             'recent_tasks' => self::recentTasks($tenantId, (int)($context['user_id'] ?? 0), $limit),
@@ -199,6 +201,7 @@ class DecorateDataSourceService
             'news' => 'article',
             'case-feed' => 'image_cases',
             'app-collection' => 'app_entries',
+            'cw-tool-collection' => 'copywriting_tools',
             'creation-entry-grid' => 'ai_tools',
             'recent-tasks' => 'recent_tasks',
             'user-hero' => 'user_profile',
@@ -303,6 +306,32 @@ class DecorateDataSourceService
         } catch (\Throwable $e) {
             return [];
         }
+    }
+
+    private static function copywritingTools(int $tenantId, int $limit, array $params, array $context): array
+    {
+        if ($tenantId <= 0) return [];
+        \app\common\service\app\aigc_copywriting\CopywritingBootstrap::ensureTenant($tenantId);
+        $pc = ($context['terminal'] ?? 'mobile') === 'pc';
+        $terminal = $pc ? 'pc' : (($context['channel'] ?? 'h5') === 'mp_weixin' ? 'mp-weixin' : 'h5');
+        $categories = \app\common\service\app\aigc_copywriting\CopywritingCategoryService::lists($tenantId);
+        $visible = [];
+        foreach ($categories as $category) {
+            if ($category['is_visible'] && (empty($params['category_code']) || $category['code'] === $params['category_code'])) {
+                $visible[] = (int)$category['id'];
+            }
+        }
+        $codes = $params['tool_codes'] ?? [];
+        if (is_string($codes)) $codes = array_filter(array_map('trim', explode(',', $codes)));
+        $rows = \app\common\service\app\aigc_copywriting\CopywritingToolService::lists($tenantId, true, $terminal);
+        $items = [];
+        foreach ($rows as $row) {
+            if (!in_array((int)$row['category_id'], $visible, true) || ($codes && !in_array($row['tool_code'], $codes, true))) continue;
+            $path = $pc ? '/app/aigc_copywriting/tool/'.rawurlencode($row['tool_code']) : '/apps/aigc_copywriting/pages/tool/index';
+            $items[] = ['id'=>$row['tool_code'], 'title'=>$row['name'], 'description'=>$row['description'], 'sub_title'=>$row['description'], 'image'=>$row['icon'], 'app_code'=>'aigc_copywriting', 'category'=>$row['category_id'], 'link'=>['path'=>$path, 'query'=>['code'=>$row['tool_code'], 'tenant_id'=>$tenantId]]];
+            if (count($items) >= $limit) break;
+        }
+        return $items;
     }
 
     private static function aiTools(int $tenantId, int $limit = 12): array

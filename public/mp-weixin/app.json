@@ -9,6 +9,7 @@
     "pages/index/index",
     "pages/news/news",
     "pages/user/user",
+    "pages/distribution/posters",
     "pages/distribution/distribution",
     "pages/distribution/withdrawal",
     "pages/diy/diy",
@@ -32,6 +33,16 @@
     "uni_modules/vk-uview-ui/components/u-avatar-cropper/u-avatar-cropper"
   ],
   "subPackages": [
+    {
+      "root": "apps/aigc_copywriting",
+      "pages": [
+        "pages/index/index",
+        "pages/tool/index",
+        "pages/history/index",
+        "pages/result/index",
+        "pages/preview/index"
+      ]
+    },
     {
       "root": "packages",
       "pages": [

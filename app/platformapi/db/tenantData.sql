@@ -1291,3 +1291,19 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}` (tenant_id,pid,type,name,icon,sor
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time) SELECT p.tenant_id,p.id,'A','兑换记录','',0,'finance.redeem_card/records','','','','',0,0,0,'','core','core_tenant_redeem_card_records',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.perms='finance.redeem_card/lists' AND p.tenant_id={tenantId} AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` e WHERE e.tenant_id=p.tenant_id AND e.perms='finance.redeem_card/records');
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time) SELECT p.tenant_id,p.id,'A','停用卡密','',0,'finance.redeem_card/disable','','','','',0,0,0,'','core','core_tenant_redeem_card_disable',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.perms='finance.redeem_card/lists' AND p.tenant_id={tenantId} AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` e WHERE e.tenant_id=p.tenant_id AND e.perms='finance.redeem_card/disable');
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time) SELECT p.tenant_id,p.id,'A','权益选项','',0,'finance.redeem_card/options','','','','',0,0,0,'','core','core_tenant_redeem_card_options',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant_system_menu_{tenantSn}` p WHERE p.perms='finance.redeem_card/lists' AND p.tenant_id={tenantId} AND NOT EXISTS(SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` e WHERE e.tenant_id=p.tenant_id AND e.perms='finance.redeem_card/options');
+
+-- Distribution posters: additive, repeatable, published snapshots are immutable.
+CREATE TABLE IF NOT EXISTS `la_distribution_poster_template` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
+ `name` varchar(80) NOT NULL, `sort` int NOT NULL DEFAULT 0, `status` tinyint unsigned NOT NULL DEFAULT 0,
+ `revision` int unsigned NOT NULL DEFAULT 1, `published_version` int unsigned NOT NULL DEFAULT 0,
+ `draft_json` longtext NOT NULL, `create_time` int unsigned NOT NULL, `update_time` int unsigned NOT NULL,
+ `delete_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), KEY `idx_tenant_list` (`tenant_id`,`delete_time`,`status`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_distribution_poster_version` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `template_id` int unsigned NOT NULL,
+ `revision` int unsigned NOT NULL, `name` varchar(80) NOT NULL, `layout_json` longtext NOT NULL,
+ `admin_id` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_template_revision` (`template_id`,`revision`), KEY `idx_tenant` (`tenant_id`,`template_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

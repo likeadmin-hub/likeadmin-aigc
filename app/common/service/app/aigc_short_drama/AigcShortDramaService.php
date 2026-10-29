@@ -83,6 +83,13 @@ class AigcShortDramaService
 
     public static function config(int $tenantId): array
     {
+        // The admin configuration is an advisory snapshot; task admission
+        // and billing continue to resolve current market data separately.
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::buildAdminConfig($tenantId));
+    }
+
+    private static function buildAdminConfig(int $tenantId): array
+    {
         $config = self::publicConfig($tenantId);
         // The creation workflow itself is platform-owned.  Expose only its
         // display catalog here so tenant admin can select published Skills for

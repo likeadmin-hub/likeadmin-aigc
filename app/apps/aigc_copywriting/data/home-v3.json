@@ -1,0 +1,174 @@
+{
+  "page": {
+    "title": "智能文案",
+    "nodes": [
+      {
+        "id": "home-title",
+        "name": "cw-text",
+        "content": {
+          "text": "智能文案"
+        },
+        "styles": {
+          "base": {
+            "fontSize": {
+              "value": 28,
+              "unit": "px"
+            },
+            "fontWeight": "700"
+          },
+          "terminals": {
+            "h5": {
+              "display": "none"
+            },
+            "mp-weixin": {
+              "display": "none"
+            }
+          }
+        }
+      },
+      {
+        "id": "home-categories",
+        "name": "cw-categories",
+        "content": {
+          "mode": "grouped"
+        },
+        "styles": {
+          "terminals": {
+            "h5": {
+              "display": "none"
+            },
+            "mp-weixin": {
+              "display": "none"
+            }
+          }
+        }
+      },
+      {
+        "id": "home-tools",
+        "name": "cw-tools",
+        "content": {
+          "mode": "grouped"
+        },
+        "styles": {
+          "base": {
+            "display": "grid",
+            "gridTemplateColumns": "repeat(3,minmax(0,1fr))",
+            "gap": {
+              "value": 16,
+              "unit": "px"
+            }
+          },
+          "breakpoints": {
+            "mobile": {
+              "gridTemplateColumns": "repeat(2,minmax(0,1fr))"
+            }
+          },
+          "terminals": {
+            "h5": {
+              "gridTemplateColumns": "repeat(2,minmax(0,1fr))",
+              "gap": "10px"
+            },
+            "mp-weixin": {
+              "gridTemplateColumns": "repeat(2,minmax(0,1fr))",
+              "gap": "10px"
+            }
+          },
+          "parts": {
+            "label": {
+              "terminals": {
+                "h5": {
+                  "fontSize": "16px",
+                  "fontWeight": "800",
+                  "marginBottom": "18px",
+                  "color": "#272b34",
+                  "lineHeight": "1.2"
+                },
+                "mp-weixin": {
+                  "fontSize": "16px",
+                  "fontWeight": "800",
+                  "marginBottom": "18px",
+                  "color": "#272b34",
+                  "lineHeight": "1.2"
+                }
+              }
+            },
+            "option": {
+              "terminals": {
+                "h5": {
+                  "display": "flex",
+                  "alignItems": "center",
+                  "gap": "6px",
+                  "padding": "11px",
+                  "minHeight": "50px",
+                  "borderWidth": "0px",
+                  "borderRadius": "8px",
+                  "backgroundColor": "#ffffff"
+                },
+                "mp-weixin": {
+                  "display": "flex",
+                  "alignItems": "center",
+                  "gap": "6px",
+                  "padding": "11px",
+                  "minHeight": "50px",
+                  "borderWidth": "0px",
+                  "borderRadius": "8px",
+                  "backgroundColor": "#ffffff"
+                }
+              }
+            },
+            "optionLabel": {
+              "terminals": {
+                "h5": {
+                  "fontSize": "13px",
+                  "fontWeight": "800",
+                  "whiteSpace": "nowrap",
+                  "color": "#272b34"
+                },
+                "mp-weixin": {
+                  "fontSize": "13px",
+                  "fontWeight": "800",
+                  "whiteSpace": "nowrap",
+                  "color": "#272b34"
+                }
+              }
+            },
+            "help": {
+              "terminals": {
+                "h5": {
+                  "fontSize": "9px",
+                  "fontWeight": "600",
+                  "color": "#4b5565",
+                  "marginTop": "0px",
+                  "whiteSpace": "nowrap",
+                  "marginLeft": "auto"
+                },
+                "mp-weixin": {
+                  "fontSize": "9px",
+                  "fontWeight": "600",
+                  "color": "#4b5565",
+                  "marginTop": "0px",
+                  "whiteSpace": "nowrap",
+                  "marginLeft": "auto"
+                }
+              }
+            },
+            "icon": {
+              "terminals": {
+                "h5": {
+                  "width": "28px",
+                  "height": "28px",
+                  "flexShrink": "0"
+                },
+                "mp-weixin": {
+                  "width": "28px",
+                  "height": "28px",
+                  "flexShrink": "0"
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "page": {
+    "title": "智能文案",
+    "nodes": [
+      {
+        "id": "home-title",
+        "name": "cw-text",
+        "content": {
+          "text": "智能文案"
+        },
+        "styles": {
+          "base": {
+            "fontSize": {
+              "value": 28,
+              "unit": "px"
+            },
+            "fontWeight": "700"
+          }
+        }
+      },
+      {
+        "id": "home-categories",
+        "name": "cw-categories",
+        "content": {
+          "mode": "grouped"
+        },
+        "styles": {}
+      },
+      {
+        "id": "home-tools",
+        "name": "cw-tools",
+        "content": {
+          "mode": "grouped"
+        },
+        "styles": {
+          "base": {
+            "display": "grid",
+            "gridTemplateColumns": "repeat(3,minmax(0,1fr))",
+            "gap": {
+              "value": 16,
+              "unit": "px"
+            }
+          },
+          "breakpoints": {
+            "mobile": {
+              "gridTemplateColumns": "repeat(2,minmax(0,1fr))"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

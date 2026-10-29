@@ -329,16 +329,16 @@ class MarketMusicAppRuntimeService
         }
         try {
             $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
-            $response = self::request('GET', self::endpoint((string)$snapshot['app_code'], 'query') . '?task_id=' . rawurlencode($taskId));
-            $items = self::items($response, (int)$consumption['tenant_id'], (int)$consumption['user_id'], $consumptionId);
-            if ($items !== []) {
-                self::settle($consumptionId, $items, self::requestId($response), $taskId, $response);
-                return ['status' => 'success', 'provider_task_id' => $taskId, 'items' => $items];
-            }
+            $response = self::queryResponse($snapshot, $taskId);
             if (in_array(self::status($response), ['failed', 'error', 'canceled', 'cancelled'], true)) {
                 $message = self::error($response);
                 self::fail($consumptionId, $message, 'upstream_failed');
                 return self::failureResponse($taskId, $message);
+            }
+            $items = self::items($response, (int)$consumption['tenant_id'], (int)$consumption['user_id'], $consumptionId);
+            if ($items !== []) {
+                self::settle($consumptionId, $items, self::requestId($response), $taskId, $response);
+                return ['status' => 'success', 'provider_task_id' => $taskId, 'items' => $items];
             }
             $upstreamStatus = self::status($response);
             if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
@@ -355,6 +355,31 @@ class MarketMusicAppRuntimeService
             AiTaskLifecycleEventService::record($consumptionId, 'query_error', 'retrying', ['upstream_task_id' => $taskId, 'error' => $e->getMessage()]);
             if ($timedOut) { $message = '音乐任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
+        }
+    }
+
+    private static function queryResponse(array $snapshot, string $taskId): array
+    {
+        try {
+            return self::request('GET', self::endpoint((string)$snapshot['app_code'], 'query') . '?task_id=' . rawurlencode($taskId));
+        } catch (\Throwable $queryError) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($queryError);
+            // Older app queries flatten terminal failures into code=0/data=null.
+            // Only an authenticated, matching platform task can confirm a refund;
+            // transport errors, missing tasks and processing states remain retryable.
+            if (preg_match('/^task_[a-f0-9]{24}$/D', $taskId) === 1) {
+                try {
+                    $response = self::request('GET', self::origin() . '/api/v1/tasks/' . rawurlencode($taskId));
+                    $task = self::arrayValue($response['data'] ?? []);
+                    if (($task['task_id'] ?? '') === $taskId
+                        && in_array(self::status($response), ['failed', 'canceled', 'cancelled'], true)) {
+                        return $response;
+                    }
+                } catch (\Throwable $statusError) {
+                    \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($statusError);
+                }
+            }
+            throw $queryError;
         }
     }
 

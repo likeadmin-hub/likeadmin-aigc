@@ -716,6 +716,14 @@ class MarketVideoRuntimeService
 
     private static function resolve(int $tenantId, array $selection): array
     {
+        // Only the advisory catalog owns a read scope. Quotes outside it must
+        // continue to resolve live availability and prices on every call.
+        return MarketCatalogReadScope::derive('video_market_resolution', [$tenantId, $selection],
+            static fn(): array => self::resolveUncached($tenantId, $selection));
+    }
+
+    private static function resolveUncached(int $tenantId, array $selection): array
+    {
         $frozen=\app\common\service\open_platform\OpenVideoPricing::market($tenantId,$selection);
         if($frozen!==null){self::assertSkuMatchesSelection($frozen,$selection);return $frozen;}
         $skuId = self::intSelection($selection, ['market_sku_id', 'sku_id']);

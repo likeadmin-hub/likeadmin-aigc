@@ -154,7 +154,7 @@ class MarketTextModelRuntimeService
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?array $operatorCapabilityProbe = null): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false, ?array $operatorCapabilityProbe = null, ?TextModelExecutionPolicy $executionPolicy = null): array
     {
         // Server-only argument for tenant-admin authoring tools; never read from params.
         if ($tenantAdminConsumption && ($tenantId <= 0 || $userId !== 0)) throw new Exception('租户后台调用身份无效');
@@ -177,14 +177,17 @@ class MarketTextModelRuntimeService
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
             : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)));
         if($operatorCapabilityProbe!==null)self::assertVisionProbeModel($operatorCapabilityProbe,$model);
+        if ($executionPolicy !== null) $executionPolicy->assertModel($model, (string)($params['source_app_code'] ?? ''));
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
             $model['output']['tenant_price'] = 0;
         }
+        if ($executionPolicy !== null) $executionPolicy->prepareReceipt();
         $modelConfig = self::modelConfig($params);
         $maxTokens = self::resolveMaxTokens($model, $modelConfig);
         $generationParams = self::generationParams($model, $modelConfig);
+        if($executionPolicy!==null)$generationParams=$executionPolicy->generationParams($model,$generationParams);
         // Neuron's canonical history does not carry signed thinking blocks.
         // Do not enable a mode whose tool continuation we cannot faithfully replay.
         if (!empty($params['_agent_tool_history']) && self::protocolForModel($model) === 'anthropic_messages') {
@@ -248,6 +251,14 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if ($executionPolicy !== null) {
+                        try {$executionPolicy->recordReceipt($context['consumption']->toArray(),$context['appTask']->toArray(),$result,true);}
+                        catch (\Throwable $receiptError) {
+                            $usage=self::normalizeUsage((array)($result['usage']??[]));
+                            try {self::deferSettlement($context,$result,$usage,$receiptError);} catch(\Throwable $ignored) {}
+                            throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$receiptError);
+                        }
+                    }
                     if ($homeAgent) {
                         try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, true); }
                         catch (\Throwable $receiptError) {
@@ -262,6 +273,12 @@ class MarketTextModelRuntimeService
                     if ($openTextCall) {
                         $usage = self::normalizeUsage((array)($result['usage'] ?? []));
                         \app\common\service\open_platform\OpenTextLifecycle::recordResult($context, $result, $usage);
+                    }
+                    if($executionPolicy!==null&&($result['content_source']??'content')!=='content'){
+                        $usage=self::normalizeUsage((array)($result['usage']??[]));
+                        $error=new \RuntimeException('模型未返回最终正文，请调整思考模式后重新生成');
+                        self::deferSettlement($context,$result,$usage,$error,true);
+                        throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$error,$error->getMessage());
                     }
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
@@ -335,6 +352,7 @@ class MarketTextModelRuntimeService
             if($e instanceof TextSettlementPending)throw $e;
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
                 $result = $e->partialResult;
+                if($executionPolicy!==null){try{$executionPolicy->recordReceipt($context['consumption']->toArray(),$context['appTask']->toArray(),$result,false);}catch(\Throwable $ignored){}}
                 if ($homeAgent) {
                     try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, false); }
                     catch (\Throwable $receiptError) { Log::error('Agent partial text receipt failed for consumption '.$context['consumption']['id'].': '.get_class($receiptError)); }
@@ -358,6 +376,10 @@ class MarketTextModelRuntimeService
                 throw $e;
             }
             if (self::preserveUncertainSubmission($tenantAdminConsumption,$action,$params,$e->getMessage(),$operatorCapabilityProbe!==null)) {
+                AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation','error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
+                throw $e;
+            }
+            if ($executionPolicy !== null && $executionPolicy->preserveUncertain($e->getMessage())) {
                 AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation','error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
                 throw $e;
             }
@@ -531,6 +553,26 @@ class MarketTextModelRuntimeService
                 'finish_time' => $now,
                 'update_time' => $now,
             ]);
+        });
+    }
+
+    /** Reuse a durable provider receipt; this method performs no upstream request. */
+    public static function settleCopywritingReceipt(int $tenantId,int $userId,int $consumptionId,array $receipt): string
+    {
+        return Db::transaction(function()use($tenantId,$userId,$consumptionId,$receipt){
+            $c=AiConsumptionLog::where(['id'=>$consumptionId,'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_copywriting'])->lock(true)->find();
+            if(!$c)throw new \InvalidArgumentException('文案消费记录不存在');
+            $task=AiAppTask::where(['id'=>$c['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>'aigc_copywriting','business_table'=>'aigc_copywriting_task'])->lock(true)->find();
+            if(!$task||(int)$task['business_id']!==(int)$receipt['task_id']||(int)$receipt['consumption_id']!==$consumptionId)throw new \InvalidArgumentException('文案回执任务不匹配');
+            if(in_array((string)$c['billing_status'],['settled','refunded'],true))return (string)$c['billing_status'];
+            if(empty($receipt['complete']))return 'pending_usage';
+            $result=$receipt['result'];$usage=self::normalizeUsage((array)($result['usage']??[]));$snapshot=(array)$c['price_snapshot'];
+            if(!self::canSettleUsageFromSnapshot($snapshot,$usage))return 'pending_usage';
+            if((int)$usage['prompt_tokens']<=0&&(int)$usage['completion_tokens']<=0)$usage['prompt_tokens']=(int)$usage['total_tokens'];
+            if((string)$c['billing_status']==='settlement_failed')$c->save(['billing_status'=>'pending_usage']);
+            $actual=self::quote($snapshot,(int)$usage['prompt_tokens'],(int)$usage['completion_tokens']);
+            self::settle(['consumption'=>$c,'appTask'=>$task],$actual,$usage,$result,0);
+            return (string)AiConsumptionLog::where('id',$consumptionId)->value('billing_status');
         });
     }
 

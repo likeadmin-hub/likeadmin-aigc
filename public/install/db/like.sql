@@ -14219,3 +14219,36 @@ INSERT IGNORE INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status
 INSERT IGNORE INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`) SELECT id,'aigc_music_cover',(SELECT current_version FROM `la_app` WHERE code='aigc_music_cover'),'paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`;
 -- Reconcile legacy built-in registry flags without changing versions or tenant settings.
 UPDATE `la_app` SET `is_builtin`=1,`status`='installed',`expire_policy`='allow' WHERE `code` IN ('system_default','open_platform','aigc_image','aigc_video','aigc_micro_video','aigc_digital_human','aigc_pic_lipsync','aigc_canvas','aigc_llm','aigc_music','aigc_music_cover');
+
+-- Distribution posters: additive, repeatable, published snapshots are immutable.
+CREATE TABLE IF NOT EXISTS `la_distribution_poster_template` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
+ `name` varchar(80) NOT NULL, `sort` int NOT NULL DEFAULT 0, `status` tinyint unsigned NOT NULL DEFAULT 0,
+ `revision` int unsigned NOT NULL DEFAULT 1, `published_version` int unsigned NOT NULL DEFAULT 0,
+ `draft_json` longtext NOT NULL, `create_time` int unsigned NOT NULL, `update_time` int unsigned NOT NULL,
+ `delete_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), KEY `idx_tenant_list` (`tenant_id`,`delete_time`,`status`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_distribution_poster_version` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `template_id` int unsigned NOT NULL,
+ `revision` int unsigned NOT NULL, `name` varchar(80) NOT NULL, `layout_json` longtext NOT NULL,
+ `admin_id` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_template_revision` (`template_id`,`revision`), KEY `idx_tenant` (`tenant_id`,`template_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 智能文案系统内置数据结构
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_category` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `code` varchar(64) NOT NULL, `name` varchar(80) NOT NULL, `icon` varchar(255) NOT NULL DEFAULT '', `description` varchar(255) NOT NULL DEFAULT '', `sort` int NOT NULL DEFAULT 0, `is_visible` tinyint NOT NULL DEFAULT 1, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `tenant_code` (`tenant_id`,`code`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_tool` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `tool_code` varchar(64) NOT NULL, `builtin_code` varchar(64) DEFAULT NULL, `name` varchar(80) NOT NULL, `category_id` bigint NOT NULL, `description` varchar(255) NOT NULL DEFAULT '', `icon` varchar(255) NOT NULL DEFAULT '', `status` tinyint NOT NULL DEFAULT 1, `sort` int NOT NULL DEFAULT 0, `is_customized` tinyint NOT NULL DEFAULT 0, `seed_version` varchar(24) NOT NULL DEFAULT '1.0.0', `delete_time` int NOT NULL DEFAULT 0, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `tenant_code` (`tenant_id`,`tool_code`), UNIQUE KEY `tenant_builtin` (`tenant_id`,`builtin_code`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_page` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `page_code` varchar(64) NOT NULL, `kind` varchar(16) NOT NULL, `tool_id` bigint NOT NULL DEFAULT 0, `draft_json` longtext NOT NULL, `draft_revision` int NOT NULL DEFAULT 1, `published_version_id` bigint NOT NULL DEFAULT 0, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `tenant_code` (`tenant_id`,`page_code`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_version` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `page_id` bigint NOT NULL, `version_no` int NOT NULL, `document_json` longtext NOT NULL, `schema_hash` char(64) NOT NULL, `publisher_id` bigint NOT NULL DEFAULT 0, `publish_targets` varchar(255) NOT NULL, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `page_version` (`page_id`,`version_no`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_task` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` bigint NOT NULL, `tool_id` bigint NOT NULL, `version_id` bigint NOT NULL, `source_task_id` bigint NOT NULL DEFAULT 0, `idempotency_key` varchar(100) NOT NULL, `request_hash` char(64) NOT NULL, `input_snapshot` longtext NOT NULL, `prompt_snapshot` longtext NOT NULL, `model_snapshot` longtext NOT NULL, `execution_fingerprint` char(64) NOT NULL, `status` varchar(24) NOT NULL DEFAULT 'pending', `submission_state` varchar(24) NOT NULL DEFAULT 'not_sent', `billing_state` varchar(24) NOT NULL DEFAULT 'none', `result_text` longtext, `error` varchar(1000) NOT NULL DEFAULT '', `cancel_requested` tinyint NOT NULL DEFAULT 0, `app_task_id` bigint NOT NULL DEFAULT 0, `consumption_id` bigint NOT NULL DEFAULT 0, `provider_request_id` varchar(255) NOT NULL DEFAULT '', `lease_owner` varchar(100) NOT NULL DEFAULT '', `lease_until` int NOT NULL DEFAULT 0, `last_seq` bigint NOT NULL DEFAULT 0, `started_at` int NOT NULL DEFAULT 0, `finished_at` int NOT NULL DEFAULT 0, `review_state` varchar(24) NOT NULL DEFAULT '', `review_note` varchar(1000) NOT NULL DEFAULT '', `reviewer_id` bigint NOT NULL DEFAULT 0, `reviewed_at` int NOT NULL DEFAULT 0, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `request_key` (`tenant_id`,`user_id`,`idempotency_key`), KEY `claim` (`status`,`lease_until`,`id`), KEY `history` (`tenant_id`,`user_id`,`tool_id`,`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_task_event` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `task_id` bigint NOT NULL, `seq` bigint NOT NULL, `event_type` varchar(24) NOT NULL, `payload` longtext NOT NULL, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `task_seq` (`task_id`,`seq`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_audit` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `actor_id` bigint NOT NULL, `action` varchar(40) NOT NULL, `target_type` varchar(32) NOT NULL, `target_id` bigint NOT NULL, `before_hash` varchar(64) NOT NULL DEFAULT '', `after_hash` varchar(64) NOT NULL DEFAULT '', `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `la_app` (`code`,`name`,`category`,`client_tags`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`) VALUES ('aigc_copywriting','智能文案','system','tenant,pc,uniapp',1,95,'1.0.0','installed','allow') ON DUPLICATE KEY UPDATE `is_builtin`=1,`status`='installed',`expire_policy`='allow';

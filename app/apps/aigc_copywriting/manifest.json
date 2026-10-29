@@ -1,0 +1,59 @@
+{
+  "code": "aigc_copywriting",
+  "name": "智能文案",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "内置12项文案工具，支持租户DIY和用户自选模型流式生成。",
+  "category": "system",
+  "is_builtin": 1,
+  "distribution_mode": "system_builtin",
+  "expire_policy": "allow",
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_copywriting",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_copywriting_admin",
+      "name": "智能文案",
+      "path": "/app/aigc_copywriting",
+      "status": 1,
+      "sort": 95
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_copywriting",
+      "name": "智能文案",
+      "path": "/app/aigc_copywriting",
+      "status": 1,
+      "sort": 95
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_copywriting",
+      "name": "智能文案",
+      "path": "/apps/aigc_copywriting/pages/index/index",
+      "status": 1,
+      "sort": 95,
+      "meta": {
+        "pages": [
+          {
+            "name": "智能文案首页",
+            "path": "/apps/aigc_copywriting/pages/index/index"
+          },
+          {
+            "name": "文案记录",
+            "path": "/apps/aigc_copywriting/pages/history/index"
+          }
+        ]
+      }
+    }
+  ],
+  "changelog": "1. 新增智能文案与12项默认功能。\n2. 支持页面样式DIY和实时生成。"
+}

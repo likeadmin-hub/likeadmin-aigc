@@ -1180,6 +1180,21 @@ class OpenPlatformService
         } finally { SubmitLockService::release($lock); }
     }
 
+    public static function posterIdentity(int $tenantId): string
+    {
+        $row=self::effectiveMiniprogramAuthorizer($tenantId);
+        return 'authorized:'.$row['id'].':'.$row['authorizer_appid'];
+    }
+
+    public static function authorizedPosterCode(int $tenantId,array $payload): string
+    {
+        $row=self::effectiveMiniprogramAuthorizer($tenantId);
+        // Fixed WeChat endpoint; never log credentials or return request URLs.
+        $url=self::API.'wxa/getwxacodeunlimit?access_token='.rawurlencode(self::authorizerToken((int)$row['id']));
+        $response=Requests::post($url,['Content-Type'=>'application/json'],self::encodeWechatRequestBody($payload),['timeout'=>30]);
+        return (string)$response->body;
+    }
+
     private static function effectiveMiniprogramAuthorizer(int $tenantId): WechatAuthorizer
     {
         $authorizer = WechatAuthorizer::withoutGlobalScope()->where([

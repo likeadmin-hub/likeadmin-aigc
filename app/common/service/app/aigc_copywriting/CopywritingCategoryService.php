@@ -1,0 +1,9 @@
+<?php
+declare(strict_types=1);
+namespace app\common\service\app\aigc_copywriting;
+use think\facade\Db;
+final class CopywritingCategoryService {
+ public static function lists(int $tenantId):array{return CopywritingStore::table('category')->where('tenant_id',$tenantId)->order(['sort'=>'desc','id'=>'asc'])->select()->toArray();}
+ public static function save(int $tenantId,int $actorId,array $input):array {$name=trim((string)($input['name']??''));if($name===''||mb_strlen($name)>80)throw new \InvalidArgumentException('请填写80字以内的分类名称');$data=['name'=>$name,'description'=>mb_substr((string)($input['description']??''),0,255),'icon'=>mb_substr((string)($input['icon']??''),0,255),'sort'=>(int)($input['sort']??0),'is_visible'=>!empty($input['is_visible'])?1:0,'update_time'=>time()];$id=(int)($input['id']??0);if($id){CopywritingStore::owned('category',$tenantId,$id);CopywritingStore::table('category')->where(['id'=>$id,'tenant_id'=>$tenantId])->update($data);}else $id=CopywritingStore::insert('category',$data+['tenant_id'=>$tenantId,'code'=>'cat_'.bin2hex(random_bytes(8))]);CopywritingStore::audit($tenantId,$actorId,'save','category',$id);return CopywritingStore::owned('category',$tenantId,$id);}
+ public static function delete(int $tenantId,int $actorId,int $id,?int $target=null):void {Db::transaction(function()use($tenantId,$actorId,$id,$target){CopywritingStore::owned('category',$tenantId,$id);$q=CopywritingStore::table('tool')->where(['tenant_id'=>$tenantId,'category_id'=>$id]);if($q->count()){if(!$target||$target===$id)throw new \InvalidArgumentException('请先选择接收功能的目标分类');CopywritingStore::owned('category',$tenantId,$target);$q->update(['category_id'=>$target]);}CopywritingStore::table('category')->where(['tenant_id'=>$tenantId,'id'=>$id])->delete();CopywritingStore::audit($tenantId,$actorId,'delete','category',$id);});}
+}

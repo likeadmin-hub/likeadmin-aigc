@@ -89,4 +89,18 @@ final class MicroVideoTenantConfigPerformanceTest extends TestCase
             Db::rollback();
         }
     }
+    public function testSaveRejectsUnknownSelectedModelWithoutChangingConfig(): void
+    {
+        $before = MicroVideoSettings::get(1);
+        $invalid = $before;
+        $invalid['video_model_ids'] = array_merge((array)$before['video_model_ids'], ['market_video_model:999999999']);
+        try {
+            MicroVideoSettings::save(1, $invalid);
+            self::fail('An unavailable model must not be saved');
+        } catch (\InvalidArgumentException $e) {
+            self::assertSame('勾选的模型暂不可用', $e->getMessage());
+        }
+        self::assertSame($before, MicroVideoSettings::get(1));
+    }
+
 }

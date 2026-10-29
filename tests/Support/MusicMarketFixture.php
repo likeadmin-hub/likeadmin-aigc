@@ -7,6 +7,8 @@ namespace app\common\service\power {
         public static bool $reject = false;
         public static bool $timeout = false;
         public static int $tracks = 1;
+        public static ?array $queryResponse = null;
+        public static ?array $taskResponse = null;
     }
     function curl_init() { return true; }
     function curl_setopt_array($handle, $options) { MusicMarketWireFixture::$options = $options; return true; }
@@ -18,6 +20,10 @@ namespace app\common\service\power {
         if (!empty($options[CURLOPT_POST])) return json_encode(MusicMarketWireFixture::$reject
             ? ['code' => 0, 'msg' => 'fixture rejected']
             : ['code' => 1, 'data' => ['task_id' => 'music-market-fixture']]);
+        if (str_contains($options[CURLOPT_URL], '/api/v1/tasks/')) {
+            return json_encode(MusicMarketWireFixture::$taskResponse ?? ['code' => 0, 'msg' => 'query unavailable', 'data' => null]);
+        }
+        if (MusicMarketWireFixture::$queryResponse !== null) return json_encode(MusicMarketWireFixture::$queryResponse);
         $tracks = [['audio_url' => 'https://fixture.invalid/song.mp3', 'audio_id' => 'song-fixture', 'title' => 'Market song', 'lyrics' => 'fixture lyrics', 'duration' => 42]];
         if (MusicMarketWireFixture::$tracks > 1) $tracks[] = ['audio_url' => 'https://fixture.invalid/second.mp3', 'audio_id' => 'song-two', 'title' => 'Second song', 'duration' => 35];
         return json_encode(['code' => 1, 'data' => ['status' => MusicMarketWireFixture::$status,
