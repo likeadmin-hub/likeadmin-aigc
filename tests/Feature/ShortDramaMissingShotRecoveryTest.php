@@ -368,6 +368,35 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         self::assertCount(3,$calls);self::assertStringEndsWith('_fields_v1',$calls[2]);
     }
 
+    /** @dataProvider fieldRepairModes */
+    public function testSkeletonFieldRepairKeepsExistingScenesAndNarrative(bool $timed): void
+    {
+        $plan=self::skeleton($timed);$plan['scene_beats'][0]['goal']='';$plan['scene_beats'][0]['scene_name']='错误地点';
+        $request=['_input_contract_version'=>23];if($timed)$request['episode_duration_policy']=Duration::snapshot([],0,0,[]);
+        $calls=[];
+        $result=Script::generate($request,['max_tokens'=>$timed?8192:4096],['system_prompt'=>'创作','content'=>'故事'],
+            static function($key)use(&$calls,$plan){
+                $calls[]=$key;
+                if(str_ends_with($key,'skeleton_fields_v1'))$payload=['patches'=>[['scene_index'=>0,'fields'=>['goal'=>'寻找钥匙','scene_name'=>'房间']]]];
+                elseif(str_contains($key,'skeleton'))$payload=$plan;
+                else $payload=['storyboard'=>[self::shot(1),self::shot(2),self::shot(3)]];
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+            });
+        self::assertSame('寻找钥匙',$result['payload']['scene_beats'][0]['goal']);
+        self::assertSame('房间',$result['payload']['scene_beats'][0]['scene_name']);
+        self::assertSame($plan['scene_beats'][0]['entry'],$result['payload']['scene_beats'][0]['entry']);
+        self::assertSame($plan['story_outline'],$result['payload']['story_outline']);
+        self::assertCount(3,$calls);self::assertStringEndsWith('skeleton_fields_v1',$calls[1]);
+    }
+
+    public function testSkeletonPatchCannotRewriteGoodFields(): void
+    {
+        $plan=self::skeleton(true);$plan['scene_beats'][0]['goal']='';$targets=\app\common\service\app\aigc_short_drama\ShortDramaSkeletonFieldRepair::targets($plan,true);
+        $this->expectExceptionCode(422);
+        \app\common\service\app\aigc_short_drama\ShortDramaSkeletonFieldRepair::apply($plan,$targets,
+            ['patches'=>[['scene_index'=>0,'fields'=>['goal'=>'补全','entry'=>'篡改']]]]);
+    }
+
     public function testVersion20KeepsOriginalWholePartRepair(): void
     {
         $request=['_input_contract_version'=>20,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];

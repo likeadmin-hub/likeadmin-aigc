@@ -42,7 +42,7 @@ final class ShortDramaTimedScriptGeneration
                             if (ShortDramaInputContract::recoveryEnabled($request)) $prepared = self::normalizeSkeletonBudgets($prepared, $request);
                             $skeleton = $prepared;
                             if (empty($prepared['storyboard'])) self::assertSkeleton($prepared, $request);
-                        })),
+                        }, ShortDramaInputContract::preciseRecovery($request) ? static function ($payload) use (&$skeleton): void { $skeleton = $payload; } : null)),
                     $request
                 ), $request);
                 if (ShortDramaInputContract::recoveryEnabled($request)) $skeleton = self::normalizeSkeletonBudgets($skeleton, $request);
@@ -85,6 +85,22 @@ final class ShortDramaTimedScriptGeneration
                 self::assertSkeleton($skeleton, $request);
                 break;
             } catch (RuntimeException $e) {
+                if (ShortDramaInputContract::preciseRecovery($request) && !$attempt && $e->getCode() === 422 && $skeleton) {
+                    $targets = ShortDramaSkeletonFieldRepair::targets($skeleton, true);
+                    if ($targets) {
+                        $prepare = static function (array $plan) use ($request): array {
+                            $plan = ShortDramaSceneBinding::normalize($plan, $request);
+                            $plan = self::normalizeSceneScripts(self::lockTimelineShotDurations(self::canonicalSkeleton($plan), $request), $request);
+                            return ShortDramaInputContract::recoveryEnabled($request) ? self::normalizeSkeletonBudgets($plan, $request) : $plan;
+                        };
+                        $verify = static function ($reply) use ($skeleton, $targets, $request, $prepare): void {
+                            self::assertSkeleton($prepare(ShortDramaSkeletonFieldRepair::apply($skeleton, $targets, $reply)), $request);
+                        };
+                        $skeleton = $prepare(ShortDramaSkeletonFieldRepair::request($call, 'timed_skeleton_fields_v1', $skeletonInput, $skeleton, $targets, $verify));
+                        self::assertSkeleton($skeleton, $request);
+                        break;
+                    }
+                }
                 if ($attempt === 2 || !in_array($e->getCode(), [413, 422], true)) throw $e;
                 $skeletonInput['content'] = $base['content'] . "\n骨架修复：" . $e->getMessage()
                     . "\n保留已确定的角色、场景和事实，仅修复不合格预算或结构，返回完整骨架。已有骨架=" . self::json($skeleton);

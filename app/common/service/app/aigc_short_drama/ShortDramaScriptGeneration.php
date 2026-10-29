@@ -31,7 +31,7 @@ final class ShortDramaScriptGeneration
         $auditReserve = !empty($request['series_context']);
         $callLimit = $auditReserve ? 46 : 48;
         $outputLimit = $auditReserve ? 183808 : 192000;
-        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory, $request): array {
+        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null, ?callable $capture = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory, $request): array {
             if (++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
             $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, $boundedMemory);
             if (!empty($input['_share_script_context'])) {
@@ -46,7 +46,7 @@ final class ShortDramaScriptGeneration
             $receipt = $provider('v3_' . $key, $input, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
-            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $request, $key): array {
+            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $capture, $request, $key): array {
                 if (ShortDramaSceneBatch::isUnit($key, $request)) {
                     // The paid receipt is already durable. Parse/scene failures may
                     // fall back locally; submit, settlement and capacity errors above cannot.
@@ -66,6 +66,7 @@ final class ShortDramaScriptGeneration
                         || !preg_match('/^(?:timed_scene_|scene_)/', $key)
                         || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? [])))) throw $error;
                 }
+                if ($capture) $capture($payload);
                 if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
                 if ($validate) $validate($payload);
                 return $payload;
@@ -129,7 +130,7 @@ final class ShortDramaScriptGeneration
                     static function ($plan) use ($durationRule, &$skeleton): void {
                         $skeleton = $plan;
                         if (!self::completePlan($plan, $durationRule)) self::assertSkeleton($plan);
-                    });
+                    }, ShortDramaInputContract::preciseRecovery($request) ? static function ($plan) use (&$skeleton): void { $skeleton = $plan; } : null);
                 // Some models still produce a full plan. Reuse only a valid
                 // plan; the caller continues its normal story quality review.
                 if (self::completePlan($skeleton, $durationRule)) return $finish($skeleton);
@@ -144,6 +145,20 @@ final class ShortDramaScriptGeneration
                 }
                 break;
             } catch (RuntimeException $error) {
+                if (ShortDramaInputContract::preciseRecovery($request) && !$attempt && $error->getCode() === 422 && $skeleton) {
+                    $targets = ShortDramaSkeletonFieldRepair::targets($skeleton, false);
+                    if ($targets) {
+                        $verify = static function ($reply) use ($skeleton, $targets, $request): void {
+                            $patched = ShortDramaSceneBinding::normalize(ShortDramaSkeletonFieldRepair::apply($skeleton, $targets, $reply), $request);
+                            self::assertSkeleton($patched);
+                        };
+                        $skeleton = ShortDramaSkeletonFieldRepair::request($call, 'skeleton_fields_v1', $skeletonMessages, $skeleton, $targets, $verify);
+                        $skeleton = ShortDramaSceneBinding::normalize($skeleton, $request);
+                        if ($normalizeSkeleton !== null) $skeleton = $normalizeSkeleton($skeleton);
+                        self::assertSkeleton($skeleton);
+                        break;
+                    }
+                }
                 if ($attempt || !in_array($error->getCode(), [413, 422], true)) throw $error;
                 $skeletonMessages['content'] .= "\n上次骨架未通过：" . $error->getMessage() . '。修复结构，保留完整剧情。';
                 if ($skeleton) $skeletonMessages['content'] .= "\n已生成内容=" . json_encode($skeleton, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
