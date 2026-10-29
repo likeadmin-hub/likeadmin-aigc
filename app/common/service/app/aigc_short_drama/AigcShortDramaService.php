@@ -3974,7 +3974,7 @@ class AigcShortDramaService
         $taskId=(string)$task['task_id'];
         $bind=static function(string $event,array $data)use($task,$taskId,$tenantId,$userId):void{
             if($event==='app_task'){
-                AigcShortDramaScriptTask::where('id',$task['id'])->update(['app_task_id'=>(int)$data['app_task_id'],'status'=>self::STATUS_RUNNING,'update_time'=>time()]);
+                AigcShortDramaScriptTask::where('id',$task['id'])->update(['app_task_id'=>(int)$data['app_task_id'],'status'=>self::STATUS_RUNNING,'current_step'=>'正在解析剧本文件','update_time'=>time()]);
                 AigcShortDramaGenerationTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$taskId])->update([
                     'app_task_id'=>(int)$data['app_task_id'],'consumption_id'=>(int)$data['consumption_id'],'status'=>self::STATUS_RUNNING,'update_time'=>time()]);
             }
@@ -9072,7 +9072,8 @@ class AigcShortDramaService
                 'episode_count' => (int)$plan['episode_count'], 'status' => self::PROJECT_STATUS_PLAN_REVIEW,
                 'current_version_id' => (int)$version['id'], 'last_task_id' => $taskId, 'update_time' => $now,
             ]);
-            self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request, ['provider' => 'power_market', 'name' => '文件问答剧本解析'], [
+            self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request,
+                !empty($request['_file_parse_model']) ? $request['_file_parse_model']['model'] : ['provider' => 'power_market', 'name' => '文件问答剧本解析'], [
                 'provider' => 'power_market', 'provider_task_id' => (string)$consumption['upstream_task_id'],
                 'provider_request_id' => (string)$consumption['upstream_request_id'], 'progress' => 100,
                 'result' => ['script_task_id' => (int)$task['id'], 'has_plan' => true], 'pricing' => is_array($consumption['price_snapshot']) ? $consumption['price_snapshot'] : self::jsonDecode((string)$consumption['price_snapshot']),
