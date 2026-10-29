@@ -842,6 +842,14 @@ class DecorateTemplateService
             ->select()
             ->toArray();
 
+        $publishedPages = self::decodeJson((string)($template['published_pages'] ?? ''), []);
+        $publishedPageIds = array_fill_keys(array_map('intval', array_column($publishedPages, 'id')), true);
+        // A deleted draft may still serve the last published version. Only
+        // discard tombstones that no longer belong to either current version.
+        $pages = array_values(array_filter($pages, static fn(array $page): bool =>
+            (int)($page['draft_deleted'] ?? 0) !== 1 || isset($publishedPageIds[(int)$page['id']])
+        ));
+
         $progress && $progress('已读取模板及'.count($pages).'个页面，开始整理素材');
         $manifest = [
             'schema_version' => '1.0',
@@ -863,7 +871,7 @@ class DecorateTemplateService
                     $ids=array_column($pages,'id');$position=array_search((int)($item['id']??0),array_map('intval',$ids),true);
                     if($position===false)throw new RuntimeException('模板发布页面结构不完整');
                     unset($item['id']);$item['package_page_id']=$position+1;return $item;
-                },self::decodeJson((string)($template['published_pages']??''),[])),
+                }, $publishedPages),
             ],
             'pages' => array_map(function ($page, $position) {
                 $page['package_page_id']=$position+1;
