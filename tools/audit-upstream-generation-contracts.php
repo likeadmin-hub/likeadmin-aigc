@@ -7,6 +7,7 @@ use app\common\model\update\UpdateSource;
 use app\common\service\power\MarketGenerationCatalogService as Catalogue;
 use app\common\service\power\MarketGenerationContractReview as Review;
 use app\common\service\power\MarketGenerationNativeContract as Native;
+use app\common\service\power\MarketGenerationSourceIdentity as Identity;
 use app\common\service\power\MarketImageModelRuntimeService as Images;
 use app\common\service\power\MarketVideoRuntimeService as Videos;
 use app\common\service\power\PowerMarketService as Market;
@@ -38,7 +39,7 @@ try {
         // Reuse exact model-ID/document binding and its bounded, credential-safe GET transport.
         $detail=(new ReflectionMethod(Market::class,'developerDocDetailForModel'))->invoke(null,$upstream);
         $pricing=(array)($detail['model_pricing'] ?? []);
-        $modelId=(int)($upstream['ai_model_id'] ?? $upstream['model_id'] ?? $upstream['pricing']['pricing_v2']['resource_id'] ?? 0);
+        $modelId=Identity::modelId($upstream);
         $returnedCode=(string)($pricing['model_code'] ?? '');
         $returnedId=(int)($pricing['model_id'] ?? 0);
         $bound=$returnedCode === $identity['model_code'] && $modelId>0 && $returnedId === $modelId;
@@ -46,7 +47,8 @@ try {
         $row+=Review::platformData($metadata,$bound ? $detail : []);
         $slug=(string)($detail['doc']['slug'] ?? '');
         if ($slug !== '') $row['published_doc_slug']=$slug;
-        if ($detail === []) $row['read_state']='unavailable_or_unpublished';
+        if ($modelId===0) $row['read_state']='missing_model_document_binding';
+        elseif ($detail === []) $row['read_state']='unavailable_or_unpublished';
         elseif (!$bound) $row['read_state']='identity_mismatch';
         else $row['read_state']='read';
         $report['models'][]=$row;
