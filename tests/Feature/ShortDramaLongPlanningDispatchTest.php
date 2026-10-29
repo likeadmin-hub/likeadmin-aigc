@@ -16,6 +16,19 @@ class ShortDramaLongPlanningDispatchTest extends TestCase
     }
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
 
+    public function testOnlyExplicitModelFileParsesJoinThePlanningWorker():void
+    {
+        $prefix='file_dispatch_'.bin2hex(random_bytes(5));
+        foreach([false,true]as$model){
+            $request=['source'=>'market_file_qa_parse','workflow_variant'=>'story_outline_v2'];
+            if($model)$request['_file_parse_model']=['model'=>['id'=>'65'],'text'=>'原文'];
+            Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>self::TENANT,'user_id'=>7,'task_id'=>$prefix.(int)$model,
+                'status'=>'pending','request_json'=>json_encode($request),'update_time'=>10]);
+        }
+        self::assertFalse(Dispatch::tick($prefix.'0',self::TENANT,static function(){self::fail('App parser entered text worker');}));
+        self::assertTrue(Dispatch::tick($prefix.'1',self::TENANT,static fn()=>true));
+    }
+
     public function testScanPassesTwentyWaitingAndTwentyLockedTasks(): void
     {
         $prefix = 'dispatch_' . bin2hex(random_bytes(6));
