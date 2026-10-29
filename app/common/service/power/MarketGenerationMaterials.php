@@ -112,6 +112,27 @@ final class MarketGenerationMaterials
         return $assets;
     }
 
+    /** Preparation must reject material a legacy adapter would silently discard. */
+    public static function assertPreserved(array $request, array $native): void
+    {
+        $expected = array_count_values(array_map(static fn($a)=>trim((string)$a['url']), self::assets($request)));
+        if ($expected === []) return;
+        $actual = [];
+        $walk = static function (array $values) use (&$walk, &$actual): void {
+            foreach ($values as $key=>$value) {
+                if (in_array($key, ['prompt','text','negative_prompt','description','callback_url','webhook'], true)) continue;
+                if (is_array($value)) $walk($value);
+                elseif (is_string($value) && preg_match('~^(?:https?://|data:|asset://)~i', trim($value))) {
+                    $url = trim($value); $actual[$url] = ($actual[$url] ?? 0) + 1;
+                }
+            }
+        };
+        $walk($native);
+        foreach ($expected as $url=>$count) if (($actual[$url] ?? 0) < $count) {
+            throw new InvalidArgumentException('所选模型或生成方式不支持部分参考素材，请调整素材或切换模型');
+        }
+    }
+
     private static function matching(array $assets, array $field, string $method): array
     {
         $role = (string)($field['role'] ?? 'reference');

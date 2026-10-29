@@ -79,4 +79,12 @@ class MarketGenerationCompatibilityAuditTest extends TestCase
         self::assertSame('rejected', $result['status']);
         self::assertStringNotContainsString('private input', json_encode($result));
     }
+
+    public function testNativeAnimationContractWithoutPromptDoesNotCreateFalsePromptLoss(): void
+    {
+        $cases = Audit::cases('video',['material_modes'=>[['key'=>'animation','method'=>'video_edit','fields'=>[],
+            'parameter_schema'=>['properties'=>['video_url'=>['type'=>'string']]]]]]);
+        self::assertArrayNotHasKey('prompt',$cases[0]['request']);
+        self::assertSame('constructed', Audit::probe($cases[0], static fn()=>[])['status']);
+    }
 }

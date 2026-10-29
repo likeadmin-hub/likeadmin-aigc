@@ -249,10 +249,12 @@ class MarketImageModelRuntimeService
             if ($count > 0 && !self::supportsReferenceImages($metadata)) throw new Exception('所选图片模型不支持参考图');
             if ($limit > 0 && $count > $limit) throw new Exception('所选图片模型最多支持 ' . $limit . ' 张参考图');
         }
-        return PreparedMarketGeneration::model(
+        $prepared = PreparedMarketGeneration::model(
             self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt),
             $snapshot['billing_meter'] ?? null
         );
+        MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput);
+        return $prepared;
     }
 
     private static function quoteMarket(array $market, int $quantity, array $billingOverride): array

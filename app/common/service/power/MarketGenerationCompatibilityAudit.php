@@ -115,6 +115,8 @@ final class MarketGenerationCompatibilityAudit
             $request = $base;
             if (isset($mode['method'])) $request['generation_method'] = $mode['method'];
             if (!str_starts_with((string)$mode['key'], 'legacy:')) $request['material_mode'] = $mode['key'];
+            $nativeProperties = MarketGenerationSchema::properties((array)($mode['parameter_schema'] ?? []));
+            if ($nativeProperties !== [] && !isset($nativeProperties['prompt']) && !isset($nativeProperties['content'])) unset($request['prompt']);
             $assets = []; $skip = false;
             foreach ((array)($mode['fields'] ?? []) as $field) {
                 $kind = (string)($field['kind'] ?? ''); $count = max(1, (int)($field['minimum'] ?? 1));
@@ -146,7 +148,7 @@ final class MarketGenerationCompatibilityAudit
             array_walk_recursive($native, static function ($value) use (&$leaves): void { if (is_string($value)) $leaves[] = $value; });
             $missing = array_diff(array_column($case['request']['reference_assets'], 'url'), $leaves);
             $status = $missing === [] ? 'constructed' : 'material_not_forwarded';
-            if ($status === 'constructed' && !str_contains(implode(' ', $leaves), $case['request']['prompt'])) $status = 'prompt_not_forwarded';
+            if ($status === 'constructed' && isset($case['request']['prompt']) && !str_contains(implode(' ', $leaves), $case['request']['prompt'])) $status = 'prompt_not_forwarded';
             return $result + ['status'=>$status];
         } catch (\Throwable $e) {
             // Exceptions may contain a rejected input value: do not print raw messages.
