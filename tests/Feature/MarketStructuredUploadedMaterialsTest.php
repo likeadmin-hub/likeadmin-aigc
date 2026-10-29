@@ -54,6 +54,14 @@ class MarketStructuredUploadedMaterialsTest extends TestCase
         Materials::validate(self::metadata(),$r,$p);Materials::assertPreserved($r,$p);
     }
     public static function invalidBindings(): array{return array_map(static fn($v)=>[$v],['unassigned','foreign_field','description_only','wrong_kind','duplicate_slot']);}
+    public function testAnImageNamedTextFieldCannotMasqueradeAsAMediaSlot(): void
+    {
+        $meta=self::metadata();$meta['params_schema']['properties']['elements']['items']['properties']['image_note']=['type'=>'string','pattern'=>'^.*$'];
+        $payload=['elements'=>[['name'=>'Synthetic subject','element_input_urls'=>['https://fixtures.invalid/other'],'image_note'=>self::IMAGE]]];
+        $request=self::request();$request['reference_assets']=[$request['reference_assets'][0]];
+        $this->expectException(\InvalidArgumentException::class);
+        Materials::validate($meta,$request,$payload);
+    }
     public function testLocalOverridesAlsoCountNativeStructuredGroups(): void
     {
         $meta=self::metadata();$meta['_local_capability_overrides']=['max_reference_audios'=>0];
