@@ -57,7 +57,8 @@ class ShortDramaTruncatedStoryboardTest extends TestCase
 
     public function testTruncatedObjectPrefixOnlyReturnsCompleteUnambiguousProperties(): void
     {
-        $content='{"data":{"title":"故事","story_outline":"含括号 }、逗号, 和引号\\\"","subjects":[{"id":"c1"}],"locations":[{"id":"l1"}],"scene_beats":[{"goal":"截断';
+        $text=json_encode('含括号 }、逗号, 和引号"',JSON_UNESCAPED_UNICODE);
+        $content='{"data":{"title":"故事","story_outline":'.$text.',"subjects":[{"id":"c1"}],"locations":[{"id":"l1"}],"scene_beats":[{"goal":"截断';
         $prefix=Response::partialObjectPrefix(['content'=>$content,'finish_reason'=>'length']);
         self::assertSame('故事',$prefix['title']); self::assertSame('c1',$prefix['subjects'][0]['id']);
         self::assertArrayNotHasKey('scene_beats',$prefix);
