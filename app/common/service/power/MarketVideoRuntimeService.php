@@ -1261,7 +1261,7 @@ class MarketVideoRuntimeService
             $input['prompt'] = MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'wan_video_media_v1'
                 ? self::wanThreeReferencePrompt($prompt) : $prompt;
         }
-        $media = self::structuredModelMedia($snapshot,$request);
+        $media = self::structuredModelMedia($request,$snapshot);
         if ($media !== []) {
             $input['media'] = $media;
         }
@@ -1350,7 +1350,7 @@ class MarketVideoRuntimeService
         return MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'veo_video_v1';
     }
 
-    private static function structuredModelMedia(array $snapshot,array $request): array
+    private static function structuredModelMedia(array $request,array $snapshot=[]): array
     {
         $metadata=MarketGenerationRequest::metadata($snapshot);$documents=[];
         if(MarketGenerationReviewedContract::selected($metadata)!==null){
