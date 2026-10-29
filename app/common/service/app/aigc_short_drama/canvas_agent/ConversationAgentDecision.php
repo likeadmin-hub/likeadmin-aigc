@@ -52,6 +52,15 @@ final class ConversationAgentDecision
     {
         try { $raw=ConversationResponseJson::decode($response,32); }
         catch (\Throwable $e) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$e); }
+        // Memory is optional advisory metadata. Some models put it beside the
+        // action arguments; normalize only that documented metadata placement.
+        if (is_array($raw) && is_array($raw['action']??null)) {
+            if (array_key_exists('remember',$raw['action'])) {
+                if (array_key_exists('remember',$raw) && $raw['remember']!==$raw['action']['remember']) throw new RuntimeException('INVALID_AGENT_INTENT');
+                $raw['remember']=$raw['action']['remember'];unset($raw['action']['remember']);
+            }
+            if (!array_key_exists('remember',$raw)) $raw['remember']=[];
+        }
         if (!is_array($raw) || !ConversationResponseJson::hasKeys($raw,['reply_markdown','action','remember'])
             || !is_string($raw['reply_markdown']) || trim($raw['reply_markdown'])==='' || mb_strlen($raw['reply_markdown'])>10000
             || str_contains($raw['reply_markdown'],'<canvas-actions>') || !is_array($raw['action'])
@@ -85,7 +94,10 @@ final class ConversationAgentDecision
             if (!ConversationResponseJson::hasKeys($args,['intake','show_card','execution']) || !is_bool($args['show_card'])
                 || !in_array($args['execution'],['preserve','pause','resume'],true)) throw new RuntimeException('INVALID_AGENT_INTAKE');
             $sources=ConversationIntakeDraft::availableSources($context);
-            ConversationIntakeDraft::parse($args['intake'],(array)($routing['workflow_candidate']['workflow_snapshot']['slot_schema']??ConversationWorkflow::catalog()['slots']),$sources);
+            $slots=(array)($routing['workflow_candidate']['workflow_snapshot']['slot_schema']??ConversationWorkflow::catalog()['slots']);
+            $args['intake']=ConversationIntakeDraft::recover($args['intake'],$slots,$sources);
+            ConversationIntakeDraft::parse($args['intake'],$slots,$sources);
+            $raw['action']['arguments']=$args;
             $legacy=array_replace($legacy,['intent'=>$active?'continue':'short_drama','speech_act'=>'request','scope'=>'workflow','deliverable'=>'full_drama']);
             if ($active) {
                 $legacy['reply_markdown']='';
