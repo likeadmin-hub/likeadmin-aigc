@@ -1,0 +1,2893 @@
+{
+    "scope": "Public local declarations only; synthetic fixtures grant no provider verification",
+    "entries": [
+        {
+            "generation_type": "video",
+            "model_code": "official-33-a383161295b325d262",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "seed": {
+                        "type": "integer",
+                        "required": false,
+                        "description": "随机种子。取值范围：[0, 2147483647]。如果不指定，系统会自动生成一个 seed。固定 seed 可以提高结果的可复现性，但由于模型本身具有随机性，结果仍可能存在差异。"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "example": "生成一个未来感十足的城市夜景短片，镜头缓慢推进，角色从霓虹街道中走出。",
+                        "examples": [
+                            "生成一个未来感十足的城市夜景短片，镜头缓慢推进，角色从霓虹街道中走出。"
+                        ],
+                        "required": true,
+                        "maxLength": 20000,
+                        "description": "视频提示词，用于描述目标视频的画面内容、风格、镜头语言或角色行为。"
+                    },
+                    "duration": {
+                        "enum": [
+                            "4",
+                            "6",
+                            "8",
+                            "10"
+                        ],
+                        "type": "string",
+                        "example": "8",
+                        "examples": [
+                            "8"
+                        ],
+                        "required": true,
+                        "description": "生成视频的时长，单位为秒。可选值为 4、6、8、10。\n该参数仅在无视频输入时生效；如使用视频输入，输出时长由模型决定，duration\n参数将被忽略。注意：当提供视频输入时，输出时长由模型自动确定。此时 duration 参数将不会生效。"
+                    },
+                    "audio_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "examples": [
+                            [
+                                "audio_01hx8p0demo"
+                            ]
+                        ],
+                        "maxItems": 3,
+                        "required": false,
+                        "description": "由 `gemini-omni-audio` 接口生成的音频 ID 数组。用于为视频提供旁白、对白、配乐或声音参考。最多3个。注意：本字段与首帧图片（first_frame_url）互斥，不可同时传递。"
+                    },
+                    "image_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "examples": [
+                            [
+                                "<UPLOADED_FILE_URL>",
+                                "<UPLOADED_FILE_URL>"
+                            ]
+                        ],
+                        "maxItems": 7,
+                        "required": false,
+                        "description": "图片地址数组。可上传多张参考图片，用于提供角色、场景、风格或分镜参考。\n\n图片限制：\n- 单个文件大小不超过 `20MB`\n- 请使用可公开访问的图片 URL\n- 最大7张图\n- 注意：本字段与首帧图片（first_frame_url）互斥，不可同时传递。"
+                    },
+                    "resolution": {
+                        "enum": [
+                            "360p",
+                            "720p",
+                            "1080p",
+                            "4k"
+                        ],
+                        "type": "string",
+                        "default": "720p",
+                        "examples": [
+                            "720p"
+                        ],
+                        "required": false,
+                        "description": "生成视频的分辨率。可选值为 360p、720p、1080p、4k。"
+                    },
+                    "video_list": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "url",
+                                "start",
+                                "ends"
+                            ],
+                            "properties": {
+                                "url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "description": "视频地址。单个视频文件大小不超过 `100MB`，视频时长不超过 `30s`。"
+                                },
+                                "ends": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "结束时间，单位为秒。应大于 `start`。结束与起始时间之差不超过10秒"
+                                },
+                                "start": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "起始时间，单位为秒。"
+                                }
+                            }
+                        },
+                        "examples": [
+                            [
+                                {
+                                    "url": "<UPLOADED_FILE_URL>",
+                                    "ends": 10,
+                                    "start": 0
+                                }
+                            ]
+                        ],
+                        "maxItems": 1,
+                        "required": false,
+                        "description": "视频片段数组。每个元素描述一个可参与生成的视频素材及其截取时间范围。\n\n视频限制：\n- 单个文件大小不超过 `100MB`\n- 视频时长不超过 `30s`\n- `ends` 应大于 `start`\n- 结束与起始时间之差不超过`10s`\n- 最多1个，占用两张图\n- 注意：本字段与首帧图片（first_frame_url）互斥，不可同时传递。"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "16:9",
+                            "9:16"
+                        ],
+                        "type": "string",
+                        "examples": [
+                            "16:9"
+                        ],
+                        "required": false,
+                        "description": "生成视频的画面宽高比。`16:9` 为横屏视频，`9:16` 为竖屏视频。"
+                    },
+                    "character_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "examples": [
+                            [
+                                "character_01hx8p0demo"
+                            ]
+                        ],
+                        "maxItems": 3,
+                        "required": false,
+                        "description": "由 `gemini-omni-character` 接口生成的角色 ID 数组。用于为视频提供角色外观、身份或人物参考。最多 3 个角色 ID。每个占 1 个图片槽位（用肖像+全身两张图创建的占 2 个）。总槽位（图片数 + 视频数×2 + 角色槽位）≤ 7。注意：本字段与首帧图片（first_frame_url）互斥，不可同时传递。"
+                    },
+                    "last_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "examples": [
+                            "<UPLOADED_FILE_URL>"
+                        ],
+                        "required": false,
+                        "description": "尾帧图片地址。用于指定生成视频的结束画面。注意：尾帧图片不能单独使用，必须与首帧图片（first_frame_url）同时提供。"
+                    },
+                    "first_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "examples": [
+                            "<UPLOADED_FILE_URL>"
+                        ],
+                        "required": false,
+                        "description": "首帧图片地址。用于指定生成视频的起始画面。注意：本字段与 `image_urls`、`audio_ids`、`video_list`、`character_ids` 字段互斥，不可同时传递。"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "google-gemini-omni-flash-1-1",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "",
+                                "label": "文生",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "图片数＋视频数×2＋角色占用槽位合计最多 7；双图创建的角色占 2 个槽位。",
+                                    "每个视频片段结束时间须大于开始时间，截取长度最多 10 秒。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "参考素材 最多 7 张（`image_urls`）；首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）",
+                                "videos": "参考素材 最多 1 个（`video_list`）",
+                                "audios": "参考素材 最多 3 个（`audio_ids`）",
+                                "other_materials": "参考素材 最多 3 个（`character_ids`）",
+                                "view_key": ":text"
+                            },
+                            {
+                                "code": "",
+                                "label": "首帧",
+                                "first_frame": "必填",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "first_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "first"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "图片数＋视频数×2＋角色占用槽位合计最多 7；双图创建的角色占 2 个槽位。",
+                                    "每个视频片段结束时间须大于开始时间，截取长度最多 10 秒。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "参考素材 最多 7 张（`image_urls`）；首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）",
+                                "videos": "参考素材 最多 1 个（`video_list`）",
+                                "audios": "参考素材 最多 3 个（`audio_ids`）",
+                                "other_materials": "参考素材 最多 3 个（`character_ids`）",
+                                "view_key": ":first"
+                            },
+                            {
+                                "code": "",
+                                "label": "首尾帧",
+                                "first_frame": "必填",
+                                "last_frame": "需与首帧一起使用",
+                                "first_last_frame": "支持",
+                                "fields": [
+                                    {
+                                        "field": "first_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "first"
+                                    },
+                                    {
+                                        "field": "last_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "last"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "图片数＋视频数×2＋角色占用槽位合计最多 7；双图创建的角色占 2 个槽位。",
+                                    "每个视频片段结束时间须大于开始时间，截取长度最多 10 秒。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "参考素材 最多 7 张（`image_urls`）；首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）",
+                                "videos": "参考素材 最多 1 个（`video_list`）",
+                                "audios": "参考素材 最多 3 个（`audio_ids`）",
+                                "other_materials": "参考素材 最多 3 个（`character_ids`）",
+                                "view_key": ":pair"
+                            },
+                            {
+                                "code": "",
+                                "label": "参考素材",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 7,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "audio_ids",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "video_list",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "character_ids",
+                                        "kind": "character",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "图片数＋视频数×2＋角色占用槽位合计最多 7；双图创建的角色占 2 个槽位。",
+                                    "每个视频片段结束时间须大于开始时间，截取长度最多 10 秒。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "参考素材 最多 7 张（`image_urls`）；首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）",
+                                "videos": "参考素材 最多 1 个（`video_list`）",
+                                "audios": "参考素材 最多 3 个（`audio_ids`）",
+                                "other_materials": "参考素材 最多 3 个（`character_ids`）",
+                                "view_key": ":reference"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [
+                    {
+                        "value": "360p",
+                        "label": "360P"
+                    },
+                    {
+                        "value": "720p",
+                        "label": "720P"
+                    },
+                    {
+                        "value": "1080p",
+                        "label": "1080P"
+                    },
+                    {
+                        "value": "4k",
+                        "label": "4K"
+                    }
+                ],
+                "ratio_options": [
+                    "16:9",
+                    "9:16"
+                ],
+                "duration_options": [
+                    4,
+                    6,
+                    8,
+                    10
+                ]
+            }
+        },
+        {
+            "generation_type": "video",
+            "model_code": "official-33-6861b6182fb4cff198",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "seed": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "required": false,
+                        "description": "随机种子，用于复现结果。不传则随机。"
+                    },
+                    "audio": {
+                        "type": "boolean",
+                        "default": true,
+                        "required": false,
+                        "description": "输出视频是否带音轨。默认 true。"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "examples": [
+                            "月光下一只小猫在屋顶奔跑，远处霓虹闪烁，电影质感，运镜流畅。"
+                        ],
+                        "required": false,
+                        "maxLength": 20000,
+                        "description": "文本提示词，支持中英文。最多 20000 字符。文生视频必填；其他模式建议与媒体一起传。参考模式用 Image1/Video1/Audio1 引用素材。"
+                    },
+                    "duration": {
+                        "type": "integer",
+                        "default": 5,
+                        "examples": [
+                            5
+                        ],
+                        "required": false,
+                        "description": "输出视频时长（秒）。默认 5。无视频输入时取 [2, 30]；有参考视频时：输入视频时长 + 输出时长合计 ≤ 30。传 `-1` 为智能时长，由模型决定。"
+                    },
+                    "resolution": {
+                        "enum": [
+                            "480P",
+                            "720P",
+                            "1080P"
+                        ],
+                        "type": "string",
+                        "default": "1080P",
+                        "required": false,
+                        "description": "输出分辨率档位。默认 **1080P**。"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "adaptive",
+                            "16:9",
+                            "4:3",
+                            "1:1",
+                            "3:4",
+                            "9:16"
+                        ],
+                        "type": "string",
+                        "default": "adaptive",
+                        "required": false,
+                        "description": "输出宽高比。`adaptive`（默认）根据输入素材和意图自动选择。"
+                    },
+                    "nsfw_checker": {
+                        "type": "boolean",
+                        "required": false,
+                        "description": "默认 false。为 false 时不额外进行内容过滤，结果由模型直接返回。"
+                    },
+                    "last_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "required": false,
+                        "description": "尾帧图 URL，需与 first_frame_url 一起使用，格式限制同 first_frame_url。"
+                    },
+                    "first_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "required": false,
+                        "description": "首帧图 URL，最多 1 张，严格作为视频第一帧。用于首帧生视频 / 首尾帧生视频。不可与 `reference_*_urls` 同传。\n格式：JPEG/JPG、PNG（不支持透明通道）、BMP、WEBP；单边 [240, 8000] px；长宽比 ≤ 8:1；≤ 20MB。"
+                    },
+                    "reference_file_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 1,
+                        "required": false,
+                        "description": "文件生视频。最多 1 个，不能与 `reference_link_urls` 同传，也不能与首帧/尾帧同传。\n格式：docx/doc/xlsx/xls/pptx/ppt/pdf/txt/key/pages/numbers/md；≤ 100MB；pdf/docx/ppt/key/pages 等 ≤ 50 页。"
+                    },
+                    "reference_link_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 1,
+                        "required": false,
+                        "description": "链接生视频。最多 1 个公开免登录网页。不能与 `reference_file_urls` 同传，也不能与首帧/尾帧同传。"
+                    },
+                    "reference_audio_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 5,
+                        "required": false,
+                        "description": "全能参考模式的参考音频，最多 5 段。单段 1–15s，合计 ≤ 15s。按数组顺序对应 Audio1、Audio2…。格式：wav、mp3；≤ 15MB。参考音频可以作为唯一的媒体输入，搭配参考图或参考视频效果通常更好。"
+                    },
+                    "reference_image_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 10,
+                        "required": false,
+                        "description": "全能参考模式的参考图，最多 10 张。按数组顺序对应 prompt 中的 Image1、Image2…。规格同 `first_frame_url`。不可与首帧/尾帧同传。"
+                    },
+                    "reference_video_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 5,
+                        "required": false,
+                        "description": "全能参考模式的参考视频，最多 5 段。单段 1–15s，合计 ≤ 15s。按数组顺序对应 Video1、Video2…。\n格式：mp4、mov；单边 [240, 4096] px；长宽比 ≤ 8:1；单文件 ≤ 100MB。\n输出侧还有一层：输入视频时长 + duration 合计不能超过 30 秒。"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "wan-3-0-video",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "",
+                                "label": "文生",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":text"
+                            },
+                            {
+                                "code": "",
+                                "label": "首帧",
+                                "first_frame": "必填",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "first_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "first"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":first"
+                            },
+                            {
+                                "code": "",
+                                "label": "首尾帧",
+                                "first_frame": "必填",
+                                "last_frame": "需与首帧一起使用",
+                                "first_last_frame": "支持",
+                                "fields": [
+                                    {
+                                        "field": "first_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "first"
+                                    },
+                                    {
+                                        "field": "last_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "last"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":pair"
+                            },
+                            {
+                                "code": "",
+                                "label": "参考素材",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "reference_image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 10,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_video_urls",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 5,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 5,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_file_urls",
+                                        "kind": "file",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_link_urls",
+                                        "kind": "file",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":reference"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [
+                    {
+                        "value": "1080P",
+                        "label": "1080P"
+                    },
+                    {
+                        "value": "720P",
+                        "label": "720P"
+                    },
+                    {
+                        "value": "480P",
+                        "label": "480P"
+                    }
+                ],
+                "ratio_options": [
+                    "adaptive",
+                    "16:9",
+                    "4:3",
+                    "1:1",
+                    "3:4",
+                    "9:16"
+                ],
+                "duration_options": [
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30
+                ]
+            }
+        },
+        {
+            "generation_type": "video",
+            "model_code": "official-33-453b48ea7a99ca2f86",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "seed": {
+                        "type": "integer",
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "required": false,
+                        "description": "随机种子，用于复现结果。不传则随机。"
+                    },
+                    "audio": {
+                        "type": "boolean",
+                        "default": true,
+                        "required": false,
+                        "description": "输出视频是否带音轨。默认 true。"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "examples": [
+                            "月光下一只小猫在屋顶奔跑，远处霓虹闪烁，电影质感，运镜流畅。"
+                        ],
+                        "required": false,
+                        "maxLength": 20000,
+                        "description": "文本提示词，支持中英文。最多 20000 字符。文生视频必填；其他模式建议与媒体一起传。参考模式用 Image1/Video1/Audio1 引用素材。"
+                    },
+                    "duration": {
+                        "type": "integer",
+                        "default": 5,
+                        "examples": [
+                            5
+                        ],
+                        "required": false,
+                        "description": "输出视频时长（秒）。默认 5。无视频输入时取 [2, 30]；有参考视频时：输入视频时长 + 输出时长合计 ≤ 30。传 `-1` 为智能时长，由模型决定。"
+                    },
+                    "resolution": {
+                        "enum": [
+                            "480P",
+                            "720P",
+                            "1080P"
+                        ],
+                        "type": "string",
+                        "default": "1080P",
+                        "required": false,
+                        "description": "输出分辨率档位。默认 **1080P**。"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "adaptive",
+                            "16:9",
+                            "4:3",
+                            "1:1",
+                            "3:4",
+                            "9:16"
+                        ],
+                        "type": "string",
+                        "default": "adaptive",
+                        "required": false,
+                        "description": "输出宽高比。`adaptive`（默认）根据输入素材和意图自动选择。"
+                    },
+                    "nsfw_checker": {
+                        "type": "boolean",
+                        "required": false,
+                        "description": "默认 false。为 false 时不额外进行内容过滤，结果由模型直接返回。"
+                    },
+                    "last_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "required": false,
+                        "description": "尾帧图 URL，需与 first_frame_url 一起使用，格式限制同 first_frame_url。"
+                    },
+                    "first_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "required": false,
+                        "description": "首帧图 URL，最多 1 张，严格作为视频第一帧。用于首帧生视频 / 首尾帧生视频。不可与 `reference_*_urls` 同传。\n格式：JPEG/JPG、PNG（不支持透明通道）、BMP、WEBP；单边 [240, 8000] px；长宽比 ≤ 8:1；≤ 20MB。"
+                    },
+                    "reference_file_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 1,
+                        "required": false,
+                        "description": "文件生视频。最多 1 个，不能与 `reference_link_urls` 同传，也不能与首帧/尾帧同传。\n格式：docx/doc/xlsx/xls/pptx/ppt/pdf/txt/key/pages/numbers/md；≤ 100MB；pdf/docx/ppt/key/pages 等 ≤ 50 页。"
+                    },
+                    "reference_link_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 1,
+                        "required": false,
+                        "description": "链接生视频。最多 1 个公开免登录网页。不能与 `reference_file_urls` 同传，也不能与首帧/尾帧同传。"
+                    },
+                    "reference_audio_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 5,
+                        "required": false,
+                        "description": "全能参考模式的参考音频，最多 5 段。单段 1–15s，合计 ≤ 15s。按数组顺序对应 Audio1、Audio2…。格式：wav、mp3；≤ 15MB。参考音频可以作为唯一的媒体输入，搭配参考图或参考视频效果通常更好。"
+                    },
+                    "reference_image_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 10,
+                        "required": false,
+                        "description": "全能参考模式的参考图，最多 10 张。按数组顺序对应 prompt 中的 Image1、Image2…。规格同 `first_frame_url`。不可与首帧/尾帧同传。"
+                    },
+                    "reference_video_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "maxItems": 5,
+                        "required": false,
+                        "description": "全能参考模式的参考视频，最多 5 段。单段 1–15s，合计 ≤ 15s。按数组顺序对应 Video1、Video2…。\n格式：mp4、mov；单边 [240, 4096] px；长宽比 ≤ 8:1；单文件 ≤ 100MB。\n输出侧还有一层：输入视频时长 + duration 合计不能超过 30 秒。"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "wan-3-0-video-prime",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "",
+                                "label": "文生",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":text"
+                            },
+                            {
+                                "code": "",
+                                "label": "首帧",
+                                "first_frame": "必填",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "first_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "first"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":first"
+                            },
+                            {
+                                "code": "",
+                                "label": "首尾帧",
+                                "first_frame": "必填",
+                                "last_frame": "需与首帧一起使用",
+                                "first_last_frame": "支持",
+                                "fields": [
+                                    {
+                                        "field": "first_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "first"
+                                    },
+                                    {
+                                        "field": "last_frame_url",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "last"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":pair"
+                            },
+                            {
+                                "code": "",
+                                "label": "参考素材",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "reference_image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 10,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_video_urls",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 5,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 5,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_file_urls",
+                                        "kind": "file",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "reference_link_urls",
+                                        "kind": "file",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "尾帧必须与首帧同时提供，不能单独使用尾帧。",
+                                    "首帧／首尾帧不能与参考素材同时使用。",
+                                    "参考文件与参考链接不能同时提供。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；尾帧 最多 1 张（`last_frame_url`）；参考素材 最多 10 张（`reference_image_urls`）",
+                                "videos": "参考素材 最多 5 个（`reference_video_urls`）",
+                                "audios": "参考素材 最多 5 个（`reference_audio_urls`）",
+                                "other_materials": "参考素材 最多 1 个（`reference_file_urls`）；参考素材 最多 1 个（`reference_link_urls`）",
+                                "view_key": ":reference"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [
+                    {
+                        "value": "1080P",
+                        "label": "1080P"
+                    },
+                    {
+                        "value": "720P",
+                        "label": "720P"
+                    },
+                    {
+                        "value": "480P",
+                        "label": "480P"
+                    }
+                ],
+                "ratio_options": [
+                    "adaptive",
+                    "16:9",
+                    "4:3",
+                    "1:1",
+                    "3:4",
+                    "9:16"
+                ],
+                "duration_options": [
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30
+                ]
+            }
+        },
+        {
+            "generation_type": "video",
+            "model_code": "official-33-b3e3713fe0a132855f",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "audio": {
+                        "type": "boolean",
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：是否为生成的视频添加音频。`true` 表示开启音频，`false` 表示关闭音频。；默认值：false\n适用生成方式 image_to_video（必填）：是否开启音频。建议显式传入。true 表示开启音频，false 表示关闭音频。\n适用生成方式 reference_to_video（必填）：是否开启音频。无视频输入时支持 true 或 false。"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "required": false,
+                        "maxLength": 3072,
+                        "description": "适用生成方式 text_to_video（必填）：视频的文本描述。去除首尾空白字符后不能为空，且长度不得超过 3072 个字符。；最短长度：1；最长长度：3072\n适用生成方式 image_to_video（可选；条件必填见说明）：视频描述，去除首尾空白后不能为空，最长 3072 字符。；最长长度：3072；格式要求：\"^.*\\\\S.*$\"\n适用生成方式 reference_to_video（可选；条件必填见说明）：视频描述。去除首尾空白后不能为空，最长 3072 字符。；最短长度：1；最长长度：3072"
+                    },
+                    "duration": {
+                        "enum": [
+                            3,
+                            4,
+                            5,
+                            6,
+                            7,
+                            8,
+                            9,
+                            10,
+                            11,
+                            12,
+                            13,
+                            14,
+                            15
+                        ],
+                        "type": "integer",
+                        "default": 5,
+                        "maximum": 15,
+                        "minimum": 3,
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：视频的总时长（单位：秒）。支持的范围为 3 至 15 秒，默认值为 5 秒。；最小值：3；最大值：15；默认值：5\n适用生成方式 image_to_video（可选；条件必填见说明）：视频总时长，单位为秒。可选，默认 5 秒，支持 3 至 15 秒的整数值。；最小值：3；最大值：15；默认值：5\n适用生成方式 reference_to_video（可选；条件必填见说明）：视频总时长，单位为秒。可选，默认 5 秒，支持 3 至 15 秒的整数值。；最小值：3；最大值：15；默认值：5"
+                    },
+                    "elements": {
+                        "type": "array",
+                        "default": [],
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：一次性主体素材列表，默认值为空数组。仅有多图主体时最多可以上传7个主体\n仅有视频角色主体时，视频角色主体数量不得超过3。\n同时有视频角色主体和多图主体时，视频角色主体数量不得超过3，多图主体不得超过4。；最多数量：7；默认值：[]\n适用生成方式 image_to_video（可选；条件必填见说明）：一次性主体素材列表，默认为空数组，最多 3 个主体。根据 element_input_urls 自动识别为多图主体或视频角色主体。；最多数量：3；默认值：[]\n适用生成方式 reference_to_video（可选；条件必填见说明）：一次性主体素材列表，默认为空数组。主体数量受参考图片、参考视频和主体类型共同限制。无参考视频+仅有多图主体时，参考图片与多图主体数量之和不得超过7。无参考视频+仅有视频角色主体时，视频角色主体数量不得超过3。无参考视频+同时有视频角色主体和多图主体时，视频角色主体数量不得超过3，参考图片与多图主体数量之和不得超过4。；最多数量：7；默认值：[]"
+                    },
+                    "image_urls": {
+                        "type": "array",
+                        "required": false,
+                        "description": "适用生成方式 image_to_video（可选；条件必填见说明）：输入 1 张首帧，或 2 张首尾帧（索引 0 为首帧、索引 1 为尾帧）。支持 HTTP、HTTPS 和 OSS 地址。图片支持 JPG、JPEG、PNG 格式；单个文件不超过 50 MB；宽高均不小于 300 px；宽高比为 0.4 至 2.5。；最少数量：1；最多数量：2\n适用生成方式 reference_to_video（可选；条件必填见说明）：参考图片地址数组，图片数量上限与参考主体数量和参考主体类型有关，其中：无参考视频+仅有多图主体时，参考图片与多图主体数量之和不得超过7。无参考视频+同时有视频角色主体和多图主体时，参考图片与多图主体数量之和不得超过4。支持 HTTP、HTTPS 和 OSS 地址。图片支持 JPG、JPEG、PNG 格式；单个文件不超过 50 MB；宽高均不小于 300 px；宽高比为 0.4 至 2.5。；最多数量：7"
+                    },
+                    "resolution": {
+                        "enum": [
+                            "720p",
+                            "1080p",
+                            "4k"
+                        ],
+                        "type": "string",
+                        "default": "720p",
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：生成视频的分辨率。可选值包括：`720p`（输出 720P 视频）、`1080p`（输出 1080P 视频）以及 `4k`（输出 4K 视频）。；默认值：\"720p\"\n适用生成方式 image_to_video（可选；条件必填见说明）：视频分辨率。`720p` 表示输出 720P 视频，`1080p` 表示输出 1080P 视频，`4k` 表示输出 4K 视频。；默认值：\"720p\"\n适用生成方式 reference_to_video（可选；条件必填见说明）：视频分辨率。`720p` 表示输出 720P 视频，`1080p` 表示输出 1080P 视频，`4k` 表示输出 4K 视频。；默认值：\"720p\""
+                    },
+                    "video_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri",
+                            "pattern": "^(https?|oss)://"
+                        },
+                        "maxItems": 1,
+                        "minItems": 1,
+                        "required": false,
+                        "description": "适用生成方式 reference_to_video（可选；条件必填见说明）：视频地址数组，必须且只能传入 1 个视频。支持 HTTP、HTTPS 和 OSS 地址。视频支持 MP4、MOV 格式；单个文件不超过 200 MB；时长为 3 至 15.5 秒；宽高为 700 至 4553 px；总像素不超过 8,294,400；宽高比为 0.4 至 2；帧率为 24 至 60 fps。；最少数量：1；最多数量：1"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "16:9",
+                            "9:16",
+                            "1:1",
+                            "auto"
+                        ],
+                        "type": "string",
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：生成视频的画幅比例。支持的值为 `16:9`、`9:16` 和 `1:1`。；默认值：\"16:9\"\n适用生成方式 image_to_video（可选；条件必填见说明）：视频画幅比例。只要在开启自定义多镜头 customize_multi_shots 才可以选择 16:9、9:16、1:1，其余情况为 auto。；默认值：\"auto\"\n适用生成方式 reference_to_video（可选；条件必填见说明）：无视频输入时支持 `16:9`、`9:16`、`1:1`；默认值：\"16:9\""
+                    },
+                    "multi_prompt": {
+                        "type": "array",
+                        "maxItems": 6,
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：自定义分镜列表。当 `customize_multi_shots` 为 `true` 时，该字段为必填且不能为空，最多支持 6 个分镜；当 `customize_multi_shots` 为 `false` 时，该字段必须为空数组或省略不传。；最多数量：6；默认值：[]\n适用生成方式 image_to_video（可选；条件必填见说明）：自定义分镜列表。当 customize_multi_shots=true 必填，最多 6 个镜头；当 customize_multi_shots=false 时必须为空数组或不传。；最少数量：1；最多数量：6\n适用生成方式 reference_to_video（可选；条件必填见说明）：自定义分镜列表。当 customize_multi_shots=true 时必填且不能为空，最多 6 个镜头；当 customize_multi_shots=false 时必须为空数组或不传。；最少数量：1；最多数量：6"
+                    },
+                    "generation_type": {
+                        "enum": [
+                            "text_to_video",
+                            "image_to_video",
+                            "reference_to_video"
+                        ],
+                        "type": "string",
+                        "required": false,
+                        "description": "选择生成方式；传入单个字符串，例如 \"text_to_video\"，不是数组。省略时仅在素材及组合约束可以唯一确定方式时自动选择；存在歧义必须显式传入。"
+                    },
+                    "prefer_multi_shots": {
+                        "type": "boolean",
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：是否开启智能分镜模式。此字段与 `customize_multi_shots` 互斥。\n\n两者可以同时为 `false`，但不能同时为 `true`。\n适用生成方式 image_to_video（可选；条件必填见说明）：是否开启智能分镜。与 customize_multi_shots 互斥。\n适用生成方式 reference_to_video（可选；条件必填见说明）：是否开启智能分镜。与 customize_multi_shots 互斥。"
+                    },
+                    "customize_multi_shots": {
+                        "type": "boolean",
+                        "default": false,
+                        "required": false,
+                        "description": "适用生成方式 text_to_video（可选；条件必填见说明）：可选，默认 false。设为 true 为自定义分镜（需传 multi_prompt）。；默认值：false\n适用生成方式 image_to_video（可选；条件必填见说明）：可选，默认 false。设为 true 为自定义分镜（需传 multi_prompt）。；默认值：false\n适用生成方式 reference_to_video（可选；条件必填见说明）：可选，默认 false。设为 true 为自定义分镜（需传 multi_prompt）。；默认值：false"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "kling-3-0-omni",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "text_to_video",
+                                "label": "文生视频",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 7,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "视频主体最多 3 个；仅图片主体时，参考图片＋图片主体最多 7 个；包含视频主体或参考视频时，参考图片＋图片主体最多 4 个。"
+                                ],
+                                "images": "不接受",
+                                "videos": "不接受",
+                                "audios": "参考素材 上限未声明 个（`elements[].element_input_audio_urls`）（每项 elements）",
+                                "other_materials": "参考素材 最多 7 个（`elements`）；参考素材 1–4 个（`elements[].element_input_urls`）"
+                            },
+                            {
+                                "code": "image_to_video",
+                                "label": "图生视频 · 首帧",
+                                "first_frame": "必填",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "frames"
+                                    },
+                                    {
+                                        "field": "elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "图片数组第 1 张为首帧，第 2 张为尾帧；尾帧不能单独使用。",
+                                    "本行为同一接口的素材组合；generation_type 仍使用 image_to_video。"
+                                ],
+                                "images": "首帧／首尾帧 1–2 张（`image_urls`）",
+                                "videos": "不接受",
+                                "audios": "参考素材 上限未声明 个（`elements[].element_input_audio_urls`）（每项 elements）",
+                                "other_materials": "参考素材 最多 3 个（`elements`）；参考素材 1–4 个（`elements[].element_input_urls`）",
+                                "view_key": "image_to_video:first"
+                            },
+                            {
+                                "code": "image_to_video",
+                                "label": "图生视频 · 首尾帧",
+                                "first_frame": "必填",
+                                "last_frame": "需与首帧一起使用",
+                                "first_last_frame": "支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 2,
+                                        "maximum": 2,
+                                        "scope": "本次请求",
+                                        "role": "frames"
+                                    },
+                                    {
+                                        "field": "elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "图片数组第 1 张为首帧，第 2 张为尾帧；尾帧不能单独使用。",
+                                    "本行为同一接口的素材组合；generation_type 仍使用 image_to_video。"
+                                ],
+                                "images": "首帧／首尾帧 1–2 张（`image_urls`）",
+                                "videos": "不接受",
+                                "audios": "参考素材 上限未声明 个（`elements[].element_input_audio_urls`）（每项 elements）",
+                                "other_materials": "参考素材 最多 3 个（`elements`）；参考素材 1–4 个（`elements[].element_input_urls`）",
+                                "view_key": "image_to_video:pair"
+                            },
+                            {
+                                "code": "reference_to_video",
+                                "label": "参考生视频",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 7,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 7,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "video_urls",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "参考图片、视频或主体至少提供一项。",
+                                    "提供参考视频时最多 4 张参考图片。",
+                                    "提供参考视频时必须设置 audio=false。",
+                                    "每个主体使用 1–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "视频主体最多 3 个；仅图片主体时，参考图片＋图片主体最多 7 个；包含视频主体或参考视频时，参考图片＋图片主体最多 4 个。"
+                                ],
+                                "images": "参考素材 最多 7 张（`image_urls`）",
+                                "videos": "参考素材 1–1 个（`video_urls`）",
+                                "audios": "参考素材 上限未声明 个（`elements[].element_input_audio_urls`）（每项 elements）",
+                                "other_materials": "参考素材 最多 7 个（`elements`）；参考素材 1–4 个（`elements[].element_input_urls`）"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [
+                    {
+                        "value": "4k",
+                        "label": "4K"
+                    },
+                    {
+                        "value": "1080p",
+                        "label": "1080P"
+                    },
+                    {
+                        "value": "720p",
+                        "label": "720P"
+                    }
+                ],
+                "ratio_options": [
+                    "16:9",
+                    "9:16",
+                    "1:1",
+                    "auto"
+                ],
+                "duration_options": [
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15
+                ]
+            }
+        },
+        {
+            "generation_type": "video",
+            "model_code": "official-33-efbf65e23fb76cb8ee",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "audio": {
+                        "enum": [
+                            false,
+                            true
+                        ],
+                        "type": "boolean",
+                        "examples": [
+                            false
+                        ],
+                        "required": false,
+                        "description": "有视频输入时不生成音频，请传 false。"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "examples": [
+                            "将输入视频转换为电影感夜景，保持原视频中的人物动作。"
+                        ],
+                        "required": false,
+                        "maxLength": 3072,
+                        "minLength": 1,
+                        "description": "视频描述。去除首尾空白后不能为空，最长 3072 字符。"
+                    },
+                    "duration": {
+                        "type": "string",
+                        "examples": [
+                            "5"
+                        ],
+                        "required": false,
+                        "description": "视频时长。视频加图片时可保留该字段配置。"
+                    },
+                    "elements": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "name",
+                                "description",
+                                "element_input_urls"
+                            ],
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "examples": [
+                                        "element_dog"
+                                    ],
+                                    "minLength": 1,
+                                    "description": "主体名称。在同一个请求中必须唯一。可在 `prompt` 字段中通过 `@名称` 的方式进行引用。"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "examples": [
+                                        "A happy golden retriever"
+                                    ],
+                                    "minLength": 1,
+                                    "description": "主体素材的文本描述。"
+                                },
+                                "element_input_urls": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "pattern": "^(https?|oss)://"
+                                    },
+                                    "examples": [
+                                        [
+                                            "<UPLOADED_FILE_URL>",
+                                            "<UPLOADED_FILE_URL>"
+                                        ]
+                                    ],
+                                    "maxItems": 4,
+                                    "minItems": 1,
+                                    "description": "多图主体的图片 URL 列表（需传入 2 至 4 张图片），或视频角色主体的视频 URL（仅需传入 1 个视频）。图片和视频不能混合传入。支持 HTTP、HTTPS 和 OSS 协议的地址。"
+                                },
+                                "element_input_audio_urls": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "pattern": "^(https?|oss)://"
+                                    },
+                                    "default": [],
+                                    "examples": [
+                                        []
+                                    ],
+                                    "description": "主体音频素材的 URL 列表（可选配置）。支持 HTTP、HTTPS 和 OSS 协议的地址。"
+                                }
+                            }
+                        },
+                        "default": [],
+                        "maxItems": 7,
+                        "required": false,
+                        "description": "一次性主体素材列表，默认值为空数组。仅有多图主体时最多可以上传7个主体\n仅有视频角色主体时，视频角色主体数量不得超过3。\n同时有视频角色主体和多图主体时，视频角色主体数量不得超过3，多图主体不得超过4。"
+                    },
+                    "image_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri",
+                            "pattern": "^(https?|oss)://"
+                        },
+                        "examples": [
+                            [
+                                "<UPLOADED_FILE_URL>"
+                            ]
+                        ],
+                        "maxItems": 4,
+                        "required": false,
+                        "description": "图片地址数组，图片数量上限与参考主体数量和参考主体类型有关，其中：仅有多图主体时，参考图片与多图主体数量之和不得超过4。 不同时支持视频角色主体和多图主体或参考图片。支持 HTTP、HTTPS 和 OSS 地址。图片支持 JPG、JPEG、PNG 格式；单个文件不超过 50 MB；宽高均不小于 300 px；宽高比为 0.4 至 2.5。"
+                    },
+                    "resolution": {
+                        "enum": [
+                            "720p",
+                            "1080p",
+                            "4k"
+                        ],
+                        "type": "string",
+                        "default": "720p",
+                        "examples": [
+                            "720p"
+                        ],
+                        "required": false,
+                        "description": "视频分辨率。`720p` 表示输出 720P 视频，`1080p` 表示输出 1080P 视频，`4k` 表示输出 4K 视频。"
+                    },
+                    "video_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri",
+                            "pattern": "^(https?|oss)://"
+                        },
+                        "examples": [
+                            [
+                                "<UPLOADED_FILE_URL>"
+                            ]
+                        ],
+                        "maxItems": 1,
+                        "minItems": 1,
+                        "required": false,
+                        "description": "视频地址数组，必须且只能传入 1 个视频。支持 HTTP、HTTPS 和 OSS 地址。视频支持 MP4、MOV 格式；单个文件不超过 200 MB；时长为 3 至 15.5 秒；宽高为 700 至 4553 px；总像素不超过 8,294,400；宽高比为 0.4 至 2；帧率为 24 至 60 fps。"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "16:9",
+                            "9:16",
+                            "1:1",
+                            "auto"
+                        ],
+                        "type": "string",
+                        "default": "16:9",
+                        "examples": [
+                            "16:9"
+                        ],
+                        "required": false,
+                        "description": "视频画幅比例。仅视频输入时只能为 `auto`；视频加图片时支持 `16:9`、`9:16`、`1:1`，不支持 `auto`。"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "kling-3.0-omni-transformation",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "",
+                                "label": "视频生成（按素材选择方式）",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "video_urls",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 4,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 7,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "视频主体最多 3 个；仅图片主体时，参考图片＋图片主体最多 7 个；包含视频主体或参考视频时，参考图片＋图片主体最多 4 个。"
+                                ],
+                                "images": "参考素材 最多 4 张（`image_urls`）",
+                                "videos": "参考素材 1–1 个（`video_urls`）",
+                                "audios": "参考素材 上限未声明 个（`elements[].element_input_audio_urls`）（每项 elements）",
+                                "other_materials": "参考素材 最多 7 个（`elements`）；参考素材 1–4 个（`elements[].element_input_urls`）"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [
+                    {
+                        "value": "4k",
+                        "label": "4K"
+                    },
+                    {
+                        "value": "1080p",
+                        "label": "1080P"
+                    },
+                    {
+                        "value": "720p",
+                        "label": "720P"
+                    }
+                ],
+                "ratio_options": [
+                    "16:9",
+                    "9:16",
+                    "1:1",
+                    "auto"
+                ],
+                "duration_options": []
+            }
+        },
+        {
+            "generation_type": "video",
+            "model_code": "official-33-a75936bc981c48b0e7",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "seed": {
+                        "type": "integer",
+                        "required": false,
+                        "description": "随机种子。取值范围：[0, 2147483647]。如果不指定，系统会自动生成一个 seed。固定 seed 可以提高结果的可复现性，但由于模型本身具有随机性，结果仍可能存在差异。"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "example": "生成一个未来感十足的城市夜景短片，镜头缓慢推进，角色从霓虹街道中走出。",
+                        "examples": [
+                            "生成一个未来感十足的城市夜景短片，镜头缓慢推进，角色从霓虹街道中走出。"
+                        ],
+                        "required": true,
+                        "maxLength": 20000,
+                        "description": "视频提示词，用于描述目标视频的画面内容、风格、镜头语言或角色行为。"
+                    },
+                    "duration": {
+                        "enum": [
+                            "4",
+                            "6",
+                            "8",
+                            "10"
+                        ],
+                        "type": "string",
+                        "example": "8",
+                        "examples": [
+                            "8"
+                        ],
+                        "required": true,
+                        "description": "生成视频的时长，单位为秒。可选值为 4、6、8、10。 该参数仅在无视频输入时生效；如使用视频输入，输出时长由模型决定，duration 参数将被忽略。注意：当提供视频输入时，输出时长由模型自动确定。此时 duration 参数将不会生效。"
+                    },
+                    "audio_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "examples": [
+                            [
+                                "audio_01hx8p0demo"
+                            ]
+                        ],
+                        "maxItems": 3,
+                        "required": false,
+                        "description": "由 `gemini-omni-audio` 接口生成的音频 ID 数组。用于为视频提供旁白、对白、配乐或声音参考。最多3个。"
+                    },
+                    "image_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "examples": [
+                            [
+                                "<UPLOADED_FILE_URL>",
+                                "<UPLOADED_FILE_URL>"
+                            ]
+                        ],
+                        "maxItems": 7,
+                        "required": false,
+                        "description": "图片地址数组。可上传多张参考图片，用于提供角色、场景、风格或分镜参考。\n\n图片限制：\n- 单个文件大小不超过 `20MB`\n- 请使用可公开访问的图片 URL\n- 最大7张图"
+                    },
+                    "resolution": {
+                        "enum": [
+                            "720p",
+                            "1080p",
+                            "4k"
+                        ],
+                        "type": "string",
+                        "default": "720p",
+                        "examples": [
+                            "720p"
+                        ],
+                        "required": false,
+                        "description": "生成视频的分辨率。可选值为 720p、1080p、4k。"
+                    },
+                    "video_list": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "url",
+                                "start",
+                                "ends"
+                            ],
+                            "properties": {
+                                "url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "description": "视频地址。单个视频文件大小不超过 `100MB`，视频时长不超过 `30s`。"
+                                },
+                                "ends": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "结束时间，单位为秒。应大于 `start`。结束与起始时间之差不超过10秒"
+                                },
+                                "start": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "description": "起始时间，单位为秒。"
+                                }
+                            }
+                        },
+                        "examples": [
+                            [
+                                {
+                                    "url": "<UPLOADED_FILE_URL>",
+                                    "ends": 10,
+                                    "start": 0
+                                }
+                            ]
+                        ],
+                        "maxItems": 1,
+                        "required": false,
+                        "description": "视频片段数组。每个元素描述一个可参与生成的视频素材及其截取时间范围。\n\n视频限制：\n- 单个文件大小不超过 `100MB`\n- 视频时长不超过 `30s`\n- `ends` 应大于 `start`\n- 结束与起始时间之差不超过`10s`\n- 最多1个，占用两张图"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "16:9",
+                            "9:16"
+                        ],
+                        "type": "string",
+                        "examples": [
+                            "16:9"
+                        ],
+                        "required": false,
+                        "description": "生成视频的画面宽高比。`16:9` 为横屏视频，`9:16` 为竖屏视频。"
+                    },
+                    "character_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "examples": [
+                            [
+                                "character_01hx8p0demo"
+                            ]
+                        ],
+                        "maxItems": 3,
+                        "required": false,
+                        "description": "由 `gemini-omni-character` 接口生成的角色 ID 数组。用于为视频提供角色外观、身份或人物参考。最多 3 个角色 ID。每个占 1 个图片槽位（用肖像+全身两张图创建的占 2 个）。总槽位（图片数 + 视频数×2 + 角色槽位）≤ 7。"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "gemini-omni-video",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "",
+                                "label": "视频生成（按素材选择方式）",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 7,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "audio_ids",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "video_list",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "character_ids",
+                                        "kind": "character",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "图片数＋视频数×2＋角色占用槽位合计最多 7；双图创建的角色占 2 个槽位。",
+                                    "每个视频片段结束时间须大于开始时间，截取长度最多 10 秒。"
+                                ],
+                                "images": "参考素材 最多 7 张（`image_urls`）",
+                                "videos": "参考素材 最多 1 个（`video_list`）",
+                                "audios": "参考素材 最多 3 个（`audio_ids`）",
+                                "other_materials": "参考素材 最多 3 个（`character_ids`）"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [
+                    {
+                        "value": "4k",
+                        "label": "4K"
+                    },
+                    {
+                        "value": "1080p",
+                        "label": "1080P"
+                    },
+                    {
+                        "value": "720p",
+                        "label": "720P"
+                    }
+                ],
+                "ratio_options": [
+                    "16:9",
+                    "9:16"
+                ],
+                "duration_options": [
+                    4,
+                    6,
+                    8,
+                    10
+                ]
+            }
+        },
+        {
+            "generation_type": "video",
+            "model_code": "official-33-27cdf26af16f988f51",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "mode": {
+                        "enum": [
+                            "std",
+                            "pro",
+                            "4K"
+                        ],
+                        "type": "string",
+                        "example": "pro",
+                        "examples": [
+                            "pro"
+                        ],
+                        "required": true,
+                        "description": "必填。生成模式。std 为标准分辨率，pro 为高分辨率，4K 为 4K 分辨率。\n\n分辨率映射：\n- **std 模式**：16:9 (1280×720), 9:16 (720×1280), 1:1 (720×720)\n- **pro 模式**：16:9 (1920×1080), 9:16 (1080×1920), 1:1 (1080×1080)\n- **4K 模式**：16:9 (3840×2160), 9:16 (2160×3840), 1:1 (2160×2160)"
+                    },
+                    "sound": {
+                        "type": "boolean",
+                        "example": true,
+                        "examples": [
+                            true
+                        ],
+                        "required": true,
+                        "description": "必填。是否同时生成音频（对白、音效、环境声），影响价格。"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "examples": [
+                            "In a bright rehearsal room, sunlight streams through the window@element_dog"
+                        ],
+                        "required": false,
+                        "description": "multi_shots 为 false 时必填，最长 2500 字符。"
+                    },
+                    "duration": {
+                        "enum": [
+                            "3",
+                            "4",
+                            "5",
+                            "6",
+                            "7",
+                            "8",
+                            "9",
+                            "10",
+                            "11",
+                            "12",
+                            "13",
+                            "14",
+                            "15"
+                        ],
+                        "type": "string",
+                        "example": "5",
+                        "examples": [
+                            "5"
+                        ],
+                        "required": true,
+                        "description": "必填。视频时长（秒），3–15（字符串，如 \"5\"）。多镜头模式下实际时长与计费按各镜头时长之和（3–15 秒），duration 请填同一合计值。"
+                    },
+                    "image_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "examples": [
+                            [
+                                "<UPLOADED_FILE_URL>"
+                            ]
+                        ],
+                        "maxItems": 2,
+                        "required": false,
+                        "description": "首尾帧图片链接。可选。当 multi_shots 为 false 时：长度为 2 时，索引 0 为首帧，索引 1 为尾帧；长度为 1 时，数组项作为首帧。当 multi_shots 为 true 时：只支持首帧。"
+                    },
+                    "multi_shots": {
+                        "type": "boolean",
+                        "example": false,
+                        "examples": [
+                            false
+                        ],
+                        "required": true,
+                        "description": "必填。是否多镜头。true 时为多镜头，false 为单镜头。"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "16:9",
+                            "9:16",
+                            "1:1"
+                        ],
+                        "type": "string",
+                        "examples": [
+                            "16:9"
+                        ],
+                        "required": false,
+                        "description": "传了 image_urls 时可省略（输出比例跟随首帧）。文生视频请显式传入：16:9、9:16 或 1:1。"
+                    },
+                    "multi_prompt": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "prompt",
+                                "duration"
+                            ],
+                            "properties": {
+                                "prompt": {
+                                    "type": "string",
+                                    "examples": [
+                                        "a happy dog in running@element_cat"
+                                    ],
+                                    "maxLength": 500,
+                                    "description": "该镜头的提示词文本，单个镜头最多500字符，每个@element会占37个字符。"
+                                },
+                                "duration": {
+                                    "type": "integer",
+                                    "maximum": 12,
+                                    "minimum": 1,
+                                    "examples": [
+                                        3
+                                    ],
+                                    "description": "该镜头的时长（单位：秒）。范围：1-12。"
+                                }
+                            }
+                        },
+                        "examples": [
+                            [
+                                {
+                                    "prompt": "a happy dog in running@element_cat",
+                                    "duration": 3
+                                },
+                                {
+                                    "prompt": "a happy dog play with a cat@element_dog",
+                                    "duration": 3
+                                }
+                            ]
+                        ],
+                        "required": false,
+                        "description": "镜头提示词。multi_shots 为 true 时生效。用来描述每一段镜头的文案和时长，最多支持 5 段，每段时长 1-12 秒，如果需要使用 element，则需加在 prompt 后。"
+                    },
+                    "kling_elements": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "name",
+                                "description",
+                                "element_input_urls"
+                            ],
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "examples": [
+                                        "element_dog"
+                                    ],
+                                    "description": "元素名称，在 prompt 中使用 @ 前缀引用（如 @element_dog）"
+                                },
+                                "end_time": {
+                                    "type": "integer",
+                                    "default": 8000,
+                                    "description": "视频角色素材截取结束时间，单位毫秒。仅 element_input_urls 上传视频时生效。必须大于 start_time，且 end_time - start_time 必须在 3000-8000ms。"
+                                },
+                                "start_time": {
+                                    "type": "integer",
+                                    "default": 0,
+                                    "description": "视频角色素材截取开始时间，单位毫秒。仅 element_input_urls 上传视频时生效。未传时默认 0。"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "examples": [
+                                        "dog"
+                                    ],
+                                    "description": "元素描述"
+                                },
+                                "element_input_urls": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "examples": [
+                                        [
+                                            "<UPLOADED_FILE_URL>",
+                                            "<UPLOADED_FILE_URL>"
+                                        ]
+                                    ],
+                                    "maxItems": 4,
+                                    "minItems": 1,
+                                    "description": "2–4 张图片（JPG/PNG，单张不超过 10MB），或 1 个视频（MP4/MOV）。"
+                                },
+                                "element_input_audio_urls": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uri"
+                                    },
+                                    "description": "可选。角色音频素材 URL 列表。音频时长必须为 5-30 秒"
+                                }
+                            }
+                        },
+                        "examples": [
+                            [
+                                {
+                                    "name": "element_dog",
+                                    "description": "dog",
+                                    "element_input_urls": [
+                                        "<UPLOADED_FILE_URL>",
+                                        "<UPLOADED_FILE_URL>"
+                                    ]
+                                },
+                                {
+                                    "name": "element_cat",
+                                    "description": "cat",
+                                    "element_input_urls": [
+                                        "<UPLOADED_FILE_URL>",
+                                        "<UPLOADED_FILE_URL>"
+                                    ]
+                                }
+                            ]
+                        ],
+                        "maxItems": 3,
+                        "required": false,
+                        "description": "引用元素。prompt 中引用元素的详细信息。单个任务最多引用三个元素。"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "kling-3.0-video",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "",
+                                "label": "文生",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "kling_elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "kling_elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 kling_elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "kling_elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 kling_elements",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "多镜头模式仅支持 1 张首帧；非多镜头支持 1 张首帧或 2 张首尾帧。",
+                                    "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "图片数组第 1 张为首帧，第 2 张为尾帧；尾帧不能单独使用。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧／首尾帧 最多 2 张（`image_urls`）",
+                                "videos": "不接受",
+                                "audios": "参考素材 上限未声明 个（`kling_elements[].element_input_audio_urls`）（每项 kling_elements）",
+                                "other_materials": "参考素材 最多 3 个（`kling_elements`）；参考素材 1–4 个（`kling_elements[].element_input_urls`）",
+                                "view_key": ":text"
+                            },
+                            {
+                                "code": "",
+                                "label": "首帧",
+                                "first_frame": "必填",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "frames"
+                                    },
+                                    {
+                                        "field": "kling_elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "kling_elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 kling_elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "kling_elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 kling_elements",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "多镜头模式仅支持 1 张首帧；非多镜头支持 1 张首帧或 2 张首尾帧。",
+                                    "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "图片数组第 1 张为首帧，第 2 张为尾帧；尾帧不能单独使用。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧／首尾帧 最多 2 张（`image_urls`）",
+                                "videos": "不接受",
+                                "audios": "参考素材 上限未声明 个（`kling_elements[].element_input_audio_urls`）（每项 kling_elements）",
+                                "other_materials": "参考素材 最多 3 个（`kling_elements`）；参考素材 1–4 个（`kling_elements[].element_input_urls`）",
+                                "view_key": ":first"
+                            },
+                            {
+                                "code": "",
+                                "label": "首尾帧",
+                                "first_frame": "必填",
+                                "last_frame": "需与首帧一起使用",
+                                "first_last_frame": "支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": true,
+                                        "conditional_required": false,
+                                        "minimum": 2,
+                                        "maximum": 2,
+                                        "scope": "本次请求",
+                                        "role": "frames"
+                                    },
+                                    {
+                                        "field": "kling_elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "kling_elements[].element_input_urls",
+                                        "kind": "mixed",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 4,
+                                        "scope": "每项 kling_elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "kling_elements[].element_input_audio_urls",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": null,
+                                        "scope": "每项 kling_elements",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "多镜头模式仅支持 1 张首帧；非多镜头支持 1 张首帧或 2 张首尾帧。",
+                                    "每个主体使用 2–4 张图片或恰好 1 个视频，不能混传图片和视频；主体音频的数量上限未声明。",
+                                    "图片数组第 1 张为首帧，第 2 张为尾帧；尾帧不能单独使用。",
+                                    "本行为同一接口的素材组合；通过素材参数选择，不增加新的 generation_type 值。"
+                                ],
+                                "images": "首帧／首尾帧 最多 2 张（`image_urls`）",
+                                "videos": "不接受",
+                                "audios": "参考素材 上限未声明 个（`kling_elements[].element_input_audio_urls`）（每项 kling_elements）",
+                                "other_materials": "参考素材 最多 3 个（`kling_elements`）；参考素材 1–4 个（`kling_elements[].element_input_urls`）",
+                                "view_key": ":pair"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [],
+                "ratio_options": [
+                    "16:9",
+                    "9:16",
+                    "1:1"
+                ],
+                "duration_options": [
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15
+                ]
+            }
+        },
+        {
+            "generation_type": "video",
+            "model_code": "official-33-bf8474d9d1c7136651",
+            "channel_code": "official",
+            "metadata": {
+                "params_schema": {
+                    "prompt": {
+                        "type": "string",
+                        "example": "A red paper boat floating on a calm blue lake, soft morning light.",
+                        "required": true,
+                        "maxLength": 8000,
+                        "minLength": 1,
+                        "description": "适用生成方式 keyframe_to_video（必填）：视频描述，必填，最多 8000 个字符。\n\n用 `@first_frame`、`@keyframe_1`、`@keyframe_2`…、`@last_frame` 引用本次请求已传入的帧，只能引用实际提供的帧。\n\n每个 `@` 引用都必须能匹配到本次请求已传入的素材，否则请求会被拒绝。引用按已声明名称做最长匹配；若匹配到的名称以字母、数字或下划线结尾，紧跟的下一个字符不能再是字母、数字或下划线。；最短长度：1；最长长度：8000\n适用生成方式 reference_to_video（必填）：视频描述，必填，最多 8000个字符。\n\n用 `@` 引用本次请求里已上传的素材：\n- `@image_1`、`@image_2`… 按顺序对应 `image_urls`（从 1 开始）\n- `@video_1`、`@video_2`… 对应 `video_urls`\n- `@名称` 对应 `elements` 或 `voices` 中的 `name`\n\n每个 `@` 引用都必须能匹配到本次请求已传入的素材，否则请求会被拒绝。引用按已声明名称做最长匹配；若匹配到的名称以字母、数字或下划线结尾，紧跟的下一个字符不能再是字母、数字或下划线。；最短长度：1；最长长度：8000"
+                    },
+                    "voices": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "children": {
+                                "name": {
+                                    "type": "string",
+                                    "pattern": "^[一-龥A-Za-z0-9_]{1,20}$",
+                                    "examples": [
+                                        "Narrator"
+                                    ],
+                                    "required": true,
+                                    "description": "提示词里 `@名称` 引用用的名字。1–20 个字符，仅限中文、字母、数字、下划线。与 `elements`、`voices` 中的其它名称不能重复（不区分大小写）。不能使用保留名（不区分大小写，N 为数字）：`image_N`、`video_N`、`keyframe_N`、`object_N`、`audio_N`、`first_frame`、`last_frame`。"
+                                },
+                                "audio_url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "pattern": "^https?://",
+                                    "required": true,
+                                    "description": "公网可访问的参考音频地址，必填。识别不到可用声音时任务失败。"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "audio_url"
+                            ],
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "pattern": "^[一-龥A-Za-z0-9_]{1,20}$",
+                                    "examples": [
+                                        "Narrator"
+                                    ],
+                                    "description": "提示词里 `@名称` 引用用的名字。1–20 个字符，仅限中文、字母、数字、下划线。与 `elements`、`voices` 中的其它名称不能重复（不区分大小写）。不能使用保留名（不区分大小写，N 为数字）：`image_N`、`video_N`、`keyframe_N`、`object_N`、`audio_N`、`first_frame`、`last_frame`。"
+                                },
+                                "audio_url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "pattern": "^https?://",
+                                    "description": "公网可访问的参考音频地址，必填。识别不到可用声音时任务失败。"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "default": [],
+                        "maxItems": 3,
+                        "required": false,
+                        "description": "适用生成方式 reference_to_video（可选；条件必填见说明）：仅本次任务使用的独立声音参考，最多 3 个。提示词里用 `@名称` 引用。主体上通过 `voice_url` 绑定的声音与此无关，不占名额。；最多数量：3；默认值：[]"
+                    },
+                    "duration": {
+                        "type": "integer",
+                        "default": 5,
+                        "maximum": 30,
+                        "minimum": 3,
+                        "required": false,
+                        "description": "适用生成方式 keyframe_to_video（可选；条件必填见说明）：输出视频时长（秒），3–30 的整数，默认 `5`。\n\n同时限制总帧数（首帧 + 中间帧 + 尾帧）：\n- 3 秒 → 4 帧\n- 4 秒 → 5 帧\n- 5 秒 → 6 帧\n- 6 秒 → 7 帧\n- 7 秒 → 8 帧\n- 8 秒 → 9 帧\n- 9 秒及以上 → 10 帧；最小值：3；最大值：30；默认值：5\n适用生成方式 reference_to_video（可选；条件必填见说明）：输出视频时长（秒），3–30 的整数，默认 `5`。；最小值：3；最大值：30；默认值：5"
+                    },
+                    "elements": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "example": {
+                                "tag": "character",
+                                "name": "Hero",
+                                "image_urls": [
+                                    "<UPLOADED_FILE_URL>",
+                                    "<UPLOADED_FILE_URL>"
+                                ]
+                            },
+                            "children": {
+                                "tag": {
+                                    "enum": [
+                                        "character",
+                                        "animal",
+                                        "prop",
+                                        "costume",
+                                        "scene",
+                                        "effect",
+                                        "others"
+                                    ],
+                                    "type": "string",
+                                    "required": false,
+                                    "description": "主体分类。图片主体可选，不传时按主图自动识别；视频主体固定为 `character`，传其它值会被拒绝。"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "pattern": "^[一-龥A-Za-z0-9_]{1,20}$",
+                                    "examples": [
+                                        "Hero"
+                                    ],
+                                    "required": true,
+                                    "description": "提示词里 `@名称` 引用用的名字。1–20 个字符，仅限中文、字母、数字、下划线。与 `elements`、`voices` 中的其它名称不能重复（不区分大小写）。不能使用保留名（不区分大小写，N 为数字）：`image_N`、`video_N`、`keyframe_N`、`object_N`、`audio_N`、`first_frame`、`last_frame`。"
+                                },
+                                "video_url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "pattern": "^https?://",
+                                    "required": false,
+                                    "description": "视频主体用的人物视频地址，不能与 `image_urls` 同时传。1 个视频，3–8 秒，单镜头连续画面（不能有剪切），最短边不小于 700 像素。"
+                                },
+                                "voice_url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "pattern": "^https?://",
+                                    "required": false,
+                                    "description": "可选，绑定在该主体上的参考音频。不能单独用 `@` 引用，也不占 `voices` 名额。只有人物主体能绑定：图片主体的 `tag` 须为 `character` 或不传；视频主体不传时，若视频里有人声则自动使用。"
+                                },
+                                "image_urls": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "pattern": "^https?://"
+                                    },
+                                    "maxItems": 4,
+                                    "minItems": 2,
+                                    "required": false,
+                                    "description": "图片主体用的 2–4 张公网可访问图片，不能与 `video_url` 同时传。第 1 张是主图（正脸或主视角），其余是副图。"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "required": false,
+                                    "maxLength": 100,
+                                    "description": "可选的主体描述，最多 100 个字符。"
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ],
+                            "properties": {
+                                "tag": {
+                                    "enum": [
+                                        "character",
+                                        "animal",
+                                        "prop",
+                                        "costume",
+                                        "scene",
+                                        "effect",
+                                        "others"
+                                    ],
+                                    "type": "string",
+                                    "description": "主体分类。图片主体可选，不传时按主图自动识别；视频主体固定为 `character`，传其它值会被拒绝。"
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "pattern": "^[一-龥A-Za-z0-9_]{1,20}$",
+                                    "examples": [
+                                        "Hero"
+                                    ],
+                                    "description": "提示词里 `@名称` 引用用的名字。1–20 个字符，仅限中文、字母、数字、下划线。与 `elements`、`voices` 中的其它名称不能重复（不区分大小写）。不能使用保留名（不区分大小写，N 为数字）：`image_N`、`video_N`、`keyframe_N`、`object_N`、`audio_N`、`first_frame`、`last_frame`。"
+                                },
+                                "video_url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "pattern": "^https?://",
+                                    "description": "视频主体用的人物视频地址，不能与 `image_urls` 同时传。1 个视频，3–8 秒，单镜头连续画面（不能有剪切），最短边不小于 700 像素。"
+                                },
+                                "voice_url": {
+                                    "type": "string",
+                                    "format": "uri",
+                                    "pattern": "^https?://",
+                                    "description": "可选，绑定在该主体上的参考音频。不能单独用 `@` 引用，也不占 `voices` 名额。只有人物主体能绑定：图片主体的 `tag` 须为 `character` 或不传；视频主体不传时，若视频里有人声则自动使用。"
+                                },
+                                "image_urls": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "uri",
+                                        "pattern": "^https?://"
+                                    },
+                                    "maxItems": 4,
+                                    "minItems": 2,
+                                    "description": "图片主体用的 2–4 张公网可访问图片，不能与 `video_url` 同时传。第 1 张是主图（正脸或主视角），其余是副图。"
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "maxLength": 100,
+                                    "description": "可选的主体描述，最多 100 个字符。"
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "default": [],
+                        "maxItems": 7,
+                        "required": false,
+                        "description": "适用生成方式 reference_to_video（可选；条件必填见说明）：仅本次任务使用的主体，最多 7 个，其中视频主体最多 3 个。提示词里用 `@名称` 引用。`image_urls`、`video_urls`、`elements`、`voices` 四类按条数合计不超过 15。；最多数量：7；默认值：[]"
+                    },
+                    "image_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri",
+                            "pattern": "^https?://"
+                        },
+                        "default": [],
+                        "maxItems": 10,
+                        "required": false,
+                        "description": "适用生成方式 reference_to_video（可选；条件必填见说明）：参考图，最多 10 张，需公网可访问。提示词里按数组顺序用 `@image_1`、`@image_2`… 引用。每边 300–65536 像素，宽高比 0.4–2.5。；最多数量：10；默认值：[]"
+                    },
+                    "resolution": {
+                        "enum": [
+                            "720p",
+                            "1080p"
+                        ],
+                        "type": "string",
+                        "default": "720p",
+                        "required": false,
+                        "description": "适用生成方式 keyframe_to_video（可选；条件必填见说明）：输出分辨率：`720p` 或 `1080p`，默认 `720p`。；默认值：\"720p\"\n适用生成方式 reference_to_video（可选；条件必填见说明）：输出分辨率：`720p` 或 `1080p`，默认 `720p`。；默认值：\"720p\""
+                    },
+                    "video_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri",
+                            "pattern": "^https?://"
+                        },
+                        "default": [],
+                        "maxItems": 5,
+                        "required": false,
+                        "description": "适用生成方式 reference_to_video（可选；条件必填见说明）：参考视频，最多 5 个，每个 2–30 秒。提示词里用 `@video_1`、`@video_2`… 引用。参考视频与 `elements` 中的视频主体合计不超过 5 个。；最多数量：5；默认值：[]"
+                    },
+                    "aspect_ratio": {
+                        "enum": [
+                            "auto",
+                            "16:9",
+                            "9:16",
+                            "1:1",
+                            "21:9"
+                        ],
+                        "type": "string",
+                        "required": false,
+                        "description": "适用生成方式 keyframe_to_video（可选；条件必填见说明）：输出画面比例。只在一帧都不传时生效（纯文生视频），默认 `16:9`；传了任意帧时跟随首帧比例。\n适用生成方式 reference_to_video（可选；条件必填见说明）：输出画面比例，可选。\n\n- 不传且提供了任意参考素材时，使用 `auto`\n- 不传且没有任何参考素材时，使用 `16:9`"
+                    },
+                    "keyframe_urls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri",
+                            "pattern": "^https?://"
+                        },
+                        "default": [],
+                        "maxItems": 8,
+                        "required": false,
+                        "description": "适用生成方式 keyframe_to_video（可选；条件必填见说明）：中间帧图片地址，按时间顺序，最多 8 张（同时受 `duration` 限制）。提示词里用 `@keyframe_1`、`@keyframe_2`… 引用。；最多数量：8；默认值：[]"
+                    },
+                    "last_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "pattern": "^https?://",
+                        "required": false,
+                        "description": "适用生成方式 keyframe_to_video（可选；条件必填见说明）：尾帧图片地址。提示词里用 `@last_frame` 引用。；格式要求：\"^https?://\"；数据格式：\"uri\""
+                    },
+                    "first_frame_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "pattern": "^https?://",
+                        "required": false,
+                        "description": "适用生成方式 keyframe_to_video（可选；条件必填见说明）：首帧图片地址。提示词里用 `@first_frame` 引用。；格式要求：\"^https?://\"；数据格式：\"uri\""
+                    },
+                    "generation_type": {
+                        "enum": [
+                            "keyframe_to_video",
+                            "reference_to_video"
+                        ],
+                        "type": "string",
+                        "required": false,
+                        "description": "选择生成方式；传入单个字符串，例如 \"keyframe_to_video\"，不是数组。省略时仅在素材及组合约束可以唯一确定方式时自动选择；存在歧义必须显式传入。"
+                    },
+                    "keep_original_sound": {
+                        "type": "boolean",
+                        "default": false,
+                        "required": false,
+                        "description": "适用生成方式 reference_to_video（可选；条件必填见说明）：是否保留参考视频的原声。只在传了 `video_urls` 时生效，默认 `false`。不传参考视频时固定生成原生音频。；默认值：false"
+                    }
+                },
+                "upstream_metadata": {
+                    "model_code": "kling-4-0",
+                    "material_capabilities": {
+                        "revision": "materials-2026-10-23-1",
+                        "modes": [
+                            {
+                                "code": "keyframe_to_video",
+                                "label": "关键帧生视频",
+                                "first_frame": "支持",
+                                "last_frame": "支持单独尾帧",
+                                "first_last_frame": "支持",
+                                "fields": [
+                                    {
+                                        "field": "first_frame_url",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "first"
+                                    },
+                                    {
+                                        "field": "keyframe_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 8,
+                                        "scope": "本次请求",
+                                        "role": "keyframe"
+                                    },
+                                    {
+                                        "field": "last_frame_url",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "本次请求",
+                                        "role": "last"
+                                    }
+                                ],
+                                "rules": [
+                                    "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+                                    "允许纯文生、首帧、单独尾帧、首尾帧及中间帧组合。中间帧最多8张；首帧＋中间帧＋尾帧总数不超过 min(生成秒数＋1,10)：3秒4张、4秒5张，依此类推，9–30秒最多10张。"
+                                ],
+                                "images": "首帧 最多 1 张（`first_frame_url`）；中间关键帧 最多 8 张（`keyframe_urls`）；尾帧 最多 1 张（`last_frame_url`）",
+                                "videos": "不接受",
+                                "audios": "不接受",
+                                "other_materials": ""
+                            },
+                            {
+                                "code": "reference_to_video",
+                                "label": "参考生视频",
+                                "first_frame": "不支持",
+                                "last_frame": "不支持",
+                                "first_last_frame": "不支持",
+                                "fields": [
+                                    {
+                                        "field": "image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 10,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "video_urls",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 5,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements",
+                                        "kind": "subject",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 7,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].image_urls",
+                                        "kind": "image",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 2,
+                                        "maximum": 4,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].video_url",
+                                        "kind": "video",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "elements[].voice_url",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 1,
+                                        "scope": "每项 elements",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "voices",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": false,
+                                        "minimum": 0,
+                                        "maximum": 3,
+                                        "scope": "本次请求",
+                                        "role": "reference"
+                                    },
+                                    {
+                                        "field": "voices[].audio_url",
+                                        "kind": "audio",
+                                        "required": false,
+                                        "conditional_required": true,
+                                        "minimum": 1,
+                                        "maximum": 1,
+                                        "scope": "每项 voices",
+                                        "role": "reference"
+                                    }
+                                ],
+                                "rules": [
+                                    "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+                                    "参考图最多10张，参考视频最多5个，主体最多7个（视频主体最多3个），独立声音最多3个；四类按条数合计最多15个，参考视频＋视频主体合计最多5个。主体图片和绑定声音不另占四类条数。",
+                                    "每个主体必须二选一：2–4张 image_urls，或1个 video_url。视频主体只能为 character；voice_url 仅可绑定人物主体，且不占独立声音名额。",
+                                    "主体与声音名称须为1–20位中文、字母、数字或下划线，忽略大小写不能重复；禁止 first_frame、last_frame 及 image_N、video_N、keyframe_N、object_N、audio_N 保留名。",
+                                    "参考视频每个2–30秒，视频主体每个3–8秒、最短边至少700像素且为连续单镜头人物视频；两类视频总时长最多30秒。参考图每边300–65536像素，宽高比0.4–2.5。"
+                                ],
+                                "images": "参考素材 最多 10 张（`image_urls`）；参考素材 2–4 张（`elements[].image_urls`）（每项 elements）",
+                                "videos": "参考素材 最多 5 个（`video_urls`）；参考素材 最多 1 个（`elements[].video_url`）（每项 elements）",
+                                "audios": "参考素材 最多 3 个（`voices`）；参考素材 最多 1 个（`elements[].voice_url`）（每项 elements）；参考素材 1–1 个（`voices[].audio_url`）（每项 voices）",
+                                "other_materials": "参考素材 最多 7 个（`elements`）"
+                            }
+                        ]
+                    }
+                }
+            },
+            "options": {
+                "resolution_options": [
+                    {
+                        "value": "1080p",
+                        "label": "1080P"
+                    },
+                    {
+                        "value": "720p",
+                        "label": "720P"
+                    }
+                ],
+                "ratio_options": [
+                    "auto",
+                    "16:9",
+                    "9:16",
+                    "1:1",
+                    "21:9"
+                ],
+                "duration_options": [
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30
+                ]
+            }
+        }
+    ]
+}
