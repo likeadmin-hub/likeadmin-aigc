@@ -2,6 +2,8 @@
 
 namespace app\common\service\app\aigc_canvas;
 
+use app\common\service\power\MarketGenerationControls;
+
 use app\common\enum\FileEnum;
 use app\common\model\app\TenantAppConfig;
 use app\common\model\app\aigc_canvas\AigcCanvasAsset;
@@ -127,7 +129,7 @@ class AigcCanvasService
         $text = self::textConfig($tenantId);
         $marketRouter = CanvasModelRouterService::marketOverview($tenantId);
         foreach ($marketRouter as $type => &$group) {
-            foreach ($group['options'] as &$option) $option['canvas_parameters'] = CanvasGenerationParameters::definitions($option, $type);
+            foreach ($group['options'] as &$option) $option['canvas_parameters'] = MarketGenerationControls::definitions($option, $type);
             unset($option);
         }
         unset($group);
@@ -1409,7 +1411,7 @@ class AigcCanvasService
                         'market_output_sku_key' => (string)($option['market_output_sku_key'] ?? ''),
                         'price_source' => (string)($option['price_source'] ?? 'power_market_text_model'),
                         'supports_vision' => !empty($option['supports_vision']),
-                        'canvas_parameters' => CanvasGenerationParameters::definitions($option, 'text'),
+                        'canvas_parameters' => MarketGenerationControls::definitions($option, 'text'),
                         'provider' => 'power_market',
                     ];
                 }
@@ -2398,7 +2400,7 @@ class AigcCanvasService
                 }
             }
         }
-        return CanvasGenerationParameters::apply($params, $model, $type);
+        return MarketGenerationControls::apply($params, $model, $type);
     }
 
     private static function normalizeImageParams(array $params, int $tenantId, int $userId, bool $persistInlineImages = true): array

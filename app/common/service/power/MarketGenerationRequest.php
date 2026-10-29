@@ -88,4 +88,37 @@ final class MarketGenerationRequest
         MarketGenerationRules::validate(MarketGenerationNativeContract::rules($metadata, $native), $params);
         return $params;
     }
+
+    /**
+     * Validate fields actually declared by legacy adapters without inventing a
+     * native contract. Opaque structured objects retain the adapter's content;
+     * examples are documentation, never defaults or validation schemas.
+     */
+    public static function normalizeLegacyPayload(array $snapshot, array $payload, array $request, bool $deferMissingPrompt = false): array
+    {
+        $schema = MarketGenerationSchema::array(self::metadata($snapshot)['params_schema'] ?? []);
+        if ($schema === []) return $payload;
+        $properties = MarketGenerationSchema::properties($schema);
+        foreach ($properties as $name => &$definition) {
+            if (in_array($definition['required'] ?? null, [1, '1'], true)) $definition['required'] = true;
+        }
+        unset($definition);
+        if (isset($schema['properties'])) $schema['properties'] = $properties;
+        else $schema = array_replace($schema, $properties);
+        $values = array_intersect_key($payload, $properties);
+        foreach ($properties as $name => $definition) {
+            if (!array_key_exists($name, $values)) continue;
+            // An object documented only with an example has no child contract.
+            // Normalizing it as an empty schema would erase the real input.
+            if (($definition['type'] ?? '') === 'object' && !isset($definition['properties'])) continue;
+            $values[$name] = MarketGenerationSchema::normalize([$name => $definition], [$name => $values[$name]], '', false)[$name] ?? $values[$name];
+        }
+        $provider = (array)($request['provider_params'] ?? []);
+        $deferred = $deferMissingPrompt
+            && !array_key_exists('prompt', $request) && !array_key_exists('content', $request)
+            && !array_key_exists('prompt', $provider) && !array_key_exists('content', $provider) ? ['prompt', 'content'] : [];
+        // Routing/SKU fields belong to the transport envelope, not this schema.
+        MarketGenerationSchema::validate($schema, $values, '', '', $deferred);
+        return array_replace($payload, $values);
+    }
 }
