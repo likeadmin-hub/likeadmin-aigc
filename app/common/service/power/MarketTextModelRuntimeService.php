@@ -351,7 +351,7 @@ class MarketTextModelRuntimeService
                 $result = $e->partialResult;
                 if(!$openTextCall&&MarketTextFailurePolicy::preGenerationRejection($result)){
                     MarketTextUsageReview::resolveNativeRejection($tenantId,$userId,(int)$context['consumption']['id'],$result,true);
-                    throw $e;
+                    throw new MarketTextModelProviderException('所选模型暂不可用，本次未生成且不收费，请切换模型',false);
                 }
                 if($executionPolicy!==null){try{$executionPolicy->recordReceipt($context['consumption']->toArray(),$context['appTask']->toArray(),$result,false);}catch(\Throwable $ignored){}}
                 if ($homeAgent) {
