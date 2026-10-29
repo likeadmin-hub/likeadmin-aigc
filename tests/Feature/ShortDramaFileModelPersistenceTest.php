@@ -57,4 +57,13 @@ final class ShortDramaFileModelPersistenceTest extends TestCase
         catch(\RuntimeException $e){self::assertSame(422,$e->getCode());}
         self::assertStringStartsWith('validation:',Db::name('aigc_short_drama_planning_unit')->where('task_id',$task['task_id'])->value('error'));
     }
+    public function testDisplayedBillingIncludesEverySettledRepairAttempt():void
+    {
+        $task=$this->task('running');$owner=['tenant_id'=>2000000719,'user_id'=>7];
+        foreach([1,2]as$n){$key=bin2hex(random_bytes(12));$id=Db::name('ai_app_task')->insertGetId($owner+['task_no'=>$key,'idempotency_key'=>$key,
+            'app_code'=>'aigc_short_drama','business_table'=>'aigc_short_drama_script_task','business_id'=>$task['id']]);
+            Db::name('ai_consumption_log')->insert($owner+['consume_no'=>$key,'app_task_id'=>$id,'billing_status'=>'settled','actual_user_price'=>$n,'actual_tenant_cost'=>$n]);}
+        self::assertSame(['user_charge_points'=>3.0,'tenant_cost_points'=>3.0,'billing_status'=>'settled'],Parser::billing(2000000719,7,(int)$task['id']));
+        self::assertSame(0.0,Parser::billing(2000000720,7,(int)$task['id'])['user_charge_points']);
+    }
 }

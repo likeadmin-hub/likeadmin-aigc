@@ -9073,11 +9073,12 @@ class AigcShortDramaService
             $request['workflow_variant'] = ShortDramaStoryWorkflow::VARIANT;
             $plan = ShortDramaImportedScript::storyDraft($plan);
             $cost = ['tenant_cost_points' => (float)$consumption['actual_tenant_cost'], 'user_charge_points' => (float)$consumption['actual_user_price'], 'billing_status' => (string)$consumption['billing_status'], 'provider_request_id' => (string)$consumption['upstream_request_id']];
+            if (ShortDramaFileModelParser::applies($request)) $cost=array_replace($cost,ShortDramaFileModelParser::billing($tenantId,$userId,(int)$task['id']));
             $task->save([
                 'status' => self::STATUS_SUCCESS, 'progress' => 100, 'current_step' => '剧本解析完成',
                 'request_json' => self::jsonEncode($request), 'pricing_snapshot' => is_array($consumption['price_snapshot']) ? self::jsonEncode($consumption['price_snapshot']) : (string)$consumption['price_snapshot'],
-                'result_json' => self::jsonEncode($plan), 'error' => '', 'billing_status' => (string)$consumption['billing_status'],
-                'tenant_cost_points' => (float)$consumption['actual_tenant_cost'], 'user_charge_points' => (float)$consumption['actual_user_price'],
+                'result_json' => self::jsonEncode($plan), 'error' => '', 'billing_status' => (string)$cost['billing_status'],
+                'tenant_cost_points' => (float)$cost['tenant_cost_points'], 'user_charge_points' => (float)$cost['user_charge_points'],
                 'provider' => 'power_market', 'provider_task_id' => (string)$consumption['upstream_task_id'],
                 'provider_request_id' => (string)$consumption['upstream_request_id'], 'finished_at' => $now, 'update_time' => $now,
             ]);

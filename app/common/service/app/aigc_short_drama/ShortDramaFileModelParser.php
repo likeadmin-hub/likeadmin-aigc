@@ -24,6 +24,19 @@ final class ShortDramaFileModelParser
                 ->whereIn('status',['pending','queued','running'])->update(['app_task_id'=>(int)$data['app_task_id'],'consumption_id'=>(int)$data['consumption_id'],'status'=>'running','update_time'=>time()]);
         });
     }
+
+    /** Every paid validation/repair attempt belongs in the displayed task total. */
+    public static function billing(int $tenant,int $user,int $taskId):array
+    {
+        $ids=\think\facade\Db::name('ai_app_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_short_drama',
+            'business_table'=>'aigc_short_drama_script_task','business_id'=>$taskId])->column('id');
+        $rows=$ids?\think\facade\Db::name('ai_consumption_log')->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereIn('app_task_id',$ids)
+            ->field('billing_status,actual_user_price,actual_tenant_cost')->select()->toArray():[];
+        $states=array_column($rows,'billing_status');$status=in_array('settlement_failed',$states,true)?'settlement_failed'
+            :(array_diff($states,['settled','deducted','refunded'])?'pending_usage':'settled');
+        return ['user_charge_points'=>round(array_sum(array_column($rows,'actual_user_price')),6),
+            'tenant_cost_points'=>round(array_sum(array_column($rows,'actual_tenant_cost')),6),'billing_status'=>$status];
+    }
     public static function request(array $task,array $request):array
     {
         $f=$request['_file_parse_model'];$lines=ShortDramaSourceAlignment::lines($f['text']);$numbered='';

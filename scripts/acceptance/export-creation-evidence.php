@@ -25,7 +25,7 @@ try{
     if($drama)$appIds=array_merge($appIds,AiAppTask::where($owner)->where('business_table','aigc_short_drama_canvas_agent_run')->whereIn('business_id',$drama)->column('id'));
     $appIds=array_values(array_unique(array_filter($appIds)));
     $receiptIds=array_column($media,'consumption_id');
-    foreach($units as$unit){$receipt=$decode($unit['result_json']);$receiptIds[]=(int)($receipt['result']['consumption_id']??0);}
+    foreach($units as$unit){$receipt=$decode($unit['result_json']);$receipt=$receipt['result']??$receipt;$receiptIds[]=(int)($receipt['consumption_id']??0);}
     $receiptIds=array_values(array_unique(array_filter($receiptIds)));
     $consumptionIds=$appIds?AiConsumptionLog::where($owner)->whereIn('app_task_id',$appIds)->column('id'):[];
     $consumptionIds=array_values(array_unique(array_merge($consumptionIds,$receiptIds)));
@@ -41,7 +41,7 @@ try{
         $script['output']=['title'=>$result['title']??'','scenes'=>count($result['scene_screenplays']??[]),'shots'=>count($shotIds),'unique_shots'=>count(array_unique($shotIds)),'subjects'=>count($result['subjects']??[]),'locations'=>count($result['locations']??[]),'screenplay_chars'=>mb_strlen(json_encode($result['scene_screenplays']??[],JSON_UNESCAPED_UNICODE)),
             'shot_seconds'=>array_sum(array_map(static fn($shot)=>(float)($shot['recommended_duration_seconds']??0),$result['storyboard']??[])),'duration_stats'=>$result['duration_stats']??[],'fixed_phrase_present'=>str_contains(json_encode($result,JSON_UNESCAPED_UNICODE),'球旧了，朋友不能丢')];
         unset($script['request_json'],$script['result_json']);}unset($script);
-    foreach($units as&$unit){$r=$decode($unit['result_json']);$unit['receipt']=['consumption_id'=>$r['result']['consumption_id']??0,'model_code'=>$r['result']['model_code']??'','provider_request_id'=>$r['result']['provider_request_id']??'','billing'=>$r['result']['billing']??[]];unset($unit['result_json']);}unset($unit);
+    foreach($units as&$unit){$r=$decode($unit['result_json']);$r=$r['result']??$r;$unit['receipt']=['consumption_id'=>$r['consumption_id']??0,'model_code'=>$r['model_code']??'','provider_request_id'=>$r['provider_request_id']??'','billing'=>$r['billing']??[]];unset($unit['result_json']);}unset($unit);
     $priceFields=array_flip(['sku_id','sku_key','usage_unit','usage_unit_size','upstream_price','platform_price','tenant_price','model_code','product_id','quantity']);
     foreach($consumptions as&$c){$snapshot=$c['price_snapshot'];$safe=array_intersect_key($snapshot,$priceFields);foreach(['input','output']as$key)if(isset($snapshot[$key]))$safe[$key]=array_intersect_key($snapshot[$key],$priceFields);$c['price_snapshot']=$safe;
         $c['diagnostics']=$diagnostics[$c['id']]??[];$matches=static function(array $logs)use($c,$decode):array{return array_values(array_filter($logs,static function($log)use($c,$decode){$extra=$decode($log['extra']);return (int)($extra['consumption_id']??0)===(int)$c['id']||$log['source_sn']===$c['consume_no']||str_starts_with($log['source_sn'],$c['consume_no'].'-');}));};
