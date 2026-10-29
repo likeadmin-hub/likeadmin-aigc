@@ -87,9 +87,9 @@ final class MarketGenerationMeter
         return $contract;
     }
 
-    public static function context(array $contract, array $native, ?callable $measure = null): array
+    public static function context(array $contract, array $native, ?callable $measure = null, ?callable $visualProbe = null): array
     {
-        $media=MarketGenerationMediaInputs::extract($native);$images=$media['image'];$video=$media['video'];
+        $media=MarketGenerationMedia::inputs($native,$visualProbe);$images=$media['image'];$video=$media['video'];
         // Count submitted slots, including repeated URLs; canonical native input has no UI aliases.
         $context = ['reference_images'=>count($images), 'reference_video_seconds'=>0];
         if (in_array($contract['basis'], ['output_plus_video','output_plus_max_video'], true) && $video !== []) {

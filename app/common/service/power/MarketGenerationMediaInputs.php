@@ -24,4 +24,19 @@ final class MarketGenerationMediaInputs
         };
         $walk($native);return $result;
     }
+    /** Ambiguous visual slots are measured from bytes, never from a URL suffix or browser type. */
+    public static function visualUrls(array $native): array
+    {
+        $urls=[];
+        $walk=static function(array $value)use(&$walk,&$urls):void{
+            foreach($value as$key=>$child){
+                if(in_array($key,['prompt','text','negative_prompt','description','callback_url','webhook','name'],true))continue;
+                if($key==='element_input_urls'){
+                    foreach((array)$child as$url)if(is_string($url)&&$url!=='')$urls[]=$url;
+                }elseif(is_array($child))$walk($child);
+            }
+        };
+        $walk($native);return $urls;
+    }
+
 }

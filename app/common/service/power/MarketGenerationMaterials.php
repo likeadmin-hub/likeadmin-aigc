@@ -215,6 +215,7 @@ final class MarketGenerationMaterials
         $video=false;
         foreach (['reference_video_urls','video_urls','video_url','video_list','first_clip_url'] as $key) if (!empty($values[$key])) $video=true;
         foreach ((array)($values['elements'] ?? []) as $subject) if (!empty($subject['video_url'])) $video=true;
+        if(MarketGenerationMediaInputs::visualUrls($values)!==[]&&MarketGenerationMedia::inputs($values)['video']!==[])$video=true;
         return ['_billing_video_input'=>$video,'_billing_image_input'=>!empty($values['image_url'])];
     }
 
@@ -227,6 +228,14 @@ final class MarketGenerationMaterials
         if (($overrides['supports_first_last_frame'] ?? null)===false && $mode['method']==='start_end') throw new InvalidArgumentException('当前模型已停用首尾帧方式');
         $counts=['image'=>0,'video'=>0,'audio'=>0];
         foreach ($mode['fields'] as $field) if (isset($counts[$field['kind'] ?? ''])) $counts[$field['kind']]+=MarketGenerationMaterialPath::count($payload,$field);
+        // Count encoded groups for local overrides, including requests using native parameters alone.
+        if($overrides!==[])foreach($mode['fields']as$field){
+            if(!in_array($field['kind']??'',['subject','character','mixed'],true))continue;
+            foreach(MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[]))as$value){
+                $media=MarketGenerationMedia::inputs([$field['field']=>$value]);
+                foreach(array_keys($counts)as$kind)$counts[$kind]+=count($media[$kind]);
+            }
+        }
         if (($overrides['supports_reference_images'] ?? null)===false && $counts['image']>0) throw new InvalidArgumentException('当前模型已停用图片参考');
         foreach (['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'] as $kind=>$key) if (array_key_exists($key,$overrides) && $counts[$kind]>(int)$overrides[$key]) throw new InvalidArgumentException('素材数量超过当前模型上限');
         foreach ($mode['fields'] as $field) {
@@ -251,8 +260,37 @@ final class MarketGenerationMaterials
         foreach($groups as$path=>$count)if($count!==MarketGenerationMaterialPath::count($payload,['field'=>$path]))throw new InvalidArgumentException('当前生成方式包含未声明的素材分类');
         foreach (self::assets($request) as $asset) {
             $strictRoles=MarketGenerationReviewedContract::selected($metadata)!==null;
-            if (!array_filter($mode['fields'], static fn($field) => self::matching([$asset], $field, $mode['method'],$strictRoles) !== [])) throw new InvalidArgumentException('当前生成方式不支持已添加的素材角色');
+            if (!array_filter($mode['fields'], static fn($field) => self::matching([$asset], $field, $mode['method'],$strictRoles) !== [] || self::structuredAssetMatches($metadata,$mode,$field,$asset,$payload))) throw new InvalidArgumentException('当前生成方式不支持已添加的素材角色');
         }
+    }
+
+    /** Explicit grouping must bind the uploaded URL to a declared media slot in the actual native body. */
+    private static function structuredAssetMatches(array $metadata,array $mode,array $field,array $asset,array $payload): bool
+    {
+        if(($asset['field']??'')!==$field['field'] || !in_array($field['kind']??'',['subject','character','mixed'],true))return false;
+        $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
+        if($schema===[])$schema=MarketGenerationSchema::array($metadata['params_schema']??[]);
+        $definitions=MarketGenerationMaterialPath::definitions($schema,$field['field'],(array)($field['item_match']??[]));
+        $values=MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[]));
+        foreach($definitions as$definition)foreach($values as$value)if(self::structuredUrlMatches($definition,$value,$asset))return true;
+        return false;
+    }
+
+    private static function structuredUrlMatches(array $schema,$value,array $asset,string $kind=''): bool
+    {
+        if(($schema['type']??'')==='array'&&is_array($value)){
+            foreach($value as$child)if(self::structuredUrlMatches((array)($schema['items']??[]),$child,$asset,$kind))return true;
+        }elseif(($schema['type']??'')==='object'&&is_array($value)){
+            foreach((array)($schema['properties']??[])as$key=>$child){
+                if(!array_key_exists($key,$value))continue;
+                $next=$key==='element_input_urls'?'visual':(preg_match('/video|clip/i',$key)?'video':(preg_match('/audio|voice/i',$key)?'audio':(preg_match('/image|frame/i',$key)?'image':$kind)));
+                if(self::structuredUrlMatches((array)$child,$value[$key],$asset,$next))return true;
+            }
+        }elseif(($schema['type']??'')==='string'&&$kind!==''&&is_string($value)
+            &&(($schema['format']??'')==='uri'||isset($schema['pattern']))){
+            return $value===($asset['url']??$asset['uri']??'')&&($kind===($asset['type']??'image')||($kind==='visual'&&in_array($asset['type']??'image',['image','video'],true)));
+        }
+        return false;
     }
 
     private static function assertSingleMaterialSource(array $metadata,array $request): void
