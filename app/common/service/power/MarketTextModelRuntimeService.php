@@ -283,7 +283,7 @@ class MarketTextModelRuntimeService
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
                     }
-                    if ($resultValidator!==null) $resultValidator($result);
+                    if ($resultValidator!==null) self::validateStructuredResult($context,$result,$resultValidator);
                     break;
                 } catch (\Throwable $initialError) {
                     if ($initialError instanceof TextSettlementPending) throw $initialError;
@@ -771,6 +771,26 @@ class MarketTextModelRuntimeService
     }
 
     /** Preserve trusted usage and the submit-time price snapshot for an explicit audit decision. */
+    /** A completed paid reply failing local structure is not a provider rejection. */
+    private static function validateStructuredResult(array $context,array $result,callable $validator):void
+    {
+        try{$validator($result);}
+        catch(\Throwable $error){
+            if(!in_array($error->getMessage(),['INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE','INVALID_AGENT_ACTION','UNSUPPORTED_MODEL_RESPONSE'],true)
+                || in_array($result['finish_reason']??'',['content_filter','refusal','safety'],true))throw $error;
+            $usage=self::normalizeUsage((array)($result['usage']??[]));
+            try{
+                self::deferSettlement($context,$result,$usage,$error);
+                $c=$context['consumption'];
+                AiConsumptionEvent::create(['consumption_id'=>(int)$c['id'],'event_type'=>'validation_receipt','event_status'=>'pending','attempt_no'=>1,
+                    'payload_summary'=>['reason'=>'structured_response_invalid','output_length'=>mb_strlen((string)($result['content']??''))],
+                    'payload_ciphertext'=>\app\common\service\open_platform\OpenVault::seal(json_encode(['consumption_id'=>(int)$c['id'],'tenant_id'=>(int)$c['tenant_id'],'user_id'=>(int)$c['user_id'],'result'=>$result],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)),
+                    'http_status'=>0,'elapsed_ms'=>0,'create_time'=>time()]);
+            }catch(\Throwable $persistError){Log::error('Structured text receipt review persistence failed: '.get_class($persistError));}
+            throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$error,'模型结构化回复已保留，费用待核对；未执行本轮操作');
+        }
+    }
+
     private static function deferSettlement(array $context,array $result,array $usage,\Throwable $error,bool $incomplete=false): void
     {
         Db::transaction(function()use($context,$result,$usage,$error,$incomplete){
