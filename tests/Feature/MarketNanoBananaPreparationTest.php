@@ -28,7 +28,7 @@ class MarketNanoBananaPreparationTest extends TestCase
 
     private function request(): array
     {
-        return ['prompt'=>'Offline fixture','ratio'=>'1:1','quality'=>'1k','quantity'=>2,
+        return ['channel'=>'fixture','prompt'=>'Offline fixture','ratio'=>'1:1','quality'=>'1k','quantity'=>2,
             'reference_images'=>['https://fixtures.invalid/a.png','https://fixtures.invalid/b.png']];
     }
 

@@ -630,6 +630,7 @@ class MarketNanoBananaAppRuntimeService
             'tenant_price' => (float)($market['tenant_price'] ?? 0),
             'model' => (string)($locked['model'] ?? $selectedModel),
             'reference_limit' => max(0, (int)(self::capabilities($product)['max_reference_images'] ?? 0)),
+            'ratio_options' => self::ratioOptions($product, $selectedModel),
         ];
     }
 
@@ -678,10 +679,12 @@ class MarketNanoBananaAppRuntimeService
     private static function snapshot(array $market): array
     {
         $product = $market['product']; $sku = $market['sku'];
+        $metadata = self::metadata($product);
+        $properties = MarketGenerationSchema::properties(self::arrayValue($metadata['params_schema'] ?? []));
         $snapshot = ['product_id'=>(int)$product['id'], 'sku_id'=>(int)$sku['id'], 'sku_key'=>(string)$sku['sku_key'],
             'resource_type'=>'app_api', 'app_code'=>(string)$product['upstream_app_code'], 'api_code'=>(string)$product['upstream_api_code'],
             'model_code'=>(string)$market['model'], 'locked_params'=>self::arrayValue($sku['locked_params'] ?? []),
-            'market_metadata'=>self::metadata($product), 'ratio_options'=>self::ratioOptions($product, (string)$market['model']),
+            'market_metadata'=>$metadata, 'ratio_options'=>$market['ratio_options'] ?? MarketGenerationSchema::choices($properties['aspect_ratio'] ?? $properties['ratio'] ?? []),
             'usage_unit'=>(string)$sku['usage_unit'], 'usage_unit_size'=>MarketUsageSettlementService::unitSize($sku),
             'upstream_price'=>(float)$sku['upstream_price'], 'platform_price'=>(float)$sku['sale_points'],
             'tenant_price'=>(float)$market['tenant_price'], 'market_tenant_price'=>(float)($market['market_tenant_price'] ?? $market['tenant_price']),
