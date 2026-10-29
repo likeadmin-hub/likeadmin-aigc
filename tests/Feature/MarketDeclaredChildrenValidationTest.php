@@ -55,4 +55,13 @@ class MarketDeclaredChildrenValidationTest extends TestCase
         Images::prepareRequest($snapshot,['prompt'=>'fixture','reference_images'=>['https://fixtures.invalid/a.png'],
             'provider_params'=>['parameters'=>['prompt_extend_mode'=>'agent']]]);
     }
+    public function testPublishedHappyHorseMediaDeclarationValidatesEachUrlWithoutDroppingTheObject(): void
+    {
+        $e=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/market-application-children-review-20261029.json'),true)['entries'][0];
+        self::assertSame('happy_horse',$e['app_code']);self::assertSame('submit',$e['api_code']);
+        $s=['market_metadata'=>['params_schema'=>[$e['field']=>$e['declaration']]]];
+        $good=['media'=>[['type'=>'video','url'=>'https://fixtures.invalid/a.mp4']]];
+        self::assertSame($good,Request::normalizeLegacyPayload($s,$good,[]));
+        $this->expectException(\InvalidArgumentException::class);Request::normalizeLegacyPayload($s,['media'=>[['type'=>'video','url'=>['wrong shape']]]],[]);
+    }
 }

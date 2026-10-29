@@ -1,0 +1,41 @@
+{
+    "observed_at": "2026-10-29T22:54:50+08:00",
+    "scope": "Published application array declarations only; no price, key, user material or activation",
+    "entries": [
+        {
+            "app_code": "happy_horse",
+            "api_code": "submit",
+            "field": "media",
+            "declaration": {
+                "type": "array",
+                "example": [
+                    {
+                        "url": "https://example.com/input.mp4",
+                        "type": "video"
+                    },
+                    {
+                        "url": "https://example.com/ref1.jpg",
+                        "type": "image"
+                    }
+                ],
+                "children": {
+                    "url": {
+                        "type": "string",
+                        "required": true,
+                        "description": "Material URL, must be publicly accessible"
+                    },
+                    "type": {
+                        "type": "string",
+                        "options": "image / video",
+                        "required": false,
+                        "description": "Material type; can be omitted for auto-detection"
+                    }
+                },
+                "required": false,
+                "description": "Unified reference material array. Not passed for text-to-video; pass 1 image for single-image first frame; pass 1-9 images for multi-reference (recommended at least 2); pass 1 video for video editing, optionally with 0-5 images"
+            },
+            "doc_slug": "happy-horse-submit-a34",
+            "doc_content_sha256": "c18bdf9f5402cc77884182a895dee2775658a139a4fd1c50994f0cad319badb8"
+        }
+    ]
+}
