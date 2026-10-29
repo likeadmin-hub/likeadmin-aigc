@@ -157,6 +157,8 @@ final class MarketGenerationCompatibilityAudit
     public static function probe(array $case, callable $prepare, array $locked = []): array
     {
         $result = ['case'=>$case['case'], 'scope'=>'one synthetic input; no quote, settlement or upstream validation'];
+        $result['material_mode']=(string)($case['request']['material_mode']??'');
+        $result['generation_method']=(string)($case['request']['generation_method']??'');
         if (isset($case['expected'])) $result += ['mode_case'=>$case['mode_case'], 'expected_without_sku'=>$case['expected'], 'fixture_scope'=>$case['fixture_scope']];
         if ($case['skip']) return $result + ['status'=>'needs_structured_fixture'];
         try {
