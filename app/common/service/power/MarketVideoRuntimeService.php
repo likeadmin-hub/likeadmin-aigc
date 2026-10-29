@@ -977,12 +977,15 @@ class MarketVideoRuntimeService
         $request = self::requestWithReferenceAliases($request);
         $meter = $snapshot['billing_meter'] ?? null;
         if (MarketGenerationAdapterRegistry::resourceType($snapshot) === PowerMarketService::TYPE_MODEL) {
-            return PreparedMarketGeneration::model(self::modelPayload($snapshot, $request, $idempotency), $meter, $request);
+            $prepared = PreparedMarketGeneration::model(self::modelPayload($snapshot, $request, $idempotency), $meter, $request);
+        } else {
+            // Validate registration before allowing a legacy default adapter to
+            // interpret an unknown app as a Wan request.
+            MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
+            $prepared = PreparedMarketGeneration::application(self::appPayload($snapshot, $request, $idempotency), $meter, $request);
         }
-        // Validate registration before allowing a legacy default adapter to
-        // interpret an unknown app as a Wan request.
-        MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
-        return PreparedMarketGeneration::application(self::appPayload($snapshot, $request, $idempotency), $meter, $request);
+        MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput);
+        return $prepared;
     }
 
     private static function prepareMarketRequest(array &$market, array $request): PreparedMarketGeneration
