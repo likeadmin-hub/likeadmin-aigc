@@ -10,6 +10,8 @@
 
 ```sh
 php tools/audit-tool-market-compatibility.php --tenant-id=1 > /tmp/market-compatibility.json
+# 可选：只构造合成请求，逐个可见 SKU 检查一个代表性模式输入。
+php tools/audit-tool-market-compatibility.php --tenant-id=1 --probe-requests > /tmp/market-request-probes.json
 ```
 
 脚本读取该租户当前可售图片、视频目录和本地合同，不请求上游、不提交任务、不扣积分。输出每个模型的入口可见性、参数字段、素材模式及各字段的类型/角色/数量、比例/时长/分辨率选项和 SKU ID。目录可能随租户上架配置变化；SKU 的锁定参数可能进一步收紧这些选项。应用 API 不使用模型原生合同指纹检查，标为 `unverified_app_adapter`。
@@ -17,6 +19,13 @@ php tools/audit-tool-market-compatibility.php --tenant-id=1 > /tmp/market-compat
 `native_contract` 为 `matched` 表示本地同步的参数和素材声明与本地原生合同指纹一致；`missing_local_contract`、`missing_model_code`、`changed_or_invalid` 和 `unknown` 需要人工复核。它们均不代表在线上游一定失败，亦不触发禁用。合同文件不可读时为 `unknown`。画布入口目录自身会捕获读取异常，因此 `not_listed_or_unknown` 也可能表示目录读取异常。`scenario_compatibility` 始终为 `unverified`：指纹匹配不等于每种业务场景或 SKU 已验证。
 
 该工具仅输出字段名称、声明及目录选项，不输出请求提示词、素材地址、账号密钥或价格。它使用运行服务的内部元数据解析方法，以保持与模型实际处理方式一致；内部方法变化时需要同步维护此工具。
+
+第三阶段增加以下只读输出，目录读取置于只读数据库事务中，结束时回滚：
+
+- `scenario_matrix` 按文生图、参考图、文生视频、首帧、首尾帧、参考素材和编辑场景列出声明。`declared_support` 的 `true` / `false` / `null` 分别表示存在对应模式声明、存在明确否定、缺少依据；SKU 和真实生成状态始终独立保留待核验。运行目录默认的 false 或缺少模式不能自动当成上游否定。
+- `declaration_review` 对保存的 2026-10-18 样本比较完整参数声明（忽略示例），可发现字段名相同而嵌套类型、必填、条件、枚举或边界变化；另外列出只有类型或示例、缺少完整子结构的对象/数组。样本相同仍不证明当前上游合同完整或未变更。
+- `sku_matrix` 列出锁定/可选参数名称和计价识别结果，不输出值或价格。`recognized` 只表示本地识别公式；实际场景计价仍待核验。按像素与未迁移的应用结构化计价会明确标记阻塞。
+- `--probe-requests` 对每个可见 SKU 的每个声明模式（无声明时使用有限的旧场景）准备一个合成输入，使用 `.invalid` 素材地址，仅调用无副作用的请求准备方法，不报价、不探测素材、不上传或提交任务。`constructed` 仅表示该输入通过本地构造且提示词与素材地址未丢失；不证明所有角色、边界、参数组合、报价或上游支持。`rejected` 保留错误类而不输出异常原文；`material_not_forwarded` / `prompt_not_forwarded` 提醒检查静默丢失；主体等复杂结构标为 `needs_structured_fixture`。拒绝可能来自代表性输入不适用，须复核，不能据此自动下架。
 
 ## 各入口检查范围
 
