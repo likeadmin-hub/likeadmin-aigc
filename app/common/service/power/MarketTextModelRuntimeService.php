@@ -1731,8 +1731,26 @@ class MarketTextModelRuntimeService
             $existing = is_array($current[$index] ?? null) ? $current[$index] : [];
             $existingFunction = is_array($existing['function'] ?? null) ? $existing['function'] : [];
             $function = is_array($call['function'] ?? null) ? $call['function'] : [];
-            if (isset($function['arguments'])) {
-                $existingFunction['arguments'] = (string)($existingFunction['arguments'] ?? '') . (string)$function['arguments'];
+            $incomingId = $call['id'] ?? '';
+            if (!is_string($incomingId)) throw new \RuntimeException('模型工具调用标识格式错误', 422);
+            $existingId = (string)($existing['id'] ?? '');
+            if ($incomingId !== '' && $existingId !== '' && $incomingId !== $existingId) {
+                throw new \RuntimeException('模型工具调用标识发生冲突', 422);
+            }
+            // Compatible gateways may repeat an empty id on every argument delta.
+            // It is not a new identity and must never erase the first received id.
+            if ($incomingId === '' && $existingId !== '') unset($call['id']);
+            if (array_key_exists('arguments', $function)) {
+                $arguments = $function['arguments'];
+                $previous = (string)($existingFunction['arguments'] ?? '');
+                if (is_array($arguments) || $arguments instanceof \stdClass) {
+                    if (is_array($arguments) && $arguments !== [] && array_is_list($arguments)) throw new \RuntimeException('模型工具参数必须为对象', 422);
+                    $complete = json_encode($arguments === [] ? new \stdClass() : $arguments, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    if ($previous !== '' && !str_starts_with($complete, $previous)) throw new \RuntimeException('模型工具参数发生冲突', 422);
+                    $existingFunction['arguments'] = $complete;
+                } elseif (is_string($arguments)) {
+                    $existingFunction['arguments'] = $previous . $arguments;
+                } elseif ($arguments !== null) throw new \RuntimeException('模型工具参数格式错误', 422);
             }
             foreach (['name'] as $key) {
                 if (!empty($function[$key])) {
