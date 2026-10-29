@@ -56,6 +56,24 @@ final class MarketTextUsageReviewTest extends TestCase
     }
     public static function invalidProofs():array{return [['content'],['charged'],['refund'],['owner'],['localcharge']];}
 
+    public function testDefinitiveNativeBalanceRejectionClosesOnceAndNeverInventsUsage():void
+    {
+        if(getenv('AGENT_MODEL_DB_TESTS')!=='local-existing')self::markTestSkipped('Local rollback only');
+        (new \think\App())->initialize();Db::startTrans();try{
+            [$c]=$this->closureFixture();$c->save(['response_summary'=>['output_length'=>0]]);
+            $result=['content'=>'','usage'=>[],'provider_request_id'=>'chatcmpl-fixture',
+                'protocol_evidence'=>['branch'=>'native_responses','terminal_seen'=>true,'terminal_status'=>'failed','output_present'=>false,'legacy_output_event_count'=>0],
+                'protocol_diagnostic'=>['last_event'=>'response.failed','provider_code'=>'INSUFFICIENT_BALANCE','response_status'=>'failed','output_present'=>false,
+                    'output_items'=>0,'visible_chars'=>0,'reasoning_chars'=>0,'delta_count'=>0,'reasoning_delta_count'=>0,'function_delta_count'=>0]];
+            MarketTextUsageReview::resolveNativeRejection(1999999759,7,(int)$c['id'],$result);
+            self::assertSame('settlement_failed',AiConsumptionLog::find($c['id'])['billing_status']);
+            MarketTextUsageReview::resolveNativeRejection(1999999759,7,(int)$c['id'],$result,true);
+            self::assertTrue(MarketTextUsageReview::resolveNativeRejection(1999999759,7,(int)$c['id'],$result,true)['already_closed']);
+            self::assertSame('refunded',AiConsumptionLog::find($c['id'])['billing_status']);self::assertSame(['provider_reported'=>false],AiConsumptionLog::find($c['id'])['usage_snapshot']);
+            self::assertSame(1,(int)Db::name('ai_consumption_event')->where(['consumption_id'=>$c['id'],'event_type'=>'usage_resolved'])->count());
+        }finally{Db::rollback();}
+    }
+
     public function testMissingUsageReviewPreservesDeliveredOutputAndNeverInventsACharge():void
     {
         if(getenv('AGENT_MODEL_DB_TESTS')!=='local-existing')self::markTestSkipped('Local rollback only');

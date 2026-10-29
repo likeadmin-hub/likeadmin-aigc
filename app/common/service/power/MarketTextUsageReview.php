@@ -7,6 +7,37 @@ use think\facade\Db;
 /** Operator reconciliation marker. No estimated usage, balance write or paid replay. */
 final class MarketTextUsageReview
 {
+    /** Shared by live runtime and operator repair of already recorded native rejection receipts. */
+    public static function resolveNativeRejection(int $tenant,int $user,int $id,array $result,bool $apply=false):array
+    {
+        if(!MarketTextFailurePolicy::preGenerationRejection($result))throw new \RuntimeException('不是可确认的生成前拒绝回执');
+        return Db::transaction(static function()use($tenant,$user,$id,$result,$apply):array{
+            $c=AiConsumptionLog::where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user])->lock($apply)->find();
+            if(!$c)throw new \RuntimeException('消费归属不一致');
+            $request=(string)$result['provider_request_id'];
+            if($c['upstream_request_id']!==''&&$c['upstream_request_id']!==$request)throw new \RuntimeException('拒绝回执请求标识不一致');
+            foreach(['actual_user_price','actual_tenant_cost','reserved_user_price','reserved_tenant_cost']as$key)
+                if(abs((float)$c[$key])>0.000001)throw new \RuntimeException('非零金额不能使用生成前拒绝关闭');
+            $summary=(array)$c['response_summary'];if(($summary['output_length']??0)>0)throw new \RuntimeException('该消费已经有正文输出');
+            $identity=['request_id'=>$request,'proof_sha256'=>self::hash($result),'disposition'=>'refunded','reason'=>'confirmed_pre_generation_rejection'];
+            if($c['billing_status']==='refunded'){
+                if(($summary['usage_resolution']['proof_sha256']??'')!==$identity['proof_sha256'])throw new \RuntimeException('已关闭记录的凭据不一致');
+                return $identity+['applied'=>false,'already_closed'=>true];
+            }
+            if(!in_array($c['billing_status'],['pending_usage','reserved','settlement_failed'],true))throw new \RuntimeException('该记录不能按拒绝回执关闭');
+            if(!$apply)return $identity+['applied'=>false];
+            $app=AiAppTask::where(['id'=>$c['app_task_id'],'tenant_id'=>$tenant,'user_id'=>$user])->lock(true)->find();
+            if(!$app)throw new \RuntimeException('应用任务归属不一致');
+            $summary['usage_resolution']=$identity;$now=time();
+            $c->save(['run_status'=>'failed','billing_status'=>'refunded','upstream_request_id'=>$request,'response_summary'=>$summary,
+                'error_code'=>'confirmed_provider_rejection','error_message'=>'模型渠道在生成前拒绝请求，本次不收费','finish_time'=>$c['finish_time']?:$now,'update_time'=>$now]);
+            $app->save(['status'=>'failed','progress'=>100,'finish_time'=>$app['finish_time']?:$now,'update_time'=>$now]);
+            AiConsumptionEvent::create(['consumption_id'=>$id,'event_type'=>'usage_resolved','event_status'=>'closed','attempt_no'=>1,'payload_summary'=>$identity,
+                'payload_ciphertext'=>OpenVault::seal(json_encode($result,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)),'http_status'=>0,'elapsed_ms'=>0,'create_time'=>$now]);
+            return $identity+['applied'=>true];
+        });
+    }
+
     /** Trusted operator entry only. No HTTP endpoint, provider call or balance mutation. */
     public static function resolveFailedPlanning(int $tenant,int $user,int $id,int $unitId,array $proof,bool $apply=false):array
     {
