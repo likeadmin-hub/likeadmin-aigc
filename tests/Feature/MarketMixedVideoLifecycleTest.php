@@ -47,6 +47,10 @@ class MarketMixedVideoLifecycleTest extends TestCase
             }
             $request=MarketMixedMaterialSelectorsTest::request()+['resource_type'=>'model','model_id'=>'market_video_model:'.$product['id'],
                 'market_sku_id'=>$skus[0]['id']];
+            if($scenario==='duplicate_slots'){
+                $request['reference_assets'][1]['reference_slot_id']='video:a';
+                $request['reference_assets'][]=array_replace($request['reference_assets'][1],['reference_slot_id'=>'video:b']);
+            }
             if($scenario==='smart'){$request['material_mode']='text';$request['reference_assets']=[];}
             $request['duration']=$scenario==='configurable'?3:-1;
             $normalized=Videos::normalizeDurationSelection(1,$request,(int)$request['duration']);
@@ -74,6 +78,12 @@ class MarketMixedVideoLifecycleTest extends TestCase
             $prepared=Videos::prepareRequest($snapshot,array_replace($request,['duration'=>$normalized['duration']]));
             self::assertSame($normalized['duration'],$prepared->nativeInput['parameters']['duration']);
             self::assertSame($prepared->meterContext,$snapshot['meter_context']);
+            if($scenario==='duplicate_slots'){
+                $inputs=\app\common\service\power\MarketGenerationMediaInputs::extract($prepared->nativeInput);
+                self::assertCount(2,$inputs['video']);
+                self::assertSame($inputs['video'][0],$inputs['video'][1]);
+                self::assertSame(['video:a','video:b'],array_values(array_filter(array_column($prepared->requestInput['reference_assets'],'reference_slot_id'))));
+            }
             if($scenario==='smart')self::assertTrue($snapshot['requires_actual_duration']);
             self::assertSame(round($before['user']-(float)$log['reserved_user_price'],2),$this->balances($user)['user']);
             Videos::fail((int)$log['id'],'Offline fixture');Videos::fail((int)$log['id'],'Duplicate failure');
@@ -85,7 +95,7 @@ class MarketMixedVideoLifecycleTest extends TestCase
         }
         self::assertSame(0,(int)Db::name('power_market_product')->where('product_code',$key)->count());
     }
-    public static function scenarios(): array{return [['configurable'],['smart'],['locked']];}
+    public static function scenarios(): array{return [['configurable'],['smart'],['locked'],['duplicate_slots']];}
     private function balances(int $user): array
     {
         return ['tenant'=>(float)Db::name('tenant')->where('id',1)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money')];
