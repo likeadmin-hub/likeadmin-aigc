@@ -28,7 +28,7 @@ final class TextModelExecutionPolicy
         foreach (['enable_thinking','thinking','reasoning','reasoning_effort','thinking_budget','budget_tokens','reasoning_budget'] as $key) unset($params[$key]);
         if ($protocol==='anthropic_messages') {
             $params['thinking']=['type'=>'disabled'];
-        } elseif ($protocol==='openai_responses' && (preg_match('/(?:^|\/)gpt-(?:5|6)(?:[.\-]|$)/',$code) || array_key_exists('reasoning',$declared))) {
+        } elseif ($protocol==='openai_responses' && (str_contains($code,'deepseek') || preg_match('/(?:^|\/)gpt-(?:5|6)(?:[.\-]|$)/',$code) || array_key_exists('reasoning',$declared))) {
             $params['reasoning']=['effort'=>'none'];
         } elseif (str_contains($code,'qwen')) {
             $params['enable_thinking']=false;

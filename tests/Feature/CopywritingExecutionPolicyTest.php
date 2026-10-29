@@ -22,7 +22,7 @@ final class CopywritingExecutionPolicyTest extends TestCase
     {
         $p=$this->wire('gpt-5.6-luna','openai_responses',['reasoning'=>['effort'=>'high','summary'=>'auto'],'enable_thinking'=>true]);
         self::assertSame(['effort'=>'none'],$p['reasoning']);self::assertArrayNotHasKey('thinking',$p);self::assertArrayNotHasKey('enable_thinking',$p);
-        $chat=$this->wire('gpt-5.6-terra','openai_chat',['reasoning_effort'=>'high','enable_thinking'=>true]);self::assertSame('none',$chat['reasoning_effort']);
+        $chat=$this->wire('gpt-5.6-terra','openai_chat',['reasoning_effort'=>'high','enable_thinking'=>true]);self::assertSame('none',$chat['reasoning_effort']);self::assertArrayNotHasKey('enable_thinking',$chat);
     }
     public function testDeepSeekAndClaudeDisableTypedThinkingWithoutBudgets(): void
     {
@@ -31,10 +31,17 @@ final class CopywritingExecutionPolicyTest extends TestCase
             self::assertSame(['type'=>'disabled'],$p['thinking']);
         }
     }
+    public function testDeepSeekResponsesPreservesTheExistingOptOut(): void
+    {
+        $p=$this->wire('deepseek-v4-pro','openai_responses',[]);
+        self::assertSame(['effort'=>'none'],$p['reasoning']);
+    }
     public function testAnOrdinaryNonReasoningModelDoesNotReceiveUnsupportedThinkingFields(): void
     {
-        $p=$this->wire('gpt-4o-mini','openai_chat',['temperature'=>0.7]);
+        foreach (['openai_chat','openai_responses'] as $protocol) {
+        $p=$this->wire('gpt-4o-mini',$protocol,['temperature'=>0.7]);
         foreach (['thinking','enable_thinking','reasoning','reasoning_effort'] as $key) self::assertArrayNotHasKey($key,$p);
         self::assertSame(0.7,$p['temperature']);
+        }
     }
 }
