@@ -20,6 +20,8 @@ final class MarketGenerationContractReview
             'saved_upstream_contract_fields'=>array_values(array_intersect($contractFields,array_keys($upstream))),
             'platform_schema_opaque_paths'=>$schema === [] ? null : self::incomplete($schema),
             'saved_schema_opaque_paths'=>self::incomplete((array)($metadata['params_schema'] ?? [])),
+            'platform_expanded_schema_opaque_paths'=>$schema===[] ? null : self::incomplete(MarketGenerationDeclarationSchema::expand($schema)),
+            'saved_expanded_schema_opaque_paths'=>self::incomplete(MarketGenerationDeclarationSchema::expand((array)($metadata['params_schema'] ?? []))),
             'platform_schema_matches_saved'=>$schema === [] ? null : MarketGenerationCompatibilityAudit::fingerprint($schema)
                 === MarketGenerationCompatibilityAudit::fingerprint((array)($metadata['params_schema'] ?? [])),
             'platform_material_mode_count'=>count((array)($material['modes'] ?? [])),
@@ -38,7 +40,7 @@ final class MarketGenerationContractReview
         return $result;
     }
 
-    public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = [], array $catalogueFlow = []): array
+    public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = [], array $catalogueFlow = [], array $structureReview = []): array
     {
         $rows = [];
         foreach ($observations['entries'] as $entry) {
@@ -59,6 +61,9 @@ final class MarketGenerationContractReview
                 && ($m['channel_code'] ?? '') === $entry['channel_code']));
             $catalogueBound=count($catalogue)===1 && ($catalogue[0]['platform_identity_verified'] ?? false)===true
                 && ($catalogue[0]['read_state'] ?? '')==='read';
+            $structures=array_values(array_filter((array)($structureReview['entries'] ?? []),static fn($m)=>
+                ($m['generation_type'] ?? '')===$entry['generation_type'] && ($m['model_code'] ?? '')===$entry['model_code']
+                && ($m['channel_code'] ?? '')===$entry['channel_code']));
             $rows[] = array_intersect_key($entry,array_flip(['generation_type','model_code','channel_code'])) + [
                 'protocol_family'=>MarketGenerationAdapterRegistry::modelProtocol($entry['generation_type'], ['model_code'=>$entry['model_code'],'market_metadata'=>$metadata]),
                 'evidence_status'=>$catalogueBound ? 'platform_catalogue_reviewed'
@@ -68,6 +73,9 @@ final class MarketGenerationContractReview
                 'parameter_fingerprint'=>MarketGenerationCompatibilityAudit::fingerprint($schema),
                 'recorded_observation_matches'=>MarketGenerationCompatibilityAudit::fingerprint($schema) === $entry['current_parameter_fingerprint'],
                 'opaque_fields'=>self::incomplete($schema),
+                'expanded_opaque_fields'=>self::incomplete(MarketGenerationDeclarationSchema::expand($schema)),
+                'partial_structure_review'=>count($structures)===1 ? $structures[0] : null,
+                'structure_review_observed_at'=>count($structures)===1 ? ($structureReview['observed_at'] ?? null) : null,
                 'published_guidance'=>$documents,
                 'guidance_observed_at'=>$documents === [] ? null : ($guidance['observed_at'] ?? null),
                 'platform_detail_observation'=>$platform[0] ?? null,

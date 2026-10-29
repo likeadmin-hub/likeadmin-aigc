@@ -44,6 +44,7 @@ final class MarketGenerationReviewedContract
         if (count($matches)!==1) { $metadata[self::PIN]=['error'=>'ambiguous_identity'];return $metadata; }
         $contract=$matches[0];
         if (($metadata['upstream_metadata']['model_code'] ?? '')!==($contract['public_model_code'] ?? null)
+            || (isset($metadata['upstream_metadata']['channel_code']) && $metadata['upstream_metadata']['channel_code']!==$contract['channel_code'])
             || !hash_equals((string)($contract['declaration_fingerprint'] ?? ''),self::declarationFingerprint($metadata))) {
             $metadata[self::PIN]=['error'=>'declaration_mismatch'];return $metadata;
         }
@@ -59,7 +60,8 @@ final class MarketGenerationReviewedContract
         if (!is_array($contract) || isset($contract['error'])) throw new InvalidArgumentException('当前模型的审核合同身份或声明已变化，请核对合同');
         self::assertRecord($contract);
         if (!hash_equals($contract['declaration_fingerprint'],self::declarationFingerprint($metadata))
-            || ($metadata['upstream_metadata']['model_code'] ?? '')!==$contract['public_model_code']) {
+            || ($metadata['upstream_metadata']['model_code'] ?? '')!==$contract['public_model_code']
+            || (isset($metadata['upstream_metadata']['channel_code']) && $metadata['upstream_metadata']['channel_code']!==$contract['channel_code'])) {
             throw new InvalidArgumentException('冻结请求的原始声明与审核合同不一致');
         }
         return $contract;
