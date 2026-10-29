@@ -279,6 +279,9 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         } while($result===null);
         self::assertSame(['s1_1','s1_2','s1_3'],array_column($result['payload']['storyboard'],'shot_id'));
         self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_missing_2','v3_timed_scene_1_1_missing_3'],$calls);
+        Unit::prepareExplicitRetry(self::TENANT,7,$this->task);
+        self::assertCount(0,Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->whereLike('unit_key','v3_policy2_timed_scene_1_1_retry_%')->select()->toArray());
+        self::assertSame($result['payload'],$run()['payload']);self::assertCount(4,$calls);
     }
 
     public function testLegacyRecoveryDoesNotChangePathWhenLaterPaidUnitExists(): void
@@ -297,5 +300,39 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         Unit::prepareExplicitRetry(self::TENANT,7,$this->task);
         self::assertCount(0,Db::name('aigc_short_drama_planning_unit')->where($scope)->whereLike('unit_key','checkpoint_legacy_recovery_%')->select()->toArray());
         self::assertCount(1,Db::name('aigc_short_drama_planning_unit')->where($scope)->whereLike('unit_key','v3_policy2_timed_scene_1_1_retry_1_%')->select()->toArray());
+    }
+
+    public function testSkeletonFieldRepairResumesWithoutRepeatingReceivedUnits(): void
+    {
+        $plan=ShortDramaSceneBatchTest::fixture([2]);$plan['scene_beats'][0]['goal']='';$plan['scene_beats'][0]['scene_name']='错误地点';
+        $request=ShortDramaSceneBatchTest::request([2]);$request['_input_contract_version']=23;
+        $text='{"user_prompt":"保留信件"}';$messages=['system_prompt'=>'保持剧情与对白','content'=>$text,'_stage_content'=>$text];$calls=[];
+        $provider=function($key,$input)use($plan,&$calls):array{
+            return Unit::call(self::TENANT,7,$this->task,'v3_policy2_'.substr($key,3),$input,static function()use($key,$input,$plan,&$calls){
+                $calls[]=$key;
+                if(str_ends_with($key,'skeleton_fields_v1'))$payload=['patches'=>[['scene_index'=>0,'fields'=>['goal'=>'完成事件1','scene_name'=>'地点1']]]];
+                elseif(str_contains($key,'skeleton'))$payload=$plan;
+                else {
+                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
+                    $payload=['storyboard'=>array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs)];
+                }
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+            },true);
+        };
+        $run=fn()=>Script::generate($request,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
+            fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
+        $result=null;$turns=0;
+        do {
+            $before=count($calls);
+            try {$result=Unit::withinDispatch(self::TENANT,7,$this->task,1,$run);}
+            catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
+            self::assertLessThanOrEqual(1,count($calls)-$before);self::assertLessThan(6,++$turns);
+        } while($result===null);
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_skeleton_fields_v1','v3_timed_scene_1_1'],$calls);
+        self::assertSame('完成事件1',$result['payload']['scene_beats'][0]['goal']);
+        $receipts=Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->column('result_json','unit_key');
+        self::assertSame($result['payload'],$run()['payload']);self::assertCount(3,$calls);
+        self::assertSame($receipts,Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->column('result_json','unit_key'));
     }
 }
