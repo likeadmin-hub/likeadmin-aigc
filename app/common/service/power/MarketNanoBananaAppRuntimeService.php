@@ -203,6 +203,7 @@ class MarketNanoBananaAppRuntimeService
         if (!$missingPrompt || !$deferMissingPrompt) {
             if (!is_string($request['prompt'] ?? null) || trim($request['prompt']) === '') throw new Exception('请输入提示词');
         }
+        MarketGenerationAdapterRegistry::applicationProtocol('nano_banana', $snapshot);
         if (array_key_exists('max_reference_images', $snapshot)) self::assertReferences(['reference_limit'=>(int)$snapshot['max_reference_images']], $request);
         $ratio = trim((string)($request['ratio'] ?? ''));
         if ($ratio !== '' && array_key_exists('ratio_options', $snapshot) && !in_array($ratio, $snapshot['ratio_options'], true)) throw new Exception('所选 nano-banana 应用 API 未声明该生成比例');
@@ -638,19 +639,9 @@ class MarketNanoBananaAppRuntimeService
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $references = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
-        $payload = array_merge($locked, self::marketContext($snapshot), [
-            'action' => $references === [] ? 'generate' : 'edit', 'prompt' => (string)($request['prompt'] ?? ''), 'image_urls' => $references,
-            'idempotency_key' => $idempotencyKey,
-        ]);
         $resolution = self::qualityValue($locked) ?: self::quality($request);
-        if ($resolution !== '') {
-            $payload['resolution'] = self::qualityLabel($resolution);
-        }
-        $ratio = trim((string)($request['ratio'] ?? ''));
-        if ($ratio !== '') {
-            $payload['aspect_ratio'] = $ratio;
-        }
-        return array_filter($payload, static fn($value) => $value !== '' && $value !== null && $value !== []);
+        return MarketGenerationApplicationProtocol::nano($snapshot, $request, $idempotencyKey, $references,
+            self::marketContext($snapshot), $resolution !== '' ? self::qualityLabel($resolution) : '');
     }
 
     /** @return array<int,array<string,mixed>> */

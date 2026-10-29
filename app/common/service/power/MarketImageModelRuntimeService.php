@@ -242,6 +242,7 @@ class MarketImageModelRuntimeService
     /** Shared compilation for estimates, reservation and outbound submission. No task or point writes. */
     public static function prepareRequest(array $snapshot, array $request, int $tenantId = 0, bool $deferMissingPrompt = false): PreparedMarketGeneration
     {
+        MarketGenerationAdapterRegistry::modelProtocol('image', $snapshot);
         $metadata = self::metadata($snapshot);
         if (MarketGenerationMaterials::modes($metadata) === []) {
             $count = count(array_filter((array)($request['reference_images'] ?? [])));
@@ -1043,16 +1044,7 @@ class MarketImageModelRuntimeService
 
     private static function usesStructuredTaskPayload(array $snapshot): bool
     {
-        $metadata = self::metadata($snapshot);
-        $schema = self::arrayValue($metadata['params_schema'] ?? []);
-        if (array_key_exists('input', $schema['properties'] ?? $schema) && array_key_exists('parameters', $schema['properties'] ?? $schema)) {
-            return true;
-        }
-        $doc = strtolower((string)($metadata['developer_doc_content'] ?? $metadata['api_doc'] ?? ''));
-        if (str_contains($doc, 'input.messages') && str_contains($doc, 'parameters.')) {
-            return true;
-        }
-        return in_array(strtolower((string)($snapshot['model_code'] ?? '')), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true);
+        return in_array(MarketGenerationAdapterRegistry::modelProtocol('image', $snapshot), ['qwen_image_v1','image_messages_v1'], true);
     }
 
     private static function structuredTaskPayload(
@@ -1073,16 +1065,8 @@ class MarketImageModelRuntimeService
         unset($params['input'], $params['parameters']);
         $params = self::providerParamsForStructuredPayload($params, $snapshot);
 
-        $content = [];
-        foreach ($referenceImages as $url) {
-            $content[] = ['image' => $url];
-        }
-        $content[] = ['text' => (string)($request['prompt'] ?? '')];
         $input = array_replace_recursive([
-            'messages' => [[
-                'role' => 'user',
-                'content' => $content,
-            ]],
+            'messages' => MarketGenerationMaterialEncoding::imageMessages((string)($request['prompt'] ?? ''), $referenceImages)['messages'],
         ], $structuredInput);
 
         $parameters = array_merge($params, $structuredParameters);
@@ -1146,7 +1130,7 @@ class MarketImageModelRuntimeService
 
     private static function isQwenImage(array $snapshot): bool
     {
-        return in_array(strtolower(trim((string)($snapshot['model_code'] ?? ''))), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true);
+        return MarketGenerationAdapterRegistry::modelProtocol('image', $snapshot) === 'qwen_image_v1';
     }
 
     /** Business callers supply dimensions; only the shared protocol adapter interprets them. */
