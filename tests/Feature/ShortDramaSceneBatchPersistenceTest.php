@@ -101,4 +101,49 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertCount(3, $calls);
         self::assertSame($rows, Db::name('aigc_short_drama_planning_unit')->where('task_id', $this->task)->order('id')->select()->toArray());
     }
+
+    public function testPartialBatchRecoveryReplaysPersistedReceiptsAcrossDispatchPauses(): void
+    {
+        $plan = ShortDramaSceneBatchTest::fixture([2, 1]);
+        $request = ShortDramaSceneBatchTest::request([2, 1]);
+        $request['_input_contract_version'] = 20;
+        $text = '{"user_prompt":"保留信件的交接过程"}';
+        $messages = ['system_prompt'=>'保持剧情与对白', 'content'=>$text, '_stage_content'=>$text];
+        $calls = [];
+        $provider = function ($key, $input) use ($plan, &$calls): array {
+            return Unit::call(self::TENANT, 7, $this->task, 'v3_policy2_' . substr($key, 3), $input,
+                static function () use ($key, $input, $plan, &$calls) {
+                    $calls[] = $key;
+                    if (str_contains($key, 'skeleton')) $payload = $plan;
+                    else {
+                        $context = Response::decode(['content'=>$input['content']]);
+                        $specs = $context['required_shots'];
+                        if (!isset($context['scene_groups'])) foreach ($specs as &$spec) $spec['scene_ref_id'] = $context['scene_beat']['scene_ref_id'];
+                        unset($spec);
+                        $payload = ['storyboard'=>array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec, $plan), $specs)];
+                        if ($key === 'v3_timed_batch_1_2') array_splice($payload['storyboard'], 1, 1);
+                    }
+                    return ['result'=>['content'=>json_encode($payload, JSON_UNESCAPED_UNICODE), 'finish_reason'=>'stop',
+                        'billing'=>['user_charge_points'=>9]]];
+                }, true);
+        };
+        $run = fn() => Script::generate($request, ['context_window'=>65536, 'max_output_tokens'=>8192], $messages,
+            $provider, null, null, fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT, 7, $this->task, $snapshot));
+        $result = null; $turns = 0;
+        do {
+            $before = count($calls); $turns++;
+            try { $result = Unit::withinDispatch(self::TENANT, 7, $this->task, 1, $run); }
+            catch (\RuntimeException $error) { self::assertSame(425, $error->getCode()); }
+            self::assertLessThanOrEqual(1, count($calls) - $before);
+            self::assertLessThan(6, $turns);
+        } while ($result === null);
+        self::assertSame(['v3_timed_skeleton_0', 'v3_timed_batch_1_2', 'v3_timed_scene_1_1_missing_2'], $calls);
+        self::assertSame(['s1_1','s1_2','s2_1'], array_column($result['payload']['storyboard'], 'shot_id'));
+        $rows = Db::name('aigc_short_drama_planning_unit')->where('task_id', $this->task)->order('id')->select()->toArray();
+        self::assertCount(4, $rows);
+        $receipts = array_column($rows, 'result_json', 'unit_key');
+        self::assertSame($result['payload'], $run()['payload']);
+        self::assertCount(3, $calls);
+        self::assertSame($receipts, Db::name('aigc_short_drama_planning_unit')->where('task_id', $this->task)->column('result_json', 'unit_key'));
+    }
 }
