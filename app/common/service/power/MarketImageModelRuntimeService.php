@@ -228,13 +228,14 @@ class MarketImageModelRuntimeService
     {
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
+        if (!in_array($meter['basis'], ['call', 'image', 'megapixel'], true)) throw new Exception('该图片模型计费数量规则尚未适配');
         // Legacy image channels priced each requested image even when their unit was per_call.
         // Only an explicit supplier meter may change that established contract.
-        if ($meter['summary'] !== '') $market['billing_meter'] = $meter;
+        if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
         // Fixed-price legacy models also need full preflight before a quote or
         // reservation. Their historical per-image billing semantics stay intact.
         $prepared = self::prepareRequest(self::snapshot($market), $selection, $tenantId, $deferMissingPrompt);
-        if ($meter['summary'] !== '') $market['meter_context'] = $prepared->meterContext;
+        if (MarketGenerationMeter::isExplicit($meter)) $market['meter_context'] = $prepared->meterContext;
         return $market;
     }
 

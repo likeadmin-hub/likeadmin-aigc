@@ -989,9 +989,9 @@ class MarketVideoRuntimeService
     {
         if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
-        if ($meter['summary'] !== '') $market['billing_meter'] = $meter;
+        if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
         $prepared = self::prepareRequest(self::snapshot($market, 1), $request);
-        if ($meter['summary'] !== '') $market['meter_context'] = $prepared->meterContext;
+        if (MarketGenerationMeter::isExplicit($meter)) $market['meter_context'] = $prepared->meterContext;
         return $prepared;
     }
 
@@ -3076,13 +3076,14 @@ class MarketVideoRuntimeService
         $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
         if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
-        if ($meter['summary'] !== '') {
+        if (MarketGenerationMeter::isExplicit($meter)) {
             $market['billing_meter'] = $meter;
             $native = $prepared?->nativeInput ?? (MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
                 ? MarketGenerationRequest::payload(self::snapshot($market, 1), $selection) : $selection);
             $market['meter_context'] = $prepared?->meterContext ?? MarketGenerationMeter::context($meter, $native);
+            if ($meter['basis'] === 'call') return 1;
             if ($meter['basis'] === 'input') return MarketGenerationMedia::seconds($native);
-            if (in_array($meter['basis'], ['output_plus_video', 'output_plus_max_video'], true)) $unit = 'output_second';
+            if (in_array($meter['basis'], ['output', 'output_plus_video', 'output_plus_max_video'], true)) $unit = 'output_second';
         }
         $lockedDuration = self::duration($locked);
         if (self::isDurationBillingUnit($unit)) {

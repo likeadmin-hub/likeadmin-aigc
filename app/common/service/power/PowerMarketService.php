@@ -1600,7 +1600,7 @@ class PowerMarketService
 
     private static function skuSnapshot(array $sku): array
     {
-        return [
+        $snapshot = [
             'sku_key' => (string)($sku['sku_key'] ?? ''),
             'title' => (string)($sku['title'] ?? ''),
             'billing_mode' => (string)($sku['billing_mode'] ?? ''),
@@ -1612,6 +1612,10 @@ class PowerMarketService
             'meter_summary' => (string)($sku['meter_summary'] ?? ''),
             'pricing_rule_key' => (string)($sku['pricing_rule_key'] ?? ''),
         ];
+        // Preserve presence, including invalid declarations, so quote admission
+        // fails closed rather than silently falling back to a different meter.
+        if (array_key_exists('meter_contract', $sku)) $snapshot['meter_contract'] = $sku['meter_contract'];
+        return $snapshot;
     }
 
     /**

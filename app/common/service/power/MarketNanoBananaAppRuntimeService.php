@@ -148,6 +148,7 @@ class MarketNanoBananaAppRuntimeService
 
     private static function quoteMarket(array $market, int $quantity): array
     {
+        MarketGenerationMeter::assertLegacyPricing($market['sku']);
         $quantity = max(1, $quantity);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         return [
@@ -205,6 +206,7 @@ class MarketNanoBananaAppRuntimeService
         $market = self::applyRetailBinding(self::resolve($tenantId, $selection), $billingOverride, $quantity, $tenantId);
         $quantity = max(1, $quantity);
         self::assertReferences($market, $request);
+        MarketGenerationMeter::assertLegacyPricing($market['sku']);
         self::assertDocumentedRatio($market, $request);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         $tenantCost = $deferredUsage ? 0 : self::points((float)$market['sku']['sale_points'] * $quantity);
