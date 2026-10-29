@@ -110,6 +110,20 @@ class ShortDramaPlanningStatePersistenceTest extends TestCase
         self::assertSame(0,Db::name('aigc_short_drama_planning_unit')->where($this->scope+['task_id'=>$id])->count());
     }
 
+    public function testExplicitRetryOfLegacyLimitKeepsSameTaskAndCheckpoint(): void
+    {
+        $request=['_generation_version'=>3,'_input_contract_version'=>23];
+        $id=$this->fixture(['status'=>'failed','request_json'=>json_encode($request),'result_json'=>'{"__script_checkpoint":{"story_outline":"保留"}}',
+            'error'=>'本集已达到自动处理上限，已保留完成内容，请缩小生成范围'],['status'=>'failed','billing_status'=>'deducted','user_charge_points'=>8]);
+        $before=$this->row($id,'script_task');
+        Service::retry(2000000719,7,$id);
+        $after=$this->row($id,'script_task');$resumed=json_decode($after['request_json'],true);
+        self::assertSame('pending',$after['status']);self::assertSame(23,$resumed['_input_contract_version']);
+        self::assertSame(1,$resumed['_segmented_generation']);self::assertSame($before['result_json'],$after['result_json']);
+        self::assertEquals(8,$this->row($id,'generation_task')['user_charge_points']);
+        self::assertSame(0,Db::name('aigc_short_drama_planning_unit')->where($this->scope+['task_id'=>$id])->count());
+    }
+
     public function testOldProviderLabelsAreReclassifiedAndFileQaIsUntouched(): void
     {
         $id=$this->fixture(['status'=>'failed','error'=>'场次时长与片段合计不一致'],['status'=>'failed','error_code'=>'provider_failed']);
