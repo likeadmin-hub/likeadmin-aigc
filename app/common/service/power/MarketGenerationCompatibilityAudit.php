@@ -154,14 +154,17 @@ final class MarketGenerationCompatibilityAudit
     }
 
     /** Call only pure prepare/payload methods, with no billing meter or real material URLs. */
-    public static function probe(array $case, callable $prepare): array
+    public static function probe(array $case, callable $prepare, array $locked = []): array
     {
         $result = ['case'=>$case['case'], 'scope'=>'one synthetic input; no quote, settlement or upstream validation'];
         if (isset($case['expected'])) $result += ['mode_case'=>$case['mode_case'], 'expected_without_sku'=>$case['expected'], 'fixture_scope'=>$case['fixture_scope']];
         if ($case['skip']) return $result + ['status'=>'needs_structured_fixture'];
         try {
             $native = $prepare($case['request']);
-            if (isset($case['expected']) && !self::contains($native, (array)($case['request']['provider_params'] ?? []))) return $result + ['status'=>'structured_parameter_not_forwarded'];
+            // SKU scalar locks legitimately replace fixture control choices;
+            // their original sample values are not silently lost materials.
+            $expected = array_diff_key((array)($case['request']['provider_params'] ?? []), $locked);
+            if (isset($case['expected']) && !self::contains($native, $expected)) return $result + ['status'=>'structured_parameter_not_forwarded'];
             $leaves = [];
             array_walk_recursive($native, static function ($value) use (&$leaves): void { if (is_string($value)) $leaves[] = $value; });
             $missing = array_diff(array_column($case['request']['reference_assets'], 'url'), $leaves);
