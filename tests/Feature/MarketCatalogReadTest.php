@@ -4,6 +4,7 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use app\common\model\power\{PowerMarketSku, TenantPowerMarketSkuPrice};
 use app\common\service\power\{MarketCatalogReadScope as Scope, MarketCatalogSkuReader as Reader, MarketTextModelRuntimeService as Text};
+use app\common\service\power\MarketPriceRuleService as Prices;
 use think\facade\Db;
 
 function verify($condition, string $message): void {
@@ -44,10 +45,15 @@ try {
     verify($model !== null, 'No text-model fixture');
     $skuId = (int)$model['market_input_sku_id'];
     $price = TenantPowerMarketSkuPrice::where(['tenant_id' => 1, 'sku_id' => $skuId])->findOrEmpty();
-    $data = ['tenant_id' => 1, 'sku_id' => $skuId, 'sale_status' => 1, 'sale_points' => 123.45];
+    $sku = PowerMarketSku::find($skuId);
+    $newPrice = Prices::tenantPrice(1, $sku, $price) + 1;
+    $data = ['tenant_id' => 1, 'sku_id' => $skuId, 'sale_status' => 1, 'sale_points' => $newPrice];
     if ($price->isEmpty()) TenantPowerMarketSkuPrice::create($data);
     else $price->save($data);
-    verify(Text::resolveModel(1, $model['id'])['input']['tenant_price'] === 123.45, 'Admission reused stale catalogue price');
+    // Effective prices now come from owner pricing rules. Updating the legacy
+    // display column alone cannot test fresh admission against that contract.
+    Prices::manual(1, (int)$model['product_id'], $skuId, $newPrice);
+    verify(Text::resolveModel(1, $model['id'])['input']['tenant_price'] === $newPrice, 'Admission reused stale catalogue price');
     TenantPowerMarketSkuPrice::where(['tenant_id' => 1, 'sku_id' => $skuId])->update(['sale_status' => 0]);
     $catalogue = Reader::forProducts(1, [(int)$model['product_id']]);
     verify(!in_array($skuId, array_column(array_column($catalogue[(int)$model['product_id']]['available'] ?? [], 'sku'), 'id')), 'Unshelved SKU remained available');
