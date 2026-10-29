@@ -37,6 +37,10 @@ php tools/audit-tool-market-compatibility.php --tenant-id=1 > /tmp/market-compat
 
 仅以示例描述的旧结构化对象仍由现有适配器构造，不能把示例当成完整合同或补造嵌套限制。视频和应用 API 的专用请求适配器、按文本摘要解析的历史计价规则以及短剧中的模型专用处理仍待后续阶段迁移。新增模型复用测试验证的是共享机制与已列出的声明约束，不代表实时供应商支持或全 SKU 实测。
 
+本阶段在本地 `develop` 验证：132 项 PHPUnit 用例通过，包含图片准备、旧目录样本、图/视频请求、素材、参数、能力校正、重复提交及准备失败的本地回滚用例；PC 相关 203 项测试及公共/兼容组件的 Vue、Sass 编译通过，独立 PC 编译通过。画布定价产物用例使用 `TEST_PC_MANIFEST` / `TEST_PC_PUBLIC_DIR` 指向独立编译产物通过，没有覆盖站点已存在的 `server/public` 输出。
+
+另有一项既有测试问题：`UnifiedCreateImageQuantityPricingContractTest` 仍要求 `Number(selectedUnitPrice.value) * selectedQuantity.value`，但本次修改前的前端提交 `cfc075715` 就已不包含此表达式，当前页面展示服务端报价的 `user_charge_points`。该旧断言仍失败，本阶段未为通过它而修改定价行为或删除断言。未执行新增收费生成、模型上下架、后台能力校正或历史任务修复。
+
 ## 模型或工具变更时逐项复核
 
 1. 检查租户可售 SKU、模型原生合同状态和所选模式；合同缺失或变化时对照同步声明及真实适配器，不据此自动推断失败。
