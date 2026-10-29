@@ -38,6 +38,17 @@ class MarketGenerationContractReviewTest extends TestCase
         self::assertFalse(Review::catalogueData([],[])['catalogue_declaration_available']);
     }
 
+    public function testApplicationEvidenceReadsApiPricingWithoutBorrowingModelDeclarations(): void
+    {
+        $r=Review::applicationData([],['api_pricing'=>['params_schema'=>['media'=>['type'=>'array']]],
+            'model_pricing'=>['params_schema'=>['wrong'=>'never borrow']]]);
+        self::assertTrue($r['api_declaration_available']);
+        self::assertSame('application_doc_detail',$r['source_projection']);
+        self::assertSame(['media[]'],$r['platform_schema_opaque_paths']);
+        self::assertSame('unverified',$r['sku_pricing']);
+        self::assertFalse(Review::applicationData([],['model_pricing'=>['params_schema'=>['wrong'=>[]]]])['api_declaration_available']);
+    }
+
     public function testLedgerBindsAll18IdentitiesWithoutInventingNativeContracts(): void
     {
         $read=static fn($name)=>json_decode(file_get_contents(dirname(__DIR__).'/fixtures/'.$name),true,512,JSON_THROW_ON_ERROR);

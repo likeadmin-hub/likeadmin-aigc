@@ -40,6 +40,13 @@ final class MarketGenerationContractReview
         return $result;
     }
 
+    public static function applicationData(array $metadata,array $detail): array
+    {
+        $result=self::platformData($metadata,['model_pricing'=>(array)($detail['api_pricing']??[]),'doc'=>(array)($detail['doc']??[])]);
+        $result['api_declaration_available']=$result['platform_detail_available'];unset($result['platform_detail_available']);
+        $result['source_projection']='application_doc_detail';return $result;
+    }
+
     public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = [], array $catalogueFlow = [], array $structureReview = []): array
     {
         $rows = [];
