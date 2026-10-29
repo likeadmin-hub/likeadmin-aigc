@@ -813,7 +813,10 @@
       "status": "failed_retention",
       "material_mode": "reference_to_video:3",
       "resolution": "768P",
-      "duration": 5
+      "duration": 5,
+      "requested_sku_id": 777,
+      "generation_method": "omni_reference",
+      "failure_surface": "local_estimate_before_reservation"
     },
     {
       "index": 13,
@@ -827,7 +830,10 @@
       "status": "failed_retention",
       "material_mode": "reference_to_video:3",
       "resolution": "768P",
-      "duration": 15
+      "duration": 15,
+      "requested_sku_id": 777,
+      "generation_method": "omni_reference",
+      "failure_surface": "local_estimate_before_reservation"
     },
     {
       "index": 14,
@@ -841,7 +847,10 @@
       "status": "failed_retention",
       "material_mode": "reference_to_video:3",
       "resolution": "2K",
-      "duration": 5
+      "duration": 5,
+      "requested_sku_id": 778,
+      "generation_method": "omni_reference",
+      "failure_surface": "local_estimate_before_reservation"
     },
     {
       "index": 15,
@@ -855,7 +864,10 @@
       "status": "failed_retention",
       "material_mode": "reference_to_video:3",
       "resolution": "2K",
-      "duration": 15
+      "duration": 15,
+      "requested_sku_id": 778,
+      "generation_method": "omni_reference",
+      "failure_surface": "local_estimate_before_reservation"
     }
   ],
   "negative_cases": [
