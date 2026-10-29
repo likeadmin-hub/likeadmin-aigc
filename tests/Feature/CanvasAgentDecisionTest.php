@@ -31,6 +31,21 @@ class CanvasAgentDecisionTest extends TestCase
         $items=[];foreach($values as $key=>$value) $items[]=['key'=>$key,'value'=>$value,'source'=>'message','evidence'=>$value,'confidence'=>1];
         return ['intake'=>['candidates'=>$items,'questions'=>[]],'show_card'=>$show,'execution'=>$execution];
     }
+    public function testOptionalNestedMemoryAndIndependentValidRequirementsAreNormalized():void
+    {
+        $reply=self::reply('configure_project',self::intake(['story_direction'=>'篮球场重逢','unsupported_field'=>'无此表单字段']));
+        $reply['action']['remember']=$reply['remember'];unset($reply['remember']);
+        $parsed=Decision::parse(json_encode($reply),$this->context());
+        self::assertSame('start_project',$parsed['decision']['action']['name']);
+        self::assertSame([], $parsed['decision']['remember']);
+        $c=$parsed['decision']['action']['arguments']['intake']['candidates'];
+        self::assertCount(1,$c);self::assertSame('story_direction',$c[0]['key']);
+    }
+    public function testAdvisoryEnvelopeCannotNormalizeAnUnsupportedActionIntoExecution():void
+    {
+        $reply=self::reply('generate_video');unset($reply['remember']);$reply['action']['remember']=[];
+        $this->expectExceptionMessage('INVALID_AGENT_INTENT');Decision::parse(json_encode($reply),$this->context());
+    }
     public function testOrdinaryConversationAlwaysHasNoExecutableEffects(): void {
         foreach([false,true] as $active) {
             $parsed=Decision::parse(json_encode(self::reply()),$this->context($active));$legacy=json_decode($parsed['legacy'],true);
