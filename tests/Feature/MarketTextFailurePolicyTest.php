@@ -15,5 +15,7 @@ final class MarketTextFailurePolicyTest extends TestCase
         $p=$r;$p['usage']=['input_tokens'=>1];self::assertFalse(Policy::preGenerationRejection($p));
         $p=$r;$p['protocol_evidence']['terminal_seen']=false;self::assertFalse(Policy::preGenerationRejection($p));
         $p=$r;$p['protocol_diagnostic']['provider_code']='unknown';self::assertFalse(Policy::preGenerationRejection($p));
+        $p=$r;$p['protocol_evidence']['output_present']=true;$p['protocol_diagnostic']['output_present']=true;self::assertTrue(Policy::preGenerationRejection($p));
+        $p=$r;$p['usage']=['points_cost'=>1];self::assertFalse(Policy::preGenerationRejection($p));
     }
 }

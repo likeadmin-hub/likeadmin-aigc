@@ -52,18 +52,24 @@ final class MarketTextUsageReview
             $received=$task['request_params']??[];if(is_string($received))$received=json_decode($received,true,512,JSON_THROW_ON_ERROR);
             if(self::hash($wire)!==self::hash($received)||$c['model_code']!==($wire['model']??''))throw new \RuntimeException('上游原始请求与冻结请求不一致');
             if(($task['task_id']??'')===''||(int)($task['status']??0)!==3||($call['status']??'')!=='failed'
-                ||($task['error_code']??'')===''||abs((float)($task['actual_points']??-1))>0.000001||abs((float)($call['actual_points']??-1))>0.000001)
+                ||($task['error_code']??'')===''||!self::zero($task['actual_points']??null)||!self::zero($call['actual_points']??null))
                 throw new \RuntimeException('缺少上游失败且零结算的证明');
             foreach(['task_id','tenant_id','user_id','model_code']as$key)if(($call[$key]??null)!==($task[$key]??null))throw new \RuntimeException('上游任务与工厂账务身份不一致');
-            self::assertRefunded($task,(array)($proof['user_logs']??[]),false);
-            self::assertRefunded($task,(array)($proof['tenant_logs']??[]),true);
+            self::verifyExecution($c,$wire,$task,$call,$proof);
+            $price=$task['pricing_detail']??[];if(is_string($price))$price=json_decode($price,true,512,JSON_THROW_ON_ERROR);
+            $userFrozen=self::amount($task['frozen_points']??null);$tenantFrozen=self::amount($price['_billing_tenant_prepaid']??null);
+            if(abs($userFrozen-self::amount($call['frozen_points']??null))>0.000001||abs($userFrozen-self::amount($price['_billing_prepaid']??null))>0.000001)
+                throw new \RuntimeException('上游预扣金额与冻结快照不一致');
+            self::assertRefunded($task,(array)($proof['user_logs']??[]),false,$userFrozen);
+            self::assertRefunded($task,(array)($proof['tenant_logs']??[]),true,$tenantFrozen);
             foreach(['actual_user_price','actual_tenant_cost','reserved_user_price','reserved_tenant_cost']as$key)
                 if(abs((float)$c[$key])>0.000001)throw new \RuntimeException('非零本地金额必须通过独立的账务补偿流程');
             $identity=['unit_id'=>$unitId,'upstream_task_id'=>$task['task_id'],'request_sha256'=>self::hash($wire),
                 'proof_sha256'=>self::hash($proof),'disposition'=>'refunded','reason'=>'confirmed_provider_failure'];
             $saved=(array)$c['response_summary'];
             if($c['billing_status']==='refunded'){
-                if(($saved['usage_resolution']['proof_sha256']??'')!==$identity['proof_sha256'])throw new \RuntimeException('已关闭记录的凭据不一致');
+                if(($saved['usage_resolution']['upstream_task_id']??'')!==$identity['upstream_task_id']||($saved['usage_resolution']['request_sha256']??'')!==$identity['request_sha256'])
+                    throw new \RuntimeException('已关闭记录的执行身份不一致');
                 return $identity+['applied'=>false,'already_closed'=>true];
             }
             if(!in_array($c['billing_status'],['pending_usage','settlement_failed'],true))throw new \RuntimeException('该消费不属于待处理用量记录');
@@ -94,24 +100,55 @@ final class MarketTextUsageReview
             'stream_options'=>['include_usage'=>true]]+$config;
     }
 
-    private static function assertRefunded(array $task,array $logs,bool $tenant):void
+    private static function verifyExecution(AiConsumptionLog $c,array $wire,array $task,array $call,array $proof):void
     {
-        $frozen=0.0;$released=0.0;
+        if(trim((string)$c['upstream_task_id'])!==''&&$c['upstream_task_id']!==$task['task_id'])throw new \RuntimeException('已绑定的上游任务号不一致');
+        $source=\app\common\service\update\UpdateSourceClient::getSource();$identity=$proof['source_identity']??[];$key=(string)($source['active_api_key']??'');
+        if($key===''||!hash_equals(hash('sha256',$key),(string)($identity['key_sha256']??'')))throw new \RuntimeException('上游证据不属于当前配置的调用账户');
+        foreach(['tenant_id','user_id','api_key_id']as$field)
+            if((int)($identity[$field]??0)<=0||(int)$identity[$field]!== (int)($task[$field]??0)||(int)$identity[$field]!== (int)($call[$field]??0))
+                throw new \RuntimeException('上游证据账户或密钥身份不一致');
+        $local=(int)$c->getData('create_time');$created=(int)($task['create_time']??0);
+        // This is an identity matching window, not an execution/billing budget.
+        if($local<=0||abs($created-$local)>5)throw new \RuntimeException('上游执行时间与原消费不匹配');
+        $matches=[];$seen=[];
+        foreach((array)($proof['candidates']??[])as$candidate){
+            $candidateId=(string)($candidate['task_id']??'');if($candidateId===''||isset($seen[$candidateId]))throw new \RuntimeException('候选执行清单有无效或重复任务');$seen[$candidateId]=true;
+            foreach(['tenant_id','user_id','api_key_id']as$field)if((int)($candidate[$field]??0)!==(int)$identity[$field])throw new \RuntimeException('候选执行账户不一致');
+            if(abs((int)($candidate['create_time']??0)-$local)>5)throw new \RuntimeException('候选执行清单超出匹配范围');
+            $request=$candidate['request_params']??[];if(is_string($request))$request=json_decode($request,true,512,JSON_THROW_ON_ERROR);
+            if(self::hash($request)===self::hash($wire))$matches[]=$candidate;
+        }
+        if(count($matches)!==1||$matches[0]['task_id']!==$task['task_id'])throw new \RuntimeException('无法唯一识别这一次上游执行');
+        foreach(['create_time','status','actual_points','frozen_points']as$field)if((string)($matches[0][$field]??'')!==(string)($task[$field]??''))throw new \RuntimeException('候选执行与所选回执不一致');
+    }
+
+    private static function assertRefunded(array $task,array $logs,bool $tenant,float $expected):void
+    {
+        $frozen=0.0;$released=0.0;$seen=[];$actions=[];
         if($logs===[])throw new \RuntimeException('缺少上游冻结及退回流水');
         foreach($logs as$log){
+            $logId=(int)($log['id']??0);if($logId<=0||isset($seen[$logId]))throw new \RuntimeException('上游流水标识缺失或重复');$seen[$logId]=true;
             if(($log['task_id']??'')!==$task['task_id']||(int)($log['tenant_id']??0)!==(int)$task['tenant_id']
                 ||(!$tenant&&(int)($log['user_id']??0)!==(int)$task['user_id']))throw new \RuntimeException('上游流水归属不一致');
-            $action=$log['action']??null;$amount=(float)($log['points']??0);
-            if($tenant){if((int)$action===2)$frozen+=$amount;elseif((int)$action===4)$released+=$amount;else throw new \RuntimeException('上游存在其他扣费动作');}
+            $action=$log['action']??null;$actions[(string)$action]=true;if(!isset($log['points'])||!is_numeric($log['points'])||!is_finite((float)$log['points']))throw new \RuntimeException('上游流水金额无效');$amount=(float)$log['points'];
+            if($tenant){if($amount<0)throw new \RuntimeException('上游流水金额方向无效');if(in_array($action,[2,'2'],true))$frozen+=$amount;elseif(in_array($action,[4,'4'],true))$released+=$amount;else throw new \RuntimeException('上游存在其他扣费动作');}
             else{if($action==='freeze'&&$amount<=0)$frozen-=$amount;elseif($action==='unfreeze'&&$amount>=0)$released+=$amount;else throw new \RuntimeException('上游存在其他扣费动作');}
         }
-        if(abs($frozen-$released)>0.000001)throw new \RuntimeException('上游预扣尚未全额退回');
+        if(!isset($actions[$tenant?'2':'freeze'],$actions[$tenant?'4':'unfreeze'])||abs($frozen-$released)>0.000001||abs($frozen-$expected)>0.000001)
+            throw new \RuntimeException('上游预扣尚未全额退回或流水不完整');
     }
 
     private static function hash($value):string
     {
         $sort=static function($v)use(&$sort){if(!is_array($v))return $v;if(!array_is_list($v))ksort($v);return array_map($sort,$v);};
         return hash('sha256',json_encode($sort($value),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
+    }
+
+    private static function zero($amount):bool{return is_numeric($amount)&&is_finite((float)$amount)&&(float)$amount===0.0;}
+    private static function amount($value):float
+    {
+        if(!is_numeric($value)||!is_finite((float)$value)||(float)$value<0)throw new \RuntimeException('上游冻结金额无效');return (float)$value;
     }
 
     public static function flag(int $tenant,int $user,int $id,string $requestId,array $evidence):void

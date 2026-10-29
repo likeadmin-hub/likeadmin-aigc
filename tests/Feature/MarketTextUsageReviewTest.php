@@ -12,16 +12,19 @@ final class MarketTextUsageReviewTest extends TestCase
         $t=AiAppTask::create(['tenant_id'=>$tenant,'user_id'=>$user,'task_no'=>$key,'app_code'=>'aigc_short_drama','action_code'=>'script_plan','status'=>'success','idempotency_key'=>$key]);
         $c=AiConsumptionLog::create(['tenant_id'=>$tenant,'user_id'=>$user,'app_task_id'=>$t['id'],'consume_no'=>$key,'app_code'=>'aigc_short_drama','model_code'=>'fixture',
             'run_status'=>'success','billing_status'=>'settlement_failed','error_code'=>'provider_usage_missing','upstream_request_id'=>'chatcmpl-fixture','usage_snapshot'=>['provider_reported'=>false],
-            'response_summary'=>['output_length'=>99],'actual_user_price'=>0,'actual_tenant_cost'=>0,'reserved_user_price'=>0,'reserved_tenant_cost'=>0]);
+            'response_summary'=>['output_length'=>99],'actual_user_price'=>0,'actual_tenant_cost'=>0,'reserved_user_price'=>0,'reserved_tenant_cost'=>0,'create_time'=>time()]);
         $input=['system_prompt'=>'系统','content'=>'原文','model_selection'=>['model_code'=>'fixture'],'model_config'=>['max_tokens'=>100,'enable_thinking'=>false]];
         $unit=Db::name('aigc_short_drama_planning_unit')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$key,'unit_key'=>'fixture','status'=>'received',
             'request_json'=>json_encode($input),'result_json'=>json_encode(['result'=>['consumption_id'=>(int)$c['id'],'provider_request_id'=>'chatcmpl-fixture']])]);
         $wire=['model'=>'fixture','stream'=>true,'messages'=>[['role'=>'system','content'=>'系统'],['role'=>'user','content'=>'原文']],
             'max_tokens'=>100,'enable_thinking'=>false,'stream_options'=>['include_usage'=>true]];
-        $task=['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'model_code'=>'fixture','status'=>3,'actual_points'=>0,'error_code'=>'curl_error','request_params'=>$wire];
-        $proof=['task'=>$task,'factory'=>['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'model_code'=>'fixture','status'=>'failed','actual_points'=>0],
-            'user_logs'=>[['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'action'=>'freeze','points'=>-2],['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'action'=>'unfreeze','points'=>2]],
-            'tenant_logs'=>[['task_id'=>'upstream-fixture','tenant_id'=>18,'action'=>2,'points'=>1],['task_id'=>'upstream-fixture','tenant_id'=>18,'action'=>4,'points'=>1]]];
+        $source=\app\common\service\update\UpdateSourceClient::getSource();
+        $identity=['api_key_id'=>1040,'tenant_id'=>18,'user_id'=>24,'key_sha256'=>hash('sha256',$source['active_api_key'])];
+        $task=['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'api_key_id'=>1040,'model_code'=>'fixture','status'=>3,'actual_points'=>0,'frozen_points'=>2,
+            'pricing_detail'=>['_billing_prepaid'=>2,'_billing_tenant_prepaid'=>1],'create_time'=>(int)$c->getData('create_time'),'error_code'=>'curl_error','request_params'=>$wire];
+        $proof=['source_identity'=>$identity,'candidates'=>[$task],'task'=>$task,'factory'=>['task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'api_key_id'=>1040,'model_code'=>'fixture','status'=>'failed','actual_points'=>0,'frozen_points'=>2],
+            'user_logs'=>[['id'=>1,'task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'action'=>'freeze','points'=>-2],['id'=>2,'task_id'=>'upstream-fixture','tenant_id'=>18,'user_id'=>24,'action'=>'unfreeze','points'=>2]],
+            'tenant_logs'=>[['id'=>1,'task_id'=>'upstream-fixture','tenant_id'=>18,'action'=>2,'points'=>1],['id'=>2,'task_id'=>'upstream-fixture','tenant_id'=>18,'action'=>4,'points'=>1]]];
         return [$c,$unit,$proof,$t];
     }
 
@@ -51,10 +54,17 @@ final class MarketTextUsageReviewTest extends TestCase
             if($case==='refund')$p['user_logs'][1]['points']=1;
             if($case==='owner')$p['factory']['user_id']=99;
             if($case==='localcharge')$c->save(['actual_user_price'=>1]);
+            if($case==='invalidzero')$p['factory']['actual_points']='invalid';
+            if($case==='negativelog'){$p['tenant_logs'][0]['points']=-1;$p['tenant_logs'][1]['points']=-1;}
+            if($case==='wrongtime')$p['task']['create_time']+=3600;
+            if($case==='ambiguous'){$other=$p['task'];$other['task_id']='another-identical-call';$p['candidates'][]=$other;}
+            if($case==='wrongtask')$c->save(['upstream_task_id'=>'different-upstream-call']);
+            if($case==='zeroSubset')foreach($p['user_logs']as&$log)$log['points']=0;
+            if($case==='duplicatedLogs'){$p['user_logs'][]=$p['user_logs'][0];$p['user_logs'][]=$p['user_logs'][1];$p['task']['frozen_points']=4;$p['factory']['frozen_points']=4;$p['task']['pricing_detail']['_billing_prepaid']=4;}
             $this->expectException(\RuntimeException::class);MarketTextUsageReview::resolveFailedPlanning(1999999759,7,(int)$c['id'],$unit,$p,true);
         }finally{Db::rollback();}
     }
-    public static function invalidProofs():array{return [['content'],['charged'],['refund'],['owner'],['localcharge']];}
+    public static function invalidProofs():array{return array_map(static fn($v)=>[$v],['content','charged','refund','owner','localcharge','invalidzero','negativelog','wrongtime','ambiguous','wrongtask','zeroSubset','duplicatedLogs']);}
 
     public function testDefinitiveNativeBalanceRejectionClosesOnceAndNeverInventsUsage():void
     {
