@@ -303,7 +303,7 @@ class MarketVideoRuntimeService
         if (array_key_exists('duration', $selection) && (int)$selection['duration'] <= 0) {
             $market = self::resolve($tenantId, self::withoutDuration($selection));
             $metadata = self::metadata($market['product']);
-            if(MarketGenerationReviewedContract::selected($metadata)!==null){
+            if(MarketGenerationNativeContract::modes($metadata)!==[]){
                 $mode=MarketGenerationMaterials::select($metadata,$selection);
                 $definition=MarketGenerationNativeContract::durationDefinition($metadata,(string)($mode['native_mode']??''));
                 $locked=self::duration(self::arrayValue($market['sku']['locked_params']??[]));
@@ -340,7 +340,7 @@ class MarketVideoRuntimeService
             }
         }
         $metadata = self::metadata($market['product']);
-        if(MarketGenerationReviewedContract::selected($metadata)!==null)self::assertWholeDuration($selection);
+        if(MarketGenerationNativeContract::modes($metadata)!==[])self::assertWholeDuration($selection);
         if (MarketGenerationMaterials::modes($metadata) !== []) {
             $mode=MarketGenerationMaterials::select($metadata,$selection);
             $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
