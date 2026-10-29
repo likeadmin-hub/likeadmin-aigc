@@ -1261,7 +1261,7 @@ class MarketVideoRuntimeService
             $input['prompt'] = MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'wan_video_media_v1'
                 ? self::wanThreeReferencePrompt($prompt) : $prompt;
         }
-        $media = self::structuredModelMedia($request);
+        $media = self::structuredModelMedia($snapshot,$request);
         if ($media !== []) {
             $input['media'] = $media;
         }
@@ -1350,9 +1350,14 @@ class MarketVideoRuntimeService
         return MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot) === 'veo_video_v1';
     }
 
-    private static function structuredModelMedia(array $request): array
+    private static function structuredModelMedia(array $snapshot,array $request): array
     {
-        return MarketGenerationMaterialEncoding::wanMedia($request);
+        $metadata=MarketGenerationRequest::metadata($snapshot);$documents=[];
+        if(MarketGenerationReviewedContract::selected($metadata)!==null){
+            $mode=MarketGenerationMaterials::select($metadata,$request);
+            $documents=array_values(array_intersect(array_column($mode['fields']??[],'kind'),['file','link']));
+        }
+        return MarketGenerationMaterialEncoding::wanMedia($request,$documents);
     }
 
     private static function filterEmptyPayload(array $payload): array

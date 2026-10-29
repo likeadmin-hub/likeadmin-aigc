@@ -85,7 +85,7 @@ final class MarketGenerationMaterialEncoding
         return $images;
     }
 
-    public static function wanMedia(array $request): array
+    public static function wanMedia(array $request,array $documentTypes=[]): array
     {
         $media = [];
         foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
@@ -113,6 +113,25 @@ final class MarketGenerationMaterialEncoding
                 $media[] = ['type' => 'reference_audio', 'url' => $url];
             }
         }
+        // File/page references are opt-in fields of a complete reviewed mode.
+        // The existing video asset normalizer intentionally handles only A/V/image.
+        foreach((array)($request['reference_assets']??[])as$asset){
+            if(!is_array($asset)||!in_array($asset['type']??'',array_intersect($documentTypes,['file','link']),true))continue;
+            $type=$asset['type'];$raw=trim((string)($asset['url']??$asset['uri']??''));
+            if($raw==='')throw new \InvalidArgumentException('参考文件或链接地址不能为空');
+            if(preg_match('~^[a-z][a-z0-9+.-]*:~i',$raw)&&!preg_match('~^https?://~',$raw))throw new \InvalidArgumentException('参考文件或链接需要有效的公开 HTTP 地址');
+            $url=$type==='file'?AigcVideoReferenceAssetService::publicUrl($asset):$raw;
+            self::assertDocumentUrl($url);
+            $media[]=['type'=>$type,'url'=>$url];
+        }
+        if($documentTypes!==[]&&count($media)>15)throw new \InvalidArgumentException('参考素材数量超出限制');
         return $media;
+    }
+
+    public static function assertDocumentUrl(string $url): void
+    {
+        $parts=parse_url($url);
+        if(!$parts||!in_array($parts['scheme']??'',['http','https'],true)||empty($parts['host'])||isset($parts['user'])||isset($parts['pass']))
+            throw new \InvalidArgumentException('参考文件或链接需要有效的公开 HTTP 地址');
     }
 }
