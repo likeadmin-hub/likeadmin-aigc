@@ -331,6 +331,7 @@ class MarketNanoBananaAppRuntimeService
         $taskId = '';
         $requestId = '';
         try {
+            if (MarketUsageSettlementService::isActualUsageSku($snapshot)) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
             $prepared = self::prepareRequest($snapshot, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
             if (isset($snapshot['billing_meter']) && $prepared->meterContext !== (array)($snapshot['meter_context'] ?? [])) throw new Exception('提交素材与预占计费快照不一致，请重新创建任务');
         } catch (\Throwable $e) {
