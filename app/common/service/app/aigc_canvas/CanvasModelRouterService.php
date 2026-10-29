@@ -380,14 +380,7 @@ class CanvasModelRouterService
 
     private static function videoMarketRuntime(array $selection): string
     {
-        $value = implode('|', array_map('strval', [
-            $selection['resource_type'] ?? '',
-            $selection['model_id'] ?? '',
-            $selection['channel'] ?? '',
-        ]));
-        return str_contains($value, 'app_api') || str_contains($value, 'market_video_app:')
-            ? MarketVideoAppRuntimeService::class
-            : MarketVideoModelRuntimeService::class;
+        return \app\common\service\power\MarketGenerationAdapterRegistry::runtime('video', $params);
     }
 
     private static function marketOption(string $value, array $market): array

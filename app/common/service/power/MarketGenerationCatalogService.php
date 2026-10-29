@@ -87,20 +87,8 @@ class MarketGenerationCatalogService
 
     private static function adapterForProduct(string $type, array $product): string
     {
-        $categoryCode = (string)(PowerMarketService::appCategory($product)['category_code'] ?? '');
-        if ($type === 'video' || ($type === 'app_api' && $categoryCode === 'video')) {
-            return MarketVideoAppRuntimeService::class;
-        }
-        if (($type === 'image' || ($type === 'app_api' && $categoryCode === 'image'))
-            && (string)($product['upstream_app_code'] ?? '') === 'nano_banana') {
-            return MarketNanoBananaAppRuntimeService::class;
-        }
-        return MarketApplicationApiRuntimeService::adapterForSelection([
-            'upstream_app_code' => (string)($product['upstream_app_code'] ?? ''),
-            'upstream_api_code' => (string)($product['upstream_api_code'] ?? ''),
-            'resource_type' => PowerMarketService::TYPE_APP_API,
-            'api_code' => (string)($product['upstream_api_code'] ?? ''),
-        ]);
+        $category = $type === 'app_api' ? (string)(PowerMarketService::appCategory($product)['category_code'] ?? '') : $type;
+        return MarketGenerationAdapterRegistry::runtime($category, $product);
     }
 
     /** @return array<int, array<string, mixed>> */

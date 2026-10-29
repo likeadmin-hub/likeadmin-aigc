@@ -381,7 +381,8 @@ class MarketImageModelRuntimeService
         $upstreamAccepted = false;
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
-            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload, $tenantAdminConsumption||$microSubmission,$microSubmission);
+            $plan = MarketGenerationAdapterRegistry::transport($price, 'submit');
+            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . $plan['path'], $payload, $tenantAdminConsumption||$microSubmission,$microSubmission);
             $response = $submission['response'];
             $upstreamAccepted = true;
             $submitAttempts = $submission['attempts'];
@@ -1150,8 +1151,28 @@ class MarketImageModelRuntimeService
         return in_array(strtolower(trim((string)($snapshot['model_code'] ?? ''))), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true);
     }
 
-    /** Pure preflight, shared by app validation and point reservation. */
+    /** Business callers supply dimensions; only the shared protocol adapter interprets them. */
+    public static function withDimensionSelection(array $snapshot, array $request, array $selection): array
+    {
+        if (!self::isQwenImage($snapshot)) return $request;
+        $selection = array_replace((array)($selection['params'] ?? []), $selection);
+        foreach (['size', 'image_size', 'resolution'] as $key) {
+            if (isset($selection[$key])) $request[$key] = $selection[$key];
+        }
+        $provider = (array)($selection['provider_params'] ?? []);
+        $request['provider_params'] = array_intersect_key($provider, array_flip(['size', 'image_size', 'resolution']));
+        if (isset($provider['parameters']['size'])) $request['provider_params']['parameters']['size'] = $provider['parameters']['size'];
+        return $request;
+    }
+
+    /** Compatibility entry for existing integrations. */
     public static function qwenDimensionSummary(array $snapshot, array $request): array
+    {
+        return self::dimensionSummary($snapshot, $request);
+    }
+
+    /** Pure dimension preflight; adapters without a dimension transform return no summary. */
+    public static function dimensionSummary(array $snapshot, array $request): array
     {
         if (!self::isQwenImage($snapshot)) {
             return [];

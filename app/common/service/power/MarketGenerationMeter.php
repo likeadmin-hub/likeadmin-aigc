@@ -43,6 +43,11 @@ final class MarketGenerationMeter
         $video = [];
         $walk = static function ($value, string $kind = '') use (&$walk, &$images, &$video): void {
             if (is_array($value)) {
+                // Media arrays such as Happy Horse's [{type,image/url}]
+                // carry their meaning in a discriminator, not in the key.
+                $type = is_scalar($value['type'] ?? null) ? strtolower((string)$value['type']) : '';
+                if (in_array($type, ['image', 'image_url', 'input_image'], true)) $kind = 'image';
+                elseif (in_array($type, ['video', 'video_url', 'input_video'], true)) $kind = 'video';
                 foreach ($value as $key=>$child) {
                     $next = is_int($key) ? $kind : (preg_match('/video|clip/i',(string)$key) ? 'video' : (preg_match('/image|frame/i',(string)$key) ? 'image' : $kind));
                     $walk($child, $next);
