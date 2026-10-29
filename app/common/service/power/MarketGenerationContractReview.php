@@ -125,6 +125,14 @@ final class MarketGenerationContractReview
                 || !is_array($entry['binding_declaration']['material_capabilities'] ?? null)) throw new InvalidArgumentException('缺少审核合同版本或原始声明绑定');
             foreach ($entry['declaration']['material_capabilities']['modes'] as $mode) foreach ((array)($mode['fields'] ?? []) as $field) {
                 if (str_contains((string)($field['field'] ?? ''),'.')) throw new InvalidArgumentException('嵌套素材路径尚未实现共享计数与角色校验');
+                if ($candidate['generation_protocol']!=='native_v1') {
+                    $definition=$entry['modes'][$mode['code']]['schema']['properties'][$field['field']] ?? [];
+                    if (!in_array($field['kind'] ?? '',['image','video','audio'],true)
+                        || !(($definition['type'] ?? '')==='string'
+                            || (($definition['type'] ?? '')==='array' && ($definition['items']['type'] ?? '')==='string'))) {
+                        throw new InvalidArgumentException('该协议尚未实现复合素材的共享计数与角色校验');
+                    }
+                }
             }
             $contract=array_intersect_key($candidate,array_flip(['generation_type','model_code','channel_code','public_model_code','generation_protocol','modes','source']));
             $contract['revision']=$entry['revision'];

@@ -35,7 +35,8 @@ final class MarketGenerationReviewedContract
         unset($metadata[self::PIN]);
         $path=getenv('MARKET_REVIEWED_GENERATION_CONTRACTS_PATH') ?: dirname(__DIR__,4).'/resources/market/reviewed-generation-contracts.json';
         if (!is_file($path)) return $metadata;
-        $catalog=MarketGenerationSchema::array(file_get_contents($path));
+        $catalog=MarketCatalogReadScope::derive('reviewed_contract_catalogue',['path'=>$path],
+            static fn()=>MarketGenerationSchema::array(file_get_contents($path)));
         if (($catalog['version'] ?? null)!==2 || !is_array($catalog['contracts'] ?? null)) throw new InvalidArgumentException('本地审核合同目录格式不正确');
         $matches=array_values(array_filter($catalog['contracts'],static fn($c)=>is_array($c)
             && ($c['generation_type'] ?? '')===$type && ($c['model_code'] ?? '')===$product['upstream_model_code']
