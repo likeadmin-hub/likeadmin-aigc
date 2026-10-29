@@ -4,7 +4,13 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 19;
+    public const VERSION = 20;
+
+    /** New tasks may repair missing shots without changing historical receipt paths. */
+    public static function partialStoryboardRecovery(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? 0) >= 20;
+    }
 
     /** Prose is creative content, not a second source of structural IDs or flags. */
     public static function structuredValidation(array $request): bool

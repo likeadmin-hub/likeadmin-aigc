@@ -113,7 +113,7 @@ final class ShortDramaTimedScriptGeneration
         // Size output units to the selected model, not to a fixed shot count.
         // Reserve room for identifiers, JSON and dialogue as well as descriptions.
         $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
-        $batches = []; $batchParts = []; $batchOriginal = [];
+        $batches = []; $batchParts = []; $batchOriginal = []; $batchSafe = [];
         if (ShortDramaSceneBatch::enabled($request)) {
             $batchPlan = ShortDramaSceneBatch::plan($request, $messages, $skeleton, $partSize);
             if ($freezeBatches) $batchPlan = ShortDramaSceneBatch::restore($batchPlan, $freezeBatches($batchPlan), $skeleton);
@@ -128,6 +128,7 @@ final class ShortDramaTimedScriptGeneration
                 $reply = $call('timed_batch_' . ($group[0] + 1) . '_' . ($group[1] + 1), $batchInput, 1800 + $count * 750);
                 $batchParts += ShortDramaSceneBatch::partition($reply, $skeleton, $group, $request);
                 foreach ($group as $index) {
+                    $batchSafe[$index] = ShortDramaSceneBatch::unambiguous($reply, $skeleton, $group);
                     $prefix = 's' . ($index + 1) . '_';
                     $batchOriginal[$index] = ['storyboard' => array_values(array_filter((array)($reply['storyboard'] ?? []),
                         static fn($shot) => is_array($shot) && is_string($shot['shot_id'] ?? null) && str_starts_with($shot['shot_id'], $prefix)))];
@@ -178,6 +179,27 @@ final class ShortDramaTimedScriptGeneration
                     try {
                         // A failed attempt must not change the next attempt's locked input.
                         $validationDurations = $partDurations;
+                        if (ShortDramaInputContract::partialStoryboardRecovery($request) && $attempt === 0 && $offset === 0
+                            && !isset($batchParts[$sceneIndex]) && !empty($batchSafe[$sceneIndex])
+                            && !empty($batchOriginal[$sceneIndex]['storyboard'])) {
+                            $batchPartial = null;
+                            try {
+                                $normalized = ShortDramaSceneBinding::normalize(array_replace($skeleton, $batchOriginal[$sceneIndex], ['scene_beats' => [$beat]]), $request);
+                                $candidate = ['storyboard' => $normalized['storyboard']];
+                                $acceptedBatch = ShortDramaPartialStoryboard::accepted($candidate, $ids,
+                                    static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                        self::assertPart(['storyboard' => [$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                        ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                    });
+                                if ($acceptedBatch !== null && $acceptedBatch !== []) $batchPartial = $candidate;
+                            } catch (RuntimeException $batchError) {
+                                if (!in_array($batchError->getCode(), [409, 413, 422], true)) throw $batchError;
+                            }
+                            if ($batchPartial !== null) {
+                                $partial = $batchPartial;
+                                throw new RuntimeException('本段分镜数量不完整', 422);
+                            }
+                        }
                         if ($completedPartial !== null) {
                             $part = $completedPartial;
                             $completedPartial = null;
@@ -217,7 +239,7 @@ final class ShortDramaTimedScriptGeneration
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
-                        if ($attempt === 0 && $e->getCode() === 422 && $e->getMessage() === '本段分镜数量不完整' && is_array($partial)) {
+                        if (ShortDramaInputContract::partialStoryboardRecovery($request) && $attempt === 0 && $e->getCode() === 422 && $e->getMessage() === '本段分镜数量不完整' && is_array($partial)) {
                             $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
                                 static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
                                     self::assertPart(['storyboard' => [$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
@@ -232,6 +254,7 @@ final class ShortDramaTimedScriptGeneration
                             if ($accepted !== null && $accepted !== []) {
                                 foreach ($ids as $index => $id) {
                                     if (isset($accepted[$index])) continue;
+                                    ksort($accepted);
                                     $missingContext = $context;
                                     $missingContext['required_shots'] = [['shot_id' => $id, 'duration_seconds' => $partDurations[$index]]];
                                     $missingContext['shot_offset'] = $offset + $index;
