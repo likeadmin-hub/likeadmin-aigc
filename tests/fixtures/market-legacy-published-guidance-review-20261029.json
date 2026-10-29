@@ -1,0 +1,394 @@
+{
+  "entrypoint": "https://api.likeadmin.cn/user_center/docs",
+  "observed_at": "2026-10-29T21:06:51+08:00",
+  "method": "Read rendered published model documents only; no debug, upload, draft generation or task submission",
+  "scope": "Reviewed guidance fragments, not complete native contracts or capability grants",
+  "other_legacy_options": "13 corresponding model entries not found in the currently visible documentation table of contents",
+  "entries": [
+    {
+      "generation_type": "image",
+      "model_code": "qwen-image-3.0-pro",
+      "channel_code": "dashscope_compatible",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=model-100",
+      "channel_binding": "explicit_in_document",
+      "constraints": {
+        "input.messages.count": {
+          "minimum": 1,
+          "maximum": 1
+        },
+        "input.messages.role": {
+          "enum": [
+            "user"
+          ]
+        },
+        "content.text_count": {
+          "minimum": 1,
+          "maximum": 1
+        },
+        "content.image_count": {
+          "minimum": 0,
+          "maximum": 3
+        },
+        "parameters.n": {
+          "const": 1
+        },
+        "parameters.seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "parameters.prompt_extend_mode": {
+          "enum": [
+            "direct",
+            "agent"
+          ],
+          "with_reference_images": [
+            "direct"
+          ]
+        },
+        "parameters.size": {
+          "minimum_pixels": 262144,
+          "maximum_pixels": 4194304,
+          "minimum_ratio": "1:8",
+          "maximum_ratio": "8:1"
+        }
+      },
+      "unresolved": [
+        "complete_versioned_machine_contract",
+        "sku_conditions_and_pricing"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "qwen-image-3.0",
+      "channel_code": "dashscope_compatible",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=model-102",
+      "channel_binding": "explicit_in_document",
+      "constraints": {
+        "input.messages.count": {
+          "minimum": 1,
+          "maximum": 1
+        },
+        "input.messages.role": {
+          "enum": [
+            "user"
+          ]
+        },
+        "content.text_count": {
+          "minimum": 1,
+          "maximum": 1
+        },
+        "content.image_count": {
+          "minimum": 0,
+          "maximum": 3
+        },
+        "parameters.n": {
+          "const": 1
+        },
+        "parameters.seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "parameters.prompt_extend_mode": {
+          "enum": [
+            "direct",
+            "agent"
+          ],
+          "with_reference_images": [
+            "direct"
+          ]
+        },
+        "parameters.size": {
+          "minimum_pixels": 262144,
+          "maximum_pixels": 4194304,
+          "minimum_ratio": "1:8",
+          "maximum_ratio": "8:1"
+        }
+      },
+      "unresolved": [
+        "complete_versioned_machine_contract",
+        "sku_conditions_and_pricing"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "wan3.0-video",
+      "channel_code": "dashscope_compatible",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=model-101",
+      "channel_binding": "explicit_in_document",
+      "constraints": {
+        "input.required_any": [
+          "prompt",
+          "media"
+        ],
+        "input.prompt.maxLength": 20000,
+        "input.media.required": [
+          "type",
+          "url"
+        ],
+        "media.maximum_counts": {
+          "first_frame": 1,
+          "last_frame": 1,
+          "reference_image": 10,
+          "reference_video": 5,
+          "reference_audio": 5,
+          "file": 1,
+          "link": 1
+        },
+        "media.exclusive_groups": [
+          [
+            "frames",
+            "references"
+          ],
+          [
+            "file",
+            "link"
+          ]
+        ],
+        "parameters.duration": {
+          "type": "integer",
+          "without_reference_video": {
+            "minimum": 2,
+            "maximum": 30
+          },
+          "smart_value": -1
+        },
+        "parameters.seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "unresolved": [
+        "complete_versioned_machine_contract",
+        "reference_video_mode_total_duration_formula",
+        "sku_conditions_and_pricing"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "q4-preview-video",
+      "channel_code": "q4_video",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=model-q4-preview-video",
+      "channel_binding": "model_code_matches_but_channel_not_explicit_in_document",
+      "constraints": {
+        "images": {
+          "type": "array",
+          "minimum": 1,
+          "maximum": 1,
+          "role": "first_frame"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 16,
+          "default": 5
+        },
+        "resolution": {
+          "enum": [
+            "540p",
+            "720p",
+            "1080p",
+            "2K",
+            "4K"
+          ],
+          "default": "720p"
+        },
+        "prompt": {
+          "required": false,
+          "maxLength": 20000
+        },
+        "meta_data": {
+          "type": "string",
+          "encoding": "valid_json_string"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wm_position": {
+          "type": "integer",
+          "enum": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      },
+      "unresolved": [
+        "versioned_export_and_channel_binding",
+        "measured_image_constraints",
+        "sku_conditions_and_pricing"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "h3-video",
+      "channel_code": "minimax",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=model-h3-video",
+      "channel_binding": "model_code_matches_but_channel_not_explicit_in_document",
+      "constraints": {
+        "content.text": {
+          "minimum_nonempty": 1,
+          "exact_count": "wording_ambiguous"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 15
+        },
+        "resolution": {
+          "enum": [
+            "768P",
+            "2K"
+          ]
+        },
+        "media.maximum_counts": {
+          "first_frame": 1,
+          "last_frame": 1,
+          "reference_image": 9,
+          "reference_video": 3,
+          "reference_audio": 3
+        },
+        "media.frames_and_reference_exclusive": true,
+        "reference_audio.requires_any": [
+          "reference_image",
+          "reference_video"
+        ],
+        "ratio.adaptive_without_media": false
+      },
+      "unresolved": [
+        "introduction_mentions_tail_only_but_detailed_rules_require_first_frame",
+        "text_count_wording_ambiguous",
+        "versioned_export_and_channel_binding",
+        "measured_media_constraints",
+        "sku_conditions_and_pricing"
+      ]
+    }
+  ],
+  "application_entries": [
+    {
+      "generation_type": "video",
+      "app_code": "wan",
+      "api_code": "create",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=wan-create",
+      "constraints": {
+        "model": [
+          "wan2.7",
+          "wan2.7-r2v",
+          "wan2.7-videoedit"
+        ],
+        "duration": {
+          "text_and_reference": [
+            2,
+            15
+          ],
+          "edit": [
+            2,
+            10
+          ]
+        },
+        "image_with_roles.maximum": 2,
+        "edit.video_urls.count": 1,
+        "edit.image_urls.maximum": 4,
+        "metadata.audio_setting": [
+          "auto",
+          "origin"
+        ],
+        "pricing_dimensions": [
+          "model",
+          "resolution",
+          "input_type"
+        ]
+      },
+      "unresolved": [
+        "versioned_complete_machine_contract",
+        "nested_metadata_schema",
+        "current_sku_prices"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "app_code": "happy_horse",
+      "api_code": "submit",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=happy-horse-submit-a34",
+      "constraints": {
+        "model": [
+          "happyhorse-1.1-t2v",
+          "happyhorse-1.1-i2v",
+          "happyhorse-1.1-r2v",
+          "happyhorse-1.0-video-edit"
+        ],
+        "duration": {
+          "type": "integer",
+          "non_edit": [
+            3,
+            15
+          ]
+        },
+        "first_frame.images.count": 1,
+        "reference.images": [
+          1,
+          9
+        ],
+        "edit.video.count": 1,
+        "edit.images.maximum": 5,
+        "edit.audio_setting": [
+          "auto",
+          "origin"
+        ],
+        "pricing_dimensions": [
+          "resolution",
+          "duration"
+        ]
+      },
+      "unresolved": [
+        "versioned_complete_machine_contract",
+        "current_sku_matrix",
+        "edit_duration_and_input_duration_relationship"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "app_code": "full_video",
+      "api_code": "submit",
+      "url": "https://api.likeadmin.cn/user_center/docs?slug=full-video-submit",
+      "constraints": {
+        "model": {
+          "const": "full-video"
+        },
+        "content.nonempty_text.minimum": 1,
+        "duration": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 15
+        },
+        "media.maximum_counts": {
+          "first_frame": 1,
+          "last_frame": 1,
+          "reference_image": 9,
+          "reference_video": 3,
+          "reference_audio": 3
+        },
+        "tail_only_supported": true,
+        "frames_and_reference_exclusive": true,
+        "reference_audio.requires_any": [
+          "reference_image",
+          "reference_video"
+        ],
+        "pricing_dimensions": [
+          "resolution",
+          "duration",
+          "excess_reference_images"
+        ]
+      },
+      "unresolved": [
+        "versioned_complete_machine_contract",
+        "current_reference_surcharge_rule",
+        "current_sku_prices"
+      ]
+    }
+  ]
+}

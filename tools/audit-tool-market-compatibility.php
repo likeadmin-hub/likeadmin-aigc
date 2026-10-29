@@ -33,7 +33,8 @@ foreach ((array)($captured['contracts'] ?? []) as $sample) {
 }
 $observations=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-legacy-declaration-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
 $legacyReviews=[];
-foreach (\app\common\service\power\MarketGenerationContractReview::ledger($captured,$observations)['entries'] as $review) {
+$guidance=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-legacy-published-guidance-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+foreach (\app\common\service\power\MarketGenerationContractReview::ledger($captured,$observations,$guidance)['entries'] as $review) {
     $legacyReviews[$review['generation_type'].':model:'.$review['model_code'].':'.$review['channel_code']]=$review;
 }
 // Enforce the read-only promise even if a catalogue dependency later adds writes.
@@ -159,6 +160,14 @@ foreach (['image', 'video'] as $type) {
         $contractEvidence=$legacyReviews[$sampleKey] ?? null;
         if ($contractEvidence !== null) $contractEvidence['current_parameters_match_recorded']=hash_equals(
             $contractEvidence['parameter_fingerprint'],Audit::fingerprint(MarketGenerationSchema::array($metadata['params_schema'] ?? [])));
+        if ($resource === 'app_api') {
+            $documents=array_values(array_filter((array)($guidance['application_entries'] ?? []),static fn($d)=>
+                $d['generation_type'] === $type && $d['app_code'] === ($product['upstream_app_code'] ?? '')
+                && $d['api_code'] === ($product['upstream_api_code'] ?? '')));
+            if ($documents !== []) $contractEvidence=['evidence_status'=>'published_guidance_reviewed','resource_type'=>'app_api',
+                'published_guidance'=>$documents,'guidance_observed_at'=>$guidance['observed_at'],'native_contract_importable'=>false,
+                'sku_pricing'=>'unverified','live_generation'=>'unverified'];
+        }
         $report['models'][] = [
             'generation_type' => $type, 'id' => $id, 'product_id' => $productId,
             'resource_type' => $resource, 'name' => (string)($option['name'] ?? ''),
