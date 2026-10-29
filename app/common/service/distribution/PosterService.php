@@ -101,11 +101,12 @@ final class PosterService
         $result=self::decode($version,true);
         return ['id'=>$id,'name'=>$result['name'],'published_version'=>(int)$version['id'],'layout'=>$result['layout'],'background_url'=>$result['background_url']];
     }
-    public static function profile(int $tenantId,int $userId): array {
+    public static function profile(int $tenantId,int $userId,bool $readOnly=false): array {
         DistributionService::assertEnabled($tenantId);
         $user=User::where(['tenant_id'=>$tenantId,'id'=>$userId])->findOrEmpty();
         if ($user->isEmpty() || !empty($user['is_disable'])) throw new RuntimeException('请重新登录');
-        $relation=DistributionService::ensurePromoter($tenantId,$userId);
+        $relation=$readOnly ? Db::name('distribution_relation')->where(['tenant_id'=>$tenantId,'user_id'=>$userId])->find() : DistributionService::ensurePromoter($tenantId,$userId);
+        if (!$relation || empty($relation['invite_code'])) throw new RuntimeException('推广资格未建立，请重新打开推广中心');
         if (!empty($relation['is_frozen'])) throw new RuntimeException('推广资格已停用，请联系管理员');
         return ['nickname'=>(string)$user['nickname'],'avatar'=>(string)$user['avatar'],'invite_code'=>$relation['invite_code']];
     }
@@ -115,6 +116,33 @@ final class PosterService
         if ((int)($input['published_version']??0)!==$poster['published_version']) throw new RuntimeException('海报已更新，请重新选择模板');
         PosterLayout::validateUserEdit($poster['layout'],(array)($input['layout']??[]));
         return ['profile'=>$profile,'background_url'=>$poster['background_url']];
+    }
+    /** Raster delivery is authorized by the live published template and personal receipts only. */
+    public static function assets(int $tenantId, int $userId, array $input): array {
+        if (array_diff(array_keys($input), ['id','published_version'])
+            || !is_scalar($input['id'] ?? null) || !is_scalar($input['published_version'] ?? null)
+            || !preg_match('/^[1-9][0-9]{0,18}$/D', (string)($input['id'] ?? ''))
+            || !preg_match('/^[1-9][0-9]{0,18}$/D', (string)($input['published_version'] ?? ''))) {
+            throw new RuntimeException('海报参数无效，请重新选择模板');
+        }
+        $profile = self::profile($tenantId, $userId, true);
+        $poster = self::published($tenantId, (int)$input['id']);
+        if ((int)$input['published_version'] !== $poster['published_version']) throw new RuntimeException('海报已更新，请重新选择模板');
+        $file = TenantFile::where(['tenant_id'=>$tenantId, 'id'=>(int)$poster['layout']['canvas']['background_asset_id'], 'type'=>10, 'source'=>0])->findOrEmpty();
+        if ($file->isEmpty()) throw new RuntimeException('背景图片不存在，请重新选择模板');
+        $started = microtime(true);
+        $background = PosterRasterService::read($file->toArray(), $tenantId, $started + 4.0);
+        $avatar = null;
+        try {
+            // User avatar paths alone are not receipts. Require the current user's own upload.
+            $user = User::where(['tenant_id'=>$tenantId, 'id'=>$userId])->findOrEmpty();
+            $avatarUri = (string)$user->getData('avatar');
+            if ($avatarUri !== '') {
+                $receipt = TenantFile::where(['tenant_id'=>$tenantId, 'source'=>1, 'source_id'=>$userId, 'type'=>10, 'uri'=>$avatarUri])->findOrEmpty();
+                if (!$receipt->isEmpty()) $avatar = PosterRasterService::read($receipt->toArray(), $tenantId, min($started + 6.0, microtime(true) + 2.0));
+            }
+        } catch (\Throwable $error) { /* Missing/unreadable personal avatars use the nickname fallback. */ }
+        return ['background'=>$background, 'avatar'=>$avatar, 'profile'=>$profile, 'published_version'=>$poster['published_version']];
     }
     public static function code(int $tenantId,int $userId,array $input): array {
         self::published($tenantId,(int)($input['id']??0));
