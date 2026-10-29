@@ -2481,7 +2481,9 @@ class MarketVideoRuntimeService
 
     private static function isWanThreeProduct(array $product): bool
     {
-        return ($product['resource_type'] ?? '') !== 'app_api' && MarketGenerationAdapterRegistry::modelProtocol('video', $product) === 'wan_video_media_v1';
+        if (($product['resource_type'] ?? '') === 'app_api') return false;
+        try { return MarketGenerationAdapterRegistry::modelProtocol('video', $product) === 'wan_video_media_v1'; }
+        catch (\InvalidArgumentException) { return false; }
     }
 
     /** First/last-frame adapters always need exactly two image inputs. */
@@ -2668,7 +2670,9 @@ class MarketVideoRuntimeService
     }
     private static function isH3Product(array $product): bool
     {
-        return ($product['resource_type'] ?? '') !== 'app_api' && MarketGenerationAdapterRegistry::modelProtocol('video', $product) === 'h3_content_v1';
+        if (($product['resource_type'] ?? '') === 'app_api') return false;
+        try { return MarketGenerationAdapterRegistry::modelProtocol('video', $product) === 'h3_content_v1'; }
+        catch (\InvalidArgumentException) { return false; }
     }
     private static function defaultConcreteTextToVideoRatio(array $skus, array $metadata): string
     {
@@ -3165,8 +3169,9 @@ class MarketVideoRuntimeService
         }
         $app = strtolower((string)($product['upstream_app_code'] ?? ''));
         if ($app === 'wan') {
-            $protocol = MarketGenerationAdapterRegistry::applicationProtocol('wan', ['locked_params'=>$locked,
-                'source_payload'=>$product['source_payload'] ?? []]);
+            try { $protocol = MarketGenerationAdapterRegistry::applicationProtocol('wan', ['locked_params'=>$locked,
+                'source_payload'=>$product['source_payload'] ?? []]); }
+            catch (\InvalidArgumentException) { return false; }
             $declared = match ($protocol) {
                 'wan_edit_v1'=>'video_edit', 'wan_reference_v1'=>'image_reference', 'wan_text_v1'=>'text_to_video', default=>null,
             };

@@ -129,4 +129,15 @@ class MarketGenerationProtocolDeclarationTest extends TestCase
         (new ReflectionMethod(Videos::class,'assertWanAppAssets'))->invoke(null,['product'=>$product,'sku'=>['locked_params'=>$locked]],
             ['image'=>array_fill(0,5,'https://fixtures.invalid/a.png'),'video'=>['https://fixtures.invalid/a.mp4'],'audio'=>[]]);
     }
+
+    public function testInvalidProtocolDoesNotBreakOtherCatalogueClassifications(): void
+    {
+        $product=['resource_type'=>'model','upstream_model_code'=>'q4-preview-video','source_payload'=>['market_metadata'=>['generation_protocol'=>'unknown_v9']]];
+        self::assertFalse(\app\common\service\power\Q4VideoContract::matches($product));
+        foreach(['isH3Product','isWanThreeProduct'] as $method)self::assertFalse((new ReflectionMethod(Videos::class,$method))->invoke(null,$product));
+        self::assertFalse((new ReflectionMethod(Videos::class,'skuSupportsInputMode'))->invoke(null,'text_to_video','video_edit',
+            ['resource_type'=>'app_api','upstream_app_code'=>'wan'],['model'=>'fixture','_generation_protocol'=>'unknown_v9']));
+        $this->expectException(\InvalidArgumentException::class);
+        Registry::modelProtocol('video',$product);
+    }
 }
