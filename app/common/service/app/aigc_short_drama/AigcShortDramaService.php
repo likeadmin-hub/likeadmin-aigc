@@ -2488,6 +2488,7 @@ class AigcShortDramaService
                     'target_seconds' => $episodeOverride, 'min_seconds' => $episodeOverride, 'max_seconds' => $episodeOverride, 'timeline_segments' => []]);
             }
         }
+        $episodePolicy = self::uploadedEpisodeTimingPolicy($request, $currentOutline, $episodePolicy);
         unset($request['script_text'], $request['script_content']);
         $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
             '_input_contract_version' => (int)($request['_input_contract_version'] ?? 0),
@@ -2747,7 +2748,7 @@ class AigcShortDramaService
         // Only new user submissions adopt tenant defaults. Internal retries and
         // episode continuations retain their original immutable policy version.
         if ($existingProjectId === 0 && !isset($request['episode_duration_policy']) && !empty($config['episode_duration_rule']['enabled'])) {
-            $request['episode_duration_policy'] = self::episodeDurationSnapshot($prompt, $params, $config);
+            $request['episode_duration_policy'] = self::episodeDurationSnapshot($prompt, $params, $config, true);
         }
         if (ShortDramaEpisodeDuration::active($request)) {
             $request['_generation_version'] = max(3, (int)$request['_generation_version']);
@@ -3055,6 +3056,9 @@ class AigcShortDramaService
             $sourceRequest['subject_ids'] = array_values(array_map(static fn(array $subject): string => (string)$subject['id'], $references));
             $sourceRequest['subject_mentions'] = array_values(array_unique(array_filter(array_map(static fn(array $subject): string => (string)$subject['name'], $references))));
             $sourceRequest['prompt'] = $taskPrompt;
+            // Parse per-episode prose only after the real episode count is known;
+            // the first numbered episode must not become a global target.
+            $sourceRequest['target_duration_seconds'] = min(7200, max(0, (int)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0)));
             $sourceRequest['multi_episode'] = true;
             $sourceRequest['episode_count'] = 2;
             $sourceRequest['episode_total_count'] = 2;
@@ -3088,6 +3092,8 @@ class AigcShortDramaService
             $idempotencyKey = '';
         }
         $sourceRequest = ShortDramaInputContract::begin($sourceRequest);
+        $config = $config ?? self::publicConfig($tenantId);
+        $sourceRequest['_upload_timing_rule_snapshot'] = ShortDramaEpisodeDuration::normalize((array)($config['episode_duration_rule'] ?? []));
         unset($sourceRequest['_submission_key'], $sourceRequest['_submission_hash']);
         $sourceRequest = array_replace($sourceRequest, $receipt);
         if ($receipt) $idempotencyKey = $receipt['_submission_key'];
@@ -9043,6 +9049,7 @@ class AigcShortDramaService
         $parseResult = is_array($summary['parse_result'] ?? null) ? (array)$summary['parse_result'] : [];
         try {
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
+            $request = self::finalizeUploadedTimingPolicy($request, (int)$plan['episode_count']);
         } catch (\Throwable $e) {
             $message = self::friendlyGenerationError($e->getMessage());
             $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
@@ -17296,7 +17303,7 @@ class AigcShortDramaService
         ];
     }
 
-    private static function episodeDurationSnapshot(string $prompt, array $params, array $config): array
+    private static function episodeDurationSnapshot(string $prompt, array $params, array $config, bool $targetPlanning = false): array
     {
         $settings = self::normalizeEpisodeSettings($params);
         $multi = $settings['multi_episode'];
@@ -17340,8 +17347,46 @@ class AigcShortDramaService
             }
             $selected = 0;
         }
-        return ShortDramaEpisodeDuration::snapshot((array)($config['episode_duration_rule'] ?? []),
+        $policy = ShortDramaEpisodeDuration::snapshot((array)($config['episode_duration_rule'] ?? []),
             $selected, $explicitText, self::extractTimelineSegments($prompt), $seriesTotal) + ['episode_overrides' => $overrides];
+        if ($targetPlanning) $policy['target_planning_version'] = 1;
+        return $policy;
+    }
+
+    /** The rule is frozen at submission; the episode count becomes known after parsing. */
+    private static function finalizeUploadedTimingPolicy(array $request, int $episodeCount): array
+    {
+        $rule=$request['_upload_timing_rule_snapshot'] ?? null;
+        if (!is_array($rule) || ShortDramaEpisodeDuration::active($request)) return $request;
+        $prompt=(string)($request['prompt'] ?? '');
+        $explicit=(float)($request['target_duration_seconds'] ?? 0) > 0
+            || self::extractUserTextDurationHint($prompt) !== '' || self::extractTimelineSegments($prompt) !== [];
+        if (!empty($rule['enabled']) || $explicit) {
+            $params=array_replace($request,['multi_episode'=>true,'episode_count'=>$episodeCount]);
+            $request['episode_duration_policy']=self::episodeDurationSnapshot($prompt,$params,['episode_duration_rule'=>$rule],true);
+        }
+        return $request;
+    }
+
+    /** A confirmed episode's explicit timeline overrides defaults, but never a conflicting user requirement. */
+    private static function uploadedEpisodeTimingPolicy(array $request, array $episode, array $policy): array
+    {
+        $rule=$request['_upload_timing_rule_snapshot'] ?? null;
+        if (!is_array($rule)) return $policy;
+        $source=ShortDramaImportedScript::sourceContent($episode);
+        if ($source === '') return $policy;
+        $timeline=self::extractTimelineSegments($source);
+        $explicit=0.0;
+        if (preg_match_all('/(?:^|\n)\s*(?:(?:本集|第\s*[0-9一二三四五六七八九十百]+\s*集)\s*)?时长\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)\s*(分钟|分|秒钟|秒)(?=\s|$)/u',$source,$matches,PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $value=(float)$match[1] * (in_array($match[2],['分钟','分'],true) ? 60 : 1);
+                if ($explicit > 0 && abs($explicit-$value)>0.001) throw new Exception('本集原文的时长要求存在冲突，请核对');
+                $explicit=$value;
+            }
+        }
+        if (!$timeline && $explicit <= 0) return $policy;
+        $selected=($policy['source'] ?? '') === 'user' ? (float)($policy['target_seconds'] ?? 0) : 0.0;
+        return ShortDramaEpisodeDuration::snapshot($rule,$selected,$explicit,$timeline);
     }
 
     private static function readUploadedScriptText(string $path, string $extension): string
@@ -18431,7 +18476,8 @@ class AigcShortDramaService
                 : [],
             'selected_style_name' => (string)($styleDetail['name'] ?? ''),
             'selected_style_prompt' => mb_substr((string)($styleDetail['prompt'] ?? ''), 0, 300, 'UTF-8'),
-            'target_duration_seconds' => ($request['episode_duration_policy']['source'] ?? '') === 'default' ? 0 : $targetDurationSeconds,
+            'target_duration_seconds' => ($request['episode_duration_policy']['source'] ?? '') === 'default'
+                && empty($request['episode_duration_policy']['target_planning_version']) ? 0 : $targetDurationSeconds,
             'shot_duration_rule' => ShortDramaShotDuration::modelRule($durationRule),
             'multi_episode' => $multiEpisode,
             'multi_episode_stage' => $multiEpisodeStage,
