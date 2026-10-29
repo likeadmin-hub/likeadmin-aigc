@@ -85,7 +85,7 @@ class MarketMixedMediaBillingTest extends TestCase
         self::assertSame(in_array('image',$kinds,true)?1:0,$p->meterContext['reference_images']);
         $seen=null;$compound=['version'=>1,'basis'=>'output_plus_video','rounding'=>'ceil'];
         $context=Meter::context($compound,$p->nativeInput,static function($input)use(&$seen){$seen=$input;return 2.5;});
-        self::assertSame(in_array('video',$kinds,true)?2.5:0.0,$context['reference_video_seconds']);
+        self::assertSame(in_array('video',$kinds,true)?2.5:0,$context['reference_video_seconds']);
         if(in_array('video',$kinds,true))self::assertSame(['video_urls'=>['https://fixtures.invalid/video']],$seen);
         else self::assertNull($seen);
     }
