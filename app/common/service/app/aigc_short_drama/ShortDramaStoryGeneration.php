@@ -27,7 +27,7 @@ final class ShortDramaStoryGeneration
         $qualityReviewEnabled = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
         $receipts = [];
         $rejected = [];
-        $call = static function (string $key, array $messages, int $count, bool $public, ?callable $validate = null) use (&$model, &$receipts, &$rejected, $provider): array {
+        $call = static function (string $key, array $messages, int $count, bool $public, ?callable $validate = null) use (&$model, &$receipts, &$rejected, $provider, $request, $stage): array {
             $budget = ($public || str_starts_with($key, 'roadmap'))
                 ? ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, $public ? 'story' : 'roadmap')
                 : ShortDramaPlanningBudget::calculate($messages['system_prompt'] . $messages['content'], $model, $count, false);
@@ -39,8 +39,9 @@ final class ShortDramaStoryGeneration
             $receipt = $provider($key, $messages, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
-            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate): array {
-                $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
+            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $request, $stage): array {
+                $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []), (int)($request['_input_contract_version']??0)>=27);
+                if($stage==='story') $payload=ShortDramaMaterialContract::prepare($payload,$request);
                 if ($validate) $validate($payload);
                 return $payload;
             }); } catch (RuntimeException $error) { $rejected = $receipt; throw $error; }

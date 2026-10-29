@@ -9,8 +9,8 @@ final class ShortDramaStructuredResponse
     /** Keep only independently complete top-level properties as repair input, never as a completed plan. */
     public static function partialObjectPrefix(array $response): array
     {
-        if (in_array((string)($response['finish_reason'] ?? ''), ['content_filter','refusal','safety'], true)) return [];
-        $content=trim((string)($response['content'] ?? ''));
+        if (in_array($response['finish_reason'] ?? '', ['content_filter','refusal','safety'], true)) return [];
+        try { $content=trim(self::text($response['content'] ?? null)); } catch(RuntimeException $error) { return []; }
         $content=preg_replace('/^\x{FEFF}|^```(?:json)?\s*/u','',$content) ?? $content;
         for ($depth=0;$depth<3;$depth++) {
             if (!preg_match('/^\{\s*"(?:data|result|plan|payload)"\s*:\s*(?=\{)/',$content,$wrapper)) break;
@@ -45,8 +45,8 @@ final class ShortDramaStructuredResponse
      * The caller must validate IDs, ordering, fields and scene ownership. */
     public static function partialStoryboard(array $response, bool $allowPrefix = false, bool $extendedShapes = false): ?array
     {
-        if (in_array((string)($response['finish_reason'] ?? ''), ['content_filter','refusal','safety'], true)) return null;
-        $content = trim((string)($response['content'] ?? ''));
+        if (in_array($response['finish_reason'] ?? '', ['content_filter','refusal','safety'], true)) return null;
+        try { $content=trim(self::text($response['content'] ?? null)); } catch(RuntimeException $error) { return null; }
         $content = preg_replace('/^\x{FEFF}/u', '', $content) ?? $content;
         $content = preg_replace('/^```(?:json)?\s*/u', '', $content) ?? $content;
         if ($extendedShapes) {
@@ -141,23 +141,26 @@ final class ShortDramaStructuredResponse
         }
     }
 
-    public static function decode(array $response): array
+    public static function decode(array $response, bool $strict = true): array
     {
-        $reason = (string)($response['finish_reason'] ?? '');
+        $reason = $response['finish_reason'] ?? '';
+        if (!is_string($reason)) throw new RuntimeException('模型输出字段 finish_reason 类型无效', 422);
         if (in_array($reason, ['content_filter', 'refusal', 'safety'], true)) {
             throw new RuntimeException('模型未接受此次内容，请调整输入后再试', 403);
         }
         if (in_array($reason, ['length', 'max_tokens', 'max_output_tokens'], true)) {
             throw new RuntimeException('本次输出达到模型长度上限，已保存返回内容', 413);
         }
-        $content = trim((string)($response['content'] ?? ''));
+        $content = trim(self::text($response['content'] ?? null));
         $content = preg_replace('/^\x{FEFF}/u', '', $content) ?? $content;
         $content = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $content) ?? $content;
         // Only a complete outer object is accepted. Explanations around JSON
         // are tolerated, but a nested object in a truncated response is not.
         $start = strpos($content, '{');
         if ($start !== false) {
-            $depth = 0; $quoted = false; $escaped = false;
+            // A root array/string is a different contract, not prose before an object.
+            if (preg_match('/[\["]/u', substr($content, 0, $start))) throw new RuntimeException('模型输出不是唯一 JSON 对象，已保存返回内容', 422);
+            $stack = []; $quoted = false; $escaped = false;
             for ($i = $start, $length = strlen($content); $i < $length; $i++) {
                 $c = $content[$i];
                 if ($quoted) {
@@ -167,14 +170,28 @@ final class ShortDramaStructuredResponse
                     continue;
                 }
                 if ($c === '"') $quoted = true;
-                elseif ($c === '{') $depth++;
-                elseif ($c === '}' && --$depth === 0) {
-                    $data = json_decode(substr($content, $start, $i - $start + 1), true);
-                    if (!is_array($data)) break;
-                    for ($level = 0; $level < 3; $level++) {
+                elseif ($c === '{' || $c === '[') $stack[] = $c;
+                elseif ($c === '}' || $c === ']') {
+                    if (array_pop($stack) !== ($c === '}' ? '{' : '[')) break;
+                    if ($stack) continue;
+                    // Two objects (including an incomplete second one) have ambiguous ownership.
+                    $tail = trim(substr($content, $i + 1));
+                    if (preg_match('/[\{\[]/u', $tail)) {
+                        $diagnostic = $strict ? null : json_decode(preg_replace('/^\x60{3}(?:json)?\s*|\s*\x60{3}$/u','',$tail),true);
+                        // Only this documented historical second object is compatible.
+                        if(!is_array($diagnostic) || array_keys($diagnostic)!==['diagnostic']) {
+                            throw new RuntimeException('模型输出含多个 JSON 候选，已保存返回内容', 422);
+                        }
+                    }
+                    $json = substr($content, $start, $i - $start + 1);
+                    $data = json_decode($json, true);
+                    if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) break;
+                    self::uniqueKeys($json);
+                    for ($level = 0; $level < 16; $level++) {
                         $unwrapped = false;
                         foreach (['data', 'result', 'plan', 'payload'] as $key) {
                             if (count($data) === 1 && is_array($data[$key] ?? null)) {
+                                if ($data[$key] !== [] && array_is_list($data[$key])) throw new RuntimeException('模型输出封装内不是 JSON 对象', 422);
                                 $data = $data[$key]; $unwrapped = true; break;
                             }
                         }
@@ -185,5 +202,46 @@ final class ShortDramaStructuredResponse
             }
         }
         throw new RuntimeException('模型输出不是完整 JSON，已保存返回内容', 422);
+    }
+
+    /** Only declared final-text blocks are concatenated, never reasoning or tool arguments. */
+    private static function text(mixed $content): string
+    {
+        if (is_string($content)) return $content;
+        if (is_array($content) && array_is_list($content) && $content !== []) {
+            $parts = [];
+            foreach ($content as $block) {
+                if (!is_array($block) || !in_array($block['type'] ?? '', ['text','output_text'], true) || !is_string($block['text'] ?? null)) {
+                    throw new RuntimeException('模型输出字段 content 必须为最终文本', 422);
+                }
+                $parts[] = $block['text'];
+            }
+            return implode('', $parts);
+        }
+        throw new RuntimeException('模型输出字段 content 必须为文本', 422);
+    }
+
+    /** json_decode silently overwrites duplicate keys, including escaped spellings. */
+    private static function uniqueKeys(string $json): void
+    {
+        preg_match_all('/"(?:[^"\\\\]|\\\\.)*"|[{}\[\]:,]/s', $json, $tokens);
+        $stack = [];
+        foreach ($tokens[0] as $token) {
+            if ($token === '{' || $token === '[') {
+                $stack[] = ['object'=>$token === '{','key'=>true,'seen'=>[]];
+            } elseif ($token === '}' || $token === ']') {
+                array_pop($stack);
+            } elseif ($stack) {
+                $index = count($stack) - 1;
+                if (!$stack[$index]['object']) continue;
+                if ($token === ':') $stack[$index]['key'] = false;
+                elseif ($token === ',') $stack[$index]['key'] = true;
+                elseif ($token[0] === '"' && $stack[$index]['key']) {
+                    $key = json_decode($token, true);
+                    if (isset($stack[$index]['seen'][$key])) throw new RuntimeException('模型输出 JSON 存在重复字段，已保存返回内容', 422);
+                    $stack[$index]['seen'][$key] = true;
+                }
+            }
+        }
     }
 }

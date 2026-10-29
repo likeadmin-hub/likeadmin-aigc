@@ -147,18 +147,53 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         }
         self::assertSame($before, Db::name('aigc_short_drama_planning_unit')->where($scope)->find());
     }
-    public function testLegacyExhaustedPendingUnitDoesNotSuggestContentReview(): void
+    public function testHistoricalPendingCountDoesNotPreventAnOtherwiseUnsubmittedCall(): void
     {
         $scope = ['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task];
         Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key' => 'v3_script', 'status' => 'pending',
             'attempt' => 3, 'request_json' => '{}']);
-        try {
-            Unit::call(2000000719, 7, $this->task, 'v3_script', [], static fn(): array => self::fail('Exhausted unit replayed'));
-            self::fail('Exhausted unit was accepted');
-        } catch (\RuntimeException $error) {
-            self::assertStringContainsString('请求次数已用完', $error->getMessage());
-            self::assertStringNotContainsString('调整内容', $error->getMessage());
+        $result=Unit::call(2000000719,7,$this->task,'v3_script',[],static fn():array=>['result'=>['content'=>'valid']]);
+        self::assertSame('valid',$result['result']['content']);
+    }
+    public function testMoreThanThreeValidationSuccessorsPreserveEveryPaidReceipt(): void
+    {
+        $input=['content'=>'同一原文']; $original=[];
+        for($i=0;$i<8;$i++) {
+            $receipt=Unit::call(2000000719,7,$this->task,'v3_many_repairs',$input,static fn()=>['result'=>['content'=>'raw_'.$i]],true);
+            $original[]=$receipt['result']['content'];
+            try { Unit::validate($receipt,static function(){throw new \RuntimeException('字段缺失',422);}); } catch(\RuntimeException $e) { self::assertSame(422,$e->getCode()); }
+            Unit::prepareExplicitRetry(2000000719,7,$this->task);
         }
+        $final=Unit::call(2000000719,7,$this->task,'v3_many_repairs',$input,static fn()=>['result'=>['content'=>'complete']]);
+        self::assertSame('complete',$final['result']['content']);
+        $rows=Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->order('id')->column('result_json');
+        self::assertCount(9,$rows);
+        self::assertSame($original,array_map(static fn($raw)=>json_decode($raw,true)['result']['content'],array_slice($rows,0,8)));
+    }
+    public function testConnectionEstablishmentFailureStillDefersAfterThirdAttempt(): void
+    {
+        Db::name('aigc_short_drama_planning_unit')->insert(['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>$this->task,'unit_key'=>'v3_wait',
+            'status'=>'waiting','attempt'=>9,'request_json'=>'{}','update_time'=>time()-3600]);
+        try { Unit::call(2000000719,7,$this->task,'v3_wait',[],static function(){throw new \RuntimeException('Connection refused');}); self::fail('Expected deferral'); }
+        catch(\RuntimeException $e){self::assertSame(425,$e->getCode());}
+        $row=Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->find();
+        self::assertSame('waiting',$row['status']); self::assertSame(10,(int)$row['attempt']);
+    }
+    public function testValidationContinuationCreatesOnlyARepairSuccessorAndKeepsAcceptedNeighbors(): void
+    {
+        $input=['content'=>'已确认事实'];
+        $good=Unit::call(2000000719,7,$this->task,'v3_neighbor',$input,static fn()=>['result'=>['content'=>'good']]);
+        $receipt=Unit::call(2000000719,7,$this->task,'v3_missing',$input,static fn()=>['result'=>['content'=>'missing']],true);
+        try { Unit::validate($receipt,static function(){throw new \RuntimeException('骨架缺少必要内容：subjects',422);}); } catch(\RuntimeException $e) {}
+        self::assertTrue(Unit::continueValidation(2000000719,7,$this->task));
+        self::assertSame($good,Unit::call(2000000719,7,$this->task,'v3_neighbor',$input,static fn()=>self::fail('Accepted neighbor replayed')));
+        self::assertSame('pending',Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->order('id','desc')->value('status'));
+    }
+    public function testUnknownAcceptedCallNeverEntersAutomaticValidationContinuation(): void
+    {
+        Db::name('aigc_short_drama_planning_unit')->insert(['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>$this->task,'unit_key'=>'v3_unknown',
+            'status'=>'running','attempt'=>1,'request_json'=>'{}','update_time'=>time()]);
+        self::assertFalse(Unit::continueValidation(2000000719,7,$this->task));
     }
     public function testCachedInvalidAuditEntersOneCorrectionAndBothReceiptsReplay(): void
     {

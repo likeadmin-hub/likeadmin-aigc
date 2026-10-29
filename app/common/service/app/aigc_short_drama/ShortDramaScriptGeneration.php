@@ -22,21 +22,11 @@ final class ShortDramaScriptGeneration
         if (ShortDramaSceneBinding::enabled($request)) $messages['system_prompt'] .= "\n" . ShortDramaSceneBinding::INSTRUCTION;
         if (ShortDramaDialogueSplit::enabled($request)) $messages['system_prompt'] .= "\n" . ShortDramaDialogueSplit::instruction($durationRule);
         $receipts = [];
-        $calls = 0;
-        $reservedOutput = 0;
         $rejected = [];
-        // Keep the existing body-generation budget. The shared review stage
-        // has a separate bounded budget proportional to narrative size.
+        // Model capacity is per request. Historical accumulated output/call
+        // estimates must not terminate a valid creation; dispatch owns yielding.
         $boundedMemory = (int)($request['_input_contract_version'] ?? 0) >= 7;
-        $auditReserve = !empty($request['series_context']);
-        $callLimit = $auditReserve ? 46 : 48;
-        $outputLimit = $auditReserve ? 183808 : 192000;
-        // Durable dispatch limits fresh submissions; replaying receipts does not
-        // consume a later segment's allowance. Other callers keep the old cap.
-        $segmented = ShortDramaInputContract::segmentedContinuation($request)
-            && ShortDramaPlanningUnit::hasDispatch((string)($request['_prompt_task_id'] ?? ''));
-        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null, ?callable $capture = null) use (&$receipts, &$calls, &$reservedOutput, &$model, &$rejected, $provider, $callLimit, $outputLimit, $boundedMemory, $request, $segmented): array {
-            if (!$segmented && ++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
+        $call = static function (string $key, array $input, int $desired = 8192, ?callable $validate = null, ?callable $capture = null) use (&$receipts, &$model, &$rejected, $provider, $boundedMemory, $request): array {
             $budget = ShortDramaPlanningBudget::fitMessages($input, $model, 'script', $desired, $boundedMemory);
             if (!empty($input['_share_script_context'])) {
                 $input = ShortDramaScriptContext::messages($input, $request);
@@ -44,10 +34,6 @@ final class ShortDramaScriptGeneration
                 $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $budget['max_tokens']);
             }
             unset($input['_stage_content']);
-            if (!$segmented) {
-                $reservedOutput += $budget['max_tokens'];
-                if ($reservedOutput > $outputLimit) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
-            }
             ShortDramaPlanningUnit::supersede($rejected); $rejected = [];
             $receipt = $provider('v3_' . $key, $input, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
@@ -56,7 +42,7 @@ final class ShortDramaScriptGeneration
                 if (ShortDramaSceneBatch::isUnit($key, $request)) {
                     // The paid receipt is already durable. Parse/scene failures may
                     // fall back locally; submit, settlement and capacity errors above cannot.
-                    try { return ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? [])); }
+                    try { return ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []), (int)($request['_input_contract_version']??0)>=27); }
                     catch (RuntimeException $error) {
                         if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                         if (ShortDramaInputContract::preciseRecovery($request)) {
@@ -66,7 +52,7 @@ final class ShortDramaScriptGeneration
                         return ['_batch_parse_error' => $error->getMessage()];
                     }
                 }
-                try { $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? [])); }
+                try { $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []), (int)($request['_input_contract_version']??0)>=27); }
                 catch (RuntimeException $error) {
                     if ($capture && ShortDramaInputContract::truncatedObjectPrefix($request) && in_array($error->getCode(), [413,422], true)
                         && preg_match('/^(?:script|skeleton|timed_skeleton_\d+)$/', $key)) {
@@ -78,6 +64,9 @@ final class ShortDramaScriptGeneration
                         || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::extendedTruncatedRecovery($request), ShortDramaInputContract::wrappedTruncatedRecovery($request)))) throw $error;
                 }
                 if ($capture && $key !== 'script') $capture($payload);
+                if ($key === 'script' || $key === 'skeleton' || $key === 'skeleton_repair' || str_starts_with($key,'timed_skeleton_')) {
+                    $payload = ShortDramaMaterialContract::prepare($payload,$request);
+                }
                 if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
                 if ($validate) $validate($payload);
                 return $payload;
@@ -160,6 +149,13 @@ final class ShortDramaScriptGeneration
             } catch (RuntimeException $error) {
                 if ($skeleton && $progress && ShortDramaInputContract::truncatedObjectPrefix($request)) $progress('script_checkpoint', $skeleton);
                 if (ShortDramaInputContract::preciseRecovery($request) && !$attempt && $error->getCode() === 422 && $skeleton) {
+                    if (ShortDramaMaterialContract::missing($skeleton)) {
+                        $skeleton=ShortDramaMaterialContract::repair($call,'skeleton_top_fields_v1',$skeletonMessages,$skeleton);
+                        $skeleton=ShortDramaSceneBinding::normalize($skeleton,$request);
+                        self::assertSkeleton($skeleton);
+                        if($normalizeSkeleton!==null) $skeleton=$normalizeSkeleton($skeleton);
+                        break;
+                    }
                     $targets = ShortDramaSkeletonFieldRepair::targets($skeleton, false);
                     if ($targets) {
                         $verify = static function ($reply) use ($skeleton, $targets, $request): void {

@@ -29,7 +29,7 @@ same(64000, C::metadata($model + ['context_length'=>64000])['context_window'], '
 foreach (['kimi-k2.6', 'custom-kimi-k3', 'kimi-k3-custom', 'other'] as $code) {
     same(24000, P::inputBudget(['model_code'=>$code]), 'No guessed defaults for other IDs');
     same(8192, C::output(['model_code'=>$code], 0), 'Other model default changed');
-    same(32768, C::output(['model_code'=>$code, 'max_tokens'=>65536], 65536), 'Other model ceiling changed');
+    same(65536, C::output(['model_code'=>$code, 'max_tokens'=>65536], 65536), 'Declared channel capacity was clipped');
 }
 $rows = [['role'=>'user','content'=>'必须保留首条约束。'.str_repeat('word ',30000).'最后更正：不得对外发布。']];
 same($rows, P::fitContext($rows, 'system', [], P::inputBudget($model)), 'Long input changed');

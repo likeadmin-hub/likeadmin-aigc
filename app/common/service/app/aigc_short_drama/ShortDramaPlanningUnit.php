@@ -96,6 +96,30 @@ final class ShortDramaPlanningUnit
         return (bool)preg_match('/SSL_connect:|Could not resolve host|Temporary failure in name resolution|Name or service not known|Network is unreachable|Failed to connect to|Connection refused|cURL error (?:6|7)\b/i', $error);
     }
 
+    /** A local repair pass may yield; its count is never a terminal creation budget. */
+    public static function continueValidation(int $tenant, int $user, string $task): bool
+    {
+        if ($task === '') return false;
+        return Db::transaction(static function () use ($tenant,$user,$task): bool {
+            $rows=Db::name('aigc_short_drama_planning_unit')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task])->lock(true)->select()->toArray();
+            $latest=[];
+            foreach($rows as $row) {
+                $saved=json_decode((string)$row['request_json'],true) ?: [];
+                $root=(string)($saved['_unit_root'] ?? $row['unit_key']);
+                if(!isset($latest[$root]) || (int)$row['id']>(int)$latest[$root]['id']) $latest[$root]=$row;
+            }
+            $repair=false;
+            foreach($latest as $row) {
+                if($row['status']==='running' || ($row['status']==='failed' && !self::retryableBeforeSubmission((string)$row['error']))) return false;
+                if($row['status']==='received' && str_starts_with((string)$row['error'],'validation:')) $repair=true;
+            }
+            if(!$repair) return false;
+            $lock='';
+            self::prepareRetry($tenant,$user,$task,false,$lock,false,false);
+            return true;
+        });
+    }
+
     /** Reuse received work; uncertain interrupted calls require a separately confirmed successor. */
     public static function prepareExplicitRetry(int $tenant, int $user, string $task, bool $confirmInterrupted = false, bool $checkOnly = false, bool $newContext = false): void
     {
@@ -140,7 +164,7 @@ final class ShortDramaPlanningUnit
                 $interrupted[$root] = true;
             }
             if ($checkOnly || !in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
-            if ((int)$row['attempt'] >= 3 && !self::retryableBeforeSubmission((string)($row['error'] ?? ''))) {
+            if ($row['status'] === 'failed' && !self::retryableBeforeSubmission((string)($row['error'] ?? ''))) {
                 throw new RuntimeException('上次模型请求的结果无法确认，不能安全重试；请新建任务并核对已完成内容');
             }
         }
@@ -154,9 +178,7 @@ final class ShortDramaPlanningUnit
             if (!$restartInterrupted && ($row['status'] !== 'received' || (!$validationFailed && !$superseded))) continue;
             if (!$restartInterrupted && self::prepareLegacyTruncatedRecovery($scope, $root, $row, $rows)) continue;
             if (!$restartInterrupted && !$validationFailed) continue;
-            $keys = self::recoveryKeys($root);
-            $index = array_search($row['unit_key'], $keys, true);
-            if ($index === false || !isset($keys[$index + 1])) throw new RuntimeException('该部分多次修复仍未通过，请调整对应场景后新建版本；已有内容保留', 409);
+            $nextKey = self::nextRecoveryKey($root, (string)$row['unit_key']);
             $saved = json_decode((string)$row['request_json'], true, 512, JSON_THROW_ON_ERROR);
             $saved['_unit_root'] = $root;
             if ($restartInterrupted) {
@@ -164,7 +186,7 @@ final class ShortDramaPlanningUnit
                 // Only the user-confirmed successor may submit a fresh paid request.
                 $saved['_interrupted_retry_of'] = (int)$row['id'];
             } else $saved['_repair_reason'] = substr((string)$row['error'], strlen('validation:'));
-            Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key'=>$keys[$index + 1], 'status'=>'pending', 'attempt'=>0,
+            Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key'=>$nextKey, 'status'=>'pending', 'attempt'=>0,
                 'request_json'=>json_encode($saved, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'create_time'=>time(),'update_time'=>time()]);
         }
         foreach ($latest as $row) {
@@ -215,11 +237,18 @@ final class ShortDramaPlanningUnit
         return 'checkpoint_legacy_recovery_' . substr(hash('sha256', $key), 0, 32);
     }
 
-    private static function recoveryKeys(string $key): array
+    private static function nextRecoveryKey(string $root, string $current): string
     {
-        $keys = [$key];
-        for ($i = 1; $i <= 3; $i++) $keys[] = substr($key, 0, 70) . '_retry_' . $i . '_' . substr(hash('sha256', $key), 0, 8);
-        return $keys;
+        $prefix = substr($root, 0, 70) . '_retry_';
+        $hash = substr(hash('sha256', $root), 0, 8);
+        $sequence = 1;
+        if ($current !== $root) {
+            if (!preg_match('/^' . preg_quote($prefix, '/') . '([1-9]\d*)_' . $hash . '$/D', $current, $match)) {
+                throw new RuntimeException('生成单元恢复标识无效，原回执保留', 409);
+            }
+            $sequence = (int)$match[1] + 1;
+        }
+        return $prefix . $sequence . '_' . $hash;
     }
 
     /** Validation failures never erase a paid receipt. Only an explicit retry creates a repair unit. */
@@ -247,8 +276,11 @@ final class ShortDramaPlanningUnit
         if ($task === '') return $generate($input); // Pure provider contract tests have no persisted task.
         ShortDramaWorkerMemory::release();
         $root = $key;
+        // Historical _retry_1..3 identities remain valid; later repairs have
+        // the same root-specific suffix and never overwrite an earlier receipt.
+        $pattern = addcslashes(substr($key, 0, 70), '_%\\') . '\_retry\_%\_' . substr(hash('sha256', $key), 0, 8);
         $latestKey = Db::name('aigc_short_drama_planning_unit')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task])
-            ->whereIn('unit_key', self::recoveryKeys($key))->order('id','desc')->value('unit_key');
+            ->whereRaw('(unit_key = ? OR unit_key LIKE ?)', [$key, $pattern])->order('id','desc')->value('unit_key');
         if ($latestKey) $key = $latestKey;
         $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task, 'unit_key' => $key];
         // Serialize the claim only. Never hold a DB lock across the paid call.
@@ -275,7 +307,6 @@ final class ShortDramaPlanningUnit
             if ($row && $row['status'] === 'running') throw new RuntimeException('上次请求在返回前中断，已保留完成部分；请确认后继续未完成部分');
             if ($row && $row['status'] === 'failed') throw new RuntimeException((string)$row['error']);
             if ($row && $row['status'] === 'waiting' && !self::ready($tenant, $user, $task)) throw new RuntimeException('连接暂时不可用，等待延迟重试', 425);
-            if ($row && (int)$row['attempt'] >= 3) throw new RuntimeException('模型生成单元的请求次数已用完，请新建任务并核对已完成内容');
             self::claimDispatchCall($tenant, $user, $task);
             $storedInput = $input;
             if ($key !== $root) {
@@ -310,7 +341,7 @@ final class ShortDramaPlanningUnit
             Db::name('aigc_short_drama_planning_unit')->where($scope)->update(['status' => 'received', 'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'update_time' => time()]);
             return $result + ($trackValidation ? ['_unit'=>$scope] : []);
         } catch (\Throwable $error) {
-            $retry = self::retryableBeforeSubmission($error->getMessage()) && $data['attempt'] < 3;
+            $retry = self::retryableBeforeSubmission($error->getMessage());
             Db::name('aigc_short_drama_planning_unit')->where($scope)->update(['status' => $retry ? 'waiting' : 'failed', 'error' => $error->getMessage(), 'update_time' => time()]);
             if ($retry) throw new RuntimeException('模型连接暂时不可用，将在 ' . ($data['attempt'] === 1 ? 30 : 120) . ' 秒后重试，已完成部分保留', 425, $error);
             throw $error;
