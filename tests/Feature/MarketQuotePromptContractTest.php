@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use app\common\service\power\MarketGenerationMeter;
 use app\common\service\power\MarketGenerationRequest;
+use app\common\service\power\MarketVideoRuntimeService;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -74,4 +75,16 @@ class MarketQuotePromptContractTest extends TestCase
         $context = MarketGenerationMeter::context($contract, ['image_urls' => ['https://fixtures.invalid/a.png', 'data:image/png;base64,YWJj']]);
         self::assertSame(2, $context['reference_images']);
     }
+    public function testVideoBillingUsesTheNormalizedSubmittedMaterialsAndPrompt(): void
+    {
+        $method = new \ReflectionMethod(MarketVideoRuntimeService::class, 'billingRequest');
+        $selection = ['market_sku_id' => 12, 'prompt' => '', 'reference_assets' => [['url' => 'stale']]];
+        $request = ['prompt' => 'real prompt', 'reference_assets' => [['url' => 'actual frame']], 'duration' => 6];
+        $billing = $method->invoke(null, $selection, $request);
+        self::assertSame(12, $billing['market_sku_id']);
+        self::assertSame('real prompt', $billing['prompt']);
+        self::assertSame([['url' => 'actual frame']], $billing['reference_assets']);
+        self::assertSame(6, $billing['duration']);
+    }
+
 }
