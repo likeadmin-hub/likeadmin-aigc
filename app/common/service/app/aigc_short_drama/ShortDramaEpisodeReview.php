@@ -17,6 +17,12 @@ final class ShortDramaEpisodeReview
 
     public static function generate(array $base, array $request, callable $call, ?callable $progress = null, ?callable $checkpoint = null, array $saved = []): array
     {
+        // Persist the complete draft before the first review/provider call.
+        // Technical failures must still propagate; a checkpoint is not a success receipt.
+        if (ShortDramaInputContract::shotFieldRecovery($request) && $checkpoint && !empty($base['storyboard'])) {
+            $signature = ShortDramaReviewCheckpoint::signature($base, $request);
+            if (($saved['resume']['signature'] ?? '') !== $signature) $checkpoint($base, 0, ['signature'=>$signature]);
+        }
         try {
             return ShortDramaReviewOutcome::complete(self::generateReviewed($base, $request, $call, $progress, $checkpoint, $saved), $request);
         } catch (ShortDramaReviewDeferred|ShortDramaScriptConflict $error) {

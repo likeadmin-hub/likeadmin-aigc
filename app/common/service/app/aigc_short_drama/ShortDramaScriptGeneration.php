@@ -166,6 +166,23 @@ final class ShortDramaScriptGeneration
                     self::assertShots($part, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
                 } catch (RuntimeException $error) {
                     if (!in_array($error->getCode(), [413, 422], true)) throw $error;
+                    if (ShortDramaInputContract::shotFieldRecovery($request) && $error->getCode() === 422
+                        && $error->getMessage() !== '本段分镜数量不完整' && is_array($partial)) {
+                        $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1));
+                        $targets = ShortDramaShotFieldRepair::targets($partial, $ids, $skeleton, $beat, $durationRule, null,
+                            static fn($shot, $index) => self::assertShots(['storyboard'=>[$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule));
+                        if ($targets) {
+                            $verify = static function ($reply) use ($partial, $targets, $skeleton, $beat, $sceneIndex, $start, $size, $durationRule): void {
+                                self::assertShots(ShortDramaShotFieldRepair::apply($partial, $targets, $reply), $skeleton, $beat, $sceneIndex, $start, $size, $durationRule);
+                            };
+                            $patch = $call($key . '_fields_v1', ShortDramaShotFieldRepair::messages($input, $targets, $partial), 1800 + count($targets) * 300, $verify);
+                            $verify($patch);
+                            $part = ShortDramaShotFieldRepair::apply($partial, $targets, $patch);
+                            foreach ($part['storyboard'] as $shot) $sceneShots[] = $shot;
+                            if ($progress) $progress('script_checkpoint', array_replace($skeleton, ['storyboard'=>array_merge($shots, $sceneShots)]));
+                            return;
+                        }
+                    }
                     if (ShortDramaInputContract::partialStoryboardRecovery($request) && $error->getCode() === 422 && $error->getMessage() === '本段分镜数量不完整' && is_array($partial) && $size > 1) {
                         $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1));
                         $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
