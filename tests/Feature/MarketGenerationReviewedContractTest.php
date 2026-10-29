@@ -140,12 +140,42 @@ class MarketGenerationReviewedContractTest extends TestCase
             case 'raw':$s['market_metadata']['params_schema']['prompt']['type']='number';break;
             case 'digest':$s['market_metadata'][Reviewed::PIN]['revision']='changed';break;
             case 'public_alias':$s['market_metadata']['upstream_metadata']['model_code']='different';break;
+            case 'metadata_channel':$s['market_metadata']['upstream_metadata']['channel_code']='different';break;
             case 'duplicate':$catalogue['contracts'][]=$catalogue['contracts'][0];$this->write($catalogue);$s=$this->frozen($b);break;
             case 'new_declaration':$p=$this->product($b);$p['market_metadata']['params_schema']['prompt']['type']='number';$s['market_metadata']=Reviewed::attachProduct($p,$p['market_metadata'],'image');break;
         }
         $this->expectException(\InvalidArgumentException::class);Registry::modelProtocol('image',$s);
     }
-    public static function invalidBindings(): array {return array_map(static fn($s)=>[$s],['channel','type','raw','digest','public_alias','duplicate','new_declaration']);}
+    public static function invalidBindings(): array {return array_map(static fn($s)=>[$s],['channel','type','raw','digest','public_alias','metadata_channel','duplicate','new_declaration']);}
+
+    public function testNestedQwenEncoderIsNotReplacedByTheMaterialContract(): void
+    {
+        $b=$this->bundle();$e=&$b['entries'][0];
+        $e['model_code']=$e['public_model_code']='qwen-image-3.0';$e['generation_protocol']='qwen_image_v1';
+        $schema=['type'=>'object','properties'=>[
+            'input'=>['type'=>'object','properties'=>['messages'=>['type'=>'array','minItems'=>1,'items'=>['type'=>'object',
+                'properties'=>['role'=>['type'=>'string','const'=>'user'],'content'=>['type'=>'array','minItems'=>1,'items'=>[
+                    'type'=>'object','properties'=>['text'=>['type'=>'string']],'required'=>['text']]]],'required'=>['role','content']]]],'required'=>['messages']],
+            'parameters'=>['type'=>'object','properties'=>['n'=>['type'=>'integer','const'=>1],'size'=>['type'=>'string']]]],
+            'required'=>['input']];
+        $e['binding_declaration']=['params_schema'=>['input'=>['type'=>'object'],'parameters'=>['type'=>'object']],'material_capabilities'=>[]];
+        $e['declaration']=['params_schema'=>$schema,'material_capabilities'=>['modes'=>[['code'=>'text_to_image','view_key'=>'text','method'=>'text_to_image','fields'=>[]]]]];
+        $e['modes']=['text_to_image'=>['schema'=>$schema,'rules'=>[]]];unset($e);
+        $this->write(Review::reviewedCatalogue($b,self::ARTIFACT));$s=$this->frozen($b);
+        $r=['prompt'=>'fixture prompt','ratio'=>'1:1','quality'=>'1k','material_mode'=>'text'];
+        $p=Images::prepareRequest($s,$r)->nativeInput;
+        self::assertSame('qwen_image_v1',Registry::modelProtocol('image',$s));
+        self::assertSame('fixture prompt',$p['input']['messages'][0]['content'][0]['text']);
+        self::assertArrayNotHasKey('prompt',$p);
+        $p['input']['messages'][0]['role']='invalid';
+        $this->expectException(\InvalidArgumentException::class);Reviewed::validatePayload($s,$r,$p);
+    }
+
+    public function testUnsupportedMaterialPathCannotCompileBySkippingRoleValidation(): void
+    {
+        $b=$this->bundle();$b['entries'][0]['declaration']['material_capabilities']['modes'][1]['fields'][0]['field']='input.images';
+        $this->expectException(\InvalidArgumentException::class);Review::reviewedCatalogue($b,self::ARTIFACT);
+    }
 
     public function testMissingVersionCannotCompileAnActiveFormat(): void
     {
