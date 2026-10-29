@@ -69,6 +69,15 @@ class MarketGenerationSourceIdentityTest extends TestCase
         self::assertSame(0,Identity::modelId(['id'=>94]));
     }
 
+    public function testMalformedNumericValuesCannotBecomeAPlatformIdentityByCasting(): void
+    {
+        foreach ([94.5,'94suffix',true,[],'-94','999999999999999999999999'] as $bad) {
+            self::assertSame(0,Identity::modelId(['model_id'=>$bad]));
+            self::assertFalse(Identity::matchesDetail(['model_id'=>94,'model_code'=>'fixture'],['model_pricing'=>['model_id'=>$bad,'model_code'=>'fixture']]));
+        }
+        self::assertSame(94,Identity::modelId(['model_id'=>'94']));
+    }
+
     public function testReadOnlyPlatformAuditSeparatesSuccessfulBindingFromCompleteContracts(): void
     {
         $r=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/market-platform-contract-flow-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
