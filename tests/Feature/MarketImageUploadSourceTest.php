@@ -71,4 +71,15 @@ class MarketImageUploadSourceTest extends TestCase
         $r=$this->request();$r['reference_assets']=array_fill(0,3,$r['reference_assets'][0]);
         $this->expectException(\InvalidArgumentException::class);Images::prepareRequest($this->snapshot(true),$r);
     }
+    public function testDuplicateAliasSlotsCannotDisappearBeforeModelLimitChecks(): void
+    {
+        $r=$this->request();unset($r['reference_assets']);$r['reference_images']=array_fill(0,3,self::URL);
+        self::assertCount(3,References::normalizeRequest($r,0)['reference_images']);
+        $this->expectException(\InvalidArgumentException::class);Images::prepareRequest($this->snapshot(true),$r);
+    }
+    public function testNativeEncodingKeepsTwoIdenticalSubmittedImageSlots(): void
+    {
+        $r=$this->request();unset($r['reference_assets']);$r['reference_images']=[self::URL,self::URL];
+        self::assertSame($r['reference_images'],Images::prepareRequest($this->snapshot(true),$r)->nativeInput['image_urls']);
+    }
 }

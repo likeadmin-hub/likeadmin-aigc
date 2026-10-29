@@ -11,7 +11,15 @@ final class MarketImageReferenceUrlService
     /** Keep typed uploads and legacy URL aliases on the same durable source. */
     public static function normalizeRequest(array $request,int $tenantId): array
     {
-        $request['reference_images']=self::resolve((array)($request['reference_images']??[]),$tenantId);
+        $cache=[];$resolve=static function(string $source)use(&$cache,$tenantId):string{
+            return $cache[$source]??=self::resolve([$source],$tenantId)[0]??'';
+        };
+        $references=[];
+        foreach((array)($request['reference_images']??[])as$reference){
+            $source=trim((string)$reference);if($source!=='')$references[]=$resolve($source);
+        }
+        // Admission counts input slots before legacy codecs apply their own URL deduplication.
+        $request['reference_images']=$references;
         if(!is_array($request['reference_assets']??null))return $request;
         $images=[];
         foreach($request['reference_assets']as$i=>$asset){
@@ -19,11 +27,11 @@ final class MarketImageReferenceUrlService
             $uri=trim((string)($asset['uri']??''));$url=trim((string)($asset['url']??''));
             $source=$uri!==''&&!preg_match('~^blob:~i',$uri)?$uri:$url;
             if(!empty($asset['uploading'])||$source==='')throw new \InvalidArgumentException('参考图片尚未上传完成，请重新上传');
-            $resolved=self::resolve([$source],$tenantId)[0]??'';
+            $resolved=$resolve($source);
             $request['reference_assets'][$i]=array_replace($asset,['url'=>$resolved,'uri'=>$resolved]);
             $images[]=$resolved;
         }
-        if($request['reference_images']===[]&&$images!==[])$request['reference_images']=array_values(array_unique($images));
+        if($request['reference_images']===[]&&$images!==[])$request['reference_images']=$images;
         return $request;
     }
 
