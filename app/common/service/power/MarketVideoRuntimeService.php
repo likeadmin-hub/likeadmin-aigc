@@ -963,11 +963,11 @@ class MarketVideoRuntimeService
     {
         $prepared = self::prepareRequest($snapshot, $request, $idempotency);
         if (MarketGenerationAdapterRegistry::requiresAssetPreparation($snapshot)) {
+            $request = $prepared->requestInput;
             self::seedanceAssets($request, $consumptionId);
             // Uploads preserve the original reservation's material metering.
             // Their asset IDs replace URLs only in the supplier request.
-            $prepared = $prepared->withApplicationInput(self::appPayload($snapshot,
-                self::requestWithReferenceAliases($request), $idempotency));
+            $prepared = $prepared->withApplicationInput(self::appPayload($snapshot, $request, $idempotency));
         }
         $plan = MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
         return self::request($plan['method'], self::origin() . $plan['path'], $prepared->nativeInput);
@@ -979,12 +979,12 @@ class MarketVideoRuntimeService
         $request = self::requestWithReferenceAliases($request);
         $meter = $snapshot['billing_meter'] ?? null;
         if (MarketGenerationAdapterRegistry::resourceType($snapshot) === PowerMarketService::TYPE_MODEL) {
-            return PreparedMarketGeneration::model(self::modelPayload($snapshot, $request, $idempotency), $meter);
+            return PreparedMarketGeneration::model(self::modelPayload($snapshot, $request, $idempotency), $meter, $request);
         }
         // Validate registration before allowing a legacy default adapter to
         // interpret an unknown app as a Wan request.
         MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
-        return PreparedMarketGeneration::application(self::appPayload($snapshot, $request, $idempotency), $meter);
+        return PreparedMarketGeneration::application(self::appPayload($snapshot, $request, $idempotency), $meter, $request);
     }
 
     private static function prepareMarketRequest(array &$market, array $request): PreparedMarketGeneration

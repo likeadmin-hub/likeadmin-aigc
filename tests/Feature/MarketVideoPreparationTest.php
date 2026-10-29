@@ -104,4 +104,20 @@ class MarketVideoPreparationTest extends TestCase
         self::assertSame($prepared->meterContext, $uploaded->meterContext);
         self::assertSame($prepared->billingMeter, $uploaded->billingMeter);
     }
+
+    public function testSupplierUploadsRetainThePreparedPromptOrdinals(): void
+    {
+        $snapshot = ['resource_type' => 'app_api', 'app_code' => 'seedance', 'locked_params' => []];
+        $request = ['prompt' => '@图 moves', 'duration' => 4, 'resolution' => '720p',
+            'reference_assets' => [['type' => 'image', 'name' => '图', 'url' => 'https://fixture.invalid/frame.png']]];
+        $prepared = Videos::prepareRequest($snapshot, $request, 'fixture-key');
+        self::assertSame('@图片1 moves', $prepared->requestInput['prompt']);
+        self::assertSame('@图 moves', $request['prompt'], 'UI/audit input must remain intact');
+        $uploaded = $prepared->requestInput;
+        $uploaded['reference_assets'] = [['type' => 'image', 'url' => 'asset://frame', 'uri' => 'asset://frame']];
+        $payload = (new ReflectionMethod(Videos::class, 'appPayload'))->invoke(null, $snapshot, $uploaded, 'fixture-key');
+        $locked = $prepared->withApplicationInput($payload);
+        self::assertSame($prepared->nativeInput['content'][0]['text'], $locked->nativeInput['content'][0]['text']);
+        self::assertSame('asset://frame', $locked->nativeInput['content'][1]['image_url']['url']);
+    }
 }
