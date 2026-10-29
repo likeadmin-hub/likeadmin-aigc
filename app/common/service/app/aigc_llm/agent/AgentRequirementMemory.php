@@ -21,7 +21,7 @@ final class AgentRequirementMemory
     }
 
     /** Optional recall must not evict dialogue/tool turns that fit before this feature. */
-    public static function appendInstructions(string $base,array $messages,array $tools,array $memory,int $budget=24000): string
+    public static function appendInstructions(string $base,array $messages,array $tools,array $memory,int $budget=0): string
     {
         if(empty($memory['items']))return $base;
         $memory['instruction']=self::INSTRUCTION;
