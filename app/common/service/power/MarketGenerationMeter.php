@@ -47,9 +47,9 @@ final class MarketGenerationMeter
                     $next = is_int($key) ? $kind : (preg_match('/video|clip/i',(string)$key) ? 'video' : (preg_match('/image|frame/i',(string)$key) ? 'image' : $kind));
                     $walk($child, $next);
                 }
-            } elseif (is_string($value) && preg_match('~^https?://~i', $value)) {
-                if ($kind === 'image') $images[] = $value;
-                if ($kind === 'video') $video[] = $value;
+            } elseif (is_string($value)) {
+                if ($kind === 'image' && preg_match('~^(https?://|data:image/)~i', $value)) $images[] = $value;
+                if ($kind === 'video' && preg_match('~^https?://~i', $value)) $video[] = $value;
             }
         };
         $walk($native);

@@ -1765,7 +1765,7 @@ class AigcShortDramaService
         }
 
         $config = self::publicConfig($tenantId);
-        $billing = self::estimateImageGenerationBilling($tenantId, $taskType, [], $config, $params);
+        $billing = self::estimateImageGenerationBilling($tenantId, $userId, $taskType, [], $config, $params);
         $localTaskId = self::makeTaskId('sd_subject');
 
         Db::startTrans();
@@ -6678,7 +6678,8 @@ class AigcShortDramaService
             // submission. The browser can therefore disclose an actual
             // first-frame / character-primary downgrade before confirmation.
             $params = self::prepareShortDramaVideoReferenceParams($tenantId, $userId, $projectId, $shot ? $shot->toArray() : [], $params);
-            $billing = self::estimateMarketVideoGenerationBilling($tenantId, $params);
+            $videoRequest = self::marketShortDramaVideoParams($tenantId, $userId, $projectId, $shot ? $shot->toArray() : [], $params);
+            $billing = self::estimateMarketVideoGenerationBilling($tenantId, array_replace($params, $videoRequest));
             $billing['effective_video_params'] = self::shortDramaVideoEffectiveParams($params);
             return $billing;
         }
@@ -6686,7 +6687,7 @@ class AigcShortDramaService
             return self::estimateMarketBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId));
         }
         $config = self::publicConfig($tenantId);
-        $billing = self::estimateImageGenerationBilling($tenantId, $taskType, $shot ? $shot->toArray() : [], $config, $params);
+        $billing = self::estimateImageGenerationBilling($tenantId, $userId, $taskType, $shot ? $shot->toArray() : [], $config, $params);
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $billing['effective_video_params'] = self::shortDramaVideoEffectiveParams($params);
         }
@@ -6780,12 +6781,15 @@ class AigcShortDramaService
             $params = self::prepareShortDramaVideoReferenceParams($tenantId, $userId, $projectId, $shotPayload, $params);
         }
         $config = self::publicConfig($tenantId);
+        $videoQuoteParams = $taskType === 'shot_video'
+            ? array_replace($params, self::marketShortDramaVideoParams($tenantId, $userId, $projectId, $shotPayload, $params))
+            : $params;
         $billing = $taskType === 'bgm_audio'
             ? self::estimateMarketBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId))
             : ($taskType === 'shot_video'
-                ? self::estimateMarketVideoGenerationBilling($tenantId, $params)
+                ? self::estimateMarketVideoGenerationBilling($tenantId, $videoQuoteParams)
                 : (self::isImageGenerationTask($taskType)
-                ? self::estimateImageGenerationBilling($tenantId, $taskType, $shotPayload, $config, $params)
+                ? self::estimateImageGenerationBilling($tenantId, $userId, $taskType, $shotPayload, $config, $params)
                 : self::estimateGenerationBilling($taskType, $shotPayload, $config, $params)));
         if (self::isImageGenerationTask($taskType)
             && in_array((string)($billing['market_snapshot']['model_code'] ?? ''), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)) {
@@ -7588,74 +7592,7 @@ class AigcShortDramaService
             $taskType = (string)($generation['task_type'] ?? 'shot_image');
             $imageParams = self::withQwenImageDimensions((array)($billing['market_snapshot'] ?? []),
                 self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan), $params);
-            if ($taskType === 'shot_image') {
-                $shotReferenceContext = self::mergeShotReferenceContext($shot, $params);
-                $references = self::shotReferenceAssets($tenantId, $userId, $projectId, $shotReferenceContext, $plan);
-                $explicitReferences = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
-                $references = self::mergeReferencePayloads($references, $explicitReferences);
-                if (self::isNoSubjectShot($shotReferenceContext)) {
-                    $references = self::filterNoSubjectReferencePayload($references);
-                }
-                $references = self::limitShortDramaImageReferences(
-                    $tenantId,
-                    $imageParams,
-                    $params,
-                    $shot,
-                    $references,
-                    (array)($billing['market_snapshot'] ?? [])
-                );
-                $imageParams['reference_assets'] = $references['reference_assets'];
-                $imageParams['reference_images'] = $references['reference_images'];
-                $imageParams['input_asset_ids'] = $references['input_asset_ids'];
-                if (!empty($references['input_asset_ids'])) {
-                    AigcShortDramaGenerationTask::where([
-                        'tenant_id' => $tenantId,
-                        'user_id' => $userId,
-                        'task_id' => $taskId,
-                    ])->update([
-                        'input_asset_ids' => self::jsonEncode($references['input_asset_ids']),
-                        'update_time' => time(),
-                    ]);
-                }
-            } else {
-                $references = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
-                $nestedParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
-                $hasExplicitMentions = !empty($params['selected_mentions'])
-                    || !empty($params['selected_subject_ids'])
-                    || !empty($params['selected_scene_ids'])
-                    || !empty($params['mention_shot_ids'])
-                    || !empty($nestedParams['selected_mentions'])
-                    || !empty($nestedParams['selected_subject_ids'])
-                    || !empty($nestedParams['selected_scene_ids'])
-                    || !empty($nestedParams['mention_shot_ids']);
-                if ($taskType === 'scene_image' && !$hasExplicitMentions) {
-                    $references = self::emptyReferencePayload();
-                }
-                $references = self::limitShortDramaImageReferences(
-                    $tenantId,
-                    $imageParams,
-                    $params,
-                    $shot,
-                    $references,
-                    (array)($billing['market_snapshot'] ?? [])
-                );
-                $imageParams['reference_assets'] = $references['reference_assets'];
-                $imageParams['reference_images'] = $references['reference_images'];
-                $imageParams['input_asset_ids'] = $references['input_asset_ids'];
-                if (!empty($references['input_asset_ids'])) {
-                    AigcShortDramaGenerationTask::where([
-                        'tenant_id' => $tenantId,
-                        'user_id' => $userId,
-                        'task_id' => $taskId,
-                    ])->update([
-                        'input_asset_ids' => self::jsonEncode($references['input_asset_ids']),
-                        'update_time' => time(),
-                    ]);
-                }
-            }
-            $imageParams['selected_mentions'] = is_array($params['selected_mentions'] ?? null)
-                ? (array)$params['selected_mentions']
-                : (array)(is_array($params['params'] ?? null) ? ($params['params']['selected_mentions'] ?? []) : []);
+            $imageParams = self::shortDramaImageReferenceParams($tenantId, $userId, $projectId, $shot, $params, $taskType, $plan, $imageParams, (array)($billing['market_snapshot'] ?? []));
             AigcShortDramaGenerationTask::where([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -11986,6 +11923,59 @@ class AigcShortDramaService
         return $imageParams;
     }
 
+    private static function shortDramaImageReferenceParams(int $tenantId, int $userId, int $projectId, array $shot, array $params, string $taskType, array $plan, array $imageParams, array $marketSnapshot): array
+    {
+        if ($taskType === 'shot_image') {
+            $shotReferenceContext = self::mergeShotReferenceContext($shot, $params);
+            $references = self::shotReferenceAssets($tenantId, $userId, $projectId, $shotReferenceContext, $plan);
+            $explicitReferences = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
+            $references = self::mergeReferencePayloads($references, $explicitReferences);
+            if (self::isNoSubjectShot($shotReferenceContext)) {
+                $references = self::filterNoSubjectReferencePayload($references);
+            }
+            $references = self::limitShortDramaImageReferences(
+                $tenantId,
+                $imageParams,
+                $params,
+                $shot,
+                $references,
+                $marketSnapshot
+            );
+            $imageParams['reference_assets'] = $references['reference_assets'];
+            $imageParams['reference_images'] = $references['reference_images'];
+            $imageParams['input_asset_ids'] = $references['input_asset_ids'];
+        } else {
+            $references = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
+            $nestedParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+            $hasExplicitMentions = !empty($params['selected_mentions'])
+                || !empty($params['selected_subject_ids'])
+                || !empty($params['selected_scene_ids'])
+                || !empty($params['mention_shot_ids'])
+                || !empty($nestedParams['selected_mentions'])
+                || !empty($nestedParams['selected_subject_ids'])
+                || !empty($nestedParams['selected_scene_ids'])
+                || !empty($nestedParams['mention_shot_ids']);
+            if ($taskType === 'scene_image' && !$hasExplicitMentions) {
+                $references = self::emptyReferencePayload();
+            }
+            $references = self::limitShortDramaImageReferences(
+                $tenantId,
+                $imageParams,
+                $params,
+                $shot,
+                $references,
+                $marketSnapshot
+            );
+            $imageParams['reference_assets'] = $references['reference_assets'];
+            $imageParams['reference_images'] = $references['reference_images'];
+            $imageParams['input_asset_ids'] = $references['input_asset_ids'];
+        }
+        $imageParams['selected_mentions'] = is_array($params['selected_mentions'] ?? null)
+            ? (array)$params['selected_mentions']
+            : (array)(is_array($params['params'] ?? null) ? ($params['params']['selected_mentions'] ?? []) : []);
+        return $imageParams;
+    }
+
     private static function shortDramaImageParams(int $tenantId, array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
     {
         return ShortDramaPromptCatalog::run(ShortDramaPromptWorkspace::forTask($tenantId, $params),
@@ -15435,14 +15425,23 @@ class AigcShortDramaService
         ];
     }
 
-    private static function estimateImageGenerationBilling(int $tenantId, string $taskType, array $shot, array $config, array $params): array
+    private static function estimateImageGenerationBilling(int $tenantId, int $userId, string $taskType, array $shot, array $config, array $params): array
     {
         if (self::isImageGenerationTask($taskType)) {
             try {
-                if (self::isNanoBananaImageSelection($params)) {
-                    return MarketNanoBananaAppRuntimeService::quote($tenantId, $params, max(1, (int)($params['quantity'] ?? 1)));
+                $projectId = (int)($params['project_id'] ?? 0);
+                $plan = $projectId > 0 ? self::currentProjectPlanRaw($tenantId, $userId, $projectId) : [];
+                if ($projectId > 0 && ($ratio = self::projectGenerationRatio($tenantId, $userId, $projectId, $plan)) !== '') {
+                    $params['ratio'] = $params['aspect_ratio'] = $ratio;
                 }
-                return MarketImageModelRuntimeService::quote($tenantId, $params, max(1, (int)($params['quantity'] ?? 1)));
+                $snapshot = self::isNanoBananaImageSelection($params) ? [] : MarketImageModelRuntimeService::selectionSnapshot($tenantId, $params);
+                $imageParams = self::withQwenImageDimensions($snapshot, self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan), $params);
+                $imageParams = self::shortDramaImageReferenceParams($tenantId, $userId, $projectId, $shot, $params, $taskType, $plan, $imageParams, $snapshot);
+                $quoteParams = array_replace($params, $imageParams);
+                if (self::isNanoBananaImageSelection($params)) {
+                    return MarketNanoBananaAppRuntimeService::quote($tenantId, $quoteParams, max(1, (int)($params['quantity'] ?? 1)));
+                }
+                return MarketImageModelRuntimeService::quote($tenantId, $quoteParams, max(1, (int)($params['quantity'] ?? 1)));
             } catch (\Throwable $e) {
                 throw new Exception($e->getMessage());
             }
