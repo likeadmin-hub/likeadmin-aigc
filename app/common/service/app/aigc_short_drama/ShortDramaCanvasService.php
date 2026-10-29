@@ -13,6 +13,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
+use app\common\service\ai\ReferenceMaterialSlot;
 use app\common\service\storage\StorageConfigService;
 use Exception;
 use think\facade\Db;
@@ -1166,38 +1167,47 @@ class ShortDramaCanvasService
      */
     private static function canonicalVideoReferenceAssets(array $references): array
     {
-        $canonical=[];$slots=[];
+        $canonical=[];
+        $semanticSlot=static function(array $reference): string {
+            if (!empty($reference['field'])) return 'field:'.$reference['field'];
+            $role=(string)($reference['role']??'');
+            return ($reference['type']??'')==='image' && in_array($role,['first_frame_image','last_frame_image'],true)
+                ? $role : 'reference';
+        };
+        $sameSource=static fn(array $a,array $b): bool => ($a['type']??'')===($b['type']??'')
+            && (string)($a['url']??$a['uri']??'')===(string)($b['url']??$b['uri']??'');
+        $merge=static function(array $existing,array $incoming): array {
+            $result=(int)($incoming['asset_id']??0)>0 && (int)($existing['asset_id']??0)<=0 ? $incoming : $existing;
+            $slotId=ReferenceMaterialSlot::id($existing) ?: ReferenceMaterialSlot::id($incoming);
+            if ($slotId!=='') $result['reference_slot_id']=$slotId;
+            return $result;
+        };
         foreach ($references as $reference) {
             if (!is_array($reference)) continue;
+            ReferenceMaterialSlot::id($reference);
             $type=strtolower(trim((string)($reference['type']??'')));
             $url=trim((string)($reference['url']??$reference['uri']??''));
             if ($type==='' || $url==='') continue;
-            $mediaKey=$type.'|'.$url;
-            $role=(string)($reference['role']??'');
-            $slot=$type==='image' && in_array($role,['first_frame_image','last_frame_image'],true)
-                ? $role : 'reference';
-            if (isset($slots[$mediaKey][$slot])) {
-                $index=$slots[$mediaKey][$slot];
-                if ((int)($reference['asset_id']??0)>0 && (int)($canonical[$index]['asset_id']??0)<=0) {
-                    $canonical[$index]=$reference;
-                }
-                continue;
+            $duplicate=null;
+            foreach ($canonical as $index=>$existing) {
+                if ($sameSource($reference,$existing) && $semanticSlot($reference)===$semanticSlot($existing)
+                    && !ReferenceMaterialSlot::distinct($reference,$existing)) { $duplicate=$index; break; }
             }
-            $slots[$mediaKey][$slot]=count($canonical);
-            $canonical[]=$reference;
+            if ($duplicate!==null) $canonical[$duplicate]=$merge($canonical[$duplicate],$reference);
+            else $canonical[]=$reference;
         }
-        foreach ($slots as $positions) {
-            if (!isset($positions['reference']) ||
-                (!isset($positions['first_frame_image']) && !isset($positions['last_frame_image']))) continue;
-            $duplicate=$canonical[$positions['reference']];
-            foreach (['first_frame_image','last_frame_image'] as $role) {
-                if (!isset($positions[$role])) continue;
-                $index=$positions[$role];
-                if ((int)($duplicate['asset_id']??0)>0 && (int)($canonical[$index]['asset_id']??0)<=0) {
-                    $canonical[$index]=array_replace($canonical[$index],$duplicate,['role'=>$role]);
-                }
+        // An unmarked graph alias can supply ownership to a frame, but two
+        // explicitly different uses of the same file must remain independent.
+        foreach ($canonical as $index=>$reference) {
+            if ($semanticSlot($reference)!=='reference') continue;
+            $merged=false;
+            foreach ($canonical as $frameIndex=>$frame) {
+                if (!in_array($semanticSlot($frame),['first_frame_image','last_frame_image'],true)
+                    || !$sameSource($reference,$frame) || ReferenceMaterialSlot::distinct($reference,$frame)) continue;
+                $canonical[$frameIndex]=array_replace($merge($frame,$reference),['role'=>$frame['role']]);
+                $merged=true;
             }
-            unset($canonical[$positions['reference']]);
+            if ($merged) unset($canonical[$index]);
         }
         return array_values($canonical);
     }
@@ -1246,6 +1256,7 @@ class ShortDramaCanvasService
                 $references[] = array_filter([
                     'type' => (string)($reference['type'] ?? ''), 'role' => (string)($reference['role'] ?? ''),
                     'asset_id' => (int)$reference['asset_id'], 'uri' => (string)($reference['uri'] ?? ''),
+                    'reference_slot_id' => ReferenceMaterialSlot::id($reference),
                     'storage_scope' => (string)($reference['storage_scope'] ?? ''),
                     'storage_engine' => (string)($reference['storage_engine'] ?? ''), 'storage_domain' => (string)($reference['storage_domain'] ?? ''),
                 ], static fn($value): bool => $value !== '');
