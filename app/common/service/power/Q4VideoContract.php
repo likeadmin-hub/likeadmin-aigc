@@ -9,7 +9,9 @@ final class Q4VideoContract
     public const OPTIONS = ['is_rec','audio','seed','watermark','wm_position','wm_url','payload','meta_data','callback_url'];
     public static function matches(array $model): bool
     {
-        return ($model['resource_type'] ?? '') !== 'app_api' && MarketGenerationAdapterRegistry::modelProtocol('video', $model) === 'q4_video_v1';
+        if (($model['resource_type'] ?? '') === 'app_api') return false;
+        try { return MarketGenerationAdapterRegistry::modelProtocol('video', $model) === 'q4_video_v1'; }
+        catch (InvalidArgumentException) { return false; } // Admission rejects unknown declarations; catalogue classification remains isolated.
     }
     public static function metadata(array $model, array $meta): array
     {

@@ -34,6 +34,15 @@ class MarketVideoPreparationLifecycleTest extends TestCase
             ], 'required' => ['prompt', 'duration']], 'category_code' => 'video', 'category_name' => '视频生成',
                 'supported_durations' => [4], 'supported_ratios' => ['1:1'], 'supported_resolutions' => ['720P']];
             if ($resource === 'model') $metadata['material_capabilities'] = ['modes' => [['code' => 'text_to_video', 'method' => 'text_to_video', 'fields' => []]]];
+            else {
+                // The Full Video API encodes text in content, unlike the
+                // synthetic model's top-level prompt field.
+                $fixture=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/canvas-generation-market-contracts.json'),true,512,JSON_THROW_ON_ERROR);
+                foreach($fixture['contracts'] as $row)if(($row['app_code']??'')==='full_video'){$apiProperties=\app\common\service\power\MarketGenerationSchema::properties($row['params_schema']);break;}
+                unset($metadata['params_schema']['properties']['prompt']);
+                $metadata['params_schema']['properties']['content']=$apiProperties['content'];
+                $metadata['params_schema']['required']=['content','duration'];
+            }
             $product = PowerMarketProduct::create(['product_code' => $key, 'name' => 'Offline phase 2 fixture', 'resource_type' => $resource,
                 'model_type' => 'video', 'source_code' => 'offline-fixture', 'upstream_resource_key' => $key,
                 'upstream_model_code' => 'offline-video', 'upstream_channel_code' => 'offline',

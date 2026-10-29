@@ -120,6 +120,13 @@ foreach (['image', 'video'] as $type) {
         $skuMatrix = [];
         foreach ($skuRows as $sku) {
             $row = Audit::sku($type, $resource, $sku, (string)($product['upstream_app_code'] ?? ''));
+            $protocolSnapshot=['model_code'=>(string)($option['model_code'] ?? $product['upstream_model_code'] ?? ''),
+                'channel_code'=>(string)($product['upstream_channel_code'] ?? ''), 'market_metadata'=>$metadata,
+                'locked_params'=>MarketGenerationSchema::array($sku['locked_params'] ?? [])];
+            try { $row['request_protocol_adapter']=$resource === 'model'
+                ? \app\common\service\power\MarketGenerationAdapterRegistry::modelProtocol($type,$protocolSnapshot)
+                : \app\common\service\power\MarketGenerationAdapterRegistry::applicationProtocol((string)($product['upstream_app_code'] ?? ''),$protocolSnapshot); }
+            catch (\InvalidArgumentException) { $row['request_protocol_adapter']='unregistered_or_invalid'; }
             if ($probe && $product) {
                 $snapshot = ['resource_type'=>$resource, 'model_code'=>(string)($option['model_code'] ?? $product['upstream_model_code']),
                     'channel_code'=>(string)$product['upstream_channel_code'], 'app_code'=>(string)$product['upstream_app_code'],
