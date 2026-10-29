@@ -1059,7 +1059,10 @@ class ShortDramaCanvasService
 
     private static function withTenantTextModel(int $tenantId, array $payload): array
     {
-        $model = AigcShortDramaService::tenantTextModel($tenantId);
+        $wanted = trim((string)(($payload['model_id'] ?? '') ?: ($payload['model_code'] ?? '')));
+        $model = $wanted !== ''
+            ? \app\common\service\power\MarketTextModelRuntimeService::resolveModel($tenantId, $wanted, false)
+            : AigcShortDramaService::tenantTextModel($tenantId);
         $payload['model_id'] = (string)$model['id'];
         $payload['model_selection'] = $model;
         $payload['model_code'] = (string)($model['model_code'] ?? '');
