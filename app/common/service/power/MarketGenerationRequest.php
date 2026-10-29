@@ -134,7 +134,9 @@ final class MarketGenerationRequest
             && !array_key_exists('prompt', $request) && !array_key_exists('content', $request)
             && !array_key_exists('prompt', $provider) && !array_key_exists('content', $provider) ? ['prompt', 'content'] : [];
         // Routing/SKU fields belong to the transport envelope, not this schema.
-        MarketGenerationSchema::validate($schema, $values, '', '', $deferred);
+        // Validate explicit platform children after encoding, without normalizing
+        // their newly discovered objects or dropping undocumented open fields.
+        MarketGenerationSchema::validate(MarketGenerationDeclarationSchema::expand($schema), $values, '', '', $deferred);
         return array_replace($payload, $values);
     }
 }

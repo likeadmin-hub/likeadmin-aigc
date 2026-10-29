@@ -1089,6 +1089,7 @@ class MarketImageModelRuntimeService
             $parameters['negative_prompt'] = $negativePrompt;
         }
         if ($referenceImages !== [] && (string)($parameters['prompt_extend_mode'] ?? '') === 'agent') {
+            if (self::isQwenImage($snapshot)) throw new Exception('当前模型的参考图编辑仅支持 direct 提示词优化模式');
             $parameters['prompt_extend_mode'] = 'direct';
         }
 

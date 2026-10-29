@@ -15,11 +15,18 @@ final class MarketGenerationDeclarationSchema
 
     private static function node(array $definition): array
     {
+        if (in_array($definition['required'] ?? null,[1,'1'],true)) $definition['required']=true;
         if (isset($definition['children']) && is_array($definition['children']) && $definition['children']!==[]) {
             $children=$definition['children'];$type=$definition['type'] ?? '';
             if ($type==='array' && array_keys($children)===['item'] && is_array($children['item'])) {
                 $item=self::node($children['item']);
                 if (isset($definition['items']) && self::node($definition['items'])!==$item) throw new InvalidArgumentException('数组子结构声明冲突');
+                $definition['items']=$item;unset($definition['children']);
+            } elseif ($type==='array' && !array_is_list($children) && count(array_filter($children,'is_array'))===count($children)) {
+                // The platform also declares object-array fields directly under children.
+                $properties=[];foreach($children as $name=>$child)$properties[$name]=self::node($child);
+                $item=['type'=>'object','properties'=>$properties];
+                if (isset($definition['items']) && self::node($definition['items'])!==$item) throw new InvalidArgumentException('对象数组子结构声明冲突');
                 $definition['items']=$item;unset($definition['children']);
             } elseif ($type==='object' && !array_is_list($children) && count(array_filter($children,'is_array'))===count($children)) {
                 $properties=[];foreach($children as $name=>$child)$properties[$name]=self::node($child);
