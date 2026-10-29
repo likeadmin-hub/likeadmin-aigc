@@ -55,6 +55,11 @@ final class MarketGenerationRequest
             $mapped = false;
             foreach (['resolution','image_size','quality','size'] as $field) {
                 if (!isset($properties[$field])) continue;
+                if($field==='image_size'&&MarketGenerationSchema::isAspectRatioDefinition($properties[$field])){
+                    if(in_array((string)$resolution,MarketGenerationSchema::choices($properties[$field]),true)&&(string)$resolution!==(string)$ratio)
+                        throw new InvalidArgumentException('图片尺寸使用宽高比，请移除冲突的分辨率选择');
+                    continue;
+                }
                 $choices = MarketGenerationSchema::choices($properties[$field]);
                 if ($choices !== [] && !in_array(strtolower((string)$resolution), array_map(static fn($v)=>strtolower((string)$v),$choices), true)) continue;
                 $params[$field] = $resolution; $mapped = true; break;
@@ -62,6 +67,7 @@ final class MarketGenerationRequest
             // A supplied output dimension must not silently disappear and
             // leave the supplier to choose a differently priced default.
             $dimensionFields = array_intersect_key($properties, array_flip(['resolution','image_size','size']));
+            if(isset($dimensionFields['image_size'])&&MarketGenerationSchema::isAspectRatioDefinition($dimensionFields['image_size']))unset($dimensionFields['image_size']);
             if (!$mapped && $dimensionFields !== [] && array_intersect_key($locked, $dimensionFields) === []) {
                 throw new InvalidArgumentException('所选模型不支持当前分辨率或质量');
             }
