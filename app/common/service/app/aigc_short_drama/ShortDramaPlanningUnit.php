@@ -143,8 +143,12 @@ final class ShortDramaPlanningUnit
         if ($checkOnly) return;
         foreach ($latest as $root => $row) {
             $restartInterrupted = isset($interrupted[$root]);
-            if (!$restartInterrupted && ($row['status'] !== 'received' || !str_starts_with((string)($row['error'] ?? ''), 'validation:'))) continue;
+            $error = (string)($row['error'] ?? '');
+            $validationFailed = str_starts_with($error, 'validation:');
+            $superseded = $error === 'superseded:continued with a smaller or repaired unit';
+            if (!$restartInterrupted && ($row['status'] !== 'received' || (!$validationFailed && !$superseded))) continue;
             if (!$restartInterrupted && self::prepareLegacyTruncatedRecovery($scope, $root, $row, $rows)) continue;
+            if (!$restartInterrupted && !$validationFailed) continue;
             $keys = self::recoveryKeys($root);
             $index = array_search($row['unit_key'], $keys, true);
             if ($index === false || !isset($keys[$index + 1])) throw new RuntimeException('该部分多次修复仍未通过，请调整对应场景后新建版本；已有内容保留', 409);

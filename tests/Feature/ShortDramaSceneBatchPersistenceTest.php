@@ -265,7 +265,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         }
         $scope=['tenant_id'=>self::TENANT,'user_id'=>7,'task_id'=>$this->task,'unit_key'=>'v3_policy2_timed_scene_1_1'];
         $before=Db::name('aigc_short_drama_planning_unit')->where($scope)->find();
-        self::assertStringStartsWith('validation:', $before['error']);
+        self::assertSame('superseded:continued with a smaller or repaired unit', $before['error']);
         Db::name('aigc_short_drama_script_task')->where('task_id',$this->task)->update(['status'=>'failed']);
         Unit::prepareExplicitRetry(self::TENANT,7,$this->task);
         $after=Db::name('aigc_short_drama_planning_unit')->where($scope)->find();
