@@ -183,8 +183,20 @@ final class ShortDramaScriptGeneration
                     }
                     if (ShortDramaInputContract::partialStoryboardRecovery($request) && $error->getCode() === 422 && $error->getMessage() === '本段分镜数量不完整' && is_array($partial) && $size > 1) {
                         $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1));
-                        $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
-                            static fn($shot, $index) => self::assertShots(['storyboard' => [$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule));
+                        $validatePartialShot = static fn($shot, $index) => self::assertShots(['storyboard' => [$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule);
+                        $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
+                        if ($accepted === null && ShortDramaInputContract::mixedStoryboardRecovery($request)) {
+                            $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $durationRule, null, $validatePartialShot);
+                            if ($targets) {
+                                $verify = static function ($reply) use ($partial, $targets, $ids, $validatePartialShot): void {
+                                    $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
+                                    if (ShortDramaPartialStoryboard::accepted($patched, $ids, $validatePartialShot) === null)
+                                        throw new RuntimeException('分镜字段修复后仍未通过校验', 422);
+                                };
+                                $partial = ShortDramaShotFieldRepair::request($call, $key . '_partial_fields_v1', $input, $partial, $targets, $verify);
+                                $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
+                            }
+                        }
                         if ($accepted !== null && $accepted !== []) {
                             foreach ($ids as $index => $id) {
                                 if (isset($accepted[$index])) {

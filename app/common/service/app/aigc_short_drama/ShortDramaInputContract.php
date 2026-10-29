@@ -4,7 +4,13 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 21;
+    public const VERSION = 22;
+
+    /** Combining partial and field repairs changes the durable unit path. */
+    public static function mixedStoryboardRecovery(array $request): bool
+    {
+        return (int)($request['_input_contract_version'] ?? 0) >= 22;
+    }
 
     /** Existing tasks keep their original paid unit and retry identities. */
     public static function shotFieldRecovery(array $request): bool

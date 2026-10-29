@@ -159,6 +159,105 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
     }
     public static function fieldRepairModes(): array { return [[false],[true]]; }
 
+    /** @dataProvider fieldRepairModes */
+    public function testMixedMissingAndInvalidFieldsPreserveValidShotsAndResume(bool $timed): void
+    {
+        $request=['_input_contract_version'=>22];
+        if ($timed) $request['episode_duration_policy']=Duration::snapshot([],0,0,[]);
+        $saved=[];$signatures=[];$submissions=[];$interrupted=true;
+        $bad=self::shot(3);$bad['visual_description']='';
+        $provider=static function($key,$input)use(&$saved,&$signatures,&$submissions,&$interrupted,$timed,$bad){
+            $signature=hash('sha256',json_encode($input));
+            if(isset($saved[$key])) { self::assertSame($signatures[$key],$signature); return $saved[$key]; }
+            $submissions[]=$key;$signatures[$key]=$signature;
+            if(str_contains($key,'skeleton')) $payload=self::skeleton($timed);
+            elseif(str_ends_with($key,'_partial_fields_v1')) {
+                self::assertStringContainsString('原始镜头内容1',$input['content']);
+                $payload=['patches'=>[['shot_id'=>'s1_3','fields'=>['visual_description'=>'已修复第三镜头']]]];
+            } elseif(str_contains($key,'missing')) {
+                if($interrupted){$interrupted=false;array_pop($submissions);unset($signatures[$key]);throw new \RuntimeException('等待继续',425);}
+                $payload=['storyboard'=>[self::shot(2)]];
+            } else $payload=['storyboard'=>[self::shot(1),$bad]];
+            return $saved[$key]=['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+        };
+        $run=static fn()=>Script::generate($request,['max_tokens'=>$timed?8192:4096],['system_prompt'=>'创作','content'=>'故事'],$provider);
+        try{$run();self::fail('Must resume after interruption');}catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
+        $shots=$run()['payload']['storyboard'];
+        self::assertSame(self::shot(1),$shots[0]);self::assertSame(self::shot(2),$shots[1]);
+        $bad['visual_description']='已修复第三镜头';self::assertSame($bad,$shots[2]);
+        self::assertCount(4,$submissions);self::assertStringEndsWith('_partial_fields_v1',$submissions[2]);
+        self::assertStringContainsString('missing',$submissions[3]);
+    }
+
+    public function testMixedPartialRejectsDuplicateOrUnknownIds(): void
+    {
+        $ids=['s1_1','s1_2','s1_3'];$bad=self::shot(1);$bad['visual_description']='';
+        $plan=self::skeleton(true);$beat=$plan['scene_beats'][0];
+        foreach ([[$bad,$bad],[$bad,array_replace(self::shot(2),['shot_id'=>'unknown'])]] as $shots) {
+            self::assertSame([],\app\common\service\app\aigc_short_drama\ShortDramaPartialStoryboard::fieldTargets(
+                ['storyboard'=>$shots],$ids,$plan,$beat,['min_seconds'=>1,'max_seconds'=>20],[10,10,10],static fn()=>null));
+        }
+    }
+
+    public function testMixedPartialSavesValidatedPrefixBeforeMissingShotIsSubmitted(): void
+    {
+        $request=['_input_contract_version'=>22,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];
+        $bad=self::shot(3);$bad['visual_description']='';$checkpoints=[];
+        try {
+            Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],
+                static function($key)use($bad){
+                    if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
+                    elseif(str_ends_with($key,'_partial_fields_v1'))$payload=['patches'=>[['shot_id'=>'s1_3','fields'=>['visual_description'=>'补全']]]];
+                    elseif(str_contains($key,'missing'))throw new \RuntimeException('等待继续',425);
+                    else $payload=['storyboard'=>[self::shot(1),$bad]];
+                    return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+                }, static function($event,$payload)use(&$checkpoints){if($event==='script_checkpoint')$checkpoints[]=$payload;});
+            self::fail('Missing shot should pause');
+        } catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
+        self::assertNotEmpty($checkpoints);
+        self::assertSame(['s1_1'],array_column(end($checkpoints)['storyboard'],'shot_id'));
+    }
+
+    public function testVersion21DoesNotUseMixedRepairUnits(): void
+    {
+        $request=['_input_contract_version'=>21,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
+        $bad=self::shot(3);$bad['visual_description']='';
+        Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],
+            static function($key)use(&$calls,$bad){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
+                elseif(str_ends_with($key,'_repair'))$payload=['storyboard'=>[self::shot(1),self::shot(2),self::shot(3)]];
+                else $payload=['storyboard'=>[self::shot(1),$bad]];
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+            });
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_repair'],$calls);
+    }
+
+    public function testMixedPartialInBatchedSceneRetainsNeighborScene(): void
+    {
+        $plan=self::skeleton(true);$plan['scene_beats'][0]['duration_seconds']=20;$plan['scene_beats'][0]['shot_durations']=[10,10];
+        $plan['locations'][]=['id'=>'l2','name'=>'走廊'];
+        $plan['scene_beats'][]=['scene_ref_id'=>'l2','goal'=>'走过走廊','entry'=>'走廊站立','exit'=>'走廊尽头',
+            'key_events'=>['走向走廊尽头'],'duration_seconds'=>10,'shot_durations'=>[10]];
+        $second=array_replace(self::shot(3),['shot_id'=>'s2_1','scene_ref_id'=>'l2','scene_name'=>'走廊','visual_description'=>'甲走过走廊']);
+        $bad=self::shot(1);$bad['visual_description']='';$calls=[];
+        $request=['_input_contract_version'=>22,'_scene_batch_policy'=>Batch::POLICY,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事','_stage_content'=>'故事'],
+            static function($key)use(&$calls,$plan,$second,$bad){
+                $calls[]=$key;
+                if($key==='v3_timed_skeleton_0')$payload=$plan;
+                elseif($key==='v3_timed_batch_1_2')$payload=['storyboard'=>[$bad,$second]];
+                elseif($key==='v3_timed_scene_1_1_partial_fields_v1')$payload=['patches'=>[['shot_id'=>'s1_1','fields'=>['visual_description'=>'已修复第一镜头']]]];
+                elseif($key==='v3_timed_scene_1_1_missing_2')$payload=['storyboard'=>[self::shot(2)]];
+                else throw new \RuntimeException('Unexpected unit '.$key);
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+            });
+        self::assertSame(['s1_1','s1_2','s2_1'],array_column($result['payload']['storyboard'],'shot_id'));
+        self::assertSame('已修复第一镜头',$result['payload']['storyboard'][0]['visual_description']);
+        self::assertSame($second,$result['payload']['storyboard'][2]);
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_batch_1_2','v3_timed_scene_1_1_partial_fields_v1','v3_timed_scene_1_1_missing_2'],$calls);
+    }
+
     public function testFieldRepairCannotModifyValidDialogueOrGenerateUnknownTargets(): void
     {
         $request=['_input_contract_version'=>21,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];

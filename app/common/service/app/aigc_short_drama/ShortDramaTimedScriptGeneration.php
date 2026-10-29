@@ -192,6 +192,12 @@ final class ShortDramaTimedScriptGeneration
                                         ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                                     });
                                 if ($acceptedBatch !== null && $acceptedBatch !== []) $batchPartial = $candidate;
+                                elseif (ShortDramaInputContract::mixedStoryboardRecovery($request)
+                                    && ShortDramaPartialStoryboard::fieldTargets($candidate, $ids, $skeleton, $beat, $rule, $partDurations,
+                                        static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                            self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                            ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                        })) $batchPartial = $candidate;
                                 elseif (ShortDramaInputContract::shotFieldRecovery($request)) {
                                     $fieldTargets = ShortDramaShotFieldRepair::targets($candidate, $ids, $skeleton, $beat, $rule, $partDurations,
                                         static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
@@ -267,11 +273,25 @@ final class ShortDramaTimedScriptGeneration
                             }
                         }
                         if (ShortDramaInputContract::partialStoryboardRecovery($request) && $attempt === 0 && $e->getCode() === 422 && $e->getMessage() === '本段分镜数量不完整' && is_array($partial)) {
-                            $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
-                                static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                            $validatePartialShot = static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
                                     self::assertPart(['storyboard' => [$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
                                     ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
-                                });
+                                };
+                            $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
+                            if ($accepted === null && ShortDramaInputContract::mixedStoryboardRecovery($request)) {
+                                $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $rule, $partDurations, $validatePartialShot);
+                                if ($targets) {
+                                    $verify = static function ($reply) use ($partial, $targets, $ids, $validatePartialShot): void {
+                                        $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
+                                        if (ShortDramaPartialStoryboard::accepted($patched, $ids, $validatePartialShot) === null)
+                                            throw new RuntimeException('分镜字段修复后仍未通过校验', 422);
+                                    };
+                                    $partial = ShortDramaShotFieldRepair::request($call,
+                                        'timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_partial_fields_v1', $input, $partial, $targets, $verify);
+                                    $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
+                                    $contentRepairs++;
+                                }
+                            }
                             if ($accepted === [] && $size > 1) {
                                 $left = intdiv($size, 2);
                                 array_unshift($pending, [$offset, $left, '_split_' . $left],
@@ -279,6 +299,19 @@ final class ShortDramaTimedScriptGeneration
                                 continue 2;
                             }
                             if ($accepted !== null && $accepted !== []) {
+                                // A gap must not expose later shots out of order. Save the
+                                // validated contiguous prefix while the rest is repaired.
+                                $savePartial = static function () use (&$accepted, $ids, $shots, $skeleton, $request, $progress): void {
+                                    if (!$progress) return;
+                                    $prefix = [];
+                                    foreach ($ids as $index => $_) {
+                                        if (!isset($accepted[$index])) break;
+                                        $prefix[] = $accepted[$index];
+                                    }
+                                    if ($prefix) $progress('script_checkpoint', array_replace($skeleton,
+                                        ['storyboard'=>self::attachTimelineRanges(array_merge($shots, $prefix), $request)]));
+                                };
+                                if (ShortDramaInputContract::mixedStoryboardRecovery($request)) $savePartial();
                                 foreach ($ids as $index => $id) {
                                     if (isset($accepted[$index])) continue;
                                     ksort($accepted);
@@ -300,6 +333,7 @@ final class ShortDramaTimedScriptGeneration
                                             self::assertPart($missing, $skeleton, $beat, [$id], [$partDurations[$index]], false);
                                             ShortDramaSameSceneCuts::assertShot($missing['storyboard'][0], $skeleton, $request);
                                             $accepted[$index] = $missing['storyboard'][0];
+                                            if (ShortDramaInputContract::mixedStoryboardRecovery($request)) $savePartial();
                                             break;
                                         } catch (RuntimeException $missingError) {
                                             if ($missingAttempt || !in_array($missingError->getCode(), [413, 422], true)) throw $missingError;
