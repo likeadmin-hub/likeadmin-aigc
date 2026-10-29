@@ -188,4 +188,28 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         self::assertCount(3,$result['payload']['storyboard']);
         self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_repair'],$calls);
     }
+
+    public function testBatchedSceneRepairsOnlyInvalidFieldAndKeepsOtherScene(): void
+    {
+        $plan=self::skeleton(true);$plan['scene_beats'][0]['duration_seconds']=20;$plan['scene_beats'][0]['shot_durations']=[10,10];
+        $plan['locations'][]=['id'=>'l2','name'=>'走廊'];
+        $plan['scene_beats'][]=['scene_ref_id'=>'l2','goal'=>'走过走廊','entry'=>'走廊站立','exit'=>'走廊尽头',
+            'key_events'=>['走向走廊尽头'],'duration_seconds'=>10,'shot_durations'=>[10]];
+        $second=array_replace(self::shot(3),['shot_id'=>'s2_1','scene_ref_id'=>'l2','scene_name'=>'走廊','visual_description'=>'甲走过走廊']);
+        $request=['_input_contract_version'=>21,'_scene_batch_policy'=>Batch::POLICY,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];
+        $calls=[];$content='故事';
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>$content,'_stage_content'=>$content],
+            static function($key,$input)use(&$calls,$plan,$second){
+                $calls[]=$key;
+                if($key==='v3_timed_skeleton_0')$payload=$plan;
+                elseif($key==='v3_timed_batch_1_2'){$bad=self::shot(2);$bad['visual_description']='';$payload=['storyboard'=>[self::shot(1),$bad,$second]];}
+                elseif($key==='v3_timed_scene_1_1_fields_v1')$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'补全第二镜头']]]];
+                else throw new \RuntimeException('Unexpected unit '.$key);
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+            });
+        self::assertSame(['s1_1','s1_2','s2_1'],array_column($result['payload']['storyboard'],'shot_id'));
+        self::assertSame('补全第二镜头',$result['payload']['storyboard'][1]['visual_description']);
+        self::assertSame('甲走过走廊',$result['payload']['storyboard'][2]['visual_description']);
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_batch_1_2','v3_timed_scene_1_1_fields_v1'],$calls);
+    }
 }
