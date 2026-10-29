@@ -397,6 +397,16 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
             ['patches'=>[['scene_index'=>0,'fields'=>['goal'=>'补全','entry'=>'篡改']]]]);
     }
 
+    public function testSkeletonRecoveryDoesNotGuessAPlaceOrHideAnExplicitConflict(): void
+    {
+        $plan=self::skeleton(true);$plan['locations'][]=['id'=>'l2','name'=>'走廊'];
+        $plan['scene_beats'][0]['scene_ref_id']='unknown';
+        self::assertSame([],\app\common\service\app\aigc_short_drama\ShortDramaSkeletonFieldRepair::targets($plan,true));
+        $plan['scene_beats'][0]['scene_ref_id']='l1';$plan['scene_beats'][0]['scene_name']='走廊';
+        $plan['scene_beats'][0]['entry']='走廊内，甲等候';
+        self::assertSame([],\app\common\service\app\aigc_short_drama\ShortDramaSkeletonFieldRepair::targets($plan,true));
+    }
+
     public function testSceneFieldIsCapturedBeforeExtraLocationNormalizationFails(): void
     {
         $plan=self::skeleton(true);$request=['_input_contract_version'=>23,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
