@@ -989,7 +989,8 @@ class MarketVideoRuntimeService
             $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, self::appPayload($snapshot, $request, $idempotency), $request);
             $prepared = PreparedMarketGeneration::application($payload, $meter, $request);
         }
-        MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput);
+        MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput, static fn($asset)=>
+            str_starts_with((string)$asset['url'], 'asset://') ? $asset['url'] : AigcVideoReferenceAssetService::publicUrl($asset));
         return $prepared;
     }
 

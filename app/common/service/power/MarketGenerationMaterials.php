@@ -113,9 +113,9 @@ final class MarketGenerationMaterials
     }
 
     /** Preparation must reject material a legacy adapter would silently discard. */
-    public static function assertPreserved(array $request, array $native): void
+    public static function assertPreserved(array $request, array $native, ?callable $canonicalUrl = null): void
     {
-        $expected = array_count_values(array_map(static fn($a)=>trim((string)$a['url']), self::assets($request)));
+        $expected = array_count_values(array_map(static fn($a)=>trim((string)($canonicalUrl !== null ? $canonicalUrl($a) : $a['url'])), self::assets($request)));
         if ($expected === []) return;
         $actual = [];
         $walk = static function (array $values) use (&$walk, &$actual): void {

@@ -255,7 +255,8 @@ class MarketImageModelRuntimeService
             self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt),
             $snapshot['billing_meter'] ?? null
         );
-        MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput);
+        MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput, static fn($asset)=>
+            ($asset['type'] ?? 'image') === 'image' ? (MarketImageReferenceUrlService::resolve([(string)$asset['url']], $tenantId)[0] ?? '') : $asset['url']);
         return $prepared;
     }
 
