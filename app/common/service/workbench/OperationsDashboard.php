@@ -36,13 +36,15 @@ final class OperationsDashboard
                 if (!$this->tenantRow) throw new RuntimeException('Tenant unavailable');
                 $this->metric('tenant_point_balance', '本租户可用点数', (float)$this->tenantRow['point_balance'], null, '点', 'accounts');
                 $users = $this->query('user', true)->whereNull('delete_time');
-                $this->metric('user_total', '用户总数', (int)(clone $users)->count(), null, '人', 'accounts');
-                $this->metric('user_point_balance', '用户可用点数合计', (float)(clone $users)->sum('user_money'), null, '点', 'accounts');
+                $snapshot=(clone $users)->fieldRaw('COUNT(*) user_total,SUM(user_money) user_point_balance')->find();
+                $this->metric('user_total', '用户总数', (int)($snapshot['user_total']??0), null, '人', 'accounts');
+                $this->metric('user_point_balance', '用户可用点数合计', (float)($snapshot['user_point_balance']??0), null, '点', 'accounts');
                 $this->aggregate($users, 'create_time', ['user_new'=>'COUNT(*)'], ['user_new'=>['新增用户','人']], 'accounts');
             } else {
-                $this->metric('tenant_total', '租户总数', (int)(clone $q)->count(), null, '个', 'accounts');
-                $this->metric('tenant_enabled', '正常租户', (int)(clone $q)->where('disable', 0)->count(), null, '个', 'accounts');
-                $this->metric('tenant_point_balance', '租户可用点数合计', (float)(clone $q)->sum('point_balance'), null, '点', 'accounts');
+                $snapshot=(clone $q)->fieldRaw('COUNT(*) tenant_total,SUM(disable=0) tenant_enabled,SUM(point_balance) tenant_point_balance')->find();
+                $this->metric('tenant_total', '租户总数', (int)($snapshot['tenant_total']??0), null, '个', 'accounts');
+                $this->metric('tenant_enabled', '正常租户', (int)($snapshot['tenant_enabled']??0), null, '个', 'accounts');
+                $this->metric('tenant_point_balance', '租户可用点数合计', (float)($snapshot['tenant_point_balance']??0), null, '点', 'accounts');
                 $this->aggregate($q, 'create_time', ['tenant_new'=>'COUNT(*)'], ['tenant_new'=>['新增租户','个']], 'accounts');
             }
         }, $this->tenant ? ['tenant_point_balance'=>['本租户可用点数','点'],'user_total'=>['用户总数','人'],'user_point_balance'=>['用户可用点数合计','点'],'user_new'=>['新增用户','人']] : ['tenant_total'=>['租户总数','个'],'tenant_enabled'=>['正常租户','个'],'tenant_point_balance'=>['租户可用点数合计','点'],'tenant_new'=>['新增租户','个']]);
@@ -65,8 +67,10 @@ final class OperationsDashboard
             $this->aggregate($q, 'create_time', $expr, $taskDefs, 'tasks');
             $rate=[];
             foreach ([false,true] as $previous) {
-                $v=$this->window(clone $q,'create_time',$previous)->fieldRaw("SUM(status='success') success, SUM(status IN ('success','partial_success','failed','canceled','cancelled')) terminal")->find();
-                $rate[]=(int)($v['terminal']??0)>0?round(100*(int)$v['success']/(int)$v['terminal'],2):null;
+                // Non-terminal statuses are already counted in the same scoped aggregate.
+                $period=$previous?'previous':'value';
+                $terminal=(int)$this->metrics['task_total'][$period]-(int)$this->metrics['task_running'][$period];
+                $rate[]=$terminal>0?round(100*(int)$this->metrics['task_success'][$period]/$terminal,2):null;
             }
             $this->metric('task_success_rate','已结束任务成功率',$rate[0],$rate[1],'%', 'tasks');
             $names=['success'=>'成功','partial_success'=>'部分成功','failed'=>'失败','canceled'=>'已取消','cancelled'=>'已取消','running'=>'进行中','pending'=>'等待中','queued'=>'排队中','waiting'=>'等待中','waiting_continue'=>'待继续'];
@@ -223,11 +227,19 @@ final class OperationsDashboard
     private function values($query,string $time,array $expressions): array
     {
         $fields=implode(',',array_map(fn($key)=>$expressions[$key].' AS '.$key,array_keys($expressions)));
-        $current=$this->window(clone $query,$time)->fieldRaw($fields)->find()??[];
-        $previous=$this->window(clone $query,$time,true)->fieldRaw($fields)->find()??[];
         $bucket='FLOOR(('.$time.'-'.$this->range['start_at'].')/'.$this->range['step'].')';
-        $rows=$this->window(clone $query,$time)->fieldRaw($bucket.' AS bucket,'.$fields)->group('bucket')->order('bucket')->select()->toArray();
-        return [$current,$previous,$rows];
+        // MySQL 5.7-compatible ROLLUP computes both granular and period aggregates in one scan.
+        // Never sum daily distinct-user counts: the rollup calculates the true period DISTINCT.
+        // No ORDER BY here: MySQL 5.7 forbids it with ROLLUP, and callers place rows by bucket.
+        $rows=$this->window(clone $query,$time)->fieldRaw($bucket.' AS bucket,'.$fields)
+            ->group([Db::raw('bucket WITH ROLLUP')])->select()->toArray();
+        $current=[];$buckets=[];
+        foreach ($rows as $row) {
+            if ($row['bucket']===null) {$current=$row;unset($current['bucket']);}
+            else $buckets[]=$row;
+        }
+        $previous=$this->window(clone $query,$time,true)->fieldRaw($fields)->find()??[];
+        return [$current,$previous,$buckets];
     }
 
     private function window($query,string $field,bool $previous=false)
