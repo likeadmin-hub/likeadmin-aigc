@@ -255,15 +255,13 @@ final class ShortDramaTimedScriptGeneration
                                     ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                                 });
                             if ($targets) {
-                                $fieldInput = ShortDramaShotFieldRepair::messages($input, $targets, $partial);
                                 $verify = static function ($reply) use ($partial, $targets, $skeleton, $beat, $ids, $partDurations, $request): void {
                                     $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
                                     self::assertPart($patched, $skeleton, $beat, $ids, $partDurations, false);
                                     foreach ($patched['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                                 };
-                                $patch = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_fields_v1', $fieldInput, 1800 + count($targets) * 300, $verify);
-                                $verify($patch);
-                                $completedPartial = ShortDramaShotFieldRepair::apply($partial, $targets, $patch);
+                                $completedPartial = ShortDramaShotFieldRepair::request($call,
+                                    'timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_fields_v1', $input, $partial, $targets, $verify);
                                 $contentRepairs++;
                                 continue;
                             }

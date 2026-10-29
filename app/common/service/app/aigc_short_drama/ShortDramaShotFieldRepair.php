@@ -65,4 +65,21 @@ final class ShortDramaShotFieldRepair
             . json_encode(['storyboard'=>$part['storyboard'], 'targets'=>$targets], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         return $input;
     }
+
+    /** Bounded retries use distinct durable units; uncertain submissions never fall back. */
+    public static function request(callable $call, string $key, array $input, array $part, array $targets, callable $verify): array
+    {
+        $input = self::messages($input, $targets, $part);
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            try {
+                $patch = $call($key . ($attempt ? '_repair' : ''), $input, 1800 + count($targets) * 300, $verify);
+                $verify($patch);
+                return self::apply($part, $targets, $patch);
+            } catch (RuntimeException $error) {
+                if ($attempt || !in_array($error->getCode(), [413, 422], true)) throw $error;
+                $input['content'] .= "\n上次字段补丁未通过：" . $error->getMessage() . '。仅返回允许的目标字段，不改变其他内容。';
+            }
+        }
+        throw new RuntimeException('分镜字段修复未完成', 422);
+    }
 }
