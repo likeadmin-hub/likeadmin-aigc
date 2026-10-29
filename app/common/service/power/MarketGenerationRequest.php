@@ -50,11 +50,21 @@ final class MarketGenerationRequest
             $params[$field] = $ratio; break;
         }
         $resolution = $request['resolution'] ?? $request['quality'] ?? null;
-        if ($resolution !== null && $resolution !== '') foreach (['resolution','image_size','quality','size'] as $field) {
-            if (!isset($properties[$field])) continue;
-            $choices = MarketGenerationSchema::choices($properties[$field]);
-            if ($choices !== [] && !in_array(strtolower((string)$resolution), array_map(static fn($v)=>strtolower((string)$v),$choices), true)) continue;
-            $params[$field] = $resolution; break;
+        if ($resolution !== null && $resolution !== '') {
+            if (!is_scalar($resolution)) throw new InvalidArgumentException('分辨率或质量格式不正确');
+            $mapped = false;
+            foreach (['resolution','image_size','quality','size'] as $field) {
+                if (!isset($properties[$field])) continue;
+                $choices = MarketGenerationSchema::choices($properties[$field]);
+                if ($choices !== [] && !in_array(strtolower((string)$resolution), array_map(static fn($v)=>strtolower((string)$v),$choices), true)) continue;
+                $params[$field] = $resolution; $mapped = true; break;
+            }
+            // A supplied output dimension must not silently disappear and
+            // leave the supplier to choose a differently priced default.
+            $dimensionFields = array_intersect_key($properties, array_flip(['resolution','image_size','size']));
+            if (!$mapped && $dimensionFields !== [] && array_intersect_key($locked, $dimensionFields) === []) {
+                throw new InvalidArgumentException('所选模型不支持当前分辨率或质量');
+            }
         }
         foreach (['duration','seconds','video_duration'] as $field) if (isset($properties[$field]) && array_key_exists('duration', $request)) { $params[$field] = $request['duration']; break; }
         foreach (['n', 'num_images'] as $field) if (isset($properties[$field])) $params[$field] = max(1, (int)($request['quantity'] ?? $request[$field] ?? $params[$field] ?? 1));
