@@ -161,11 +161,11 @@ php tools/audit-tool-market-compatibility.php --tenant-id=1 --structured-probes 
 
 ### 合同候选导入与剩余工作
 
-`tools/market/prepare-generation-contract-candidates.php reviewed-bundle.json original-source-artifact` 只读取本地文件、校验来源文件 SHA-256、版本、型号/渠道身份、完整子结构、模式字段和已实现协议/规则，向标准输出生成 `candidates`。不执行源文件，不请求网络，不写活动合同目录。来源对象只保留公开审阅字段，认证 URL 和未知校验关键字会拒绝。候选仍标记 `review_candidate_only`，不能作为 `generation-contracts.json` 使用；文件指纹只绑定证据，不证明来源本身真实，仍需独立审阅。
+`tools/market/prepare-generation-contract-candidates.php reviewed-bundle.json original-source-artifact` 只读取本地文件、校验来源文件 SHA-256、版本、型号/渠道身份、完整子结构、模式字段和已实现协议/规则，向标准输出生成 `candidates`。不执行源文件，不请求网络，不写活动合同目录。来源对象只保留公开审阅字段，认证 URL 和未知校验关键字会拒绝。输入 bundle 需包含 `version: 1`、`source`（`kind`、`reference`、`revision`、`reviewed_at`、`artifact_sha256`）和 `entries`；每项绑定生成类型、型号、渠道、公开编码、协议 ID、原始参数/素材声明及各模式的 `schema` / `rules`。合成格式样例见 `MarketGenerationContractReviewTest::bundle`，不代表真实模型合同。候选仍标记 `review_candidate_only`，不能作为 `generation-contracts.json` 使用；文件指纹只绑定证据，不证明来源本身真实，仍需独立审阅。
 
 后续应优先在平台端导出版本化、可绑定型号/渠道的完整参数结构、素材模式、条件规则及 SKU/计价声明，再由 SaaS 共享层读取与核验。现有完整平台声明可直接复用共享处理；声明仍缺失的部分要在平台或共享协议层补充一次，不能回到每个工具维护供应商逻辑。18 个旧模型没有补造原生合同；现有 90 个匹配、18 个缺失及 13 个应用待核验状态保留。
 
-本轮服务端 PHPUnit、事务回滚、PC 回归与脚本结果见专项记录。数据库测试写入全部回滚，没有收费生成、真实素材上传、价格/上架同步、历史任务修复或发布操作。后台能力定义、`capability_profile` 和能力校正未改动，能力表及前端源码未调整。本地编译产物保留；服务器远端 `develop` 合并继续按此前确认暂缓。
+本轮 507 项 PHPUnit（2,531 项断言）、206 项 PC 回归和 18 项结算回滚检查通过，详细分组见专项记录。数据库测试写入全部回滚，没有收费生成、真实素材上传、价格/上架同步、历史任务修复或发布操作。后台能力定义、`capability_profile` 和能力校正未改动，能力表及前端源码未调整。本地编译产物保留；服务器远端 `develop` 合并继续按此前确认暂缓。
 
 ## 模型或工具变更时逐项复核
 
