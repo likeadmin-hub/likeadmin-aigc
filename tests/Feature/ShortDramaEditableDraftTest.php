@@ -109,4 +109,32 @@ class ShortDramaEditableDraftTest extends TestCase
         self::assertSame([],Preview::legacyCheckpoint(['__stream_content'=>$json.'{"unfinished":']));
         self::assertSame([],Preview::legacyCheckpoint(['__stream_content'=>substr($json,0,-1)]));
     }
+
+    public function testLegacyTaskCanSaveAnExportOnlyDraftWithoutChangingItsRequestOrResult(): void
+    {
+        if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Opt in to transactional local DB tests');
+        (new \think\App())->initialize(); Db::startTrans();
+        try {
+            $scope=['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>'test_legacy_draft_'.bin2hex(random_bytes(8))];
+            $plan=$this->plan(); $state=['__stream_content'=>json_encode($plan,JSON_UNESCAPED_UNICODE)];
+            Db::name('aigc_short_drama_script_task')->insert($scope+['project_id'=>17,'status'=>'failed','request_json'=>'{}',
+                'result_json'=>json_encode($state,JSON_UNESCAPED_UNICODE),'create_time'=>1,'update_time'=>1]);
+            $original=Db::name('aigc_short_drama_script_task')->where($scope)->find();
+            $view=Draft::view($scope['tenant_id'],7,$scope['task_id'],Preview::legacyCheckpoint($state));
+            $saved=Draft::save($scope['tenant_id'],7,$scope['task_id'],17,$view['token'],'s1_1',['visual_description'=>'旧任务修改']);
+            self::assertFalse($saved['merge_supported']);
+            self::assertSame('旧任务修改',$saved['plan']['storyboard'][0]['visual_description']);
+            self::assertSame($original,Db::name('aigc_short_drama_script_task')->where($scope)->find());
+        } finally { Db::rollback(); }
+    }
+
+    public function testMissingOrDuplicateCandidateIdentityCannotBeChosenForRebase(): void
+    {
+        $edits=['s1_1'=>['visual_description'=>['before'=>'原画面','after'=>'用户画面']]];
+        $missing=['storyboard'=>[['shot_id'=>'other','visual_description'=>'新画面']]];
+        $conflicts=Draft::conflicts($missing,$edits);
+        self::assertCount(1,$conflicts); self::assertFalse($conflicts[0]['can_keep_draft']); self::assertNull($conflicts[0]['generated']);
+        $duplicate=$this->plan(); $duplicate['storyboard'][]=$duplicate['storyboard'][0];
+        self::assertFalse(Draft::conflicts($duplicate,$edits)[0]['can_keep_draft']);
+    }
 }
