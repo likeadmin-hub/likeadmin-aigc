@@ -46,7 +46,7 @@ php tools/market/compile-reviewed-generation-contracts.php bundle.json original-
 
 两条命令只读本地文件并向标准输出写入，不执行源文件、不访问网络或数据库、不自动启用合同。第二条的 `--reviewed` 是调用方对已有审核的显式声明，不是自动审核证明。将真实条目纳入受信任目录前，须完成来源、字段覆盖和协议族离线回归，并按仓库规则在 feature 提交、本地 develop 验证后交付源码。
 
-未知 schema 关键字、未注册协议、不完整子结构、身份重复和来源指纹不符仍拒绝。点分隔素材路径暂不能编译；已有编码器的复合素材也不能套用平铺数组计数。非 `native_v1` 协议目前只接受能由共享层计数和校验角色的字符串或字符串数组素材。Qwen/Wan 等嵌套业务参数可以使用完整 schema 校验，但嵌套素材路径仍需补齐共享角色、计数与保留检查后才能启用相应合同。
+未知 schema 关键字、未注册协议、不完整子结构、身份重复和来源指纹不符仍拒绝。第八阶段允许审核后的图片合同在 `qwen_image_v1` / `image_messages_v1` 使用只读点分隔路径及数组 `*`，例如 `input.messages.*.content.*.image`。路径必须在完整模式 schema 中指向字符串或字符串数组，复用素材数量、角色、平台校正与 SKU 校验；实际嵌套请求仍由已有编码器生成。表达式、过滤器、递归通配、找不到的路径、视频混合路径、嵌套写入及复合主体不能套用这种计数。其余非 `native_v1` 协议仍要求平铺字符串或字符串数组素材。Wan 等混合类型需先实现各类型/角色的共享计数，再启用相应合同。
 
 ## 编码、校验与计价
 
@@ -58,6 +58,8 @@ php tools/market/compile-reviewed-generation-contracts.php bundle.json original-
 
 `market-image-structure-review-20261029.json` 保存 9 个图片数组的元素类型依据。8 项来自身份匹配的公开文档详情；`gpt-image-2 / OpenAIYI` 的文档绑定仍缺失，单独使用此前核实的保存目录声明，不借用 OpenaiM 或 VIP 的合同。其中 Nano Banana 2.1 已有显式 `children.item.type=string`，其余记录的是参数说明中的字符串/图片地址依据；不从示例自动推断数量、模式或条件。
 
-`MarketGenerationDeclarationSchema` 只展开有明确类型的 `children.item` / 对象 `children`，冲突会拒绝，不解析说明文字或示例来生成运行时 schema。原始不透明结构仍记 15 项；按平台显式 children 展开后为 14 项。9 项部分类型证据不等于 9 份完整合同，18 个旧模型的完整合同待核验状态保留。
+`MarketGenerationDeclarationSchema` 只展开有明确类型的 `children.item`、对象 `children` 及数组直接声明对象子字段的 `children`，冲突会拒绝，不解析说明文字或示例来生成运行时 schema。第八阶段共享旧协议准备会验证显式 children，但不会按新发现的结构重建对象或删除开放字段；false/0、未声明的开放子字段及原始声明保留。新图片快照的 `generation_validation_revision=8` 使 Qwen 参考图模式的 `agent` 选择按公开规则拒绝；已有冻结快照继续保留原有效 direct 选择。原始不透明结构仍记 15 项；按平台显式 children 展开后为 14 项。9 项部分类型证据不等于 9 份完整合同，18 个旧模型的完整合同待核验状态保留。
+
+当前完整资料的外部缺口和精确资源清单见[提供给平台方的合同资料清单](market-provider-contract-export-request.md)。没有将该清单发送给服务方，也没有放宽候选来源要求来制造已验证原生合同。
 
 发现新合同有问题时，可先从当前受信任目录移除相应条目，影响后续选择；保留读取器处理已冻结的任务。已有冻结合同的任务不能直接交给不认识版本 2 的旧代码处理。没有执行任务迁移、历史结果修复或重新计费。
