@@ -62,7 +62,7 @@ final class ShortDramaScriptGeneration
                 }
                 try { $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? [])); }
                 catch (RuntimeException $error) {
-                    if (!ShortDramaInputContract::preciseRecovery($request) || !in_array($error->getCode(), [413,422], true)
+                    if ((!ShortDramaInputContract::preciseRecovery($request) && empty($receipt['_safe_recovery'])) || !in_array($error->getCode(), [413,422], true)
                         || !preg_match('/^(?:timed_scene_|scene_)/', $key)
                         || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? [])))) throw $error;
                 }
