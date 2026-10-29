@@ -18,6 +18,9 @@ class MarketGenerationProtocolDeclarationTest extends TestCase
         $metadata=null;
         foreach($fixture['contracts'] as $c)if($c['resource_type']==='model'&&$c['model_code']===$model&&$c['channel_code']===$channel){$metadata=$c;break;}
         self::assertNotNull($metadata);
+        // These synthetic capability declarations are independent of choosing
+        // a serializer. The old Qwen public sample contains no material bound.
+        if($type==='image')$metadata+=['supports_reference_images'=>true,'max_reference_images'=>2];
         $snapshot=['resource_type'=>'model','model_code'=>$model,'channel_code'=>$channel,'locked_params'=>[],
             'market_metadata'=>$metadata,'params_schema'=>$metadata['params_schema']];
         self::assertSame($protocol,Registry::modelProtocol($type,$snapshot));
@@ -28,6 +31,11 @@ class MarketGenerationProtocolDeclarationTest extends TestCase
         $expected=$prepare($snapshot);
         $snapshot['model_code']='compatible-fixture-next';$snapshot['channel_code']='fixture-channel';
         $snapshot['market_metadata']['generation_protocol']=$protocol;
+        $schema=&$snapshot['market_metadata']['params_schema'];
+        $properties=&$schema;
+        if(isset($schema['properties']))$properties=&$schema['properties'];
+        if(isset($properties['model']))$properties['model']=array_replace($properties['model'],['enum'=>['compatible-fixture-next'],'options'=>['compatible-fixture-next'],'default'=>'compatible-fixture-next']);
+        $snapshot['params_schema']=$schema;
         $actual=$prepare($snapshot);
         self::assertSame('compatible-fixture-next',$actual['model']);
         foreach(['model','channel'] as $key){unset($expected[$key],$actual[$key]);}

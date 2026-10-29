@@ -80,7 +80,7 @@ final class Q4VideoContract
         $request['duration']=$duration?:5; self::validate($request,$assets);
         $resolution=['540p'=>'540p','720p'=>'720p','1080p'=>'1080p','2k'=>'2K','4k'=>'4K'][strtolower($quality?:'720p')]??'';
         if($resolution==='')throw new InvalidArgumentException('Q4 不支持所选分辨率');
-        $out=array_merge($context,self::options($request),['model'=>'q4-preview-video','images'=>array_values($assets['image']),'prompt'=>(string)($request['prompt']??''),'duration'=>$request['duration'],'resolution'=>$resolution,'idempotency_key'=>$idempotency]);
+        $out=array_merge($context,self::options($request),['model'=>(string)($snapshot['model_code']??'q4-preview-video'),'images'=>array_values($assets['image']),'prompt'=>(string)($request['prompt']??''),'duration'=>$request['duration'],'resolution'=>$resolution,'idempotency_key'=>$idempotency]);
         if(!empty($snapshot['channel_code']))$out['channel']=$snapshot['channel_code'];
         if(strlen(json_encode($out,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))>=20*1024*1024)throw new InvalidArgumentException('Q4 请求体必须小于 20 MB，请使用图片 URL');
         return $out;
