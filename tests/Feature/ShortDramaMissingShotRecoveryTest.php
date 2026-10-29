@@ -233,6 +233,30 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_repair'],$calls);
     }
 
+    /** @dataProvider failedFieldRepairModes */
+    public function testFieldRepairFailureKeepsValidatedPrefix(bool $timed, bool $missing): void
+    {
+        $request=['_input_contract_version'=>22];
+        if ($timed) $request['episode_duration_policy']=Duration::snapshot([],0,0,[]);
+        $bad=self::shot($missing ? 3 : 2);$bad['visual_description']='';$checkpoints=[];$calls=[];
+        try {
+            Script::generate($request,['max_tokens'=>$timed?8192:4096],['system_prompt'=>'创作','content'=>'故事'],
+                static function($key)use(&$calls,$timed,$missing,$bad){
+                    $calls[]=$key;
+                    if(str_contains($key,'skeleton'))$payload=self::skeleton($timed);
+                    elseif(str_contains($key,'fields_v1'))$payload=['patches'=>[]];
+                    elseif(str_contains($key,'missing'))self::fail('Do not submit missing shots after a failed patch');
+                    else $payload=['storyboard'=>$missing ? [self::shot(1),$bad] : [self::shot(1),$bad,self::shot(3)]];
+                    return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+                },static function($event,$payload)use(&$checkpoints){if($event==='script_checkpoint')$checkpoints[]=$payload;});
+            self::fail('Invalid patch must not be accepted');
+        } catch(\RuntimeException $error){self::assertSame(422,$error->getCode());}
+        self::assertNotEmpty($checkpoints);
+        self::assertSame(['s1_1'],array_column(end($checkpoints)['storyboard'],'shot_id'));
+        self::assertCount(4,$calls);
+    }
+    public static function failedFieldRepairModes(): array { return [[false,false],[false,true],[true,false],[true,true]]; }
+
     public function testMixedPartialInBatchedSceneRetainsNeighborScene(): void
     {
         $plan=self::skeleton(true);$plan['scene_beats'][0]['duration_seconds']=20;$plan['scene_beats'][0]['shot_durations']=[10,10];

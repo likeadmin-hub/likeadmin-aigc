@@ -261,6 +261,15 @@ final class ShortDramaTimedScriptGeneration
                                     ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                                 });
                             if ($targets) {
+                                if (ShortDramaInputContract::mixedStoryboardRecovery($request) && $progress) {
+                                    $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids,
+                                        static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                            self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                            ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                        });
+                                    if ($prefix) $progress('script_checkpoint', array_replace($skeleton,
+                                        ['storyboard'=>self::attachTimelineRanges(array_merge($shots, $prefix), $request)]));
+                                }
                                 $verify = static function ($reply) use ($partial, $targets, $skeleton, $beat, $ids, $partDurations, $request): void {
                                     $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
                                     self::assertPart($patched, $skeleton, $beat, $ids, $partDurations, false);
@@ -281,6 +290,9 @@ final class ShortDramaTimedScriptGeneration
                             if ($accepted === null && ShortDramaInputContract::mixedStoryboardRecovery($request)) {
                                 $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $rule, $partDurations, $validatePartialShot);
                                 if ($targets) {
+                                    $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids, $validatePartialShot);
+                                    if ($prefix && $progress) $progress('script_checkpoint', array_replace($skeleton,
+                                        ['storyboard'=>self::attachTimelineRanges(array_merge($shots, $prefix), $request)]));
                                     $verify = static function ($reply) use ($partial, $targets, $ids, $validatePartialShot): void {
                                         $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
                                         if (ShortDramaPartialStoryboard::accepted($patched, $ids, $validatePartialShot) === null)
