@@ -44,4 +44,9 @@ class MarketImageRatioDimensionsTest extends TestCase
         $meta=$this->metadata();$meta['params_schema']['image_size']['enum']=['1K','2K','4K'];
         self::assertSame(['1k','2k','4k'],(new \ReflectionMethod(Images::class,'modelQualityOptions'))->invoke(null,[],$meta));
     }
+    public function testUndeclaredResolutionDoesNotDisappearFromARatioOnlyModel(): void
+    {
+        $s=['resource_type'=>'model','model_code'=>'ratio-size-fixture','locked_params'=>[],'market_metadata'=>$this->metadata()];
+        $this->expectException(\InvalidArgumentException::class);Images::prepareRequest($s,['prompt'=>'Fixture','ratio'=>'16:9','quality'=>'2K']);
+    }
 }
