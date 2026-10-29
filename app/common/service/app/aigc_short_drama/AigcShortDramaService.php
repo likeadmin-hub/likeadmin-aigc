@@ -5627,6 +5627,7 @@ class AigcShortDramaService
                     throw $error;
                 }
                 $request['_generation_recovery_version'] = 1;
+                $request = ShortDramaInputContract::resumeAfterLimit($request, (string)$task['error']);
                 $task->save([
                     'request_json' => self::jsonEncode($request),
                     'status' => self::STATUS_PENDING,

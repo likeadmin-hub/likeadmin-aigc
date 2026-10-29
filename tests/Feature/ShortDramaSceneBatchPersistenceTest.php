@@ -384,11 +384,18 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertGreaterThan(48,count($calls));
         self::assertCount(count(array_unique($calls)),$calls);
         $count=count($calls);self::assertSame($result['payload'],Unit::withinDispatch(self::TENANT,7,$this->task,4,$run)['payload']);self::assertCount($count,$calls);
-        $legacy=array_replace($request,['_input_contract_version'=>23]);
+        $legacy=array_replace($request,['_input_contract_version'=>23,'_generation_version'=>3]);
         $oldRun=fn()=>Script::generate($legacy,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
             fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
         try {Unit::withinDispatch(self::TENANT,7,$this->task,4,$oldRun);self::fail('Legacy tasks retain their original cap');}
         catch(\RuntimeException $error){self::assertSame(429,$error->getCode());}
+        self::assertCount($count,$calls);
+        $resumed=\app\common\service\app\aigc_short_drama\ShortDramaInputContract::resumeAfterLimit($legacy,'本集已达到自动处理上限，已保留完成内容，请缩小生成范围');
+        self::assertSame(\app\common\service\app\aigc_short_drama\ShortDramaPlanningContext::templateRequest($legacy),
+            \app\common\service\app\aigc_short_drama\ShortDramaPlanningContext::templateRequest($resumed));
+        $resumedRun=fn()=>Script::generate($resumed,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
+            fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
+        self::assertSame($result['payload'],Unit::withinDispatch(self::TENANT,7,$this->task,4,$resumedRun)['payload']);
         self::assertCount($count,$calls);
     }
 }

@@ -365,6 +365,7 @@ class ShortDramaEpisodeService
                         && $originalContext === ($request['series_context'] ?? [])
                         && (!$review || ($wasBlockReview && $previousReviewBase === ($request['revision_base_result'] ?? [])))) {
                         ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, (string)$row['task_id'], $confirmInterrupted);
+                        $request = ShortDramaInputContract::resumeAfterLimit($request, (string)($old['error'] ?? ''));
                         $old->save(['request_json' => self::encode($request), 'status' => 'pending',
                             'retry_count' => (int)$old['retry_count'] + 1, 'current_step' => '等待继续未完成部分',
                             'error' => '', 'finished_at' => 0, 'update_time' => time()]);

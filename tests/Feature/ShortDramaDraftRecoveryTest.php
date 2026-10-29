@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Feature;
 
-use app\common\service\app\aigc_short_drama\{AigcShortDramaService, ShortDramaScriptPreview};
+use app\common\service\app\aigc_short_drama\{AigcShortDramaService, ShortDramaInputContract, ShortDramaScriptPreview};
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
 
@@ -14,6 +14,18 @@ class ShortDramaDraftRecoveryTest extends TestCase
         self::assertSame(['has_draft'=>true,'saved_shots'=>1,'recent_stage'=>'第3场，从第5个分镜开始'], ShortDramaScriptPreview::recoveryInfo($state,'failed'));
         self::assertSame([],ShortDramaScriptPreview::recoveryInfo($state,'running'));
         self::assertSame(['has_draft'=>false,'saved_shots'=>0,'recent_stage'=>''],ShortDramaScriptPreview::recoveryInfo(['__stream_content'=>'not validated'],'failed'));
+    }
+
+    public function testExplicitLimitResumeIsRestrictedToKnownLegacyGenerationLimit(): void
+    {
+        $request=['_input_contract_version'=>23,'_generation_version'=>3,'multi_episode'=>false];
+        $reason='本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续';
+        $resumed=ShortDramaInputContract::resumeAfterLimit($request,$reason);
+        self::assertTrue(ShortDramaInputContract::segmentedContinuation($resumed));
+        self::assertFalse(ShortDramaInputContract::extendedTruncatedRecovery($resumed));
+        self::assertSame($request,ShortDramaInputContract::resumeAfterLimit($request,'上游限流'));
+        self::assertSame(['_input_contract_version'=>19,'_generation_version'=>3],ShortDramaInputContract::resumeAfterLimit(['_input_contract_version'=>19,'_generation_version'=>3],$reason));
+        self::assertSame(array_replace($request,['multi_episode'=>true]),ShortDramaInputContract::resumeAfterLimit(array_replace($request,['multi_episode'=>true]),$reason));
     }
 
     public function testFailureStatePreservesCheckpointAndFencesOldAttempt(): void

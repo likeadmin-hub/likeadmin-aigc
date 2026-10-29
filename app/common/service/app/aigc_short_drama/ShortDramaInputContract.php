@@ -8,6 +8,24 @@ final class ShortDramaInputContract
 
     public static function segmentedContinuation(array $request): bool
     {
+        $version = (int)($request['_input_contract_version'] ?? 0);
+        return $version >= 24 || ($version >= 20 && (int)($request['_segmented_generation'] ?? 0) === 1);
+    }
+
+    /** Explicit retry may relax only the dispatch boundary, never the frozen prompt contract. */
+    public static function resumeAfterLimit(array $request, string $error): array
+    {
+        $version = (int)($request['_input_contract_version'] ?? 0);
+        if ($version >= 20 && $version < 24 && (int)($request['_generation_version'] ?? 0) >= 3
+            && empty($request['multi_episode']) && in_array($error, [
+                '本集已达到自动处理上限，已保留完成内容，请缩小生成范围',
+                '本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续',
+            ], true)) $request['_segmented_generation'] = 1;
+        return $request;
+    }
+
+    public static function extendedTruncatedRecovery(array $request): bool
+    {
         return (int)($request['_input_contract_version'] ?? 0) >= 24;
     }
 
