@@ -33,11 +33,11 @@ final class ShortDramaEpisodeDuration
         return (array)($request['episode_duration_policy'] ?? $request['generation_settings']['episode_duration_policy'] ?? []);
     }
 
-    /** An automatic target is a planning ceiling, not time to pad into shots. */
+    /** Old snapshots retain their original prompt contract. */
     public static function modelPolicy(array $request): array
     {
         $policy = self::policy($request);
-        if (($policy['source'] ?? '') === 'default') {
+        if (($policy['source'] ?? '') === 'default' && empty($policy['target_planning_version'])) {
             unset($policy['target_seconds'], $policy['min_seconds']);
         }
         return $policy;
@@ -99,10 +99,13 @@ final class ShortDramaEpisodeDuration
         $policy = self::policy($request);
         if (!self::active($request)) return '';
         $default = ($policy['source'] ?? '') === 'default';
+        $targetPlanning = $default && !empty($policy['target_planning_version']);
         return '本次采用时间预算策略。' . (($policy['scope'] ?? '') === 'series' ? '整部总时长' : '每集时长')
-            . ($default
+            . ($targetPlanning
+                ? '请以' . $policy['target_seconds'] . '秒为规划目标，参考范围' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒；以完整剧情、对白和自然节奏为准，不得虚构剧情或延长空镜凑时长。'
+                : ($default
                 ? '未指定目标时长，仅以' . $policy['max_seconds'] . '秒作为参考上限；剧情自然结束即可短于该值，不补时长。'
-                : '用户指定目标' . $policy['target_seconds'] . '秒，允许' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒。')
+                : '用户指定目标' . $policy['target_seconds'] . '秒，允许' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒。'))
             . '具体时间码和对应剧情必须完整保留。剧情类型只提供节奏参考，忽略旧模板的分镜数量上下限、按场景最少几个镜头及固定单集默认时长。'
             . '按实际对白、动作和情绪安排时长与镜头数，不追加镜头凑时长，不通过仅修改秒数压缩对白。默认时长不足时正常返回，默认下限仅为参考，不补长、不重试；明确用户时长仍严格遵守。'
             . '骨架先分配各场时间预算，再展开分镜。明确时间码可短于通常片段下限；每个未超过单镜头上限的时间码段必须恰好对应一个分镜，只有超过上限的长片段才允许连续拆分，并且不得改变原时间边界。'

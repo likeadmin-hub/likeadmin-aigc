@@ -38,7 +38,9 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
             'app_code' => 'aigc_short_drama', 'run_status' => $upstream === 'malformed' ? 'success' : $upstream,
             'response_summary' => $upstream === 'success' ? json_encode(['parse_result' => $plan]) : '{}', 'error_message' => 'late failure']);
         $id = Db::name('aigc_short_drama_script_task')->insertGetId($scope + ['task_id' => $taskId, 'project_id' => $projectId,
-            'app_task_id' => $appId, 'status' => $terminal, 'result_json' => '{"original":true}', 'error' => 'retained']);
+            'app_task_id' => $appId, 'status' => $terminal, 'result_json' => '{"original":true}', 'error' => 'retained',
+            'request_json'=>json_encode(['prompt'=>'按剧本策划','_upload_timing_rule_snapshot'=>['enabled'=>true,
+                'target_seconds'=>120,'min_seconds'=>60,'max_seconds'=>180]])]);
         $before = Db::name('aigc_short_drama_script_task')->where('id', $id)->find();
         $stale = $before; $stale['status'] = 'running';
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'syncMarketFileQaScriptTask');
@@ -50,6 +52,9 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
             self::assertSame('story_outline_v2', $request['workflow_variant']);
             self::assertSame('story', $request['multi_episode_stage']);
             self::assertCount(2, $request['_imported_outline_snapshot']['episodes']);
+            self::assertSame(120,$request['episode_duration_policy']['target_seconds']);
+            self::assertSame(60,$request['episode_duration_policy']['min_seconds']);
+            self::assertSame(1,$request['episode_duration_policy']['target_planning_version']);
             self::assertSame([], json_decode($saved['result_json'], true)['episodes']);
             $detail = AigcShortDramaService::scriptPlanDetail($scope['tenant_id'], $scope['user_id'], $taskId, $projectId);
             self::assertSame('story', $detail['story_workspace']['stage']);
