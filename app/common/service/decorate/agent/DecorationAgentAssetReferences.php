@@ -149,16 +149,17 @@ final class DecorationAgentAssetReferences
     }
 
     /** Capture only declared current image refs; return authoritative storage identity, never client URLs. */
-    public static function captureIdentities(array $page,int $tenant): array
+    public static function captureIdentities(array $page,int $tenant,?callable $onInvalid=null): array
     {
         if($tenant<=0)throw new \InvalidArgumentException('截图素材租户无效');
         $result=[];$identities=[];$cache=[];
-        self::walk($page,function(array &$widget,array $definition)use($tenant,&$result,&$identities,&$cache): void {
+        self::walk($page,function(array &$widget,array $definition)use($tenant,&$result,&$identities,&$cache,$onInvalid): void {
             $fields=self::imageFields($widget,$definition);
             foreach((array)($widget[self::REFS]??[]) as $field=>$ref){
                 if(!is_array($ref)||!in_array($field,$fields,true))continue;
                 $expected=$ref['expected_value']??null;
                 if(!is_string($expected)||DecorationAgentOperations::get($widget,$field)!==$expected)continue;
+                try {
                 $kind=$ref['kind']??'';$id=filter_var($ref['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
                 if($id===false||!in_array($kind,['file','slot'],true))throw new \InvalidArgumentException('截图素材身份无效');
                 $key=$kind.':'.$id;
@@ -169,6 +170,11 @@ final class DecorationAgentAssetReferences
                 $identity=json_encode([$match['uri'],$match['scope'],$match['engine'],$match['domain']]);
                 if(isset($identities[$expected])&&$identities[$expected]!==$identity)throw new \InvalidArgumentException('截图素材存在存储身份冲突');
                 $identities[$expected]=$identity;$result[$expected]=$match['asset'];
+                } catch (\InvalidArgumentException $error) {
+                    if (!$onInvalid) throw $error;
+                    unset($result[$expected]);
+                    $onInvalid($expected, $error);
+                }
             }
         });
         return $result;

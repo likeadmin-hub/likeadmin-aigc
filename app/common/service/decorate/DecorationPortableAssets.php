@@ -34,43 +34,80 @@ final class DecorationPortableAssets
         $this->directory='uploads/decoration/'.$tenant.'/'.bin2hex(random_bytes(12));
     }
 
-    public static function export(array $payload,int $tenant,?callable $progress=null): array
+    public static function export(array $payload,int $tenant,?callable $progress=null,bool $skipInvalid=false): array
     {
-        $managed=self::managedAssets($payload,$tenant);$resources=[];$cache=[];$files=[];$bytes=0;$deadline=microtime(true)+self::MAX_SECONDS;
-        $payload=DecorationPortableDocument::rewrite($payload,function(string $value,string $location)use($tenant,$managed,&$resources,&$cache,&$files,&$bytes,$deadline,$progress):string{
+        [$managed,$invalid]=self::managedAssets($payload,$tenant,$skipInvalid);
+        $resources=[];$cache=[];$files=[];$warnings=[];$skipped=[];$bytes=0;$deadline=microtime(true)+self::MAX_SECONDS;
+        $pages=$payload['pages']??[];
+        $payload=DecorationPortableDocument::rewrite($payload,function(string $value,string $location)use($tenant,$managed,$invalid,$pages,$skipInvalid,&$resources,&$cache,&$files,&$warnings,&$skipped,&$bytes,$deadline,$progress):string{
+            if(isset($skipped[$value])){$warnings[$skipped[$value]]['locations'][]=$location;return '';}
             if(isset($cache[$value])){$url=$cache[$value];$resources[$url]['locations'][]=$location;return $url;}
-            if(isset($managed[$value])){
-                $asset=$managed[$value];$url=FileService::getFileUrlByStorage($asset['image_uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']??'').self::fragment($value);
-            }else {
-                $url=self::exportUrl($value,$tenant);
-                $asset=self::ownedExternal($value,$tenant);
-                if($asset){
-                    $url=FileService::getFileUrlByStorage($asset['image_uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']).self::fragment($value);
-                    // Transform parameters must affect the copied bytes; never silently drop them.
-                    $query=(string)parse_url($value,PHP_URL_QUERY);
-                    if($query!==''&&self::hasTransformQuery($query)){
-                        if(preg_match('~^https?://~i',$value))$url=$value;
-                        elseif(self::privateAsset($asset,$tenant))throw new RuntimeException('私有相对素材含图片处理参数，请先保存处理结果后再导出');
-                        else $url=self::withoutFragment($url).(str_contains($url,'?')?'&':'?').$query.self::fragment($value);
+            try {
+                // A failed durable identity must never fall back to signing a guessed path.
+                if(isset($invalid[$value]))throw new RuntimeException('素材身份已失效或无权读取');
+                $asset=null;
+                if(isset($managed[$value])){
+                    $asset=$managed[$value];$url=FileService::getFileUrlByStorage($asset['image_uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']??'').self::fragment($value);
+                }else {
+                    $url=self::exportUrl($value,$tenant);
+                    $asset=self::ownedExternal($value,$tenant);
+                    if($asset){
+                        $url=FileService::getFileUrlByStorage($asset['image_uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain']).self::fragment($value);
+                        $query=(string)parse_url($value,PHP_URL_QUERY);
+                        if($query!==''&&self::hasTransformQuery($query)){
+                            if(preg_match('~^https?://~i',$value))$url=$value;
+                            elseif(self::privateAsset($asset,$tenant))throw new RuntimeException('私有相对素材含图片处理参数，请先保存处理结果后再导出');
+                            else $url=self::withoutFragment($url).(str_contains($url,'?')?'&':'?').$query.self::fragment($value);
+                        }
                     }
                 }
-            }
-            if(!preg_match('~^https?://~i',$url))throw new RuntimeException('素材无法转换为完整URL，请检查站点域名');
-            if(!isset($resources[$url])){
-                if(count($resources)>=self::MAX_FILES)throw new RuntimeException('模板素材数量不能超过128个');
-                $progress && $progress('正在整理第'.(count($resources)+1).'个素材');
-                $resources[$url]=['id'=>'asset_'.(count($resources)+1),'url'=>$url,'locations'=>[]];
-                if(($asset&&self::privateAsset($asset,$tenant))||self::signedQuery($url)){
-                    $remaining=$deadline-microtime(true);if($remaining<4)throw new RuntimeException('私有素材导出超时');
-                    $body=OpenSafeHttp::get(self::withoutFragment($url),self::MAX_FILE_BYTES,max(1,min(10,(int)floor($remaining/4))))['body'];
-                    [$body,$mime,$ext]=DecorationPortableMedia::validate($body);$hash=hash('sha256',$body);$entry='assets/'.$hash.'.'.$ext;
-                    if(!isset($files[$entry])){$bytes+=strlen($body);if($bytes>20*1024*1024)throw new RuntimeException('私有素材与模板合计不能超过20MB');$files[$entry]=$body;}
-                    $resources[$url]+=['entry'=>$entry,'sha256'=>$hash,'size'=>strlen($body),'mime'=>$mime];
+                if($asset&&($asset['storage_engine']??'local')==='local'){
+                    DecorationPortableMedia::localPath((string)$asset['image_uri'],public_path());
                 }
+                if(!preg_match('~^https?://~i',$url))throw new RuntimeException('素材无法转换为完整URL，请检查站点域名');
+                if(!isset($resources[$url])){
+                    if(count($resources)>=self::MAX_FILES)throw new RuntimeException('模板素材数量不能超过128个');
+                    $progress && $progress('正在整理第'.(count($resources)+1).'个素材');
+                    $item=['id'=>'asset_'.(count($resources)+1),'url'=>$url,'locations'=>[]];
+                    $entry=null;$body=null;
+                    if(($asset&&self::privateAsset($asset,$tenant))||self::signedQuery($url)){
+                        $remaining=$deadline-microtime(true);if($remaining<4)throw new RuntimeException('私有素材导出超时');
+                        $body=OpenSafeHttp::get(self::withoutFragment($url),self::MAX_FILE_BYTES,max(1,min(10,(int)floor($remaining/4))))['body'];
+                        [$body,$mime,$ext]=DecorationPortableMedia::validate($body);$hash=hash('sha256',$body);$entry='assets/'.$hash.'.'.$ext;
+                        if(!isset($files[$entry])&&$bytes+strlen($body)>20*1024*1024)throw new RuntimeException('私有素材与模板合计不能超过20MB');
+                        $item+=['entry'=>$entry,'sha256'=>$hash,'size'=>strlen($body),'mime'=>$mime];
+                    }
+                    // Commit resource/file entries only after the asset has passed every check.
+                    if($entry!==null&&!isset($files[$entry])){$bytes+=strlen($body);$files[$entry]=$body;}
+                    $resources[$url]=$item;
+                }
+                $resources[$url]['locations'][]=$location;$cache[$value]=$url;return $url;
+            } catch (RuntimeException|\InvalidArgumentException $error) {
+                if(!$skipInvalid)throw $error;
+                $page=[];
+                if(preg_match('~^/pages/(\d+)/~',$location,$match))$page=$pages[(int)$match[1]]??[];
+                $source=parse_url($value);
+                $safeSource=is_array($source)?(($source['host']??'').($source['path']??'')):'';
+                if(preg_match('~^(?:data|blob|file|javascript):~i',$value))$safeSource='[不支持的素材地址]';
+                $reason=self::exportWarningReason($error);
+                $skipped[$value]=count($warnings);
+                $warnings[]=['kind'=>'asset','page'=>(string)($page['name']??'模板设置'),'page_code'=>(string)($page['page_code']??''),'source'=>mb_substr($safeSource,0,300),'reason'=>$reason,'locations'=>[$location]];
+                $progress && $progress('已排除「'.($page['name']??'模板设置').'」的失效素材：'.$reason);
+                return '';
             }
-            $resources[$url]['locations'][]=$location;$cache[$value]=$url;return $url;
         });
-        return ['payload'=>$payload,'resources'=>['version'=>1,'count'=>count($resources),'items'=>array_values($resources)],'files'=>$files];
+        return ['payload'=>$payload,'resources'=>['version'=>1,'count'=>count($resources),'items'=>array_values($resources)],'files'=>$files,'warnings'=>$warnings];
+    }
+
+    private static function exportWarningReason(\Throwable $error): string
+    {
+        $message=$error->getMessage();
+        if(preg_match('/归属|无权|失效|身份|未确认|已变化/u',$message))return '素材已删除、归属缺失或无权读取';
+        if(str_contains($message,'本地文件不存在'))return '素材本地文件已丢失';
+        if(preg_match('/128|20MB|上限|不能超过/u',$message))return '素材超出导出数量或大小限制';
+        if(preg_match('/超时|连接|HTTP|解析|重定向/u',$message))return '素材下载失败或链接已失效';
+        if(preg_match('/类型|格式|内容|尺寸|路径|协议|地址|参数/u',$message))return '素材格式或地址无效，无法安全导出';
+        return '素材无法读取，已排除';
     }
 
     public function localize(array $payload,?callable $progress=null): array
@@ -266,14 +303,21 @@ final class DecorationPortableAssets
         return $a&&$b&&isset($a['scheme'],$a['host'])&&strtolower($a['scheme'])===strtolower($b['scheme']??'')&&strtolower($a['host'])===strtolower($b['host']??'')&&($a['port']??($a['scheme']==='https'?443:80))===($b['port']??(($b['scheme']??'')==='https'?443:80))&&!isset($a['user'])&&!isset($a['pass']);
     }
 
-    private static function managedAssets(array $payload,int $tenant): array
+    private static function managedAssets(array $payload,int $tenant,bool $skipInvalid=false): array
     {
-        $managed=[];
+        $managed=[];$invalid=[];
+        $onInvalid=$skipInvalid?static function(string $value)use(&$invalid):void{$invalid[$value]=true;}:null;
         foreach($payload['pages']??[] as $page)foreach([['data','meta'],['draft_data','draft_meta'],['published_data','published_meta']] as [$data,$meta]){
             $pair=['data'=>json_decode($page[$data]??'[]',true)?:[],'meta'=>json_decode($page[$meta]??'[]',true)?:[]];
-            foreach(References::captureIdentities($pair,$tenant) as $uri=>$asset){if(isset($managed[$uri])&&$managed[$uri]!==$asset)throw new RuntimeException('模板素材存储身份冲突');$managed[$uri]=$asset;}
+            foreach(References::captureIdentities($pair,$tenant,$onInvalid) as $uri=>$asset){
+                if(isset($managed[$uri])&&$managed[$uri]!==$asset){
+                    if(!$skipInvalid)throw new RuntimeException('模板素材存储身份冲突');
+                    $invalid[$uri]=true;continue;
+                }
+                $managed[$uri]=$asset;
+            }
         }
-        return $managed;
+        return [$managed,$invalid];
     }
 
     private function mergeManaged(array &$original,array $attached): void
