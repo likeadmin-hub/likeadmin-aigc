@@ -191,4 +191,27 @@ class MarketGenerationReviewedContractTest extends TestCase
         self::assertSame('flat_video_v1',Registry::modelProtocol('video',$s));
         self::assertSame('fixture',$prepared->nativeInput['prompt']);self::assertSame(4,$prepared->nativeInput['duration']);
     }
+
+    public function testBothActualSnapshotBuildersFreezeTheReviewedRevisionAndPrices(): void
+    {
+        foreach (['image'=>Images::class,'video'=>Videos::class] as $type=>$runtime) {
+            $b=$this->bundle($type);$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));
+            $product=$this->product($b);$product['id']=990001;$product['source_payload']=['market_metadata'=>$product['market_metadata']];
+            $market=['product'=>$product,'sku'=>['id'=>990002,'sku_key'=>'offline','locked_params'=>[],
+                'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>2],'tenant_price'=>3,'reference_limit'=>2];
+            $method=new \ReflectionMethod($runtime,'snapshot');
+            $snapshot=$type==='image'?$method->invoke(null,$market):$method->invoke(null,$market,1);
+            self::assertSame('synthetic-v1',Reviewed::assertSnapshot($snapshot,$type)['revision']);
+            self::assertSame(2.0,$snapshot['platform_price']);self::assertSame(3.0,$snapshot['tenant_price']);
+            self::assertSame($b['entries'][0]['binding_declaration']['params_schema'],$snapshot['market_metadata']['params_schema']);
+        }
+    }
+
+    public function testDeferredPromptIsAllowedOnlyWhenTheBusinessEstimateOmittedIt(): void
+    {
+        $b=$this->bundle();$this->write(Review::reviewedCatalogue($b,self::ARTIFACT));$s=$this->frozen($b);
+        $r=['ratio'=>'1:1','quality'=>'1k','material_mode'=>'text'];
+        self::assertNotNull(Images::prepareRequest($s,$r,0,true));
+        $r['prompt']='';$this->expectException(\InvalidArgumentException::class);Images::prepareRequest($s,$r,0,true);
+    }
 }
