@@ -236,4 +236,48 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertCount(5,$receipts);self::assertSame($result['payload'],$run()['payload']);self::assertCount(4,$calls);
         self::assertSame($receipts,Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->column('result_json','unit_key'));
     }
+
+    public function testExplicitRetrySafelyRecoversLegacyTruncatedReceipt(): void
+    {
+        $plan=ShortDramaSceneBatchTest::fixture([3]);$request=ShortDramaSceneBatchTest::request([3]);$request['_input_contract_version']=20;
+        Db::name('aigc_short_drama_script_task')->where('task_id',$this->task)->update(['request_json'=>json_encode($request)]);
+        $text='{"user_prompt":"保留信件的交接过程"}';$messages=['system_prompt'=>'保持剧情与对白','content'=>$text,'_stage_content'=>$text];$calls=[];
+        $provider=function($key,$input)use($plan,&$calls):array{
+            return Unit::call(self::TENANT,7,$this->task,'v3_policy2_'.substr($key,3),$input,static function()use($key,$input,$plan,&$calls){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$result=['content'=>json_encode($plan,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop'];
+                else {
+                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
+                    $shots=array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs);
+                    if($key==='v3_timed_scene_1_1')$result=['content'=>'{"storyboard":['.json_encode($shots[0],JSON_UNESCAPED_UNICODE).',{"shot_id":"s1_2","dialogue":"截断','finish_reason'=>'length'];
+                    elseif(str_contains($key,'_missing_'))$result=['content'=>json_encode(['storyboard'=>$shots],JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop'];
+                    else throw new \RuntimeException('Unexpected unit '.$key);
+                }
+                return ['result'=>$result];
+            },true);
+        };
+        $run=fn()=>Script::generate($request,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
+            fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
+        for($turn=0;$turn<2;$turn++) {
+            try {Unit::withinDispatch(self::TENANT,7,$this->task,1,$run);self::fail('Dispatch must pause');}
+            catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
+        }
+        $scope=['tenant_id'=>self::TENANT,'user_id'=>7,'task_id'=>$this->task,'unit_key'=>'v3_policy2_timed_scene_1_1'];
+        $before=Db::name('aigc_short_drama_planning_unit')->where($scope)->find();
+        self::assertStringStartsWith('validation:', $before['error']);
+        Db::name('aigc_short_drama_script_task')->where('task_id',$this->task)->update(['status'=>'failed']);
+        Unit::prepareExplicitRetry(self::TENANT,7,$this->task);
+        $after=Db::name('aigc_short_drama_planning_unit')->where($scope)->find();
+        self::assertSame($before['request_json'],$after['request_json']);self::assertSame($before['result_json'],$after['result_json']);
+        self::assertCount(1,Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->whereLike('unit_key','checkpoint_legacy_recovery_%')->select()->toArray());
+        $result=null;$turns=0;
+        do {
+            try {$result=Unit::withinDispatch(self::TENANT,7,$this->task,1,$run);}
+            catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
+            self::assertLessThan(5,++$turns);
+        } while($result===null);
+        self::assertSame(['s1_1','s1_2','s1_3'],array_column($result['payload']['storyboard'],'shot_id'));
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_missing_2','v3_timed_scene_1_1_missing_3'],$calls);
+    }
 }
