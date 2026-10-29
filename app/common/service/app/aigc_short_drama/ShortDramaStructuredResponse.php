@@ -6,6 +6,116 @@ use RuntimeException;
 /** Never manufacture closing braces or accept a partial document as completed work. */
 final class ShortDramaStructuredResponse
 {
+    /** Keep only independently complete top-level properties as repair input, never as a completed plan. */
+    public static function partialObjectPrefix(array $response): array
+    {
+        if (in_array((string)($response['finish_reason'] ?? ''), ['content_filter','refusal','safety'], true)) return [];
+        $content=trim((string)($response['content'] ?? ''));
+        $content=preg_replace('/^\x{FEFF}|^```(?:json)?\s*/u','',$content) ?? $content;
+        for ($depth=0;$depth<3;$depth++) {
+            if (!preg_match('/^\{\s*"(?:data|result|plan|payload)"\s*:\s*(?=\{)/',$content,$wrapper)) break;
+            $content=substr($content,strlen($wrapper[0]));
+        }
+        if (!str_starts_with($content,'{')) return [];
+        $allowed=array_flip(['title','type_judgement','core_theme','story_outline','script_lines','series_bible','subjects','locations','art_style','scene_beats','scene_screenplays']);
+        $result=[]; $seen=[]; $stack=['{']; $quoted=false; $escaped=false; $start=1;
+        for ($i=1,$length=strlen($content);$i<$length;$i++) {
+            $char=$content[$i];
+            if ($quoted) { if ($escaped) $escaped=false; elseif ($char==='\\') $escaped=true; elseif ($char==='"') $quoted=false; continue; }
+            if ($char==='"') { $quoted=true; continue; }
+            if ($char==='{' || $char==='[') { $stack[]=$char; continue; }
+            if ($char==='}' || $char===']') {
+                if (array_pop($stack) !== ($char==='}' ? '{' : '[')) return [];
+                if (!$stack) break;
+                continue;
+            }
+            if ($char!==',' || count($stack)!==1) continue;
+            $part=json_decode('{'.substr($content,$start,$i-$start).'}',true);
+            if (json_last_error()!==JSON_ERROR_NONE || !is_array($part) || count($part)!==1) return [];
+            $key=array_key_first($part);
+            if (!is_string($key) || isset($seen[$key])) return [];
+            $seen[$key]=true;
+            if (isset($allowed[$key])) $result[$key]=$part[$key];
+            $start=$i+1;
+        }
+        return $result;
+    }
+
+    /** Extract only complete objects from an explicitly top-level storyboard array.
+     * The caller must validate IDs, ordering, fields and scene ownership. */
+    public static function partialStoryboard(array $response, bool $allowPrefix = false, bool $extendedShapes = false): ?array
+    {
+        if (in_array((string)($response['finish_reason'] ?? ''), ['content_filter','refusal','safety'], true)) return null;
+        $content = trim((string)($response['content'] ?? ''));
+        $content = preg_replace('/^\x{FEFF}/u', '', $content) ?? $content;
+        $content = preg_replace('/^```(?:json)?\s*/u', '', $content) ?? $content;
+        if ($extendedShapes) {
+            // Only the documented single-key envelope names are recognized;
+            // arbitrary nested objects are never interpreted as a storyboard.
+            for ($depth=0; $depth<3; $depth++) {
+                if (!preg_match('/^\{\s*"(?:data|result|plan|payload)"\s*:\s*(?=\{)/', $content, $wrapper)) break;
+                $content=substr($content,strlen($wrapper[0]));
+            }
+        }
+        $keyPattern=$extendedShapes ? '(?:storyboard|shots)' : 'storyboard';
+        $offset = null;
+        if (preg_match('/^\{\s*"' . $keyPattern . '"\s*:\s*\[/', $content, $match)) $offset = strlen($match[0]);
+        elseif ($allowPrefix && str_starts_with($content, '{')) {
+            // The preceding fields must form a complete top-level object by
+            // themselves. A quoted or nested storyboard can never satisfy this.
+            $search = 0;
+            for ($attempt = 0; $attempt < 32 && preg_match('/"' . $keyPattern . '"\s*:\s*\[/', $content, $match, PREG_OFFSET_CAPTURE, $search); $attempt++) {
+                [$token, $position] = $match[0];
+                $search = $position + strlen($token);
+                $prefix = substr($content, 0, $position);
+                $decoded = json_decode($prefix . '"__recovery_probe__":null}', true);
+                if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)
+                    || array_key_exists('storyboard', $decoded) || ($extendedShapes && array_key_exists('shots', $decoded)) || !array_key_exists('__recovery_probe__', $decoded)) continue;
+                $offset = $position + strlen($token);
+                break;
+            }
+        }
+        if ($offset === null) return null;
+        $length = strlen($content); $shots = []; $expectComma = false;
+        while ($offset < $length) {
+            while ($offset < $length && str_contains(" \t\r\n", $content[$offset])) $offset++;
+            if ($offset >= $length) break;
+            if ($content[$offset] === ']') {
+                // Two returned shot arrays have ambiguous ownership.
+                if ($extendedShapes && preg_match('/"(?:storyboard|shots)"\s*:/', substr($content,$offset+1))) return null;
+                break;
+            }
+            if ($expectComma) {
+                if ($content[$offset] !== ',') return null;
+                $offset++;
+                while ($offset < $length && str_contains(" \t\r\n", $content[$offset])) $offset++;
+                if ($offset >= $length) break;
+            }
+            if ($content[$offset] !== '{') return null;
+            $start = $offset; $stack = []; $quoted = false; $escaped = false; $complete = false;
+            for (; $offset < $length; $offset++) {
+                $char = $content[$offset];
+                if ($quoted) {
+                    if ($escaped) $escaped = false;
+                    elseif ($char === '\\') $escaped = true;
+                    elseif ($char === '"') $quoted = false;
+                    continue;
+                }
+                if ($char === '"') { $quoted = true; continue; }
+                if ($char === '{' || $char === '[') $stack[] = $char;
+                elseif ($char === '}' || $char === ']') {
+                    if (array_pop($stack) !== ($char === '}' ? '{' : '[')) return null;
+                    if (!$stack) { $offset++; $complete = true; break; }
+                }
+            }
+            if (!$complete) break;
+            $shot = json_decode(substr($content, $start, $offset - $start), true);
+            if (!is_array($shot) || json_last_error() !== JSON_ERROR_NONE) return null;
+            $shots[] = $shot; $expectComma = true;
+        }
+        return $shots ? ['storyboard'=>$shots] : null;
+    }
+
     /** A malformed completed audit is recoverable. Each repair has distinct
      * input/receipt identity; transport, truncation and semantic failures are
      * never replayed here. The caller must validate the complete contract. */

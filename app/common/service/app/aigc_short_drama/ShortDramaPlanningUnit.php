@@ -21,6 +21,11 @@ final class ShortDramaPlanningUnit
         finally { self::$dispatchBudget = $previous; }
     }
 
+    public static function hasDispatch(string $task): bool
+    {
+        return $task !== '' && self::$dispatchBudget !== null && self::$dispatchBudget['task'] === $task;
+    }
+
     private static function claimDispatchCall(int $tenant, int $user, string $task): void
     {
         if (self::$dispatchBudget === null || self::$dispatchBudget['tenant'] !== $tenant
@@ -143,7 +148,12 @@ final class ShortDramaPlanningUnit
         if ($checkOnly) return;
         foreach ($latest as $root => $row) {
             $restartInterrupted = isset($interrupted[$root]);
-            if (!$restartInterrupted && ($row['status'] !== 'received' || !str_starts_with((string)($row['error'] ?? ''), 'validation:'))) continue;
+            $error = (string)($row['error'] ?? '');
+            $validationFailed = str_starts_with($error, 'validation:');
+            $superseded = $error === 'superseded:continued with a smaller or repaired unit';
+            if (!$restartInterrupted && ($row['status'] !== 'received' || (!$validationFailed && !$superseded))) continue;
+            if (!$restartInterrupted && self::prepareLegacyTruncatedRecovery($scope, $root, $row, $rows)) continue;
+            if (!$restartInterrupted && !$validationFailed) continue;
             $keys = self::recoveryKeys($root);
             $index = array_search($row['unit_key'], $keys, true);
             if ($index === false || !isset($keys[$index + 1])) throw new RuntimeException('该部分多次修复仍未通过，请调整对应场景后新建版本；已有内容保留', 409);
@@ -163,6 +173,46 @@ final class ShortDramaPlanningUnit
             if ((int)$row['attempt'] >= 3) $update['attempt'] = 0;
             Db::name('aigc_short_drama_planning_unit')->where($scope)->where('id', (int)$row['id'])->update($update);
         }
+    }
+
+    /** Opt in only a received, unambiguous last legacy unit. Never rewrite its paid request. */
+    private static function prepareLegacyTruncatedRecovery(array $scope, string $root, array $row, array $rows): bool
+    {
+        if ($root !== $row['unit_key'] || !preg_match('/^v3_(?:policy2_)?timed_scene_\d+_\d+$/D', $root)) return false;
+        $owner = Db::name('aigc_short_drama_script_task')->where($scope + ['delete_time'=>0])->find();
+        $request = json_decode((string)($owner['request_json'] ?? ''), true);
+        $version = (int)($request['_input_contract_version'] ?? 0);
+        if (!$owner || !in_array($owner['status'], ['failed','canceled'], true) || $version < 20 || $version >= 23) return false;
+        $receipt = json_decode((string)$row['result_json'], true);
+        if (!is_array($receipt)) return false;
+        $markerScope = $scope + ['unit_key'=>self::legacyRecoveryMarker($root)];
+        $existing = Db::name('aigc_short_drama_planning_unit')->where($markerScope)->find();
+        $data = ['unit_key'=>$root, 'result_hash'=>hash('sha256', json_encode($receipt, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))];
+        // An already frozen recovery remains valid when its own continuation
+        // has since produced receipts; every unit still checks its input signature.
+        if ($existing) return json_decode((string)$existing['result_json'], true) === $data;
+        foreach ($rows as $other) if ((int)$other['id'] > (int)$row['id'] && $other['status'] !== 'checkpoint') return false;
+        $result = (array)($receipt['result'] ?? []);
+        if (!in_array((string)($result['finish_reason'] ?? ''), ['length','max_tokens','max_output_tokens'], true)) return false;
+        $partial = ShortDramaStructuredResponse::partialStoryboard($result);
+        $saved = json_decode((string)$row['request_json'], true);
+        try { $context = ShortDramaStructuredResponse::decode(['content'=>(string)($saved['content'] ?? '')]); }
+        catch (RuntimeException) { return false; }
+        $required = $context['required_shots'] ?? null; $plan = $context['locked_plan'] ?? null; $beat = $context['scene_beat'] ?? null;
+        if (!$partial || !is_array($required) || !array_is_list($required) || !is_array($plan) || !is_array($beat)) return false;
+        $ids = array_column($required, 'shot_id'); $durations = array_column($required, 'duration_seconds');
+        if (count($ids) !== count($required) || count($durations) !== count($required)) return false;
+        $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
+            static fn($shot, $index) => ShortDramaTimedScriptGeneration::assertPart(['storyboard'=>[$shot]], $plan, $beat, [$ids[$index]], [$durations[$index]], false));
+        if (!$accepted) return false;
+        Db::name('aigc_short_drama_planning_unit')->insert($markerScope + ['status'=>'checkpoint','attempt'=>0,'request_json'=>'{}',
+            'result_json'=>json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'create_time'=>time(),'update_time'=>time()]);
+        return true;
+    }
+
+    private static function legacyRecoveryMarker(string $key): string
+    {
+        return 'checkpoint_legacy_recovery_' . substr(hash('sha256', $key), 0, 32);
     }
 
     private static function recoveryKeys(string $key): array
@@ -243,7 +293,17 @@ final class ShortDramaPlanningUnit
                 . "\n这是用户要求继续修复的同一部分。只修复以下校验问题，保留原任务事实和其他已完成部分：" . $storedInput['_repair_reason'];
             return ['data' => $data, 'input' => $effective];
         });
-        if (isset($claim['result'])) return $claim['result'] + ($trackValidation ? ['_unit'=>$scope, '_replayed'=>true] : []);
+        if (isset($claim['result'])) {
+            $metadata = $trackValidation ? ['_unit'=>$scope, '_replayed'=>true] : [];
+            if ($trackValidation && preg_match('/^v3_(?:policy2_)?timed_scene_\d+_\d+$/D', $key)) {
+                $marker = Db::name('aigc_short_drama_planning_unit')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$task,
+                    'unit_key'=>self::legacyRecoveryMarker($key),'status'=>'checkpoint'])->value('result_json');
+                $savedMarker = json_decode((string)$marker, true);
+                if (($savedMarker['unit_key'] ?? null) === $key && hash_equals((string)($savedMarker['result_hash'] ?? ''),
+                    hash('sha256', json_encode($claim['result'], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)))) $metadata['_safe_recovery'] = true;
+            }
+            return $claim['result'] + $metadata;
+        }
         $data = $claim['data'];
         try {
             $result = $generate($claim['input']);

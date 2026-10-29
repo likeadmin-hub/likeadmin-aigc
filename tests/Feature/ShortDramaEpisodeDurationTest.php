@@ -285,6 +285,82 @@ class ShortDramaEpisodeDurationTest extends TestCase
         self::assertSame(120.0, $this->invoke('planningTargetDurationSeconds', '新任务', ['episode_duration_policy' => $policy]));
     }
 
+    public function testNewDefaultTargetGuidesPlanningWithoutForcingPadding(): void
+    {
+        $rule=['enabled'=>true,'target_seconds'=>120,'min_seconds'=>60,'max_seconds'=>180];
+        $policy=$this->invoke('episodeDurationSnapshot','故事',[],['episode_duration_rule'=>$rule],true);
+        $request=['episode_duration_policy'=>$policy,'_input_contract_version'=>26];
+        self::assertSame(120,ShortDramaEpisodeDuration::modelPolicy($request)['target_seconds']);
+        self::assertSame(60,ShortDramaEpisodeDuration::modelPolicy($request)['min_seconds']);
+        self::assertStringContainsString('以120秒为规划目标',ShortDramaEpisodeDuration::instruction($request));
+        self::assertStringContainsString('不得虚构剧情',ShortDramaEpisodeDuration::instruction($request));
+        ShortDramaEpisodeDuration::assertPlan(['storyboard'=>[['recommended_duration_seconds'=>42]]],$request);
+        $legacy=$this->request(); self::assertArrayNotHasKey('target_seconds',ShortDramaEpisodeDuration::modelPolicy($legacy));
+    }
+
+    public function testUploadedPolicyFreezesDefaultsAndUsesActualCountForExplicitOverrides(): void
+    {
+        $rule=['enabled'=>true,'target_seconds'=>120,'min_seconds'=>60,'max_seconds'=>180];
+        $request=['_upload_timing_rule_snapshot'=>$rule,'prompt'=>'按照剧本进行策划','target_duration_seconds'=>0];
+        $prepared=$this->invoke('finalizeUploadedTimingPolicy',$request,17);
+        self::assertSame('default',$prepared['episode_duration_policy']['source']);
+        self::assertSame(120,$prepared['episode_duration_policy']['target_seconds']);
+        self::assertSame(1,$prepared['episode_duration_policy']['target_planning_version']);
+        $withOverride=$request; $withOverride['prompt']='第五集90秒，第一集60秒';
+        $prepared=$this->invoke('finalizeUploadedTimingPolicy',$withOverride,17);
+        self::assertEquals([5=>90,1=>60],$prepared['episode_duration_policy']['episode_overrides']);
+        self::assertSame('default',$prepared['episode_duration_policy']['source']);
+        $disabled=$request; $disabled['_upload_timing_rule_snapshot']['enabled']=false;
+        self::assertArrayNotHasKey('episode_duration_policy',$this->invoke('finalizeUploadedTimingPolicy',$disabled,17));
+        $disabled['target_duration_seconds']=90;
+        self::assertSame('user',$this->invoke('finalizeUploadedTimingPolicy',$disabled,17)['episode_duration_policy']['source']);
+        $legacy=['prompt'=>'旧任务']; self::assertSame($legacy,$this->invoke('finalizeUploadedTimingPolicy',$legacy,17));
+        $previous=['episode_duration_policy'=>ShortDramaEpisodeDuration::snapshot([],0,0,[]), 'prompt'=>'故事'];
+        $fresh=$this->invoke('freezeUploadedTimingRule',$previous,['episode_duration_rule'=>$rule]);
+        self::assertSame([],$fresh['episode_duration_policy']);
+        self::assertSame(180,$fresh['_upload_timing_rule_snapshot']['max_seconds']);
+        self::assertSame(180,$this->invoke('finalizeUploadedTimingPolicy',$fresh,17)['episode_duration_policy']['max_seconds']);
+        $previous['episode_duration_policy']=ShortDramaEpisodeDuration::snapshot([],90,0,[]);
+        $explicit=$this->invoke('freezeUploadedTimingRule',$previous,['episode_duration_rule'=>$rule]);
+        self::assertSame($previous['episode_duration_policy'],$this->invoke('finalizeUploadedTimingPolicy',$explicit,17)['episode_duration_policy']);
+    }
+
+    public function testUploadedEpisodeTimecodeAndExplicitDurationOverrideDefaults(): void
+    {
+        $rule=['enabled'=>true,'target_seconds'=>120,'min_seconds'=>60,'max_seconds'=>180];
+        $request=['_upload_timing_rule_snapshot'=>$rule];
+        $default=ShortDramaEpisodeDuration::snapshot($rule,0,0,[])+['target_planning_version'=>1];
+        $episode=['source_content'=>"00:00-00:05 甲走进房间\n00:05-00:10 甲找到钥匙"];
+        $policy=$this->invoke('uploadedEpisodeTimingPolicy',$request,$episode,$default);
+        self::assertSame('timeline',$policy['source']); self::assertEquals(10,$policy['target_seconds']);
+        self::assertCount(2,$policy['timeline_segments']);
+        $explicit=$this->invoke('uploadedEpisodeTimingPolicy',$request,['source_content'=>"本集时长：90秒\n故事"],$default);
+        self::assertSame('user',$explicit['source']); self::assertEquals(90,$explicit['target_seconds']);
+        $explicit=$this->invoke('uploadedEpisodeTimingPolicy',$request,['source_content'=>"本集时长：1.5分钟\n故事"],$default);
+        self::assertEquals(90,$explicit['target_seconds']);
+        self::assertSame($default,$this->invoke('uploadedEpisodeTimingPolicy',[], $episode,$default));
+        $this->expectExceptionMessage('时间码、输入时长与所选时长不一致');
+        $this->invoke('uploadedEpisodeTimingPolicy',$request,$episode,ShortDramaEpisodeDuration::snapshot($rule,90,0,[]));
+    }
+
+    public function testNewTimedSkeletonPromptUsesGoalWhileAcceptingAShortResult(): void
+    {
+        $policy=ShortDramaEpisodeDuration::snapshot(['target_seconds'=>120,'min_seconds'=>60,'max_seconds'=>180],0,0,[])+['target_planning_version'=>1];
+        $request=['_input_contract_version'=>26,'episode_duration_policy'=>$policy]; $prompt='';
+        $plan=['title'=>'故事','story_outline'=>'找钥匙','script_lines'=>['找钥匙'],'subjects'=>[['id'=>'a','name'=>'甲']],
+            'locations'=>[['id'=>'room','name'=>'房间']], 'scene_beats'=>[['scene_ref_id'=>'room','goal'=>'找钥匙','entry'=>'进入','exit'=>'找到',
+                'key_events'=>['找钥匙'],'duration_seconds'=>10,'shot_durations'=>[10]]]];
+        ShortDramaTimedScriptGeneration::generate($request,['system_prompt'=>'创作','content'=>'故事'],
+            static function($key,$input)use($plan,&$prompt){
+                if(str_contains($key,'skeleton')){$prompt=$input['system_prompt'];return $plan;}
+                return ['storyboard'=>[['shot_id'=>'s1_1','scene_ref_id'=>'room','subject_ref_ids'=>['a'],
+                    'visual_description'=>'甲找到钥匙','dialogue'=>'','recommended_duration_seconds'=>10]]];
+            },null);
+        self::assertStringContainsString('以120秒为规划目标',$prompt);
+        self::assertStringContainsString('默认时长是规划目标与参考范围',$prompt);
+        self::assertStringNotContainsString('默认时长只作上限参考',$prompt);
+    }
+
     public function testAliasesDoNotRequirePaidRepairButInvalidReferencesStillFail(): void
     {
         $plan = ShortDramaTimedScriptGeneration::canonicalSkeleton(['title' => '故事', 'story_outline' => '找钥匙',

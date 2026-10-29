@@ -149,6 +149,26 @@ final class ShortDramaSceneBinding
         }
     }
 
+    /** A label correction must not hide an explicitly different filming place. */
+    public static function safeLabelRepair(array $shot, array $beat, array $plan): bool
+    {
+        $id = $beat['scene_ref_id'] ?? null;
+        $locations = (array)($plan['locations'] ?? []);
+        $names = self::names($locations);
+        $place = self::placeInText((string)($shot['visual_description'] ?? ''), $names, true, true);
+        if ($place !== '') {
+            $ids = array_values($names[$place] ?? []);
+            if (count($ids) !== 1 || $ids[0] !== $id) return false;
+        }
+        $location = array_column($locations, null, 'id')[$id] ?? [];
+        $name = (string)($location['name'] ?? '');
+        if (($location['interior_exterior'] ?? '') === 'interior' && $name !== '') {
+            $lead = preg_split('/[，,。；;\n]/u', (string)($shot['visual_description'] ?? ''), 2)[0] ?? '';
+            if (preg_match('/' . preg_quote($name, '/') . '(?:的)?(?:门外|门口|窗外|外面)/u', $lead)) return false;
+        }
+        return true;
+    }
+
     /** Check a locked beat before paying for any of its shots. A reference to
      * another place in dialogue is not a setting change. */
     public static function assertBeat(array $beat, array $plan, array $request): void

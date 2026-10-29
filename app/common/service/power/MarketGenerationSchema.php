@@ -130,14 +130,14 @@ final class MarketGenerationSchema
         return $value;
     }
 
-    public static function validate(array $schema, array $values, string $mode = '', string $prefix = ''): void
+    public static function validate(array $schema, array $values, string $mode = '', string $prefix = '', array $deferMissingRootFields = []): void
     {
         if (($schema['additionalProperties'] ?? true) === false) foreach ($values as $key=>$_) if (!isset($schema['properties'][$key]) && $key!=='generation_type') throw new InvalidArgumentException('当前参数组合不支持：' . $prefix . $key);
-        foreach ((array)($schema['allOf'] ?? []) as $branch) self::validate($branch,$values,$mode,$prefix);
+        foreach ((array)($schema['allOf'] ?? []) as $branch) self::validate($branch,$values,$mode,$prefix,$deferMissingRootFields);
         foreach (['oneOf','anyOf'] as $group) {
             if (empty($schema[$group])) continue;
             $matches=0;
-            foreach ($schema[$group] as $branch) { try { self::validate($branch,$values,$mode,$prefix); $matches++; } catch (InvalidArgumentException $e) {} }
+            foreach ($schema[$group] as $branch) { try { self::validate($branch,$values,$mode,$prefix,$deferMissingRootFields); $matches++; } catch (InvalidArgumentException $e) {} }
             if ($matches===0 || ($group==='oneOf' && $matches!==1)) throw new InvalidArgumentException('当前素材与参数组合不符合模型要求');
         }
         foreach (self::properties($schema) as $name => $definition) {
@@ -145,7 +145,7 @@ final class MarketGenerationSchema
             $path = $prefix . $name;
             $required = self::required($definition, $mode) || in_array($name, (array)($schema['required'] ?? []), true);
             if (!array_key_exists($name, $values) || $values[$name] === null || $values[$name] === '' || $values[$name] === []) {
-                if ($required) throw new InvalidArgumentException('请填写必填参数：' . $path);
+                if ($required && !($prefix === '' && in_array($name, $deferMissingRootFields, true))) throw new InvalidArgumentException('请填写必填参数：' . $path);
                 continue;
             }
             self::validateValue($definition, $values[$name], $path);

@@ -404,7 +404,7 @@ class MarketVideoRuntimeService
         $market = self::resolve($tenantId, $selection);
         self::assertAssets($market, $request);
         self::assertTextToVideoRatio($market, $request);
-        $quantity = self::quantity($market, $selection + $request);
+        $quantity = self::quantity($market, self::billingRequest($selection, $request));
         $quote = self::applyBillingOverride(self::quoteMarket($market, $quantity), $billingOverride);
         $deferredUsage = self::isDeferredUsageSku($market['sku']);
         if ($deferredUsage && $billingOverride !== []) {
@@ -3033,6 +3033,12 @@ class MarketVideoRuntimeService
             }
         }
     }
+    /** Price the normalized request that will be submitted, retaining model selection fields. */
+    private static function billingRequest(array $selection, array $request): array
+    {
+        return array_replace($selection, $request);
+    }
+
     private static function quantity(array &$market, array $selection): float
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);

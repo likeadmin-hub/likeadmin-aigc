@@ -137,19 +137,7 @@ final class ShortDramaSceneBatch
     {
         $shots = $reply['storyboard'] ?? null;
         $result = array_fill_keys($group, null);
-        if (!is_array($shots) || !array_is_list($shots)) return $result;
-        $order = [];
-        foreach ($group as $index) foreach (array_keys($skeleton['scene_beats'][$index]['shot_durations']) as $offset) {
-            $order[] = 's' . ($index + 1) . '_' . ($offset + 1);
-        }
-        $last = -1;
-        foreach ($shots as $shot) {
-            if (!is_array($shot)) return $result;
-            $position = array_search($shot['shot_id'] ?? null, $order, true);
-            // Unknown, duplicate or reordered IDs make scene ownership ambiguous.
-            if ($position === false || $position <= $last) return $result;
-            $last = $position;
-        }
+        if (!self::unambiguous($reply, $skeleton, $group)) return $result;
         foreach ($group as $index) {
             $beat = $skeleton['scene_beats'][$index];
             $ids = array_map(static fn($offset) => 's' . ($index + 1) . '_' . ($offset + 1), array_keys($beat['shot_durations']));
@@ -165,6 +153,26 @@ final class ShortDramaSceneBatch
             }
         }
         return $result;
+    }
+
+    /** Partial recovery is safe only when every returned ID has an ordered owner. */
+    public static function unambiguous(array $reply, array $skeleton, array $group): bool
+    {
+        $shots = $reply['storyboard'] ?? null;
+        if (!is_array($shots) || !array_is_list($shots)) return false;
+        $order = [];
+        foreach ($group as $index) foreach (array_keys($skeleton['scene_beats'][$index]['shot_durations']) as $offset) {
+            $order[] = 's' . ($index + 1) . '_' . ($offset + 1);
+        }
+        $last = -1;
+        foreach ($shots as $shot) {
+            if (!is_array($shot)) return false;
+            $position = array_search($shot['shot_id'] ?? null, $order, true);
+            // Unknown, duplicate or reordered IDs make scene ownership ambiguous.
+            if ($position === false || $position <= $last) return false;
+            $last = $position;
+        }
+        return true;
     }
 
     private static function json(mixed $value): string

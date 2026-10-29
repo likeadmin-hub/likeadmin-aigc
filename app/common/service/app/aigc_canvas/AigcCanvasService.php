@@ -2,6 +2,8 @@
 
 namespace app\common\service\app\aigc_canvas;
 
+use app\common\service\power\MarketGenerationControls;
+
 use app\common\enum\FileEnum;
 use app\common\model\app\TenantAppConfig;
 use app\common\model\app\aigc_canvas\AigcCanvasAsset;
@@ -127,7 +129,7 @@ class AigcCanvasService
         $text = self::textConfig($tenantId);
         $marketRouter = CanvasModelRouterService::marketOverview($tenantId);
         foreach ($marketRouter as $type => &$group) {
-            foreach ($group['options'] as &$option) $option['canvas_parameters'] = CanvasGenerationParameters::definitions($option, $type);
+            foreach ($group['options'] as &$option) $option['canvas_parameters'] = MarketGenerationControls::definitions($option, $type);
             unset($option);
         }
         unset($group);
@@ -1409,7 +1411,7 @@ class AigcCanvasService
                         'market_output_sku_key' => (string)($option['market_output_sku_key'] ?? ''),
                         'price_source' => (string)($option['price_source'] ?? 'power_market_text_model'),
                         'supports_vision' => !empty($option['supports_vision']),
-                        'canvas_parameters' => CanvasGenerationParameters::definitions($option, 'text'),
+                        'canvas_parameters' => MarketGenerationControls::definitions($option, 'text'),
                         'provider' => 'power_market',
                     ];
                 }
@@ -2399,7 +2401,7 @@ class AigcCanvasService
                 }
             }
         }
-        return CanvasGenerationParameters::apply($params, $model, $type);
+        return MarketGenerationControls::apply($params, $model, $type);
     }
 
     private static function normalizeImageParams(array $params, int $tenantId, int $userId, bool $persistInlineImages = true): array
@@ -2408,6 +2410,7 @@ class AigcCanvasService
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => self::normalizeReferenceImages($params, $tenantId, $userId, $persistInlineImages),
+            ...array_intersect_key($params, ['material_mode' => true]),
             ...(!empty($params['style']) ? ['style' => (string)$params['style']] : []),
             'channel' => (string)($params['channel'] ?? $params['model'] ?? ''),
             'quality' => (string)($params['quality'] ?? ''),
@@ -2422,7 +2425,7 @@ class AigcCanvasService
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
         ]), PHP_INT_MAX);
-        return array_replace(array_intersect_key($params, array_flip(['seed', 'audio', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
+        return array_replace(array_intersect_key($params, array_flip(['material_mode', 'seed', 'audio', 'audio_setting', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
@@ -2497,7 +2500,7 @@ class AigcCanvasService
             }
         }
         $normalized = [];
-        foreach (array_slice($images, 0, 12) as $image) {
+        foreach ($images as $image) {
             $image = trim((string)$image);
             if ($image === '') {
                 continue;

@@ -19,7 +19,9 @@ final class ShortDramaTimedScriptGeneration
             . ShortDramaShotSemantics::INSTRUCTION
             . 'subjects每项必须有id、name、description，locations每项必须有id、name、description。沿用稳定主体和场景id。scene_beats按剧情顺序，每项为scene_ref_id（必须引用locations中某项id，不是beat编号）、goal、entry、exit、duration_seconds、shot_durations（每张卡片秒数数组）、key_events（必须保留的具体事件或台词数组）。'
             . '先按实际可见动作顺序、对白字数和说话停顿、运镜及画面必要停留规划每镜内容，再为每镜估算完成内容所需的shot_durations；不要把一个简单动作拉长，也不要把多段动作或长对白塞进短镜头。'
-            . '每场shot_durations合计等于duration_seconds；仅用户明确指定时长或时间码时要求整集合计严格匹配，默认时长只作上限参考，不能补镜头或延长静止画面凑数。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
+            . '每场shot_durations合计等于duration_seconds；仅用户明确指定时长或时间码时要求整集合计严格匹配，'
+            . (!empty($policy['target_planning_version']) && ($policy['source'] ?? '') === 'default' ? '默认时长是规划目标与参考范围，' : '默认时长只作上限参考，')
+            . '不能补镜头或延长静止画面凑数。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
             . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。'
             . '这是紧凑骨架，不生成任何图片、视频、三视图、音乐、负面提示词；主体与场景description各不超过120字；保留具体剧情，不写重复风格说明。';
         if ((int)($request['_input_contract_version'] ?? 0) === 15) {
@@ -42,7 +44,7 @@ final class ShortDramaTimedScriptGeneration
                             if (ShortDramaInputContract::recoveryEnabled($request)) $prepared = self::normalizeSkeletonBudgets($prepared, $request);
                             $skeleton = $prepared;
                             if (empty($prepared['storyboard'])) self::assertSkeleton($prepared, $request);
-                        })),
+                        }, ShortDramaInputContract::preciseRecovery($request) ? static function ($payload) use (&$skeleton): void { $skeleton = $payload; } : null)),
                     $request
                 ), $request);
                 if (ShortDramaInputContract::recoveryEnabled($request)) $skeleton = self::normalizeSkeletonBudgets($skeleton, $request);
@@ -85,6 +87,23 @@ final class ShortDramaTimedScriptGeneration
                 self::assertSkeleton($skeleton, $request);
                 break;
             } catch (RuntimeException $e) {
+                if ($skeleton && $progress && ShortDramaInputContract::truncatedObjectPrefix($request)) $progress('script_checkpoint', $skeleton);
+                if (ShortDramaInputContract::preciseRecovery($request) && !$attempt && $e->getCode() === 422 && $skeleton) {
+                    $targets = ShortDramaSkeletonFieldRepair::targets($skeleton, true);
+                    if ($targets) {
+                        $prepare = static function (array $plan) use ($request): array {
+                            $plan = ShortDramaSceneBinding::normalize($plan, $request);
+                            $plan = self::normalizeSceneScripts(self::lockTimelineShotDurations(self::canonicalSkeleton($plan), $request), $request);
+                            return ShortDramaInputContract::recoveryEnabled($request) ? self::normalizeSkeletonBudgets($plan, $request) : $plan;
+                        };
+                        $verify = static function ($reply) use ($skeleton, $targets, $request, $prepare): void {
+                            self::assertSkeleton($prepare(ShortDramaSkeletonFieldRepair::apply($skeleton, $targets, $reply)), $request);
+                        };
+                        $skeleton = $prepare(ShortDramaSkeletonFieldRepair::request($call, 'timed_skeleton_fields_v1', $skeletonInput, $skeleton, $targets, $verify));
+                        self::assertSkeleton($skeleton, $request);
+                        break;
+                    }
+                }
                 if ($attempt === 2 || !in_array($e->getCode(), [413, 422], true)) throw $e;
                 $skeletonInput['content'] = $base['content'] . "\n骨架修复：" . $e->getMessage()
                     . "\n保留已确定的角色、场景和事实，仅修复不合格预算或结构，返回完整骨架。已有骨架=" . self::json($skeleton);
@@ -113,7 +132,7 @@ final class ShortDramaTimedScriptGeneration
         // Size output units to the selected model, not to a fixed shot count.
         // Reserve room for identifiers, JSON and dialogue as well as descriptions.
         $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
-        $batches = []; $batchParts = []; $batchOriginal = [];
+        $batches = []; $batchParts = []; $batchOriginal = []; $batchSafe = [];
         if (ShortDramaSceneBatch::enabled($request)) {
             $batchPlan = ShortDramaSceneBatch::plan($request, $messages, $skeleton, $partSize);
             if ($freezeBatches) $batchPlan = ShortDramaSceneBatch::restore($batchPlan, $freezeBatches($batchPlan), $skeleton);
@@ -128,6 +147,7 @@ final class ShortDramaTimedScriptGeneration
                 $reply = $call('timed_batch_' . ($group[0] + 1) . '_' . ($group[1] + 1), $batchInput, 1800 + $count * 750);
                 $batchParts += ShortDramaSceneBatch::partition($reply, $skeleton, $group, $request);
                 foreach ($group as $index) {
+                    $batchSafe[$index] = ShortDramaSceneBatch::unambiguous($reply, $skeleton, $group);
                     $prefix = 's' . ($index + 1) . '_';
                     $batchOriginal[$index] = ['storyboard' => array_values(array_filter((array)($reply['storyboard'] ?? []),
                         static fn($shot) => is_array($shot) && is_string($shot['shot_id'] ?? null) && str_starts_with($shot['shot_id'], $prefix)))];
@@ -173,12 +193,53 @@ final class ShortDramaTimedScriptGeneration
                 $input['content'] .= "\n以上全局剧情仅用于保持连续性，不要求重写整集。本次只输出" . count($ids)
                     . '个分镜，ID依次为' . implode(',', $ids) . '，对应秒数为' . implode(',', $partDurations)
                     . '。不得输出其他ID、场次或重复已经完成的分镜。忽略上下文模板要求的整集输出格式，当前仅返回storyboard数组。';
-                $part = [];
+                $part = []; $partial = null; $completedPartial = null;
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
                         // A failed attempt must not change the next attempt's locked input.
                         $validationDurations = $partDurations;
-                        if ($offset === 0 && $attempt === 0 && isset($batchParts[$sceneIndex])) {
+                        if (ShortDramaInputContract::partialStoryboardRecovery($request) && $attempt === 0 && $offset === 0
+                            && !isset($batchParts[$sceneIndex]) && !empty($batchSafe[$sceneIndex])
+                            && !empty($batchOriginal[$sceneIndex]['storyboard'])) {
+                            $batchPartial = null; $batchFieldIssue = false;
+                            try {
+                                if (ShortDramaInputContract::preciseRecovery($request)) $candidate = $batchOriginal[$sceneIndex];
+                                else {
+                                    $normalized = ShortDramaSceneBinding::normalize(array_replace($skeleton, $batchOriginal[$sceneIndex], ['scene_beats' => [$beat]]), $request);
+                                    $candidate = ['storyboard' => $normalized['storyboard']];
+                                }
+                                $acceptedBatch = ShortDramaPartialStoryboard::accepted($candidate, $ids,
+                                    static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                        self::assertPart(['storyboard' => [$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                        ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                    });
+                                if ($acceptedBatch !== null && $acceptedBatch !== []) $batchPartial = $candidate;
+                                elseif (ShortDramaInputContract::mixedStoryboardRecovery($request)
+                                    && ShortDramaPartialStoryboard::fieldTargets($candidate, $ids, $skeleton, $beat, $rule, $partDurations,
+                                        static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                            self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                            ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                        }, ShortDramaInputContract::preciseRecovery($request))) $batchPartial = $candidate;
+                                elseif (ShortDramaInputContract::shotFieldRecovery($request)) {
+                                    $fieldTargets = ShortDramaShotFieldRepair::targets($candidate, $ids, $skeleton, $beat, $rule, $partDurations,
+                                        static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                            self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                            ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                        }, ShortDramaInputContract::preciseRecovery($request));
+                                    if ($fieldTargets) { $batchPartial = $candidate; $batchFieldIssue = true; }
+                                }
+                            } catch (RuntimeException $batchError) {
+                                if (!in_array($batchError->getCode(), [409, 413, 422], true)) throw $batchError;
+                            }
+                            if ($batchPartial !== null) {
+                                $partial = $batchPartial;
+                                throw new RuntimeException($batchFieldIssue ? '本段分镜字段需要修复' : '本段分镜数量不完整', 422);
+                            }
+                        }
+                        if ($completedPartial !== null) {
+                            $part = $completedPartial;
+                            $completedPartial = null;
+                        } elseif ($offset === 0 && $attempt === 0 && isset($batchParts[$sceneIndex])) {
                             $part = $batchParts[$sceneIndex];
                         } else {
                             if (array_key_exists($sceneIndex, $batchParts) && $offset === 0 && $attempt === 0) {
@@ -190,7 +251,10 @@ final class ShortDramaTimedScriptGeneration
                                 $contentRepairs++;
                             }
                             $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750,
-                                static fn($part) => self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false));
+                                static function ($candidate) use (&$partial, $skeleton, $beat, $ids, $partDurations): void {
+                                    $partial = $candidate;
+                                    self::assertPart($candidate, $skeleton, $beat, $ids, $partDurations, false);
+                                }, ShortDramaInputContract::preciseRecovery($request) ? static function ($candidate) use (&$partial): void { $partial = $candidate; } : null);
                         }
                         $validationIds = $ids;
                         if (ShortDramaDialogueSplit::enabled($request)) {
@@ -211,6 +275,135 @@ final class ShortDramaTimedScriptGeneration
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
+                        if (ShortDramaInputContract::shotFieldRecovery($request) && $attempt === 0 && $e->getCode() === 422
+                            && $e->getMessage() !== '本段分镜数量不完整' && is_array($partial)) {
+                            $targets = ShortDramaShotFieldRepair::targets($partial, $ids, $skeleton, $beat, $rule, $partDurations,
+                                static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                    self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                    ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                }, ShortDramaInputContract::preciseRecovery($request));
+                            if ($targets) {
+                                if (ShortDramaInputContract::mixedStoryboardRecovery($request) && $progress) {
+                                    $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids,
+                                        static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                            self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                            ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                        });
+                                    if ($prefix) $progress('script_checkpoint', array_replace($skeleton,
+                                        ['storyboard'=>self::attachTimelineRanges(array_merge($shots, $prefix), $request)]));
+                                }
+                                $verify = static function ($reply) use ($partial, $targets, $skeleton, $beat, $ids, $partDurations, $request): void {
+                                    $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
+                                    self::assertPart($patched, $skeleton, $beat, $ids, $partDurations, false);
+                                    foreach ($patched['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                };
+                                $completedPartial = ShortDramaShotFieldRepair::request($call,
+                                    'timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_fields_v1', $input, $partial, $targets, $verify);
+                                $contentRepairs++;
+                                continue;
+                            }
+                        }
+                        if (ShortDramaInputContract::partialStoryboardRecovery($request) && $attempt === 0 && $e->getCode() === 422 && $e->getMessage() === '本段分镜数量不完整' && is_array($partial)) {
+                            $validatePartialShot = static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                    self::assertPart(['storyboard' => [$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                    ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                };
+                            $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
+                            if ($accepted === null && ShortDramaInputContract::mixedStoryboardRecovery($request)) {
+                                $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $rule, $partDurations, $validatePartialShot, ShortDramaInputContract::preciseRecovery($request));
+                                if ($targets) {
+                                    $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids, $validatePartialShot);
+                                    if ($prefix && $progress) $progress('script_checkpoint', array_replace($skeleton,
+                                        ['storyboard'=>self::attachTimelineRanges(array_merge($shots, $prefix), $request)]));
+                                    $verify = static function ($reply) use ($partial, $targets, $ids, $validatePartialShot): void {
+                                        $patched = ShortDramaShotFieldRepair::apply($partial, $targets, $reply);
+                                        if (ShortDramaPartialStoryboard::accepted($patched, $ids, $validatePartialShot) === null)
+                                            throw new RuntimeException('分镜字段修复后仍未通过校验', 422);
+                                    };
+                                    $partial = ShortDramaShotFieldRepair::request($call,
+                                        'timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_partial_fields_v1', $input, $partial, $targets, $verify);
+                                    $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
+                                    $contentRepairs++;
+                                }
+                            }
+                            if ($accepted === [] && $size > 1) {
+                                $left = intdiv($size, 2);
+                                array_unshift($pending, [$offset, $left, '_split_' . $left],
+                                    [$offset + $left, $size - $left, '_split_' . ($size - $left)]);
+                                continue 2;
+                            }
+                            if ($accepted !== null && $accepted !== []) {
+                                // A gap must not expose later shots out of order. Save the
+                                // validated contiguous prefix while the rest is repaired.
+                                $savePartial = static function () use (&$accepted, $ids, $shots, $skeleton, $request, $progress): void {
+                                    if (!$progress) return;
+                                    $prefix = [];
+                                    foreach ($ids as $index => $_) {
+                                        if (!isset($accepted[$index])) break;
+                                        $prefix[] = $accepted[$index];
+                                    }
+                                    if ($prefix) $progress('script_checkpoint', array_replace($skeleton,
+                                        ['storyboard'=>self::attachTimelineRanges(array_merge($shots, $prefix), $request)]));
+                                };
+                                if (ShortDramaInputContract::mixedStoryboardRecovery($request)) $savePartial();
+                                foreach ($ids as $index => $id) {
+                                    if (isset($accepted[$index])) continue;
+                                    ksort($accepted);
+                                    $missingContext = $context;
+                                    $missingContext['required_shots'] = [['shot_id' => $id, 'duration_seconds' => $partDurations[$index]]];
+                                    $missingContext['shot_offset'] = $offset + $index;
+                                    $missingContext['retained_shots'] = array_values($accepted);
+                                    $before = array_filter($accepted, static fn($key) => $key < $index, ARRAY_FILTER_USE_KEY);
+                                    $missingContext['scene_progress'] = ShortDramaSceneProgress::window($beat, count($durations), $offset + $index, 1,
+                                        array_merge(array_slice($shots, $sceneStart), array_values($before)));
+                                    $missingInput = $input;
+                                    $missingInput['content'] = self::json($missingContext)
+                                        . "\n只补充缺失分镜 {$id}，时长 {$partDurations[$index]} 秒。已保留分镜仅供衔接，不得重写或重复。只返回该分镜的storyboard数组。";
+                                    $missingKey = 'timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_missing_' . ($offset + $index + 1);
+                                    for ($missingAttempt = 0; $missingAttempt < 2; $missingAttempt++) {
+                                        $missingPartial = null;
+                                        try {
+                                            $missing = $call($missingKey . ($missingAttempt ? '_repair' : ''), $missingInput, 2550,
+                                                static function ($value) use (&$missingPartial, $skeleton, $beat, $id, $partDurations, $index): void {
+                                                    $missingPartial = $value;
+                                                    self::assertPart($value, $skeleton, $beat, [$id], [$partDurations[$index]], false);
+                                                }, ShortDramaInputContract::preciseRecovery($request) ? static function ($value) use (&$missingPartial): void { $missingPartial = $value; } : null);
+                                            self::assertPart($missing, $skeleton, $beat, [$id], [$partDurations[$index]], false);
+                                            ShortDramaSameSceneCuts::assertShot($missing['storyboard'][0], $skeleton, $request);
+                                            $accepted[$index] = $missing['storyboard'][0];
+                                            if (ShortDramaInputContract::mixedStoryboardRecovery($request)) $savePartial();
+                                            break;
+                                        } catch (RuntimeException $missingError) {
+                                            if (ShortDramaInputContract::mixedStoryboardRecovery($request) && !$missingAttempt
+                                                && $missingError->getCode() === 422 && is_array($missingPartial)) {
+                                                $validateMissing = static function ($shot) use ($skeleton, $beat, $id, $partDurations, $index, $request): void {
+                                                    self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$id], [$partDurations[$index]], false);
+                                                    ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                                };
+                                                $targets = ShortDramaShotFieldRepair::targets($missingPartial, [$id], $skeleton, $beat, $rule, [$partDurations[$index]], $validateMissing, ShortDramaInputContract::preciseRecovery($request));
+                                                if ($targets) {
+                                                    $verify = static function ($reply) use ($missingPartial, $targets, $validateMissing): void {
+                                                        $patched = ShortDramaShotFieldRepair::apply($missingPartial, $targets, $reply);
+                                                        $validateMissing($patched['storyboard'][0]);
+                                                    };
+                                                    $missing = ShortDramaShotFieldRepair::request($call, $missingKey . '_fields_v1', $missingInput, $missingPartial, $targets, $verify);
+                                                    $accepted[$index] = $missing['storyboard'][0];
+                                                    $savePartial();
+                                                    $contentRepairs++;
+                                                    break;
+                                                }
+                                            }
+                                            if ($missingAttempt || !in_array($missingError->getCode(), [413, 422], true)) throw $missingError;
+                                            $missingInput['content'] .= "\n仅修复缺失分镜：" . $missingError->getMessage();
+                                        }
+                                    }
+                                }
+                                ksort($accepted);
+                                $completedPartial = ['storyboard' => array_values($accepted)];
+                                $contentRepairs++;
+                                continue;
+                            }
+                        }
                         if ($e->getCode() === 413 && $size > 1) {
                             $left = intdiv($size, 2);
                             // Distinct durable keys prevent replaying the truncated

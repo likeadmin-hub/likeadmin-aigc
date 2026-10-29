@@ -1,7 +1,6 @@
 <?php
 namespace app\common\service\power;
 
-use app\common\service\app\aigc_canvas\CanvasGenerationParameters;
 use InvalidArgumentException;
 
 /** Reuse the validated model contract for standalone image/video creation. */
@@ -9,7 +8,7 @@ final class MarketCreationParameters
 {
     public static function describe(array $option, string $type): array
     {
-        $option['generation_parameters'] = CanvasGenerationParameters::definitions($option, $type);
+        $option['generation_parameters'] = MarketGenerationControls::definitions($option, $type);
         return $option;
     }
 
@@ -34,7 +33,7 @@ final class MarketCreationParameters
                 if ($sku === null) throw new InvalidArgumentException('当前模型不支持所选规格');
                 $model['locked_params'] = array_replace_recursive($model['locked_params'] ?? [], $sku['locked_params'] ?? []);
             }
-            return CanvasGenerationParameters::apply($request, $model, $type);
+            return MarketGenerationControls::apply($request, $model, $type);
         }
         throw new InvalidArgumentException('当前模型不可用，请重新选择');
     }
