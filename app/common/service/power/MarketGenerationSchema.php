@@ -36,6 +36,14 @@ final class MarketGenerationSchema
         return $values;
     }
 
+    /** A size enum can be a ratio selector rather than an independent output resolution. */
+    public static function isAspectRatioDefinition(array $definition): bool
+    {
+        $choices=self::choices($definition);
+        return $choices!==[]&&array_filter($choices,static fn($v)=>preg_match('/^\d+:\d+$/D',(string)$v))!==[]
+            && array_filter($choices,static fn($v)=>!preg_match('/^(?:\d+:\d+|auto|adaptive|original)$/iD',(string)$v))===[];
+    }
+
     public static function durationChoices(array $definition): array
     {
         $values = self::choices($definition);
