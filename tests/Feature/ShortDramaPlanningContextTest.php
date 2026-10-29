@@ -17,7 +17,7 @@ class ShortDramaPlanningContextTest extends TestCase
         $input = ['system_prompt'=>'保留用户剧情', 'content'=>json_encode(['creative_context'=>json_encode($task, JSON_UNESCAPED_UNICODE),
             'required_shots'=>[['shot_id'=>'s1','duration_seconds'=>10]]],JSON_UNESCAPED_UNICODE) . "\n以上全局剧情只作参考"];
         $saved = $input;
-        $budget = \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::fitMessages($input, [], 'script', 4096);
+        $budget = \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::fitMessages($input, ['context_window'=>32768], 'script', 4096);
         self::assertSame(4096, $budget['max_tokens']);
         self::assertLessThan(strlen($saved['content']) / 10, strlen($input['content']));
         self::assertStringEndsWith("\n以上全局剧情只作参考", $input['content']);
@@ -43,7 +43,7 @@ class ShortDramaPlanningContextTest extends TestCase
     public function testArbitraryCustomCreativeTextCannotBeCutToFit(): void
     {
         $input=['system_prompt'=>'规则','content'=>str_repeat('用户明确规定的剧情，',10000)]; $saved=$input;
-        try { \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::fitMessages($input, [], 'script'); self::fail('Must not cut creative requirements'); }
+        try { \app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget::fitMessages($input, ['context_window'=>32768], 'script'); self::fail('Must not cut creative requirements'); }
         catch (\RuntimeException $error) { self::assertSame(413,$error->getCode()); }
         self::assertSame($saved,$input);
     }
