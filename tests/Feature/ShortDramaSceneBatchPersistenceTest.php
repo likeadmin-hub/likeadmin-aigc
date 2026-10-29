@@ -335,4 +335,22 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertSame($result['payload'],$run()['payload']);self::assertCount(3,$calls);
         self::assertSame($receipts,Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->column('result_json','unit_key'));
     }
+
+    /** @dataProvider ineligibleLegacyReceipts */
+    public function testLegacyRecoveryDoesNotAdoptUnsupportedOrAmbiguousReceipts(int $version, bool $duplicate): void
+    {
+        $plan=ShortDramaSceneBatchTest::fixture([3]);$request=ShortDramaSceneBatchTest::request([3]);$request['_input_contract_version']=$version;
+        Db::name('aigc_short_drama_script_task')->where('task_id',$this->task)->update(['status'=>'failed','request_json'=>json_encode($request)]);
+        $specs=[['shot_id'=>'s1_1','duration_seconds'=>6],['shot_id'=>'s1_2','duration_seconds'=>6],['shot_id'=>'s1_3','duration_seconds'=>6]];
+        $input=['content'=>json_encode(['locked_plan'=>$plan,'scene_beat'=>$plan['scene_beats'][0],'required_shots'=>$specs],JSON_UNESCAPED_UNICODE)];
+        $shot=ShortDramaSceneBatchTest::shot($specs[0]+['scene_ref_id'=>'l1'],$plan);$encoded=json_encode($shot,JSON_UNESCAPED_UNICODE);
+        $receipt=['result'=>['content'=>'{"storyboard":['.$encoded.($duplicate ? ','.$encoded : '').',{"shot_id":"unfinished','finish_reason'=>'length']];
+        $scope=['tenant_id'=>self::TENANT,'user_id'=>7,'task_id'=>$this->task];
+        Db::name('aigc_short_drama_planning_unit')->insert($scope+['unit_key'=>'v3_policy2_timed_scene_1_1','status'=>'received',
+            'attempt'=>1,'request_json'=>json_encode($input,JSON_UNESCAPED_UNICODE),'result_json'=>json_encode($receipt,JSON_UNESCAPED_UNICODE),'error'=>'validation:长度上限']);
+        Unit::prepareExplicitRetry(self::TENANT,7,$this->task);
+        self::assertCount(0,Db::name('aigc_short_drama_planning_unit')->where($scope)->whereLike('unit_key','checkpoint_legacy_recovery_%')->select()->toArray());
+        self::assertCount(1,Db::name('aigc_short_drama_planning_unit')->where($scope)->whereLike('unit_key','v3_policy2_timed_scene_1_1_retry_1_%')->select()->toArray());
+    }
+    public static function ineligibleLegacyReceipts(): array { return [[19,false],[20,true]]; }
 }
