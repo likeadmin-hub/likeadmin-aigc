@@ -280,4 +280,22 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertSame(['s1_1','s1_2','s1_3'],array_column($result['payload']['storyboard'],'shot_id'));
         self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_missing_2','v3_timed_scene_1_1_missing_3'],$calls);
     }
+
+    public function testLegacyRecoveryDoesNotChangePathWhenLaterPaidUnitExists(): void
+    {
+        $plan=ShortDramaSceneBatchTest::fixture([2]);$request=ShortDramaSceneBatchTest::request([2]);$request['_input_contract_version']=20;
+        Db::name('aigc_short_drama_script_task')->where('task_id',$this->task)->update(['status'=>'failed','request_json'=>json_encode($request)]);
+        $specs=[['shot_id'=>'s1_1','duration_seconds'=>6],['shot_id'=>'s1_2','duration_seconds'=>6]];
+        $input=['content'=>json_encode(['locked_plan'=>$plan,'scene_beat'=>$plan['scene_beats'][0],'required_shots'=>$specs],JSON_UNESCAPED_UNICODE)];
+        $shot=ShortDramaSceneBatchTest::shot($specs[0]+['scene_ref_id'=>'l1'],$plan);
+        $receipt=['result'=>['content'=>'{"storyboard":['.json_encode($shot,JSON_UNESCAPED_UNICODE).',{"shot_id":"s1_2","dialogue":"截断','finish_reason'=>'length']];
+        $scope=['tenant_id'=>self::TENANT,'user_id'=>7,'task_id'=>$this->task];
+        Db::name('aigc_short_drama_planning_unit')->insert($scope+['unit_key'=>'v3_policy2_timed_scene_1_1','status'=>'received',
+            'attempt'=>1,'request_json'=>json_encode($input,JSON_UNESCAPED_UNICODE),'result_json'=>json_encode($receipt,JSON_UNESCAPED_UNICODE),'error'=>'validation:长度上限']);
+        Db::name('aigc_short_drama_planning_unit')->insert($scope+['unit_key'=>'v3_policy2_timed_scene_1_1_split_1','status'=>'received',
+            'attempt'=>1,'request_json'=>'{}','result_json'=>'{}']);
+        Unit::prepareExplicitRetry(self::TENANT,7,$this->task);
+        self::assertCount(0,Db::name('aigc_short_drama_planning_unit')->where($scope)->whereLike('unit_key','checkpoint_legacy_recovery_%')->select()->toArray());
+        self::assertCount(1,Db::name('aigc_short_drama_planning_unit')->where($scope)->whereLike('unit_key','v3_policy2_timed_scene_1_1_retry_1_%')->select()->toArray());
+    }
 }

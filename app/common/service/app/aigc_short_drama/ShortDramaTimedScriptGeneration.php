@@ -251,7 +251,7 @@ final class ShortDramaTimedScriptGeneration
                                 static function ($candidate) use (&$partial, $skeleton, $beat, $ids, $partDurations): void {
                                     $partial = $candidate;
                                     self::assertPart($candidate, $skeleton, $beat, $ids, $partDurations, false);
-                                });
+                                }, ShortDramaInputContract::preciseRecovery($request) ? static function ($candidate) use (&$partial): void { $partial = $candidate; } : null);
                         }
                         $validationIds = $ids;
                         if (ShortDramaDialogueSplit::enabled($request)) {
@@ -364,7 +364,7 @@ final class ShortDramaTimedScriptGeneration
                                                 static function ($value) use (&$missingPartial, $skeleton, $beat, $id, $partDurations, $index): void {
                                                     $missingPartial = $value;
                                                     self::assertPart($value, $skeleton, $beat, [$id], [$partDurations[$index]], false);
-                                                });
+                                                }, ShortDramaInputContract::preciseRecovery($request) ? static function ($value) use (&$missingPartial): void { $missingPartial = $value; } : null);
                                             self::assertPart($missing, $skeleton, $beat, [$id], [$partDurations[$index]], false);
                                             ShortDramaSameSceneCuts::assertShot($missing['storyboard'][0], $skeleton, $request);
                                             $accepted[$index] = $missing['storyboard'][0];
