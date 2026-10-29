@@ -52,7 +52,7 @@ class MarketMixedVideoLifecycleTest extends TestCase
                 $request['reference_assets'][]=array_replace($request['reference_assets'][1],['reference_slot_id'=>'video:b']);
             }
             if($scenario==='smart'){$request['material_mode']='text';$request['reference_assets']=[];}
-            $request['duration']=$scenario==='configurable'?3:-1;
+            $request['duration']=$scenario==='configurable'?3:($scenario==='duplicate_slots'?4:-1);
             $normalized=Videos::normalizeDurationSelection(1,$request,(int)$request['duration']);
             self::assertSame($scenario==='smart'?-1:4,$normalized['duration']);
             self::assertSame((int)$skus[$scenario==='smart'?0:1]['id'],$normalized['market_sku_id']);
