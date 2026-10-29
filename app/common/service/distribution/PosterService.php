@@ -100,7 +100,7 @@ final class PosterService
         $version=Db::name('distribution_poster_version')->where(['tenant_id'=>$tenantId,'template_id'=>$id,'id'=>$row['published_version']])->find();
         if (!$version) throw new RuntimeException('海报版本不存在');
         $result=self::decode($version,true);
-        return ['id'=>$id,'name'=>$result['name'],'published_version'=>(int)$version['id'],'layout'=>$result['layout'],'background_url'=>$result['background_url']];
+        return ['id'=>$id,'builtin_key'=>$row['builtin_key']??null,'name'=>$result['name'],'published_version'=>(int)$version['id'],'layout'=>$result['layout'],'background_url'=>$result['background_url']];
     }
     public static function profile(int $tenantId,int $userId,bool $readOnly=false): array {
         DistributionService::assertEnabled($tenantId);
