@@ -26,4 +26,5 @@ if(isset($o['apply'])){
         'units'=>Db::name('aigc_short_drama_planning_unit')->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereIn('id',$units)->select()->toArray()]);
     foreach($e['items']as$item)$result['results'][]=MarketTextUsageReview::resolveFailedPlanning($tenant,$user,(int)$item['consumption_id'],(int)$item['unit_id'],$item['proof'],true);
 }
-$save($out,$result);echo json_encode(['apply'=>$result['apply'],'count'=>count($preview),'dispositions'=>array_column($preview,'disposition'),'user_additional_charge'=>0,'tenant_additional_charge'=>0],JSON_UNESCAPED_UNICODE)."\n";
+$save($out,$result);echo json_encode(['apply'=>$result['apply'],'count'=>count($preview),'newly_closed'=>count(array_filter($result['results'],static fn($r)=>$r['applied'])),
+    'already_closed'=>count(array_filter($result['results'],static fn($r)=>!empty($r['already_closed']))),'dispositions'=>array_column($preview,'disposition'),'user_additional_charge'=>0,'tenant_additional_charge'=>0],JSON_UNESCAPED_UNICODE)."\n";

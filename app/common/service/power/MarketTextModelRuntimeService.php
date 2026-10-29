@@ -349,6 +349,10 @@ class MarketTextModelRuntimeService
             if($e instanceof TextSettlementPending)throw $e;
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
                 $result = $e->partialResult;
+                if(!$openTextCall&&MarketTextFailurePolicy::preGenerationRejection($result)){
+                    MarketTextUsageReview::resolveNativeRejection($tenantId,$userId,(int)$context['consumption']['id'],$result,true);
+                    throw $e;
+                }
                 if($executionPolicy!==null){try{$executionPolicy->recordReceipt($context['consumption']->toArray(),$context['appTask']->toArray(),$result,false);}catch(\Throwable $ignored){}}
                 if ($homeAgent) {
                     try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, false); }
