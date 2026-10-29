@@ -350,6 +350,23 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_missing_2','v3_timed_scene_1_1_missing_3'],$calls);
     }
 
+    public function testTruncatedShotArrayAfterCompleteMetadataPreservesExistingShot(): void
+    {
+        $request=['_input_contract_version'=>24,'episode_duration_policy'=>Duration::snapshot([],0,0,[])];$calls=[];
+        $result=Script::generate($request,['max_tokens'=>8192],['system_prompt'=>'创作','content'=>'故事'],
+            static function($key)use(&$calls){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$payload=self::skeleton(true);
+                elseif(str_ends_with($key,'_missing_2'))$payload=['storyboard'=>[self::shot(2)]];
+                elseif(str_ends_with($key,'_missing_3'))$payload=['storyboard'=>[self::shot(3)]];
+                elseif($key==='v3_timed_scene_1_1')return ['result'=>['content'=>'{"title":"已有标题","storyboard":['.json_encode(self::shot(1),JSON_UNESCAPED_UNICODE).',{"shot_id":"s1_2","dialogue":"截断', 'finish_reason'=>'length']];
+                else throw new \RuntimeException('Unexpected unit '.$key);
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE)]];
+            });
+        self::assertSame([self::shot(1),self::shot(2),self::shot(3)],$result['payload']['storyboard']);
+        self::assertSame(['v3_timed_skeleton_0','v3_timed_scene_1_1','v3_timed_scene_1_1_missing_2','v3_timed_scene_1_1_missing_3'],$calls);
+    }
+
     public function testSceneLabelAndInteriorConflictRepairsOnlyThoseFields(): void
     {
         $plan=self::skeleton(true);$plan['locations'][0]['interior_exterior']='interior';
