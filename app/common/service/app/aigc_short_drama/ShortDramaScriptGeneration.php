@@ -60,7 +60,7 @@ final class ShortDramaScriptGeneration
                     catch (RuntimeException $error) {
                         if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                         if (ShortDramaInputContract::preciseRecovery($request)) {
-                            $partial = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::extendedTruncatedRecovery($request));
+                            $partial = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::extendedTruncatedRecovery($request), ShortDramaInputContract::wrappedTruncatedRecovery($request));
                             if ($partial !== null) return $partial;
                         }
                         return ['_batch_parse_error' => $error->getMessage()];
@@ -70,7 +70,7 @@ final class ShortDramaScriptGeneration
                 catch (RuntimeException $error) {
                     if ((!ShortDramaInputContract::preciseRecovery($request) && empty($receipt['_safe_recovery'])) || !in_array($error->getCode(), [413,422], true)
                         || !preg_match('/^(?:timed_scene_|scene_)/', $key)
-                        || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::extendedTruncatedRecovery($request)))) throw $error;
+                        || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::extendedTruncatedRecovery($request), ShortDramaInputContract::wrappedTruncatedRecovery($request)))) throw $error;
                 }
                 if ($capture) $capture($payload);
                 if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);

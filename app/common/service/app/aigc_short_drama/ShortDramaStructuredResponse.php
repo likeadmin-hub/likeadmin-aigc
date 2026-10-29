@@ -8,25 +8,34 @@ final class ShortDramaStructuredResponse
 {
     /** Extract only complete objects from an explicitly top-level storyboard array.
      * The caller must validate IDs, ordering, fields and scene ownership. */
-    public static function partialStoryboard(array $response, bool $allowPrefix = false): ?array
+    public static function partialStoryboard(array $response, bool $allowPrefix = false, bool $extendedShapes = false): ?array
     {
         if (in_array((string)($response['finish_reason'] ?? ''), ['content_filter','refusal','safety'], true)) return null;
         $content = trim((string)($response['content'] ?? ''));
         $content = preg_replace('/^\x{FEFF}/u', '', $content) ?? $content;
         $content = preg_replace('/^```(?:json)?\s*/u', '', $content) ?? $content;
+        if ($extendedShapes) {
+            // Only the documented single-key envelope names are recognized;
+            // arbitrary nested objects are never interpreted as a storyboard.
+            for ($depth=0; $depth<3; $depth++) {
+                if (!preg_match('/^\{\s*"(?:data|result|plan|payload)"\s*:\s*(?=\{)/', $content, $wrapper)) break;
+                $content=substr($content,strlen($wrapper[0]));
+            }
+        }
+        $keyPattern=$extendedShapes ? '(?:storyboard|shots)' : 'storyboard';
         $offset = null;
-        if (preg_match('/^\{\s*"storyboard"\s*:\s*\[/', $content, $match)) $offset = strlen($match[0]);
+        if (preg_match('/^\{\s*"' . $keyPattern . '"\s*:\s*\[/', $content, $match)) $offset = strlen($match[0]);
         elseif ($allowPrefix && str_starts_with($content, '{')) {
             // The preceding fields must form a complete top-level object by
             // themselves. A quoted or nested storyboard can never satisfy this.
             $search = 0;
-            for ($attempt = 0; $attempt < 32 && preg_match('/"storyboard"\s*:\s*\[/', $content, $match, PREG_OFFSET_CAPTURE, $search); $attempt++) {
+            for ($attempt = 0; $attempt < 32 && preg_match('/"' . $keyPattern . '"\s*:\s*\[/', $content, $match, PREG_OFFSET_CAPTURE, $search); $attempt++) {
                 [$token, $position] = $match[0];
                 $search = $position + strlen($token);
                 $prefix = substr($content, 0, $position);
                 $decoded = json_decode($prefix . '"__recovery_probe__":null}', true);
                 if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)
-                    || array_key_exists('storyboard', $decoded) || !array_key_exists('__recovery_probe__', $decoded)) continue;
+                    || array_key_exists('storyboard', $decoded) || ($extendedShapes && array_key_exists('shots', $decoded)) || !array_key_exists('__recovery_probe__', $decoded)) continue;
                 $offset = $position + strlen($token);
                 break;
             }
@@ -35,7 +44,12 @@ final class ShortDramaStructuredResponse
         $length = strlen($content); $shots = []; $expectComma = false;
         while ($offset < $length) {
             while ($offset < $length && str_contains(" \t\r\n", $content[$offset])) $offset++;
-            if ($offset >= $length || $content[$offset] === ']') break;
+            if ($offset >= $length) break;
+            if ($content[$offset] === ']') {
+                // Two returned shot arrays have ambiguous ownership.
+                if ($extendedShapes && preg_match('/"(?:storyboard|shots)"\s*:/', substr($content,$offset+1))) return null;
+                break;
+            }
             if ($expectComma) {
                 if ($content[$offset] !== ',') return null;
                 $offset++;
