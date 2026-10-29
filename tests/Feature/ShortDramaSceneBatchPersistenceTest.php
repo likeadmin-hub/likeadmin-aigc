@@ -398,4 +398,42 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertSame($result['payload'],Unit::withinDispatch(self::TENANT,7,$this->task,4,$resumedRun)['payload']);
         self::assertCount($count,$calls);
     }
+
+    public function testLegacyLongScriptResumesFromRealLimitWithoutResubmittingReceipts(): void
+    {
+        $counts=array_fill(0,24,9);$plan=ShortDramaSceneBatchTest::fixture($counts);
+        $request=ShortDramaSceneBatchTest::request($counts);$request['_input_contract_version']=23;
+        $request['_generation_version']=3;$request['_prompt_task_id']=$this->task;
+        $text='{"user_prompt":"按顺序保留全部场景"}';$messages=['system_prompt'=>'保持剧情与对白','content'=>$text,'_stage_content'=>$text];$calls=[];
+        $provider=function($key,$input)use($plan,&$calls):array{
+            return Unit::call(self::TENANT,7,$this->task,'v3_policy2_'.substr($key,3),$input,static function()use($key,$input,$plan,&$calls){
+                $calls[]=$key;
+                if(str_contains($key,'skeleton'))$payload=$plan;
+                else {
+                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
+                    $payload=['storyboard'=>array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs)];
+                }
+                return ['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+            },true);
+        };
+        $run=fn($input)=>Script::generate($input,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
+            fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
+        $limitError=null;
+        for($turn=0;$turn<20 && $limitError===null;$turn++) {
+            try {Unit::withinDispatch(self::TENANT,7,$this->task,4,fn()=>$run($request));self::fail('Expected legacy processing limit');}
+            catch(\RuntimeException $error){if($error->getCode()===429)$limitError=$error;else self::assertSame(425,$error->getCode());}
+        }
+        self::assertNotNull($limitError);$receivedBefore=$calls;
+        $request=\app\common\service\app\aigc_short_drama\ShortDramaInputContract::resumeAfterLimit($request,$limitError->getMessage());
+        $result=null;$turn=0;
+        do {
+            try {$result=Unit::withinDispatch(self::TENANT,7,$this->task,4,fn()=>$run($request));}
+            catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
+            self::assertLessThan(25,++$turn);
+        } while($result===null);
+        self::assertCount(216,$result['payload']['storyboard']);self::assertGreaterThan(count($receivedBefore),count($calls));
+        self::assertCount(count(array_unique($calls)),$calls);
+        self::assertSame($receivedBefore,array_slice($calls,0,count($receivedBefore)));
+    }
 }
