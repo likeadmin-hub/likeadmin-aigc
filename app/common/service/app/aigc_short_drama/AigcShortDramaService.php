@@ -5022,6 +5022,8 @@ class AigcShortDramaService
 
         $shotTarget = ShortDramaRevisionScope::shotTarget($message, $plan);
         if ($shotTarget) return $shotTarget;
+        $sceneTarget = ShortDramaRevisionScope::screenplayTarget($message, $plan);
+        if ($sceneTarget) return $sceneTarget;
         // Mentioning a speaker is not an instruction to change their character definition.
         if (preg_match('/台词|对白|说的话|运镜|构图|景别|分镜|镜头/u', $message)) return [];
 
@@ -5107,6 +5109,7 @@ class AigcShortDramaService
             return $result;
         }
 
+        if ($type === 'scene_screenplay_fields') return ShortDramaRevisionScope::mergeScreenplay(self::stripPlanRuntimeFields($base), $result, $target);
         if ($type === 'shot_fields') {
             return ShortDramaRevisionScope::mergeShots(self::stripPlanRuntimeFields($base), $result, $target);
         }
@@ -17781,7 +17784,7 @@ class AigcShortDramaService
         $dialogueCheck = ShortDramaDialogueContract::prepare($payload);
         $payload = $dialogueCheck['payload'];
         $payload = self::mergeRevisionBasePlanPayload($payload, $request);
-        if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
+        if (in_array($request['revision_target']['type'] ?? '', ['shot_fields','scene_screenplay_fields'], true)) {
             // The baseline is already a complete saved script. Re-expanding it would rewrite untouched prompts.
             $targetResult = self::protectRevisionTargetResult($payload, $request);
             if (ShortDramaReviewOutcome::enabled($request)
@@ -18703,6 +18706,9 @@ class AigcShortDramaService
                 ? "For stage 1, storyboard must be an empty array.\n"
                 : "For stage 2, storyboard must be an empty array and all episode items must remain outline-only.\n");
 
+        if (($request['revision_target']['type'] ?? '') === 'scene_screenplay_fields') {
+            return 'Revise only revision_target.payload using revision_message. Return JSON {scene_screenplays:[{scene_number: exact target id, requested fields...}]}. Preserve dialogue unless requested. Do not rewrite other sections. Context: '.self::jsonEncode($context);
+        }
         if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
             return "Edit the existing Chinese episode, using revision_base_result as the authoritative source.\n"
                 . "Return a JSON object with storyboard containing ONLY the selected shot IDs in revision_target.ids. Keep these IDs exactly. "
@@ -18741,10 +18747,11 @@ class AigcShortDramaService
         if ($base === []) {
             return $payload;
         }
+        if (($request['revision_target']['type'] ?? '') === 'scene_screenplay_fields') return ShortDramaRevisionScope::mergeScreenplay($base,$payload,$request['revision_target']);
         if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
             return ShortDramaRevisionScope::mergeShots($base, $payload, $request['revision_target']);
         }
-        foreach (['title', 'type_judgement', 'core_theme', 'story_outline', 'script_lines', 'series_bible', 'art_style', 'subjects', 'locations', 'scenes', 'episodes', 'storyboard', 'music_plan'] as $key) {
+        foreach (['title', 'type_judgement', 'core_theme', 'story_outline', 'script_lines', 'scene_screenplays', 'series_bible', 'art_style', 'subjects', 'locations', 'scenes', 'episodes', 'storyboard', 'music_plan'] as $key) {
             if (!array_key_exists($key, $payload) || $payload[$key] === '' || $payload[$key] === [] || $payload[$key] === null) {
                 if (array_key_exists($key, $base)) {
                     $payload[$key] = $base[$key];
