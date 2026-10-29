@@ -6935,11 +6935,9 @@ class AigcShortDramaService
             $query->where('status', $status);
         }
         $rows = $query->limit(min(100, max(1, (int)($params['page_size'] ?? 100))))->select()->toArray();
-        $lists = [];
-        foreach ($rows as $row) {
-            $row = self::prepareGenerationTaskForRead($tenantId, $userId, $row);
-            $lists[] = self::formatGenerationTask($row, true);
-        }
+        $rows = array_map(static fn ($row) => self::prepareGenerationTaskForRead($tenantId, $userId, $row), $rows);
+        $rows = \app\common\service\ai\UserTaskTraceService::appendRows($rows);
+        $lists = array_map(static fn ($row) => self::formatGenerationTask($row, true), $rows);
         return self::sanitizeUtf8Payload([
             'lists' => $lists,
             'count' => count($lists),
@@ -13889,6 +13887,7 @@ class AigcShortDramaService
             $query->where('source_task_id', $sourceTaskId);
         }
         $rows = $query->order(['id' => 'desc'])->limit(100)->select()->toArray();
+        $rows = \app\common\service\ai\UserTaskTraceService::appendRows($rows);
         return array_map(static fn($row) => self::formatGenerationTask($row, false), $rows);
     }
 
@@ -15173,6 +15172,12 @@ class AigcShortDramaService
 
     private static function formatGenerationTask(array $row, bool $detail = false): array
     {
+        $storedTrace = self::jsonDecode((string)($row['result_json'] ?? ''));
+        $mappedImageId = (int)($storedTrace['image_task_id'] ?? 0);
+        if ($mappedImageId > 0 && (string)($row['provider_task_id'] ?? '') === (string)$mappedImageId) {
+            $row = \app\common\service\ai\UserTaskTraceService::appendMapped($row);
+            $row['provider_task_id'] = ''; // Legacy column stores a local image task here.
+        }
         $request = self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['request_json'] ?? '')));
         $request = self::stripPromptDiagnostics($request);
         $requestParams = (array)($request['params'] ?? []);
@@ -15200,6 +15205,7 @@ class AigcShortDramaService
             'progress' => (int)$row['progress'],
             'provider' => (string)$row['provider'],
             'provider_task_id' => (string)$row['provider_task_id'],
+            'upstream_task_ids' => (array)($row['upstream_task_ids'] ?? []),
             'provider_request_id' => (string)($row['provider_request_id'] ?? ''),
             'billing_status' => (string)$row['billing_status'],
             'tenant_cost_points' => (float)$row['tenant_cost_points'],
@@ -23281,6 +23287,8 @@ class AigcShortDramaService
             'generation_settings' => $projectGenerationSettings,
             'project_generation_settings' => $projectGenerationSettings,
             'task_id' => (string)$task['task_id'],
+            'provider_task_id' => (string)($task['provider_task_id'] ?? ''),
+            'provider_request_id' => (string)($task['provider_request_id'] ?? ''),
             'status' => self::publicTaskStatus((string)$task['status']),
             'progress' => (int)$task['progress'],
             'current_step' => (string)$task['current_step'],

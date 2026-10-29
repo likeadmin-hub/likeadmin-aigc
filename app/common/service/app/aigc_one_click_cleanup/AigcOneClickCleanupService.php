@@ -682,7 +682,7 @@ class AigcOneClickCleanupService
             $row['image_uri'] = (string)($first['image_uri'] ?? '');
             $row['source_image_url'] = (string)($row['source_image_urls'][0] ?? '');
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -700,7 +700,7 @@ class AigcOneClickCleanupService
             'pending' => '排队中',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function resolveOptions(int $tenantId, array $codes): array

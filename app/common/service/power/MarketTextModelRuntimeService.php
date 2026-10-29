@@ -669,7 +669,7 @@ class MarketTextModelRuntimeService
                 'sort' => (int)($product['id'] ?? 0),
             ];
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     /** @return array<string, array<string, mixed>> */

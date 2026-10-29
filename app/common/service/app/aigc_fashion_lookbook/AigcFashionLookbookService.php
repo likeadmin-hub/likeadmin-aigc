@@ -696,7 +696,7 @@ class AigcFashionLookbookService
             $row['clothes_image_urls'] = array_values(array_filter(array_map(static fn($uri) => self::imageUrl((string)$uri), $clothesImages)));
             $row['source_image_urls'] = array_values(array_filter(array_merge([$row['model_image_url']], $row['clothes_image_urls'])));
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -713,7 +713,7 @@ class AigcFashionLookbookService
             'pending' => '排队中',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function findModelSnapshot(int $tenantId, string $modelImage): array

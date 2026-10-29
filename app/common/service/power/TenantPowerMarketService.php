@@ -32,7 +32,7 @@ class TenantPowerMarketService
         if ($status !== '' && $status !== null) {
             $rows = array_values(array_filter($rows, static fn (array $row): bool => (int)$row['status'] === (int)$status));
         }
-        return self::paginate($rows, $pageNo, $pageSize);
+        return self::paginate(MarketModelSource::officialFirst($rows), $pageNo, $pageSize);
     }
 
     public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
@@ -144,7 +144,7 @@ class TenantPowerMarketService
             $product['skus'] = $byProduct[(int)$product['id']];
             $result[] = $product;
         }
-        return $result;
+        return MarketModelSource::officialFirst($result);
     }
 
     /** Documentation discovery is independent of whether a SKU is currently for sale. */

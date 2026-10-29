@@ -76,6 +76,7 @@ class MarketNanoBananaAppRuntimeService
                 $first = $skus[0];
                 $id = self::selectionId((int)$product['id'], $model);
                 $options[] = [
+                    ...MarketModelSource::product($product),
                     'id' => $id,
                     'value' => $id,
                     'channel_code' => $id,
@@ -116,7 +117,7 @@ class MarketNanoBananaAppRuntimeService
                 ];
             }
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     public static function isSelection(array $selection): bool

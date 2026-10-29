@@ -718,7 +718,7 @@ class AigcImageChannelService
             }
             $channels[] = $channel;
         }
-        return $channels;
+        return \app\common\service\power\MarketModelSource::officialFirst($channels);
     }
 
     private static function isMarketRuntimeOptionVisible(array $model): bool

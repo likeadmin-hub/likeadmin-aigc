@@ -176,7 +176,7 @@ class MarketImageModelRuntimeService
                 'sort' => (int)$product['id'],
             ];
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     /**

@@ -744,7 +744,7 @@ class AigcProductMultiAngleService
             $row['download_url'] = (string)($first['download_url'] ?? '');
             $row['image_uri'] = (string)($first['image_uri'] ?? '');
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -762,7 +762,7 @@ class AigcProductMultiAngleService
             'pending' => '排队中',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function resolveViews(int $tenantId, array $codes, bool $readOnly = false): array

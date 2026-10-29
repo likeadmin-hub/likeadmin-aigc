@@ -533,7 +533,7 @@ class AigcModelWearService
             $row['model_image_url'] = self::imageUrl((string)($row['model_image'] ?? ''));
             $row['wear_image_url'] = self::imageUrl((string)($row['wear_image'] ?? ''));
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -551,7 +551,7 @@ class AigcModelWearService
             'pending' => '排队中',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function defaults(): array
