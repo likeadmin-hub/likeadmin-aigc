@@ -41,15 +41,25 @@ try {
     $check(array_column($rows,'package_page_id')===[1,2],'Exported page IDs are not contiguous');
     $check(Db::name('decorate_page')->where('id',$obsolete)->count()===1,'Export deleted source data');
 
-    // A deleted draft that is still published must retain the strict media check.
+    // Published and active invalid media must be excluded with a visible report.
     Db::name('decorate_template')->where('id',$id)->update(['published_pages'=>json_encode([['id'=>$obsolete]])]);
-    try { Templates::exportPackage(1,$id); throw new LogicException('Published invalid media was silently ignored'); }
-    catch (RuntimeException $e) { $check(str_contains($e->getMessage(),'归属'),'Published media failure changed'); }
-    // So must invalid media on an active draft, such as the deleted support QR.
+    $publishedExport = Templates::exportPackage(1,$id);
+    $check($publishedExport['export_warnings']['assets']===1,'Published invalid media lacks warning');
+    $check($publishedExport['export_warnings']['items'][1]['page']==='obsolete','Warning lacks page context');
+    $body = Package::read($publishedExport['content'])['payload'];
+    $check(!str_contains(json_encode($body),'obsolete-export-fixture'),'Invalid published media retained');
+    $check(count($body['pages'])===2,'Published page itself must remain');
+    // The deleted support QR must no longer block an active page export.
     Db::name('decorate_template')->where('id',$id)->update(['published_pages'=>'[]']);
     Db::name('decorate_page')->where('id',$obsolete)->update(['draft_deleted'=>0]);
-    try { Templates::exportPackage(1,$id); throw new LogicException('Active invalid media was silently ignored'); }
-    catch (RuntimeException $e) { $check(str_contains($e->getMessage(),'归属'),'Active media failure changed'); }
+    $activeExport = Templates::exportPackage(1,$id);
+    $check($activeExport['export_warnings']['assets']===1,'Active invalid media lacks warning');
+    $check(count($activeExport['export_warnings']['items'][1]['locations'])===2,'Repeated invalid media not deduplicated with locations');
+    $temp = tempnam(sys_get_temp_dir(),'export_report_');file_put_contents($temp,base64_decode($activeExport['content']));
+    $archive = new ZipArchive();$archive->open($temp);
+    $manifest = json_decode($archive->getFromName('manifest.json'),true);$archive->close();unlink($temp);
+    $check($manifest['export_warnings']===$activeExport['export_warnings'],'ZIP lacks durable warning report');
+    $check(str_contains($activeExport['export_warnings']['items'][1]['reason'],'归属'),'Warning lacks reason');
     Db::name('decorate_page')->where('id',$obsolete)->update(['draft_deleted'=>1]);
     $legacy = Package::read(Templates::exportPackage(1,$id)['content']);
     $check(count($legacy['payload']['pages'])===1,'Legacy empty published structure must keep active drafts only');
