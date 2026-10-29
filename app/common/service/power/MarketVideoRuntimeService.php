@@ -408,6 +408,7 @@ class MarketVideoRuntimeService
         if ($existing !== null) {
             return $existing;
         }
+        $originalDuration=array_intersect_key($request,array_flip(['duration','seconds','video_duration']));
         $requestedDuration = (int)self::value($request, ['duration', 'seconds', 'video_duration']);
         if ($requestedDuration <= 0) {
             $requestedDuration = (int)self::value($selection, ['duration', 'seconds', 'video_duration']);
@@ -417,6 +418,7 @@ class MarketVideoRuntimeService
         $request['duration'] = (int)$normalized['duration'];
         CanvasVideoPromptSubmissionGuard::assertPrepared($appCode, $selection);
         $market = self::resolve($tenantId, $selection);
+        if(MarketGenerationReviewedContract::selected(self::metadata($market['product']))!==null)self::assertWholeDuration($originalDuration);
         self::assertAssets($market, $request);
         self::assertTextToVideoRatio($market, $request);
         $billingRequest = self::billingRequest($selection, $request);

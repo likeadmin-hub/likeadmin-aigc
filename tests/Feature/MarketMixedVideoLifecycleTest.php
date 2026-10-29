@@ -52,6 +52,15 @@ class MarketMixedVideoLifecycleTest extends TestCase
             $normalized=Videos::normalizeDurationSelection(1,$request,(int)$request['duration']);
             self::assertSame($scenario==='smart'?-1:4,$normalized['duration']);
             self::assertSame((int)$skus[$scenario==='smart'?0:1]['id'],$normalized['market_sku_id']);
+            $fractional=array_replace($request,['duration'=>4.5]);
+            foreach([
+                static fn()=>Videos::quote(1,$fractional),
+                static fn()=>Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key.'-fraction',array_replace($request,$normalized),$fractional),
+            ]as$reject){
+                try{$reject();self::fail('Fractional duration must not be truncated before billing');}
+                catch(\Exception$e){self::assertStringContainsString('整数',$e->getMessage());}
+            }
+            self::assertSame($before,$this->balances($user));
             $quote=Videos::quote(1,$request);
             $reserve=fn()=>Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key,$request,$request);
             $reserved=$reserve();self::assertSame($reserved['consumption_id'],$reserve()['consumption_id']);
