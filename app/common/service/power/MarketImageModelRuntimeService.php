@@ -242,6 +242,7 @@ class MarketImageModelRuntimeService
     /** Shared compilation for estimates, reservation and outbound submission. No task or point writes. */
     public static function prepareRequest(array $snapshot, array $request, int $tenantId = 0, bool $deferMissingPrompt = false): PreparedMarketGeneration
     {
+        $request=MarketImageReferenceUrlService::normalizeRequest($request,$tenantId);
         MarketGenerationAdapterRegistry::modelProtocol('image', $snapshot);
         if (self::isQwenImage($snapshot) && (int)($request['quantity'] ?? 1) > 1) throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');
         $metadata = self::metadata($snapshot);
@@ -943,6 +944,7 @@ class MarketImageModelRuntimeService
 
     private static function payload(array $snapshot, array $request, string $idempotencyKey, int $tenantId = 0, bool $deferMissingPrompt = false): array
     {
+        $request=MarketImageReferenceUrlService::normalizeRequest($request,$tenantId);
         if (MarketGenerationMaterials::modes(self::metadata($snapshot)) !== []
             && MarketGenerationAdapterRegistry::modelProtocol('image',$snapshot)==='native_v1') {
             $request['reference_images'] = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);

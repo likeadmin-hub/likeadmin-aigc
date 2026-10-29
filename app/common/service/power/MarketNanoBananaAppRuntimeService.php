@@ -199,6 +199,7 @@ class MarketNanoBananaAppRuntimeService
     /** Pure request preparation shared by quote, admission, reservation and submit. */
     public static function prepareRequest(array $snapshot, array $request, string $idempotencyKey = '', int $tenantId = 0, bool $deferMissingPrompt = false): PreparedMarketGeneration
     {
+        $request=MarketImageReferenceUrlService::normalizeRequest($request,$tenantId);
         $missingPrompt = !array_key_exists('prompt', $request);
         if (!$missingPrompt || !$deferMissingPrompt) {
             if (!is_string($request['prompt'] ?? null) || trim($request['prompt']) === '') throw new Exception('请输入提示词');
