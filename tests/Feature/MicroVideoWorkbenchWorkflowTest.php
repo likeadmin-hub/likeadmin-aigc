@@ -20,6 +20,26 @@ final class MicroVideoWorkbenchWorkflowTest extends TestCase
     {try{$f();self::fail('Expected scope/revision rejection');}catch(\InvalidArgumentException|\RuntimeException $e){self::assertNotSame('',$e->getMessage());}}
     public function testCloudDraftIsScopedAndOptimisticVersionsAreImmutable(): void
     {$before=Db::name('ai_consumption_log')->count();$a=$this->create('project',['brief'=>['goal'=>'original']]);$this->rejects(fn()=>R::owned(2,1,'project',$a['id']));$this->rejects(fn()=>R::owned(1,2,'project',$a['id']));$b=R::save(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>1,'title'=>'new','body'=>['brief'=>['goal'=>'new']]]);self::assertSame(2,$b['revision']);$this->rejects(fn()=>R::save(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>1,'title'=>'stale','body'=>[]]));$v=R::versions(1,1,['kind'=>'project','id'=>$a['id']]);self::assertSame('original',$v['lists'][1]['body']['brief']['goal']);$restored=R::restore(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>2,'version'=>1]);self::assertSame(3,$restored['revision']);self::assertSame('original',$restored['body']['brief']['goal']);self::assertSame($before,Db::name('ai_consumption_log')->count());}
+    public function testSavingOwnedCloudProductSnapshotDoesNotRequireNetworkResolution(): void
+    {
+        $tenant = 987654321; $user = 987654322;
+        $uri = 'uploads/micro-workbench-cloud-metadata/' . bin2hex(random_bytes(8)) . '.png';
+        Db::name('tenant_file')->insert(['tenant_id' => $tenant, 'source_id' => $user, 'source' => 1, 'type' => 10, 'cid' => 0,
+            'uri' => $uri, 'name' => 'owned cloud product', 'storage_scope' => 'tenant', 'storage_engine' => 'qcloud',
+            'storage_domain' => 'https://owned-storage.invalid', 'create_time' => time(), 'delete_time' => 0]);
+        $before = Db::name('ai_consumption_log')->count();
+        $product = $this->create('product', ['brand' => 'Keep product facts', 'images' => [['uri' => $uri]]], $tenant, $user);
+        $project = $this->create('project', ['product' => ['id' => $product['id'], 'revision' => 1], 'brief' => ['goal' => 'Keep all filled fields']], $tenant, $user);
+        $saved = R::save($tenant, $user, ['kind' => 'project', 'id' => $project['id'], 'revision' => $project['revision'],
+            'title' => $project['title'], 'body' => $project['body']]);
+        self::assertSame(2, $saved['revision']);
+        self::assertSame('Keep all filled fields', $saved['body']['brief']['goal']);
+        self::assertSame($uri, $saved['body']['product_snapshot']['body']['images'][0]['uri']);
+        self::assertSame('https://owned-storage.invalid/' . $uri, $saved['body']['product_snapshot']['body']['images'][0]['url']);
+        self::assertSame($before, Db::name('ai_consumption_log')->count());
+        $this->rejects(fn() => R::save($tenant, $user + 1, ['kind' => 'project', 'id' => $saved['id'], 'revision' => 2,
+            'title' => 'foreign save', 'body' => $saved['body']]));
+    }
     public function testPrivateTemplateNeverLeaksIntoLegacyDirectionOrOtherUserCatalog(): void
     {$legacy=\app\common\service\app\aigc_micro_video\MicroVideoStore::table('direction')->count();$t=$this->create('template',['category'=>'campus']);$this->rejects(fn()=>R::owned(1,2,'template',$t['id']));self::assertSame($legacy,\app\common\service\app\aigc_micro_video\MicroVideoStore::table('direction')->count());$q=R::lists(1,1,['kind'=>'template','category'=>'campus']);self::assertContains($t['id'],array_column($q['lists'],'id'));$other=R::lists(1,1,['kind'=>'template','category'=>'office']);self::assertNotContains($t['id'],array_column($other['lists'],'id'));}
     public function testProductSnapshotsDoNotFollowCatalogEditsAndClientSnapshotsAreIgnored(): void

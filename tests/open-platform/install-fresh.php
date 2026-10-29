@@ -76,7 +76,7 @@ try{
  check(S::settings(123456)['enabled']===false,'New tenant unexpectedly enabled API calling');check(S::settings(123456)['apps']===[]&&S::settings(123456)['models']===[],'New tenant inherited callable abilities');
  $adminId=Db::name('tenant_admin')->insertGetId(['tenant_id'=>123456,'root'=>1,'name'=>'Fixture root','account'=>'opf_fixture_root','password'=>md5('disposable-fixture-only'),'create_time'=>time()]);
  $visibleMenus=app\tenantapi\logic\auth\MenuLogic::getMenuByAdminId($adminId);
- check(count(array_filter($visibleMenus,fn($menu)=>$menu['source_menu_key']==='open_platform_tenant'))===1, 'Fresh tenant root menu API omitted API management');
+ check(count(array_filter($visibleMenus,fn($menu)=>$menu['source_menu_key']==='open_platform_tenant'))===0, 'Fresh ungranted tenant must hide API management while retaining installed menus');
  check(app\common\service\app\AppAccessService::assertTenantCanManage(123456,'open_platform')===null, 'Fresh tenant API status remains blocked');
  check(app\common\service\open_platform\OpenManagement::adminSettings(123456)['enabled']===false, 'API settings must load without enabling calls');
  // New split-strategy tenants must receive the same menu keys directly in their own table.

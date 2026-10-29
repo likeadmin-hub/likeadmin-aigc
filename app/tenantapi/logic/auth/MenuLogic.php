@@ -79,6 +79,9 @@ class MenuLogic extends BaseLogic
             ->select()
             ->toArray();
 
+        $menu = \app\common\service\auth\TenantFeatureMenuService::filter(
+            $menu, \app\common\service\auth\TenantFeatureMenuService::capabilities($tenantId)
+        );
         return self::sortTopLevelTailMenus(linear_to_tree($menu, 'children'));
     }
 
