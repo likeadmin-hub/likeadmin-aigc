@@ -43,7 +43,7 @@ final class AgentExecutionService
         foreach($subjectIds as $id)$assets[]=AgentSubjectReferences::resolve($tenant,$user,$id);
         foreach($projectReferences as $reference){$asset=\app\common\service\app\aigc_canvas\CanvasProjectReferenceService::resolve($tenant,$user,$reference);$asset['name']=$asset['reference_name'];$assets[]=$asset;}
         $vision=count(array_filter($assets,static fn($asset)=>str_starts_with($asset['mime']??'','image/')))>0;
-        $preferences['models']['text']=AgentComposerSettings::textModel($tenant,$vision);
+        $preferences['models']['text']=AgentComposerSettings::textModel($tenant,$vision,(string)($preferences['models']['text']??''));
         if(($preferences['generation']['mode']??'')==='auto'){
             $catalog=AgentCapabilityCatalog::models($tenant);
             foreach(['image','video'] as $type)$preferences['models'][$type]=(string)($catalog[$type]['defaults']['channel']??$catalog[$type]['defaults']['model']??'');
@@ -200,10 +200,10 @@ final class AgentExecutionService
             'constraints'=>$constraints,
             'instruction'=>$confirmation?'方案已保存。用一句自然语言说明创作内容，用户将通过界面按钮确认；不要要求用户输入确认文字。':'方案已保存，回复结束后系统将自动执行。简短说明准备生成的内容，不要再次询问或要求确认，也不能声称已生成成功。'];
     }
-    public static function tick(): int
+    public static function tick(int $tenantId = 0, int $runId = 0): int
     {
         // Only lease recovery/claim transactions are safe to retry: no provider call has started.
-        try{$run=self::claimNextRun();}
+        try{$run=self::claimNextRun($tenantId, $runId);}
         catch(\think\db\exception\PDOException $e){
             $code=(int)($e->getData()['PDO Error Info']['Driver Error Code']??0);
             if(!in_array($code,[1205,1213],true))throw $e;
@@ -240,10 +240,15 @@ final class AgentExecutionService
         return 1;
         });
     }
-    private static function claimNextRun(): ?array
+    private static function claimNextRun(int $tenantId = 0, int $runId = 0): ?array
     {
+        $scope = static function ($query) use ($tenantId, $runId) {
+            if ($tenantId > 0) $query->where('tenant_id', $tenantId);
+            if ($runId > 0) $query->where('id', $runId);
+            return $query;
+        };
         // A lost worker cannot safely replay a paid provider submission.
-        foreach(AgentStore::table('run')->where('status','running')->where('lease_until','<',time())->limit(10)->select()->toArray() as $stale){
+        foreach($scope(AgentStore::table('run'))->where('status','running')->where('lease_until','<',time())->limit(10)->select()->toArray() as $stale){
             Db::transaction(function()use($stale){
                 $current=AgentStore::table('run')->where('id',$stale['id'])->lock(true)->find();
                 if(!$current||$current['status']!=='running'||(int)$current['lease_until']>=time())return;
@@ -252,12 +257,15 @@ final class AgentExecutionService
                 else self::finish($current,'needs_review','执行连接中断，已保留结果；请核对任务后再继续');
             });
         }
-        return Db::transaction(function(){
-            $row=AgentStore::table('run')->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',time())->order('id')->lock(true)->find();
+        return Db::transaction(function()use($scope,$tenantId,$runId){
+            $row=$scope(AgentStore::table('run'))->whereIn('status',['queued','waiting_tasks'])->where('next_run_time','<=',time())->order('id')->lock(true)->find();
             if(!$row){
                 // Approval stays pending. Claim only tasks already submitted, never proposals or review records.
-                $ids=AgentStore::table('step')->where('task_id','>',0)->whereIn('status',['running','submitting'])->column('run_id');
-                if($ids)$row=AgentStore::table('run')->whereIn('id',$ids)->where('status','awaiting_confirmation')->where('next_run_time','<=',time())->where('lease_until','<',time())->order('id')->lock(true)->find();
+                $steps=AgentStore::table('step')->where('task_id','>',0)->whereIn('status',['running','submitting']);
+                if($tenantId>0)$steps->where('tenant_id',$tenantId);
+                if($runId>0)$steps->where('run_id',$runId);
+                $ids=$steps->column('run_id');
+                if($ids)$row=$scope(AgentStore::table('run'))->whereIn('id',$ids)->where('status','awaiting_confirmation')->where('next_run_time','<=',time())->where('lease_until','<',time())->order('id')->lock(true)->find();
             }
             if(!$row)return null;
             $row['lease_token']=bin2hex(random_bytes(16));

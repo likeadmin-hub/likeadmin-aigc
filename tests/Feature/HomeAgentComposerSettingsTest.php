@@ -12,11 +12,14 @@ request()->tenantId=1;request()->userId=1;request()->userInfo=['tenant_id'=>1,'u
 $before=Db::name('user')->where('id',1)->value('user_money');
 Db::startTrans();try{
  $prefs=HomeAgentFixture::preferences();$configured=Settings::textModel(1);
- $prefs['models']['text']='client-tampered';
+ $invalid=$prefs;$invalid['models']['text']='client-tampered';
+ rejected(fn()=>E::submit(1,1,['content'=>'Invalid model fixture','request_id'=>'bad-model-'.bin2hex(random_bytes(12)),'preferences'=>$invalid]));
+ $choices=array_column(Settings::textOptions(1)['models'],'code');
+ $selected=(string)(current(array_diff($choices,[$configured])) ?: $configured);$prefs['models']['text']=$selected;
  $prefs['generation']=['mode'=>'custom','image'=>['quantity'=>1],'video'=>[]];
  $params=['content'=>'创作配置离线回归','request_id'=>'composer-'.bin2hex(random_bytes(12)),'preferences'=>$prefs];
  $view=E::submit(1,1,$params);$run=S::run(1,1,$view['id']);$stored=S::json($run['preferences']);
- check($stored['models']['text']===$configured,'Client overrode backend text model');
+ check($stored['models']['text']===$selected,'Explicit available model was replaced by backend default');
  check(S::requiresConfirmation($stored,100),'Custom parameters bypassed confirmation');
  check(Settings::parameters($stored,'aigc_image')===['quantity'=>1],'Custom image preference lost');
  check(Settings::parameters($stored,'aigc_fitting')===[],'Image preference leaked into fitting');
@@ -34,7 +37,8 @@ Db::startTrans();try{
  rejected(fn()=>AigcLlmService::saveConfig(1,['config_json'=>['agent_text_model'=>'injected-invalid-model']]));
  $config=Db::name('aigc_llm_config')->where('tenant_id',1)->find();$json=S::json($config['config_json']);$json['agent_text_model']='unavailable-backend-model';Db::name('aigc_llm_config')->where('tenant_id',1)->update(['config_json'=>S::encode($json)]);
  check(E::submit(1,1,$params)['id']===$view['id'],'Retry rerouted or duplicated run after config change');
- rejected(fn()=>E::submit(1,1,array_replace($params,['request_id'=>'unavailable-'.bin2hex(random_bytes(12))])));
+ $defaultParams=$params;$defaultParams['preferences']['models']['text']='';
+ rejected(fn()=>E::submit(1,1,array_replace($defaultParams,['request_id'=>'unavailable-'.bin2hex(random_bytes(12))])));
  Db::name('aigc_llm_config')->where('tenant_id',1)->update(['config_json'=>$config['config_json']]);
  rejected(fn()=>Subjects::resolve(1,1,PHP_INT_MAX));
  $id=Db::name('aigc_short_drama_subject')->insertGetId(['tenant_id'=>1,'user_id'=>0,'source'=>'public','name'=>'Agent reference fixture','image'=>'resource/image/common/menu_generator.png','description'=>'蓝色主体','status'=>1,'delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);

@@ -14,11 +14,15 @@ class ShortDramaEpisodeWorker extends Command
     {
         $this->setName('short-drama:episode-worker')
             ->addOption('once', null, Option::VALUE_NONE, 'Process at most one episode')
+            ->addOption('tenant', null, Option::VALUE_OPTIONAL, 'Restrict to a tenant', 0)
+            ->addOption('project', null, Option::VALUE_OPTIONAL, 'Restrict to a series project', 0)
             ->setDescription('Generate confirmed short drama episodes sequentially');
     }
 
     protected function execute(Input $input, Output $output)
     {
+        $tenant=(int)$input->getOption('tenant');$project=(int)$input->getOption('project');
+        if($tenant<0 || $project<0 || ($project>0 && $tenant<=0))throw new \InvalidArgumentException('A scoped project requires its tenant');
         @set_time_limit(0);
         $running = true;
         if (function_exists('pcntl_async_signals') && function_exists('pcntl_signal')) {
@@ -34,7 +38,7 @@ class ShortDramaEpisodeWorker extends Command
                     break;
                 }
             try {
-                $processed = ShortDramaEpisodeService::tick();
+                $processed = ShortDramaEpisodeService::tick($tenant, $project);
             } catch (\Throwable $e) {
                 \think\facade\Log::error('Episode worker: ' . $e->getMessage());
                 if ($input->getOption('once')) throw $e;

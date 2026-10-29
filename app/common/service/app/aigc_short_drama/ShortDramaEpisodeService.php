@@ -612,7 +612,8 @@ class ShortDramaEpisodeService
                 }
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $selected = array_replace($selected, Db::name(self::TABLE)->where('id',$selected['id'])->find() ?: []);
-                $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
+                // A project-targeted worker must not claim or acknowledge another series' notification.
+                $queueMessage = ($tenantId || $projectId) ? null : ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
                 if ($queueMessage && (int)($queueMessage['data']['episode_id'] ?? 0) !== (int)$selected['id']) {
                     ShortDramaRedisQueue::ack($queueMessage['id']);
                     $queueMessage = null;
