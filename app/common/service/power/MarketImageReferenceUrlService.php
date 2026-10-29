@@ -8,6 +8,25 @@ use think\facade\Db;
 /** Resolve stored canvas image references to URLs accepted by market providers. */
 final class MarketImageReferenceUrlService
 {
+    /** Keep typed uploads and legacy URL aliases on the same durable source. */
+    public static function normalizeRequest(array $request,int $tenantId): array
+    {
+        $request['reference_images']=self::resolve((array)($request['reference_images']??[]),$tenantId);
+        if(!is_array($request['reference_assets']??null))return $request;
+        $images=[];
+        foreach($request['reference_assets']as$i=>$asset){
+            if(!is_array($asset)||($asset['type']??'image')!=='image')continue;
+            $uri=trim((string)($asset['uri']??''));$url=trim((string)($asset['url']??''));
+            $source=$uri!==''&&!preg_match('~^blob:~i',$uri)?$uri:$url;
+            if(!empty($asset['uploading'])||$source==='')throw new \InvalidArgumentException('参考图片尚未上传完成，请重新上传');
+            $resolved=self::resolve([$source],$tenantId)[0]??'';
+            $request['reference_assets'][$i]=array_replace($asset,['url'=>$resolved,'uri'=>$resolved]);
+            $images[]=$resolved;
+        }
+        if($request['reference_images']===[]&&$images!==[])$request['reference_images']=array_values(array_unique($images));
+        return $request;
+    }
+
     /** @return array<int, string> */
     public static function resolve(array $references, int $tenantId): array
     {
@@ -17,6 +36,7 @@ final class MarketImageReferenceUrlService
             if ($url === '') {
                 continue;
             }
+            if(preg_match('~^[a-z][a-z0-9+.-]*:~i',$url)&&!preg_match('~^(?:https?://|data:image/)~i',$url))throw new \InvalidArgumentException('参考图片需要上传后的文件地址，请重新上传');
             if (preg_match('/^(https?:\/\/|data:image\/)/i', $url) !== 1) {
                 $uri = ltrim($url, '/');
                 $file = $tenantId > 0
