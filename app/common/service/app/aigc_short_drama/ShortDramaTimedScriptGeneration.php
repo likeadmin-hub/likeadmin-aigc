@@ -173,12 +173,15 @@ final class ShortDramaTimedScriptGeneration
                 $input['content'] .= "\n以上全局剧情仅用于保持连续性，不要求重写整集。本次只输出" . count($ids)
                     . '个分镜，ID依次为' . implode(',', $ids) . '，对应秒数为' . implode(',', $partDurations)
                     . '。不得输出其他ID、场次或重复已经完成的分镜。忽略上下文模板要求的整集输出格式，当前仅返回storyboard数组。';
-                $part = [];
+                $part = []; $partial = null; $completedPartial = null;
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
                         // A failed attempt must not change the next attempt's locked input.
                         $validationDurations = $partDurations;
-                        if ($offset === 0 && $attempt === 0 && isset($batchParts[$sceneIndex])) {
+                        if ($completedPartial !== null) {
+                            $part = $completedPartial;
+                            $completedPartial = null;
+                        } elseif ($offset === 0 && $attempt === 0 && isset($batchParts[$sceneIndex])) {
                             $part = $batchParts[$sceneIndex];
                         } else {
                             if (array_key_exists($sceneIndex, $batchParts) && $offset === 0 && $attempt === 0) {
@@ -190,7 +193,10 @@ final class ShortDramaTimedScriptGeneration
                                 $contentRepairs++;
                             }
                             $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750,
-                                static fn($part) => self::assertPart($part, $skeleton, $beat, $ids, $partDurations, false));
+                                static function ($candidate) use (&$partial, $skeleton, $beat, $ids, $partDurations): void {
+                                    $partial = $candidate;
+                                    self::assertPart($candidate, $skeleton, $beat, $ids, $partDurations, false);
+                                });
                         }
                         $validationIds = $ids;
                         if (ShortDramaDialogueSplit::enabled($request)) {
@@ -211,6 +217,52 @@ final class ShortDramaTimedScriptGeneration
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
+                        if ($attempt === 0 && $e->getCode() === 422 && $e->getMessage() === '本段分镜数量不完整' && is_array($partial)) {
+                            $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
+                                static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
+                                    self::assertPart(['storyboard' => [$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
+                                    ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                });
+                            if ($accepted === [] && $size > 1) {
+                                $left = intdiv($size, 2);
+                                array_unshift($pending, [$offset, $left, '_split_' . $left],
+                                    [$offset + $left, $size - $left, '_split_' . ($size - $left)]);
+                                continue 2;
+                            }
+                            if ($accepted !== null && $accepted !== []) {
+                                foreach ($ids as $index => $id) {
+                                    if (isset($accepted[$index])) continue;
+                                    $missingContext = $context;
+                                    $missingContext['required_shots'] = [['shot_id' => $id, 'duration_seconds' => $partDurations[$index]]];
+                                    $missingContext['shot_offset'] = $offset + $index;
+                                    $missingContext['retained_shots'] = array_values($accepted);
+                                    $before = array_filter($accepted, static fn($key) => $key < $index, ARRAY_FILTER_USE_KEY);
+                                    $missingContext['scene_progress'] = ShortDramaSceneProgress::window($beat, count($durations), $offset + $index, 1,
+                                        array_merge(array_slice($shots, $sceneStart), array_values($before)));
+                                    $missingInput = $input;
+                                    $missingInput['content'] = self::json($missingContext)
+                                        . "\n只补充缺失分镜 {$id}，时长 {$partDurations[$index]} 秒。已保留分镜仅供衔接，不得重写或重复。只返回该分镜的storyboard数组。";
+                                    $missingKey = 'timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . '_missing_' . ($offset + $index + 1);
+                                    for ($missingAttempt = 0; $missingAttempt < 2; $missingAttempt++) {
+                                        try {
+                                            $missing = $call($missingKey . ($missingAttempt ? '_repair' : ''), $missingInput, 2550,
+                                                static fn($value) => self::assertPart($value, $skeleton, $beat, [$id], [$partDurations[$index]], false));
+                                            self::assertPart($missing, $skeleton, $beat, [$id], [$partDurations[$index]], false);
+                                            ShortDramaSameSceneCuts::assertShot($missing['storyboard'][0], $skeleton, $request);
+                                            $accepted[$index] = $missing['storyboard'][0];
+                                            break;
+                                        } catch (RuntimeException $missingError) {
+                                            if ($missingAttempt || !in_array($missingError->getCode(), [413, 422], true)) throw $missingError;
+                                            $missingInput['content'] .= "\n仅修复缺失分镜：" . $missingError->getMessage();
+                                        }
+                                    }
+                                }
+                                ksort($accepted);
+                                $completedPartial = ['storyboard' => array_values($accepted)];
+                                $contentRepairs++;
+                                continue;
+                            }
+                        }
                         if ($e->getCode() === 413 && $size > 1) {
                             $left = intdiv($size, 2);
                             // Distinct durable keys prevent replaying the truncated
