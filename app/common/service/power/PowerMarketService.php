@@ -392,6 +392,17 @@ class PowerMarketService
         }
         foreach ($items as &$item) {
             $item['market_metadata'] = $metadataByLocalKey[(string)($item['local_key'] ?? '')] ?? [];
+            if (($item['type'] ?? '') === self::TYPE_MODEL) {
+                $metadata=$item['market_metadata'];
+                $bound=MarketGenerationSourceIdentity::bind((array)($metadata['upstream_metadata'] ?? []),(array)($item['resource'] ?? []));
+                $bound=self::mergeDeveloperDocModelDetail($bound);
+                $metadata['upstream_metadata']=$bound;
+                foreach (['params_schema','default_params','max_reference_images','max_reference_audios','max_reference_videos'] as $field) {
+                    if (!self::metadataValuePresent($metadata[$field] ?? null) && self::metadataValuePresent($bound[$field] ?? null)) $metadata[$field]=$bound[$field];
+                }
+                foreach (['developer_doc_slug','developer_doc_content','api_doc'] as $field) if (self::metadataValuePresent($bound[$field] ?? null)) $metadata[$field]=$bound[$field];
+                $item['market_metadata']=$metadata;
+            }
         }
         unset($item);
         $items = self::deduplicatePricingItems($items);
@@ -632,6 +643,7 @@ class PowerMarketService
     private static function mergeDeveloperDocModelDetail(array $model): array
     {
         $detail = self::developerDocDetailForModel($model);
+        if (!MarketGenerationSourceIdentity::matchesDetail($model,$detail)) return $model;
         $pricing = self::arrayValue($detail['model_pricing'] ?? []);
         $doc = self::arrayValue($detail['doc'] ?? []);
         if ($pricing === [] && $doc === []) {
@@ -680,9 +692,7 @@ class PowerMarketService
     private static function developerDocDetailForModel(array $model): array
     {
         static $cache = [];
-        $pricing = self::arrayValue($model['pricing'] ?? []);
-        $pricingV2 = self::arrayValue($pricing['pricing_v2'] ?? []);
-        $modelId = (int)($model['ai_model_id'] ?? $model['model_id'] ?? $pricingV2['resource_id'] ?? 0);
+        $modelId = MarketGenerationSourceIdentity::modelId($model);
         $slug = $modelId > 0 ? (self::developerDocSlugMaps()['model'][$modelId] ?? '') : '';
         if ($slug === '') {
             return [];

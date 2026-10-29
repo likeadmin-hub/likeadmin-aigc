@@ -3243,6 +3243,7 @@ class MarketVideoRuntimeService
         $source = self::arrayValue($product['source_payload'] ?? []);
         $raw = self::arrayValue($source['raw'] ?? []);
         $metadata = self::arrayValue($source['market_metadata'] ?? []);
+        $metadata = MarketGenerationSourceIdentity::metadata($product,$metadata);
         foreach ([self::arrayValue($source['resource'] ?? []), self::arrayValue($raw['resource'] ?? [])] as $resource) {
             $metadata = array_merge($resource, $metadata);
             $metadata['capabilities'] = array_merge(self::arrayValue($resource['capabilities'] ?? []), self::arrayValue($metadata['capabilities'] ?? []));

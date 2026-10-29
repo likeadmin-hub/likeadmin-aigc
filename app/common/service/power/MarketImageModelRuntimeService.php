@@ -1744,10 +1744,10 @@ class MarketImageModelRuntimeService
     {
         $direct = self::arrayValue($product['market_metadata'] ?? []);
         if ($direct !== []) {
-            return MarketModelCapabilities::applyMetadata($product, $direct);
+            return MarketModelCapabilities::applyMetadata($product, MarketGenerationSourceIdentity::metadata($product,$direct));
         }
         $source = self::arrayValue($product['source_payload'] ?? []);
-        return MarketModelCapabilities::applyMetadata($product, self::arrayValue($source['market_metadata'] ?? []));
+        return MarketModelCapabilities::applyMetadata($product, MarketGenerationSourceIdentity::metadata($product,self::arrayValue($source['market_metadata'] ?? [])));
     }
     private static function productDescription(array $product, array $metadata = []): string
     {
