@@ -15869,9 +15869,7 @@ class AigcShortDramaService
             static fn(array $item): bool => $item['id'] !== ''
         ));
         $scriptGroup['default'] = (string)($scriptGroup['default'] ?? ($scriptGroup['options'][0]['id'] ?? ''));
-        $scriptGroup['managed_by_tenant'] = true;
-        $scriptGroup['options'] = array_values(array_filter($scriptGroup['options'],
-            static fn(array $option): bool => $option['id'] === $scriptGroup['default']));
+        $scriptGroup['options'] = \app\common\service\power\MarketModelSource::officialFirst($scriptGroup['options']);
         unset($scriptGroup['app_code'], $scriptGroup['provider'], $scriptGroup['provider_model'], $scriptGroup['channel_code']);
         return [$scriptGroup];
     }
@@ -15892,6 +15890,11 @@ class AigcShortDramaService
                     $group['options'] = array_map(static fn(array $option): array =>
                         \app\common\service\power\MarketCreationParameters::describe($option, $key), $group['options']);
                 }
+                $group['options'] = \app\common\service\power\MarketModelSource::officialFirst(array_map(static function (array $option): array {
+                    $option['channel_source'] = ($option['channel_source'] ?? '') === 'official' ? 'official' : 'third_party';
+                    $option['channel_source_label'] = $option['channel_source'] === 'official' ? '官方渠道' : '三方渠道';
+                    return $option;
+                }, $group['options']));
                 $visibleGroups[] = $group;
             }
         }
@@ -15913,9 +15916,9 @@ class AigcShortDramaService
             'sku_id' => (int)($model['sku_id'] ?? $model['market_sku_id'] ?? 0),
             'model_code' => (string)($model['model_code'] ?? ''),
             'channel_code' => (string)($model['channel_code'] ?? ''),
-            'channel_source' => (string)($model['channel_source'] ?? 'unknown'),
-            'channel_source_label' => (string)($model['channel_source_label'] ?? '渠道未标注'),
-            'name' => (string)($model['name'] ?? $id),
+            'channel_source' => ($model['channel_source'] ?? '') === 'official' ? 'official' : 'third_party',
+            'channel_source_label' => ($model['channel_source'] ?? '') === 'official' ? '官方渠道' : '三方渠道',
+            'name' => (string)($model['display_name'] ?? $model['name'] ?? $id),
             'description' => (string)($model['description'] ?? ''),
             // Model presentation belongs to the power market.  Do not fall back
             // to the short-drama avatar: that makes unrelated models appear to
@@ -16066,8 +16069,8 @@ class AigcShortDramaService
     /** @return array<string, mixed> */
     public static function tenantTextModel(int $tenantId): array
     {
-        $model = self::configuredDefaultTextModel($tenantId);
-        if ($model === []) throw new Exception('文本服务暂不可用，请联系管理员配置短剧文本模型');
+        $model = self::configuredDefaultTextModel($tenantId, [], false);
+        if ($model === []) $model = MarketTextModelRuntimeService::resolveModel($tenantId, '', false);
         return $model;
     }
 
@@ -16841,13 +16844,20 @@ class AigcShortDramaService
             }
             $wanted = $selections[$key] ?? '';
             $matched = self::matchModelOption($options, $wanted);
+            if ($storedTask && $key !== 'script_plan' && !empty($wanted)) {
+                $selected[$key] = is_array($wanted) ? $wanted : ['id' => (string)$wanted];
+                continue;
+            }
+            if ($key !== 'script_plan' && !empty($wanted) && $matched === []) {
+                throw new Exception('所选模型未上架或已不可用，请重新选择');
+            }
             if ($matched === [] && isset($group['default'])) {
                 $matched = self::matchModelOption($options, (string)$group['default']);
             }
             $selected[$key] = $matched ?: $options[0];
         }
-        // Only the worker may reuse a model frozen in a persisted task. New
-        // submissions, revisions and uploads ignore all client text choices.
+        // A retry reuses its persisted identity; a new choice must resolve in
+        // the current tenant's saleable catalog before any task is accepted.
         $frozen = $selections['script_plan'] ?? $request['model_id'] ?? '';
         if ($storedTask && !empty($frozen)) {
             try { $selected['script_plan'] = MarketTextModelRuntimeService::resolveModel($tenantId, $frozen, false); }
@@ -16857,7 +16867,18 @@ class AigcShortDramaService
                 $selected['script_plan'] = is_array($frozen) ? $frozen : ['id' => (string)$frozen];
             }
         } else {
-            $selected['script_plan'] = self::tenantTextModel($tenantId);
+            $wanted = $selections['script_plan'] ?? $request['model_id'] ?? '';
+            if ($wanted === 'script-planner-default') $wanted = ''; // Legacy absence sentinel.
+            $selected['script_plan'] = !empty($wanted)
+                ? MarketTextModelRuntimeService::resolveModel($tenantId, $wanted, false)
+                : self::tenantTextModel($tenantId);
+        }
+        foreach (['image', 'video'] as $key) {
+            if ($storedTask && !empty($selections[$key])) {
+                $selected[$key] = is_array($selections[$key]) ? $selections[$key] : ['id' => (string)$selections[$key]];
+                continue;
+            }
+            if (!empty($selections[$key]) && empty($selected[$key])) throw new Exception('所选模型未上架或已不可用，请重新选择');
         }
         return $selected;
     }
@@ -16999,6 +17020,26 @@ class AigcShortDramaService
             }
         }
         return [];
+    }
+
+    /** Legacy requests may contain scalar IDs; expose only display/selection fields. */
+    private static function userModelSelectionsSnapshot(array $selections): array
+    {
+        $result = [];
+        foreach (['script_plan', 'image', 'video'] as $key) {
+            $model = $selections[$key] ?? null;
+            if (is_string($model) || is_int($model)) $model = ['id' => (string)$model];
+            if (!is_array($model)) continue;
+            $id = $model['id'] ?? $model['value'] ?? '';
+            if ((!is_string($id) && !is_int($id)) || trim((string)$id) === '') continue;
+            $item = ['id' => (string)$id];
+            foreach (['name', 'model_code', 'channel_code'] as $field) {
+                if (isset($model[$field]) && is_string($model[$field])) $item[$field] = $model[$field];
+            }
+            $item['channel_source'] = ($model['channel_source'] ?? '') === 'official' ? 'official' : 'third_party';
+            $result[$key] = $item;
+        }
+        return $result;
     }
 
     private static function modelSelectionsSnapshot(array $selectedModels): array
@@ -23384,6 +23425,7 @@ class AigcShortDramaService
                 : '',
             'generation_settings' => $projectGenerationSettings,
             'project_generation_settings' => $projectGenerationSettings,
+            'model_selections' => self::userModelSelectionsSnapshot((array)($request['model_selections'] ?? [])),
             'task_id' => (string)$task['task_id'],
             'provider_task_id' => (string)($task['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($task['provider_request_id'] ?? ''),

@@ -174,9 +174,9 @@ final class ShortDramaStoryWorkflow
             $invalidFields = false;
             foreach ((array)($plan['episodes'] ?? []) as $index => $episode) {
                 foreach (['title' => '标题', 'story_outline' => '剧情', 'conflict_point' => '冲突点', 'ending_hook' => '结尾内容'] as $key => $label) {
-                    if (!is_array($episode) || ($qualityReviewEnabled
+                    if (!is_array($episode) || !is_string($episode[$key] ?? null) || ($qualityReviewEnabled
                         ? !self::isCreativeText($episode[$key] ?? null)
-                        : trim((string)($episode[$key] ?? '')) === '')) {
+                        : trim($episode[$key]) === '')) {
                         $issues[] = ['path' => 'episodes.' . $index . '.' . $key, 'message' => '第' . ($index + 1) . '集请补充有效的' . $label];
                         $invalidFields = true;
                     }

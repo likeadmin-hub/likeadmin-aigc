@@ -15,12 +15,6 @@ final class ConversationSettings
     {
         FeatureGate::assertEnabled($tenant);
         $groups=AigcShortDramaService::canvasModelGroups($tenant);
-        try { $configured=AigcShortDramaService::tenantTextModel($tenant); }
-        catch (\Throwable $error) { throw new RuntimeException('REASONING_MODEL_UNAVAILABLE',0,$error); }
-        foreach ($groups as &$group) if (($group['key']??'')==='script_plan') {
-            $group['default']=(string)$configured['id']; $group['options']=[$configured];
-        }
-        unset($group);
         $settings=self::fromCatalog($groups,$preferences);
         // Validate the actual market identity/capabilities, not a display name.
         try {
@@ -37,8 +31,6 @@ final class ConversationSettings
     /** Pure catalog projection, also used by contract tests. Not authorization alone. */
     public static function fromCatalog(array $groups,array $preferences): array
     {
-        // Accept legacy clients but never let account/Skill/workflow preferences select text.
-        unset($preferences['reasoning_model']);
         $mapping=['reasoning_model'=>'script_plan','image_model'=>'image','video_model'=>'video'];
         if (array_diff(array_keys($preferences),array_merge(array_keys($mapping),['generation_mode']))) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
         $mode=$preferences['generation_mode']??'manual';
@@ -50,7 +42,11 @@ final class ConversationSettings
             if (array_key_exists($field,$preferences) && $wanted===null) throw new RuntimeException('INVALID_MODEL_SELECTION');
             $group=[];
             foreach ($groups as $candidate) if (($candidate['key']??'')===$key) {$group=$candidate;break;}
-            if ($wanted===null) $wanted=(string)($group['default']??'');
+            if ($wanted===null) {
+                $wanted=(string)($group['default']??'');
+                $ids=array_map(static fn(array $option): string => (string)($option['id']??$option['value']??''),(array)($group['options']??[]));
+                if (!in_array($wanted,$ids,true)) $wanted=(string)($ids[0]??'');
+            }
             $selected=[];
             foreach ((array)($group['options']??[]) as $option) {
                 $id=(string)($option['id']??$option['value']??'');
@@ -68,6 +64,7 @@ final class ConversationSettings
                 'market_product_id'=>(int)($selected['market_product_id']??$selected['product_id']??0),
                 'market_sku_id'=>(int)($selected['market_sku_id']??$selected['sku_id']??0),
                 'model_code'=>(string)($selected['model_code']??''),
+                'channel_source'=>($selected['channel_source']??'')==='official'?'official':'third_party',
             ];
         }
         return $result;

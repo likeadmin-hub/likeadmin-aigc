@@ -255,9 +255,9 @@ final class ShortDramaStoryGeneration
         foreach (array_values($episodes) as $index => $episode) {
             if (!is_array($episode)) throw new RuntimeException('本批集号不连续', 422);
             foreach (['title', 'story_outline', 'conflict_point', 'ending_hook'] as $field) {
-                if ($qualityReviewEnabled
+                if (!is_string($episode[$field] ?? null) || ($qualityReviewEnabled
                     ? !ShortDramaStoryWorkflow::isCreativeText($episode[$field] ?? null)
-                    : trim((string)($episode[$field] ?? '')) === '') throw new RuntimeException('第' . ($index + 1) . '集缺少 ' . $field, 422);
+                    : trim($episode[$field]) === '')) throw new RuntimeException('第' . ($index + 1) . '集缺少 ' . $field, 422);
             }
             if ($qualityReviewEnabled && isset($seen[trim($episode['story_outline'])])) throw new RuntimeException('本批存在完全重复的集剧情', 422);
             $seen[trim($episode['story_outline'])] = true;
