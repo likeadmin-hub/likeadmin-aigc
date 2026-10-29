@@ -178,8 +178,15 @@ final class ShortDramaPlanningUnit
         $request = json_decode((string)($owner['request_json'] ?? ''), true);
         $version = (int)($request['_input_contract_version'] ?? 0);
         if (!$owner || !in_array($owner['status'], ['failed','canceled'], true) || $version < 20 || $version >= 23) return false;
-        foreach ($rows as $other) if ((int)$other['id'] > (int)$row['id'] && $other['status'] !== 'checkpoint') return false;
         $receipt = json_decode((string)$row['result_json'], true);
+        if (!is_array($receipt)) return false;
+        $markerScope = $scope + ['unit_key'=>self::legacyRecoveryMarker($root)];
+        $existing = Db::name('aigc_short_drama_planning_unit')->where($markerScope)->find();
+        $data = ['unit_key'=>$root, 'result_hash'=>hash('sha256', json_encode($receipt, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))];
+        // An already frozen recovery remains valid when its own continuation
+        // has since produced receipts; every unit still checks its input signature.
+        if ($existing) return json_decode((string)$existing['result_json'], true) === $data;
+        foreach ($rows as $other) if ((int)$other['id'] > (int)$row['id'] && $other['status'] !== 'checkpoint') return false;
         $result = (array)($receipt['result'] ?? []);
         if (!in_array((string)($result['finish_reason'] ?? ''), ['length','max_tokens','max_output_tokens'], true)) return false;
         $partial = ShortDramaStructuredResponse::partialStoryboard($result);
@@ -193,11 +200,6 @@ final class ShortDramaPlanningUnit
         $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids,
             static fn($shot, $index) => ShortDramaTimedScriptGeneration::assertPart(['storyboard'=>[$shot]], $plan, $beat, [$ids[$index]], [$durations[$index]], false));
         if (!$accepted) return false;
-        $marker = self::legacyRecoveryMarker($root);
-        $markerScope = $scope + ['unit_key'=>$marker];
-        $existing = Db::name('aigc_short_drama_planning_unit')->where($markerScope)->find();
-        $data = ['unit_key'=>$root, 'result_hash'=>hash('sha256', json_encode($receipt, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))];
-        if ($existing) return json_decode((string)$existing['result_json'], true) === $data;
         Db::name('aigc_short_drama_planning_unit')->insert($markerScope + ['status'=>'checkpoint','attempt'=>0,'request_json'=>'{}',
             'result_json'=>json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'create_time'=>time(),'update_time'=>time()]);
         return true;
