@@ -91,4 +91,20 @@ class MarketStructuredUploadedMaterialsTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         Media::inputs(['elements'=>[['element_input_urls'=>[self::AUDIO]]]],static fn()=>['kind'=>'audio','duration'=>6]);
     }
+
+    public function testLoopAndKeyframeImageSlotsRemainSeparateFromTextAndFrozenMetering(): void
+    {
+        $native=['image_urls'=>[self::IMAGE],'loop_url'=>self::IMAGE,
+            'keyframes'=>[['url'=>self::IMAGE,'timestamp_s'=>1],['url'=>self::IMAGE,'timestamp_s'=>2]],
+            'prompt'=>['loop_url'=>'https://fixtures.invalid/not-media'],
+            'description'=>'https://fixtures.invalid/not-media'];
+        self::assertSame(array_fill(0,4,self::IMAGE),Inputs::extract($native)['image']);
+        $contract=Meter::contract(['meter_contract'=>['version'=>1,'basis'=>'image','rounding'=>'ceil',
+            'reference_images'=>['free'=>0,'numerator'=>1,'denominator'=>1]]]);
+        $current=['billing_meter'=>$contract,'usage_unit_size'=>1,'meter_context'=>Meter::context($contract,$native)];
+        $frozen=array_replace($current,['meter_context'=>['reference_images'=>3,'reference_video_seconds'=>0]]);
+        self::assertSame(10.0,Meter::price(2,1,$current));
+        self::assertSame(8.0,Meter::price(2,1,$frozen));
+        self::assertSame(3,$frozen['meter_context']['reference_images']);
+    }
 }
