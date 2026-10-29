@@ -6,7 +6,7 @@ use RuntimeException;
 /** Identify only structurally invalid fields on unambiguously identified shots. */
 final class ShortDramaShotFieldRepair
 {
-    public static function targets(array $part, array $ids, array $plan, array $beat, array $rule, ?array $durations, callable $validate): array
+    public static function targets(array $part, array $ids, array $plan, array $beat, array $rule, ?array $durations, callable $validate, bool $sceneFields = false): array
     {
         $shots = $part['storyboard'] ?? null;
         if (!is_array($shots) || !array_is_list($shots) || count($shots) !== count($ids)) return [];
@@ -15,6 +15,20 @@ final class ShortDramaShotFieldRepair
             if (!is_array($shot) || ($shot['shot_id'] ?? null) !== $ids[$index]) return [];
             $fields = [];
             if (($shot['scene_ref_id'] ?? null) !== ($beat['scene_ref_id'] ?? null)) $fields[] = 'scene_ref_id';
+            if ($sceneFields && (int)($plan['_scene_binding_version'] ?? 0) >= 5) {
+                $location = null;
+                foreach ((array)($plan['locations'] ?? []) as $item) {
+                    if (is_array($item) && ($item['id'] ?? null) === ($beat['scene_ref_id'] ?? null)) { $location = $item; break; }
+                }
+                if ($location) {
+                    $label = $shot['scene_name'] ?? null;
+                    $names = array_merge([(string)($location['name'] ?? '')], (array)($location['aliases'] ?? []));
+                    if (is_string($label) && trim($label) !== '' && !in_array(trim($label), $names, true)) $fields[] = 'scene_name';
+                    $space = $shot['interior_exterior'] ?? null;
+                    $expected = $location['interior_exterior'] ?? null;
+                    if (in_array($space, ['interior','exterior'], true) && in_array($expected, ['interior','exterior'], true) && $space !== $expected) $fields[] = 'interior_exterior';
+                }
+            }
             if (!is_array($shot['subject_ref_ids'] ?? null)
                 || array_diff((array)($shot['subject_ref_ids'] ?? []), array_column($plan['subjects'], 'id'))) $fields[] = 'subject_ref_ids';
             if (!is_string($shot['visual_description'] ?? null) || trim($shot['visual_description']) === '') $fields[] = 'visual_description';

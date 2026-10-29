@@ -53,10 +53,19 @@ final class ShortDramaScriptGeneration
                     try { return ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? [])); }
                     catch (RuntimeException $error) {
                         if (!in_array($error->getCode(), [413, 422], true)) throw $error;
+                        if (ShortDramaInputContract::preciseRecovery($request)) {
+                            $partial = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []));
+                            if ($partial !== null) return $partial;
+                        }
                         return ['_batch_parse_error' => $error->getMessage()];
                     }
                 }
-                $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
+                try { $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? [])); }
+                catch (RuntimeException $error) {
+                    if (!ShortDramaInputContract::preciseRecovery($request) || !in_array($error->getCode(), [413,422], true)
+                        || !preg_match('/^(?:timed_scene_|scene_)/', $key)
+                        || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? [])))) throw $error;
+                }
                 if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
                 if ($validate) $validate($payload);
                 return $payload;
@@ -170,7 +179,7 @@ final class ShortDramaScriptGeneration
                         && $error->getMessage() !== '本段分镜数量不完整' && is_array($partial)) {
                         $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1));
                         $targets = ShortDramaShotFieldRepair::targets($partial, $ids, $skeleton, $beat, $durationRule, null,
-                            static fn($shot, $index) => self::assertShots(['storyboard'=>[$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule));
+                            static fn($shot, $index) => self::assertShots(['storyboard'=>[$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule), ShortDramaInputContract::preciseRecovery($request));
                         if ($targets) {
                             if (ShortDramaInputContract::mixedStoryboardRecovery($request) && $progress) {
                                 $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids,
@@ -192,7 +201,7 @@ final class ShortDramaScriptGeneration
                         $validatePartialShot = static fn($shot, $index) => self::assertShots(['storyboard' => [$shot]], $skeleton, $beat, $sceneIndex, $start + $index, 1, $durationRule);
                         $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
                         if ($accepted === null && ShortDramaInputContract::mixedStoryboardRecovery($request)) {
-                            $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $durationRule, null, $validatePartialShot);
+                            $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $durationRule, null, $validatePartialShot, ShortDramaInputContract::preciseRecovery($request));
                             if ($targets) {
                                 $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids, $validatePartialShot);
                                 if ($prefix && $progress) $progress('script_checkpoint', array_replace($skeleton,

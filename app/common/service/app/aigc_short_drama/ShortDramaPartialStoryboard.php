@@ -21,7 +21,7 @@ final class ShortDramaPartialStoryboard
     }
 
     /** Return field targets only for an ordered, unambiguous incomplete part. */
-    public static function fieldTargets(array $part, array $ids, array $plan, array $beat, array $rule, ?array $durations, callable $validate): array
+    public static function fieldTargets(array $part, array $ids, array $plan, array $beat, array $rule, ?array $durations, callable $validate, bool $sceneFields = false): array
     {
         $shots = $part['storyboard'] ?? null;
         if (!is_array($shots) || !array_is_list($shots) || !$shots || count($shots) >= count($ids)) return [];
@@ -37,7 +37,7 @@ final class ShortDramaPartialStoryboard
         }
         return ShortDramaShotFieldRepair::targets($part, $presentIds, $plan, $beat, $rule,
             $durations === null ? null : $presentDurations,
-            static fn($shot, $index) => $validate($shot, $indexes[$index]));
+            static fn($shot, $index) => $validate($shot, $indexes[$index]), $sceneFields);
     }
 
     public static function accepted(array $part, array $ids, callable $validate): ?array
