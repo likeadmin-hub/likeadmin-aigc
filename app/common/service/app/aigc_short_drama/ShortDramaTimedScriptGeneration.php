@@ -184,8 +184,11 @@ final class ShortDramaTimedScriptGeneration
                             && !empty($batchOriginal[$sceneIndex]['storyboard'])) {
                             $batchPartial = null; $batchFieldIssue = false;
                             try {
-                                $normalized = ShortDramaSceneBinding::normalize(array_replace($skeleton, $batchOriginal[$sceneIndex], ['scene_beats' => [$beat]]), $request);
-                                $candidate = ['storyboard' => $normalized['storyboard']];
+                                if (ShortDramaInputContract::preciseRecovery($request)) $candidate = $batchOriginal[$sceneIndex];
+                                else {
+                                    $normalized = ShortDramaSceneBinding::normalize(array_replace($skeleton, $batchOriginal[$sceneIndex], ['scene_beats' => [$beat]]), $request);
+                                    $candidate = ['storyboard' => $normalized['storyboard']];
+                                }
                                 $acceptedBatch = ShortDramaPartialStoryboard::accepted($candidate, $ids,
                                     static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
                                         self::assertPart(['storyboard' => [$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
@@ -197,13 +200,13 @@ final class ShortDramaTimedScriptGeneration
                                         static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
                                             self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
                                             ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
-                                        })) $batchPartial = $candidate;
+                                        }, ShortDramaInputContract::preciseRecovery($request))) $batchPartial = $candidate;
                                 elseif (ShortDramaInputContract::shotFieldRecovery($request)) {
                                     $fieldTargets = ShortDramaShotFieldRepair::targets($candidate, $ids, $skeleton, $beat, $rule, $partDurations,
                                         static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
                                             self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
                                             ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
-                                        });
+                                        }, ShortDramaInputContract::preciseRecovery($request));
                                     if ($fieldTargets) { $batchPartial = $candidate; $batchFieldIssue = true; }
                                 }
                             } catch (RuntimeException $batchError) {
@@ -259,7 +262,7 @@ final class ShortDramaTimedScriptGeneration
                                 static function ($shot, $index) use ($skeleton, $beat, $ids, $partDurations, $request): void {
                                     self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$ids[$index]], [$partDurations[$index]], false);
                                     ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
-                                });
+                                }, ShortDramaInputContract::preciseRecovery($request));
                             if ($targets) {
                                 if (ShortDramaInputContract::mixedStoryboardRecovery($request) && $progress) {
                                     $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids,
@@ -288,7 +291,7 @@ final class ShortDramaTimedScriptGeneration
                                 };
                             $accepted = ShortDramaPartialStoryboard::accepted($partial, $ids, $validatePartialShot);
                             if ($accepted === null && ShortDramaInputContract::mixedStoryboardRecovery($request)) {
-                                $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $rule, $partDurations, $validatePartialShot);
+                                $targets = ShortDramaPartialStoryboard::fieldTargets($partial, $ids, $skeleton, $beat, $rule, $partDurations, $validatePartialShot, ShortDramaInputContract::preciseRecovery($request));
                                 if ($targets) {
                                     $prefix = ShortDramaPartialStoryboard::validPrefix($partial, $ids, $validatePartialShot);
                                     if ($prefix && $progress) $progress('script_checkpoint', array_replace($skeleton,
@@ -358,7 +361,7 @@ final class ShortDramaTimedScriptGeneration
                                                     self::assertPart(['storyboard'=>[$shot]], $skeleton, $beat, [$id], [$partDurations[$index]], false);
                                                     ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                                                 };
-                                                $targets = ShortDramaShotFieldRepair::targets($missingPartial, [$id], $skeleton, $beat, $rule, [$partDurations[$index]], $validateMissing);
+                                                $targets = ShortDramaShotFieldRepair::targets($missingPartial, [$id], $skeleton, $beat, $rule, [$partDurations[$index]], $validateMissing, ShortDramaInputContract::preciseRecovery($request));
                                                 if ($targets) {
                                                     $verify = static function ($reply) use ($missingPartial, $targets, $validateMissing): void {
                                                         $patched = ShortDramaShotFieldRepair::apply($missingPartial, $targets, $reply);
