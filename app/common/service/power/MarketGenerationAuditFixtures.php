@@ -61,6 +61,33 @@ final class MarketGenerationAuditFixtures
                 $bad = $params; $bad[$key][0]['ends'] = $bad[$key][0]['start'];
                 $cases[] = self::row($mode, 'invalid_clip_range:'.$key, array_replace($request, ['provider_params'=>$bad]), 'rejected');
             }
+            if ($field['kind'] === 'subject' && isset($item['properties']['image_urls'],$item['properties']['video_url'],$item['properties']['tag'])) {
+                $video = $params; unset($video[$key][0]['image_urls']);
+                $video[$key][0]['video_url'] = self::url($key,'video'); $video[$key][0]['tag'] = 'character';
+                $cases[] = self::row($mode, 'video_subject:'.$key, array_replace($request, ['provider_params'=>$video]), 'constructed');
+                $both = $video; $both[$key][0]['image_urls'] = $params[$key][0]['image_urls'];
+                $cases[] = self::row($mode, 'mixed_subject:'.$key, array_replace($request, ['provider_params'=>$both]), 'rejected');
+            }
+        }
+        foreach ($rules as $rule) {
+            if (($rule['kind'] ?? '') === 'sum') {
+                foreach ($rule['fields'] as $key=>$weight) {
+                    $maximum=$properties[$key]['maxItems'] ?? null;
+                    if (!isset($params[$key][0]) || $maximum === null || $maximum>16) continue;
+                    $bad=$params;$bad[$key]=array_fill(0,(int)$maximum,$params[$key][0]);$total=0;
+                    foreach ($rule['fields'] as $field=>$w) $total+=count($bad[$field] ?? [])*$w;
+                    if ($total<=$rule['maximum']) continue;
+                    $cases[]=self::row($mode,'combined_quota:'.$key,array_replace($request,['provider_params'=>$bad]),'rejected');break;
+                }
+            }
+            if (($rule['kind'] ?? '') === 'kling3_shots' && isset($properties['multi_prompt']['items']['properties']['prompt'],
+                $properties['multi_prompt']['items']['properties']['duration'],$properties['customize_multi_shots'],$properties['prefer_multi_shots'])) {
+                $shots=$params;$shots['customize_multi_shots']=true;$shots['prefer_multi_shots']=false;
+                $shots['multi_prompt']=[['prompt'=>'Offline shot','duration'=>3]];
+                $cases[]=self::row($mode,'custom_shots',array_replace($request,['provider_params'=>$shots]),'constructed');
+                $shots['prefer_multi_shots']=true;
+                $cases[]=self::row($mode,'conflicting_shots',array_replace($request,['provider_params'=>$shots]),'rejected');
+            }
         }
         return $cases;
     }
