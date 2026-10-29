@@ -44,6 +44,9 @@ final class MarketGenerationNativeContract
             $schema['properties']['model_version']=$schema['properties']['model'];unset($schema['properties']['model']);
             $schema['required']=array_map(static fn($field)=>$field==='model'?'model_version':$field,(array)($schema['required'] ?? []));
         }
+        // A reviewed record already contains the complete admitted schema.
+        // Partial catalogue descriptions must not add enums to that revision.
+        if (MarketGenerationReviewedContract::selected($metadata)!==null) return $schema;
         $public=MarketGenerationSchema::properties(MarketGenerationSchema::array($metadata['params_schema'] ?? []));
         foreach ((array)($schema['properties'] ?? []) as $key=>&$definition) {
             if (!is_array($definition) || !isset($public[$key])) continue;
@@ -62,5 +65,27 @@ final class MarketGenerationNativeContract
     public static function rules(array $metadata, string $mode): array
     {
         $modes=self::modes($metadata); return $modes[$mode]['rules'] ?? $modes['']['rules'] ?? [];
+    }
+
+    public static function durationDefinition(array $metadata,string $mode): array
+    {
+        $schema=self::schema($metadata,$mode);$properties=MarketGenerationSchema::properties($schema);
+        foreach(['duration','seconds','video_duration']as$key)if(is_array($properties[$key]??null))return $properties[$key];
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if($reviewed===null||!in_array($reviewed['generation_protocol'],['wan_video_media_v1','video_input_parameters_v1'],true))return [];
+        $definitions=MarketGenerationMaterialPath::definitions($schema,'parameters.duration');$unique=[];
+        foreach($definitions as$d)$unique[MarketGenerationReviewedContract::digest($d)]=$d;
+        if(count($unique)>1)throw new \InvalidArgumentException('当前模式的嵌套时长定义不唯一');
+        return $unique===[]?[]:array_values($unique)[0];
+    }
+
+    public static function durationChoices(array $metadata,string $mode): array
+    {
+        $definition=self::durationDefinition($metadata,$mode);
+        if(MarketGenerationReviewedContract::selected($metadata)===null)return MarketGenerationSchema::durationChoices($definition);
+        // Only formal constraints grant signed/smart durations in new contracts.
+        $formal=array_intersect_key($definition,array_flip(['enum','minimum','maximum']));
+        if(array_key_exists('const',$definition))$formal['enum']=[$definition['const']];
+        return MarketGenerationSchema::durationChoices($formal);
     }
 }

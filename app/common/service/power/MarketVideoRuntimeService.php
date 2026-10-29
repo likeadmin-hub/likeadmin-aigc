@@ -303,6 +303,15 @@ class MarketVideoRuntimeService
         if (array_key_exists('duration', $selection) && (int)$selection['duration'] <= 0) {
             $market = self::resolve($tenantId, self::withoutDuration($selection));
             $metadata = self::metadata($market['product']);
+            if(MarketGenerationReviewedContract::selected($metadata)!==null){
+                $mode=MarketGenerationMaterials::select($metadata,$selection);
+                $definition=MarketGenerationNativeContract::durationDefinition($metadata,(string)($mode['native_mode']??''));
+                $locked=self::duration(self::arrayValue($market['sku']['locked_params']??[]));
+                $value=$locked>0?$locked:(int)$selection['duration'];
+                self::assertWholeDuration($selection);
+                if($locked<=0&&!(($definition===[]&&$value===0)||in_array($value,MarketGenerationNativeContract::durationChoices($metadata,(string)($mode['native_mode']??'')),true)))throw new Exception('当前模式不支持所选智能时长');
+                return ['duration'=>$value,'market_product_id'=>(int)$market['product']['id'],'market_sku_id'=>(int)$market['sku']['id'],'sku_id'=>(int)$market['sku']['id']];
+            }
             if (MarketGenerationMaterials::modes($metadata) !== [] && in_array((int)$selection['duration'], self::durationOptions($metadata), true)) {
                 return ['duration'=>(int)$selection['duration'],'market_product_id'=>(int)$market['product']['id'],'market_sku_id'=>(int)$market['sku']['id'],'sku_id'=>(int)$market['sku']['id']];
             }
@@ -331,17 +340,23 @@ class MarketVideoRuntimeService
             }
         }
         $metadata = self::metadata($market['product']);
+        if(MarketGenerationReviewedContract::selected($metadata)!==null)self::assertWholeDuration($selection);
         if (MarketGenerationMaterials::modes($metadata) !== []) {
             $mode=MarketGenerationMaterials::select($metadata,$selection);
             $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
             $values=array_replace((array)($selection['provider_params']??[]),MarketGenerationMaterials::serialize($metadata,$selection,$schema));
             $properties=MarketGenerationSchema::properties(MarketGenerationSchema::branch($schema,$values));
             // Follow-source/frames-per-second models do not accept a synthetic duration.
-            if (!isset($properties['duration']) && !isset($properties['seconds']) && !isset($properties['video_duration'])) {
+            if (!isset($properties['duration']) && !isset($properties['seconds']) && !isset($properties['video_duration'])
+                && MarketGenerationNativeContract::durationDefinition($metadata,(string)($mode['native_mode']??''))===[]) {
                 return ['duration'=>0,'market_product_id'=>(int)$market['product']['id'],'market_sku_id'=>(int)$market['sku']['id'],'sku_id'=>(int)$market['sku']['id']];
             }
         }
         $duration = self::effectiveDurationFromMarket($market, $requestedDuration);
+        if(MarketGenerationReviewedContract::selected($metadata)!==null&&self::duration(self::arrayValue($market['sku']['locked_params']??[]))<=0){
+            $choices=array_values(array_filter(MarketGenerationNativeContract::durationChoices($metadata,(string)($mode['native_mode']??'')),static fn($n)=>$n>0));
+            if($choices!==[]){sort($choices);$duration=(int)end($choices);foreach($choices as$choice)if($choice>=$requestedDuration){$duration=(int)$choice;break;}}
+        }
 
         // Validate and select using the negotiated duration, never the
         // original narrative duration. This prevents quote/reserve/submit
@@ -1079,6 +1094,7 @@ class MarketVideoRuntimeService
         $requestedDuration = (int)($request['duration'] ?? $request['seconds'] ?? $request['video_duration'] ?? 0);
         $schemaDuration = (int)self::schemaDefaultValue($schema, 'duration', 0);
         $duration = self::duration($locked) ?: ($requestedDuration > 0 ? $requestedDuration : $schemaDuration);
+        if(self::duration($locked)<=0&&$requestedDuration<=0&&self::canEncodeDuration($snapshot,$request,$requestedDuration))$duration=$requestedDuration;
         $quality = self::resolution($locked)
             ?: self::value($request, ['quality', 'resolution'])
             ?: (string)self::schemaDefaultValue($schema, 'quality', self::schemaDefaultValue($schema, 'resolution', ''));
@@ -1115,7 +1131,7 @@ class MarketVideoRuntimeService
             $payload[$resolutionKey] = $quality;
         }
         if (!$hasSchema || self::schemaDeclaresParameter($schema, 'duration')) {
-            $payload['duration'] = $duration > 0 ? $duration : null;
+            $payload['duration'] = self::canEncodeDuration($snapshot,$request,$duration) ? $duration : null;
         }
         if (!$hasSchema || self::schemaDeclaresParameter($schema, 'negative_prompt')) {
             $payload['negative_prompt'] = trim((string)($request['negative_prompt'] ?? ''));
@@ -1208,6 +1224,23 @@ class MarketVideoRuntimeService
         return in_array(MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot), ['wan_video_media_v1','video_input_parameters_v1'], true);
     }
 
+    private static function canEncodeDuration(array $snapshot,array $request,int $duration): bool
+    {
+        if($duration>0)return true;$metadata=MarketGenerationRequest::metadata($snapshot);
+        if(MarketGenerationReviewedContract::selected($metadata)===null)return false;
+        $mode=MarketGenerationMaterials::select($metadata,$request);
+        return in_array($duration,MarketGenerationNativeContract::durationChoices($metadata,(string)($mode['native_mode']??'')),true);
+    }
+
+    private static function assertWholeDuration(array $request): void
+    {
+        foreach(['duration','seconds','video_duration']as$key)if(array_key_exists($key,$request)){
+            $value=$request[$key];
+            if(!is_numeric($value)||!is_finite((float)$value)||(float)$value!==(float)(int)$value)throw new Exception('视频时长必须为整数');
+            return;
+        }
+    }
+
     private static function structuredModelPayload(array $snapshot, array $request, array $locked, string $prompt, string $ratio, string $resolution, int $duration, string $idempotency): array
     {
         $providerParams = self::arrayValue($request['provider_params'] ?? []);
@@ -1241,7 +1274,7 @@ class MarketVideoRuntimeService
         if ($ratio !== '') {
             $parameters['ratio'] = $ratio;
         }
-        if ($duration > 0) {
+        if (self::canEncodeDuration($snapshot,$request,$duration)) {
             $parameters['duration'] = $duration;
         }
         foreach (['audio', 'seed', 'watermark'] as $key) {
@@ -1353,7 +1386,7 @@ class MarketVideoRuntimeService
             // H3's duration catalogue is represented as a string enum by the
             // active gateway. Keep local SKU and billing calculations numeric,
             // while serializing only its outbound duration value as a string.
-            'duration' => $duration > 0 ? (string)$duration : null,
+            'duration' => self::canEncodeDuration($snapshot,$request,$duration) ? (string)$duration : null,
             'content' => self::h3Content($request, $prompt),
         ];
         $payload = array_merge(self::declaredVideoOptions(self::arrayValue($snapshot['params_schema'] ?? []), $request), $payload);
@@ -2742,8 +2775,7 @@ class MarketVideoRuntimeService
         $nativeDurations=[];
         foreach (MarketGenerationNativeContract::modes($meta) as $nativeMode=>$_) {
             $native=MarketGenerationNativeContract::schema($meta,(string)$nativeMode);
-            $definition=MarketGenerationSchema::properties($native)['duration'] ?? [];
-            $nativeDurations=array_merge($nativeDurations,MarketGenerationSchema::durationChoices($definition));
+            $nativeDurations=array_merge($nativeDurations,MarketGenerationNativeContract::durationChoices($meta,(string)$nativeMode));
         }
         if ($nativeDurations!==[]) { $nativeDurations=array_values(array_unique($nativeDurations));sort($nativeDurations);return $nativeDurations; }
         $cap = self::arrayValue($meta['capabilities'] ?? []);
@@ -2783,6 +2815,7 @@ class MarketVideoRuntimeService
 
     private static function durationOptionsForProduct(array $product, array $meta): array
     {
+        if(MarketGenerationReviewedContract::selected($meta)!==null)return self::durationOptions($meta);
         if (strtolower(trim((string)($product['upstream_model_code'] ?? ''))) === 'wan3.0-video') {
             return range(self::WAN_THREE_MIN_DURATION_SECONDS, self::WAN_THREE_MAX_DURATION_SECONDS);
         }

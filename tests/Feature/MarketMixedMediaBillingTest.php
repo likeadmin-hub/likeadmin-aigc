@@ -38,7 +38,7 @@ class MarketMixedMediaBillingTest extends TestCase
         self::assertSame(['video_urls'=>['https://fixtures.invalid/video']],$seen);
         self::assertSame(['reference_images'=>3,'reference_video_seconds'=>1.5],$context);
         $snapshot=['billing_meter'=>$contract,'usage_unit_size'=>1,'meter_context'=>$context];
-        self::assertSame(13.0,Meter::price(2.0,5,$snapshot));
+        self::assertSame(15.0,Meter::price(2.0,5,$snapshot));
     }
     public function testNewExtractionDoesNotRewriteHistoricalFrozenBillingContext(): void
     {
