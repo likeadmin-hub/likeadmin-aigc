@@ -20,6 +20,7 @@ namespace app\common\service\app\aigc_canvas {
 namespace {
     require dirname(__DIR__) . '/app/common/service/ai/ReferenceMaterialSlot.php';
     require dirname(__DIR__) . '/app/common/service/ai/ReferenceMentionPromptService.php';
+    require dirname(__DIR__) . '/app/common/service/app/aigc_video/AigcVideoReferenceAssetService.php';
     require dirname(__DIR__) . '/app/common/service/app/aigc_canvas/AigcCanvasService.php';
     use app\common\service\app\aigc_canvas\AigcCanvasService as Service;
     use app\common\service\app\aigc_canvas\CanvasModelRouterService as Router;
@@ -57,7 +58,6 @@ namespace {
     check(count($assets) === 31, 'canvas passes every native asset to model validation instead of truncating at fifteen');
     check($assets[30]['field'] === 'keyframes' && $assets[30]['role'] === 'keyframe_image', 'same URL in an explicitly different native slot survives deduplication');
     check($assets[30]['parameters']['timestamp_s'] === 2, 'structured keyframe properties reach the native contract');
-    require dirname(__DIR__) . '/app/common/service/app/aigc_video/AigcVideoReferenceAssetService.php';
     $native = \app\common\service\app\aigc_video\AigcVideoReferenceAssetService::normalize([
         'reference_assets'=>$assets, 'reference_images'=>['https://fixture.invalid/1.png'],
     ], 100);
