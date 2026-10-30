@@ -36,6 +36,7 @@ final class ShortDramaScopedShotReplyTest extends TestCase
         elseif($change==='field')unset($reply['storyboard'][1]['recommended_duration_seconds']);
         elseif($change==='type')$reply['storyboard'][0]['recommended_duration_seconds']='5';
         $this->expectException(\RuntimeException::class);$this->expectExceptionCode(422);
+        $this->expectExceptionMessage('分镜字段修复结果不完整');
         Repair::apply($part,$this->targets(),$reply);
     }
     public static function expanded(): array { return array_map(static fn($v)=>[$v],['text','other_shot','id','order','missing','root','field','type']); }
