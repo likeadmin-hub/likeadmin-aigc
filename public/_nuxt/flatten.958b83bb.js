@@ -1,1 +1,0 @@
-import{d_ as t,e4 as h,fT as m,dY as r}from"./entry.18903296.js";var b=t?t.isConcatSpreadable:void 0;function d(n){return h(n)||m(n)||!!(b&&n&&n[b])}function g(n,i,o,a,f){var e=-1,l=n.length;for(o||(o=d),f||(f=[]);++e<l;){var s=n[e];i>0&&o(s)?i>1?g(s,i-1,o,a,f):r(f,s):a||(f[f.length]=s)}return f}function A(n){var i=n==null?0:n.length;return i?g(n,1):[]}export{g as b,A as f};
