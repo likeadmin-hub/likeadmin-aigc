@@ -64,6 +64,26 @@ class WorkbenchController extends BaseApiController
     {
         try {$tenant=(int)$this->request->tenantId;$user=(int)$this->userId;$admin=false;MicroVideoService::available($tenant);$p=$this->request->post();return $this->success("操作成功",J::create($tenant,$user,$p));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
+    public function writeScript()
+    {try{return $this->success('已开始写剧本',J::writeScript((int)$this->request->tenantId,(int)$this->userId,$this->request->post()));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}}
+    public function confirmScript()
+    {try{MicroVideoService::available((int)$this->request->tenantId);return $this->success('剧本已核对',R::confirmScript((int)$this->request->tenantId,(int)$this->userId,$this->request->post()));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}}
+    /** Read-only SSE: reconnects cannot enqueue or repeat a paid generation. */
+    public function scriptStream()
+    {
+        $tenant=(int)$this->request->tenantId;$user=(int)$this->userId;$id=(int)$this->request->post('id',0);
+        try{MicroVideoService::available($tenant);$row=J::owned($tenant,$user,$id);if($row['action']!=='rewrite')throw new \InvalidArgumentException('请选择剧本生成记录');}
+        catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        header('Content-Type: text/event-stream; charset=utf-8');header('Cache-Control: no-cache, no-transform');header('X-Accel-Buffering: no');header('Content-Encoding: none');
+        echo ': ready '.str_repeat(' ',2048)."\n\n";@ob_flush();@flush();$started=microtime(true);$prior='';
+        do{
+            $dto=J::dto(J::owned($tenant,$user,$id));$data=json_encode($dto,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+            if($data!==$prior){echo 'event: snapshot'."\n".'data: '.$data."\n\n";$prior=$data;}else echo ": ping\n\n";
+            @ob_flush();@flush();if(in_array($dto['status'],['success','failed','unknown'],true)||connection_aborted())break;
+            usleep(300000);
+        }while(microtime(true)-$started<15);
+        exit;
+    }
     public function retry()
     {
         try {$tenant=(int)$this->request->tenantId;$user=(int)$this->userId;$admin=false;MicroVideoService::available($tenant);$p=$this->request->post();return $this->success("操作成功",J::retry($tenant,$user,(int)($p['id']??0)));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}

@@ -76,6 +76,25 @@ final class MicroVideoWorkbenchRecords
     }
     public static function save(int $tenant,int $user,array $p,bool $admin=false): array
     {return self::saveRecord($tenant,$user,$p,$admin);}
+    public static function confirmScript(int $tenant,int $user,array $p): array
+    {
+        $r=self::owned($tenant,$user,'project',(int)($p['project_id']??0),false,true);
+        MicroVideoWorkbenchPolicy::revision($r,(int)($p['project_revision']??0));
+        $body=MicroVideoStore::json($r['body_json']);
+        if(trim((string)($body['script']['text']??''))===''||empty($body['script']['segments']))throw new InvalidArgumentException('请先填写剧本和分镜段落');
+        return self::saveRecord($tenant,$user,['kind'=>'project','id'=>$r['id'],'revision'=>$r['revision'],'title'=>$r['title'],'body'=>$body,'confirm_script'=>true]);
+    }
+    /** Hold partial private-rule prefixes until they can be removed in full. */
+    public static function streamProse(string $text,array $context): string
+    {
+        foreach(self::privatePrompts($context) as $secret){
+            $text=str_replace($secret,'',$text);
+            for($n=min(mb_strlen($text),mb_strlen($secret)-1);$n>0;$n--){
+                if(mb_substr($text,-$n)===mb_substr($secret,0,$n)){$text=mb_substr($text,0,mb_strlen($text)-$n);break;}
+            }
+        }
+        return $text;
+    }
     /** Server catalog loader only. No controller accepts the trusted body or this entry point. */
     public static function saveTrustedTemplate(int $tenant,array $p): array
     {
@@ -95,6 +114,11 @@ final class MicroVideoWorkbenchRecords
             $old=$id?self::owned($tenant,$user,$kind,$id,$admin,true,true):null;if($old)MicroVideoWorkbenchPolicy::revision($old,(int)($p['revision']??0));
             $owner=$old?(int)$old['user_id']:$user;if($kind==='project'&&$owner<=0)throw new InvalidArgumentException('项目必须属于用户，请使用用户创作入口');
             $body=$preparedBody;if($kind==='project')$body=MicroVideoWorkbenchPolicy::dependencies($body,$old?MicroVideoStore::json($old['body_json']):[]);
+            if($kind==='project'&&!empty($p['confirm_script'])&&$old){
+                $prior=MicroVideoStore::json($old['body_json']);
+                foreach(['script','product_snapshot','template_snapshot'] as $field)if(MicroVideoWorkbenchPolicy::hash($body[$field]??[])!==MicroVideoWorkbenchPolicy::hash($prior[$field]??[]))throw new InvalidArgumentException('资料已变化，请保存后重新核对剧本');
+                $body['script_stale']=false;$body['stage']='script_ready';
+            }
             if($kind==='project'&&$restoreBody!==null){
                 // A whole historical body is internally coherent; keep its script/product agreement while requiring asset review.
                 $body['script_stale']=(bool)($restoreBody['script_stale']??false);
