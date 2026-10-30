@@ -343,6 +343,58 @@ class ShortDramaEpisodeDurationTest extends TestCase
         $this->invoke('uploadedEpisodeTimingPolicy',$request,$episode,ShortDramaEpisodeDuration::snapshot($rule,90,0,[]));
     }
 
+    public function testUploadedConsecutiveSecondLabelsDoNotBecomeArtificialGaps(): void
+    {
+        // Same numbering convention as the uploaded 60-second director brief:
+        // an overview followed by twelve detailed shots, with inclusive second labels.
+        $ranges = [[0,3],[4,8],[9,13],[14,18],[19,23],[24,28],[29,33],[34,38],[39,43],[44,47],[48,53],[54,60]];
+        $source = "前60秒叙事节奏：（0-3s）开场→（4-18s）推进→（19-34s）对峙→（35-43s）爆发→（44-47s）间奏→（48-60s）收尾\n";
+        foreach ($ranges as $index => [$start, $end]) $source .= '镜头' . ($index + 1) . '｜' . $start . '-' . $end . "秒\n原始镜头动作与对白保持不变。\n";
+        $episode = ['source_content' => $source];
+        $rule = ShortDramaEpisodeDuration::defaults();
+        $policy = $this->invoke('uploadedEpisodeTimingPolicy', ['_upload_timing_rule_snapshot' => $rule], $episode, ShortDramaEpisodeDuration::snapshot($rule, 0, 0, []));
+        self::assertSame('timeline', $policy['source']);
+        self::assertEquals(60, $policy['target_seconds']);
+        self::assertCount(12, $policy['timeline_segments']);
+        self::assertEquals([0,3,8,13,18,23,28,33,38,43,47,53], array_column($policy['timeline_segments'], 'start_seconds'));
+        self::assertEquals([3,5,5,5,5,5,5,5,5,4,6,7], array_column($policy['timeline_segments'], 'duration_seconds'));
+        self::assertSame('4-8秒', $policy['timeline_segments'][1]['source_time_range']);
+        self::assertSame('3-8秒', $policy['timeline_segments'][1]['time_range']);
+        self::assertSame($source, $episode['source_content']);
+    }
+
+    public function testUploadedContinuousTimelineKeepsItsExactBoundaries(): void
+    {
+        $source = "镜头1｜0-3秒 开场\n镜头2｜3-8秒 推进\n镜头3｜8-13秒 收尾";
+        $expected = $this->invoke('extractTimelineSegments', $source);
+        $policy = $this->invoke('uploadedEpisodeTimingPolicy', ['_upload_timing_rule_snapshot' => []], ['source_content' => $source], []);
+        self::assertSame($expected, $policy['timeline_segments']);
+    }
+
+    /** @dataProvider conflictingUploadedTimelines */
+    public function testUploadedTimingStillRejectsActualConflicts(string $source): void
+    {
+        $this->expectExceptionMessage('时间码存在重叠、空档或无效时长');
+        $this->invoke('uploadedEpisodeTimingPolicy', ['_upload_timing_rule_snapshot' => []], ['source_content' => $source], []);
+    }
+
+    public function conflictingUploadedTimelines(): array
+    {
+        return [
+            'overlap' => ["镜头1｜0-5秒\n镜头2｜4-8秒"],
+            'large gap' => ["镜头1｜0-3秒\n镜头2｜5-8秒"],
+            'mixed conventions' => ["镜头1｜0-3秒\n镜头2｜3-8秒\n镜头3｜9-13秒"],
+            'exact timecodes' => ["00:00-00:03 开场\n00:04-00:08 结尾"],
+            'fractional seconds' => ["0-3.5秒 开场\n4.5-8.5秒 结尾"],
+        ];
+    }
+
+    public function testManualPromptGapsAreNotReinterpretedAsUploadedSecondLabels(): void
+    {
+        $this->expectExceptionMessage('时间码存在重叠、空档或无效时长');
+        $this->invoke('episodeDurationSnapshot', "镜头1｜0-3秒\n镜头2｜4-8秒", [], []);
+    }
+
     public function testNewTimedSkeletonPromptUsesGoalWhileAcceptingAShortResult(): void
     {
         $policy=ShortDramaEpisodeDuration::snapshot(['target_seconds'=>120,'min_seconds'=>60,'max_seconds'=>180],0,0,[])+['target_planning_version'=>1];

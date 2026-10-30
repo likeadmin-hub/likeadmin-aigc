@@ -6,6 +6,40 @@ use RuntimeException;
 /** Lossless adapter for raw and previously normalized parser receipts. */
 final class ShortDramaImportedScript
 {
+    /**
+     * Imported shot lists often number whole seconds as 0-3, 4-8, 9-13.
+     * Interpret that consistent notation as consecutive editorial ranges,
+     * retaining the first/last boundary and the original labels for audit.
+     * Exact timestamps, fractions, mixed conventions and real gaps stay strict.
+     */
+    public static function normalizeTimeline(array $segments): array
+    {
+        if (count($segments) < 2) return $segments;
+        $previousEnd = null;
+        foreach ($segments as $segment) {
+            $start = (float)($segment['start_seconds'] ?? -1);
+            $end = (float)($segment['end_seconds'] ?? -1);
+            if (!is_finite($start) || !is_finite($end) || $start < 0 || $end <= $start
+                || floor($start) !== $start || floor($end) !== $end
+                || !preg_match('/^[0-9０-９]+\s*(?:秒|s|sec(?:ond)?s?)?\s*(?:--?>|→|[-－‐‑‒–—−~～至到])\s*[0-9０-９]+\s*(?:秒|s|sec(?:ond)?s?)$/iu', trim((string)($segment['time_range'] ?? '')))
+                || ($previousEnd !== null && abs($start - $previousEnd - 1) > 0.001)) {
+                return $segments;
+            }
+            $previousEnd = $end;
+        }
+        $segments = array_values($segments);
+        foreach ($segments as $index => &$segment) {
+            if ($index === 0) continue;
+            $segment['source_time_range'] = $segment['time_range'];
+            $segment['source_start_seconds'] = $segment['start_seconds'];
+            $segment['start_seconds'] = $segments[$index - 1]['end_seconds'];
+            $segment['duration_seconds'] = $segment['end_seconds'] - $segment['start_seconds'];
+            $segment['time_range'] = $segment['start_seconds'] . '-' . $segment['end_seconds'] . '秒';
+        }
+        unset($segment);
+        return $segments;
+    }
+
     public static function storyDraft(array $outline): array
     {
         $story = $outline;
