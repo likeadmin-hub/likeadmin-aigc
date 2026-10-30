@@ -31,11 +31,12 @@ class MarketVideoReferenceCapacityTest extends TestCase
     }
     public function testMarketPreparationAndInputClassificationRetainTwentyExplicitSlots(): void
     {
-        $r=$this->request();$before=$r;
+        $r=$this->request();$r['reference_assets'][19]['name']='LastAudio';$r['prompt']='@LastAudio';$before=$r;
         self::assertCount(20,Assets::normalizeForMarket($r));
         $inputMode=new ReflectionMethod(Videos::class,'inputMode');
         self::assertSame('video_edit',$inputMode->invoke(null,$r));
         $snapshot=$this->snapshot();$native=Videos::prepareRequest($snapshot,$r)->nativeInput;
+        self::assertSame('@音频5',$native['prompt']);
         foreach(['image'=>10,'video'=>5,'audio'=>5] as $kind=>$count)self::assertCount($count,$native['reference_'.$kind.'_urls']);
         self::assertSame($native,Videos::prepareRequest(json_decode(json_encode($snapshot),true),$r)->nativeInput);
         self::assertStringNotContainsString('reference_slot_id',json_encode($native));

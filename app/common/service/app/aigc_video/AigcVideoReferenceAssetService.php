@@ -106,7 +106,7 @@ class AigcVideoReferenceAssetService
         ];
         $counts = array_fill_keys(array_keys($labels), 0);
         $aliases = [];
-        foreach (self::normalize($params) as $asset) {
+        foreach (self::normalizeForMarket($params) as $asset) {
             $type = (string)($asset['type'] ?? '');
             if (!isset($labels[$type])) {
                 continue;
