@@ -1,1 +1,0 @@
-import{r as n}from"./index-D2Ppf5rU.js";function r(e){return n.post({url:"/channel.mnp_settings/setConfig",params:e})}function o(){return n.get({url:"/channel.mnp_settings/getConfig"},{ignoreCancelToken:!0})}export{o as g,r as s};
