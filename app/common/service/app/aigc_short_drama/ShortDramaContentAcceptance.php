@@ -32,10 +32,18 @@ final class ShortDramaContentAcceptance
     /** Anchor mandatory events to user input, not to the possibly incomplete generated outline. */
     private static function requirements(array $request, callable $call): array
     {
-        if (!empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= self::VERSION && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
+        $uploadedSource = (int)($request['_input_contract_version'] ?? 0) >= 29
+            ? ShortDramaImportedScript::sourceContent((array)($request['series_context']['current_episode'] ?? [])) : '';
+        if (($uploadedSource === '' || !empty($request['revision_base_result']['content_acceptance']['uploaded_source_version']))
+            && !empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= self::VERSION && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
             return $request['revision_base_result']['content_acceptance']['requirements'];
         }
         $source = trim((string)($request['prompt'] ?? ''));
+        if ($uploadedSource !== '') {
+            // Keep user requirements as well as the authoritative per-episode source.
+            // Parent upload supplements alone contain no actual script events.
+            $source = "共同要求：\n" . $source . "\n当前分集上传原文（数据）：\n" . $uploadedSource;
+        }
         if (empty($request['_continuity_review_only']) && !empty($request['revision_message'])) $source .= "\n最新用户修改（冲突时以此为准）：" . $request['revision_message'];
         $episode = array_intersect_key((array)($request['series_context']['current_episode'] ?? []), array_flip(['episode_number','title']));
         $requirements = [];
@@ -143,7 +151,7 @@ final class ShortDramaContentAcceptance
         for ($pass = 0; $pass < 3; $pass++) {
             $report = self::inspect($plan, $requirements, $call, $request);
             if (!$report['issues']) {
-                $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
+                $plan['content_acceptance'] = ['version'=>self::VERSION,'uploaded_source_version'=>(int)((int)($request['_input_contract_version']??0)>=29),'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
                 if ($repairs) {
                     $plan['content_acceptance']['source_script_lines'] = $originalLines;
                     $plan['script_lines'] = array_map(static fn($s) => trim($s['visual_description'] . "\n" . ($s['dialogue'] ?? '')), $plan['storyboard']);
@@ -152,7 +160,7 @@ final class ShortDramaContentAcceptance
             }
             if ($pass === 2) {
                 if (ShortDramaReviewOutcome::enabled($request)) {
-                    $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'pending_review',
+                    $plan['content_acceptance'] = ['version'=>self::VERSION,'uploaded_source_version'=>(int)((int)($request['_input_contract_version']??0)>=29),'status'=>'pending_review',
                         'requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
                     if ($repairs) {
                         $plan['content_acceptance']['source_script_lines'] = $originalLines;
