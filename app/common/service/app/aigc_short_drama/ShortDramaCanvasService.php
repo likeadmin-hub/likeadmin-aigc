@@ -1045,15 +1045,7 @@ class ShortDramaCanvasService
     /** @return list<array<string,mixed>> */
     private static function mergeReferenceAssets(array $first, array $second): array
     {
-        $merged=[]; $seen=[];
-        foreach (array_merge($first,$second) as $reference) {
-            if (!is_array($reference)) continue;
-            $identity=(string)($reference['type']??'').'|'.(string)($reference['asset_id']??'').'|'.(string)($reference['role']??'reference');
-            if ($identity==='||reference' || isset($seen[$identity])) continue;
-            $seen[$identity]=true;
-            $merged[]=$reference;
-        }
-        return $merged;
+        return ReferenceMaterialSlot::merge($first, $second);
     }
 
     private static function withTenantTextModel(int $tenantId, array $payload): array
