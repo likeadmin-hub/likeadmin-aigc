@@ -18,6 +18,7 @@ namespace app\common\service\app\aigc_canvas {
     }
 }
 namespace {
+    require dirname(__DIR__) . '/app/common/service/ai/ReferenceMaterialSlot.php';
     require dirname(__DIR__) . '/app/common/service/ai/ReferenceMentionPromptService.php';
     require dirname(__DIR__) . '/app/common/service/app/aigc_canvas/AigcCanvasService.php';
     use app\common\service\app\aigc_canvas\AigcCanvasService as Service;

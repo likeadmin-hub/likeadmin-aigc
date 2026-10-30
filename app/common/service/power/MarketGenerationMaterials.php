@@ -101,6 +101,23 @@ final class MarketGenerationMaterials
         return $best;
     }
 
+    /** Classify only unambiguous top-level fields from the selected frozen declaration.
+     * Generic file names and URL suffixes alone do not establish a media kind.
+     * Nested/opaque contracts still require their existing protocol-specific support.
+     */
+    public static function nativeMediaKinds(array $metadata, array $request): array
+    {
+        $kinds=[];$ambiguous=[];
+        foreach ((self::select($metadata,$request)['fields']??[]) as $field) {
+            $name=$field['field']??null;$kind=$field['kind']??null;
+            if (!is_string($name) || !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/D',$name)
+                || !in_array($kind,['image','video','audio'],true)) continue;
+            if (isset($kinds[$name]) && $kinds[$name]!==$kind) $ambiguous[$name]=true;
+            $kinds[$name]=$kind;
+        }
+        return array_diff_key($kinds,$ambiguous);
+    }
+
     public static function assets(array $request): array
     {
         $assets = [];

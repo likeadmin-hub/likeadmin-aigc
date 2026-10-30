@@ -12,10 +12,10 @@ final class PreparedMarketGeneration
         public readonly array $requestInput = []
     ) {}
 
-    public static function model(array $payload, ?array $billingMeter = null, array $requestInput = []): self
+    public static function model(array $payload, ?array $billingMeter = null, array $requestInput = [], array $declaredKinds = []): self
     {
         $native = MarketModelTaskRequest::payload($payload);
-        return new self($native, $billingMeter, $billingMeter === null ? [] : MarketGenerationMeter::context($billingMeter, $native), $requestInput);
+        return new self($native, $billingMeter, $billingMeter === null ? [] : MarketGenerationMeter::context($billingMeter, $native,null,null,$declaredKinds), $requestInput);
     }
 
     public static function application(array $payload, ?array $billingMeter = null, array $requestInput = []): self
