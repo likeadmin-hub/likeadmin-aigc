@@ -20,6 +20,8 @@ final class ShortDramaStructuredResponseBoundaryTest extends TestCase
             foreach ([$json,"\xEF\xBB\xBF".$json,"```json\n".$json."\n```","\xEF\xBB\xBF```json\n".$json."\n```",'以下是结果：'.$json.'生成完毕。'] as $input) $rows[]=[$input,$data];
         }
         $rows[]=[json_encode(['data'=>['result'=>['plan'=>['payload'=>['title'=>'深层']]]]]),['title'=>'深层']];
+        $rows[]=[json_encode(['storyboard_plan_v2'=>['title'=>'分镜骨架','scene_beats'=>[['goal'=>'原动作']]]]),['title'=>'分镜骨架','scene_beats'=>[['goal'=>'原动作']]]];
+        $rows[]=[json_encode(['data'=>['storyboard_plan_v2'=>['title'=>'嵌套骨架']]]),['title'=>'嵌套骨架']];
         $rows[]=[[['type'=>'text','text'=>'{"title":'],['type'=>'output_text','text'=>'"分块"}']],['title'=>'分块']];
         return $rows;
     }
@@ -40,7 +42,7 @@ final class ShortDramaStructuredResponseBoundaryTest extends TestCase
             '{"title":"重复","\u0074itle":"转义重复"}',
             '{"title":"完整"}{"unfinished":', '{"title":"残缺"', '{"title":"错括号"]}',
             '说明[{"title":"列表"}]','"{\\"title\\":\\"字符串\\"}"',
-            '没有JSON', '{"data":[{"title":"列表封装"}]}',
+            '没有JSON', '{"storyboard_plan_v2":[{"title":"列表"}]}', '{"data":[{"title":"列表封装"}]}',
             '{"title":"未闭合字符串}', '{"title":NaN}', '{"title":undefined}'
         ]);
     }

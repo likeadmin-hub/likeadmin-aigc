@@ -17749,7 +17749,10 @@ class AigcShortDramaService
         }
         $multiEpisodeStage = self::normalizeMultiEpisodeStage($request, self::MULTI_EPISODE_STAGE_PRODUCTION);
         $messages = self::assembleScriptPromptRequest($tenantId, $prompt, $request, $title);
-        if (!empty($request['series_context']['current_episode']['source_scope'])) {
+        $episodeInstruction = ShortDramaImportedScript::episodeInstruction($request);
+        if ($episodeInstruction !== '') {
+            $messages['system_prompt'] .= "\n" . $episodeInstruction;
+        } elseif (!empty($request['series_context']['current_episode']['source_scope'])) {
             $messages['system_prompt'] .= "\n当前分集原文已按集锁定。只展开 current_episode.source_content 中本集的动作与对白，以本集原文最后事件为终点；全剧设定、历史摘要和后续大纲仅供保持一致，禁止将其改编为本集镜头。不得为了收束主线提前演出后续集剧情。";
         }
         if (!$episodeSettings['multi_episode'] || $multiEpisodeStage === self::MULTI_EPISODE_STAGE_PRODUCTION) {

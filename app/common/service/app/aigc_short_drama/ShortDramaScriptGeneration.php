@@ -64,10 +64,13 @@ final class ShortDramaScriptGeneration
                         || !($payload = ShortDramaStructuredResponse::partialStoryboard((array)($receipt['result'] ?? []), ShortDramaInputContract::extendedTruncatedRecovery($request), ShortDramaInputContract::wrappedTruncatedRecovery($request), (int)($request['_input_contract_version']??0)>=27))) throw $error;
                 }
                 if ($capture && $key !== 'script') $capture($payload);
-                if ($key === 'script' || $key === 'skeleton' || $key === 'skeleton_repair' || str_starts_with($key,'timed_skeleton_')) {
+                // A scoped patch is not a complete plan: validate its exact wire fields
+                // before any authority material or scene metadata can be injected.
+                $fieldPatch = (bool)preg_match('/^(?:timed_)?skeleton_(?:top_)?fields_v\d+$/D', $key);
+                if (!$fieldPatch && ($key === 'script' || $key === 'skeleton' || $key === 'skeleton_repair' || str_starts_with($key,'timed_skeleton_'))) {
                     $payload = ShortDramaMaterialContract::prepare($payload,$request);
                 }
-                if (!ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
+                if (!$fieldPatch && !ShortDramaEpisodeDuration::localRevision($request)) $payload = ShortDramaSceneBinding::normalize($payload, $request);
                 if ($validate) $validate($payload);
                 return $payload;
             }); } catch (RuntimeException $error) { $rejected = $receipt; throw $error; }
