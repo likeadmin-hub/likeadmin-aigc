@@ -90,4 +90,10 @@ final class PackagePurchaseAvailabilityTest extends TestCase
         }
         self::assertSame(8,count($calls));
     }
+    public function testReopeningAnOldPaymentPageDoesNotOfferChannelsForStoppedPackages():void
+    {
+        foreach(['membership','recharge']as$type){$p=$this->package($type);$order=Price::create(self::TENANT,$this->user,4,$type,$p);$this->stop($type,$p);
+            foreach([1,2,4]as$terminal){self::assertFalse(PaymentLogic::getPayWay($this->user,$terminal,['tenant_id'=>self::TENANT,'from'=>$type,'order_id'=>$order['order_id']]));self::assertSame('套餐不存在或已下架',PaymentLogic::getError());}
+        }
+    }
 }

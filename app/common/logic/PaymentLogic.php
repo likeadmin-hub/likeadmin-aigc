@@ -90,6 +90,9 @@ class PaymentLogic extends BaseLogic
             if (empty($order)) {
                 throw new \Exception('待支付订单不存在');
             }
+            if (in_array($params['from'], ['recharge','membership'], true) && !(int)$order['pay_status']) {
+                \app\common\service\promotion\PackagePurchaseAvailability::assertOrder($params['from'], $order);
+            }
 
             if (in_array($params['from'], ['recharge','membership'], true) && $terminal === UserTerminalEnum::WECHAT_MMP && (float)$order['order_amount'] > 0) {
                 $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']);
