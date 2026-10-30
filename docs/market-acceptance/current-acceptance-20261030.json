@@ -18,9 +18,9 @@
     "unique_skus": 567,
     "baseline_entry_cells": 8320,
     "fully_accepted_entry_cells": 0,
-    "evidence_files": 35,
+    "evidence_files": 36,
     "bound_observations": 1380,
-    "unbound_observations": 1891,
+    "unbound_observations": 1897,
     "bound_unique_keys": 942,
     "historical_bound_observation_statuses": {
       "passed": 1322,
@@ -3547,15 +3547,15 @@
         727,
         728,
         1261,
-        1813,
-        1820,
-        1821,
-        1822,
-        1823,
-        1824,
-        1825,
+        1819,
         1826,
-        1844
+        1827,
+        1828,
+        1829,
+        1830,
+        1831,
+        1832,
+        1850
       ]
     },
     {
@@ -3759,14 +3759,14 @@
         737,
         738,
         739,
-        1810,
-        1811,
-        1812,
-        1835,
-        1836,
-        1837,
-        1838,
-        1843
+        1816,
+        1817,
+        1818,
+        1841,
+        1842,
+        1843,
+        1844,
+        1849
       ]
     },
     {
@@ -4078,7 +4078,7 @@
         770,
         771,
         1262,
-        1814
+        1820
       ]
     },
     {
@@ -4405,11 +4405,11 @@
         829,
         830,
         831,
-        1815,
-        1816,
-        1817,
-        1818,
-        1819
+        1821,
+        1822,
+        1823,
+        1824,
+        1825
       ]
     },
     {
@@ -5113,20 +5113,20 @@
         952,
         953,
         954,
-        1845,
-        1872,
-        1873,
-        1874,
-        1875,
-        1876,
+        1851,
+        1878,
         1879,
         1880,
+        1881,
         1882,
-        1883,
-        1884,
         1885,
         1886,
-        1890
+        1888,
+        1889,
+        1890,
+        1891,
+        1892,
+        1896
       ]
     },
     {
@@ -6276,10 +6276,10 @@
         1145,
         1146,
         1147,
-        1881,
         1887,
-        1888,
-        1889
+        1893,
+        1894,
+        1895
       ]
     },
     {
@@ -7121,7 +7121,13 @@
         1800,
         1801,
         1802,
-        1803
+        1803,
+        1804,
+        1805,
+        1806,
+        1807,
+        1808,
+        1809
       ]
     },
     {
@@ -7560,11 +7566,20 @@
     },
     {
       "file": "docs/market-acceptance/pc-shared-tiers-batch-26-20261030.json",
-      "sha256": "a2638e0bb342559599e3df72a8d059be6cd94dd7e19639bacfd159944ae3562f",
+      "sha256": "e3ad8941735fc2dabdba1bbfa7af3a197f2f06361537c144adea1bcf48a051d9",
       "scope": "Three actual source selectors and quote/submit constructors to read-only local estimate/admission/frozen replay. No browser DTO capture or supplier tasks.",
       "source_commits": {
-        "source_web_commit": "5df9c05b",
+        "source_web_commit": "d364eaa9",
         "server_business_commit": "8f2189ece"
+      },
+      "historical_reproduction": false
+    },
+    {
+      "file": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "sha256": "49fa71e2616909527287816ae825f31b804ecb7d44737c949cbc6a0e50b46523",
+      "scope": "Authenticated complete local SaaS pages, normal synthetic uploads, tiers, options, replacement/removal and estimates. No browser wire DTO or SKU capture; prices do not prove browser SKU identity.",
+      "source_commits": {
+        "source_web_commit": "d364eaa9"
       },
       "historical_reproduction": false
     },
@@ -97817,9 +97832,9 @@
       "parameters": {
         "mode": "standard",
         "resolution": "480p",
-        "quality": "",
-        "ratio": "",
-        "duration": 0,
+        "quality": "480p",
+        "ratio": "1:1",
+        "duration": 5,
         "generation_method": "text_to_video"
       },
       "material_mode": "text_to_video",
@@ -97852,9 +97867,9 @@
       "parameters": {
         "mode": "standard",
         "resolution": "480p",
-        "quality": "",
-        "ratio": "",
-        "duration": 0,
+        "quality": "480p",
+        "ratio": "1:1",
+        "duration": 5,
         "generation_method": "text_to_video"
       },
       "material_mode": "text_to_video",
@@ -97887,9 +97902,9 @@
       "parameters": {
         "mode": "standard",
         "resolution": "720p",
-        "quality": "",
-        "ratio": "",
-        "duration": 0,
+        "quality": "720p",
+        "ratio": "1:1",
+        "duration": 5,
         "generation_method": "text_to_video"
       },
       "material_mode": "text_to_video",
@@ -97922,9 +97937,9 @@
       "parameters": {
         "mode": "standard",
         "resolution": "720p",
-        "quality": "",
-        "ratio": "",
-        "duration": 0,
+        "quality": "720p",
+        "ratio": "1:1",
+        "duration": 5,
         "generation_method": "text_to_video"
       },
       "material_mode": "text_to_video",
@@ -97957,9 +97972,9 @@
       "parameters": {
         "mode": "standard",
         "resolution": "1080p",
-        "quality": "",
-        "ratio": "",
-        "duration": 0,
+        "quality": "1080p",
+        "ratio": "1:1",
+        "duration": 5,
         "generation_method": "text_to_video"
       },
       "material_mode": "text_to_video",
@@ -97992,9 +98007,9 @@
       "parameters": {
         "mode": "standard",
         "resolution": "1080p",
-        "quality": "",
-        "ratio": "",
-        "duration": 0,
+        "quality": "1080p",
+        "ratio": "1:1",
+        "duration": 5,
         "generation_method": "text_to_video"
       },
       "material_mode": "text_to_video",
@@ -98016,6 +98031,180 @@
       "full_entry_status": "not_covered",
       "missing_bindings": [
         "baseline_sku_identity"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "pointer": "/observations/0",
+      "source_status": "observed_pass",
+      "observation_status": "not_covered",
+      "entry_original": "pc_home",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "pc_home",
+      "scenario": "normal_upload_tier_resolution_duration_remove_reupload",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity",
+        "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "pointer": "/observations/1",
+      "source_status": "observed_pass",
+      "observation_status": "not_covered",
+      "entry_original": "pc_studio",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "pc_studio",
+      "scenario": "normal_upload_tier_resolution_duration_replace",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity",
+        "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "pointer": "/observations/2",
+      "source_status": "observed_pass",
+      "observation_status": "not_covered",
+      "entry_original": "pc_studio",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "pc_studio",
+      "scenario": "remove_required_reference_keeps_standard",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity",
+        "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "pointer": "/observations/3",
+      "source_status": "observed_pass",
+      "observation_status": "not_covered",
+      "entry_original": "standalone",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "standalone_app",
+      "scenario": "normal_upload_standard_720p_5s",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity",
+        "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "pointer": "/observations/4",
+      "source_status": "observed_pass",
+      "observation_status": "not_covered",
+      "entry_original": "standalone",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "standalone_app",
+      "scenario": "remove_required_image",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity",
+        "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "pointer": "/observations/5",
+      "source_status": "observed_pass",
+      "observation_status": "not_covered",
+      "entry_original": "standalone",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "standalone_app",
+      "scenario": "standard_without_image_upload_and_remove_reupload_restores_dimensions",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity",
+        "material_mode"
       ]
     },
     {
