@@ -1004,6 +1004,15 @@ class MarketVideoRuntimeService
             // Validate registration before allowing a legacy default adapter to
             // interpret an unknown app as a Wan request.
             MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
+            $metadata = MarketGenerationRequest::metadata($snapshot);
+            if ($metadata !== []) {
+                // Re-check the frozen declaration for admission and retries;
+                // never fetch today's catalogue to reinterpret an old snapshot.
+                self::assertAssets(['product' => ['resource_type' => PowerMarketService::TYPE_APP_API,
+                    'upstream_app_code' => $snapshot['app_code'] ?? '', 'upstream_api_code' => $snapshot['api_code'] ?? '',
+                    'upstream_model_code' => $snapshot['model_code'] ?? '', 'upstream_channel_code' => $snapshot['channel_code'] ?? ''],
+                    'sku' => ['locked_params' => $snapshot['locked_params'] ?? []]], $request, $metadata);
+            }
             $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, self::appPayload($snapshot, $request, $idempotency), $request);
             $prepared = PreparedMarketGeneration::application($payload, $meter, $request);
         }
@@ -1615,9 +1624,9 @@ class MarketVideoRuntimeService
         return $result;
     }
 
-    private static function assertAssets(array $market, array $request): void
+    private static function assertAssets(array $market, array $request, ?array $frozenMetadata = null): void
     {
-        $product = $market['product']; $metadata = self::metadata($product);
+        $product = $market['product']; $metadata = $frozenMetadata ?? self::metadata($product);
         if (($product['resource_type'] ?? '') === 'model' && MarketGenerationMaterials::modes($metadata) !== []) {
             self::modelPayload(self::snapshot($market, 1), $request, 'admission');
             return;
@@ -1625,6 +1634,13 @@ class MarketVideoRuntimeService
         $assets = self::assets($request);
         if (!empty($request['tools']) && array_filter($assets)) throw new Exception('联网搜索仅支持文生视频，请移除参考素材或关闭联网搜索');
         $referenceAssets = AigcVideoReferenceAssetService::normalizeForMarket($request);
+        if (($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
+            foreach ($referenceAssets as $asset) {
+                // Legacy application encoders own content/media grouping. They
+                // cannot reinterpret a named subject field as a plain reference.
+                if (!empty($asset['field'])) throw new Exception('当前应用尚未声明此素材分组，请清除分组或切换支持的模型');
+            }
+        }
         if (Q4VideoContract::matches($product)) Q4VideoContract::validate($request, $assets);
         $generationMethod = self::canonicalGenerationMethod(
             $product,
@@ -1652,6 +1668,7 @@ class MarketVideoRuntimeService
         }
         if (self::isFullVideoProduct($product) && (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
             self::assertFullVideoAssets($referenceAssets, $assets, $assetCount, $generationMethod);
+            self::assertReferenceLimits($product, $metadata, $assets, $assetCount, $generationMethod);
             return;
         }
         if ($generationMethod === 'text_to_video' && $assetCount > 0) {
@@ -1727,6 +1744,12 @@ class MarketVideoRuntimeService
                 throw new Exception('first/last frame mode cannot be mixed with reference media mode');
             }
         }
+        self::assertReferenceLimits($product, $metadata, $assets, $assetCount, $generationMethod);
+    }
+
+    /** Every application/model path must enforce the same published capacity and local overrides. */
+    private static function assertReferenceLimits(array $product, array $metadata, array $assets, int $assetCount, string $generationMethod): void
+    {
         foreach ($assets as $type => $items) {
             $count = count($items); if ($count === 0) continue;
             $limit = self::referenceLimit($product, $metadata, $type); $supported = self::supportedAssetTypes($product, $metadata);
