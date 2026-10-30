@@ -1,0 +1,1 @@
+import{n as r}from"./index.ba4276fb.js";import{I as e}from"./index-4486e2dd.js";function t(t){return t={...t,request_id:t.request_id||r()},e.post({url:"/recharge/recharge",data:t},{isAuth:!0})}function s(r){return e.get({url:"/recharge/lists",data:r},{isAuth:!0})}function a(){return e.get({url:"/recharge/config"},{isAuth:!0})}export{t as a,s as b,a as r};

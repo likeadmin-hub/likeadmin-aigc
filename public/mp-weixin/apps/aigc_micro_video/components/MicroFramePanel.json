@@ -1,4 +1,6 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "model-source-badge": "../../../components/model-source-badge/model-source-badge"
+  }
 }

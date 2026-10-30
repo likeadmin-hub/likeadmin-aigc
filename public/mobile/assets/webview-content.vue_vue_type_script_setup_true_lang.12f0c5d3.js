@@ -1,1 +1,0 @@
-import{d as e,x as o,a as t,e as s,c4 as a}from"./index-bae1cd34.js";import{i as n,e as r}from"./page-content-lifecycle.52e993eb.js";const c=e({__name:"webview-content",props:{decorationTabSlot:{type:Number,default:void 0}},setup(e){n();const c=o("");return r(e=>{c.value=decodeURIComponent(e.url)}),(e,o)=>{const n=a;return t(),s(n,{src:c.value},null,8,["src"])}}});export{c as _};
