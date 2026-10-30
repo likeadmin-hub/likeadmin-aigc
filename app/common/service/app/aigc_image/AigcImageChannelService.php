@@ -143,6 +143,21 @@ class AigcImageChannelService
 
     private static function normalizeUserChannels(array $channels): array
     {
+        foreach ($channels as &$channel) {
+            foreach ($channel['qualities'] as &$quality) {
+                $seen = [];
+                $quality['ratios'] = array_values(array_filter($quality['ratios'], static function (array $ratio) use (&$seen): bool {
+                    $value = (string)($ratio['value'] ?? $ratio['ratio'] ?? '');
+                    if (isset($seen[$value])) return false;
+                    $seen[$value] = true;
+                    return true;
+                }));
+            }
+            unset($quality);
+        }
+        unset($channel);
+        // Keep the first choice, matching resolveSelection, while retaining every
+        // SKU in specs for runtime pricing and tenant administration.
         $codes = array_map(static fn($channel): string => is_array($channel) ? (string)($channel['code'] ?? '') : '', $channels);
         if (!in_array('gpt_image_2', $codes, true)) {
             return array_values($channels);
