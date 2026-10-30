@@ -1,0 +1,418 @@
+{
+  "version": 1,
+  "scope": "Browser wire DTO from isolated actual CanvasNode and shared parameter panel with actual canvas SFC projection. Only synthetic previously uploaded SaaS materials, local read-only quote and frozen prepare. Project persistence, upload APIs and generation disabled. Earlier events precede image media-meter revision; later four explicitly record revision 1. Not a full authenticated canvas route or supplier test.",
+  "events": [
+    {
+      "at": "2026-10-30T05:50:33.090Z",
+      "controls": {
+        "channel": "market_image_model:281",
+        "sku": 390,
+        "ratio": "1:1",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 390,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 390,
+        "points": 24,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "official-33-147ffdea964655ab26",
+          "size": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:50:59.117Z",
+      "controls": {
+        "channel": "market_image_model:281",
+        "sku": 390,
+        "ratio": "1:1",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 390,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 390,
+        "points": 24,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "official-33-147ffdea964655ab26",
+          "size": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:51:07.138Z",
+      "controls": {
+        "channel": "market_image_model:281",
+        "sku": 390,
+        "ratio": "3:2",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 390,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 390,
+        "points": 24,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "official-33-147ffdea964655ab26",
+          "size": "3:2"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:51:07.341Z",
+      "controls": {
+        "channel": "market_image_model:280",
+        "sku": 388,
+        "ratio": "1:1",
+        "provider_params": {
+          "model_version": "flux-kontext-pro"
+        },
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 388,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 388,
+        "points": 20,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "official-33-4093bb129f33d36561",
+          "aspect_ratio": "1:1",
+          "model_version": "flux-kontext-pro"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:51:18.408Z",
+      "controls": {
+        "channel": "market_image_model:280",
+        "sku": 389,
+        "ratio": "1:1",
+        "provider_params": {
+          "model_version": "flux-kontext-max"
+        },
+        "advanced_params": {
+          "model_version": "flux-kontext-max"
+        },
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 389,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 389,
+        "points": 40,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "official-33-4093bb129f33d36561",
+          "aspect_ratio": "1:1",
+          "model_version": "flux-kontext-max"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:51:51.305Z",
+      "controls": {
+        "channel": "market_image_model:280",
+        "sku": 388,
+        "ratio": "1:1",
+        "provider_params": {
+          "model_version": "flux-kontext-pro"
+        },
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 388,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 388,
+        "points": 20,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "official-33-4093bb129f33d36561",
+          "aspect_ratio": "1:1",
+          "model_version": "flux-kontext-pro"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:51:51.561Z",
+      "controls": {
+        "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "sku": 149,
+        "ratio": "1:1",
+        "quality": "1k",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 149,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 149,
+        "points": 35.76,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "nano-banana-2:official",
+          "resolution": "1K",
+          "aspect_ratio": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:51:55.918Z",
+      "controls": {
+        "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "sku": 149,
+        "ratio": "1:1",
+        "quality": "1k",
+        "reference_count": 3
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 149,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 149,
+        "points": 35.76,
+        "native_slots": {
+          "image": 3,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "nano-banana-2:official",
+          "resolution": "1K",
+          "aspect_ratio": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T05:52:00.479Z",
+      "controls": {
+        "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "sku": 151,
+        "ratio": "1:1",
+        "quality": "4k",
+        "reference_count": 3
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 151,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 151,
+        "points": 48.64,
+        "native_slots": {
+          "image": 3,
+          "video": 0,
+          "audio": 0
+        },
+        "native_controls": {
+          "model": "nano-banana-2:official",
+          "resolution": "4K",
+          "aspect_ratio": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T06:01:35.622Z",
+      "controls": {
+        "channel": "market_image_model:281",
+        "sku": 390,
+        "ratio": "1:1",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 390,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 390,
+        "points": 24,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 0,
+          "reference_video_seconds": 0
+        },
+        "media_meter_revision": 1,
+        "native_controls": {
+          "model": "official-33-147ffdea964655ab26",
+          "size": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T06:01:39.092Z",
+      "controls": {
+        "channel": "market_image_model:281",
+        "sku": 390,
+        "ratio": "1:1",
+        "reference_count": 3
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 390,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 390,
+        "points": 24,
+        "native_slots": {
+          "image": 3,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 3,
+          "reference_video_seconds": 0
+        },
+        "media_meter_revision": 1,
+        "native_controls": {
+          "model": "official-33-147ffdea964655ab26",
+          "size": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T06:01:43.845Z",
+      "controls": {
+        "channel": "market_image_model:281",
+        "sku": 390,
+        "ratio": "1:1",
+        "reference_count": 2
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 390,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 390,
+        "points": 24,
+        "native_slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 2,
+          "reference_video_seconds": 0
+        },
+        "media_meter_revision": 1,
+        "native_controls": {
+          "model": "official-33-147ffdea964655ab26",
+          "size": "1:1"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    },
+    {
+      "at": "2026-10-30T06:01:52.660Z",
+      "controls": {
+        "channel": "market_image_model:281",
+        "sku": 390,
+        "ratio": "3:2",
+        "reference_count": 2
+      },
+      "result": {
+        "scenario": "isolated_browser_component",
+        "selected_sku": 390,
+        "ui_selected_sku_equal": true,
+        "status": "quote_preparation_equal",
+        "sku_id": 390,
+        "points": 24,
+        "native_slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 2,
+          "reference_video_seconds": 0
+        },
+        "media_meter_revision": 1,
+        "native_controls": {
+          "model": "official-33-147ffdea964655ab26",
+          "size": "3:2"
+        },
+        "frozen_native_and_meter_equal": true
+      }
+    }
+  ],
+  "authenticated_pc_observations": [
+    {
+      "resource": "market_image_model:280",
+      "scenario": "default Pro -> Max -> restore default",
+      "points": [
+        20,
+        40,
+        20
+      ],
+      "wire_dto_captured": false
+    },
+    {
+      "resource": "market_image_model:281",
+      "scenario": "normal SaaS upload of two synthetic PNG files -> reference image mode -> 3:2",
+      "visible_reference_count": 2,
+      "points": 24,
+      "wire_dto_captured": false,
+      "new_generation": false
+    }
+  ]
+}
