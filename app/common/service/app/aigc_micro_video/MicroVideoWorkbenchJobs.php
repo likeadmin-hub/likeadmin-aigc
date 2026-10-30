@@ -129,6 +129,9 @@ final class MicroVideoWorkbenchJobs
         }
         elseif($r['action']==='analyze_roles')$body['roles']=$result['roles'];elseif($r['action']==='analyze_scenes')$body['scenes']=$result['scenes'];
         else{$input=MicroVideoStore::json($r['request_json']);$type=$r['action']==='role_image'?'roles':'scenes';$key=$type==='roles'?'role_id':'scene_id';$found=false;foreach($body[$type]??[] as $n=>$item)if($item[$key]===$input['target_id']){$body[$type][$n]['images']=$result['images'];$body[$type][$n]['confirmed']=false;$found=true;}if(!$found)throw new InvalidArgumentException('原角色或分镜已移除，结果保留在素材中');}
+        $body['last_applied_job_id']=(int)$r['id'];
+        $body['last_applied_jobs']=is_array($body['last_applied_jobs']??null)?$body['last_applied_jobs']:[];
+        $body['last_applied_jobs'][$r['action']]=(int)$r['id'];
         return MicroVideoWorkbenchRecords::save($tenant,$user,['kind'=>'project','id'=>$project['id'],'revision'=>$p['project_revision'],'title'=>$project['title'],'body'=>$body]);
     }
 }

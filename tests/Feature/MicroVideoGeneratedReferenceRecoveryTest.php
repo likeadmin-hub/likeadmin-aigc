@@ -35,6 +35,30 @@ final class MicroVideoGeneratedReferenceRecoveryTest extends TestCase
         self::assertSame($before,Db::name('ai_consumption_log')->count());
         $this->expectException(\InvalidArgumentException::class);Workbench::executionReferences($adopted['body']);
     }
+
+    /** @dataProvider adoptionActions */
+    public function testEverySuccessfulAdoptionPersistsItsOperationMarker(string $action): void
+    {
+        [$project,$id,$script]=$this->fixture();
+        $body=['script'=>$script,'roles'=>[['role_id'=>'lead','name'=>'主角','images'=>[]]],'scenes'=>[['scene_id'=>'s1','sort'=>1,'role_ids'=>['lead'],'images'=>[]]],'last_applied_jobs'=>['analyze_roles'=>101]];
+        $project=Records::save(1,1,['kind'=>'project','id'=>$project['id'],'revision'=>1,'title'=>$project['title'],'body'=>$body]);
+        $result=match($action){'rewrite'=>['script'=>$script],'analyze_roles'=>['roles'=>$body['roles']],'analyze_scenes'=>['scenes'=>$body['scenes']],default=>['images'=>[]]};
+        Jobs::table()->where('id',$id)->update(['action'=>$action,'result_json'=>json_encode($result),'request_json'=>json_encode(['snapshot'=>$body,'target_id'=>$action==='role_image'?'lead':'s1'])]);
+        $adopted=Jobs::adopt(1,1,['project_id'=>$project['id'],'project_revision'=>2,'job_id'=>$id]);
+        self::assertSame($id,$adopted['body']['last_applied_job_id']??null);
+        self::assertSame($id,$adopted['body']['last_applied_jobs'][$action]??null);
+        if($action!=='analyze_roles')self::assertSame(101,$adopted['body']['last_applied_jobs']['analyze_roles']);
+        $stored=json_decode(Records::owned(1,1,'project',$project['id'])['body_json'],true);self::assertSame($id,$stored['last_applied_job_id']??null);
+        self::assertSame($id,$stored['last_applied_jobs'][$action]??null);
+        if($action==='rewrite')self::assertSame($id,$stored['last_script_job_id']);
+        else self::assertArrayNotHasKey('last_script_job_id',$stored);
+        $later=Records::save(1,1,['kind'=>'project','id'=>$project['id'],'revision'=>3,'title'=>'Later unrelated revision','body'=>$adopted['body']]);
+        self::assertSame($id,$later['body']['last_applied_job_id']);
+        self::assertSame($id,$later['body']['last_applied_jobs'][$action]);
+    }
+    public static function adoptionActions(): array
+    {return [['rewrite'],['analyze_roles'],['analyze_scenes'],['role_image'],['scene_image']];}
+
     public function testLegacyGeneratedProjectReadIsLazyAndManualScriptEditsRemainUntouched(): void
     {
         [$project,$id,$script]=$this->fixture();$body=['images'=>[],'script'=>$script,'last_script_job_id'=>$id,'stage'=>'script_ready','scenes'=>[['scene_id'=>'s1','sort'=>1,'confirmed'=>true,'status'=>'ready','images'=>[],'role_ids'=>[]]]];
