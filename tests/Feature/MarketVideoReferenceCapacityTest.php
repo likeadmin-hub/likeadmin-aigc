@@ -42,6 +42,38 @@ class MarketVideoReferenceCapacityTest extends TestCase
         self::assertStringNotContainsString('reference_slot_id',json_encode($native));
         self::assertSame($before,$r);
     }
+    private function canvas(array $request): array
+    {
+        $canvas=\app\common\service\app\aigc_canvas\AigcCanvasService::class;
+        $mentions=(new ReflectionMethod($canvas,'prepareMentionParams'))->invoke(null,$request);
+        return (new ReflectionMethod($canvas,'normalizeVideoParams'))->invoke(null,$mentions,0,0,false);
+    }
+    public function testCanvasKeepsTwentyMarkedUsesWhileMergingLegacyAliases(): void
+    {
+        $r=$this->request();$r['reference_assets'][]=['type'=>'video','uri'=>'https://fixtures.invalid/video'];
+        $canvas=$this->canvas($r);
+        self::assertCount(20,$canvas['reference_assets']);
+        self::assertCount(20,array_column($canvas['reference_assets'],'reference_slot_id'));
+        self::assertSame(Videos::prepareRequest($this->snapshot(),$r)->nativeInput,
+            Videos::prepareRequest($this->snapshot(),$canvas)->nativeInput);
+    }
+    public function testCanvasKeepsSameImageInBothFrameRoles(): void
+    {
+        $assets=[];
+        foreach(['first_frame_image','last_frame_image'] as $role)$assets[]=['type'=>'image','role'=>$role,
+            'uri'=>'https://fixtures.invalid/frame','url'=>'blob:http://localhost:3000/preview'];
+        $r=['prompt'=>'Synthetic frames','reference_assets'=>$assets,'generation_method'=>'start_end'];
+        $canvas=$this->canvas($r);
+        self::assertSame(['first_frame_image','last_frame_image'],array_column($canvas['reference_assets'],'role'));
+        self::assertSame(['https://fixtures.invalid/frame','https://fixtures.invalid/frame'],array_column($canvas['reference_assets'],'url'));
+    }
+    public function testCanvasStillRejectsOneExplicitSlotBoundToDifferentFiles(): void
+    {
+        $r=$this->request(0,2,0);$r['reference_assets'][1]['reference_slot_id']=$r['reference_assets'][0]['reference_slot_id'];
+        $r['reference_assets'][1]['uri']='https://fixtures.invalid/other';
+        $this->expectExceptionMessage('同一参考素材槽位不能绑定不同文件');
+        $this->canvas($r);
+    }
     public function testLegacyDefaultAndExplicitCallerBoundsRemainEffective(): void
     {
         $this->expectExceptionMessage('参考素材数量超出限制');

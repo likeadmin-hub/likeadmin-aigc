@@ -2357,11 +2357,15 @@ class AigcCanvasService
             if ($url === '') {
                 continue;
             }
-            $key = $type . '|' . $url . '|' . (string)($asset['field'] ?? '');
-            if (isset($seen[$key])) {
-                continue;
+            $slot = \app\common\service\ai\ReferenceMaterialSlot::id($asset);
+            $role = (string)($asset['role'] ?? ('reference_' . $type));
+            $key = $type . '|' . $url . '|' . (string)($asset['field'] ?? '') . '|' . $role;
+            foreach ($seen[$key] ?? [] as $index) {
+                if (\app\common\service\ai\ReferenceMaterialSlot::distinct($asset, $result[$index])) continue;
+                if ($slot !== '') $result[$index]['reference_slot_id'] = $slot;
+                continue 2;
             }
-            $seen[$key] = true;
+            $seen[$key][] = count($result);
             $result[] = $asset;
         }
         return $result;
@@ -2423,7 +2427,7 @@ class AigcCanvasService
         $referenceImages = self::normalizeReferenceImages($params, $tenantId, $userId, $persistInlineImages);
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
-        ]), PHP_INT_MAX);
+        ]));
         return array_replace(array_intersect_key($params, array_flip(['material_mode', 'seed', 'audio', 'audio_setting', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
@@ -2515,44 +2519,10 @@ class AigcCanvasService
         return $normalized;
     }
 
-    private static function normalizeReferenceAssets(array $params, int $max = 15): array
+    private static function normalizeReferenceAssets(array $params): array
     {
-        $assets = [];
-        foreach ((array)($params['reference_assets'] ?? []) as $asset) {
-            if (is_array($asset)) {
-                $normalized = self::normalizeReferenceAssetItem($asset);
-                if ($normalized !== []) {
-                    $assets[] = $normalized;
-                }
-            }
-        }
-        foreach (['image' => 'reference_image', 'first_frame_image' => 'first_frame_image', 'last_frame_image' => 'last_frame_image'] as $key => $role) {
-            $value = trim((string)($params[$key] ?? ''));
-            if ($value !== '') {
-                $normalized = self::normalizeReferenceAssetItem([
-                    'type' => 'image',
-                    'uri' => $value,
-                    'url' => $value,
-                    'role' => $role,
-                ]);
-                if ($normalized !== []) {
-                    $assets[] = $normalized;
-                }
-            }
-        }
-        foreach (['video_urls' => 'video', 'audio_urls' => 'audio'] as $key => $type) {
-            foreach ((array)($params[$key] ?? []) as $url) {
-                $normalized = self::normalizeReferenceAssetItem([
-                    'type' => $type,
-                    'uri' => $url,
-                    'url' => $url,
-                ]);
-                if ($normalized !== []) {
-                    $assets[] = $normalized;
-                }
-            }
-        }
-        return array_slice(self::uniqueReferenceAssets($assets), 0, $max);
+        // Share durable URLs, occurrence identity and bounds with video admission.
+        return \app\common\service\app\aigc_video\AigcVideoReferenceAssetService::normalizeForMarket($params);
     }
 
     private static function normalizeReferenceAssetItem(array $asset): array
