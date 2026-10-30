@@ -1110,6 +1110,12 @@ class ShortDramaCanvasService
         ];
         if ($type === 'text' && $resolveTextModel) $payload = self::withTenantTextModel($tenantId, $payload);
         if ($type === 'video') {
+            if (array_key_exists('mode', $params)) {
+                if (!is_string($params['mode'])) throw new Exception('生成档位格式不正确');
+                // This business choice must reach shared SKU admission unchanged.
+                // The market still validates availability, materials and pricing.
+                $payload['mode'] = strtolower(trim($params['mode']));
+            }
             if (array_key_exists('generate_audio', $params)) {
                 $payload['generate_audio'] = filter_var($params['generate_audio'], FILTER_VALIDATE_BOOLEAN);
             }

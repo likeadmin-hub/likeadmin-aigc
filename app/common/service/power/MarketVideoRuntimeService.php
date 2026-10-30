@@ -157,6 +157,7 @@ class MarketVideoRuntimeService
                 'resolution_options' => array_map(static fn(string $value): array => ['value' => $value, 'label' => strtoupper($value)], $resolutions),
                 'qualities' => $qualities,
                 'mode_options' => self::generationModeOptions($product, $validSkus),
+                'generation_variants' => self::generationVariants($product, $validSkus),
                 'ratio_options' => $ratios,
                 'specs' => array_map(static fn(array $row): array => ['generation_modes' => (array)($row['generation_modes'] ?? []), 'market_sku_id' => (int)$row['market_sku_id'], 'resolution' => (string)$row['resolution'], 'quality' => (string)$row['resolution'], 'duration' => (int)$row['duration'], 'duration_options' => (array)($row['duration_options'] ?? []), 'ratio' => self::skuRatio((array)$row['locked_params']), 'ratio_options' => self::skuRatios($row), 'model' => (string)($row['model'] ?? ''), 'pricing_variant' => (string)($row['pricing_variant'] ?? ''), 'tenant_unit_price' => (float)$row['tenant_unit_price'], 'platform_unit_cost' => (float)$row['platform_unit_cost'], 'usage_unit' => (string)$row['usage_unit'], 'usage_unit_size' => (float)($row['usage_unit_size'] ?? 1), 'settlement_mode' => (string)($row['settlement_mode'] ?? 'reserved'), 'input_mode' => (string)($row['input_mode'] ?? 'text_to_video'), 'provider_params_json' => $row['locked_params']], $validSkus),
                 'durations' => $durations,
@@ -211,6 +212,18 @@ class MarketVideoRuntimeService
     {
         return strtolower((string)($product['upstream_app_code'] ?? '')) === 'grok_video'
             ? ['fast' => 'grok-imagine-video-1.5-fast', 'standard' => 'grok-imagine-video-1.5'] : [];
+    }
+
+    /** Link public business choices to current sellable SKUs without tool-specific model rules. */
+    private static function generationVariants(array $product, array $skus): array
+    {
+        $variants = [];
+        foreach (self::generationModeModels($product) as $mode => $model) {
+            $ids = array_values(array_unique(array_map(static fn(array $sku): int => (int)$sku['market_sku_id'],
+                array_filter($skus, static fn(array $sku): bool => ($sku['model'] ?? '') === $model && (int)($sku['market_sku_id'] ?? 0) > 0))));
+            if ($ids !== []) $variants[] = ['value' => $mode, 'market_sku_ids' => $ids];
+        }
+        return $variants;
     }
 
     private static function skuMatchesGenerationMode(array $product, array $locked, array $selection): bool
