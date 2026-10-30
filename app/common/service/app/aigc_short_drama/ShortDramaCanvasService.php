@@ -1145,6 +1145,12 @@ class ShortDramaCanvasService
             $payload['mask_image'] = trim((string)($params['mask_image'] ?? ''));
             if ($payload['source_image'] === '' || $payload['mask_image'] === '') throw new Exception('请选择原图并绘制蒙版');
         }
+        if (in_array($type, ['image', 'video'], true) && isset($params['material_mode'])) {
+            if (!is_string($params['material_mode'])) throw new Exception('素材模式格式不正确');
+            // Preserve the explicit mode for shared admission; it still checks
+            // the selected model, materials, SKU and native parameter schema.
+            $payload['material_mode'] = trim($params['material_mode']);
+        }
         foreach (['quality', 'resolution', 'negative_prompt'] as $key) {
             if (isset($params[$key])) $payload[$key] = (string)$params[$key];
         }
