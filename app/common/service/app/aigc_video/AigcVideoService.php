@@ -78,7 +78,7 @@ class AigcVideoService
         $params=ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt=trim((string)($params['prompt']??''));
         self::checkSensitiveWords($tenantId,$prompt);
-        $params['reference_assets']=AigcVideoReferenceAssetService::normalize($params);
+        $params['reference_assets']=AigcVideoReferenceAssetService::normalizeForMarket($params);
         $params['reference_images']=AigcVideoReferenceAssetService::images($params['reference_assets']);
         $selection=self::marketSelection($params);$runtime=self::marketRuntime($selection);
         $normalized=$runtime::normalizeDurationSelection($tenantId,$selection,(int)($params['duration']??0));
@@ -172,7 +172,7 @@ class AigcVideoService
             $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
             $prompt = trim((string)($params['prompt'] ?? ''));
             self::checkSensitiveWords($tenantId, $prompt);
-            $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
+            $referenceAssets = AigcVideoReferenceAssetService::normalizeForMarket($params);
             $params['reference_assets'] = $referenceAssets;
             $params['reference_images'] = AigcVideoReferenceAssetService::images($referenceAssets);
             $selection = self::marketSelection($params);
