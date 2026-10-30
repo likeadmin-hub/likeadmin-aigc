@@ -52,6 +52,9 @@ final class ShortDramaShotFieldRepair
 
     public static function apply(array $part, array $targets, array $reply): array
     {
+        if (!array_key_exists('patches', $reply) && array_key_exists('storyboard', $reply)) {
+            $reply = self::scopedCompleteReply($part, $targets, $reply);
+        }
         $patches = $reply['patches'] ?? null;
         if (!is_array($patches) || !array_is_list($patches) || count($patches) !== count($targets)) throw new RuntimeException('分镜字段修复结果不完整', 422);
         $byId = [];
@@ -70,6 +73,41 @@ final class ShortDramaShotFieldRepair
         }
         unset($shot);
         return $part;
+    }
+
+    /** A full legacy response is usable only when every other value is unchanged. */
+    private static function scopedCompleteReply(array $part, array $targets, array $reply): array
+    {
+        $original = $part['storyboard'] ?? [];
+        $shots = $reply['storyboard'];
+        if (array_keys($reply) !== ['storyboard'] || !is_array($shots) || !array_is_list($shots)
+            || count($shots) !== count($original) || array_column($shots, 'shot_id') !== array_column($original, 'shot_id')) {
+            throw new RuntimeException('完整分镜回包超出字段修复范围', 422);
+        }
+        $allowed = array_column($targets, 'fields', 'shot_id');
+        $canonical = static function (array $value) use (&$canonical): array {
+            if ($value !== [] && !array_is_list($value)) ksort($value);
+            foreach ($value as &$item) if (is_array($item)) $item = $canonical($item);
+            return $value;
+        };
+        $patches = [];
+        foreach ($original as $index => $before) {
+            $after = $shots[$index];
+            if (!is_array($after)) throw new RuntimeException('完整分镜回包结构无效', 422);
+            $fields = $allowed[$before['shot_id']] ?? [];
+            $values = [];
+            foreach ($fields as $field) {
+                if (!array_key_exists($field, $after)) throw new RuntimeException('完整分镜回包缺少目标字段', 422);
+                $values[$field] = $after[$field];
+                unset($before[$field], $after[$field]);
+            }
+            // Compare semantic JSON objects without treating their key order as an edit.
+            if (json_encode($canonical($before), JSON_THROW_ON_ERROR) !== json_encode($canonical($after), JSON_THROW_ON_ERROR)) {
+                throw new RuntimeException('完整分镜回包改写了非目标字段', 422);
+            }
+            if ($fields) $patches[] = ['shot_id'=>$original[$index]['shot_id'], 'fields'=>$values];
+        }
+        return ['patches'=>$patches];
     }
 
     public static function messages(array $input, array $targets, array $part): array
