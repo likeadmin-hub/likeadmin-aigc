@@ -9,7 +9,8 @@ final class ShortDramaImportedScript
     /**
      * Imported shot lists often number whole seconds as 0-3, 4-8, 9-13.
      * Interpret that consistent notation as consecutive editorial ranges,
-     * retaining the first/last boundary and the original labels for audit.
+     * retaining the last boundary and the original labels for audit. A list
+     * numbered from second 1 starts at playback time 0.
      * Exact timestamps, fractions, mixed conventions and real gaps stay strict.
      */
     public static function normalizeTimeline(array $segments): array
@@ -29,10 +30,10 @@ final class ShortDramaImportedScript
         }
         $segments = array_values($segments);
         foreach ($segments as $index => &$segment) {
-            if ($index === 0) continue;
+            if ($index === 0 && (float)$segment['start_seconds'] !== 1.0) continue;
             $segment['source_time_range'] = $segment['time_range'];
             $segment['source_start_seconds'] = $segment['start_seconds'];
-            $segment['start_seconds'] = $segments[$index - 1]['end_seconds'];
+            $segment['start_seconds'] = $index === 0 ? 0 : $segments[$index - 1]['end_seconds'];
             $segment['duration_seconds'] = $segment['end_seconds'] - $segment['start_seconds'];
             $segment['time_range'] = $segment['start_seconds'] . '-' . $segment['end_seconds'] . '秒';
         }

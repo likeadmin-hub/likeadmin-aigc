@@ -17497,15 +17497,9 @@ class AigcShortDramaService
         if (!is_array($rule)) return $policy;
         $source=ShortDramaImportedScript::sourceContent($episode);
         if ($source === '') return $policy;
-        $timeline=ShortDramaImportedScript::normalizeTimeline(self::extractTimelineSegments($source));
-        $explicit=0.0;
-        if (preg_match_all('/(?:^|\n)\s*(?:(?:本集|第\s*[0-9一二三四五六七八九十百]+\s*集)\s*)?时长\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)\s*(分钟|分|秒钟|秒)(?=\s|$)/u',$source,$matches,PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $value=(float)$match[1] * (in_array($match[2],['分钟','分'],true) ? 60 : 1);
-                if ($explicit > 0 && abs($explicit-$value)>0.001) throw new Exception('本集原文的时长要求存在冲突，请核对');
-                $explicit=$value;
-            }
-        }
+        $timing=ShortDramaUploadedTiming::read($source);
+        $timeline=$timing['timeline'];
+        $explicit=$timing['duration'];
         if (!$timeline && $explicit <= 0) return $policy;
         $selected=($policy['source'] ?? '') === 'user' ? (float)($policy['target_seconds'] ?? 0) : 0.0;
         return ShortDramaEpisodeDuration::snapshot($rule,$selected,$explicit,$timeline);
@@ -17539,6 +17533,16 @@ class AigcShortDramaService
         if (!is_string($xml) || trim($xml) === '') {
             throw new Exception('DOCX 文件没有可读取的正文');
         }
+        // Keep table rows intact: start/end time columns must remain paired
+        // with their own shot, instead of becoming unrelated paragraphs.
+        $xml = preg_replace_callback('/<w:tr\b[^>]*>(.*?)<\/w:tr\s*>/is', static function (array $row): string {
+            preg_match_all('/<w:tc\b[^>]*>(.*?)<\/w:tc\s*>/is', $row[1], $cells);
+            if (!$cells[1]) return $row[0];
+            return implode("\t", array_map(static function (string $cell): string {
+                $cell = preg_replace('/<\/w:p\s*>|<w:(?:br|tab)\b[^>]*\/>/i', ' ', $cell) ?? $cell;
+                return trim(strip_tags($cell));
+            }, $cells[1])) . "\n";
+        }, $xml) ?? $xml;
         $xml = preg_replace('/<w:tab\b[^>]*\/>/i', "\t", $xml) ?? $xml;
         $xml = preg_replace('/<w:br\b[^>]*\/>/i', "\n", $xml) ?? $xml;
         $xml = preg_replace('/<\/w:p\s*>/i', "\n", $xml) ?? $xml;
