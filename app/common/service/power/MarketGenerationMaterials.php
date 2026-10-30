@@ -239,6 +239,15 @@ final class MarketGenerationMaterials
         if (($overrides['supports_reference_images'] ?? null)===false && $counts['image']>0) throw new InvalidArgumentException('当前模型已停用图片参考');
         foreach (['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'] as $kind=>$key) if (array_key_exists($key,$overrides) && $counts[$kind]>(int)$overrides[$key]) throw new InvalidArgumentException('素材数量超过当前模型上限');
         foreach ($mode['fields'] as $field) {
+            if (in_array($field['kind'] ?? '', ['file','link'], true)) {
+                foreach (MarketGenerationMaterialPath::values($payload,(string)$field['field'],(array)($field['item_match'] ?? [])) as $value) {
+                    foreach (is_array($value) ? $value : [$value] as $url) {
+                        if ($url===null || $url==='') continue;
+                        if (!is_string($url)) throw new InvalidArgumentException('参考文件或链接地址格式不正确');
+                        MarketGenerationMaterialEncoding::assertDocumentUrl($url);
+                    }
+                }
+            }
             $count = MarketGenerationMaterialPath::count($payload,$field);
             $provider=(array)($request['provider_params']??[]);
             if(MarketGenerationReviewedContract::selected($metadata)!==null&&str_contains($field['field'],'.')&&MarketGenerationMaterialPath::count($provider,$field)>0
