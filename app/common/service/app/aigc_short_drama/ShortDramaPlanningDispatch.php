@@ -10,7 +10,7 @@ final class ShortDramaPlanningDispatch
     {
         $query = Db::name('aigc_short_drama_script_task')->where('delete_time', 0)->whereIn('status', ['pending','queued','running'])
             ->whereRaw("JSON_VALID(request_json) AND COALESCE(JSON_EXTRACT(request_json, '$.episode_id'), 0) = 0")
-            ->whereRaw("(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(request_json, '$.source')), '') <> 'market_file_qa_parse' OR JSON_TYPE(JSON_EXTRACT(request_json, '$._file_parse_model')) = 'OBJECT')")
+            ->whereRaw("(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(request_json, '$.source')), '') <> 'market_file_qa_parse' OR JSON_TYPE(JSON_EXTRACT(request_json, '$._file_parse_model')) = 'OBJECT' OR JSON_UNQUOTE(JSON_EXTRACT(request_json, '$._file_parse_fallback.state')) IN ('queued','running'))")
             ->where(function ($q) {
                 $q->whereLike('request_json', '%story_outline_v2%')->whereOr(function ($v3) {
                     $v3->whereRaw("JSON_EXTRACT(request_json, '$._generation_version') >= 3")

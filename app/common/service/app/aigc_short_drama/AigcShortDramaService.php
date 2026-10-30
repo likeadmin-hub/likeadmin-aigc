@@ -2489,7 +2489,7 @@ class AigcShortDramaService
             }
         }
         $episodePolicy = self::uploadedEpisodeTimingPolicy($request, $currentOutline, $episodePolicy);
-        unset($request['script_text'], $request['script_content']);
+        unset($request['script_text'], $request['script_content'], $request['_file_parse_fallback']);
         $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
             '_input_contract_version' => (int)($request['_input_contract_version'] ?? 0),
             '_prompt_snapshot' => ShortDramaPromptWorkspace::forTask($tenantId, $request),
@@ -3094,7 +3094,7 @@ class AigcShortDramaService
         }
         $sourceRequest = ShortDramaInputContract::begin($sourceRequest);
         // Never accept a caller-supplied frozen parser or its claimed source text.
-        unset($sourceRequest['_file_parse_model']);
+        unset($sourceRequest['_file_parse_model'], $sourceRequest['_file_parse_fallback']);
         $fileModel = null;
         if (trim((string)($params['parse_model_id'] ?? '')) !== '') {
             $fileModel = [
@@ -3135,6 +3135,15 @@ class AigcShortDramaService
             '_generation_version' => max(3, (int)($sourceRequest['_generation_version'] ?? 0)),
         ]);
         if ($fileModel !== null) $request['_file_parse_model'] = $fileModel;
+        // Only the real upload freezes these bytes; callers cannot supply them.
+        try {
+            $fallbackText = self::normalizeUploadedScriptText(self::readUploadedScriptText($path, $extension));
+            if ($fallbackText === '' || strlen($fallbackText) > 2000000) throw new Exception('原文为空或超过单轮兜底容量');
+            $request['_file_parse_fallback'] = ['version'=>1, 'text'=>$fallbackText,
+                'model'=>MarketTextModelRuntimeService::resolveModel($tenantId, (string)($sourceRequest['model_id']??''))];
+        } catch (\Throwable $error) {
+            $request['_file_parse_fallback'] = ['version'=>1, 'unavailable_reason'=>$error->getMessage()];
+        }
         if ($isHomeSubmission) {
             $request['submission'] = [
                 'type' => 'script_upload',
@@ -3950,6 +3959,16 @@ class AigcShortDramaService
             if (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
             $request = self::jsonDecode((string)$task['request_json']);
+            if (ShortDramaFileParseFallback::pending($request)) {
+                try { ShortDramaFileParseFallback::run($tenantId,$userId,$task->toArray(),
+                    static fn($parsed)=>self::fileQaParsePlan($parsed,$request,(string)$task['prompt'])); }
+                catch (\Throwable $error) {
+                    self::syncScriptPlanGenerationFromTaskRow($tenantId,$userId,self::findTask($tenantId,$userId,$taskId)->toArray());
+                    return true;
+                }
+                self::syncMarketFileQaScriptTask(self::findTask($tenantId,$userId,$taskId)->toArray());
+                return true;
+            }
             if (ShortDramaFileModelParser::applies($request)) {
                 self::executeUploadedModelParse($tenantId,$userId,$task->toArray(),$request);
                 return true;
@@ -3981,6 +4000,10 @@ class AigcShortDramaService
         }catch(\Throwable $error){
             $current=self::findTask($tenantId,$userId,$taskId);
             if(!in_array($current['status'],['pending','queued','running'],true)||(int)$current['retry_count']!==(int)$task['retry_count'])return;
+            if(in_array($error->getCode(),[413,422],true)&&ShortDramaFileParseFallback::eligible($request)) {
+                $raw=self::jsonDecode((string)Db::name('aigc_short_drama_planning_unit')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$taskId,'unit_key'=>'v3_uploaded_file_parse'])->value('result_json'));
+                ShortDramaFileParseFallback::schedule($tenantId,$userId,$task,$raw,$error->getMessage());return;
+            }
             if(in_array($error->getCode(),[413,422],true)&&ShortDramaPlanningUnit::continueValidation($tenantId,$userId,$taskId))
                 $error=new \RuntimeException('已保留解析回包，正在修复结构化结果',425,$error);
             if($error->getCode()===425){
@@ -5326,7 +5349,7 @@ class AigcShortDramaService
             $request['confirmed_story_version'] = (int)$params['draft_version'];
             $request['multi_episode_stage'] = 'episodes';
             $request['source'] = 'imported_outline_confirmation';
-            unset($request['_file_parse_model']);
+            unset($request['_file_parse_model'], $request['_file_parse_fallback']);
             unset($request['_story_draft'], $request['_submission_key'], $request['_submission_hash'], $request['_prompt_requests'], $request['_execution_attempt']);
             $request['_prompt_task_id'] = $id;
             AigcShortDramaScriptTask::create([
@@ -5534,7 +5557,7 @@ class AigcShortDramaService
         $request['revision_message'] = $message;
         // An explicit edit is an LLM revision, not another file parser poll.
         if (self::isMarketFileQaParseRequest($request)) $request['source'] = 'revision';
-        unset($request['_file_parse_model']);
+        unset($request['_file_parse_model'], $request['_file_parse_fallback']);
         if (($request['submission']['type'] ?? '') === 'script_upload') $request['submission']['type'] = 'script_revision';
         $request['revision_base_task_id'] = $taskId;
         $request['revision_base_result'] = $revisionBaseResult;
@@ -9012,7 +9035,11 @@ class AigcShortDramaService
         // A late market receipt must not resurrect a failed/canceled task or replace
         // an already published result. Conditional writes below also cover a
         // cancellation/completion racing this stale task snapshot.
-        if (in_array((string)($taskRow['status'] ?? ''), [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) return;
+        if (in_array((string)($taskRow['status'] ?? ''), [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
+            $terminalRequest=self::jsonDecode((string)($taskRow['request_json']??''));
+            if(!empty($terminalRequest['_file_parse_fallback']['state'])) ShortDramaFileParseFallback::reconcileBilling((int)$taskRow['tenant_id'],(int)$taskRow['user_id'],$taskRow);
+            return;
+        }
         $taskId = (string)($taskRow['task_id'] ?? '');
         $tenantId = (int)($taskRow['tenant_id'] ?? 0);
         $userId = (int)($taskRow['user_id'] ?? 0);
@@ -9024,6 +9051,7 @@ class AigcShortDramaService
         $runStatus = (string)$consumption['run_status'];
         if (!in_array($runStatus, ['success', 'failed', 'canceled'], true)) return;
         $request = self::jsonDecode((string)($taskRow['request_json'] ?? ''));
+        if (ShortDramaFileParseFallback::pending($request)) return;
         if ($runStatus !== 'success') {
             $message = self::friendlyGenerationError((string)($consumption['error_message'] ?? '剧本解析失败'));
             $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
@@ -9045,11 +9073,17 @@ class AigcShortDramaService
         $parseResult = is_array($summary['parse_result'] ?? null) ? (array)$summary['parse_result'] : [];
         // The text consumption settles before the worker validates and publishes
         // its durable parse receipt. Polling must wait through that window.
-        if (ShortDramaFileModelParser::applies($request) && $parseResult === []) return;
+        $fallbackDone = ($request['_file_parse_fallback']['state'] ?? '') === 'done';
+        if ($fallbackDone) $parseResult = (array)$request['_file_parse_fallback']['result'];
+        if (ShortDramaFileModelParser::applies($request) && $parseResult === [] && !$fallbackDone) return;
         try {
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
+            ShortDramaFileParseFallback::assertSources($plan,$request);
             $request = self::finalizeUploadedTimingPolicy($request, (int)$plan['episode_count']);
         } catch (\Throwable $e) {
+            if (ShortDramaFileParseFallback::eligible($request)) {
+                ShortDramaFileParseFallback::schedule($tenantId,$userId,$taskRow,$parseResult,$e->getMessage());return;
+            }
             $message = self::friendlyGenerationError($e->getMessage());
             $updated = AigcShortDramaScriptTask::where(['id' => (int)$taskRow['id'], 'tenant_id' => $tenantId, 'user_id' => $userId])
                 ->whereNotIn('status', [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED])->update([
@@ -9067,6 +9101,9 @@ class AigcShortDramaService
             $task = AigcShortDramaScriptTask::where('id', (int)$taskRow['id'])->lock(true)->findOrEmpty();
             if ($project->isEmpty() || $task->isEmpty() || (string)$project['last_task_id'] !== $taskId
                 || in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) return;
+            $storedRequest=self::jsonDecode((string)$task['request_json']);
+            if(ShortDramaFileParseFallback::pending($storedRequest)&&($request['_file_parse_fallback']['state']??'')!=='done') return;
+            if(($request['_file_parse_fallback']['state']??'')==='done') $plan['parse_metadata']['automatic_repair']=['attempts'=>1,'status'=>'passed'];
             $request['episode_count'] = (int)$plan['episode_count'];
             $request['episode_total_count'] = (int)$plan['episode_count'];
             $request['multi_episode'] = true;
@@ -9075,7 +9112,7 @@ class AigcShortDramaService
             $request['workflow_variant'] = ShortDramaStoryWorkflow::VARIANT;
             $plan = ShortDramaImportedScript::storyDraft($plan);
             $cost = ['tenant_cost_points' => (float)$consumption['actual_tenant_cost'], 'user_charge_points' => (float)$consumption['actual_user_price'], 'billing_status' => (string)$consumption['billing_status'], 'provider_request_id' => (string)$consumption['upstream_request_id']];
-            if (ShortDramaFileModelParser::applies($request)) $cost=array_replace($cost,ShortDramaFileModelParser::billing($tenantId,$userId,(int)$task['id']));
+            if (ShortDramaFileModelParser::applies($request) || ($request['_file_parse_fallback']['state']??'')==='done') $cost=array_replace($cost,ShortDramaFileModelParser::billing($tenantId,$userId,(int)$task['id']));
             $task->save([
                 'status' => self::STATUS_SUCCESS, 'progress' => 100, 'current_step' => '剧本解析完成',
                 'request_json' => self::jsonEncode($request), 'pricing_snapshot' => is_array($consumption['price_snapshot']) ? self::jsonEncode($consumption['price_snapshot']) : (string)$consumption['price_snapshot'],
@@ -15333,7 +15370,7 @@ class AigcShortDramaService
     private static function stripPromptDiagnostics(array $value): array
     {
         foreach ($value as $key => $item) {
-            if (is_string($key) && (str_starts_with($key, '_prompt_') || $key === '_imported_outline_snapshot')) unset($value[$key]);
+            if (is_string($key) && (str_starts_with($key, '_prompt_') || in_array($key, ['_imported_outline_snapshot','_file_parse_fallback'], true))) unset($value[$key]);
             elseif (is_array($item)) $value[$key] = self::stripPromptDiagnostics($item);
         }
         return $value;
