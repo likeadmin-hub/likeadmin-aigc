@@ -22,12 +22,14 @@
 
 ## Task 1: Source contract and bounded fallback
 Files: new ShortDramaFileParseFallback service and tests; existing upload creation, parse synchronization and planning dispatch services.
-- [ ] Add failing tests for valid-primary bypass, one invalid-primary repair, invalid-repair stop, preserved source/episode boundaries and timing checks.
-- [ ] Implement a pure validator/request contract plus a durable background stage using the existing planning unit and file-model source attachment.
-- [ ] Add transactional scheduling/cancellation/replay and cost-aggregation regression tests.
+- [x] Add failing tests for valid-primary bypass, one invalid-primary repair, invalid-repair stop, preserved source/episode boundaries and timing checks.
+- [x] Implement a pure validator/request contract plus a durable background stage using the existing planning unit and file-model source attachment.
+- [x] Add transactional scheduling/cancellation/replay and cost-aggregation regression tests.
 - [ ] Commit and merge into local develop, then run the explicit short-drama suite.
 
 ## Task 2: Acceptance
 - [ ] Complete the four live original samples (2/2/3/2 episodes) already in progress.
 - [ ] Exercise the fallback contract with controlled invalid-primary tests and a separate real-model repair receipt; distinguish those from untouched real API results.
 - [ ] Record statuses, exact time boundaries, source checks, model/recovery limitations and billing evidence in the acceptance report.
+
+Execution notes: source snapshot is capped at 2 MB without truncation; unavailable snapshots leave the primary API path intact. Existing heading numbers are preserved in source while internal episodes follow document order. New fallback stages disable model, transient and compatibility retries; actual runtime app_task event fences cancellation. A fresh read-only reviewer identified three issues (event hook, runtime retries, late billing); all received failing-then-passing regression tests, and the reviewer confirmed them resolved.
