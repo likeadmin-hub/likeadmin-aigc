@@ -48,6 +48,14 @@ final class MarketGenerationParameters
             if ($key==='meta_data') $field['format']='json';
             if ($key==='tools') $field['control']='web_search';
             if ($type==='string' && (preg_match('/(?:url|uri)$/i',$key) || in_array($key,['input_image','reference_image','reference_video','reference_voice','first_frame'],true))) $field['control']=preg_match('/video|clip/i',$key)?'video':(preg_match('/audio|voice/i',$key)?'audio':(preg_match('/file|link/i',$key)?'file':'image'));
+            $documentFields=[];
+            foreach ($modes as $mode) foreach ((array)($mode['fields'] ?? []) as $material) {
+                if (($material['field'] ?? '')===$key && in_array($material['kind'] ?? '', ['file','link'], true)) $documentFields[]=$material;
+            }
+            $leaf=$type==='array' ? (array)($definition['items'] ?? []) : $definition;
+            if ($documentFields!==[] && in_array($type,['string','array'],true) && ($leaf['type'] ?? '')==='string' && ($leaf['format'] ?? '')==='uri') {
+                $field['control']=($key==='reference_link_urls' || in_array('link',array_column($documentFields,'kind'),true)) ? 'link' : 'file';
+            }
             foreach (['minimum','maximum','minLength','maxLength','minItems','maxItems','default'] as $constraint) if (array_key_exists($constraint,$definition)) $field[$constraint]=$definition[$constraint];
             $field['applicable_modes'] = [];
             foreach ($modes as $mode) {
