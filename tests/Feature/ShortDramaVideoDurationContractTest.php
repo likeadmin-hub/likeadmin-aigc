@@ -99,7 +99,10 @@ class ShortDramaVideoDurationContractTest extends TestCase
         $source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/common/service/app/aigc_video/AigcVideoService.php');
         self::assertStringContainsString('normalizeDurationSelection($tenantId, $selection, (int)($params[\'duration\'] ?? 0))', $source);
         self::assertStringContainsString("\$params['duration'] = (int)\$normalizedDuration['duration'];", $source);
-        self::assertStringContainsString("'duration' => max(1, (int)(\$params['duration'] ?? 0))", $source);
+        // Automatic native duration remains frozen in model_json. The task's
+        // display duration is unknown (0) until measured, never an invented 1s.
+        self::assertStringContainsString("'duration' => max(0, (int)(\$params['duration'] ?? 0))", $source);
+        self::assertStringContainsString("'model_json' => \$selection", $source);
     }
 
     private function invokeConfigurableDuration(array $metadata, int $requestedDuration): int
