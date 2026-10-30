@@ -46,7 +46,7 @@ final class GenerationHttpInputTest extends TestCase
     {
         $request=(new Request())->withPost(['label'=>'  name  ','count'=>'0','flag'=>'false','html'=>' <b>name</b> ']);
         self::assertSame(['label'=>'name','count'=>'0','flag'=>'false','html'=>'<b>name</b>'],$request->post());
-        self::assertSame(' NAME ',$request->post('label',null,'strtoupper'));
+        self::assertSame('  NAME  ',$request->post('label',null,'strtoupper'));
         self::assertSame(' <b>name</b> ',$request->post('html',null,null));
     }
 }
