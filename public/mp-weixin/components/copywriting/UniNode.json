@@ -1,6 +1,8 @@
 {
   "component": true,
   "usingComponents": {
+    "task-trace": "../task-trace/TaskTrace",
+    "model-source-badge": "../model-source-badge/model-source-badge",
     "recursive-node": "./UniNode"
   }
 }

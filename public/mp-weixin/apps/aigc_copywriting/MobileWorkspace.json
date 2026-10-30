@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "task-trace": "../../components/task-trace/TaskTrace",
     "uni-document-renderer": "../../components/copywriting/UniDocumentRenderer"
   }
 }

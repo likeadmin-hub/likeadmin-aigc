@@ -1,1 +1,1 @@
-<mobile-workspace wx:if="{{a}}" u-i="1e46f5da-0" bind:__l="__l" u-p="{{b}}"/><mp-privacy-popup u-i="1e46f5da-1" bind:__l="__l"/>
+<mobile-workspace wx:if="{{a}}" u-i="5b0c0d32-0" bind:__l="__l" u-p="{{b}}"/><mp-privacy-popup u-i="5b0c0d32-1" bind:__l="__l"/>

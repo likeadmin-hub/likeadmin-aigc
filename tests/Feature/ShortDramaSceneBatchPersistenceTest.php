@@ -71,7 +71,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                     $calls[] = $key;
                     if (str_contains($key, 'skeleton')) $payload = $plan;
                     else {
-                        $context = Response::decode(['content' => $input['content']]);
+                        $context = json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);
                         $specs = $context['required_shots'];
                         if (!isset($context['scene_groups'])) foreach ($specs as &$spec) $spec['scene_ref_id'] = $context['scene_beat']['scene_ref_id'];
                         unset($spec);
@@ -116,7 +116,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                     $calls[] = $key;
                     if (str_contains($key, 'skeleton')) $payload = $plan;
                     else {
-                        $context = Response::decode(['content'=>$input['content']]);
+                        $context = json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);
                         $specs = $context['required_shots'];
                         if (!isset($context['scene_groups'])) foreach ($specs as &$spec) $spec['scene_ref_id'] = $context['scene_beat']['scene_ref_id'];
                         unset($spec);
@@ -177,7 +177,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                 elseif(str_ends_with($key,'_fields_v1'))$payload=['patches'=>[]];
                 elseif(str_ends_with($key,'_fields_v1_repair'))$payload=['patches'=>[['shot_id'=>'s1_2','fields'=>['visual_description'=>'甲把信交给乙。']]]];
                 elseif(str_contains($key,'timed_batch')){
-                    $context=Response::decode(['content'=>$input['content']]);
+                    $context=json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);
                     $shots=array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$context['required_shots']);
                     $shots[1]['visual_description']='';$payload=['storyboard'=>$shots];
                 } else throw new \RuntimeException('Unexpected unit '.$key);
@@ -210,11 +210,11 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                 if(str_contains($key,'skeleton'))$payload=$plan;
                 elseif(str_ends_with($key,'_partial_fields_v1'))$payload=['patches'=>[['shot_id'=>'s1_1','fields'=>['visual_description'=>'甲拿着信。']]]];
                 elseif(str_contains($key,'timed_batch')){
-                    $context=Response::decode(['content'=>$input['content']]);
+                    $context=json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);
                     $shots=array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$context['required_shots']);
                     $shots[0]['visual_description']='';$payload=['storyboard'=>[$shots[0],$shots[2]]];
                 } elseif(str_contains($key,'_missing_')) {
-                    $context=Response::decode(['content'=>$input['content']]);
+                    $context=json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);
                     $spec=$context['required_shots'][0];$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];
                     $payload=['storyboard'=>[ShortDramaSceneBatchTest::shot($spec,$plan)]];
                 } else throw new \RuntimeException('Unexpected unit '.$key);
@@ -247,7 +247,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                 $calls[]=$key;
                 if(str_contains($key,'skeleton'))$result=['content'=>json_encode($plan,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop'];
                 else {
-                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    $context=json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);$specs=$context['required_shots'];
                     foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
                     $shots=array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs);
                     if($key==='v3_timed_scene_1_1')$result=['content'=>'{"storyboard":['.json_encode($shots[0],JSON_UNESCAPED_UNICODE).',{"shot_id":"s1_2","dialogue":"截断','finish_reason'=>'length'];
@@ -313,7 +313,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                 if(str_ends_with($key,'skeleton_fields_v1'))$payload=['patches'=>[['scene_index'=>0,'fields'=>['goal'=>'完成事件1','scene_name'=>'地点1']]]];
                 elseif(str_contains($key,'skeleton'))$payload=$plan;
                 else {
-                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    $context=json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);$specs=$context['required_shots'];
                     foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
                     $payload=['storyboard'=>array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs)];
                 }
@@ -364,7 +364,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                 $calls[]=$key;
                 if(str_contains($key,'skeleton'))$payload=$plan;
                 else {
-                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    $context=json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);$specs=$context['required_shots'];
                     foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
                     $payload=['storyboard'=>array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs)];
                 }
@@ -387,8 +387,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         $legacy=array_replace($request,['_input_contract_version'=>23,'_generation_version'=>3]);
         $oldRun=fn()=>Script::generate($legacy,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
             fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
-        try {Unit::withinDispatch(self::TENANT,7,$this->task,4,$oldRun);self::fail('Legacy tasks retain their original cap');}
-        catch(\RuntimeException $error){self::assertSame(429,$error->getCode());}
+        self::assertSame($result['payload'], Unit::withinDispatch(self::TENANT,7,$this->task,4,$oldRun)['payload']);
         self::assertCount($count,$calls);
         $resumed=\app\common\service\app\aigc_short_drama\ShortDramaInputContract::resumeAfterLimit($legacy,'本集已达到自动处理上限，已保留完成内容，请缩小生成范围');
         self::assertSame(\app\common\service\app\aigc_short_drama\ShortDramaPlanningContext::templateRequest($legacy),
@@ -399,7 +398,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         self::assertCount($count,$calls);
     }
 
-    public function testLegacyLongScriptResumesFromRealLimitWithoutResubmittingReceipts(): void
+    public function testLegacyLongScriptContinuesPastFormerLimitWithoutResubmittingReceipts(): void
     {
         $counts=array_fill(0,24,9);$plan=ShortDramaSceneBatchTest::fixture($counts);
         $request=ShortDramaSceneBatchTest::request($counts);$request['_input_contract_version']=23;
@@ -410,7 +409,7 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
                 $calls[]=$key;
                 if(str_contains($key,'skeleton'))$payload=$plan;
                 else {
-                    $context=Response::decode(['content'=>$input['content']]);$specs=$context['required_shots'];
+                    $context=json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);$specs=$context['required_shots'];
                     foreach($specs as &$spec)$spec['scene_ref_id']=$context['scene_beat']['scene_ref_id'];unset($spec);
                     $payload=['storyboard'=>array_map(static fn($spec)=>ShortDramaSceneBatchTest::shot($spec,$plan),$specs)];
                 }
@@ -419,13 +418,15 @@ class ShortDramaSceneBatchPersistenceTest extends TestCase
         };
         $run=fn($input)=>Script::generate($input,['context_window'=>65536,'max_output_tokens'=>8192],$messages,$provider,null,null,
             fn($snapshot)=>Unit::freezeSceneBatches(self::TENANT,7,$this->task,$snapshot));
-        $limitError=null;
-        for($turn=0;$turn<20 && $limitError===null;$turn++) {
-            try {Unit::withinDispatch(self::TENANT,7,$this->task,4,fn()=>$run($request));self::fail('Expected legacy processing limit');}
-            catch(\RuntimeException $error){if($error->getCode()===429)$limitError=$error;else self::assertSame(425,$error->getCode());}
+        // Legacy receipts also continue past the removed business budget. Yielding
+        // is a recoverable dispatch boundary, never a terminal creation failure.
+        $partial=null;
+        for($turn=0;$turn<20 && count($calls)<=48;$turn++) {
+            try {$partial=Unit::withinDispatch(self::TENANT,7,$this->task,4,fn()=>$run($request));}
+            catch(\RuntimeException $error){self::assertSame(425,$error->getCode());}
         }
-        self::assertNotNull($limitError);$receivedBefore=$calls;
-        $request=\app\common\service\app\aigc_short_drama\ShortDramaInputContract::resumeAfterLimit($request,$limitError->getMessage());
+        self::assertNull($partial);self::assertGreaterThan(48,count($calls));$receivedBefore=$calls;
+        $request=\app\common\service\app\aigc_short_drama\ShortDramaInputContract::resumeAfterLimit($request,'本集已达到自动处理上限，已保留完成内容，请缩小生成范围');
         $result=null;$turn=0;
         do {
             try {$result=Unit::withinDispatch(self::TENANT,7,$this->task,4,fn()=>$run($request));}
