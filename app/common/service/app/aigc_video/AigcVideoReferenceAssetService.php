@@ -319,11 +319,11 @@ class AigcVideoReferenceAssetService
             $role=(string)($asset['role']??'');
             if ($role==='' && array_filter($frameSources,static fn(array $frame): bool => self::sameMediaSource($asset,$frame)
                 && !ReferenceMaterialSlot::distinct($asset,$frame))) continue;
-            $slot=!empty($asset['field'])?'field:'.$asset['field']:($role ?: 'reference_image');
+            $slot=!empty($asset['field'])?'field:'.$asset['field']:($role ?: 'reference_' . ($asset['type'] ?? 'image'));
             $duplicate=null;
             foreach ($unique as $index=>$existing) {
                 $existingRole=(string)($existing['role']??'');
-                $existingSlot=!empty($existing['field'])?'field:'.$existing['field']:($existingRole ?: 'reference_image');
+                $existingSlot=!empty($existing['field'])?'field:'.$existing['field']:($existingRole ?: 'reference_' . ($existing['type'] ?? 'image'));
                 if ($slot!==$existingSlot || ($asset['type']??'')!==($existing['type']??'')
                     || ReferenceMaterialSlot::distinct($asset,$existing)) continue;
                 if (self::sameMediaSource($asset,$existing)) { $duplicate=$index; break; }

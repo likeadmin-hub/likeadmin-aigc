@@ -26,6 +26,7 @@ class VideoReferenceSlotTest extends TestCase
         $params=['reference_assets'=>[$this->video('upload:a'),$this->video('upload:b')],
             'video_urls'=>['https://fixtures.invalid/repeated.mp4']];
         $normalized=Assets::normalize($params);
+        self::assertCount(2,$normalized);
         self::assertSame(['upload:a','upload:b'],array_column($normalized,'reference_slot_id'));
         self::assertSame($normalized,Assets::normalize(['reference_assets'=>$normalized]));
         self::assertSame($normalized,Assets::normalize(['reference_assets'=>json_decode(json_encode($normalized),true)]));
