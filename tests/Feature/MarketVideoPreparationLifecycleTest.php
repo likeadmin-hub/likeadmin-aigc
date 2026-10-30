@@ -14,7 +14,7 @@ use think\facade\Db;
 class MarketVideoPreparationLifecycleTest extends TestCase
 {
     /** @dataProvider resources */
-    public function testPreparedQuotesReservationsAndRefundsAreConsistent(string $resource, array $meter): void
+    public function testPreparedQuotesReservationsAndRefundsAreConsistent(string $resource, array $meter, int $referenceCount = 0): void
     {
         if (getenv('AIGC_VIDEO_PREPARATION_DB_TESTS') !== '1') self::markTestSkipped('Explicit local rollback fixture only');
         (new \think\App())->initialize();
@@ -43,6 +43,11 @@ class MarketVideoPreparationLifecycleTest extends TestCase
                 $metadata['params_schema']['properties']['content']=$apiProperties['content'];
                 $metadata['params_schema']['required']=['content','duration'];
             }
+            if ($referenceCount > 0) {
+                $metadata['params_schema']['properties']['image_urls']=['type'=>'array','maxItems'=>20,'items'=>['type'=>'string','format'=>'uri']];
+                $metadata['material_capabilities']=['modes'=>[['code'=>'reference_to_video','method'=>'omni_reference',
+                    'fields'=>[['field'=>'image_urls','kind'=>'image','role'=>'reference','required'=>true,'maximum'=>20]]]]];
+            }
             $product = PowerMarketProduct::create(['product_code' => $key, 'name' => 'Offline phase 2 fixture', 'resource_type' => $resource,
                 'model_type' => 'video', 'source_code' => 'offline-fixture', 'upstream_resource_key' => $key,
                 'upstream_model_code' => 'offline-video', 'upstream_channel_code' => 'offline',
@@ -56,7 +61,20 @@ class MarketVideoPreparationLifecycleTest extends TestCase
             $request = ['resource_type' => $resource, 'model_id' => ($resource === 'model' ? 'market_video_model:' : 'market_video_app:') . $product['id'],
                 'market_sku_id' => $sku['id'], 'prompt' => 'Offline fixture', 'duration' => 4, 'quality' => '720P', 'ratio' => '1:1', 'generation_method' => 'text_to_video'];
             if ($resource === 'app_api') $request['upstream_app_code'] = 'full_video';
+            if ($referenceCount > 0) {
+                $request['generation_method']='omni_reference';
+                $request['reference_assets']=array_map(static fn($i)=>['type'=>'image','uri'=>'https://fixtures.invalid/frame.png',
+                    'reference_slot_id'=>'upload:'.$i,'role'=>'reference_image'],range(1,$referenceCount));
+            }
+
             $quote = $resource === 'model' ? Videos::quote(1, $request) : Applications::quote(1, $request);
+            if ($referenceCount > 0) {
+                $service=\app\common\service\app\aigc_video\AigcVideoService::class;
+                self::assertSame($quote['market_sku_id'],$service::estimate(1,$request)['market_sku_id']);
+                $admission=$service::openPlatformAdmission(1,$request);
+                self::assertCount($referenceCount,$admission['params']['reference_assets']);
+                self::assertCount($referenceCount,Videos::prepareRequest($admission['quote']['market_snapshot'],$admission['selection'])->nativeInput['image_urls']);
+            }
             $reserve = fn(string $businessKey) => $resource === 'model'
                 ? Videos::reserve(1, $user, 'aigc_video', 'generate', 'aigc_video_task', $businessKey, $request, $request)
                 : Applications::reserve(1, $user, 'generate', $businessKey, $request, $request, 1, 'aigc_video', 'aigc_video_task');
@@ -92,6 +110,7 @@ class MarketVideoPreparationLifecycleTest extends TestCase
             ['meter_summary'=>'生成秒数，总点数向上取整'],
             ['meter_contract'=>['version'=>1,'basis'=>'output','rounding'=>'ceil']],
         ] as $meter) $rows[] = [$resource,$meter];
+        $rows[]=['model',['meter_contract'=>['version'=>1,'basis'=>'output','rounding'=>'ceil']],20];
         return $rows;
     }
     private function balances(int $user): array

@@ -1082,7 +1082,7 @@ class MarketVideoRuntimeService
     {
         if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) !== []
             && MarketGenerationAdapterRegistry::modelProtocol('video',$snapshot)==='native_v1') {
-            $request['reference_assets'] = array_map(static function ($asset) { $asset['url'] = AigcVideoReferenceAssetService::publicUrl($asset); return $asset; }, AigcVideoReferenceAssetService::normalize($request, 100));
+            $request['reference_assets'] = array_map(static function ($asset) { $asset['url'] = AigcVideoReferenceAssetService::publicUrl($asset); return $asset; }, AigcVideoReferenceAssetService::normalizeForMarket($request));
             unset($request['reference_images']);
             return array_merge(self::marketContext($snapshot, 'power_market_video'), MarketGenerationRequest::payload($snapshot, $request), ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)$snapshot['channel_code'], 'idempotency_key'=>$idempotency]);
         }
@@ -1335,7 +1335,7 @@ class MarketVideoRuntimeService
         $allowed = array_map('strtoupper', self::schemaOptionValues($schema, 'generation_type'));
         $default = trim((string)self::schemaDefaultValue($schema, 'generation_type', ''));
         $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
-        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
+        $roles = array_column(AigcVideoReferenceAssetService::normalizeForMarket($request), 'role');
         if (in_array($method, ['image_to_video', 'start_end'], true)
             || in_array('first_frame_image', $roles, true)
             || in_array('last_frame_image', $roles, true)) {
@@ -1559,7 +1559,7 @@ class MarketVideoRuntimeService
 
     private static function seedanceAssets(array &$request, int $consumptionId): void
     {
-        $assets = AigcVideoReferenceAssetService::normalize($request);
+        $assets = AigcVideoReferenceAssetService::normalizeForMarket($request);
         if ($assets === []) return;
         $group = self::request('POST', self::endpoint('seedance', 'createGroup'), [
             'Name' => 'aigc-video-' . $consumptionId,
@@ -1608,7 +1608,7 @@ class MarketVideoRuntimeService
 
     private static function assets(array $request): array
     {
-        $assets = AigcVideoReferenceAssetService::normalize($request); $result = ['image' => [], 'video' => [], 'audio' => []];
+        $assets = AigcVideoReferenceAssetService::normalizeForMarket($request); $result = ['image' => [], 'video' => [], 'audio' => []];
         // normalize already deduplicates by media identity AND semantic role.
         // URL-only dedup here would collapse identical first/last frame slots.
         foreach ($assets as $asset) { $type = (string)($asset['type'] ?? ''); if (!isset($result[$type])) continue; $raw = trim((string)($asset['url'] ?? $asset['uri'] ?? '')); $url = str_starts_with($raw, 'asset://') ? $raw : AigcVideoReferenceAssetService::publicUrl($asset); if ($url !== '') $result[$type][] = $url; }
@@ -1624,7 +1624,7 @@ class MarketVideoRuntimeService
         }
         $assets = self::assets($request);
         if (!empty($request['tools']) && array_filter($assets)) throw new Exception('联网搜索仅支持文生视频，请移除参考素材或关闭联网搜索');
-        $referenceAssets = AigcVideoReferenceAssetService::normalize($request);
+        $referenceAssets = AigcVideoReferenceAssetService::normalizeForMarket($request);
         if (Q4VideoContract::matches($product)) Q4VideoContract::validate($request, $assets);
         $generationMethod = self::canonicalGenerationMethod(
             $product,
@@ -1799,7 +1799,7 @@ class MarketVideoRuntimeService
         if ($assets['video'] !== [] || $assets['audio'] !== []) {
             throw new Exception('Veo 3.1 accepts image references only');
         }
-        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
+        $roles = array_column(AigcVideoReferenceAssetService::normalizeForMarket($request), 'role');
         $frameMode = in_array($generationMethod, ['image_to_video', 'start_end'], true)
             || in_array('first_frame_image', $roles, true)
             || in_array('last_frame_image', $roles, true);

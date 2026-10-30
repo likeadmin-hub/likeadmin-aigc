@@ -59,6 +59,16 @@ class AigcVideoReferenceAssetService
         return $assets;
     }
 
+    /**
+     * Bounded request-shape preparation, not a model capability grant.
+     * Market callers must still validate the selected contract before quoting
+     * or reserving. Keep normalize()'s legacy 15-item default unchanged.
+     */
+    public static function normalizeForMarket(array $params): array
+    {
+        return self::normalize($params, 100);
+    }
+
     public static function images(array $assets): array
     {
         return array_values(array_map(
