@@ -2358,7 +2358,7 @@ class AigcCanvasService
                 continue;
             }
             $slot = \app\common\service\ai\ReferenceMaterialSlot::id($asset);
-            $role = (string)($asset['role'] ?? ('reference_' . $type));
+            $role = trim((string)($asset['role'] ?? '')) ?: 'reference_' . $type;
             $key = $type . '|' . $url . '|' . (string)($asset['field'] ?? '') . '|' . $role;
             foreach ($seen[$key] ?? [] as $index) {
                 if (\app\common\service\ai\ReferenceMaterialSlot::distinct($asset, $result[$index])) continue;
