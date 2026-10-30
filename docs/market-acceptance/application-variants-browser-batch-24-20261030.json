@@ -1,0 +1,100 @@
+{
+  "batch": 24,
+  "resource": {
+    "resource_type": "app_api",
+    "channel": "market_video_app:grok_video:108",
+    "app_code": "grok_video",
+    "api_code": "submit"
+  },
+  "wire_dto_captured": false,
+  "actions": "Normal local SaaS synthetic uploads and quotes only; generation never clicked",
+  "observations": [
+    {
+      "entry": "pc_create",
+      "scenario": "before_fix_standard_text",
+      "mode": "standard",
+      "method": "text_to_video",
+      "resolution": "480p",
+      "ratio": "1:1",
+      "duration": 5,
+      "points": 148.83,
+      "status": "wrong_fast_quote_reproduced"
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "after_fix_standard_text",
+      "status": "expected_local_rejection",
+      "visible_error": "所选生成档位不支持当前生成方式、素材或规格，请调整参数"
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "after_fix_standard_image",
+      "synthetic_upload": "red.png",
+      "duration": 5,
+      "resolution": "480p",
+      "ratio": "1:1",
+      "points": 76.7,
+      "status": "quote_ready"
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "switch_to_fast_with_same_image",
+      "duration": 5,
+      "resolution": "480p",
+      "ratio": "1:1",
+      "points": 148.83,
+      "status": "quote_ready"
+    },
+    {
+      "entry": "home",
+      "scenario": "after_fix_standard_text",
+      "status": "expected_local_rejection",
+      "visible_error": "所选生成档位不支持当前生成方式、素材或规格，请调整参数"
+    },
+    {
+      "entry": "home",
+      "scenario": "after_fix_standard_image",
+      "synthetic_upload": "blue.png",
+      "duration": 5,
+      "resolution": "480p",
+      "ratio": "1:1",
+      "points": 76.7,
+      "status": "quote_ready"
+    },
+    {
+      "entry": "standalone",
+      "scenario": "standard_text",
+      "status": "existing_frontend_guard_rejected_no_matching_sku"
+    },
+    {
+      "entry": "standalone",
+      "scenario": "standard_image_default_one_second",
+      "synthetic_upload": "green.png",
+      "duration": 1,
+      "resolution": "480p",
+      "points": 15.34,
+      "status": "quote_ready"
+    },
+    {
+      "entry": "standalone",
+      "scenario": "standard_image_five_seconds",
+      "synthetic_upload": "green.png",
+      "duration": 5,
+      "resolution": "480p",
+      "ratio": "1:1",
+      "points": 76.7,
+      "status": "quote_ready"
+    }
+  ],
+  "limits": [
+    "No click on generation; no creation/admission API that creates tasks",
+    "Browser choices/uploads/prices verified; actual production quote and submit object expressions reconstructed separately for local preparation",
+    "No private materials uploaded, existing task/project/configuration untouched",
+    "Temporary test pages closed; requested PC/platform/tenant preview pages retained"
+  ],
+  "screenshots_local": [
+    "/tmp/market-batch24-standard-text-blocked.jpg",
+    "/tmp/market-batch24-standard-image-ready-final.jpg",
+    "/tmp/market-batch24-home-standard-image.jpg"
+  ]
+}
