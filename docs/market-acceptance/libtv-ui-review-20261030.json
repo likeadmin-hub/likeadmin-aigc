@@ -1,0 +1,3089 @@
+{
+  "observed_on": "2026-10-30",
+  "source": "https://www.liblib.tv/canvas",
+  "scope": "Authenticated current-account UI; independent empty research project; one empty image node and one empty video node; no uploads, prompts submitted, generation or payment. Not a supplier contract.",
+  "selection_caveat": "Selected values may carry across model switches. They are not certified model defaults. Mode items disabled with empty inputs do not imply unsupported supplier capabilities.",
+  "coverage": {
+    "image_options_observed": 21,
+    "video_options_observed": 32,
+    "video_options_disabled_in_current_empty_node": 4,
+    "advanced_popovers_and_material_loaded_modes": "not exhaustively verified"
+  },
+  "models": [
+    {
+      "media_type": "image",
+      "model": "Lib Image 2.5 Pro",
+      "selected_summary_after_switch": "16:9 · 标准画质 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "画质",
+          "options": [
+            "低画质",
+            "标准画质",
+            "高画质",
+            "超高画质",
+            "极致画质"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "背景",
+          "options": [
+            "自动",
+            "保留背景",
+            "透明背景"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1"
+          ]
+        },
+        {
+          "label": "1:1",
+          "options": [
+            "1:2"
+          ]
+        },
+        {
+          "label": "1:2",
+          "options": [
+            "2:1"
+          ]
+        },
+        {
+          "label": "2:1",
+          "options": [
+            "9:16"
+          ]
+        },
+        {
+          "label": "9:16",
+          "options": [
+            "16:9"
+          ]
+        },
+        {
+          "label": "16:9",
+          "options": [
+            "3:4"
+          ]
+        },
+        {
+          "label": "3:4",
+          "options": [
+            "4:3"
+          ]
+        },
+        {
+          "label": "4:3",
+          "options": [
+            "3:2"
+          ]
+        },
+        {
+          "label": "3:2",
+          "options": [
+            "2:3"
+          ]
+        },
+        {
+          "label": "2:3",
+          "options": [
+            "5:4"
+          ]
+        },
+        {
+          "label": "5:4",
+          "options": [
+            "4:5"
+          ]
+        },
+        {
+          "label": "4:5",
+          "options": [
+            "21:9"
+          ]
+        },
+        {
+          "label": "21:9",
+          "options": [
+            "9:21"
+          ]
+        },
+        {
+          "label": "9:21",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Lib Image 2.5 Fast",
+      "selected_summary_after_switch": "16:9 · 标准画质 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "画质",
+          "options": [
+            "低画质",
+            "标准画质",
+            "高画质",
+            "超高画质",
+            "极致画质"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "背景",
+          "options": [
+            "自动",
+            "保留背景",
+            "透明背景"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "1:2",
+            "2:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "5:4",
+            "4:5",
+            "21:9",
+            "9:21"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Lib Image",
+      "selected_summary_after_switch": "16:9 · 标准画质 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "画质",
+          "options": [
+            "低画质",
+            "标准画质",
+            "高画质"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "1:2",
+            "2:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "5:4",
+            "4:5",
+            "21:9",
+            "9:21"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "General image Pro",
+      "selected_summary_after_switch": "16:9 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "自适应",
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "4:5",
+            "5:4",
+            "21:9"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "General image V2.1",
+      "selected_summary_after_switch": "16:9 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "自适应",
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "4:5",
+            "5:4",
+            "8:1",
+            "1:8",
+            "4:1",
+            "1:4",
+            "21:9"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "General image V2",
+      "selected_summary_after_switch": "16:9 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "自适应",
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "4:5",
+            "5:4",
+            "8:1",
+            "1:8",
+            "4:1",
+            "1:4",
+            "21:9"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Seedream 5.0 Pro",
+      "selected_summary_after_switch": "16:9 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "1K",
+            "2K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "21:9"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Genesis F.3",
+      "selected_summary_after_switch": "16:9 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "自动",
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Qwen image 3.0",
+      "selected_summary_after_switch": "16:9 · 标准 · 2K · 1张",
+      "basic_configuration_menu": [
+        {
+          "label": "图片质量",
+          "options": [
+            "标准",
+            "Pro"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "1K",
+            "2K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "自适应",
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Style Image V8.2",
+      "selected_summary_after_switch": "16:9 · 自适应 · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Style Image V8.1",
+      "selected_summary_after_switch": "16:9 · 自适应 · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Style Image V7",
+      "selected_summary_after_switch": "16:9 · 自适应 · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Style Image Niji 7",
+      "selected_summary_after_switch": "16:9 · 自适应 · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Seedream 4.6",
+      "selected_summary_after_switch": "16:9 · 2K · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "21:9",
+            "9:21"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Seedream 5.0 Lite",
+      "selected_summary_after_switch": "16:9 · 2K · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "2K",
+            "3K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Seedream 4.5",
+      "selected_summary_after_switch": "16:9 · 2K · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Z-image Turbo",
+      "selected_summary_after_switch": "16:9 · 2K · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Qwen Image",
+      "selected_summary_after_switch": "16:9 · 自适应 · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Qwen Edit",
+      "selected_summary_after_switch": "16:9 · 自适应 · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "Seedream 4.0",
+      "selected_summary_after_switch": "16:9 · 2K · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "21:9"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "image",
+      "model": "AutoPic 1.0",
+      "selected_summary_after_switch": "16:9 · 2K · 4张",
+      "basic_configuration_menu": [
+        {
+          "label": "分辨率",
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        {
+          "label": "比例",
+          "options": [
+            "自适应",
+            "1:1",
+            "9:16",
+            "16:9",
+            "3:4",
+            "4:3",
+            "3:2",
+            "2:3",
+            "4:5",
+            "5:4",
+            "8:1",
+            "1:8",
+            "4:1",
+            "1:4",
+            "21:9"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1张",
+            "2张",
+            "4张"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Seedance 2.5",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "Auto",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16",
+            "21:9"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        },
+        {
+          "label": "Seedance合规校验",
+          "options": []
+        },
+        {
+          "label": "真人自动校验",
+          "options": []
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "30",
+          "min": "4",
+          "role": "slider",
+          "type": null,
+          "value": "5"
+        },
+        {
+          "max": "30",
+          "min": "4",
+          "role": null,
+          "type": "number",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频编辑",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频续写",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "超长视频 Beta",
+          "enabled_in_empty_node": true
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Seedance 2.5（样片模式）",
+      "selected_summary_after_switch": "16:9 · 480P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "Auto",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16",
+            "21:9"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        },
+        {
+          "label": "Seedance合规校验",
+          "options": []
+        },
+        {
+          "label": "真人自动校验",
+          "options": []
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "30",
+          "min": "4",
+          "role": "slider",
+          "type": null,
+          "value": "5"
+        },
+        {
+          "max": "30",
+          "min": "4",
+          "role": null,
+          "type": "number",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频编辑",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频续写",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Seedance 2.0 VIP",
+      "selected_summary_after_switch": "16:9 · 480P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "Auto",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16",
+            "21:9"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P",
+            "1080P",
+            "4K"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        },
+        {
+          "label": "Seedance合规校验",
+          "options": []
+        },
+        {
+          "label": "真人自动校验",
+          "options": []
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "4",
+          "role": "slider",
+          "type": null,
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "4",
+          "role": null,
+          "type": "number",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Wan 3.0",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "自适应",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "30",
+          "min": "2",
+          "role": "slider",
+          "type": null,
+          "value": "5"
+        },
+        {
+          "max": "30",
+          "min": "2",
+          "role": null,
+          "type": "number",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频续写",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Kling 4.0",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "21:9",
+            "16:9",
+            "9:16",
+            "1:1"
+          ]
+        },
+        {
+          "label": "时长",
+          "options": []
+        },
+        {
+          "label": "分辨率",
+          "options": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "30",
+          "min": "3",
+          "role": "slider",
+          "type": null,
+          "value": "5"
+        },
+        {
+          "max": "30",
+          "min": "3",
+          "role": null,
+          "type": "number",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "多帧生成 New",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "视频编辑",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Minimax H3",
+      "selected_summary_after_switch": "16:9 · 768P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "21:9",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "768P",
+            "2K"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "5",
+          "role": "slider",
+          "type": null,
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "5",
+          "role": null,
+          "type": "number",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "H3-Highspeed",
+      "selected_summary_after_switch": "16:9 · 768P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "21:9",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "768P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "4",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "4",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Seedance 2.0 Fast VIP",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "Auto",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16",
+            "21:9"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        },
+        {
+          "label": "Seedance合规校验",
+          "options": []
+        },
+        {
+          "label": "真人自动校验",
+          "options": []
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "4",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "4",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Wan 3.0 Prime",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "自适应",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "30",
+          "min": "2",
+          "value": "5"
+        },
+        {
+          "max": "30",
+          "min": "2",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Minimax H3 Max",
+      "selected_summary_after_switch": "16:9 · 480P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "21:9",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "768P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "5",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "5",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Seedance 2.0 Mini",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "Auto",
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16",
+            "21:9"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个",
+            "2个",
+            "4个"
+          ]
+        },
+        {
+          "label": "Seedance合规校验",
+          "options": []
+        },
+        {
+          "label": "真人自动校验",
+          "options": []
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "4",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "4",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Happy Horse 1.1",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "首帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频编辑",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Happy Horse 1.0",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "首帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频编辑",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Kling O3",
+      "selected_summary_after_switch": "16:9 · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "9:16"
+          ]
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "时长",
+          "options": []
+        },
+        {
+          "label": "生成品质",
+          "options": [
+            "标准",
+            "高品质",
+            "4K"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频编辑",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Kling 3.0 Turbo",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Kling 3.0",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        },
+        {
+          "max": "15",
+          "min": "3",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Wan 2.7",
+      "selected_summary_after_switch": "16:9 · 1080P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "10",
+          "min": "2",
+          "value": "5"
+        },
+        {
+          "max": "10",
+          "min": "2",
+          "value": "5"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频参考",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Kling O1",
+      "selected_summary_after_switch": "16:9 · 标准 · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "9:16"
+          ]
+        },
+        {
+          "label": "生成品质",
+          "options": [
+            "标准",
+            "高品质"
+          ]
+        },
+        {
+          "label": "时长",
+          "options": [
+            "5s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频编辑",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Wan 2.6",
+      "selected_summary_after_switch": "16:9 · 1080P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": [
+            "5s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "首帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "视频参考",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Hailuo 2.3",
+      "selected_summary_after_switch": "自适应 · 1080P · 6s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "768P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": [
+            "6s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": true
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Kling 2.6",
+      "selected_summary_after_switch": "16:9 · 高品质模式 · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "9:16"
+          ]
+        },
+        {
+          "label": "生成品质",
+          "options": [
+            "标准",
+            "高品质模式"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": [
+            "5s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Hailuo 02",
+      "selected_summary_after_switch": "自适应 · 1080P · 6s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "768P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": [
+            "6s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Vidu Q2",
+      "selected_summary_after_switch": "16:9 · 1080p · 6s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "3:4",
+            "4:3",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "540p",
+            "720p",
+            "1080p"
+          ]
+        },
+        {
+          "label": "视频时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "8",
+          "min": "1",
+          "value": "6"
+        },
+        {
+          "max": "8",
+          "min": "1",
+          "value": "6"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图片参考",
+          "enabled_in_empty_node": true
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Vidu Q2 Pro",
+      "selected_summary_after_switch": "自适应 · 1080p · 6s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720p",
+            "1080p"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": []
+        },
+        {
+          "label": "背景音乐",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "8",
+          "min": "1",
+          "value": "6"
+        },
+        {
+          "max": "8",
+          "min": "1",
+          "value": "6"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "全能参考",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Vidu Q2 Turbo",
+      "selected_summary_after_switch": "自适应 · 1080p · 6s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "720p",
+            "1080p"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": []
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "8",
+          "min": "1",
+          "value": "6"
+        },
+        {
+          "max": "8",
+          "min": "1",
+          "value": "6"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": false
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Vidu Q3 Pro",
+      "selected_summary_after_switch": "16:9 · 1080p · 6s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "3:4",
+            "4:3",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "540p",
+            "720p",
+            "1080p"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": []
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [
+        {
+          "max": "16",
+          "min": "1",
+          "value": "6"
+        },
+        {
+          "max": "16",
+          "min": "1",
+          "value": "6"
+        }
+      ],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": true
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "OmniHuman 1.5",
+      "selected_summary_after_switch": "自适应 · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "自适应"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Kling 2.5",
+      "selected_summary_after_switch": "16:9 · 高品质 · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "9:16"
+          ]
+        },
+        {
+          "label": "生成品质",
+          "options": [
+            "标准",
+            "高品质"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": [
+            "5s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Wan 2.2",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": [
+            "5s"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": true
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Wan 2.5",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "1:1",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "480P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": [
+            "5s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": true
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Pixverse V5.5",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个 ·",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "540P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": [
+            "5s",
+            "8s",
+            "10s"
+          ]
+        },
+        {
+          "label": "生成音频",
+          "options": [
+            "开启",
+            "关闭"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    },
+    {
+      "media_type": "video",
+      "model": "Pixverse V5",
+      "selected_summary_after_switch": "16:9 · 720P · 5s · 1个",
+      "basic_configuration_menu": [
+        {
+          "label": "比例",
+          "options": [
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ]
+        },
+        {
+          "label": "清晰度",
+          "options": [
+            "540P",
+            "720P",
+            "1080P"
+          ]
+        },
+        {
+          "label": "生成时长",
+          "options": [
+            "5s",
+            "8s"
+          ]
+        },
+        {
+          "label": "生成数量",
+          "options": [
+            "1个"
+          ]
+        }
+      ],
+      "duration_inputs": [],
+      "mode_menu_in_empty_node": [
+        {
+          "label": "文生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "图生视频",
+          "enabled_in_empty_node": true
+        },
+        {
+          "label": "首尾帧",
+          "enabled_in_empty_node": false
+        }
+      ],
+      "status": "basic_menu_observed_no_generation"
+    }
+  ],
+  "disabled_video_options": [
+    {
+      "model": "Vidu Q4 Preview",
+      "status": "disabled_in_current_empty_node_not_expanded",
+      "reason": "Not bypassed; availability with materials not verified"
+    },
+    {
+      "model": "Hailuo 2.3 Fast",
+      "status": "disabled_in_current_empty_node_not_expanded",
+      "reason": "Not bypassed; availability with materials not verified"
+    },
+    {
+      "model": "Kling3.0 动作迁移",
+      "status": "disabled_in_current_empty_node_not_expanded",
+      "reason": "Not bypassed; availability with materials not verified"
+    },
+    {
+      "model": "Style Video",
+      "status": "disabled_in_current_empty_node_not_expanded",
+      "reason": "Not bypassed; availability with materials not verified"
+    }
+  ]
+}
