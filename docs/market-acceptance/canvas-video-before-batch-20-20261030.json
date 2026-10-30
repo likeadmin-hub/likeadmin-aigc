@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "scope": "Pre-fix reproduction: exact selected SKU, method and local quote outcome only. Synthetic input omitted.",
+  "cases": [
+    {
+      "scenario": "kling_std_silent",
+      "channel": "market_video_model:335",
+      "selected_sku": 646,
+      "selected_method": "text_to_video",
+      "quote_error": "生成档位已由当前规格固定"
+    },
+    {
+      "scenario": "kling_4k_sound",
+      "channel": "market_video_model:335",
+      "selected_sku": 646,
+      "selected_method": "text_to_video",
+      "quoted_sku": 646,
+      "points": 1330,
+      "selected_sku_equal": true
+    },
+    {
+      "scenario": "wan_same_file_pair",
+      "channel": "market_video_model:357",
+      "selected_sku": 806,
+      "selected_method": "omni_reference",
+      "quoted_sku": 806,
+      "points": 635,
+      "selected_sku_equal": true
+    }
+  ]
+}

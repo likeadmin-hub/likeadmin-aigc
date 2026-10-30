@@ -1,0 +1,391 @@
+{
+  "version": 1,
+  "scope": "Isolated actual CanvasNode, shared parameter panel and canvas source-projection wire DTO. Only local read-only quote/admission/frozen preparation. Generation, storage upload and project persistence disabled; reused synthetic SaaS materials. Does not certify an authenticated complete canvas page.",
+  "events": [
+    {
+      "at": "2026-10-30T06:20:36.062Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 646,
+        "ratio": "1:1",
+        "provider_params": {
+          "mode": "4K",
+          "sound": true,
+          "multi_shots": false
+        },
+        "advanced_params": {
+          "multi_shots": false
+        },
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 646,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 646,
+        "points": 1330,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 0,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": true,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "4K",
+          "multi_shots": false
+        },
+        "prepared_hash": "d635bf05884fbb59f68408771dfd3b52e9d022628fa298a3434200ce8661c85a",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      }
+    },
+    {
+      "at": "2026-10-30T06:20:44.626Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 646,
+        "ratio": "1:1",
+        "provider_params": {
+          "mode": "4K",
+          "sound": true,
+          "multi_shots": false
+        },
+        "advanced_params": {
+          "multi_shots": false
+        },
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 646,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 646,
+        "points": 1330,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 0,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": true,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "4K",
+          "multi_shots": false
+        },
+        "prepared_hash": "d635bf05884fbb59f68408771dfd3b52e9d022628fa298a3434200ce8661c85a",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      }
+    },
+    {
+      "at": "2026-10-30T06:20:51.517Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 650,
+        "ratio": "1:1",
+        "provider_params": {
+          "sound": true,
+          "mode": "std",
+          "multi_shots": false
+        },
+        "advanced_params": {
+          "mode": "std",
+          "multi_shots": false
+        },
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 650,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 650,
+        "points": 400,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 0,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": true,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "std",
+          "multi_shots": false
+        },
+        "prepared_hash": "8f1747e7ffc305183c325a57c68f919cce0356204b5a69ca15a3f0913ee6baa3",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      }
+    },
+    {
+      "at": "2026-10-30T06:20:57.133Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 651,
+        "ratio": "1:1",
+        "provider_params": {
+          "mode": "std",
+          "sound": false,
+          "multi_shots": false
+        },
+        "advanced_params": {
+          "mode": "std",
+          "sound": false,
+          "multi_shots": false
+        },
+        "reference_count": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 651,
+        "requested_counts": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 651,
+        "points": 280,
+        "native_slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 2,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": false,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "std",
+          "multi_shots": false
+        },
+        "prepared_hash": "2fa0b5a715ab4a7d768df11f7a959ffc070c214765b76e8ced50b6e752f25da2",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "start_end",
+        "material_mode": null
+      }
+    },
+    {
+      "at": "2026-10-30T06:20:57.142Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 651,
+        "ratio": "1:1",
+        "provider_params": {
+          "mode": "std",
+          "sound": false,
+          "multi_shots": false
+        },
+        "advanced_params": {
+          "mode": "std",
+          "sound": false,
+          "multi_shots": false
+        },
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 651,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 651,
+        "points": 280,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 0,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": false,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "std",
+          "multi_shots": false
+        },
+        "prepared_hash": "07842a0d657679152a543e437f40e1ae911ee84a22f2f6e6138decdc5336d4b5",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      }
+    },
+    {
+      "at": "2026-10-30T06:21:27.975Z",
+      "controls": {
+        "channel": "market_video_app:full_video:103",
+        "sku": 127,
+        "ratio": "1:1",
+        "quality": "480p",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:full_video:103",
+        "selected_sku": 127,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 127,
+        "points": 50,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "resolution": "480P",
+          "model": "full-video",
+          "duration": 5,
+          "ratio": "1:1"
+        },
+        "prepared_hash": "7bf0ffcf39ff95e1afc60d5306aa421be93d7b0d30be5afb40a4889a825cdd60",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      }
+    },
+    {
+      "at": "2026-10-30T06:21:32.588Z",
+      "controls": {
+        "channel": "market_video_app:full_video:103",
+        "sku": 127,
+        "ratio": "1:1",
+        "quality": "480p",
+        "reference_count": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:full_video:103",
+        "selected_sku": 127,
+        "requested_counts": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 127,
+        "points": 50,
+        "native_slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "resolution": "480P",
+          "model": "full-video",
+          "duration": 5,
+          "ratio": "1:1"
+        },
+        "prepared_hash": "dda6a2b1578752eb1230ca238a65f5ef4411ff130c6f631a9b47b0f5c292d302",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "start_end",
+        "material_mode": null
+      }
+    },
+    {
+      "at": "2026-10-30T06:21:36.542Z",
+      "controls": {
+        "channel": "market_video_app:full_video:103",
+        "sku": 127,
+        "ratio": "1:1",
+        "quality": "480p",
+        "reference_count": 2
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:full_video:103",
+        "selected_sku": 127,
+        "requested_counts": {
+          "image": 2,
+          "video": 1,
+          "audio": 1
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 127,
+        "points": 50,
+        "native_slots": {
+          "image": 2,
+          "video": 1,
+          "audio": 1
+        },
+        "meter_context": [],
+        "native_controls": {
+          "resolution": "480P",
+          "model": "full-video",
+          "duration": 5,
+          "ratio": "1:1"
+        },
+        "prepared_hash": "ce9915c2e10fb2b3973ae09a5ca88f38f611499dedfc01e836496432ec6ab4e8",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "omni_reference",
+        "material_mode": null
+      }
+    }
+  ]
+}
