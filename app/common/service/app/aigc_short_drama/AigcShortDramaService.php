@@ -17497,7 +17497,7 @@ class AigcShortDramaService
         if (!is_array($rule)) return $policy;
         $source=ShortDramaImportedScript::sourceContent($episode);
         if ($source === '') return $policy;
-        $timeline=self::extractTimelineSegments($source);
+        $timeline=ShortDramaImportedScript::normalizeTimeline(self::extractTimelineSegments($source));
         $explicit=0.0;
         if (preg_match_all('/(?:^|\n)\s*(?:(?:本集|第\s*[0-9一二三四五六七八九十百]+\s*集)\s*)?时长\s*(?:为|是|:|：)?\s*([0-9]+(?:\.[0-9]+)?)\s*(分钟|分|秒钟|秒)(?=\s|$)/u',$source,$matches,PREG_SET_ORDER)) {
             foreach ($matches as $match) {
