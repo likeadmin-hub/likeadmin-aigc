@@ -481,6 +481,8 @@ class PaymentLogic extends BaseLogic
         }
 
         if (in_array($from,['recharge','membership'],true)) {
+            try { \app\common\service\promotion\PackagePurchaseAvailability::assertOrder($from,$order instanceof \think\Model?$order->toArray():$order); }
+            catch (\RuntimeException $e) { self::setError($e->getMessage());return false; }
             $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$from,(int)$order['id']);
             if ($snapshot && ($snapshot['status']!=='pending'||(int)$snapshot['expires_at']<=time())) { self::setError('订单已过期或关闭，请先核对支付结果');return false; }
             if ((int)$order['pay_way']===PayEnum::VIRTUAL_PAY) { self::setError('该订单已发起虚拟支付，请核对原交易后操作');return false; }

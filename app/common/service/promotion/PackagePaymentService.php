@@ -17,10 +17,12 @@ final class PackagePaymentService
     }
     public function prepay(string $from,array $order,int $channel,int $terminal,string $redirect): array
     {
+        PackagePurchaseAvailability::assertOrder($from,$order);
         return $this->scoped((int)$order['tenant_id'],function()use($from,$order,$channel,$terminal,$redirect){
             $context=$this->gateway->call('context',$channel,$terminal,(int)$order['user_id']);
             $prepared=Db::transaction(function()use($from,$order,$channel,$terminal,$redirect,$context){
                 $o=Orders::order((int)$order['tenant_id'],(int)$order['user_id'],$from,(int)$order['id'],true);
+                PackagePurchaseAvailability::assertOrder($from,$o->toArray(),true);
                 $s=Db::name('tenant_package_price_snapshot')->where(['tenant_id'=>$order['tenant_id'],'biz_type'=>$from,'order_id'=>$order['id']])->lock(true)->find();
                 if(!$s||$s['status']!=='pending'||(int)$s['expires_at']<=time()||(int)$o['pay_status'])throw new \RuntimeException('订单已过期或已付款，请先查询原订单');
                 $old=json_decode($s['payment_context']??'',true)?:[];
