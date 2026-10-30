@@ -198,13 +198,29 @@ class MarketVideoRuntimeService
     /** Expose only sellable generation variants to every catalogue consumer. */
     private static function generationModeOptions(array $product, array $skus): array
     {
-        if (($product['upstream_app_code'] ?? '') !== 'grok_video') return [];
         $models = array_column($skus, 'model');
         $modes = [];
-        foreach (['fast' => 'grok-imagine-video-1.5-fast', 'standard' => 'grok-imagine-video-1.5'] as $mode => $model) {
+        foreach (self::generationModeModels($product) as $mode => $model) {
             if (in_array($model, $models, true)) $modes[] = $mode;
         }
         return $modes;
+    }
+
+    /** The same registered variant identity drives catalogue and live SKU selection. */
+    private static function generationModeModels(array $product): array
+    {
+        return strtolower((string)($product['upstream_app_code'] ?? '')) === 'grok_video'
+            ? ['fast' => 'grok-imagine-video-1.5-fast', 'standard' => 'grok-imagine-video-1.5'] : [];
+    }
+
+    private static function skuMatchesGenerationMode(array $product, array $locked, array $selection): bool
+    {
+        $models = self::generationModeModels($product);
+        $mode = strtolower(self::value($selection, ['mode']));
+        // Empty/pro are legacy generic defaults, not an explicit application variant.
+        if ($models === [] || $mode === '' || $mode === 'pro') return true;
+        if (!isset($models[$mode])) throw new Exception('当前模型不支持所选生成档位');
+        return strtolower((string)($locked['model'] ?? '')) === $models[$mode];
     }
 
     public static function quote(int $tenantId, array $selection): array
@@ -765,6 +781,7 @@ class MarketVideoRuntimeService
                     'selected market SKU does not support current aspect ratio',
                     'market sku does not support current input mode',
                     '所选市场 SKU 不支持当前时长',
+                    '所选市场 SKU 不支持当前生成档位',
                 ], true)) {
                     throw $e;
                 }
@@ -797,13 +814,19 @@ class MarketVideoRuntimeService
         $matches = self::availableSkus($tenantId, $productId); $quality = self::value($selection, ['resolution', 'quality']); $duration = (int)self::value($selection, ['duration']); $ratio = self::value($selection, ['ratio', 'aspect_ratio', 'size']); $mode = self::inputMode($selection);
         $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $ratio, $mode, $productData, $selection): bool {
             $locked = self::arrayValue($row['sku']['locked_params'] ?? []); $resolution = self::resolution($locked); $lockedDuration = self::duration($locked); $skuMode = self::skuInputMode($locked);
+            if (!self::skuMatchesGenerationMode($productData, $locked, $selection)) return false;
             if ($quality !== '' && $resolution !== '' && strtolower($quality) !== strtolower($resolution)) return false;
             if ($duration > 0 && $lockedDuration > 0 && $lockedDuration !== $duration) return false;
             if (!self::skuSupportsRatio($locked, self::arrayValue($row['sku']['selectable_params'] ?? []), $ratio)) return false;
             if (!self::contractSkuMatches($productData, $locked, $selection, $skuMode, $mode)) return false;
             return true;
         }));
-        if ($matches === []) throw new Exception('当前模型没有可用的市场计费 SKU');
+        if ($matches === []) {
+            if (isset(self::generationModeModels($productData)[strtolower(self::value($selection, ['mode']))])) {
+                throw new Exception('所选生成档位不支持当前生成方式、素材或规格，请调整参数');
+            }
+            throw new Exception('当前模型没有可用的市场计费 SKU');
+        }
         $market = self::marketRow($tenantId, $productData, (array)$matches[0]['sku']);
         self::assertSkuMatchesSelection($market, $selection);
         return $market;
@@ -1913,6 +1936,9 @@ class MarketVideoRuntimeService
     private static function assertSkuMatchesSelection(array $market, array $selection): void
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
+        if (!self::skuMatchesGenerationMode($market['product'], $locked, $selection)) {
+            throw new Exception('所选市场 SKU 不支持当前生成档位');
+        }
         $requestedResolution = self::value($selection, ['resolution', 'quality']);
         $lockedResolution = self::resolution($locked);
         if ($requestedResolution !== '' && $lockedResolution !== '' && strtolower($requestedResolution) !== strtolower($lockedResolution)) {
