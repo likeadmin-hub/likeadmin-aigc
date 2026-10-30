@@ -14,7 +14,7 @@ final class ShortDramaFileParseFallbackTest extends TestCase
     {
         $request=$this->request();$request['_file_parse_fallback']+=['original_result'=>['bad'=>'primary'],'validation_error'=>'缺少分集'];$calls=0;
         $result=Fallback::repair(1,3,['id'=>0,'task_id'=>''],$request,function($input,$event)use(&$calls){
-            $calls++;self::assertStringContainsString('缺少分集',$input['content']);self::assertStringContainsString('L000001 第一集 地址',$input['content']);
+            $calls++;self::assertStringContainsString('缺少分集',$input['content']);self::assertStringContainsString('L000001 第一集 地址',$input['content']);self::assertStringContainsString('首集 start_line=1',$input['system_prompt']);self::assertStringContainsString('末集 end_line=4',$input['system_prompt']);
             self::assertTrue($input['_disable_model_fallback']);self::assertTrue($input['_disable_transient_retry']);self::assertTrue($input['_disable_compatibility_retry']);return ['content'=>json_encode($this->plan())];
         },static fn($plan)=>$plan);
         self::assertSame(1,$calls);self::assertSame($request['_file_parse_fallback']['text'],implode('',array_column($result['parsed']['episodes'],'source_content')));
