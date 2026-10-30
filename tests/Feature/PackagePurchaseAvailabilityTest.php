@@ -71,4 +71,13 @@ final class PackagePurchaseAvailabilityTest extends TestCase
     {
         foreach(['membership','recharge']as$type){$p=$this->package($type);$order=Price::create(self::TENANT,$this->user,4,$type,$p);$before=Price::snapshot(self::TENANT,$type,$order['order_id']);$this->stop($type,$p);Price::consume(self::TENANT,$type,$order['order_id']);$after=Price::snapshot(self::TENANT,$type,$order['order_id']);self::assertSame('paid',$after['status']);self::assertSame($before['rights'],$after['rights']);}
     }
+    public function testActiveFreePurchasesStillGrantOnceAndCustomRechargeHasNoCatalogId():void
+    {
+        foreach(['membership','recharge']as$type){$p=$this->package($type,0);$order=Price::create(self::TENANT,$this->user,4,$type,$p);$o=VirtualPayService::order(self::TENANT,$this->user,$type,$order['order_id'])->toArray();
+            self::assertIsArray(PaymentLogic::pay(2,$type,$o,4,'/'),PaymentLogic::getError());
+            self::assertSame(1,(int)VirtualPayService::order(self::TENANT,$this->user,$type,$order['order_id'])['pay_status']);
+        }
+        \app\common\service\promotion\PackagePurchaseAvailability::assertOrder('recharge',['tenant_id'=>self::TENANT,'package_id'=>0]);
+        self::assertSame('10.00',Db::name('user')->where('id',$this->user)->value('user_money'));
+    }
 }

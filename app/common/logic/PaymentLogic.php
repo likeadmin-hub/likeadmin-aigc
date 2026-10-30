@@ -506,14 +506,28 @@ class PaymentLogic extends BaseLogic
         $order['sn'] = $order['sn'] ?? $order['order_sn'];
         $order['pay_sn'] = $paySn;
 
-        //更新支付方式
-        switch ($from) {
-            case 'recharge':
-                RechargeOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
-                break;
-            case 'membership':
-                MembershipOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
-                break;
+        // Legacy and zero-price purchases also serialize availability with the local payment claim.
+        if (in_array($from, ['recharge', 'membership'], true)) {
+            try {
+                $order = \think\facade\Db::transaction(static function () use ($from, $order, $payWay, $paySn) {
+                    $owned = \app\common\service\virtualpay\VirtualPayService::order((int)$order['tenant_id'], (int)$order['user_id'], $from, (int)$order['id'], true);
+                    if ((int)$owned['pay_status']) throw new \RuntimeException('订单已支付，请查看交付结果');
+                    \app\common\service\promotion\PackagePurchaseAvailability::assertOrder($from, $owned->toArray(), true);
+                    $owned->save(['pay_way'=>$payWay, 'pay_sn'=>$paySn]);
+                    if ((float)$owned['order_amount'] === 0.0) {
+                        if (PayNotifyLogic::handle($from, (string)($owned['sn'] ?? $owned['order_sn'])) !== true) {
+                            throw new \RuntimeException('订单权益发放失败，请重试');
+                        }
+                    }
+                    return $owned->toArray();
+                });
+            } catch (\Throwable $e) {
+                self::setError(\app\common\service\virtualpay\VirtualPayPolicy::error($e));
+                return false;
+            }
+            $order['sn'] = $order['sn'] ?? $order['order_sn'];
+            if ((float)$order['order_amount'] === 0.0) return ['pay_way'=>PayEnum::BALANCE_PAY];
+        } else switch ($from) {
             case TenantPowerMallService::FROM:
                 TenantPowerOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
                 break;
