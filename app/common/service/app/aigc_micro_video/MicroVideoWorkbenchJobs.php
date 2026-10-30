@@ -107,7 +107,7 @@ final class MicroVideoWorkbenchJobs
     {
         $r=self::owned($tenant,$user,(int)($p['job_id']??0));$project=MicroVideoWorkbenchRecords::owned($tenant,$user,'project',(int)($p['project_id']??0),false,true);MicroVideoWorkbenchPolicy::revision($project,(int)($p['project_revision']??0));
         if((int)$r['project_id']!==(int)$project['id']||$r['status']!=='success')throw new InvalidArgumentException('只能采纳本项目已成功的准备结果');
-        if((int)$r['project_revision']!==(int)$project['revision'])throw new InvalidArgumentException('当前内容已更新，请查看生成结果并手工合并');
+        if(filter_var($p['auto_apply']??false,FILTER_VALIDATE_BOOLEAN)&&(int)$r['project_revision']!==(int)$project['revision'])throw new InvalidArgumentException('当前内容已更新，请查看生成结果并手工合并');
         $body=MicroVideoWorkbenchPolicy::normalizeValues(MicroVideoStore::json($project['body_json']));$result=MicroVideoStore::json($r['result_json']);
         MicroVideoWorkbenchRecords::assertNoPrivateEcho($result,[$body,MicroVideoStore::json($r['request_json'])]);
         if($r['action']==='rewrite'){
