@@ -24,9 +24,9 @@ final class MarketGenerationMedia
     }
 
     /** Resolve only ambiguous encoded visual slots; ordinary typed extraction remains pure. */
-    public static function inputs(array $native, ?callable $visualProbe = null): array
+    public static function inputs(array $native, ?callable $visualProbe = null, array $declaredKinds = []): array
     {
-        $media=MarketGenerationMediaInputs::extract($native);
+        $media=MarketGenerationMediaInputs::extract($native,$declaredKinds);
         foreach(MarketGenerationMediaInputs::visualUrls($native)as$url){
             if(!preg_match('~^https?://~i',$url))throw new InvalidArgumentException('主体素材缺少可核验的图片或视频地址');
             $facts=$visualProbe!==null?$visualProbe($url):self::probeFacts($url,'visual');
