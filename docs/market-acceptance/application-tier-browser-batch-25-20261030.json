@@ -1,0 +1,408 @@
+{
+  "batch": 25,
+  "scope": "Isolated actual CanvasNode / ShortDramaCanvasNode and production page constructors; no full project page",
+  "wire_captured_to_local_readonly_fixture": true,
+  "normal_authenticated_saas_page_wire_captured": false,
+  "supplier_generation_and_asset_apis": "disabled",
+  "project_writes": "disabled",
+  "synthetic_uploads_this_batch": 0,
+  "initial_fixture_issues": [
+    "Missing temp dependency link fixed before final capture",
+    "Missing production model label projection fixed before final capture"
+  ],
+  "final_console_errors": [],
+  "observed_standard_duration_choices": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "screenshots_local": [
+    "/tmp/market-batch25-drama-standard-ready.jpg",
+    "/tmp/market-batch25-drama-standard-duration-menu.jpg",
+    "/tmp/market-batch25-drama-standard-text-rejected.jpg",
+    "/tmp/market-batch25-canvas-standard-ready.jpg",
+    "/tmp/market-batch25-canvas-standard-text-rejected.jpg"
+  ],
+  "events": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "fast",
+        "generation_method": "image_reference",
+        "resolution": "480P",
+        "quality": "480p",
+        "ratio": "1:1",
+        "duration": 5,
+        "market_sku_id": 137
+      },
+      "reference_counts": {
+        "image": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:grok_video:108",
+        "selected_sku": 137,
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 137,
+        "points": 148.83,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "model": "grok-imagine-video-1.5-fast",
+          "resolution": "480p",
+          "duration": 5,
+          "aspect_ratio": "1:1"
+        },
+        "prepared_hash": "0014cc1918f0a2a4944978488e3cce85396ae468a89a742f20a27555bfbbc4b9",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "image_reference",
+        "material_mode": null
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "fast",
+        "generation_method": "image_reference",
+        "resolution": "480P",
+        "quality": "480p",
+        "ratio": "1:1",
+        "duration": 5,
+        "market_sku_id": 137
+      },
+      "reference_counts": {
+        "image": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:grok_video:108",
+        "selected_sku": 137,
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 137,
+        "points": 148.83,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "model": "grok-imagine-video-1.5-fast",
+          "resolution": "480p",
+          "duration": 5,
+          "aspect_ratio": "1:1"
+        },
+        "prepared_hash": "0014cc1918f0a2a4944978488e3cce85396ae468a89a742f20a27555bfbbc4b9",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "image_reference",
+        "material_mode": null
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "fast",
+        "generation_method": "image_reference",
+        "resolution": "480p",
+        "quality": "",
+        "ratio": "1:1",
+        "duration": 5
+      },
+      "reference_counts": {
+        "image": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "short_drama",
+        "channel": "market_video_app:grok_video:108",
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 137,
+        "points": 148.83,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "model": "grok-imagine-video-1.5-fast",
+          "resolution": "480p",
+          "duration": 5,
+          "aspect_ratio": "1:1"
+        },
+        "prepared_hash": "0014cc1918f0a2a4944978488e3cce85396ae468a89a742f20a27555bfbbc4b9",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "image_reference",
+        "material_mode": null
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "standard",
+        "generation_method": "image_reference",
+        "resolution": "480p",
+        "quality": "",
+        "ratio": "1:1",
+        "duration": 5
+      },
+      "reference_counts": {
+        "image": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "short_drama",
+        "channel": "market_video_app:grok_video:108",
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 140,
+        "points": 76.7,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "model": "grok-imagine-video-1.5",
+          "resolution": "480p",
+          "duration": 5,
+          "aspect_ratio": "1:1"
+        },
+        "prepared_hash": "94ffc64d228e53ee74b7999917310f8b86827dfe26ab3f757c7ff867d368adf2",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "image_reference",
+        "material_mode": null
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "standard",
+        "generation_method": "image_reference",
+        "resolution": "720p",
+        "quality": "",
+        "ratio": "1:1",
+        "duration": 5
+      },
+      "reference_counts": {
+        "image": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "short_drama",
+        "channel": "market_video_app:grok_video:108",
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 141,
+        "points": 76.7,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "model": "grok-imagine-video-1.5",
+          "resolution": "720p",
+          "duration": 5,
+          "aspect_ratio": "1:1"
+        },
+        "prepared_hash": "5a66e40c2867ab90d068f60d283b23f132e025c0f129bd3ce354c5f8745783b0",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "image_reference",
+        "material_mode": null
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "standard",
+        "generation_method": "text_to_video",
+        "resolution": "720p",
+        "quality": "",
+        "ratio": "1:1",
+        "duration": 5
+      },
+      "reference_counts": {},
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "short_drama",
+        "channel": "market_video_app:grok_video:108",
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "local_rejection",
+        "error": "所选生成档位不支持当前生成方式、素材或规格，请调整参数"
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "fast",
+        "generation_method": "image_reference",
+        "resolution": "480P",
+        "quality": "480p",
+        "ratio": "1:1",
+        "duration": 5,
+        "market_sku_id": 137
+      },
+      "reference_counts": {
+        "image": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:grok_video:108",
+        "selected_sku": 137,
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 137,
+        "points": 148.83,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "model": "grok-imagine-video-1.5-fast",
+          "resolution": "480p",
+          "duration": 5,
+          "aspect_ratio": "1:1"
+        },
+        "prepared_hash": "0014cc1918f0a2a4944978488e3cce85396ae468a89a742f20a27555bfbbc4b9",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "image_reference",
+        "material_mode": null
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "standard",
+        "generation_method": "image_reference",
+        "resolution": "480P",
+        "quality": "480p",
+        "ratio": "1:1",
+        "duration": 5,
+        "market_sku_id": 140
+      },
+      "reference_counts": {
+        "image": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:grok_video:108",
+        "selected_sku": 140,
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 140,
+        "points": 76.7,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": [],
+        "native_controls": {
+          "model": "grok-imagine-video-1.5",
+          "resolution": "480p",
+          "duration": 5,
+          "aspect_ratio": "1:1"
+        },
+        "prepared_hash": "94ffc64d228e53ee74b7999917310f8b86827dfe26ab3f757c7ff867d368adf2",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "image_reference",
+        "material_mode": null
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_app:grok_video:108",
+      "requested_parameters": {
+        "mode": "standard",
+        "generation_method": "text_to_video",
+        "resolution": "480P",
+        "quality": "480p",
+        "ratio": "1:1",
+        "duration": 5,
+        "market_sku_id": 140
+      },
+      "reference_counts": {},
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_app:grok_video:108",
+        "selected_sku": 140,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "local_rejection",
+        "error": "所选生成档位不支持当前生成方式、素材或规格，请调整参数"
+      }
+    }
+  ]
+}

@@ -4,6 +4,8 @@
 
 ## 数据与选择
 
+共享视频目录的 `generation_variants` 仅把已注册的业务档位与当前可售 `market_sku_ids` 绑定，供各入口复用档位、分辨率和时长投影；`mode_options` 继续兼容既有消费者。它不授予新模型能力，不代替下列完整原生合同，也不替代准入时的SKU、素材、参数和计价检查。目录不包含这项绑定时，前端不按相似型号猜测关联；新的协议或计价维度仍须在共享层补充支持并验证。
+
 `MarketGenerationReviewedContract` 读取受信任的本地 `resources/market/reviewed-generation-contracts.json`，可通过 `MARKET_REVIEWED_GENERATION_CONTRACTS_PATH` 指定受信任文件。文件不存在时使用原有路径；候选工具的输出不能直接作为此文件。目录格式为 `version: 2`、`contracts: [...]`，只允许同一类型、型号、渠道有一个当前条目。更换版本通过替换此条目完成，不根据标题、相近型号、渠道大小写或版本号排序猜测。
 
 每条合同包含：
