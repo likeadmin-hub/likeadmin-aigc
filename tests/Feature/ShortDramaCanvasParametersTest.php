@@ -13,6 +13,12 @@ foreach(['image','video'] as $type){
  $payload=$call('generationPayload',$type,['prompt'=>'Existing draft','channel'=>'fixture','advanced_params'=>['size'=>'3:2','multi_shots'=>false,'seed'=>0],'provider_params'=>['api_key'=>'forbidden']],1,1,422,true);
  verify($payload['advanced_params']===['size'=>'3:2','multi_shots'=>false,'seed'=>0],"$type retains size, false and zero");
  verify(!isset($payload['provider_params']),"$type rejects raw provider override");
+ $modePayload=$call('generationPayload',$type,['prompt'=>'Synthetic fixture','channel'=>'fixture','material_mode'=>'text','advanced_params'=>['seed'=>0,'multi_shots'=>false]],1,1,422,true);
+ verify($modePayload['material_mode']==='text',"$type preserves selected mode through quote/submit boundary");
+ verify(!isset($modePayload['generate_audio']),"$type does not invent audio defaults");
+ verify($call('quoteInput','node',$modePayload)!==$call('quoteInput','node',array_replace($modePayload,['material_mode'=>'other'])),"$type changed mode invalidates quote signature");
+ try{$call('generationPayload',$type,['prompt'=>'Synthetic fixture','material_mode'=>['text']],1,1,422,true);throw new RuntimeException('accepted invalid mode');}
+ catch(Exception $e){verify($e->getMessage()==='素材模式格式不正确',"$type rejects malformed mode");}
  $normalized=Parameters::applyOptions($payload,[$model],$type);
  verify($normalized['provider_params']['size']==='3:2'&&$normalized['provider_params']['multi_shots']===false,"$type applies shared schema");
  $before=$call('quoteInput','node',$payload);$payload['advanced_params']['size']='2:3';
