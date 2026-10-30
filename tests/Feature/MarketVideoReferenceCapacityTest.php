@@ -50,11 +50,11 @@ class MarketVideoReferenceCapacityTest extends TestCase
     }
     public function testCanvasKeepsTwentyMarkedUsesWhileMergingLegacyAliases(): void
     {
-        $r=$this->request();$r['reference_assets'][]=['type'=>'video','uri'=>'https://fixtures.invalid/video'];
+        $r=$this->request();$expected=$r;$r['reference_assets'][]=['type'=>'video','uri'=>'https://fixtures.invalid/video'];
         $canvas=$this->canvas($r);
         self::assertCount(20,$canvas['reference_assets']);
         self::assertCount(20,array_column($canvas['reference_assets'],'reference_slot_id'));
-        self::assertSame(Videos::prepareRequest($this->snapshot(),$r)->nativeInput,
+        self::assertSame(Videos::prepareRequest($this->snapshot(),$expected)->nativeInput,
             Videos::prepareRequest($this->snapshot(),$canvas)->nativeInput);
     }
     public function testCanvasKeepsSameImageInBothFrameRoles(): void
