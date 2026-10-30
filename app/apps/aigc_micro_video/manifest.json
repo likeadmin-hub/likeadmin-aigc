@@ -1,10 +1,10 @@
 {
   "code": "aigc_micro_video",
   "name": "微视频",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "require_core": ">=1.0.0",
   "description": "多图理解、智能提示词与创作方向，确认分段后生成并合并完整视频。",
-  "changelog": "1. 新增云端创作项目、模板与商品档案，支持版本保存与草稿变体。\n2. 支持剧本改写、角色分析、分镜参考与逐项费用确认。\n3. 扩展移动端创作流程与租户工作台管理。",
+  "changelog": "1. 优化AI剧本实时输出与生成反馈，简化创作步骤。\n2. 完善图片引用校验与已有结果恢复。\n3. 支持自动展示和更新生成费用，优化确认生成体验。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "is_builtin": 1,
