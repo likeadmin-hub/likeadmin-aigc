@@ -46,6 +46,7 @@ final class MicroVideoGeneratedReferenceRecoveryTest extends TestCase
         Jobs::table()->where('id',$id)->update(['action'=>$action,'result_json'=>json_encode($result),'request_json'=>json_encode(['snapshot'=>$body,'target_id'=>$action==='role_image'?'lead':'s1'])]);
         $adopted=Jobs::adopt(1,1,['project_id'=>$project['id'],'project_revision'=>2,'job_id'=>$id]);
         self::assertSame($id,$adopted['body']['last_applied_job_id']??null);
+        self::assertSame([$id],$adopted['body']['applied_job_ids']);
         self::assertSame($id,$adopted['body']['last_applied_jobs'][$action]??null);
         if($action!=='analyze_roles')self::assertSame(101,$adopted['body']['last_applied_jobs']['analyze_roles']);
         $stored=json_decode(Records::owned(1,1,'project',$project['id'])['body_json'],true);self::assertSame($id,$stored['last_applied_job_id']??null);
@@ -58,6 +59,33 @@ final class MicroVideoGeneratedReferenceRecoveryTest extends TestCase
     }
     public static function adoptionActions(): array
     {return [['rewrite'],['analyze_roles'],['analyze_scenes'],['role_image'],['scene_image']];}
+
+    public function testAppliedIdsRetainBothSameActionResultsWhenAnOlderResultIsAdoptedLater(): void
+    {
+        [$project,$older]=$this->fixture();$row=Jobs::owned(1,1,$older);unset($row['id']);$row['idempotency_key']='newer-reference-'.bin2hex(random_bytes(8));
+        $newer=Jobs::table()->insertGetId($row);$before=Db::name('ai_consumption_log')->count();
+        Jobs::adopt(1,1,['project_id'=>$project['id'],'project_revision'=>1,'job_id'=>$newer]);
+        $adopted=Jobs::adopt(1,1,['project_id'=>$project['id'],'project_revision'=>2,'job_id'=>$older]);
+        self::assertSame([$newer,$older],$adopted['body']['applied_job_ids']??null);
+        self::assertSame($older,$adopted['body']['last_applied_job_id']);self::assertSame($older,$adopted['body']['last_applied_jobs']['rewrite']);
+        self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
+
+    public function testAppliedIdsKeepOnlyTheLatestTwentyDistinctActuallyAdoptedJobs(): void
+    {
+        [$project,$first]=$this->fixture();$row=Jobs::owned(1,1,$first);unset($row['id']);$ids=[];$before=Db::name('ai_consumption_log')->count();
+        $adopted=Jobs::adopt(1,1,['project_id'=>$project['id'],'project_revision'=>1,'job_id'=>$first]);$ids[]=$first;
+        for($n=0;$n<20;$n++){
+            $row['idempotency_key']='bounded-reference-'.bin2hex(random_bytes(8));$id=Jobs::table()->insertGetId($row);$ids[]=$id;
+            $adopted=Jobs::adopt(1,1,['project_id'=>$project['id'],'project_revision'=>$adopted['revision'],'job_id'=>$id]);
+        }
+        self::assertSame(array_slice($ids,1),$adopted['body']['applied_job_ids']??null);
+        $reapplied=Jobs::adopt(1,1,['project_id'=>$project['id'],'project_revision'=>$adopted['revision'],'job_id'=>$ids[5]]);
+        $expected=array_values(array_filter(array_slice($ids,1),static fn($id)=>$id!==$ids[5]));$expected[]=$ids[5];
+        self::assertSame($expected,$reapplied['body']['applied_job_ids']);
+        $stored=json_decode(Records::owned(1,1,'project',$project['id'])['body_json'],true);self::assertSame($expected,$stored['applied_job_ids']);
+        self::assertSame($before,Db::name('ai_consumption_log')->count());
+    }
 
     public function testLegacyGeneratedProjectReadIsLazyAndManualScriptEditsRemainUntouched(): void
     {

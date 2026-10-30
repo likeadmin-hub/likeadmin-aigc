@@ -132,6 +132,10 @@ final class MicroVideoWorkbenchJobs
         $body['last_applied_job_id']=(int)$r['id'];
         $body['last_applied_jobs']=is_array($body['last_applied_jobs']??null)?$body['last_applied_jobs']:[];
         $body['last_applied_jobs'][$r['action']]=(int)$r['id'];
+        // Applied state for the recent-job window; repeated adoption moves an ID to the end.
+        $applied=[];
+        foreach((array)($body['applied_job_ids']??[]) as $appliedId)if((is_int($appliedId)||(is_string($appliedId)&&ctype_digit($appliedId)))&&(int)$appliedId>0&&(int)$appliedId!==(int)$r['id'])$applied[]=(int)$appliedId;
+        $applied[]=(int)$r['id'];$body['applied_job_ids']=array_slice(array_values(array_unique($applied)),-20);
         return MicroVideoWorkbenchRecords::save($tenant,$user,['kind'=>'project','id'=>$project['id'],'revision'=>$p['project_revision'],'title'=>$project['title'],'body'=>$body]);
     }
 }
