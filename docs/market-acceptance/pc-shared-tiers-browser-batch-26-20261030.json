@@ -15,7 +15,7 @@
       "channel": "market_video_app:grok_video:108",
       "status": "observed_pass",
       "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
-      "source_web_commit": "d364eaa9"
+      "source_web_commit": "a69c9436"
     },
     {
       "entry": "pc_studio",
@@ -28,7 +28,7 @@
       "channel": "market_video_app:grok_video:108",
       "status": "observed_pass",
       "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
-      "source_web_commit": "d364eaa9"
+      "source_web_commit": "a69c9436"
     },
     {
       "entry": "pc_studio",
@@ -40,7 +40,7 @@
       "channel": "market_video_app:grok_video:108",
       "status": "observed_pass",
       "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
-      "source_web_commit": "d364eaa9"
+      "source_web_commit": "a69c9436"
     },
     {
       "entry": "standalone",
@@ -52,7 +52,7 @@
       "channel": "market_video_app:grok_video:108",
       "status": "observed_pass",
       "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
-      "source_web_commit": "d364eaa9"
+      "source_web_commit": "0fb67bc9"
     },
     {
       "entry": "standalone",
@@ -64,7 +64,7 @@
       "channel": "market_video_app:grok_video:108",
       "status": "observed_pass",
       "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
-      "source_web_commit": "d364eaa9"
+      "source_web_commit": "0fb67bc9"
     },
     {
       "entry": "standalone",
@@ -78,6 +78,18 @@
       "status": "observed_pass",
       "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
       "source_web_commit": "d364eaa9"
+    },
+    {
+      "entry": "pc_studio",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "final_revision_duration_label_marker",
+      "status": "observed_pass",
+      "source_web_commit": "d364eaa9",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "observed": [
+        "Final revision after query reload settled: Grok fast720P5sec text estimate168.83; account points4387.65",
+        "Chinese5sec label and5sec selected menu row agree; aria-checked=true; fast maximum30sec"
+      ]
     }
   ],
   "synthetic_files": [
@@ -96,6 +108,12 @@
     "IAB retained an authorized local session; no identity injection. Modern and standalone complete pages loaded normally.",
     "First standalone card click opened synthetic preview. Only the subsequent cross click counts as removal.",
     "Home popover has transition delays. Early immediate snapshots and locator timeouts were not classified as product defects. Final menu and screenshot were observed.",
-    "PC preview restarted once for404 diagnosis; corrected a missing CLI path during startup. Platform and tenant processes preserved."
+    "PC preview restarted once for404 diagnosis; corrected a missing CLI path during startup. Platform and tenant processes preserved.",
+    "A late direct query reload briefly displayed a different option set before settling back to requested Grok. Cause not isolated; transient state excluded from passed observations and retained for follow-up."
+  ],
+  "source_web_commits": [
+    "a69c9436",
+    "0fb67bc9",
+    "d364eaa9"
   ]
 }
