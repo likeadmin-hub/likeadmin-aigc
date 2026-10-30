@@ -18,7 +18,19 @@ final class MicroVideoWorkbenchRecords
         $q=self::query($tenant,$user,$kind,$admin,$write)->where('id',$id);if($lock)$q->lock(true);$r=$q->find();if(!$r)throw new InvalidArgumentException('资料不存在或无权访问');return $r;
     }
     public static function dto(array $r): array
-    {return ['id'=>(int)$r['id'],'kind'=>$r['kind'],'title'=>$r['title'],'user_id'=>(int)$r['user_id'],'revision'=>(int)$r['revision'],'status'=>(int)$r['status'],'visibility'=>$r['visibility'],'body'=>self::publicBody(MicroVideoStore::json($r['body_json'])),'create_time'=>(int)$r['create_time'],'update_time'=>(int)$r['update_time']];}
+    {return ['id'=>(int)$r['id'],'kind'=>$r['kind'],'title'=>$r['title'],'user_id'=>(int)$r['user_id'],'revision'=>(int)$r['revision'],'status'=>(int)$r['status'],'visibility'=>$r['visibility'],'body'=>self::publicBody(self::generatedProjectBody($r)),'create_time'=>(int)$r['create_time'],'update_time'=>(int)$r['update_time']];}
+    /** Read-only legacy repair requires an owned generated result and an exactly unchanged script. */
+    private static function generatedProjectBody(array $record): array
+    {
+        $body=MicroVideoWorkbenchPolicy::normalizeValues(MicroVideoStore::json($record['body_json']));
+        if($record['kind']!=='project'||empty($body['last_script_job_id'])||!is_array($body['script']??null))return $body;
+        $job=MicroVideoWorkbenchJobs::table()->where(['id'=>(int)$body['last_script_job_id'],'tenant_id'=>$record['tenant_id'],'user_id'=>$record['user_id'],'project_id'=>$record['id'],'action'=>'rewrite','status'=>'success'])->find();
+        if(!$job)return $body;
+        $original=MicroVideoWorkbenchPolicy::normalizeValues(MicroVideoStore::json($job['result_json']));
+        if(MicroVideoWorkbenchPolicy::hash($body['script'])!==MicroVideoWorkbenchPolicy::hash($original['script']??[]))return $body;
+        $body['script']=MicroVideoWorkbenchJobs::result($job,(array)($body['images']??[]))['script'];
+        return $body;
+    }
     /** Public images preserve usable storage references but never expose private receipt/owner identities. */
     public static function publicAsset(array $image): array
     {return array_intersect_key($image,array_flip(['id','uri','url','name','role','storage_scope','storage_engine','storage_domain']));}
