@@ -1,0 +1,2321 @@
+{
+  "version": 1,
+  "observed_at": "2026-10-30T16:25:00+08:00",
+  "tenant_id": 1,
+  "scope": "28 finite local canvas/short-drama cases using current catalogue and authorized synthetic stored assets. No uploads, task creation, reserve, charge, supplier calls, market sync or history mutation. Read-only transaction rolled back. This projection fingerprint is not a complete native contract.",
+  "summary": {
+    "quote_admission_frozen_slots_equal": 26,
+    "frontend_rejection": 1,
+    "local_rejection": 1
+  },
+  "equal_entry_pairs": 13,
+  "upstream_generation": "not_tested_no_new_paid_authorization",
+  "cases": [
+    {
+      "channel": "market_video_model:353",
+      "scenario": "native_image_to_video:last",
+      "entry": "canvas",
+      "requested_method": "last_frame",
+      "selected_method": "last_frame",
+      "selected_sku": 775,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 775,
+      "points": 160,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-05a0a7578954c168aa",
+        "duration": 5,
+        "resolution": "768P",
+        "generation_type": "image_to_video"
+      },
+      "prepared_hash": "54cf3a6d96e0aa772101e620b4a316e7709d707463a50b78d625b8e6539ee478",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "last_frame",
+      "material_mode": "image_to_video:last",
+      "identity": {
+        "id": "market_video_model:353",
+        "product_id": 353,
+        "resource_type": "model",
+        "model_code": "official-33-05a0a7578954c168aa",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "MiniMax H3"
+      },
+      "declaration_projection_fingerprint": "c0fc1937f925748c09c4f143007b62ea724e1a9d8e46cc5da431ff93fda71cfe",
+      "controls": {
+        "quality": "768P",
+        "resolution": "768P",
+        "duration": 5,
+        "market_sku_id": 775
+      },
+      "material_mode_requested": "image_to_video:last",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 775,
+        "sku_key": "group_image_to_video_official_4bd2c089a37726cfa987c233",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "67147be2709bdfae1743fbc31bc4e61955a3ea05b213d746f17143427138f8d5"
+    },
+    {
+      "channel": "market_video_model:353",
+      "scenario": "native_image_to_video:last",
+      "entry": "short_drama",
+      "requested_method": "last_frame",
+      "selected_method": "last_frame",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 775,
+      "points": 160,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-05a0a7578954c168aa",
+        "duration": 5,
+        "resolution": "768P",
+        "generation_type": "image_to_video"
+      },
+      "prepared_hash": "54cf3a6d96e0aa772101e620b4a316e7709d707463a50b78d625b8e6539ee478",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "last_frame",
+      "material_mode": "image_to_video:last",
+      "identity": {
+        "id": "market_video_model:353",
+        "product_id": 353,
+        "resource_type": "model",
+        "model_code": "official-33-05a0a7578954c168aa",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "MiniMax H3"
+      },
+      "declaration_projection_fingerprint": "c0fc1937f925748c09c4f143007b62ea724e1a9d8e46cc5da431ff93fda71cfe",
+      "controls": {
+        "ratio": "",
+        "quality": "",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "material_mode_requested": "image_to_video:last",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 775,
+        "sku_key": "group_image_to_video_official_4bd2c089a37726cfa987c233",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "16b7e5f46e92649ee051393e023f26a219a324d4cbeec4f464ce2335c0f9356f"
+    },
+    {
+      "channel": "market_video_model:345",
+      "scenario": "native_:last",
+      "entry": "canvas",
+      "requested_method": "last_frame",
+      "selected_method": "last_frame",
+      "selected_sku": 717,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 717,
+      "points": 90,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-1ff7be16b905640b3a",
+        "aspect_ratio": "1:1",
+        "resolution": "720p",
+        "duration": 5
+      },
+      "prepared_hash": "e3dd9dd6435acecef41b7abb587b9977f2ff04ca5823c3616677ee046b296845",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "last_frame",
+      "material_mode": ":last",
+      "identity": {
+        "id": "market_video_model:345",
+        "product_id": 345,
+        "resource_type": "model",
+        "model_code": "official-33-1ff7be16b905640b3a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Grok Imagine Video 1.5 Preview"
+      },
+      "declaration_projection_fingerprint": "8292eb5c07487c466c3ebc5626eba62ec20e3d7df46366940c1ad58858bd443c",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "720p",
+        "resolution": "720P",
+        "duration": 5,
+        "market_sku_id": 717
+      },
+      "material_mode_requested": ":last",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image",
+          "field": "image_urls",
+          "reference_slot_id": "image_urls.0"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 717,
+        "sku_key": "official_e30bc5158cdf75c68244a6d0",
+        "input_mode": "text_to_video",
+        "resolution": "720p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "0e06cf0e84f6c637b0f0d5156fbfc5aea4593cb2b6f85b7c6fd35866ea9bb7a1"
+    },
+    {
+      "channel": "market_video_model:345",
+      "scenario": "native_:last",
+      "entry": "short_drama",
+      "requested_method": "last_frame",
+      "selected_method": "last_frame",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 717,
+      "points": 90,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-1ff7be16b905640b3a",
+        "aspect_ratio": "1:1",
+        "resolution": "720p",
+        "duration": 5
+      },
+      "prepared_hash": "e3dd9dd6435acecef41b7abb587b9977f2ff04ca5823c3616677ee046b296845",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "last_frame",
+      "material_mode": ":last",
+      "identity": {
+        "id": "market_video_model:345",
+        "product_id": 345,
+        "resource_type": "model",
+        "model_code": "official-33-1ff7be16b905640b3a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Grok Imagine Video 1.5 Preview"
+      },
+      "declaration_projection_fingerprint": "8292eb5c07487c466c3ebc5626eba62ec20e3d7df46366940c1ad58858bd443c",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "720p",
+        "duration": 5
+      },
+      "material_mode_requested": ":last",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image",
+          "field": "image_urls",
+          "reference_slot_id": "image_urls.0"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 717,
+        "sku_key": "official_e30bc5158cdf75c68244a6d0",
+        "input_mode": "text_to_video",
+        "resolution": "720p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "413c7f66de8528fd1fc5ebe03e070c29f593b683fe2ec70a22818a299a030fcb"
+    },
+    {
+      "channel": "market_video_model:345",
+      "scenario": "native_:pair",
+      "entry": "canvas",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "selected_sku": 717,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 717,
+      "points": 90,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-1ff7be16b905640b3a",
+        "aspect_ratio": "1:1",
+        "resolution": "720p",
+        "duration": 5
+      },
+      "prepared_hash": "c58db2a6656ea75240ac1bc22bf3a6a8db916fcc6fb1c427ba928a58627badc8",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": ":pair",
+      "identity": {
+        "id": "market_video_model:345",
+        "product_id": 345,
+        "resource_type": "model",
+        "model_code": "official-33-1ff7be16b905640b3a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Grok Imagine Video 1.5 Preview"
+      },
+      "declaration_projection_fingerprint": "8292eb5c07487c466c3ebc5626eba62ec20e3d7df46366940c1ad58858bd443c",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "720p",
+        "resolution": "720P",
+        "duration": 5,
+        "market_sku_id": 717
+      },
+      "material_mode_requested": ":pair",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image",
+          "field": "image_urls",
+          "reference_slot_id": "image_urls.0"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "field": "first_frame_url",
+          "reference_slot_id": "first_frame_url.0"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 717,
+        "sku_key": "official_e30bc5158cdf75c68244a6d0",
+        "input_mode": "text_to_video",
+        "resolution": "720p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "7aa43f6eda2bcf1142973b758876668d529550179ad88136b7630ec8fb89976b"
+    },
+    {
+      "channel": "market_video_model:345",
+      "scenario": "native_:pair",
+      "entry": "short_drama",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 717,
+      "points": 90,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 3,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-1ff7be16b905640b3a",
+        "aspect_ratio": "1:1",
+        "resolution": "720p",
+        "duration": 5
+      },
+      "prepared_hash": "c58db2a6656ea75240ac1bc22bf3a6a8db916fcc6fb1c427ba928a58627badc8",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": ":pair",
+      "identity": {
+        "id": "market_video_model:345",
+        "product_id": 345,
+        "resource_type": "model",
+        "model_code": "official-33-1ff7be16b905640b3a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Grok Imagine Video 1.5 Preview"
+      },
+      "declaration_projection_fingerprint": "8292eb5c07487c466c3ebc5626eba62ec20e3d7df46366940c1ad58858bd443c",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "720p",
+        "duration": 5
+      },
+      "material_mode_requested": ":pair",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image",
+          "field": "image_urls",
+          "reference_slot_id": "image_urls.0"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "field": "first_frame_url",
+          "reference_slot_id": "first_frame_url.0"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 717,
+        "sku_key": "official_e30bc5158cdf75c68244a6d0",
+        "input_mode": "text_to_video",
+        "resolution": "720p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "8acff368431c8d7b89296f0ebe9c428dd5770186bb5e679c79d800a16a2ec21c"
+    },
+    {
+      "channel": "market_video_model:336",
+      "scenario": "native_reference_to_video:1",
+      "entry": "canvas",
+      "requested_method": "video_edit",
+      "selected_method": "video_edit",
+      "selected_sku": 664,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 664,
+      "points": 119,
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-ae95bbc62f0209ad65",
+        "duration": "5",
+        "resolution": "1080p",
+        "audio": false,
+        "multi_shots": false,
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "cee076ffd5c4e540df6149f2291996b3d07fc48fd0d61afcc019c04c5bc1ff87",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "video_edit",
+      "material_mode": "reference_to_video:1",
+      "identity": {
+        "id": "market_video_model:336",
+        "product_id": 336,
+        "resource_type": "model",
+        "model_code": "official-33-ae95bbc62f0209ad65",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 2.6 Flash"
+      },
+      "declaration_projection_fingerprint": "8397b2ee33f43b96abe95e2f389b8c473332417a3501df30d892cb85b2ace8d4",
+      "controls": {
+        "quality": "1080p",
+        "resolution": "1080P",
+        "duration": 5,
+        "market_sku_id": 664,
+        "provider_params": {
+          "audio": false,
+          "multi_shots": false
+        },
+        "advanced_params": {
+          "multi_shots": false
+        }
+      },
+      "material_mode_requested": "reference_to_video:1",
+      "reference_roles_and_fields": [
+        {
+          "type": "video",
+          "role": "reference_video",
+          "field": "video_urls",
+          "reference_slot_id": "video_urls.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 664,
+        "sku_key": "group_reference_to_video_official_8a35599c45e58d7b105cee8f",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 5,
+        "pricing_variant": "",
+        "usage_unit": "per_call",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "73f743df0136cc13ed557a793399cac06c788b146c0e6248c3f0ffb71a4d9ffa"
+    },
+    {
+      "channel": "market_video_model:336",
+      "scenario": "native_reference_to_video:1",
+      "entry": "short_drama",
+      "requested_method": "video_edit",
+      "selected_method": "video_edit",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 664,
+      "points": 119,
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-ae95bbc62f0209ad65",
+        "duration": "5",
+        "resolution": "1080p",
+        "audio": false,
+        "multi_shots": false,
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "cee076ffd5c4e540df6149f2291996b3d07fc48fd0d61afcc019c04c5bc1ff87",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "video_edit",
+      "material_mode": "reference_to_video:1",
+      "identity": {
+        "id": "market_video_model:336",
+        "product_id": 336,
+        "resource_type": "model",
+        "model_code": "official-33-ae95bbc62f0209ad65",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 2.6 Flash"
+      },
+      "declaration_projection_fingerprint": "8397b2ee33f43b96abe95e2f389b8c473332417a3501df30d892cb85b2ace8d4",
+      "controls": {
+        "ratio": "",
+        "quality": "",
+        "resolution": "1080p",
+        "duration": 5,
+        "advanced_params": {
+          "audio": false,
+          "multi_shots": false
+        }
+      },
+      "material_mode_requested": "reference_to_video:1",
+      "reference_roles_and_fields": [
+        {
+          "type": "video",
+          "role": "reference_video",
+          "field": "video_urls",
+          "reference_slot_id": "video_urls.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 664,
+        "sku_key": "group_reference_to_video_official_8a35599c45e58d7b105cee8f",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 5,
+        "pricing_variant": "",
+        "usage_unit": "per_call",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "efaa96340c792c996e51558f13e80e9281572960f64e4de87f806ab514346395"
+    },
+    {
+      "channel": "market_video_model:333",
+      "scenario": "native_reference_to_video:2",
+      "entry": "canvas",
+      "requested_method": "video_edit",
+      "selected_method": "video_edit",
+      "selected_sku": 640,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 640,
+      "points": 416,
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-22b4d48d8ec8597010",
+        "duration": "5",
+        "resolution": "1080p",
+        "multi_shots": false,
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "11725b14a3ca5a1bf78a40a054a0332122de22e25cab37bccc8acc6dbe7ca521",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "video_edit",
+      "material_mode": "reference_to_video:2",
+      "identity": {
+        "id": "market_video_model:333",
+        "product_id": 333,
+        "resource_type": "model",
+        "model_code": "official-33-22b4d48d8ec8597010",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 2.6"
+      },
+      "declaration_projection_fingerprint": "316974e4e1ad504df46f79a5b14e19987e4b0126d594647402042285fe36d542",
+      "controls": {
+        "quality": "1080p",
+        "resolution": "1080P",
+        "duration": 5,
+        "market_sku_id": 640
+      },
+      "material_mode_requested": "reference_to_video:2",
+      "reference_roles_and_fields": [
+        {
+          "type": "video",
+          "role": "reference_video",
+          "field": "video_urls",
+          "reference_slot_id": "video_urls.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 640,
+        "sku_key": "group_reference_to_video_official_72de5a1bdb71daef02d524f2",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 5,
+        "pricing_variant": "",
+        "usage_unit": "per_call",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "ae4c80db11868f6632450bfccaaccfcacf3525deefdc4a43fd760cb9589a562f"
+    },
+    {
+      "channel": "market_video_model:333",
+      "scenario": "native_reference_to_video:2",
+      "entry": "short_drama",
+      "requested_method": "video_edit",
+      "selected_method": "video_edit",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 640,
+      "points": 416,
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 0,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-22b4d48d8ec8597010",
+        "duration": "5",
+        "resolution": "1080p",
+        "multi_shots": false,
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "11725b14a3ca5a1bf78a40a054a0332122de22e25cab37bccc8acc6dbe7ca521",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "video_edit",
+      "material_mode": "reference_to_video:2",
+      "identity": {
+        "id": "market_video_model:333",
+        "product_id": 333,
+        "resource_type": "model",
+        "model_code": "official-33-22b4d48d8ec8597010",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 2.6"
+      },
+      "declaration_projection_fingerprint": "316974e4e1ad504df46f79a5b14e19987e4b0126d594647402042285fe36d542",
+      "controls": {
+        "ratio": "",
+        "quality": "",
+        "resolution": "1080p",
+        "duration": 5
+      },
+      "material_mode_requested": "reference_to_video:2",
+      "reference_roles_and_fields": [
+        {
+          "type": "video",
+          "role": "reference_video",
+          "field": "video_urls",
+          "reference_slot_id": "video_urls.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 640,
+        "sku_key": "group_reference_to_video_official_72de5a1bdb71daef02d524f2",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 5,
+        "pricing_variant": "",
+        "usage_unit": "per_call",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "674e09052729a2f8c6135013840759e3f25128b237da03150502db04ed4d7b9c"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "native_keyframe_to_video:last",
+      "entry": "canvas",
+      "requested_method": "last_frame",
+      "selected_method": "last_frame",
+      "selected_sku": 489,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "points": 845,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "keyframe_to_video"
+      },
+      "prepared_hash": "bddde25e98dacd2f7efc84c17cdff0e45d04483de4b8e4df9b5ea1da7a01046a",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "last_frame",
+      "material_mode": "keyframe_to_video:last",
+      "identity": {
+        "id": "market_video_model:308",
+        "product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Kling 4.0"
+      },
+      "declaration_projection_fingerprint": "e38b6ca6a483bc7449aea134405f4fae5df07ebdc71edba16401ee98eb16f7fb",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "1080p",
+        "resolution": "1080P",
+        "duration": 5,
+        "market_sku_id": 489
+      },
+      "material_mode_requested": "keyframe_to_video:last",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 489,
+        "sku_key": "official_d0b22a6144805a8c14d9db9b",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "e4301707fc5bc2c144389ce5b70e70a8a33caadb280b3e1c155c5de7cc93e2cc"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "native_keyframe_to_video:last",
+      "entry": "short_drama",
+      "requested_method": "last_frame",
+      "selected_method": "last_frame",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "points": 845,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "keyframe_to_video"
+      },
+      "prepared_hash": "bddde25e98dacd2f7efc84c17cdff0e45d04483de4b8e4df9b5ea1da7a01046a",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "last_frame",
+      "material_mode": "keyframe_to_video:last",
+      "identity": {
+        "id": "market_video_model:308",
+        "product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Kling 4.0"
+      },
+      "declaration_projection_fingerprint": "e38b6ca6a483bc7449aea134405f4fae5df07ebdc71edba16401ee98eb16f7fb",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "1080p",
+        "duration": 5
+      },
+      "material_mode_requested": "keyframe_to_video:last",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 489,
+        "sku_key": "official_d0b22a6144805a8c14d9db9b",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "1904849b8d382345b7e8f2a944d8168b6a5f71b0c3b30c6e95e51a45123dc463"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "native_keyframe_to_video:pair",
+      "entry": "canvas",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "selected_sku": 489,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "points": 845,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "keyframe_to_video"
+      },
+      "prepared_hash": "9efae0af764555e77496cae0034cd033b235cb9e776183d6f7a2d2d35bacf22f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": "keyframe_to_video:pair",
+      "identity": {
+        "id": "market_video_model:308",
+        "product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Kling 4.0"
+      },
+      "declaration_projection_fingerprint": "e38b6ca6a483bc7449aea134405f4fae5df07ebdc71edba16401ee98eb16f7fb",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "1080p",
+        "resolution": "1080P",
+        "duration": 5,
+        "market_sku_id": 489
+      },
+      "material_mode_requested": "keyframe_to_video:pair",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "field": "first_frame_url",
+          "reference_slot_id": "first_frame_url.0"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 489,
+        "sku_key": "official_d0b22a6144805a8c14d9db9b",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "1d49a3462dc8c8f1b05cacf3d5ff8fe1399dfee4ea920b8d8149b0d17764c584"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "native_keyframe_to_video:pair",
+      "entry": "short_drama",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "points": 845,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "keyframe_to_video"
+      },
+      "prepared_hash": "9efae0af764555e77496cae0034cd033b235cb9e776183d6f7a2d2d35bacf22f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": "keyframe_to_video:pair",
+      "identity": {
+        "id": "market_video_model:308",
+        "product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Kling 4.0"
+      },
+      "declaration_projection_fingerprint": "e38b6ca6a483bc7449aea134405f4fae5df07ebdc71edba16401ee98eb16f7fb",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "1080p",
+        "duration": 5
+      },
+      "material_mode_requested": "keyframe_to_video:pair",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "field": "first_frame_url",
+          "reference_slot_id": "first_frame_url.0"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "field": "last_frame_url",
+          "reference_slot_id": "last_frame_url.0"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 489,
+        "sku_key": "official_d0b22a6144805a8c14d9db9b",
+        "input_mode": "text_to_video",
+        "resolution": "1080p",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "473c2c6a746b2e47b1f4351abcb50b0cf9c42210aaa0c1535ed09e4596adf201"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_same_file_pair",
+      "entry": "canvas",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "selected_sku": 119,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "h3-video",
+        "ratio": "1:1",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "prepared_hash": "8bf1ad39981861c18f83a9ad10e1983ff626505e376b218e97a7062989d81ff1",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:98",
+        "product_id": 98,
+        "resource_type": "model",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "H3 视频生成"
+      },
+      "declaration_projection_fingerprint": "a3ce4b1bf5c8019df472d2e6829dc1b4cee5b00dbbb94e35711b8f1a62b5f119",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "768P",
+        "resolution": "768P",
+        "duration": 5,
+        "market_sku_id": 119
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "first_frame_image"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 119,
+        "sku_key": "h3-video_768p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "bbea8b8afb1a703d74ff91ade936c7b264d4b47515999c530bc6edc4b8b46971"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_same_file_pair",
+      "entry": "short_drama",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "h3-video",
+        "ratio": "1:1",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "prepared_hash": "8bf1ad39981861c18f83a9ad10e1983ff626505e376b218e97a7062989d81ff1",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:98",
+        "product_id": 98,
+        "resource_type": "model",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "H3 视频生成"
+      },
+      "declaration_projection_fingerprint": "a3ce4b1bf5c8019df472d2e6829dc1b4cee5b00dbbb94e35711b8f1a62b5f119",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "first_frame_image"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 119,
+        "sku_key": "h3-video_768p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "5d7ebf8cdcc216ae3d5a1f8a057ba82e75d061c6e49ccf3bf4a191f727b46ff4"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_three_frames",
+      "entry": "canvas",
+      "requested_method": "multi_frame",
+      "selected_method": "multi_frame",
+      "selected_sku": 119,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "h3-video",
+        "ratio": "1:1",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "prepared_hash": "063c821ea0d062b7f2a532e7fed32c64d52226251b0c8906f1822108c409e842",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "multi_frame",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:98",
+        "product_id": 98,
+        "resource_type": "model",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "H3 视频生成"
+      },
+      "declaration_projection_fingerprint": "a3ce4b1bf5c8019df472d2e6829dc1b4cee5b00dbbb94e35711b8f1a62b5f119",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "768P",
+        "resolution": "768P",
+        "duration": 5,
+        "market_sku_id": 119
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 119,
+        "sku_key": "h3-video_768p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "c6406187dde4450a729f23d01c0503d1de40ccebe68bbd692edb54ba94d3d97a"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_three_frames",
+      "entry": "short_drama",
+      "requested_method": "multi_frame",
+      "selected_method": "multi_frame",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "h3-video",
+        "ratio": "1:1",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "prepared_hash": "063c821ea0d062b7f2a532e7fed32c64d52226251b0c8906f1822108c409e842",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "multi_frame",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:98",
+        "product_id": 98,
+        "resource_type": "model",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "H3 视频生成"
+      },
+      "declaration_projection_fingerprint": "a3ce4b1bf5c8019df472d2e6829dc1b4cee5b00dbbb94e35711b8f1a62b5f119",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 119,
+        "sku_key": "h3-video_768p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "07ea1dc0d1e350317dd31a1b75d2a0238147e86c3c079fd25f8cb9d67efdfe40"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_mixed_three_types",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "selected_sku": 119,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "h3-video",
+        "ratio": "1:1",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "prepared_hash": "6ef9b84c4d3a32a5f6e0dbcea6f01e32d9f7ac723833d80e9441ba3e798a182f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:98",
+        "product_id": 98,
+        "resource_type": "model",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "H3 视频生成"
+      },
+      "declaration_projection_fingerprint": "a3ce4b1bf5c8019df472d2e6829dc1b4cee5b00dbbb94e35711b8f1a62b5f119",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "768P",
+        "resolution": "768P",
+        "duration": 5,
+        "market_sku_id": 119
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "video",
+          "role": "reference_video"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 119,
+        "sku_key": "h3-video_768p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "816af97f90661871e798d738747be5306f6305b2ff86f37b200d2de206696df0"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_mixed_three_types",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "h3-video",
+        "ratio": "1:1",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "prepared_hash": "6ef9b84c4d3a32a5f6e0dbcea6f01e32d9f7ac723833d80e9441ba3e798a182f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:98",
+        "product_id": 98,
+        "resource_type": "model",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "H3 视频生成"
+      },
+      "declaration_projection_fingerprint": "a3ce4b1bf5c8019df472d2e6829dc1b4cee5b00dbbb94e35711b8f1a62b5f119",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "video",
+          "role": "reference_video"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 119,
+        "sku_key": "h3-video_768p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "768P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "output_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "8b7ba68670fb60a10d7213028168ee57a91c5b5180347cdb6ef522002e689c78"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_same_file_pair",
+      "entry": "canvas",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "selected_sku": 104,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 104,
+      "points": 120,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "wan3.0-video"
+      },
+      "prepared_hash": "8e7e09fe1ea5d1c381c745cecd994cec04241d3253fac36af08e8b955b3f106a",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:94",
+        "product_id": 94,
+        "resource_type": "model",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 3.0 Video"
+      },
+      "declaration_projection_fingerprint": "c65c32bfc2868f7bd87d9da25cf0b5c46a696f3227e6fd1b25c8cec8ede46e31",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "480P",
+        "resolution": "480P",
+        "duration": 5,
+        "market_sku_id": 104
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "first_frame_image"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 104,
+        "sku_key": "wan_3_480p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "480P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "input_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "7da417f6ce1e2854730b1fca3365082b4d9f84adb677cafdd882ca40138089ac"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_same_file_pair",
+      "entry": "short_drama",
+      "requested_method": "start_end",
+      "selected_method": "start_end",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 104,
+      "points": 120,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "wan3.0-video"
+      },
+      "prepared_hash": "8e7e09fe1ea5d1c381c745cecd994cec04241d3253fac36af08e8b955b3f106a",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "start_end",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:94",
+        "product_id": 94,
+        "resource_type": "model",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 3.0 Video"
+      },
+      "declaration_projection_fingerprint": "c65c32bfc2868f7bd87d9da25cf0b5c46a696f3227e6fd1b25c8cec8ede46e31",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "480P",
+        "duration": 5
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "first_frame_image"
+        },
+        {
+          "type": "image",
+          "role": "last_frame_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 104,
+        "sku_key": "wan_3_480p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "480P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "input_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "ef6c144035aff0dd25c9e8df75ef21ae5adb39b52f9e9b08e507ebbebbeef8ad"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_three_frames",
+      "entry": "canvas",
+      "requested_method": "multi_frame",
+      "selected_method": "multi_frame",
+      "selected_sku": 104,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 104,
+      "points": 120,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "wan3.0-video"
+      },
+      "prepared_hash": "b21b449ff36f3b8fc70beab0a759e92fd59b142289ba4de2e013d18c412430e1",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "multi_frame",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:94",
+        "product_id": 94,
+        "resource_type": "model",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 3.0 Video"
+      },
+      "declaration_projection_fingerprint": "c65c32bfc2868f7bd87d9da25cf0b5c46a696f3227e6fd1b25c8cec8ede46e31",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "480P",
+        "resolution": "480P",
+        "duration": 5,
+        "market_sku_id": 104
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 104,
+        "sku_key": "wan_3_480p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "480P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "input_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "f10c31e521797a401421cf2b8712ce867e95c19cbd03da271f945ce1fb26851b"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_three_frames",
+      "entry": "short_drama",
+      "requested_method": "multi_frame",
+      "selected_method": "multi_frame",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 104,
+      "points": 120,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "wan3.0-video"
+      },
+      "prepared_hash": "b21b449ff36f3b8fc70beab0a759e92fd59b142289ba4de2e013d18c412430e1",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "multi_frame",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:94",
+        "product_id": 94,
+        "resource_type": "model",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 3.0 Video"
+      },
+      "declaration_projection_fingerprint": "c65c32bfc2868f7bd87d9da25cf0b5c46a696f3227e6fd1b25c8cec8ede46e31",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "480P",
+        "duration": 5
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 104,
+        "sku_key": "wan_3_480p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "480P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "input_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "d47020a307462cbfd03b9cb4d78e24322033b323218bbdf33477c5a30ba10577"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_mixed_three_types",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "selected_sku": 104,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 104,
+      "points": 120,
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "wan3.0-video"
+      },
+      "prepared_hash": "d873994d9947c5fcd0564158f3912c841dd68cd4a6974c7596e0b85652188452",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:94",
+        "product_id": 94,
+        "resource_type": "model",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 3.0 Video"
+      },
+      "declaration_projection_fingerprint": "c65c32bfc2868f7bd87d9da25cf0b5c46a696f3227e6fd1b25c8cec8ede46e31",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "480P",
+        "resolution": "480P",
+        "duration": 5,
+        "market_sku_id": 104
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "video",
+          "role": "reference_video"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 104,
+        "sku_key": "wan_3_480p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "480P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "input_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "f2a04926c59df798f12c25bcdb9d25739b639eb2684647fb1dbc161229d72885"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_mixed_three_types",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 104,
+      "points": 120,
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "wan3.0-video"
+      },
+      "prepared_hash": "d873994d9947c5fcd0564158f3912c841dd68cd4a6974c7596e0b85652188452",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": null,
+      "identity": {
+        "id": "market_video_model:94",
+        "product_id": 94,
+        "resource_type": "model",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": "",
+        "generation_type": "video",
+        "name": "Wan 3.0 Video"
+      },
+      "declaration_projection_fingerprint": "c65c32bfc2868f7bd87d9da25cf0b5c46a696f3227e6fd1b25c8cec8ede46e31",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "480P",
+        "duration": 5
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "image",
+          "role": "reference_image"
+        },
+        {
+          "type": "video",
+          "role": "reference_video"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio"
+        }
+      ],
+      "sku": {
+        "market_sku_id": 104,
+        "sku_key": "wan_3_480p_output_second",
+        "input_mode": "text_to_video",
+        "resolution": "480P",
+        "duration": 0,
+        "pricing_variant": "",
+        "usage_unit": "input_second",
+        "usage_unit_size": 1,
+        "settlement_mode": "reserved"
+      },
+      "case_key": "68f2cc109a2374dd8d20f41c0c8452e6358d1f79b69025a1c3050f98f66ea5c5"
+    },
+    {
+      "channel": "market_video_app:happy_horse:105",
+      "scenario": "unsupported_audio_keeps_video_edit",
+      "entry": "canvas",
+      "expected": "observe",
+      "frontend_error": "当前模型不支持参考音频，请移除音频或切换模型",
+      "status": "frontend_rejection",
+      "identity": {
+        "id": "market_video_app:happy_horse:105",
+        "product_id": 105,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "happy_horse",
+        "api_code": "submit",
+        "generation_type": "video",
+        "name": "Happy Horse"
+      },
+      "declaration_projection_fingerprint": "8ed1ea024ed734cd5b47899f297903b9150022921d3fa860df2ff5cb4b6a39b7",
+      "case_key": "fa799127cc98ba168ec96f1542722182f86f2c7317bed11c86f54198057e276b"
+    },
+    {
+      "channel": "market_video_app:happy_horse:105",
+      "scenario": "unsupported_audio_keeps_video_edit",
+      "entry": "short_drama",
+      "requested_method": "video_edit",
+      "selected_method": "video_edit",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "status": "local_rejection",
+      "error": "Happy Horse does not accept reference audio",
+      "identity": {
+        "id": "market_video_app:happy_horse:105",
+        "product_id": 105,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "happy_horse",
+        "api_code": "submit",
+        "generation_type": "video",
+        "name": "Happy Horse"
+      },
+      "declaration_projection_fingerprint": "8ed1ea024ed734cd5b47899f297903b9150022921d3fa860df2ff5cb4b6a39b7",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "resolution": "720p",
+        "duration": 5
+      },
+      "material_mode_requested": "",
+      "reference_roles_and_fields": [
+        {
+          "type": "video",
+          "role": "reference_video"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio"
+        }
+      ],
+      "case_key": "c9e7ffdedb32e2f7fb76afe39e65dd40bf1f6f30dcacd4ec375fef83cf0f1b41"
+    }
+  ],
+  "entry_pairs": [
+    {
+      "channel": "market_video_model:353",
+      "scenario": "native_image_to_video:last",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "scenario": "native_:last",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "scenario": "native_:pair",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:336",
+      "scenario": "native_reference_to_video:1",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:333",
+      "scenario": "native_reference_to_video:2",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "native_keyframe_to_video:last",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "native_keyframe_to_video:pair",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_same_file_pair",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_three_frames",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:98",
+      "scenario": "legacy_mixed_three_types",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_same_file_pair",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_three_frames",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:94",
+      "scenario": "legacy_mixed_three_types",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_app:happy_horse:105",
+      "scenario": "unsupported_audio_keeps_video_edit",
+      "statuses": [
+        "frontend_rejection",
+        "local_rejection"
+      ],
+      "status": "rejected_by_existing_capability_boundary"
+    }
+  ]
+}
