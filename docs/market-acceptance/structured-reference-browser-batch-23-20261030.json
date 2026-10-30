@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "observed_at": "2026-10-30T17:18:03+08:00",
+  "scope": "Isolated real CanvasNode, shared GenerationMaterialPanel and production canvas projection. Task creation, upload, supplier assets and project saving disabled. Existing synthetic storage files reused. Final page errors empty; early fixture mounting and layout faults excluded. Not a full authenticated project or new upload acceptance.",
+  "source_web_commit": "e1121aff",
+  "channel": "market_video_model:335",
+  "events": [
+    {
+      "at": "2026-10-30T09:16:30.949Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 651,
+        "ratio": "1:1",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 651,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 651,
+        "points": 280,
+        "native_slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "meter_context": {
+          "reference_images": 0,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": false,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "std",
+          "multi_shots": false
+        },
+        "prepared_hash": "0b967c302d71c5622c86ace20bccfcf7eb1de3bd8329ea1436f186a30ec0c175",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      },
+      "phase": "initial_empty"
+    },
+    {
+      "at": "2026-10-30T09:16:35.983Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 651,
+        "ratio": "1:1",
+        "reference_count": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 651,
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 1
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 651,
+        "points": 280,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 1
+        },
+        "meter_context": {
+          "reference_images": 1,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": false,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "std",
+          "multi_shots": false
+        },
+        "prepared_hash": "3aefeef8173049ea4c11eb0c086ca65f2cc88e4e48f9fbc6af8ea953c5c75a0d",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      },
+      "phase": "subject_loaded"
+    },
+    {
+      "at": "2026-10-30T09:16:40.857Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 651,
+        "ratio": "1:1",
+        "reference_count": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 651,
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 1
+        },
+        "status": "local_rejection",
+        "error": "当前生成方式不支持已添加的素材角色"
+      },
+      "phase": "transient_before_shared_reconciliation"
+    },
+    {
+      "at": "2026-10-30T09:16:43.688Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 651,
+        "ratio": "1:1",
+        "reference_count": 1
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 651,
+        "requested_counts": {
+          "image": 1,
+          "video": 0,
+          "audio": 1
+        },
+        "status": "quote_admission_frozen_slots_equal",
+        "sku_id": 651,
+        "points": 280,
+        "native_slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 1
+        },
+        "meter_context": {
+          "reference_images": 1,
+          "reference_video_seconds": 0
+        },
+        "native_controls": {
+          "model": "official-33-27cdf26af16f988f51",
+          "sound": false,
+          "duration": "5",
+          "aspect_ratio": "1:1",
+          "mode": "std",
+          "multi_shots": false
+        },
+        "prepared_hash": "33eb05437467ee1914d9021544374019ac1fdecfc17985f1754860f4a2f86a08",
+        "frozen_native_and_meter_equal": true,
+        "prepared_method": "text_to_video",
+        "material_mode": null
+      },
+      "phase": "replacement_settled"
+    },
+    {
+      "at": "2026-10-30T09:16:56.380Z",
+      "controls": {
+        "channel": "market_video_model:335",
+        "sku": 651,
+        "ratio": "1:1",
+        "reference_count": 0
+      },
+      "result": {
+        "scenario": "isolated_video_browser_component",
+        "entry": "canvas",
+        "channel": "market_video_model:335",
+        "selected_sku": 651,
+        "requested_counts": {
+          "image": 0,
+          "video": 0,
+          "audio": 1
+        },
+        "status": "local_rejection",
+        "error": "请填写必填参数：kling_elements[0].element_input_urls"
+      },
+      "phase": "required_image_removed"
+    }
+  ],
+  "ui_observations": [
+    {
+      "scenario": "replace_subject_image",
+      "method": "text_to_video",
+      "subject_image_count": 1,
+      "subject_audio_count": 1,
+      "current_file_index": 2,
+      "subject_uri_matches_current_upload": true,
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "screenshot_local": "/tmp/market-batch23-subject-replaced-final.jpg"
+    },
+    {
+      "scenario": "remove_required_subject_image",
+      "method": "text_to_video",
+      "subject_image_count": 0,
+      "subject_audio_count": 1,
+      "status": "required_material_rejected",
+      "error": "请填写必填参数：kling_elements[0].element_input_urls",
+      "screenshot_local": "/tmp/market-batch23-subject-required-blocked.jpg"
+    }
+  ],
+  "early_fixture_faults": "Missing run-control teleport target, overlapping test buttons and missing auto component registration fixed in temporary harness, then restarted with a fresh tab before final evidence.",
+  "upstream_generation": "not_tested_no_new_paid_authorization"
+}
