@@ -76,8 +76,18 @@ final class PackagePurchaseAvailabilityTest extends TestCase
         foreach(['membership','recharge']as$type){$p=$this->package($type,0);$order=Price::create(self::TENANT,$this->user,4,$type,$p);$o=VirtualPayService::order(self::TENANT,$this->user,$type,$order['order_id'])->toArray();
             self::assertIsArray(PaymentLogic::pay(2,$type,$o,4,'/'),PaymentLogic::getError());
             self::assertSame(1,(int)VirtualPayService::order(self::TENANT,$this->user,$type,$order['order_id'])['pay_status']);
+            self::assertFalse(PaymentLogic::pay(2,$type,$o,4,'/'));self::assertSame('订单已过期或关闭，请先核对支付结果',PaymentLogic::getError());
         }
         \app\common\service\promotion\PackagePurchaseAvailability::assertOrder('recharge',['tenant_id'=>self::TENANT,'package_id'=>0]);
         self::assertSame('10.00',Db::name('user')->where('id',$this->user)->value('user_money'));
+    }
+    public function testActiveOrdinaryPrepayUsesGatewayAndFreezesTheExistingOrder():void
+    {
+        $calls=[];$pay=new PackagePaymentService(new PackagePaymentGateway(static function($action)use(&$calls){$calls[]=$action;return $action==='context'?['app_id'=>'fixture','merchant'=>'fixture']:['config'=>'local-fixture'];}));
+        foreach(['membership','recharge']as$type)foreach([2,3]as$channel){$p=$this->package($type);$order=Price::create(self::TENANT,$this->user,4,$type,$p);$o=VirtualPayService::order(self::TENANT,$this->user,$type,$order['order_id'])->toArray();
+            self::assertSame('local-fixture',$pay->prepay($type,$o,$channel,4,'/')['config']);
+            self::assertSame($channel,(int)VirtualPayService::order(self::TENANT,$this->user,$type,$order['order_id'])['pay_way']);
+        }
+        self::assertSame(8,count($calls));
     }
 }
