@@ -51,4 +51,26 @@ final class ShortDramaMaterialContractTest extends TestCase
         },'repair_subjects',['system_prompt'=>'原方法','content'=>'原输入'],$base);
         self::assertSame(1,$calls);self::assertSame($base['scene_beats'],$out['scene_beats']);self::assertSame('明确台词',$out['story_outline']);
     }
+    public function testSharedEngineDoesNotDecorateAValidTopFieldPatch(): void
+    {
+        $request=['_input_contract_version'=>23,'episode_duration_policy'=>\app\common\service\app\aigc_short_drama\ShortDramaEpisodeDuration::snapshot([],5,0,[]),
+            'series_context'=>['outline'=>['subjects'=>[['id'=>'p','name'=>'甲']], 'locations'=>[['id'=>'l','name'=>'门外']]]]];
+        $calls=[];
+        $result=\app\common\service\app\aigc_short_drama\ShortDramaScriptGeneration::generate($request,
+            ['context_window'=>32768,'max_output_tokens'=>12000],['system_prompt'=>'原规则','content'=>'甲在门外停下。'],
+            static function($key,$input,$budget,$model)use(&$calls):array {
+                $calls[]=$key;
+                if($key==='v3_timed_skeleton_0') $payload=['scene_beats'=>[['scene_ref_id'=>'l','goal'=>'甲停下','entry'=>'甲走来','exit'=>'甲停下',
+                    'key_events'=>['甲停下'],'duration_seconds'=>5,'shot_durations'=>[5]]]];
+                elseif($key==='v3_timed_skeleton_top_fields_v1') $payload=['fields'=>['title'=>'门外','story_outline'=>'甲在门外停下。']];
+                elseif(str_starts_with($key,'v3_timed_scene_')) $payload=['storyboard'=>[['shot_id'=>'s1_1','scene_ref_id'=>'l','subject_ref_ids'=>['p'],
+                    'visual_description'=>'甲在门外停下','dialogue'=>'','recommended_duration_seconds'=>5]]];
+                else throw new \RuntimeException('Unexpected generation unit '.$key);
+                return ['model'=>$model,'result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+            });
+        self::assertSame('门外',$result['payload']['title']);
+        self::assertSame('甲在门外停下。',$result['payload']['story_outline']);
+        self::assertCount(3,$calls);
+        self::assertSame('甲停下',$result['payload']['scene_beats'][0]['goal']);
+    }
 }

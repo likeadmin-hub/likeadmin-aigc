@@ -199,7 +199,7 @@ final class ShortDramaStructuredResponse
                     self::uniqueKeys($json);
                     for ($level = 0; $level < 16; $level++) {
                         $unwrapped = false;
-                        foreach (['data', 'result', 'plan', 'payload'] as $key) {
+                        foreach (['data', 'result', 'plan', 'payload', 'storyboard_plan_v2'] as $key) {
                             if (count($data) === 1 && is_array($data[$key] ?? null)) {
                                 if ($data[$key] !== [] && array_is_list($data[$key])) throw new RuntimeException('模型输出封装内不是 JSON 对象', 422);
                                 $data = $data[$key]; $unwrapped = true; break;
