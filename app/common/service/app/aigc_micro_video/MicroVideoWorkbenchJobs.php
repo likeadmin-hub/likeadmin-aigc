@@ -19,7 +19,7 @@ final class MicroVideoWorkbenchJobs
         if($admin)$d+=['user_id'=>(int)$r['user_id'],'diagnostic'=>MicroVideoWorkbenchRecords::publicBody(['text'=>$r['error']],MicroVideoStore::json($r['request_json']??'{}'))['text']];return $d;
     }
     private static function safeError(array $r): string
-    {if($r['status']==='unknown')return '模型受理或结算状态待核对，请稍后核对，勿重复提交';if(MicroVideoStore::json($r['receipt_json']))return '已保留模型返回结果；内容格式或入库未完成，可核对恢复，无需再次付费';return '准备未完成，请检查模型配置、余额或素材后重新报价';}
+    {if($r['status']==='unknown')return '模型受理或结算状态待核对，请稍后核对，勿重复提交';if(MicroVideoStore::json($r['receipt_json']))return '已保留模型返回结果；内容格式或入库未完成，可核对恢复，无需再次付费';return '生成未完成，请检查所选模型、余额或素材后重试';}
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
         $q=self::table()->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);elseif(!empty($p['user_id']))$q->where('user_id',(int)$p['user_id']);foreach(['project_id','status','idempotency_key'] as $f)if(isset($p[$f])&&$p[$f]!=='')$q->where($f,$p[$f]);
@@ -70,6 +70,14 @@ final class MicroVideoWorkbenchJobs
         MicroVideoService::available($tenant);$i=self::input($tenant,$user,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;self::table('quote')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$i['project']['id'],'project_revision'=>$i['project']['revision'],'token'=>$token,'action'=>$i['request']['action'],'input_hash'=>$i['hash'],'quote_json'=>MicroVideoStore::encode($i['quote']),'request_json'=>MicroVideoStore::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);
         return ['quote_token'=>$token,'expires_at'=>$expires,'project_revision'=>(int)$i['project']['revision'],'action'=>$i['request']['action'],'quantity'=>1,'user_charge_points'=>(float)$i['quote']['user_charge_points'],'approximate'=>(bool)$i['quote']['approximate'],'notice'=>$i['quote']['approximate']?'文本费用为用量估算，最终按模型实际用量结算':'本次仅生成所选一张图片'];
     }
+    /** Direct writing is text-only; media keeps the existing explicit quote flow. */
+    public static function writeScript(int $tenant,int $user,array $p): array
+    {
+        if(isset($p['action'])&&$p['action']!=='rewrite')throw new InvalidArgumentException('直接写剧本仅支持文字创作');
+        $p['action']='rewrite';$p['_direct_write']=true;$key=MicroVideoWorkbenchPolicy::key((string)($p['idempotency_key']??''));
+        if(self::table()->where(['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key])->find())return self::create($tenant,$user,$p);
+        $quote=self::estimate($tenant,$user,$p);$p['quote_token']=$quote['quote_token'];return self::create($tenant,$user,$p);
+    }
     public static function create(int $tenant,int $user,array $p): array
     {
         MicroVideoService::available($tenant);$key=MicroVideoWorkbenchPolicy::key((string)($p['idempotency_key']??''));
@@ -79,6 +87,7 @@ final class MicroVideoWorkbenchJobs
         $i=self::input($tenant,$user,$p);$quote=self::table('quote')->where(['tenant_id'=>$tenant,'user_id'=>$user,'token'=>(string)($p['quote_token']??''),'input_hash'=>$i['hash']])->find();if(!$quote||(int)$quote['expires_at']<time())throw new InvalidArgumentException('资料或报价已变化，请重新估价并确认');
         PointService::assertCanConsumeAmounts($tenant,$user,(float)$i['quote']['tenant_cost_points'],(float)$i['quote']['user_charge_points']);
         return Db::transaction(function()use($tenant,$user,$p,$key,$i,$quote){$project=MicroVideoWorkbenchRecords::owned($tenant,$user,'project',(int)$p['project_id'],false,true,true);MicroVideoWorkbenchPolicy::revision($project,(int)$p['project_revision']);$existing=self::table()->where(['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key])->find();if($existing){if($existing['input_hash']!==$i['hash'])throw new InvalidArgumentException('请求标识已用于其他内容');return self::dto($existing);}
+            if(!empty($p['_direct_write'])&&self::table()->where(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$project['id'],'action'=>'rewrite'])->whereIn('status',['queued','running','unknown'])->count())throw new InvalidArgumentException('已有剧本正在生成或等待核对，请查看已有结果');
             $lockedQuote=self::table('quote')->where('id',$quote['id'])->lock(true)->find();if(!$lockedQuote||(int)$lockedQuote['expires_at']<time())throw new InvalidArgumentException('报价已过期，请重新估价');
             $consumed=self::table()->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(request_json, '$.confirmed_quote_token')) = ?",[(string)$p['quote_token']])->find();if($consumed)throw new InvalidArgumentException('该报价已确认，请查看已有作业；再次创作需重新报价');
             $i['request']['confirmed_quote_token']=(string)$p['quote_token'];
@@ -98,13 +107,14 @@ final class MicroVideoWorkbenchJobs
     {
         $r=self::owned($tenant,$user,(int)($p['job_id']??0));$project=MicroVideoWorkbenchRecords::owned($tenant,$user,'project',(int)($p['project_id']??0),false,true);MicroVideoWorkbenchPolicy::revision($project,(int)($p['project_revision']??0));
         if((int)$r['project_id']!==(int)$project['id']||$r['status']!=='success')throw new InvalidArgumentException('只能采纳本项目已成功的准备结果');
+        if((int)$r['project_revision']!==(int)$project['revision'])throw new InvalidArgumentException('当前内容已更新，请查看生成结果并手工合并');
         $body=MicroVideoWorkbenchPolicy::normalizeValues(MicroVideoStore::json($project['body_json']));$result=MicroVideoStore::json($r['result_json']);
         MicroVideoWorkbenchRecords::assertNoPrivateEcho($result,[$body,MicroVideoStore::json($r['request_json'])]);
         if($r['action']==='rewrite'){
             // No stable segment identity connects a whole AI rewrite to earlier scene assignments.
             $previousCount=count((array)($body['scenes']??[]));
             if($previousCount>0)$body['scene_reset']=['reason'=>'script_replaced','previous_revision'=>(int)$project['revision'],'previous_scene_count'=>$previousCount,'requires_reassignment'=>true];
-            $body['script']=$result['script'];$body['scenes']=[];$body['stage']='script_ready';
+            $body['script']=$result['script'];$body['scenes']=[];$body['stage']='script_ready';$body['last_script_job_id']=(int)$r['id'];
         }
         elseif($r['action']==='analyze_roles')$body['roles']=$result['roles'];elseif($r['action']==='analyze_scenes')$body['scenes']=$result['scenes'];
         else{$input=MicroVideoStore::json($r['request_json']);$type=$r['action']==='role_image'?'roles':'scenes';$key=$type==='roles'?'role_id':'scene_id';$found=false;foreach($body[$type]??[] as $n=>$item)if($item[$key]===$input['target_id']){$body[$type][$n]['images']=$result['images'];$body[$type][$n]['confirmed']=false;$found=true;}if(!$found)throw new InvalidArgumentException('原角色或分镜已移除，结果保留在素材中');}
