@@ -1005,7 +1005,8 @@ class MarketVideoRuntimeService
             // interpret an unknown app as a Wan request.
             MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
             $metadata = MarketGenerationRequest::metadata($snapshot);
-            if ($metadata !== []) {
+            if (!empty($metadata['params_schema']) || !empty($metadata['content_schema'])
+                || !empty($metadata['generation_modes']) || !empty($metadata['supported_asset_types'])) {
                 // Re-check the frozen declaration for admission and retries;
                 // never fetch today's catalogue to reinterpret an old snapshot.
                 self::assertAssets(['product' => ['resource_type' => PowerMarketService::TYPE_APP_API,
