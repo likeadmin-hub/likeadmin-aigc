@@ -4,7 +4,7 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 30;
+    public const VERSION = 31;
 
     public static function truncatedObjectPrefix(array $request): bool
     {

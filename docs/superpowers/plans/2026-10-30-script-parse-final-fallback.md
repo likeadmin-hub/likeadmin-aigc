@@ -33,3 +33,5 @@ Files: new ShortDramaFileParseFallback service and tests; existing upload creati
 - [ ] Record statuses, exact time boundaries, source checks, model/recovery limitations and billing evidence in the acceptance report.
 
 Execution notes: source snapshot is capped at 2 MB without truncation; unavailable snapshots leave the primary API path intact. Existing heading numbers are preserved in source while internal episodes follow document order. New fallback stages disable model, transient and compatibility retries; actual runtime app_task event fences cancellation. A fresh read-only reviewer identified three issues (event hook, runtime retries, late billing); all received failing-then-passing regression tests, and the reviewer confirmed them resolved.
+
+Ruling: final live acceptance found execution instructions being judged as plot events. Add a versioned workflow classification in content acceptance, discard only returned workflow items, retain actual in-story dialogue/actions, and invalidate old unscoped requirement caches. This prevents bogus on-screen requirements without changing older paid prompts.

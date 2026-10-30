@@ -286,4 +286,21 @@ class ShortDramaContentAcceptanceTest extends TestCase
             $reply=['requirements'=>[]];$validate($reply);return $reply;
         });
     }
+    /** @dataProvider workflowCache */
+    public function testWorkflowInstructionsAreNotRequiredOnScreenAndRealScriptWordsStay(bool $cached):void
+    {
+        $method=new \ReflectionMethod(Acceptance::class,'requirements');$method->setAccessible(true);
+        $r=['_input_contract_version'=>31,'prompt'=>'按照剧本进行策划。只生成剧本和分镜。','series_context'=>['current_episode'=>['episode_number'=>1,'source_content'=>'甲翻开剧本并说：“这里只生成剧本和分镜。”']]];
+        if($cached){$r['_continuity_review_only']=true;$r['revision_base_result']['content_acceptance']=['version'=>Acceptance::VERSION,'uploaded_source_version'=>1,'requirements'=>[['id'=>'stale','text'=>'按照剧本进行策划','kind'=>'event','quote'=>'按照剧本进行策划。']]];}
+        $out=$method->invoke(null,$r,static function($key,$input,$budget,$validate):array {
+            self::assertStringContainsString('workflow',$input['system_prompt']);$data=json_decode($input['content'],true);$requirements=[];
+            foreach($data['sources'] as $row){$text=trim($row['text']);
+                if(in_array($text,['按照剧本进行策划。','只生成剧本和分镜。'],true))$requirements[]=['text'=>$text,'kind'=>'workflow','source_index'=>$row['source_index']];
+                if(str_contains($text,'甲翻开剧本'))$requirements[]=['text'=>'甲翻开剧本并说出原文对白','kind'=>'event','source_index'=>$row['source_index']];
+            }
+            $reply=['requirements'=>$requirements];$validate($reply);return $reply;
+        });
+        self::assertCount(1,$out);self::assertSame('甲翻开剧本并说出原文对白',$out[0]['text']);self::assertStringContainsString('生成剧本和分镜',$out[0]['quote']);
+    }
+    public static function workflowCache():array { return [[false],[true]]; }
 }
