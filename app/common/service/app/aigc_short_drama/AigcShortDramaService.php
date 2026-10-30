@@ -16146,6 +16146,11 @@ class AigcShortDramaService
     {
         $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
         $selection = array_merge($nested, $params);
+        // Storyboard mode describes the tool action; video_mode is the user's
+        // market business tier. Preserve that explicit choice at this boundary.
+        if (array_key_exists('video_mode', $selection)) {
+            $selection['mode'] = trim((string)$selection['video_mode']);
+        }
         if (empty($selection['model_id']) && !empty($selection['video_model_id'])) $selection['model_id'] = $selection['video_model_id'];
         if (empty($selection['resolution']) && !empty($selection['quality'])) $selection['resolution'] = $selection['quality'];
         $value = (string)($selection['model_id'] ?? $selection['channel'] ?? '');
