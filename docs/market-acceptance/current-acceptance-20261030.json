@@ -20,7 +20,7 @@
     "fully_accepted_entry_cells": 0,
     "evidence_files": 36,
     "bound_observations": 1380,
-    "unbound_observations": 1897,
+    "unbound_observations": 1898,
     "bound_unique_keys": 942,
     "historical_bound_observation_statuses": {
       "passed": 1322,
@@ -3547,15 +3547,15 @@
         727,
         728,
         1261,
-        1819,
-        1826,
+        1820,
         1827,
         1828,
         1829,
         1830,
         1831,
         1832,
-        1850
+        1833,
+        1851
       ]
     },
     {
@@ -3759,14 +3759,14 @@
         737,
         738,
         739,
-        1816,
         1817,
         1818,
-        1841,
+        1819,
         1842,
         1843,
         1844,
-        1849
+        1845,
+        1850
       ]
     },
     {
@@ -4078,7 +4078,7 @@
         770,
         771,
         1262,
-        1820
+        1821
       ]
     },
     {
@@ -4405,11 +4405,11 @@
         829,
         830,
         831,
-        1821,
         1822,
         1823,
         1824,
-        1825
+        1825,
+        1826
       ]
     },
     {
@@ -5113,20 +5113,20 @@
         952,
         953,
         954,
-        1851,
-        1878,
+        1852,
         1879,
         1880,
         1881,
         1882,
-        1885,
+        1883,
         1886,
-        1888,
+        1887,
         1889,
         1890,
         1891,
         1892,
-        1896
+        1893,
+        1897
       ]
     },
     {
@@ -6276,10 +6276,10 @@
         1145,
         1146,
         1147,
-        1887,
-        1893,
+        1888,
         1894,
-        1895
+        1895,
+        1896
       ]
     },
     {
@@ -7127,7 +7127,8 @@
         1806,
         1807,
         1808,
-        1809
+        1809,
+        1810
       ]
     },
     {
@@ -7576,10 +7577,15 @@
     },
     {
       "file": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
-      "sha256": "49fa71e2616909527287816ae825f31b804ecb7d44737c949cbc6a0e50b46523",
+      "sha256": "30aebeb6a5556be27aea1ed6f75354016fd3926ce38637ec7e1bc31ee4ccc42e",
       "scope": "Authenticated complete local SaaS pages, normal synthetic uploads, tiers, options, replacement/removal and estimates. No browser wire DTO or SKU capture; prices do not prove browser SKU identity.",
       "source_commits": {
-        "source_web_commit": "d364eaa9"
+        "source_web_commit": "d364eaa9",
+        "source_web_commits": [
+          "a69c9436",
+          "0fb67bc9",
+          "d364eaa9"
+        ]
       },
       "historical_reproduction": false
     },
@@ -98189,6 +98195,35 @@
       "sku_id": null,
       "entry": "standalone_app",
       "scenario": "standard_without_image_upload_and_remove_reupload_restores_dimensions",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity",
+        "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/pc-shared-tiers-browser-batch-26-20261030.json",
+      "pointer": "/observations/6",
+      "source_status": "observed_pass",
+      "observation_status": "not_covered",
+      "entry_original": "pc_studio",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "pc_studio",
+      "scenario": "final_revision_duration_label_marker",
       "identity": {
         "generation_type": "video",
         "id": "market_video_app:grok_video:108",
