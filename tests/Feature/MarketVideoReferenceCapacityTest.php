@@ -52,6 +52,15 @@ class MarketVideoReferenceCapacityTest extends TestCase
         $this->expectExceptionMessage('参考素材数量超出限制');
         Assets::normalizeForMarket($this->request(101,0,0));
     }
+    public function testLegacyMarketCapabilitiesStillRejectAnOverLimitRequest(): void
+    {
+        $market=['product'=>['resource_type'=>'model','model_type'=>'video','upstream_model_code'=>'legacy-fixture',
+            'source_payload'=>['market_metadata'=>['generation_modes'=>['image_reference'],
+                'supported_asset_types'=>['image'],'capabilities'=>['max_reference_images'=>1]]]],'sku'=>[]];
+        $r=$this->request(16,0,0);$r['generation_method']='image_reference';
+        $this->expectExceptionMessage('at most 1 reference');
+        (new ReflectionMethod(Videos::class,'assertAssets'))->invoke(null,$market,$r);
+    }
     /** @dataProvider overCapacity */
     public function testEachDeclaredModalityLimitStillRejects(int $images,int $videos,int $audios): void
     {
