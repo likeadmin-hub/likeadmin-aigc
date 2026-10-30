@@ -48,7 +48,7 @@ class MarketNativeDocumentParametersTest extends TestCase
         Videos::prepareRequest($this->snapshot(),['prompt'=>'fixture','generation_method'=>'omni_reference',
             'provider_params'=>['reference_link_urls'=>[$value]]]);
     }
-    public static function rejectedAddresses(): array{return [['file:///fixture'],['blob:fixture'],['data:text/plain,fixture'],['https://fixture:fixture@fixtures.invalid/page'],['/relative/page']];}
+    public static function rejectedAddresses(): array{return [[''],['file:///fixture'],['blob:fixture'],['data:text/plain,fixture'],['https://fixture:fixture@fixtures.invalid/page'],['/relative/page']];}
     public function testDeclaredDocumentLimitStillRejectsExtraFiles(): void
     {
         $this->expectException(\InvalidArgumentException::class);

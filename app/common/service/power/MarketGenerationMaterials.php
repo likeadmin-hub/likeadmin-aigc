@@ -242,7 +242,6 @@ final class MarketGenerationMaterials
             if (in_array($field['kind'] ?? '', ['file','link'], true)) {
                 foreach (MarketGenerationMaterialPath::values($payload,(string)$field['field'],(array)($field['item_match'] ?? [])) as $value) {
                     foreach (is_array($value) ? $value : [$value] as $url) {
-                        if ($url===null || $url==='') continue;
                         if (!is_string($url)) throw new InvalidArgumentException('参考文件或链接地址格式不正确');
                         MarketGenerationMaterialEncoding::assertDocumentUrl($url);
                     }
