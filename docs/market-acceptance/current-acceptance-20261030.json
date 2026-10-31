@@ -11541,13 +11541,14 @@
     },
     {
       "file": "docs/market-acceptance/submission-chain-batch-64-20261101.json",
-      "sha256": "9ed4c4453213dad2419e19e59d8cda44db88c21d64ecd702e6a48f280fdf3e7f",
+      "sha256": "966afa89e26ecb62f7905544f1b61a6963324f968a83461a82dae8e8fb4da8ac",
       "scope": "Private authenticated multi-process HTTP admissions through original runtime, billing, production result workers and historical new attempts. Synthetic loopback supplier only; no real generation/query or wallet changes.",
       "source_commits": {
         "source_server_commit": "681518e07a6db1d92fd0f92ae6bdc7da48d1a7a2",
         "combined_source_server_commit": "df1adeb0acf92c535daa10d6e792a5037b1faa5d",
         "regression_source_server_commit": "0b99c41267625cb1a31cf3697a3691609c7e48e5",
-        "source_web_commit": "f50cd29909ecc5a0db20436cd8c13cbc9aa93903"
+        "source_web_commit": "2e3f84f463456beafde7c38f00bb2b26efb1c67f",
+        "pre_account_switch_retention_source_web_commit": "f50cd29909ecc5a0db20436cd8c13cbc9aa93903"
       },
       "historical_reproduction": false
     },
