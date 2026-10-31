@@ -40,7 +40,7 @@ $stop=function($role,$signal=SIGTERM)use(&$children){if(!isset($children[$role])
 try{
     foreach($names as$name){$source=$mysql['prefix'].$name;$exists=$pdo->prepare('SHOW TABLES LIKE ?');$exists->execute([$source]);if(!$exists->fetchColumn())continue;$table=$prefix.$name;$pdo->exec('CREATE TABLE `'.$table.'` LIKE `'.$source.'`');$tables[]=$table;}
     setup51($original,$prefix,$dir);
-    $tenant=199999951;$user=199999952;Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'b51','name'=>'Batch51 fixture','point_balance'=>100,'disable'=>0]);Db::name('user')->insert(['id'=>$user,'tenant_id'=>$tenant,'sn'=>1999951,'account'=>'batch51','nickname'=>'fixture','user_money'=>100]);
+    $tenant=199999951;$user=199999952;Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'b51','name'=>'Batch51 fixture','point_balance'=>100,'disable'=>0,'create_time'=>time(),'update_time'=>time()]);Db::name('user')->insert(['id'=>$user,'tenant_id'=>$tenant,'sn'=>1999951,'account'=>'batch51','nickname'=>'fixture','user_money'=>100,'create_time'=>time(),'update_time'=>time()]);
     $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a9sAAAAASUVORK5CYII=');$uri='data:image/png;base64,'.base64_encode($png);
     $task=AiAppTask::create(['task_no'=>$prefix.'task','tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_image','action_code'=>'generate','business_table'=>'aigc_image_task','business_id'=>0,'status'=>'running','progress'=>90,'idempotency_key'=>$prefix.'task','create_time'=>time(),'update_time'=>time(),'finish_time'=>0]);
     $c=AiConsumptionLog::create(['consume_no'=>$prefix.'consumption','app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_image','action_code'=>'generate','resource_type'=>'model','provider'=>$probe?'offline-fixture':'power_market','protocol'=>'image_generate','quantity'=>1,'price_snapshot'=>[],'usage_snapshot'=>[],'request_summary'=>[],'response_summary'=>['images'=>[['image_uri'=>$uri,'width'=>1,'height'=>1]]],'run_status'=>'success','billing_status'=>'settled','reserved_tenant_cost'=>0,'reserved_user_price'=>0,'actual_tenant_cost'=>0,'actual_user_price'=>0,'create_time'=>time(),'update_time'=>time(),'finish_time'=>time()]);
@@ -48,8 +48,7 @@ try{
     $assets=Assets::recordConsumptionAssets((int)$c['id'],true);check51(count($assets)===1,'Missing owned result asset');$id=(int)$assets[0]['id'];$job=Db::name('ai_task_job')->where('result_asset_id',$id)->find();$report['transfer_job_app_linked']=(int)$job['app_task_id']===(int)$task['id'];
     if($probe){
         try{Assets::transfer($id);$report['transfer']='unexpected_success';}catch(Throwable $e){$report['transfer_error_class']=get_class($e);$report['transfer_error']=str_contains($e->getMessage(),'Argument #4')?'storage_config_argument_type_mismatch':mb_substr($e->getMessage(),0,200);}
-        echo json_encode($report,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)."\n";exit(0);
-    }
+        echo json_encode($report,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)."\n";}else{
     check51($report['transfer_job_app_linked'],'Transfer job is invisible to an app-scoped worker');
     $spawn('kill');wait51(fn()=>is_file($dir.'/claimed-kill'),'Worker did not claim owned transfer');$held=Db::name('ai_task_job')->where('id',$job['id'])->find();check51($held['status']==='running'&&(int)$held['lease_expire_time']>time(),'No durable lease');$stop('kill',SIGKILL);check51(Db::name('ai_task_result_asset')->where('id',$id)->value('transfer_status')==='external','Killed worker already transferred');
     $spawn('restart');usleep(200000);check51(Db::name('ai_task_job')->where('id',$job['id'])->value('lease_token')===$held['lease_token'],'Unexpired lease stolen');
@@ -61,8 +60,11 @@ try{
     check51((float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===100.&&(float)Db::name('user')->where('id',$user)->value('user_money')===100.,'Fixture wallet changed');
     copy($path,'/tmp/market-batch51-worker-result.png');$report+=['actual_worker_command'=>true,'killed_after_claim_before_transfer'=>true,'natural_lease_expiry_recovered'=>true,'repeat_restart_idempotent'=>true,'managed_uri_matches_business_result'=>true,'file_rows'=>$count,'stored_bytes_sha256'=>hash_file('sha256',$path),'storage_scope'=>$stored['storage_scope'],'storage_engine'=>$stored['storage_engine'],'result_dimensions'=>[(int)$result['width'],(int)$result['height']],'claimed_attempts'=>(int)Db::name('ai_task_job')->where('id',$job['id'])->value('attempts')];
     echo json_encode($report,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)."\n";
-}finally{
+    }
+}catch(Throwable $error){$failure=$error;fwrite(STDERR,get_class($error).': '.$error->getMessage()."\n".$error->getTraceAsString()."\n");}finally{
     foreach(array_keys($children)as$role)$stop($role,SIGKILL);
     foreach(array_reverse($tables)as$table)$pdo->exec('DROP TABLE `'.$table.'`');
     if(is_dir($dir)&&is_file($dir.'/owner')&&trim(file_get_contents($dir.'/owner'))===$prefix){$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);foreach($it as$f){if($f->isDir())rmdir($f->getPathname());else unlink($f->getPathname());}rmdir($dir);}
 }
+
+if(isset($failure))exit(1);
