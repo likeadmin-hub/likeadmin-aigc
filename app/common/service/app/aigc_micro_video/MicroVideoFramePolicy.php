@@ -24,6 +24,24 @@ final class MicroVideoFramePolicy
             $out[]=['boundary_index'=>$i,'reference_indices'=>$refs,'prompt'=>'静态视频边界画面，只表现一个明确时刻。当前端点：'.$state."\n".'连续性背景（仅提取人物与商品外观、空间、光线和镜头几何；其中其他时间点的动作不是本帧指令）：'.($task['continuity']??'')."\n".'局部衔接背景：'.($left['continuity']??$right['continuity']??'').'。保持原始参考中的人物身份、服装、商品结构颜色与可见事实；统一场景、光线、镜头方向、构图和主体比例。'.($i===0?'建立全片镜头几何、人物和商品的相对位置。':'继承上一张锚图的身份和镜头几何，只表现当前端点状态。').'只生成此刻静止画面，不添加未经证实的商品宣传或文字。'."\n".self::endpointInstructions($state)];
         }return $out;
     }
+    public static function configurationDefinitions(array $task,array $segments,array $frames,int $limit): array
+    {
+        if(!$frames)return self::definitions($task,$segments,$limit);
+        // Model/quality changes replace execution versions, not the user's edits.
+        // Check effective references rather than the original plan's larger union.
+        $definitions=self::definitions($task,$segments,PHP_INT_MAX);
+        $existing=array_column($frames,null,'boundary_index');
+        $count=count(MicroVideoStore::json($task['params_json'])['images']??[]);
+        foreach($definitions as &$definition){
+            $index=(int)$definition['boundary_index'];
+            if(isset($existing[$index])){
+                $definition['prompt']=$existing[$index]['prompt'];
+                $definition['reference_indices']=is_array($existing[$index]['reference_indices'])?$existing[$index]['reference_indices']:MicroVideoStore::json($existing[$index]['reference_indices']);
+            }
+            $definition['reference_indices']=self::references($definition['reference_indices'],$count,$limit,$index>0);
+        }unset($definition);
+        return $definitions;
+    }
     private static function endpointState(array $segments,int $index): string
     {
         $segments=array_values($segments);$n=count($segments);if(!$n||$index<0||$index>$n)throw new InvalidArgumentException('当前首尾帧端点不存在');

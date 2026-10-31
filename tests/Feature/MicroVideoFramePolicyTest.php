@@ -25,4 +25,18 @@ final class MicroVideoFramePolicyTest extends TestCase
         $final=P::generationPrompt(['boundary_index'=>2,'prompt'=>'本帧持瓶。'],$segments,'保持全片连贯');self::assertStringEndsWith('前段结束状态：'.$segments[1]['end_state'],$final);
     }
 
+    public function testModelChangeKeepsEditedBoundariesAndChecksTheirEffectiveReferenceCapacity(): void
+    {
+        $task=['continuity'=>'Same subject','params_json'=>'{"images":["a","b"]}'];
+        $frames=P::definitions($task,$this->segments(),3);
+        foreach($frames as &$frame){$frame['prompt']='Edited '.$frame['boundary_index'];$frame['reference_indices']='[0]';}unset($frame);
+        $changed=P::configurationDefinitions($task,$this->segments(),$frames,2);
+        self::assertSame(['Edited 0','Edited 1','Edited 2'],array_column($changed,'prompt'));
+        self::assertSame([[0],[0],[0]],array_column($changed,'reference_indices'));
+        // The original plan uses two references; the saved edit uses one plus its anchor.
+        $frames[1]['reference_indices']='[0,1]';
+        $this->expectException(\InvalidArgumentException::class);
+        P::configurationDefinitions($task,$this->segments(),$frames,2);
+    }
+
 }
