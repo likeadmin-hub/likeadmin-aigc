@@ -57,9 +57,11 @@ class PicLipsyncManagementTest extends TestCase
     public function testPartialConfigWritePreservesStoredSettings(): void
     {
         Service::saveConfig(987001,['status'=>0,'config_json'=>['fixture'=>'keep']]);
+        $before=json_decode(Db::name('aigc_pic_lipsync_config')->where('tenant_id',987001)->value('config_json'),true);
+        self::assertSame('keep',$before['fixture']);
         Service::saveConfig(987001,['display_config'=>[]]);
         $config=Db::name('aigc_pic_lipsync_config')->where('tenant_id',987001)->find();
-        self::assertSame(0,(int)$config['status']);self::assertSame(['fixture'=>'keep'],json_decode($config['config_json'],true));
+        self::assertSame(0,(int)$config['status']);self::assertSame($before,json_decode($config['config_json'],true));
     }
     public function testBuiltinAccessDoesNotDependOnPaidShelfState(): void
     {
