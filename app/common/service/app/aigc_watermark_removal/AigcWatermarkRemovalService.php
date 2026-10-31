@@ -83,13 +83,13 @@ class AigcWatermarkRemovalService
         $pageNo = max(1, (int)($params['page_no'] ?? 1)); $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15))); $count = (int)(clone $query)->count();
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         foreach ($rows as &$row) { self::refreshRunningTask($row); self::syncConsumption((int)$row['id'], $userId); $fresh = AigcWatermarkRemovalTask::find((int)$row['id']); $row = self::formatTask($fresh?->toArray() ?: $row, $tenantId); } unset($row);
-        return ['lists' => $rows, 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
+        return ['lists' => \app\common\service\ai\GenerationTaskResultService::appendNativeList($rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
         $query = AigcWatermarkRemovalTask::where(['tenant_id' => $tenantId, 'id' => $taskId, 'delete_time' => 0]); if ($userId > 0) $query->where('user_id', $userId); $task = $query->findOrEmpty(); if ($task->isEmpty()) throw new Exception('任务不存在');
-        self::refreshRunningTask($task->toArray()); self::syncConsumption($taskId, $userId); $fresh = AigcWatermarkRemovalTask::find($taskId); return self::formatTask($fresh?->toArray() ?: $task->toArray(), $tenantId);
+        self::refreshRunningTask($task->toArray()); self::syncConsumption($taskId, $userId); $fresh = AigcWatermarkRemovalTask::find($taskId); return \app\common\service\ai\GenerationTaskResultService::appendBusiness(self::formatTask($fresh?->toArray() ?: $task->toArray(), $tenantId),(int)$task['app_task_id'],$tenantId,(int)$task['user_id']);
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array { $params['status'] = 'success'; return self::taskLists($tenantId, $userId, $params); }
@@ -128,7 +128,7 @@ class AigcWatermarkRemovalService
     private static function dependencies(array $options): array { return ['items' => [['app_code' => 'power_market', 'name' => '短视频去水印应用 API', 'required_for' => '短视频去水印', 'installed' => true, 'tenant_enabled' => true, 'channel_ready' => $options !== [], 'ready' => $options !== [], 'message' => $options !== [] ? '可用' : '暂无上架的短视频去水印应用 API']], 'ready' => $options !== []]; }
 
     private static function formatTask(array $row, int $tenantId): array { $results = AigcWatermarkRemovalResult::where(['tenant_id' => $tenantId, 'task_id' => (int)$row['id'], 'delete_time' => 0])->order('id', 'asc')->select()->toArray(); foreach ($results as &$result) { $result['video_url'] = FileService::getFileUrlByStorage($result['video_uri'], $result['storage_scope'] ?? '', $result['storage_engine'] ?? '', $result['storage_domain'] ?? ''); $result['download_url'] = $result['video_url']; } unset($result); $row['task_id'] = (int)$row['id']; $row['results'] = $results; $row['video_url'] = (string)($results[0]['video_url'] ?? ''); $row['status_label'] = match ((string)($row['status'] ?? '')) { 'success' => '已完成', 'failed' => '失败', 'canceled' => '已取消', 'pending' => '排队中', default => '处理中' }; return $row; }
-    private static function response(AigcWatermarkRemovalTask $task, array $quote): array { return ['task_id' => (int)$task['id'], 'status' => (string)$task['status'], 'error' => (string)($task['error'] ?? ''), 'results' => self::formatTask($task->toArray(), (int)$task['tenant_id'])['results'], 'estimate' => array_merge($quote, ['quantity' => 1, 'video_count' => 1, 'url' => (string)$task['source_url'], 'display_points' => (float)$quote['user_charge_points']])]; }
+    private static function response(AigcWatermarkRemovalTask $task, array $quote): array { return \app\common\service\ai\GenerationTaskResultService::appendBusiness(['task_id' => (int)$task['id'], 'status' => (string)$task['status'], 'error' => (string)($task['error'] ?? ''), 'results' => self::formatTask($task->toArray(), (int)$task['tenant_id'])['results'], 'estimate' => array_merge($quote, ['quantity' => 1, 'video_count' => 1, 'url' => (string)$task['source_url'], 'display_points' => (float)$quote['user_charge_points']])],(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']); }
     private static function defaults(): array { return ['status' => 1, 'config_json' => []]; }
     private static function validUrl(string $url): bool { $parts = parse_url($url); return is_array($parts) && in_array(strtolower((string)($parts['scheme'] ?? '')), ['http', 'https'], true) && trim((string)($parts['host'] ?? '')) !== ''; }
     private static function timestampValue(mixed $value): int { if (is_numeric($value)) return (int)$value; $timestamp = strtotime((string)$value); return $timestamp === false ? 0 : $timestamp; }

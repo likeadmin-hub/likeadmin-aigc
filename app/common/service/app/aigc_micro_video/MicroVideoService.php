@@ -211,7 +211,8 @@ final class MicroVideoService
                 'tenant_cost_points'=>$consumptionIds?(float)Db::name('ai_consumption_log')->whereIn('id',$consumptionIds)->sum('actual_tenant_cost'):0];
             foreach($out['segments'] as &$s){$source=MicroVideoStore::table('segment')->where('id',$s['id'])->find();$s['video_url']=self::fileUrl($source['video_uri'],$source);}unset($s);
         }
-        return $out;
+        $generationIds=MicroVideoStore::table('attempt')->where(['task_id'=>$id,'tenant_id'=>$tenant,'user_id'=>(int)$row['user_id']])->order('id')->column('consumption_id');
+        return \app\common\service\ai\GenerationTaskResultService::appendConsumptionIds($out,$generationIds,$tenant,(int)$row['user_id']);
     }
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
