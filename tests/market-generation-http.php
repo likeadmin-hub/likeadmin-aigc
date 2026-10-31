@@ -60,7 +60,9 @@ try {
     copy('/tmp/market-batch52-media/synthetic.mp4',$dir.'/synthetic.mp4');
     Db::name('user')->where('id',$user)->update(['password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification'))]);
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
-    foreach(['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite']as$code) {
+    $fixtureApps=['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite'];
+    if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1')$fixtureApps=array_unique(array_merge($fixtureApps,array_map(static fn($code)=>'aigc_'.$code,['style_transfer','photo_restore','model_wear','background_removal','image_translate','one_click_cleanup','product_multi_angle','fashion_lookbook','outpaint','local_redraw','fitting'])));
+    foreach($fixtureApps as$code) {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
         Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled','create_time'=>time(),'update_time'=>time()]);
     }
@@ -171,6 +173,13 @@ try {
     MarketWorkerFixture::check($userBefore-$userAfter===10.&&$tenantBefore-$tenantAfter===4.,'Native/application retail overrides charged incorrect fixture amounts');
     $report['image_http']=['native_managed_result_checksum'=>true,'single_application_parent_and_child_success'=>true,'suite_first_child_does_not_finish_parent'=>true,'suite_two_children_two_results'=>true,'native_price'=>1,'application_retail_price_per_child'=>3,'fixture_user_delta'=>10,'fixture_tenant_delta'=>4];
     $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_fixture_user_balance']=$userAfter;$report['total_fixture_tenant_balance']=$tenantAfter;
+    if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1') {
+        require __DIR__.'/Support/MarketToolHttpMatrix.php';
+        $report['tool_matrix']=runMarketToolHttpMatrix($fixture,$api,$suffix,$token,$channel,$imageUri);
+        $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));
+        $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');
+        $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
+    }
     $beforeRestart=[];foreach(['ai_app_task','ai_consumption_log','ai_task_result_asset']as$table)$beforeRestart[$table]=Db::name($table)->order('id')->select()->toArray();
     $pendingJobs=(int)Db::name('ai_task_job')->where('status','<>','success')->count();
     $fixture->start(__FILE__,'aigc_image');
