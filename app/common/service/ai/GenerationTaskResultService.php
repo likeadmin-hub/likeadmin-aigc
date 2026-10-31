@@ -29,12 +29,18 @@ final class GenerationTaskResultService
         if (!$ids || $tenantId<=0 || $userId<=0) return [];
         $requested=$ids;
         $owner=['tenant_id'=>$tenantId,'user_id'=>$userId];
-        $tasks=AiAppTask::where($owner)->whereIn('id',$ids)->select()->toArray();
+        $tasks=AiAppTask::where($owner)->whereIn('id',$ids)->field('id,app_code,business_table,business_id,status,progress,create_time,finish_time')->select()->toArray();
         if (!$tasks) return [];
         $ids=array_column($tasks,'id');
-        $consumptions=AiConsumptionLog::where($owner)->whereIn('app_task_id',$ids)->order('id')->select()->toArray();
+        // Inspect only media presence in SQL: inline result bytes and large pricing/request snapshots do not belong in this view.
+        $presence=[];
+        foreach (['images','videos','items','audio','assets'] as $key) $presence[]="(JSON_TYPE(JSON_EXTRACT(response_summary, '$.".$key."')) IN ('ARRAY','OBJECT') AND COALESCE(JSON_LENGTH(response_summary, '$.".$key."'),0)>0)";
+        foreach (['image_count','video_count','audio_count','asset_count'] as $key) $presence[]="COALESCE(JSON_EXTRACT(response_summary, '$.".$key."'),0)>0";
+        $fields="id,app_task_id,provider,run_status,billing_status,error_message,CASE WHEN JSON_VALID(response_summary) THEN (".implode(' OR ',$presence).") ELSE 0 END AS has_result_assets";
+        $consumptions=AiConsumptionLog::where($owner)->whereIn('app_task_id',$ids)->fieldRaw($fields)->order('id','asc')->select()->toArray();
         $consumptionIds=array_column($consumptions,'id');
-        $assets=$consumptionIds ? AiTaskResultAsset::where($owner)->whereIn('app_task_id',array_merge([0],$ids))->whereIn('consumption_id',$consumptionIds)->order('id')->select()->toArray() : [];
+        $assetFields="id,app_task_id,consumption_id,asset_type,local_uri,storage_scope,storage_engine,storage_domain,transfer_status,storage_meta,CASE WHEN transfer_status='stored' OR LEFT(external_url,5)='data:' THEN '' ELSE external_url END AS external_url";
+        $assets=$consumptionIds ? AiTaskResultAsset::where($owner)->whereIn('app_task_id',array_merge([0],$ids))->whereIn('consumption_id',$consumptionIds)->fieldRaw($assetFields)->order('id','asc')->select()->toArray() : [];
         $result=[];
         $byId=array_column($tasks,null,'id');
         foreach ($requested as $id) {
@@ -53,14 +59,13 @@ final class GenerationTaskResultService
             $unknown = $unknown || in_array($c['run_status'], ['submitting','pending_confirmation','needs_reconciliation'], true);
             $billingPending = $billingPending || !in_array($c['billing_status'], ['settled','refunded','none'], true);
             $required = AiTaskBusinessResultService::requiresForcedTransferFor($c,(string)$task['app_code'],(string)$task['business_table']);
-            $summary = (array)$c['response_summary'];
-            $expected = false;
-            foreach (['images','videos','items','audio','assets','image_count','video_count','audio_count','asset_count'] as $key) $expected = $expected || !empty($summary[$key]);
+            $expected = !empty($c['has_result_assets']);
             $ownAssets = array_values(array_filter($assets, static fn($a)=>(int)$a['consumption_id']===(int)$c['id']));
             if ($required && $c['run_status']==='success' && $expected && !$ownAssets) $transferPending = true;
             foreach ($ownAssets as $asset) {
                 $stored = $asset['transfer_status']==='stored' && trim((string)$asset['local_uri'])!=='';
                 if (!$stored && $required) { if ($c['run_status']==='success') $transferPending = true; continue; }
+                if ($c['run_status']!=='success' || !in_array($c['billing_status'],['settled','none'],true)) continue;
                 $uri = (string)($stored ? $asset['local_uri'] : $asset['external_url']);
                 if ($uri==='' || preg_match('~^(?:data|blob|javascript|file):~i', $uri)) continue;
                 $meta = (array)$asset['storage_meta'];
@@ -166,6 +171,47 @@ final class GenerationTaskResultService
             $response['generation_tasks_pending']=true;
         }
         return $response;
+    }
+
+    /** List views batch by owner, rather than querying each card or child individually. */
+    public static function appendNativeList(array $rows): array
+    {
+        $groups=[];
+        foreach ($rows as $row) if ((int)($row['app_task_id']??0)>0 && (int)($row['tenant_id']??0)>0 && (int)($row['user_id']??0)>0) {
+            $key=$row['tenant_id'].':'.$row['user_id'];$groups[$key]['owner']=[(int)$row['tenant_id'],(int)$row['user_id']];$groups[$key]['ids'][]=(int)$row['app_task_id'];
+        }
+        $views=[];
+        foreach ($groups as $key=>$group) {try{$views[$key]=self::readMany($group['ids'],...$group['owner']);}catch(\Throwable){$views[$key]=[];}}
+        foreach ($rows as &$row) {
+            $key=($row['tenant_id']??0).':'.($row['user_id']??0);$id=(int)($row['app_task_id']??0);
+            if (isset($views[$key][$id])) $row['generation_task']=$views[$key][$id];
+        }
+        unset($row);return $rows;
+    }
+
+    public static function appendRelatedList(array $rows, string $kind): array
+    {
+        $table=match($kind){'image'=>'aigc_image_task','video'=>'aigc_video_task',default=>throw new InvalidArgumentException('不支持的生成子任务类型')};
+        $groups=[];$keys=[];
+        foreach ($rows as $index=>$row) {
+            $tenant=(int)($row['tenant_id']??0);$user=(int)($row['user_id']??0);if($tenant<=0||$user<=0)continue;
+            $ids=$kind==='video'?[(int)($row['video_task_id']??0)]:($row['image_task_ids']??[(int)($row['image_task_id']??0)]);
+            if(is_string($ids))$ids=json_decode($ids,true)?:[];
+            $ids=array_values(array_filter(array_map('intval',(array)$ids),static fn($id)=>$id>0));
+            $key=$tenant.':'.$user;$keys[$index]=[$key,$ids];$groups[$key]['owner']=[$tenant,$user];$groups[$key]['ids']=array_merge($groups[$key]['ids']??[],$ids);
+        }
+        $links=[];$views=[];
+        foreach($groups as$key=>$group){
+            try{
+                $native=\think\facade\Db::name($table)->where(['tenant_id'=>$group['owner'][0],'user_id'=>$group['owner'][1],'delete_time'=>0])->whereIn('id',array_unique($group['ids']))->field('id,app_task_id')->select()->toArray();
+                $links[$key]=array_column($native,'app_task_id','id');$views[$key]=self::readMany(array_values($links[$key]),...$group['owner']);
+            }catch(\Throwable){$views[$key]=[];$links[$key]=[];}
+        }
+        foreach($keys as$index=>[$key,$ids]){
+            $children=[];foreach($ids as$id){$taskId=(int)($links[$key][$id]??0);if(isset($views[$key][$taskId]))$children[]=$views[$key][$taskId];}
+            $rows[$index]['generation_tasks']=$children;$rows[$index]['generation_task_refs']=array_column($children,'task_ref');
+        }
+        return $rows;
     }
 
 }

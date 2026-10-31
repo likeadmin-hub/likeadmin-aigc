@@ -582,7 +582,7 @@ class AigcImageService
         }
         if ($usePage) {
             return [
-                'lists' => $rows,
+                'lists' => GenerationTaskResultService::appendNativeList($rows),
                 'count' => $count,
                 'page_no' => $pageNo,
                 'page_size' => $pageSize,
