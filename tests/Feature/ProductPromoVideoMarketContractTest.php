@@ -12,6 +12,19 @@ use ReflectionMethod;
 
 class ProductPromoVideoMarketContractTest extends TestCase
 {
+    public function testConcreteSingleImageModeWinsOverBroadProductCapabilityAliases(): void
+    {
+        $option=['generation_modes'=>['image_reference','image_to_video'],'material_modes'=>[
+            ['method'=>'image_to_video','fields'=>[['kind'=>'image','required'=>true,'minimum'=>1]]],
+        ]];
+        self::assertSame('image_to_video',$this->invoke(AigcProductPromoVideoService::class,'marketPromoGenerationMethod',$option));
+        $option['material_modes'][0]['fields'][]=['kind'=>'video','required'=>true];
+        self::assertSame('',$this->invoke(AigcProductPromoVideoService::class,'marketPromoGenerationMethod',$option));
+        $option['material_modes']=[['method'=>'start_end','fields'=>[['kind'=>'image','minimum'=>2]]]];
+        self::assertSame('',$this->invoke(AigcProductPromoVideoService::class,'marketPromoGenerationMethod',$option));
+        $option['material_modes']=[['method'=>'text_to_video','fields'=>[]]];
+        self::assertSame('',$this->invoke(AigcProductPromoVideoService::class,'marketPromoGenerationMethod',$option));
+    }
     public function testApplicationSalePriceCannotLowerMarketPlatformCost(): void
     {
         $quote = [
