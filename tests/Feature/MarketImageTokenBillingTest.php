@@ -17,8 +17,8 @@ class MarketImageTokenBillingTest extends TestCase
         $snapshot=['platform_price'=>10,'tenant_price'=>20,'usage_unit_size'=>1000,'billing_meter'=>Meter::tokenContract(self::sku())];
         self::assertSame(10.,Billing::price(10,2,$snapshot));self::assertSame([2.5,5.],Billing::amounts($snapshot,2,250));
         self::assertSame('recognized_upper_bound',Audit::sku('image','model',self::sku())['meter_status']);
-        self::assertSame('requires_submission_token_budget',Audit::sku('image','app_api',self::sku(),'nano_banana')['meter_status']);
-        self::assertNull(\app\common\service\open_platform\OpenNativeMarketPricing::boundedTokenBinding(['resource_type'=>'model','model_type'=>'image'],self::sku()));
+        self::assertSame('recognized_upper_bound',Audit::sku('image','app_api',self::sku(),'nano_banana')['meter_status']);
+        self::assertSame(2,\app\common\service\open_platform\OpenNativeMarketPricing::boundedTokenBinding(['resource_type'=>'model','model_type'=>'image'],self::sku())['version']);
     }
     public function testImageBudgetStillRequiresAFormalHardBound(): void
     {

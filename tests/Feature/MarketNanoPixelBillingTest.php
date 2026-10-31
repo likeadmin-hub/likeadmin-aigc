@@ -96,7 +96,7 @@ class MarketNanoPixelBillingTest extends TestCase
                     $guard=$snapshot;$guard['app_code']='offline-no-transport';$log->save(['price_snapshot'=>$guard,'run_status'=>'running','create_time'=>time()-20000]);
                     if($scenario!=='accepted_unknown'){
                         $receipt=$scenario==='immediate_failure'?['status'=>'failed','message'=>'Synthetic failure']:['status'=>'completed','data'=>['image_urls'=>['data:image/png;base64,'.base64_encode('invalid image bytes')]]];
-                        (new \ReflectionMethod(Nano::class,'retainPixelReceipt'))->invoke(null,$id,$receipt,'','offline-receipt');
+                        (new \ReflectionMethod(Nano::class,'retainMeterReceipt'))->invoke(null,$id,$receipt,'','offline-receipt');
                     }
                     $result=Nano::refresh($id);self::assertSame($scenario==='immediate_failure'?'failed':'running',$result['status']);self::assertSame([],$result['images']);self::assertSame($scenario==='immediate_failure'?'refunded':'reserved',AiConsumptionLog::find($id)['billing_status']);
                     self::assertSame($scenario==='immediate_failure'?$before['user']:round($before['user']-$upper,2),$this->balances($user)['user']);
@@ -108,7 +108,7 @@ class MarketNanoPixelBillingTest extends TestCase
                     self::assertSame($snapshot,$create()['market_snapshot']);
                     if($scenario==='restart_ready'){
                         $guard=$snapshot;$guard['app_code']='offline-no-transport';$log->save(['price_snapshot'=>$guard,'create_time'=>time()-20000]);
-                        (new \ReflectionMethod(Nano::class,'retainPixelReceipt'))->invoke(null,$id,['status'=>'completed'],'','offline-receipt');(new \ReflectionMethod(Nano::class,'retainPixelImages'))->invoke(null,$id,$images);
+                        (new \ReflectionMethod(Nano::class,'retainMeterReceipt'))->invoke(null,$id,['status'=>'completed'],'','offline-receipt');(new \ReflectionMethod(Nano::class,'retainMeterImages'))->invoke(null,$id,$images);
                         self::assertSame('success',Nano::refresh($id)['status']);
                     }else $settle->invoke(null,$id,$images,'','',[]);
                     $mp=count($images)*.25;$cost=count($images)*.75;$userCost=$override?count($images)*9.:count($images)*1.25;$done=$this->balances($user);
