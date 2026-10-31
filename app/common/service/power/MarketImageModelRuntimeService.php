@@ -1051,7 +1051,10 @@ class MarketImageModelRuntimeService
             unset($params[$key]);
         }
         $params = self::providerParamsForFlatPayload($params, $schema);
-        $referenceImages = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
+        // URL aliases can represent separate input slots. Resolve each slot without collapsing multiplicity.
+        $referenceImages = MarketImageReferenceUrlService::normalizeRequest([
+            'reference_images' => (array)($request['reference_images'] ?? []),
+        ], $tenantId)['reference_images'];
         if (self::usesStructuredTaskPayload($snapshot)) {
             return MarketGenerationRequest::normalizeLegacyPayload($snapshot,
                 self::structuredTaskPayload($snapshot, $request, $params, $referenceImages, $ratio, $outputQuality, $imageSize, $idempotencyKey),

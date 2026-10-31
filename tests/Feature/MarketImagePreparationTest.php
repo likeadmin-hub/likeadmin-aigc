@@ -83,6 +83,16 @@ class MarketImagePreparationTest extends TestCase
         $method->invoke(null, $this->market(), array_replace($this->request(), ['quality' => '8k']));
     }
 
+    public function testRepeatedImageUsesArePreservedByTheLegacyImageCodec(): void
+    {
+        $request=$this->request();
+        $request['reference_images']=['https://fixture.invalid/same.png','https://fixture.invalid/same.png'];
+        $prepared=Images::prepareRequest($this->snapshot(),$request);
+        self::assertSame($request['reference_images'],$prepared->nativeInput['image_urls']);
+        self::assertSame(2,$prepared->meterContext['reference_images']);
+        self::assertCount(2,$request['reference_images']);
+    }
+
     /** @dataProvider imageMeters */
     public function testMeterContextUsesPreciselyThePreparedSubmission(array $source): void
     {
