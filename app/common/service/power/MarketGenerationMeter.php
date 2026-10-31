@@ -72,11 +72,11 @@ final class MarketGenerationMeter
         if (is_array($value) && ($value['version'] ?? null) === 2) {
             if (array_diff(array_keys($value), ['version','basis','rounding','maximum_quantity','usage_path']) !== []
                 || ($value['basis'] ?? null) !== 'token' || !str_contains($unit, 'token')
-                || !in_array($value['rounding'] ?? null, ['ceil','half_up_6'], true)
+                || !in_array($value['rounding'] ?? null, ['ceil','ceil_2'], true)
                 || !is_int($value['maximum_quantity'] ?? null) || $value['maximum_quantity'] < 1 || $value['maximum_quantity'] > 1000000000000
                 || !in_array($value['usage_path'] ?? null, ['usage.total_tokens','data.usage.total_tokens','result.usage.total_tokens','data.result.usage.total_tokens'], true)) throw $invalid();
             return ['version'=>2,'source'=>'structured','summary'=>$summary,'unit'=>$unit,'basis'=>'token',
-                'round_up'=>$value['rounding']==='ceil','maximum_quantity'=>$value['maximum_quantity'],'usage_path'=>$value['usage_path']];
+                'round_up'=>true,'rounding_scale'=>$value['rounding']==='ceil_2'?2:0,'maximum_quantity'=>$value['maximum_quantity'],'usage_path'=>$value['usage_path']];
         }
         if (!is_array($value) || array_diff(array_keys($value), ['version','basis','rounding','reference_images']) !== []
             || ($value['version'] ?? null) !== 1
@@ -152,8 +152,12 @@ final class MarketGenerationMeter
         }
         $amount = bcdiv($amount, number_format($size, 6, '.', ''), 12);
         if ($meter['round_up']) {
-            $integer = bcadd($amount, '0', 0);
-            return (float)(bccomp($amount, $integer, 12) > 0 ? bcadd($integer, '1', 0) : $integer);
+            // New Token contracts explicitly round at the account precision
+            // or to whole points. Never reserve a sub-cent amount that the
+            // two-decimal point account would round down to zero.
+            $scale=$meter['rounding_scale'] ?? 0;
+            $integer = bcadd($amount, '0', $scale);
+            return (float)(bccomp($amount, $integer, 12) > 0 ? bcadd($integer, $scale===2?'0.01':'1', $scale) : $integer);
         }
         return (float)bcadd($amount, '0.0000005', 6);
     }

@@ -16,7 +16,7 @@ class MarketBoundedTokenBillingTest extends TestCase
 {
     public static function declaration(): array
     {
-        return ['version'=>2,'basis'=>'token','rounding'=>'half_up_6','maximum_quantity'=>1000,'usage_path'=>'data.usage.total_tokens'];
+        return ['version'=>2,'basis'=>'token','rounding'=>'ceil_2','maximum_quantity'=>1000,'usage_path'=>'data.usage.total_tokens'];
     }
     private static function sku(array $declaration): array
     {
@@ -44,7 +44,7 @@ class MarketBoundedTokenBillingTest extends TestCase
     public static function invalidContracts(): array
     {
         $base=self::declaration();$rows=[];
-        foreach([['version'=>1],['version'=>'2'],['maximum_quantity'=>0],['maximum_quantity'=>-1],['maximum_quantity'=>'1000'],['maximum_quantity'=>1000.5],['maximum_quantity'=>1000000000001],['basis'=>'megapixel'],['usage_path'=>'**.total_tokens'],['usage_path'=>'metadata.tokens'],['rounding'=>'unknown'],['browser_budget'=>1000]]as$bad)$rows[]=[array_replace($base,$bad)];
+        foreach([['version'=>1],['version'=>'2'],['maximum_quantity'=>0],['maximum_quantity'=>-1],['maximum_quantity'=>'1000'],['maximum_quantity'=>1000.5],['maximum_quantity'=>1000000000001],['basis'=>'megapixel'],['usage_path'=>'**.total_tokens'],['usage_path'=>'metadata.tokens'],['rounding'=>'unknown'],['rounding'=>'half_up_6'],['browser_budget'=>1000]]as$bad)$rows[]=[array_replace($base,$bad)];
         $rows[]=[$base,['usage_unit'=>'per_call']];$rows[]=[$base,['usage_unit_size'=>0]];$rows[]=[$base,['usage_unit_size'=>INF]];
         return $rows;
     }
@@ -57,6 +57,12 @@ class MarketBoundedTokenBillingTest extends TestCase
     {
         return array_merge([[[]],[['total_tokens'=>250]],[['data'=>['metadata'=>['total_tokens'=>250]]]]],
             array_map(static fn($value)=>[['data'=>['usage'=>['total_tokens'=>$value]]]], [0,-1,250.5,'1e2',INF,true]));
+    }
+    public function testTinyPositiveUsageCannotLoseItsReservationAtAccountPrecision(): void
+    {
+        $meter=Meter::tokenContract(self::sku(self::declaration()));
+        self::assertSame(0.01,Meter::price(0.001,1.,['billing_meter'=>$meter,'usage_unit_size'=>1000]));
+        self::assertSame(1.,Meter::price(0.001,1.,['billing_meter'=>Meter::tokenContract(self::sku(array_replace(self::declaration(),['rounding'=>'ceil']))),'usage_unit_size'=>1000]));
     }
     public function testOverBoundReceiptIsAnErrorInsteadOfASecondCharge(): void
     {
