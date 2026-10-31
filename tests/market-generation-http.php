@@ -11,7 +11,7 @@ $original=config('database');
 if(PHP_SAPI==='cli-server') {
     $prefix=(string)getenv('AIGC_HTTP_FIXTURE_PREFIX');$dir=(string)getenv('AIGC_HTTP_FIXTURE_DIR');
     MarketWorkerFixture::check(in_array($_SERVER['REMOTE_ADDR']??'', ['127.0.0.1','::1'],true),'Loopback only');
-    MarketWorkerFixture::activate($original,$prefix,$dir);app()->setRuntimePath($dir.'/runtime/');
+    MarketWorkerFixture::activate($original,$prefix,$dir);app()->env->set('database.prefix',$prefix);app()->setRuntimePath($dir.'/runtime/');
     if(getenv('AIGC_HTTP_FIXTURE_ROLE')==='supplier') {
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);header('Content-Type: application/json');
         if($path==='/health'){echo '{}';return;}
@@ -30,7 +30,7 @@ if(PHP_SAPI==='cli-server') {
     $http=app()->http;$response=$http->run();$response->send();$http->end($response);return;
 }
 if(($argv[1]??'')==='--worker') {
-    MarketWorkerFixture::activate($original,$argv[2],$argv[3]);$command=new app\common\command\AiTaskWorker();
+    MarketWorkerFixture::activate($original,$argv[2],$argv[3]);app()->env->set('database.prefix',$argv[2]);$command=new app\common\command\AiTaskWorker();
     exit($command->run(new think\console\Input(['--poll=1','--app=aigc_canvas']),new think\console\Output()));
 }
 MarketWorkerFixture::check(getenv('AIGC_GENERATION_HTTP_TESTS')==='1','Explicit local fixture opt-in required');
@@ -51,7 +51,7 @@ try {
         'ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','ai_task_audit_log','ai_model_pricing','tenant_points_log','user_account_log','power_market_product','power_market_sku','power_market_price_rule','tenant_power_market_sku_price','tenant_power_market_product_display',
         'aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config'];
     foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_canvas_','aigc_short_drama_','aigc_video_']as$group){$base=$original['connections']['mysql']['prefix'];if(str_starts_with($table,$base.$group))$names[]=substr($table,strlen($base));}
-    $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;
+    $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;app()->env->set('database.prefix',$prefix);
     mkdir($dir.'/config',0700);file_put_contents($dir.'/config/install.lock','private-fixture');
     copy('/tmp/market-batch52-media/synthetic.mp4',$dir.'/synthetic.mp4');
     Db::name('user')->where('id',$user)->update(['password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification'))]);
