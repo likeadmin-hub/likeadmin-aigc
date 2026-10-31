@@ -47,6 +47,7 @@ class AigcCanvasService
         $status = $status === 'cancelled' ? 'canceled' : $status;
         $kind = $run['run_type'] === 'music' ? 'audio' : $run['run_type'];
         $summary = array_replace(self::normalizeRunPayload($consumption['response_summary'] ?? []), ['status' => $status]);
+        if ($status !== 'success' && empty($summary['error'])) $summary['error'] = (string)($consumption['error_msg'] ?? '');
         $result = match ($kind) {
             'image' => self::formatMarketImageResult((int)$consumption['id'], [], $summary),
             'video' => self::formatMarketVideoResult((int)$consumption['id'], [], $summary),
@@ -66,7 +67,7 @@ class AigcCanvasService
         Db::transaction(function () use ($identity, $owner, $run, $consumption, $result, $status, $kind): void {
             $project = AigcCanvasProject::where($owner + ['id' => (int)$run['project_id'], 'delete_time' => 0])->lock(true)->find();
             $current = AigcCanvasRun::where($identity)->lock(true)->find();
-            if (!$current || in_array($current['status'], ['failed', 'canceled'], true)) return;
+            if (!$current || (in_array($current['status'], ['success', 'failed', 'canceled'], true) && $current['status'] !== $status)) return;
             $finish = (int)$current['finish_time'] ?: ((int)($consumption['finish_time'] ?? 0) ?: time());
             $patch = ['status' => $status, 'result_json' => $result, 'error' => (string)($result['error'] ?? ''), 'finish_time' => $finish];
             if ($current['status'] !== $status || (array)$current['result_json'] !== $result
