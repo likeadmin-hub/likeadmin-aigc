@@ -1,5 +1,6 @@
 <?php
 /** Private HTTP fixture: real login/routes/runtime/billing/worker, loopback supplier only. No production task writes or external generation. */
+if(PHP_SAPI==='cli-server'){$_SERVER['SCRIPT_FILENAME']=dirname(__DIR__).'/public/index.php';$_SERVER['SCRIPT_NAME']='/index.php';$_SERVER['PHP_SELF']='/index.php';$_SERVER['PATH_INFO']=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);}
 require dirname(__DIR__).'/vendor/autoload.php';
 (new think\App(dirname(__DIR__)))->initialize();
 require __DIR__.'/Support/MarketWorkerFixture.php';
