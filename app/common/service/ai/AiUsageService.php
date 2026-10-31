@@ -316,6 +316,7 @@ class AiUsageService
         } elseif ($appCode = trim((string)($params['app_code'] ?? ''))) {
             $query->where('t.app_code', $appCode);
         }
+        if(!empty($params['exclude_native_smart_clip']))$query->where('t.business_table','<>','smart_clip_task');
         self::applyAppTaskTypeFilter($query, (string)($params['task_type'] ?? ''));
         if ($userId = (int)($params['user_id'] ?? 0)) {
             $query->where('t.user_id', $userId);

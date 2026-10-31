@@ -106,6 +106,7 @@ class SmartClipService
             return self::duplicateResponse($duplicate, $tenantId, $userId);
         }
 
+        $task = Db::transaction(function()use($tenantId,$userId,$payload,$estimate,$selection){
         $task = SmartClipTask::create([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -140,6 +141,9 @@ class SmartClipService
             'update_time' => time(),
         ]);
 
+        SmartClipTaskRuntime::link($task);return $task;
+        });
+
         $request = self::buildRequest($task, $selection, $payload);
         $openId=\app\common\service\open_platform\OpenCallContext::id();
         if ($openId !== '') $task->save(['provider_payload'=>array_merge((array)$task['provider_payload'],['_open_platform_request_id'=>$openId]),'update_time'=>time()]);
@@ -160,7 +164,7 @@ class SmartClipService
             $results = self::finishTaskWithVideos($task, $selection, $result->videos);
         }
 
-        return [
+        $response = [
             'task_id' => (int)$task['id'],
             'provider_task_id' => $result->providerTaskId,
             'status' => !empty($results) ? 'success' : (string)$task->status,
@@ -169,11 +173,12 @@ class SmartClipService
             'error' => $result->error,
             'results' => $results,
         ];
+        $view=SmartClipTaskRuntime::appendViews([$task->toArray()])[0];
+        return \app\common\service\ai\GenerationTaskResultService::carry($response,$view);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::refreshRunningTasks($tenantId, $userId, 0, true);
         $query = SmartClipTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -217,7 +222,6 @@ class SmartClipService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::refreshRunningTasks($tenantId, $userId, $taskId, true);
         $query = SmartClipTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -228,7 +232,7 @@ class SmartClipService
         }
         $data = $task->toArray();
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
-        return $data;
+        return SmartClipTaskRuntime::appendViews([$data])[0];
     }
 
     public static function platformTaskLists(array $params = []): array
@@ -321,7 +325,6 @@ class SmartClipService
 
     public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = ''): array
     {
-        self::refreshRunningTasks($tenantId, $userId, $taskId, true);
         $query = SmartClipTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -498,56 +501,19 @@ class SmartClipService
         );
     }
 
-    private static function refreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0, bool $swallowErrors = false): void
+    public static function acceptedSelection(SmartClipTask $task): array
     {
-        $query = SmartClipTask::where('tenant_id', $tenantId)
-            ->where('status', 'running')
-            ->where('delete_time', 0)
-            ->where('provider_task_id', '<>', '');
-        if ($userId > 0) {
-            $query->where('user_id', $userId);
-        }
-        if ($taskId > 0) {
-            $query->where('id', $taskId);
-        }
-        foreach ($query->limit(10)->select() as $task) {
-            try {
-                $selection = (array)($task['provider_payload']['accepted_selection'] ?? []);
-                if (empty($selection['channel']['code']) || empty($selection['spec']['quality'])) $selection = SmartClipChannelService::resolveSelection($tenantId, ['channel' => $task['channel']]);
-                $payload = self::normalizeSubmit($task->toArray() + [
-                    'api' => $task['clip_type'],
-                    'styleId' => $task['style_id'],
-                    'duration' => (int)$task['duration'],
-                ], false);
-                $provider = self::providerFor((string)$task['provider']);
-                if (!method_exists($provider, 'fetchResult')) {
-                    continue;
-                }
-                $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequest($task, $selection, $payload));
-                $payloadHistory = (array)($task['provider_payload'] ?: []);
-                $payloadHistory['query'] = $result->raw;
-                $task->provider_payload = $payloadHistory;
-                if (!$result->success) {
-                    $task->status = 'failed';
-                    $task->error = $result->error ?: '剪辑失败';
-                    $task->finish_time = time();
-                    $task->update_time = time();
-                    $task->save();
-                    continue;
-                }
-                if (empty($result->videos)) {
-                    $task->error = $result->error;
-                    $task->update_time = time();
-                    $task->save();
-                    continue;
-                }
-                self::finishTaskWithVideos($task, $selection, $result->videos);
-            } catch (\Throwable $e) {
-                if (!$swallowErrors) {
-                    throw $e;
-                }
-            }
-        }
+        $selection=(array)($task['provider_payload']['accepted_selection']??[]);
+        return !empty($selection['channel']['code'])&&!empty($selection['spec']['quality'])?$selection:SmartClipChannelService::resolveSelection((int)$task['tenant_id'],['channel'=>$task['channel']]);
+    }
+
+    public static function queryAccepted(SmartClipTask $task): SmartClipGenerateResult
+    {
+        $selection=self::acceptedSelection($task);
+        $payload=self::normalizeSubmit($task->toArray()+['api'=>$task['clip_type'],'styleId'=>$task['style_id'],'duration'=>(int)$task['duration']],false);
+        $provider=self::providerFor((string)$task['provider']);
+        if(!method_exists($provider,'queryResult'))throw new \RuntimeException('当前剪辑通道不支持后台查询');
+        return $provider->queryResult((string)$task['provider_task_id'],self::buildRequest($task,$selection,$payload));
     }
 
     private static function freezeSelection(array $selection): array
@@ -560,7 +526,7 @@ class SmartClipService
         return ['channel'=>$channel,'spec'=>$spec];
     }
 
-    private static function finishTaskWithVideos(SmartClipTask $task, array $selection, array $videos): array
+    public static function finishTaskWithVideos(SmartClipTask $task, array $selection, array $videos): array
     {
         Db::startTrans();
         try {
@@ -570,6 +536,7 @@ class SmartClipService
             if ($task->isEmpty()) {
                 throw new Exception('任务不存在');
             }
+            if((int)$task['delete_time']>0||in_array($task['status'],['failed','canceled'],true)){Db::commit();return [];}
             $existing = self::existingResultRows($tenantId, $userId, (int)$task['id']);
             if ((string)$task['status'] === 'success' || !empty($existing)) {
                 Db::commit();
@@ -588,9 +555,9 @@ class SmartClipService
                     'title' => $task['title'],
                     'video_uri' => $video['uri'],
                     'cover_uri' => (string)($video['cover_url'] ?? ''),
-                    'storage_scope' => $storage['scope'],
-                    'storage_engine' => $storage['default'],
-                    'storage_domain' => $domain,
+                    'storage_scope' => $video['storage_scope'] ?? $storage['scope'],
+                    'storage_engine' => $video['storage_engine'] ?? $storage['default'],
+                    'storage_domain' => $video['storage_domain'] ?? $domain,
                     'duration' => (float)($video['duration'] ?? $task['duration']),
                     'tenant_cost_points' => $task['tenant_cost_points'],
                     'user_charge_points' => $task['user_charge_points'],
@@ -665,7 +632,7 @@ class SmartClipService
             $task['video_url'] = (string)($first['video_url'] ?? '');
             $task['cover_url'] = (string)($first['cover_url'] ?? '');
         }
-        return $tasks;
+        return SmartClipTaskRuntime::appendViews($tasks);
     }
 
     private static function attachPlatformTaskResults(array $tasks): array
@@ -690,7 +657,7 @@ class SmartClipService
             $task['video_url'] = (string)($first['video_url'] ?? '');
             $task['cover_url'] = (string)($first['cover_url'] ?? '');
         }
-        return $tasks;
+        return SmartClipTaskRuntime::appendViews($tasks);
     }
 
     private static function existingResultRows(int $tenantId, int $userId, int $taskId): array
@@ -827,12 +794,13 @@ class SmartClipService
 
     private static function duplicateResponse(SmartClipTask $task, int $tenantId, int $userId): array
     {
-        return [
+        $response = [
             'task_id' => (int)$task['id'],
             'provider_task_id' => (string)$task['provider_task_id'],
             'status' => (string)$task['status'],
             'results' => (string)$task['status'] === 'success' ? self::existingResultRows($tenantId, $userId, (int)$task['id']) : [],
         ];
+        return \app\common\service\ai\GenerationTaskResultService::carry($response,SmartClipTaskRuntime::appendViews([$task->toArray()])[0]);
     }
 
     private static function sceneForApi(string $api): string

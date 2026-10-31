@@ -80,7 +80,7 @@ class AiTaskResultAssetService
     {
         $asset = AiTaskResultAsset::findOrEmpty($assetId);
         if($asset->isEmpty())return;
-        if((string)$asset['transfer_status']==='stored'){self::hydrateStoredSummary((int)$asset['consumption_id'],[$asset->toArray()]);AiTaskJobService::enqueueProcessResult((int)$asset['consumption_id']);return;}
+        if((string)$asset['transfer_status']==='stored'){self::hydrateStoredSummary((int)$asset['consumption_id'],[$asset->toArray()]);if((int)$asset['consumption_id']>0)AiTaskJobService::enqueueProcessResult((int)$asset['consumption_id']);return;}
         $url = trim((string)$asset['external_url']);
         if (!self::isExternal($url)) {
             $asset->save(['local_uri' => $url, 'transfer_status' => 'stored', 'update_time' => time()]);
@@ -119,8 +119,10 @@ class AiTaskResultAssetService
                 return [$current, true];
             });
             self::hydrateStoredSummary((int)$asset['consumption_id'],[$asset->toArray()]);
-            if ($completed) AiTaskJobService::requeueProcessResult((int)$asset['consumption_id']);
-            else AiTaskJobService::enqueueProcessResult((int)$asset['consumption_id']);
+            if((int)$asset['consumption_id']>0){
+                if ($completed) AiTaskJobService::requeueProcessResult((int)$asset['consumption_id']);
+                else AiTaskJobService::enqueueProcessResult((int)$asset['consumption_id']);
+            }
         } catch (\Throwable $e) {
             // A later projection/queue error must not reopen a completed upload.
             AiTaskResultAsset::where('id', $assetId)->where('transfer_status', '<>', 'stored')->update([
