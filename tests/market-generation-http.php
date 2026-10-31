@@ -15,7 +15,21 @@ if(PHP_SAPI==='cli-server') {
     if(getenv('AIGC_HTTP_FIXTURE_ROLE')==='supplier') {
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);header('Content-Type: application/json');
         if($path==='/health'){echo '{}';return;}
+        if(in_array($path,['/fixture/input.wav','/fixture/result.wav','/fixture/result.mp4'],true)) {
+            header('Content-Type: '.(str_ends_with($path,'.wav')?'audio/wav':'video/mp4'));
+            readfile($dir.(str_ends_with($path,'.wav')?'/synthetic.wav':'/synthetic.mp4'));return;
+        }
+
         if(($_SERVER['HTTP_AUTHORIZATION']??'')!=='Bearer fixture-no-real-key'){http_response_code(403);echo '{}';return;}
+        if(preg_match('~^/api/v1/apps/(seedsvc|lipsync)/(submit|query)$~',(string)$path,$matches)) {
+            $input=json_decode(file_get_contents('php://input'),true);
+            if($matches[2]==='submit') {
+                $input['_fixture_app']=$matches[1];file_put_contents($dir.'/submissions.jsonl',json_encode($input)."\n",FILE_APPEND|LOCK_EX);
+                echo json_encode(['code'=>1,'data'=>['task_id'=>'fixture-task-'.count(file($dir.'/submissions.jsonl')),'status'=>'running']]);return;
+            }
+            $url='http://'.$_SERVER['HTTP_HOST'].'/fixture/result.'.($matches[1]==='seedsvc'?'wav':'mp4');
+            echo json_encode(['code'=>1,'data'=>['status'=>'success',($matches[1]==='seedsvc'?'audio_url':'video_url')=>$url]]);return;
+        }
         if($path==='/api/v1/tasks'&&$_SERVER['REQUEST_METHOD']==='POST') {
             $input=json_decode(file_get_contents('php://input'),true);file_put_contents($dir.'/submissions.jsonl',json_encode($input)."\n",FILE_APPEND|LOCK_EX);
             echo json_encode(['code'=>1,'data'=>['id'=>'fixture-task-'.count(file($dir.'/submissions.jsonl')),'status'=>'running']]);return;
@@ -34,7 +48,10 @@ if(PHP_SAPI==='cli-server') {
     $http=app()->http;$response=$http->run();pcntl_alarm(0);$response->send();$http->end($response);return;
 }
 if(($argv[1]??'')==='--worker') {
-    MarketWorkerFixture::activate($original,$argv[2],$argv[3]);app()->env->set('database.prefix',$argv[2]);$command=new app\common\command\AiTaskWorker();
+    MarketWorkerFixture::activate($original,$argv[2],$argv[3]);app()->env->set('database.prefix',$argv[2]);
+    if(!is_dir($argv[3].'/runtime'))mkdir($argv[3].'/runtime',0700,true);app()->setRuntimePath($argv[3].'/runtime/');
+    if($argv[4]==='fixture_micro_runner') {while(true){app\common\service\app\aigc_micro_video\MicroVideoWorker::tick();usleep(100000);}}
+    $command=new app\common\command\AiTaskWorker();
     exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
 }
 MarketWorkerFixture::check(getenv('AIGC_GENERATION_HTTP_TESTS')==='1','Explicit local fixture opt-in required');
@@ -58,10 +75,12 @@ try {
     $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;app()->env->set('database.prefix',$prefix);
     mkdir($dir.'/config',0700);file_put_contents($dir.'/config/install.lock','private-fixture');
     copy('/tmp/market-batch52-media/synthetic.mp4',$dir.'/synthetic.mp4');
+    copy('/tmp/market-batch52-media/synthetic.wav',$dir.'/synthetic.wav');
     Db::name('user')->where('id',$user)->update(['password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification'))]);
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
     $fixtureApps=['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite'];
     if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1')$fixtureApps=array_unique(array_merge($fixtureApps,array_map(static fn($code)=>'aigc_'.$code,['style_transfer','photo_restore','model_wear','background_removal','image_translate','one_click_cleanup','product_multi_angle','fashion_lookbook','outpaint','local_redraw','fitting','product_promo_video'])));
+    if(getenv('AIGC_HTTP_STAGE_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music_cover','aigc_digital_human','aigc_micro_video']);
     foreach($fixtureApps as$code) {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
         Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled','create_time'=>time(),'update_time'=>time()]);
@@ -178,6 +197,13 @@ try {
         require __DIR__.'/Support/MarketToolHttpMatrix.php';
         $report['tool_matrix']=[];
         runMarketToolHttpMatrix($fixture,$api,$suffix,$token,$channel,$imageUri,$report['tool_matrix']);
+        $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));
+        $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');
+        $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
+    }
+    if(getenv('AIGC_HTTP_STAGE_MATRIX')==='1') {
+        require __DIR__.'/Support/MarketStageHttpMatrix.php';$report['stage_matrix']=[];
+        runMarketStageHttpMatrix($fixture,$api,$suffix,$token,$imageUri,$urls['supplier'],$report['stage_matrix']);
         $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));
         $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');
         $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
