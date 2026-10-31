@@ -135,6 +135,31 @@ final class MarketGenerationMaterials
         return $assets;
     }
 
+    /** UI ordinals refer to uploaded uses; native ordinals refer to encoded fields.
+     * Match both the declared use and the actual serialized position, not URL alone.
+     * This changes only the transient native prompt, never saved project content.
+     */
+    public static function compileReferencePrompt(array $metadata,array $mode,array $request,array $params): array
+    {
+        if(!str_contains((string)($params['prompt']??''),'@'))return $params;
+        $rules=MarketGenerationNativeContract::rules($metadata,(string)($mode['native_mode']??''));
+        if(!array_filter($rules,static fn($r)=>($r['kind']??'')==='kling4'&&($r['check']??'')==='prompt'))return $params;
+        $assets=self::assets($request);$counts=['image'=>0,'video'=>0,'audio'=>0];$labels=['image'=>'图片','video'=>'视频','audio'=>'音频'];$tokens=[];$matches=[];
+        foreach($assets as$i=>$asset){$kind=$asset['type'];if(isset($labels[$kind]))$tokens[$i]=$labels[$kind].++$counts[$kind];}
+        $references=MarketGenerationKlingRules::references($params);
+        $strict=MarketGenerationReviewedContract::selected($metadata)!==null;
+        foreach($mode['fields']??[]as$field){
+            if(!in_array($field['kind']??'',['image','video','audio'],true))continue;
+            $rows=$references[$field['field']]??[];
+            foreach(self::matching($assets,$field,(string)$mode['method'],$strict)as$position=>$asset){
+                $index=array_search($asset,$assets,true);$reference=$rows[$position]??null;
+                if($index!==false&&$reference!==null&&($reference['url']??null)===$asset['url'])$matches[$index][]=$reference['name'];
+            }
+        }
+        $aliases=[];foreach($matches as$i=>$names){$names=array_values(array_unique($names));if(count($names)===1&&isset($tokens[$i]))$aliases[$tokens[$i]]=$names[0];}
+        return MarketGenerationKlingRules::compilePrompt($params,$aliases);
+    }
+
     /** Preparation must reject material a legacy adapter would silently discard. */
     public static function assertPreserved(array $request, array $native, ?callable $canonicalUrl = null): void
     {
