@@ -16,7 +16,8 @@ class MarketNativeBoundedTokenTest extends TestCase
     {
         return ['id'=>991701,'resource_type'=>'model','model_type'=>'video','name'=>'Offline native Token fixture','upstream_model_code'=>'offline-native-token','upstream_channel_code'=>'offline','upstream_app_code'=>'','upstream_api_code'=>'',
             'source_payload'=>['market_metadata'=>['method'=>'POST','call_type'=>2,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'duration'=>['type'=>'integer','enum'=>[4]],'resolution'=>['type'=>'string','enum'=>['720P']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']]],
-                'material_capabilities'=>['modes'=>[['code'=>'text_to_video','method'=>'text_to_video','fields'=>[]]]],'supported_durations'=>[4],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1']]]];
+                'material_capabilities'=>['modes'=>[['code'=>'text_to_video','method'=>'text_to_video','fields'=>[]]]],'supported_durations'=>[4],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1'],
+                'developer_doc_content'=>"```json\n{\"model\":\"offline-native-token\",\"channel\":\"offline\",\"prompt\":\"Synthetic native Token fixture\",\"duration\":4,\"resolution\":\"720P\",\"aspect_ratio\":\"1:1\"}\n```"]]];
     }
     private static function sku(): array
     {
