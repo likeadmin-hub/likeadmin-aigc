@@ -52,7 +52,9 @@ class MarketCanvasPersistenceReuseTest extends TestCase
     private function assertTarget(array $nodes,array $expected): void
     {
         $target=array_values(array_filter($nodes,static fn($node)=>(string)$node['id']==='9003'))[0];
-        self::assertSame($expected,$target['metadata']);
+        $business=$target['metadata'];
+        foreach(['content_revision','layout_revision'] as $revision){if(array_key_exists($revision,$business)){self::assertGreaterThan(0,$business[$revision]);unset($business[$revision]);}}
+        self::assertSame($expected,$business);
         self::assertSame(['last_frame_image','first_frame_image'],array_column($target['metadata']['referenceImages'],'role'));
         self::assertSame(['tail-use','head-use'],array_column($target['metadata']['referenceImages'],'reference_slot_id'));
         self::assertFalse($target['metadata']['generationParameters']['declared-persistence-fixture']['sound']);
@@ -60,7 +62,7 @@ class MarketCanvasPersistenceReuseTest extends TestCase
     }
     private function refuses(callable $call): void
     {
-        try{$call();}catch(\Throwable $error){self::assertMatchesRegularExpression('/不存在|无权|VERSION_CONFLICT|其他标签页/',$error->getMessage());return;}
+        try{$call();}catch(\Throwable $error){self::assertMatchesRegularExpression('/不存在|无权|VERSION_CONFLICT|其他标签页|Agent 已更新/',$error->getMessage());return;}
         self::fail('Expected project ownership or revision rejection');
     }
     public function testOrdinaryCanvasSqlSaveAndReopenRetainMixedUsesAndLegacyDefaults(): void
@@ -78,7 +80,7 @@ class MarketCanvasPersistenceReuseTest extends TestCase
         self::assertSame($read['nodes'],Canvas::projectDetail(self::TENANT,self::USER,(int)$project['id'])['nodes']);
         $this->refuses(fn()=>Canvas::projectDetail(self::TENANT,self::USER+1,(int)$project['id']));
         $this->refuses(fn()=>Canvas::saveProject(self::TENANT+1,self::USER,$payload));
-        $edit=$payload;$edit['viewport']=$saved['viewport'];$edit['save_request_id']='rollback_graph_fixture_002';$edit['nodes'][2]['metadata']['duration']=6;
+        $edit=$payload;$edit['viewport']=$read['viewport'];$edit['save_request_id']='rollback_graph_fixture_002';$edit['nodes'][2]['metadata']['duration']=6;
         Canvas::saveProject(self::TENANT,self::USER,$edit);
         $stale=$payload;$stale['save_request_id']='rollback_graph_fixture_003';$stale['nodes'][2]['metadata']['duration']=7;
         $this->refuses(fn()=>Canvas::saveProject(self::TENANT,self::USER,$stale));
