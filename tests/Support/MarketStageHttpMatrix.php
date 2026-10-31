@@ -48,7 +48,7 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     $avatar=think\facade\Db::name('aigc_digital_human_avatar')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'name'=>'Private synthetic blocks','source'=>'mine','media_type'=>'video','media_uri'=>'uploads/stage/avatar.mp4','status'=>1,'delete_time'=>0]);
     $options=app\common\service\app\aigc_digital_human\DigitalHumanMarketService::channels($tenant);
     MarketWorkerFixture::check(count($options)===1,'Private video lipsync selection missing');
-    $driver=['title'=>'Synthetic avatar','avatar_id'=>$avatar,'driver_audio_uri'=>'uploads/stage/driver.wav','channel'=>$options[0]['code'],'quality'=>'source','ratio'=>'adaptive'];
+    $driver=['title'=>'Synthetic avatar','avatar_id'=>$avatar,'driver_audio_uri'=>'uploads/stage/driver.wav','channel'=>$options[0]['code'],'quality'=>'source','ratio'=>'adaptive','idempotency_key'=>'stage-avatar-original'];
     $path='/api/app.aigc_digital_human';
     $accepted=dataHttp($api,$path.'.generate/index'.$suffix,$driver,$token);
     MarketWorkerFixture::check(count($accepted['generation_tasks']??[])===1,'Avatar missing canonical stage');
@@ -60,6 +60,7 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     // Age only the private synthetic history beyond its existing 60-second body deduplication window.
     think\facade\Db::name('aigc_digital_human_task')->where('id',$accepted['task_id'])->update(['create_time'=>time()-61]);
     $driver['driver_audio_uri']=$detail['tts_audio_uri'];
+    $driver['idempotency_key']='stage-avatar-new-attempt';
     $again=dataHttp($api,$path.'.generate/index'.$suffix,$driver,$token);
     MarketWorkerFixture::check($again['task_id']!==$accepted['task_id'],'Avatar history did not create a new attempt');
     $finish('aigc_digital_human',$again['task_id'],'aigc_digital_human_task');
