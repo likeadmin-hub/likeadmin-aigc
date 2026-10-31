@@ -19,7 +19,7 @@ function setup55(array $original,string $prefix,string $dir): void{
 
 require __DIR__.'/Support/MarketStorageBarrier.php';
 if(($argv[1]??'')==='--worker'){
-    [$prefix,$dir,$role,$kind,$mode]=array_slice($argv,2);setup55($original,$prefix,$dir);
+    [$prefix,$dir,$role,$kind,$mode]=array_slice($argv,2);$original['connections']['mysql']['type']='\\MarketStorageTraceMysql';setup55($original,$prefix,$dir);
     check55(in_array($kind,['video','audio'],true)&&in_array($role,['first','second','repeat'],true),'Explicit worker kind/role only');
     MarketStorageBarrier::install($dir,$role,$mode);
     $command=new AiTaskWorker();exit($command->run(new think\console\Input(['--app='.($kind==='video'?'aigc_video':'aigc_music'),'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
