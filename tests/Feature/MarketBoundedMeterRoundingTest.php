@@ -2,6 +2,7 @@
 namespace Tests\Feature;
 
 use app\common\service\power\{MarketGenerationMeter as Meter,MarketImageModelRuntimeService as Images,MarketVideoRuntimeService as Videos};
+use app\common\service\power\MarketPricePolicy;
 use app\common\model\power\{PowerMarketProduct,PowerMarketSku};
 use app\common\model\ai\AiConsumptionLog;
 use PHPUnit\Framework\TestCase;
@@ -50,6 +51,17 @@ class MarketBoundedMeterRoundingTest extends TestCase
         self::assertSame(0.,Meter::price(.000001,1.,$old));
         self::assertSame(1.,Meter::price(1.23,1.,['billing_meter'=>['version'=>1,'basis'=>'call','round_up'=>true],'usage_unit_size'=>1000]));
     }
+    /** @dataProvider unitPrices */
+    public function testUnitPriceNormalizationKeepsSixDecimalsAcrossFloatAndDecimalInputs(string $value,string $expected): void
+    {
+        self::assertSame($expected,MarketPricePolicy::amount($value));
+        self::assertSame($expected,MarketPricePolicy::amount((float)$value));
+    }
+    public static function unitPrices(): array
+    {
+        return [['100000000.000001','100000000.000001'],['9999999999.999998','9999999999.999998'],
+            ['0.000001','0.000001'],['0.1234564','0.123456'],['0.1234565','0.123457'],['0.0000001','0.000000'],['0','0.000000']];
+    }
     /** @dataProvider ledgers */
     public function testLocalRollbackQuoteReserveAndActualSettlementRespectTheAccountBoundary(string $basis,float $price,float $unit,int $maximum,string $rounding,int $side,float $reserve,float $actual,bool $insufficient=false): void
     {
@@ -80,7 +92,7 @@ class MarketBoundedMeterRoundingTest extends TestCase
                 $settle=new \ReflectionMethod($service,'settle');
                 $images=[['image_uri'=>'https://fixtures.invalid/measured.png','width'=>$side,'height'=>$side]];
                 $finish=static function()use($video,$settle,$id,$images){
-                    if($video)$settle->invoke(null,$id,'https://fixtures.invalid/result.mp4','','',['data'=>['usage'=>['total_tokens'=>1]]]);
+                    if($video)$settle->invoke(null,$id,[['url'=>'https://fixtures.invalid/result.mp4']],'','',['data'=>['usage'=>['total_tokens'=>1]]]);
                     else $settle->invoke(null,$id,$images,'','',[]);
                 };
                 $finish();self::assertSame('settled',AiConsumptionLog::find($id)['billing_status']);self::assertSame($actual,(float)AiConsumptionLog::find($id)['actual_user_price']);
