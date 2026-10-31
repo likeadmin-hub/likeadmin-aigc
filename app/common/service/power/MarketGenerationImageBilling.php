@@ -14,6 +14,7 @@ final class MarketGenerationImageBilling
     public static function price(float $unitPrice, int $quantity, array $snapshot): float
     {
         $meter=(array)($snapshot['billing_meter']??[]);
+        if(MarketGenerationMeter::boundedToken($meter))return MarketGenerationMeter::price($unitPrice,$meter['maximum_quantity'],$snapshot);
         if(MarketGenerationPixelMeter::applies($meter))return MarketGenerationMeter::price($unitPrice,MarketGenerationPixelMeter::upperBound($meter,$quantity),$snapshot);
         // Nano application snapshots historically charged each returned image,
         // without dividing by usage_unit_size. Never reprice those old tasks.
@@ -25,8 +26,8 @@ final class MarketGenerationImageBilling
 
     public static function amounts(array $snapshot, int $quantity, float $billedQuantity = 0, bool $deferredUsage = false): array
     {
-        $pixels=MarketGenerationPixelMeter::applies((array)($snapshot['billing_meter']??[]));
-        $price = static fn(float $unit) => $pixels ? MarketGenerationMeter::price($unit,$billedQuantity,$snapshot) : ($deferredUsage
+        $meter=(array)($snapshot['billing_meter']??[]);$measured=MarketGenerationPixelMeter::applies($meter)||MarketGenerationMeter::boundedToken($meter);
+        $price = static fn(float $unit) => $measured ? MarketGenerationMeter::price($unit,$billedQuantity,$snapshot) : ($deferredUsage
             ? MarketUsageSettlementService::price($unit, $billedQuantity, $snapshot)
             : self::price($unit, $quantity, $snapshot));
         return [$price((float)($snapshot['platform_price'] ?? 0)),

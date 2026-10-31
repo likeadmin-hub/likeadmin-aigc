@@ -82,7 +82,7 @@ final class MarketGenerationCompatibilityAudit
                 return $result;
             }
             if (MarketUsageSettlementService::isActualUsageSku($sku)) {
-                if ($type==='video' && MarketGenerationMeter::hasDeclaration($sku)) {
+                if (($type==='video'||($type==='image'&&$resource==='model')) && MarketGenerationMeter::hasDeclaration($sku)) {
                     $meter=MarketGenerationMeter::tokenContract($sku);
                     $result['meter']=array_intersect_key($meter,array_flip(['version','source','basis','round_up','maximum_quantity','usage_path']));
                     $result['meter_status']='recognized_upper_bound';

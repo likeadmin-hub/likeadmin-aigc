@@ -105,14 +105,14 @@ class MarketPixelBillingTest extends TestCase
             $settle=new \ReflectionMethod(Images::class,'settle');$one=['image_uri'=>'https://fixtures.invalid/same.png','width'=>500,'height'=>500];$images=[$one,$one];
             if($scenario==='partial')$images=[$one];
             if($scenario==='immediate_failure'){
-                (new \ReflectionMethod(Images::class,'retainPixelReceipt'))->invoke(null,$id,['status'=>'failed','message'=>'Offline failure'],'','offline-pixel-receipt');
+                (new \ReflectionMethod(Images::class,'retainMeterReceipt'))->invoke(null,$id,['status'=>'failed','message'=>'Offline failure'],'','offline-pixel-receipt');
                 self::assertSame('failed',Images::refresh($id)['status']);self::assertSame($before,$this->balances($user));
                 self::assertSame('failed',Images::refresh($id)['status']);self::assertSame($before,$this->balances($user));
                 return;
             }
             if($scenario==='immediate_unmeasured'){
                 $receipt=['status'=>'completed','request_id'=>'offline-pixel-receipt','data'=>['image_urls'=>['data:image/png;base64,'.base64_encode('invalid image bytes')]]];
-                (new \ReflectionMethod(Images::class,'retainPixelReceipt'))->invoke(null,$id,$receipt,'','offline-pixel-receipt');
+                (new \ReflectionMethod(Images::class,'retainMeterReceipt'))->invoke(null,$id,$receipt,'','offline-pixel-receipt');
                 $pending=Images::refresh($id);self::assertSame('running',$pending['status']);self::assertSame([],$pending['images']);
                 self::assertSame($receipt,AiConsumptionLog::find($id)['response_summary']['pixel_meter_receipt']);self::assertSame('reserved',AiConsumptionLog::find($id)['billing_status']);
                 self::assertSame('offline-pixel-receipt',AiConsumptionLog::find($id)['upstream_request_id']);self::assertSame(round($before['user']-20,2),$this->balances($user)['user']);
@@ -128,7 +128,7 @@ class MarketPixelBillingTest extends TestCase
             }else{
                 $sku->save(['sale_points'=>99,'source_payload'=>['meter_contract'=>array_replace(self::declaration(),['maximum_pixels_per_image'=>2000000])]]);
                 if($scenario==='restart_measured'){
-                    (new \ReflectionMethod(Images::class,'retainPixelReceipt'))->invoke(null,$id,['status'=>'completed'],'','offline-pixel-receipt');
+                    (new \ReflectionMethod(Images::class,'retainMeterReceipt'))->invoke(null,$id,['status'=>'completed'],'','offline-pixel-receipt');
                     (new \ReflectionMethod(Images::class,'retainReadyImages'))->invoke(null,$id,$images);
                     $replayed=Images::refresh($id);self::assertSame('success',$replayed['status']);self::assertSame($images,$replayed['images']);
                     self::assertSame($replayed,Images::refresh($id));

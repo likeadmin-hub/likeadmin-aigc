@@ -10,6 +10,7 @@ use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
+use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\point\PointService;
@@ -226,10 +227,10 @@ class MarketImageModelRuntimeService
 
     private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false, int $tenantId = 0): array
     {
-        if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
-        $meter = MarketGenerationMeter::contract($market['sku']);
+        $meter = MarketUsageSettlementService::isActualUsageSku($market['sku'])
+            ? MarketGenerationMeter::tokenContract($market['sku']) : MarketGenerationMeter::contract($market['sku']);
         if (MarketGenerationPixelMeter::applies($meter)) MarketGenerationPixelMeter::assertUnitSize($market['sku']['usage_unit_size']??null);
-        if (!in_array($meter['basis'], ['call', 'image', 'megapixel'], true)) throw new Exception('该图片模型计费数量规则尚未适配');
+        if (!in_array($meter['basis'], ['call', 'image', 'megapixel','token'], true)) throw new Exception('该图片模型计费数量规则尚未适配');
         // Legacy image channels priced each requested image even when their unit was per_call.
         // Only an explicit supplier meter may change that established contract.
         if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
@@ -272,7 +273,8 @@ class MarketImageModelRuntimeService
     {
         $quantity = max(1, $quantity);
         self::assertImageQuantity($market, $quantity);
-        $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
+        $bounded=MarketGenerationMeter::boundedToken((array)($market['billing_meter']??[]));
+        $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku'])&&!$bounded;
         $quote = [
             'billing_unit' => (string)$market['sku']['usage_unit'],
             'billing_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
@@ -281,12 +283,13 @@ class MarketImageModelRuntimeService
             'user_unit_points' => self::points((float)$market['tenant_price']),
             'tenant_cost_points' => $deferredUsage ? 0 : MarketGenerationImageBilling::price((float)$market['sku']['sale_points'], $quantity, self::snapshot($market)),
             'user_charge_points' => $deferredUsage ? 0 : MarketGenerationImageBilling::price((float)$market['tenant_price'], $quantity, self::snapshot($market)),
-            'settlement_mode' => $deferredUsage || MarketGenerationPixelMeter::applies((array)($market['billing_meter']??[])) ? 'actual_usage' : 'reserved',
+            'settlement_mode' => $deferredUsage || self::requiresMeterReceipt(self::snapshot($market)) ? 'actual_usage' : 'reserved',
             'price_source' => 'power_market_sku',
             'market_product_id' => (int)$market['product']['id'],
             'market_sku_id' => (int)$market['sku']['id'],
             'market_snapshot' => self::snapshot($market),
         ];
+        if($bounded)$quote['billing_quantity']=$market['billing_meter']['maximum_quantity'];
         return self::applyBillingOverride($quote, $billingOverride);
     }
 
@@ -312,8 +315,9 @@ class MarketImageModelRuntimeService
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         self::assertImageQuantity($market, $quantity);
         $market = self::meterMarket($market, $request, false, $tenantId);
-        $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
-        if ($deferredUsage && $billingOverride !== []) {
+        $bounded=MarketGenerationMeter::boundedToken((array)($market['billing_meter']??[]));
+        $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku'])&&!$bounded;
+        if (($deferredUsage||$bounded) && $billingOverride !== []) {
             throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
         }
         $quote = self::quoteMarket($market, $quantity, $billingOverride);
@@ -321,7 +325,7 @@ class MarketImageModelRuntimeService
         $userPrice = (float)$quote['user_charge_points'];
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
-        return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $quantity, $market, $tenantCost, $userPrice, $deferredUsage, $billingOverride) {
+        return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $quantity, $market, $tenantCost, $userPrice, $deferredUsage, $billingOverride,$bounded) {
             $now = time();
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
@@ -341,7 +345,7 @@ class MarketImageModelRuntimeService
                 'product_id' => (int)$market['product']['id'], 'sku_id' => (int)$market['sku']['id'],
                 'model_code' => (string)$market['product']['upstream_model_code'], 'api_code' => (string)$market['product']['upstream_channel_code'],
                 'protocol' => 'image_generate', 'provider' => 'power_market', 'upstream_request_id' => '', 'upstream_task_id' => '',
-                'quantity' => $deferredUsage ? 0 : $quantity, 'usage_unit' => (string)$market['sku']['usage_unit'], 'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'],
+                'quantity' => $bounded?$market['billing_meter']['maximum_quantity']:($deferredUsage ? 0 : $quantity), 'usage_unit' => (string)$market['sku']['usage_unit'], 'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'],
                 'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride, $quantity), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
                 'run_status' => 'reserved', 'billing_status' => $deferredUsage ? 'pending_usage' : 'reserved',
                 'reserved_tenant_cost' => $tenantCost, 'reserved_user_price' => $userPrice,
@@ -352,7 +356,7 @@ class MarketImageModelRuntimeService
             ]);
             if (!$deferredUsage) PointService::reserveBusinessAmountsInCurrentTransaction($tenantId, $userId, $tenantCost, $userPrice, $consumeNo . '-reserve', self::taskLabel($appCode) . '预占', self::extra($appTask, $consumption, 'reserved'));
             self::event((int)$consumption['id'], 'reserve', 'success', ['quantity' => $quantity, 'settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved']);
-            return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => MarketGenerationPixelMeter::applies((array)($market['billing_meter']??[])) ? self::snapshotWithBillingOverride($market,$billingOverride,$quantity) : self::snapshot($market)];
+            return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::requiresMeterReceipt(self::snapshot($market)) ? self::snapshotWithBillingOverride($market,$billingOverride,$quantity) : self::snapshot($market)];
         });
     }
 
@@ -372,6 +376,13 @@ class MarketImageModelRuntimeService
         $microSubmission=MicroVideoSubmission::applies($consumption->toArray());
         $price = (array)$consumption['price_snapshot'];
         try {
+            if(MarketUsageSettlementService::isActualUsageSku($price)){
+                $meter=(array)($price['billing_meter']??[]);
+                if(!MarketGenerationMeter::boundedToken($meter))throw new Exception('该图片模型缺少提交前的 Token 费用上限，暂不能提交');
+                if($consumption['billing_status']!=='reserved'
+                    ||(float)$consumption['reserved_tenant_cost']+0.000001<MarketGenerationMeter::price((float)$price['platform_price'],$meter['maximum_quantity'],$price)
+                    ||(float)$consumption['reserved_user_price']+0.000001<MarketGenerationMeter::price((float)$price['tenant_price'],$meter['maximum_quantity'],$price))throw new Exception('Token 预占未覆盖冻结费用上限，禁止提交');
+            }
             $payload = self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput;
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
@@ -400,7 +411,10 @@ class MarketImageModelRuntimeService
             $submitAttempts = $submission['attempts'];
             $taskId = self::taskId($response);
             $requestId = self::requestId($response);
-            self::retainPixelReceipt($consumptionId,$response,$taskId,$requestId);
+            self::retainMeterReceipt($consumptionId,$response,$taskId,$requestId);
+            if(MarketGenerationMeter::boundedToken((array)($price['billing_meter']??[]))&&in_array(self::status($response),['failed','error','canceled','cancelled'],true)){
+                self::fail($consumptionId,self::error($response),'upstream_failed');return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
             if($microSubmission)MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             if ($tenantAdminConsumption) {
                 $requestId = self::requestId($response);
@@ -424,6 +438,9 @@ class MarketImageModelRuntimeService
             if ($images !== []) {
                 self::retainReadyImages($consumptionId,$images);
                 self::settle($consumptionId, $images, $requestId, $taskId, $response);
+                if(MarketGenerationMeter::boundedToken((array)($price['billing_meter']??[]))){
+                    $current=AiConsumptionLog::findOrEmpty($consumptionId)->toArray();self::enqueueResultJob($consumptionId,($current['billing_status']??'')==='settled');return self::responseFromConsumption($current);
+                }
                 self::enqueueResultJob($consumptionId, true);
             } else {
                 self::enqueueResultJob($consumptionId);
@@ -436,7 +453,10 @@ class MarketImageModelRuntimeService
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
             }
-            if ($tenantAdminConsumption && (!($e instanceof MarketImageProviderRequestException) || $e->wasAccepted())) {
+            if (($tenantAdminConsumption || MarketGenerationMeter::boundedToken((array)($price['billing_meter']??[]))) && (!($e instanceof MarketImageProviderRequestException) || $e->wasAccepted())) {
+                if ($e instanceof MarketImageProviderRequestException && $e->receipt()) {
+                    self::retainMeterReceipt($consumptionId,$e->receipt(),self::taskId($e->receipt()),self::requestId($e->receipt()));
+                }
                 // A timeout/invalid response proves neither rejection nor acceptance. Keep cost reserved.
                 AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
                     'run_status' => 'pending_confirmation', 'error_code' => 'pending_confirmation',
@@ -597,7 +617,7 @@ class MarketImageModelRuntimeService
             }
 
             $snapshot = (array)$consumption['price_snapshot'];
-            $deferredUsage = MarketUsageSettlementService::isActualUsageSku($snapshot);
+            $deferredUsage = MarketUsageSettlementService::isActualUsageSku($snapshot)&&!MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter']??[]));
             $billingStatus = $deferredUsage ? 'pending_usage' : 'reserved';
             $reservationSn = (string)$consumption['consume_no'] . '-recovery-reserve';
             if (!$deferredUsage && ((float)$consumption['reserved_tenant_cost'] > 0 || (float)$consumption['reserved_user_price'] > 0)) {
@@ -654,25 +674,27 @@ class MarketImageModelRuntimeService
         if ($context === null) throw new Exception('市场图片消耗记录不存在');
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::responseFromConsumption($c->toArray());
-        if(MarketGenerationPixelMeter::applies((array)($c['price_snapshot']['billing_meter']??[]))){
-            $summary=(array)$c['response_summary'];$receipt=(array)($summary['pixel_meter_receipt']??[]);
+        $boundedToken=MarketGenerationMeter::boundedToken((array)($c['price_snapshot']['billing_meter']??[]));
+        if(self::requiresMeterReceipt((array)$c['price_snapshot'])){
+            $summary=(array)$c['response_summary'];$receipt=(array)($summary[$boundedToken?'token_meter_receipt':'pixel_meter_receipt']??[]);
             // A completed immediate result has no supplier task to query. Retry
             // local persistence/settlement from its durable receipt only.
             if(!empty($summary['images']) || (trim((string)$c['upstream_task_id'])===''&&$receipt)){
                 try{
                     $images=(array)($summary['images']??[]);
-                    if(!$images&&in_array(self::status($receipt),['failed','error','canceled','cancelled'],true)){
+                    if(($boundedToken||!$images)&&in_array(self::status($receipt),['failed','error','canceled','cancelled'],true)){
                         self::fail($consumptionId,self::error($receipt),'upstream_failed');
                         return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                     }
                     if(!$images)$images=self::images($receipt,(int)$c['tenant_id'],(int)$c['user_id'],(array)$c['price_snapshot']);
                     if($images){self::retainReadyImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt);}
                 }catch(\Throwable $e){self::recordRefreshError($consumptionId,(string)$c['upstream_task_id'],$e);}
-                return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+                $current=AiConsumptionLog::findOrEmpty($consumptionId)->toArray();
+                if(!$boundedToken||trim((string)$c['upstream_task_id'])===''||in_array($current['billing_status'],['settled','refunded'],true))return self::responseFromConsumption($current);
             }
         }
         if(MicroVideoSubmission::pending($c->toArray()))return self::responseFromConsumption($c->toArray());
-        if(MicroVideoSubmission::applies($c->toArray())){
+        if(MicroVideoSubmission::applies($c->toArray())&&!$boundedToken){
             $summary=(array)$c['response_summary'];$receipt=MicroVideoSubmission::receipt($c->toArray());
             try{
                 $images=(array)($summary['images']??[]);
@@ -687,16 +709,19 @@ class MarketImageModelRuntimeService
         try {
             $plan = MarketGenerationAdapterRegistry::transport((array)$c['price_snapshot'], 'query', $taskId);
             $response = self::request($plan['method'], self::origin() . $plan['path'], $plan['payload']);
-            self::retainPixelReceipt($consumptionId,$response,$taskId,self::requestId($response));
+            self::retainMeterReceipt($consumptionId,$response,$taskId,self::requestId($response));
             $status = self::status($response); if(MicroVideoSubmission::applies($c->toArray())&&!in_array($status,['failed','error','canceled','cancelled'],true))MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
+            if($boundedToken&&in_array($status,['failed','error','canceled','cancelled'],true)){self::fail($consumptionId,self::error($response),'upstream_failed');return self::failureResponse($taskId,self::error($response));}
             $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id'], (array)$c['price_snapshot']);
-            if ($images !== []) { self::retainReadyImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
+            if(!$images&&$boundedToken)$images=(array)(((array)$c['response_summary'])['images']??[]);
+            if ($images !== []) { self::retainReadyImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return $boundedToken?self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray()):['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) {
                 $message = self::error($response);
                 self::fail($consumptionId, $message, 'upstream_failed');
                 return self::failureResponse($taskId, $message);
             }
             if (AiTaskLifecycleEventService::isTerminalSuccess($status)) {
+                if($boundedToken)return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                 if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $status, $taskId)) {
                     $message = '上游图片任务已完成，但未返回可用结果文件';
                     self::fail($consumptionId, $message, 'upstream_result_missing');
@@ -785,6 +810,7 @@ class MarketImageModelRuntimeService
         if ($billingOverride === []) {
             return $quote;
         }
+        if(MarketGenerationMeter::boundedToken((array)($quote['market_snapshot']['billing_meter']??[])))throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
         if (array_key_exists('tenant_unit_cost', $billingOverride)
             && abs((float)$billingOverride['tenant_unit_cost'] - (float)$quote['tenant_unit_points']) > 0.000001) {
             throw new Exception('应用不能覆盖算力市场平台成本');
@@ -803,6 +829,7 @@ class MarketImageModelRuntimeService
     {
         $snapshot = self::snapshot($market);
         if (MarketGenerationPixelMeter::applies((array)($snapshot['billing_meter']??[]))) $snapshot['reserved_image_quantity']=$quantity;
+        if (MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter']??[]))) $snapshot['requested_image_quantity']=$quantity;
         if (!empty($market['_tenant_admin_consumption'])) $snapshot['_tenant_admin_image_quantity'] = max(1, $quantity);
         if (array_key_exists('user_charge_points', $billingOverride)) $billingOverride['user_unit_price'] = (float)$billingOverride['user_charge_points'] / max(1, $quantity);
         if (array_key_exists('user_unit_price', $billingOverride)) {
@@ -819,8 +846,15 @@ class MarketImageModelRuntimeService
             $c = $ctx['consumption']; $task = $ctx['app_task'];
             if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
             $quantity = max(1, count($images)); $snapshot = (array)$c['price_snapshot'];
-            $deferredUsage = MarketUsageSettlementService::isActualUsageSku($snapshot);
-            $actualUsage = MarketUsageSettlementService::tokenUsage($response);
+            $bounded=MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter']??[]));
+            $deferredUsage = MarketUsageSettlementService::isActualUsageSku($snapshot)&&!$bounded;
+            $actualUsage = $bounded?MarketUsageSettlementService::boundedTokenUsage($response,$snapshot['billing_meter']):MarketUsageSettlementService::tokenUsage($response);
+            if($bounded&&$actualUsage<=0){
+                $c->save(['run_status'=>'running','billing_status'=>'reserved','upstream_request_id'=>$requestId?:(string)$c['upstream_request_id'],'upstream_task_id'=>$taskId?:(string)$c['upstream_task_id'],
+                    'usage_snapshot'=>['settlement_basis'=>'awaiting_bounded_token_usage','image_count'=>$quantity],
+                    'response_summary'=>array_replace((array)$c['response_summary'],['images'=>$images,'image_count'=>$quantity,'token_meter_receipt'=>$response]),'finish_time'=>0,'update_time'=>time()]);
+                $task->save(['status'=>'running','progress'=>90,'finish_time'=>0,'update_time'=>time()]);self::event((int)$c['id'],'await_usage','pending',['image_count'=>$quantity]);return;
+            }
             if ($deferredUsage && $actualUsage <= 0) {
                 $now = time();
                 $c->save(['run_status' => 'success', 'billing_status' => 'pending_usage', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'usage_snapshot' => ['settlement_basis' => 'awaiting_actual_usage'], 'response_summary' => array_replace((array)$c['response_summary'], ['image_count' => $quantity, 'images' => $images]), 'finish_time' => $now, 'update_time' => $now]);
@@ -830,10 +864,10 @@ class MarketImageModelRuntimeService
             }
             $pixelMeter=(array)($snapshot['billing_meter']??[]);
             $pixels=MarketGenerationPixelMeter::applies($pixelMeter);
-            $billedQuantity = $pixels ? MarketGenerationPixelMeter::measured($pixelMeter,$images,(int)($snapshot['reserved_image_quantity']??0)) : ($deferredUsage ? $actualUsage : $quantity);
+            $billedQuantity = $pixels ? MarketGenerationPixelMeter::measured($pixelMeter,$images,(int)($snapshot['reserved_image_quantity']??0)) : (($deferredUsage||$bounded) ? $actualUsage : $quantity);
             [$tenant, $user] = self::settlementAmounts($snapshot, $quantity, $billedQuantity, $deferredUsage);
             if ($deferredUsage) { PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user); PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '实际用量结算', self::extra($task, $c, 'settled')); } else PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '结算', self::extra($task, $c, 'settled'));
-            $now = time(); $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0]+($pixels?['actual_megapixels'=>$billedQuantity,'settlement_basis'=>'measured_output_pixels']:[]), 'response_summary' => array_replace((array)$c['response_summary'], ['image_count' => $quantity, 'images' => $images]), 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'finish_time' => $now, 'update_time' => $now]);
+            $now = time(); $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => ($deferredUsage||$bounded) ? $actualUsage : 0]+($pixels?['actual_megapixels'=>$billedQuantity,'settlement_basis'=>'measured_output_pixels']:[])+($bounded?['settlement_basis'=>'actual_token_usage']:[]), 'response_summary' => array_replace((array)$c['response_summary'], ['image_count' => $quantity, 'images' => $images]), 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['image_count' => $quantity]);
         });
@@ -1576,6 +1610,16 @@ class MarketImageModelRuntimeService
         $pixelMeter=(array)($snapshot['billing_meter']??[]);
         if(MarketGenerationPixelMeter::applies($pixelMeter))
             return MarketPixelImageResult::persist($snapshot,$data,$tenantId,$userId,self::status($data),self::taskId($data));
+        if(MarketGenerationMeter::boundedToken($pixelMeter)){
+            if(in_array(self::status($data),['failed','error','canceled','cancelled'],true))return [];
+            $images=[];
+            foreach(array_values(array_unique(AiTaskResultUrlService::collect($data)))as$url){
+                $asset=AigcImageAssetService::persistGeneratedImage($url,$tenantId,$userId,true);
+                $images[]=['image_uri'=>(string)$asset['uri'],'width'=>(int)($asset['width']??0),'height'=>(int)($asset['height']??0),
+                    'storage_scope'=>(string)($asset['storage_scope']??'tenant'),'storage_engine'=>(string)($asset['storage_engine']??'local'),'storage_domain'=>(string)($asset['storage_domain']??'')];
+            }
+            return $images;
+        }
         $urls = [];
         foreach ([
             $data['images'] ?? [],
@@ -1846,7 +1890,7 @@ class MarketImageModelRuntimeService
     private static function responseFromConsumption(array $c): array
     {
         $summary = self::arrayValue($c['response_summary'] ?? []);
-        $pendingMeter=MarketGenerationPixelMeter::applies((array)($c['price_snapshot']['billing_meter']??[])) || MicroVideoSubmission::applies($c);
+        $pendingMeter=self::requiresMeterReceipt((array)($c['price_snapshot']??[])) || MicroVideoSubmission::applies($c);
         if($pendingMeter&&($c['billing_status']??'')!=='settled')$summary['images']=[];
         $response = [
             'status' => $pendingMeter&&!in_array($c['run_status'],['failed','canceled'],true)&&($c['billing_status']??'')!=='settled'?'running':(string)$c['run_status'],
@@ -1857,16 +1901,21 @@ class MarketImageModelRuntimeService
         $message = trim((string)($c['error_message'] ?? ''));
         return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
     }
+    private static function requiresMeterReceipt(array $snapshot): bool
+    {
+        $meter=(array)($snapshot['billing_meter']??[]);
+        return MarketGenerationPixelMeter::applies($meter)||MarketGenerationMeter::boundedToken($meter);
+    }
     private static function retainReadyImages(int $id,array $images): void
     {
-        Db::transaction(function()use($id,$images){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||(!MicroVideoSubmission::applies($c->toArray())&&!MarketGenerationPixelMeter::applies((array)($c['price_snapshot']['billing_meter']??[]))))return;$summary=(array)$c['response_summary'];$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);});
+        Db::transaction(function()use($id,$images){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||(!MicroVideoSubmission::applies($c->toArray())&&!self::requiresMeterReceipt((array)($c['price_snapshot']??[]))))return;$summary=(array)$c['response_summary'];$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);});
     }
-    private static function retainPixelReceipt(int $id,array $receipt,string $taskId,string $requestId): void
+    private static function retainMeterReceipt(int $id,array $receipt,string $taskId,string $requestId): void
     {
         Db::transaction(function()use($id,$receipt,$taskId,$requestId){
             $c=AiConsumptionLog::lock(true)->findOrEmpty($id);
-            if($c->isEmpty()||!MarketGenerationPixelMeter::applies((array)($c['price_snapshot']['billing_meter']??[]))||!in_array((string)$c['billing_status'],['reserved','pending_usage'],true))return;
-            $summary=(array)$c['response_summary'];$summary['pixel_meter_receipt']=$receipt;
+            if($c->isEmpty()||!self::requiresMeterReceipt((array)($c['price_snapshot']??[]))||!in_array((string)$c['billing_status'],['reserved','pending_usage'],true))return;
+            $summary=(array)$c['response_summary'];$summary[MarketGenerationMeter::boundedToken((array)($c['price_snapshot']['billing_meter']??[]))?'token_meter_receipt':'pixel_meter_receipt']=$receipt;
             $c->save(['run_status'=>'running','response_summary'=>$summary,'upstream_task_id'=>$taskId?:$c['upstream_task_id'],'upstream_request_id'=>$requestId?:$c['upstream_request_id'],'update_time'=>time()]);
         });
     }
