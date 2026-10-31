@@ -77,3 +77,7 @@ $result = $frozen->refresh($consumptionId, $tenantId, $userId);
 ## 批次61原生恢复增补
 
 剪辑新受理任务在内部provider_payload保存accepted_selection白名单，查询优先复用；暂态查询／转存保留running，恢复完成清除提示，明确供应商失败保持终态。旧缺快照任务保留动态解析。剪辑仍使用原生详情／列表轮询与完成扣费，不冒认为版本1共享worker受管任务。微视频换图片模型／画质时在原锁内保留编辑提示词／引用并校验新上限，版本失效／重新确认协议保持。音乐风格按已有Bearer网关，WAV／MP4原任务恢复、MIDI失败退款与显式新尝试通过。[批次61证据及剩余](market-acceptance/batch-61-20261101.md)。
+
+## 批次62原生剪辑统一结果
+
+原生剪辑在提交前同事务关联ai_app_task及native_smart_clip持久作业。版本1视图仍用app_task引用，原生task_id不变；对应资产consumption_id=0，只通过已核对归属／账务／发布状态的原生桥接读取，不虚构消费或二次结算。共享转存支持该类已关联资产，避免给0消费投普通process_result作业。HTTP详情／列表不查询供应商；已受理ID由worker／发现和reconcile继续跟踪。前端共用generationTaskStatus／PollingRequired及typed result，仅就绪后展示／下载。未知无ID不自动重发，新worker加载要求及具体证据见[批次62](market-acceptance/batch-62-20261101.md)。

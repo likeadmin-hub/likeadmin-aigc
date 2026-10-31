@@ -1,0 +1,669 @@
+{
+  "batch": 62,
+  "date": "2026-11-01",
+  "scope": "Native xhadmin/smart_clip asynchronous clipping uses existing persistent result workers and version-1 owned managed assets; native ledger is preserved without fabricated consumption. Owned synthetic HTTP/SQL/files/processes only.",
+  "source_server_commit": "2ae58b9f1c714805813304253ae437879dc7b2ad",
+  "combined_source_server_commit": "299292e08165fb7aee5b77b8194af286505c7a02",
+  "source_web_commit": "7ebace3b4025e74cefdae287509f5b991bad3c87",
+  "combined_http_fixture": {
+    "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+    "external_generation_calls": 0,
+    "production_wallet_writes": 0,
+    "normal_password_login": true,
+    "accepted_task_ref": "app_task:1",
+    "authenticated_submission": true,
+    "worker_completed_without_browser_poll": true,
+    "managed_result_checksum": true,
+    "stale_autosave_preserved_result_and_user_edit": true,
+    "logout_login_reopen": true,
+    "local_supplier_submissions": 1,
+    "tasks": 1,
+    "consumptions": 1,
+    "result_assets": 1,
+    "billing_events": [
+      "reserve",
+      "submit",
+      "job_enqueued",
+      "settle",
+      "worker_claim",
+      "job_run",
+      "query_start",
+      "job_enqueued",
+      "job_woken",
+      "query_finish",
+      "job_enqueued",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_woken",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_success"
+    ],
+    "fixture_user_balance": 99,
+    "fixture_tenant_balance": 99,
+    "short_drama": {
+      "http_quote_confirm_submit": true,
+      "same_key_replay_no_second_submit_or_charge": true,
+      "frozen_catalogue_change_survived": true,
+      "worker_result_and_normal_login_reopen": true,
+      "task_ref": "app_task:2"
+    },
+    "http_foreign_owner_reads_rejected": 3,
+    "total_local_supplier_submissions": 17,
+    "total_reserve_events": 19,
+    "total_settle_events": 19,
+    "total_fixture_user_balance": 55.9,
+    "total_fixture_tenant_balance": 61.9,
+    "image_http": {
+      "native_managed_result_checksum": true,
+      "single_application_parent_and_child_success": true,
+      "suite_first_child_does_not_finish_parent": true,
+      "suite_two_children_two_results": true,
+      "native_price": 1,
+      "application_retail_price_per_child": 3,
+      "fixture_user_delta": 10,
+      "fixture_tenant_delta": 4
+    },
+    "deep_matrix": {
+      "phase": "complete",
+      "avatar_text": {
+        "normal_http_tts_query_audio_storage_lipsync_worker_result": true,
+        "same_body_no_second_tts": true,
+        "history_detail_preserves_text_and_voice": true
+      },
+      "text_settlements": 2,
+      "micro_planning": {
+        "unseeded_analysis_and_script_native_transport": true,
+        "usage_settlement_and_saved_receipts": true,
+        "two_validated_timeline_segments": true
+      },
+      "frame_recovery": {
+        "middle_edit_preserves_prefix_invalidates_tail": true,
+        "tail_edit_preserves_prefix": true,
+        "first_edit_invalidates_all_dependents": true,
+        "model_change_preserves_edited_inputs": true,
+        "stale_revision_rejected": true,
+        "individual_regeneration_and_same_key_replay": true,
+        "model_replacement_regenerates_three_versions": true,
+        "manual_boundary_file_upload": "No existing upload/replace endpoint; not introduced by this test"
+      },
+      "micro_media_result_counts": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "micro_frames": {
+        "three_ordered_anchors_two_video_segments_actual_merge": true,
+        "frame_and_video_confirmation_replay": true,
+        "reopen_keeps_generation_identities": true,
+        "actual_duration": 1.788,
+        "legacy_missing_handoff_recovered_without_submission_or_billing": true
+      },
+      "music_clone": {
+        "normal_http_owned_upload_authorization_voice_id_and_native_history": true,
+        "cross_owner_submission_rejected": true
+      },
+      "music_exports": {
+        "wav": {
+          "http_submit_native_worker_detail_replay": true,
+          "owned_download_checksum": true
+        },
+        "midi": {
+          "http_submit_native_worker_detail_replay": true,
+          "owned_download_checksum": true
+        },
+        "mp4": {
+          "http_submit_native_worker_detail_replay": true,
+          "owned_download_checksum": true
+        },
+        "vox": {
+          "http_submit_native_worker_detail_replay": true,
+          "owned_download_checksum": false
+        },
+        "timing": {
+          "http_submit_native_worker_detail_replay": true,
+          "owned_download_checksum": false
+        }
+      },
+      "supplier_call_counts": {
+        "tts": 1,
+        "text": 2,
+        "music_voice_clone": 1,
+        "music_upload_audio": 1,
+        "music_persona": 1,
+        "music_wav": 1,
+        "music_midi": 1,
+        "music_mp4": 1,
+        "music_vox": 1,
+        "music_timing": 1
+      },
+      "music_operation_count": 8,
+      "settlement_totals": {
+        "consumptions": 27,
+        "settled": 27,
+        "actual_user": 30.1,
+        "actual_tenant": 24.1,
+        "protocols": {
+          "video_generate": 4,
+          "image_generate": 12,
+          "application_api": 9,
+          "openai_chat": 2
+        }
+      }
+    },
+    "recovery_matrix": {
+      "phase": "complete",
+      "smart_clip": {
+        "realman_broadcast": {
+          "canonical_ref": "app_task:28",
+          "normal_login_http": true,
+          "completed_without_http_polling": true,
+          "same_task_same_key_and_single_native_bill": true,
+          "shared_and_native_video_checksum": true,
+          "kill_and_natural_lease_reclaim": false,
+          "download_failure_restart_and_disabled_channel": false
+        },
+        "broadcast_mixcut": {
+          "canonical_ref": "app_task:29",
+          "normal_login_http": true,
+          "completed_without_http_polling": true,
+          "same_task_same_key_and_single_native_bill": true,
+          "shared_and_native_video_checksum": true,
+          "kill_and_natural_lease_reclaim": true,
+          "download_failure_restart_and_disabled_channel": false
+        },
+        "news_mixcut": {
+          "canonical_ref": "app_task:30",
+          "normal_login_http": true,
+          "completed_without_http_polling": true,
+          "same_task_same_key_and_single_native_bill": true,
+          "shared_and_native_video_checksum": true,
+          "kill_and_natural_lease_reclaim": false,
+          "download_failure_restart_and_disabled_channel": true
+        }
+      },
+      "smart_clip_accounting": {
+        "native_tasks": 6,
+        "completed": 4,
+        "failed_uncharged": 1,
+        "deleted_unqueried_uncharged": 1,
+        "native_results": 4,
+        "canonical_assets": 4,
+        "supplier_submissions": 5,
+        "legacy_admitted_without_resubmit": 1,
+        "canonical_foreign_and_deleted_reads_rejected": true,
+        "idle_restart_full_rows_stable": true
+      },
+      "music_text": {
+        "lyrics": {
+          "normal_login_http": true,
+          "native_task_and_settlement": true
+        },
+        "mashup_lyrics": {
+          "normal_login_http": true,
+          "native_task_and_settlement": true
+        },
+        "style": {
+          "existing_bearer_gateway": true,
+          "native_task_and_settlement": true
+        }
+      },
+      "export_recovery": {
+        "wav": {
+          "held_reserve_then_original_task_storage_recovery": true,
+          "owned_download_checksum": true
+        },
+        "mp4": {
+          "held_reserve_then_original_task_storage_recovery": true,
+          "owned_download_checksum": true
+        },
+        "midi": {
+          "known_failure_refund_and_new_explicit_attempt": true,
+          "owned_download_checksum": true
+        }
+      },
+      "final_accounting": {
+        "consumptions": 34,
+        "billing_statuses": {
+          "settled": 33,
+          "refunded": 1
+        },
+        "native_clip_bills": 4,
+        "actual_user": 44.1,
+        "actual_tenant": 38.1,
+        "native_clip_tasks": 6,
+        "native_clip_results": 4
+      },
+      "supplier_call_counts": {
+        "tts": 1,
+        "text": 2,
+        "music_voice_clone": 1,
+        "music_upload_audio": 1,
+        "music_persona": 1,
+        "music_wav": 2,
+        "music_midi": 3,
+        "music_mp4": 2,
+        "music_vox": 1,
+        "music_timing": 1,
+        "clip_realman_broadcast": 2,
+        "clip_broadcast_mixcut": 1,
+        "clip_news_mixcut": 2,
+        "music_lyrics": 1,
+        "music_mashup_lyrics": 1,
+        "music_style": 1
+      }
+    },
+    "unfinished_jobs_completed_on_restart": 0,
+    "worker_restart_preserved_completed_rows": true,
+    "total_tasks": 40,
+    "total_result_assets": 21,
+    "private_tables_and_files_removed": true
+  },
+  "final_focused_http_fixture": {
+    "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+    "external_generation_calls": 0,
+    "production_wallet_writes": 0,
+    "normal_password_login": true,
+    "accepted_task_ref": "app_task:1",
+    "authenticated_submission": true,
+    "worker_completed_without_browser_poll": true,
+    "managed_result_checksum": true,
+    "stale_autosave_preserved_result_and_user_edit": true,
+    "logout_login_reopen": true,
+    "local_supplier_submissions": 1,
+    "tasks": 1,
+    "consumptions": 1,
+    "result_assets": 1,
+    "billing_events": [
+      "reserve",
+      "submit",
+      "job_enqueued",
+      "settle",
+      "worker_claim",
+      "job_run",
+      "query_start",
+      "job_enqueued",
+      "job_woken",
+      "query_finish",
+      "job_enqueued",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_woken",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_success"
+    ],
+    "fixture_user_balance": 99,
+    "fixture_tenant_balance": 99,
+    "image_http": {
+      "native_managed_result_checksum": true,
+      "single_application_parent_and_child_success": true,
+      "suite_first_child_does_not_finish_parent": true,
+      "suite_two_children_two_results": true,
+      "native_price": 1,
+      "application_retail_price_per_child": 3,
+      "fixture_user_delta": 10,
+      "fixture_tenant_delta": 4
+    },
+    "total_local_supplier_submissions": 5,
+    "total_fixture_user_balance": 81,
+    "total_fixture_tenant_balance": 87,
+    "recovery_matrix": {
+      "phase": "complete",
+      "smart_clip": {
+        "realman_broadcast": {
+          "canonical_ref": "app_task:6",
+          "normal_login_http": true,
+          "completed_without_http_polling": true,
+          "same_task_same_key_and_single_native_bill": true,
+          "shared_and_native_video_checksum": true,
+          "kill_and_natural_lease_reclaim": false,
+          "download_failure_restart_and_disabled_channel": false
+        },
+        "broadcast_mixcut": {
+          "canonical_ref": "app_task:7",
+          "normal_login_http": true,
+          "completed_without_http_polling": true,
+          "same_task_same_key_and_single_native_bill": true,
+          "shared_and_native_video_checksum": true,
+          "kill_and_natural_lease_reclaim": true,
+          "download_failure_restart_and_disabled_channel": false
+        },
+        "news_mixcut": {
+          "canonical_ref": "app_task:8",
+          "normal_login_http": true,
+          "completed_without_http_polling": true,
+          "same_task_same_key_and_single_native_bill": true,
+          "shared_and_native_video_checksum": true,
+          "kill_and_natural_lease_reclaim": false,
+          "download_failure_restart_and_disabled_channel": true
+        }
+      },
+      "smart_clip_accounting": {
+        "native_tasks": 6,
+        "completed": 4,
+        "failed_uncharged": 1,
+        "deleted_unqueried_uncharged": 1,
+        "native_results": 4,
+        "canonical_assets": 4,
+        "supplier_submissions": 5,
+        "legacy_admitted_without_resubmit": 1,
+        "canonical_foreign_and_deleted_reads_rejected": true,
+        "idle_restart_full_rows_stable": true
+      }
+    },
+    "unfinished_jobs_completed_on_restart": 0,
+    "worker_restart_preserved_completed_rows": true,
+    "total_reserve_events": 5,
+    "total_settle_events": 5,
+    "total_tasks": 11,
+    "total_result_assets": 9,
+    "private_tables_and_files_removed": true
+  },
+  "scenarios": [
+    {
+      "identity": {
+        "id": "private_synthetic_native_clip_realman_background"
+      },
+      "entry": "standalone",
+      "scenario": "native_clip_realman_background",
+      "status": "http_terminal_rows_preserved",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_native_clip_material_kill_and_natural_lease_reclaim"
+      },
+      "entry": "standalone",
+      "scenario": "native_clip_material_kill_and_natural_lease_reclaim",
+      "status": "http_terminal_rows_preserved",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_native_clip_news_storage_restart_disabled_channel"
+      },
+      "entry": "standalone",
+      "scenario": "native_clip_news_storage_restart_disabled_channel",
+      "status": "http_terminal_rows_preserved",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_accepted_legacy_native_discovery"
+      },
+      "entry": "standalone",
+      "scenario": "accepted_legacy_native_discovery",
+      "status": "http_terminal_rows_preserved",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_native_explicit_failure_no_charge"
+      },
+      "entry": "standalone",
+      "scenario": "native_explicit_failure_no_charge",
+      "status": "expected_local_rejection",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_native_deleted_task_no_query_or_charge"
+      },
+      "entry": "standalone",
+      "scenario": "native_deleted_task_no_query_or_charge",
+      "status": "expected_local_rejection",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_canonical_foreign_or_deleted_reference_denied"
+      },
+      "entry": "standalone",
+      "scenario": "canonical_foreign_or_deleted_reference_denied",
+      "status": "expected_local_rejection",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_native_history_managed_polling_handlers"
+      },
+      "entry": "standalone",
+      "scenario": "native_history_managed_polling_handlers",
+      "status": "source_handler_verified",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    },
+    {
+      "identity": {
+        "id": "private_synthetic_mixed_task_view_requested_order"
+      },
+      "entry": "standalone",
+      "scenario": "mixed_task_view_requested_order",
+      "status": "source_handler_verified",
+      "sku_binding": "Native synthetic clipping or fixture identity; no real market SKU binding"
+    }
+  ],
+  "browser_observations": [
+    {
+      "entry": "standalone",
+      "scenario": "three_clip_modes_empty_history_refresh_and_disabled_submit",
+      "status": "page_controls_checked",
+      "no_generation_submit": true,
+      "console_errors": 0,
+      "retained_warning": "Existing definePageMeta compiler hint warning"
+    }
+  ],
+  "changes": {
+    "server": [
+      "Create one canonical app task and native_smart_clip job atomically before supplier transport. Worker never submits generation.",
+      "Worker start/periodic sweep and existing reconcile command discover admitted native rows with a known provider ID. Uninstalled app discovery is skipped.",
+      "Query returns a typed URL; shared asset transfer/checkpoints handle download, stable files and recovery. Native completion bill and canonical readiness finish under the native row lock.",
+      "Native consumption_id=0 assets are restricted to owned app-task/native result links. Read-only views verify native ledger and published result, hide deleted/foreign records and expose no raw receipt.",
+      "Native task center remains authoritative for clipping; duplicate canonical rows are excluded from its aggregate list.",
+      "SmartClipResult disables writing nonexistent update_time during individual soft delete."
+    ],
+    "web": [
+      "Clipping gallery reads typed managed video and shared status. Native URLs cannot bypass pending managed delivery.",
+      "History load resumes pending polling; transient HTTP failure keeps accepted rows; late response after unmount cannot restart polling. Legacy task_id and old unlinked history remain compatible."
+    ]
+  },
+  "validation": {
+    "phpunit_tests": 1161,
+    "phpunit_assertions": 8516,
+    "phpunit_failures": 0,
+    "phpunit_errors": 0,
+    "phpunit_skips": 0,
+    "frontend_tests": 492,
+    "frontend_failures": 0,
+    "sfc_compile": "Four real clipping components compiled by existing gallery test",
+    "typescript_strict": "Clipping result helper plus shared generation contract passed",
+    "changed_php_lint": 17,
+    "compiled_checks": "Five old batch59 compiled manifest entry failures remain; not rebuilt or claimed passed.",
+    "validation_sources": "Broad source regression and full combined HTTP on 299292e08; final clip-only HTTP and lint on 2ae58b9f1. Both were integrated into local develop before execution."
+  },
+  "original_task_parity": {
+    "baseline17": {
+      "scope": "Read-only original user task rows and wallet; hashes only",
+      "tables": {
+        "aigc_image_task": {
+          "count": 85,
+          "sha256": "052d964094d42e6457857eed3be12fe49b304e60b770b7be9ad954599b8f80ad"
+        },
+        "aigc_video_task": {
+          "count": 44,
+          "sha256": "697275539f3f9d91d6eb2cc6d8ea09436981491c3819b97f5e2370da3140cf80"
+        },
+        "aigc_music_task": {
+          "count": 2,
+          "sha256": "e733e34690e86be136d0aee91f1bffaaf636f31129beef1a4e810d3f01cc636e"
+        },
+        "aigc_product_image_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "aigc_product_suite_task": {
+          "count": 1,
+          "sha256": "5c7b86649505cfe8f8fc118f2db2b93f532155703a6626cebb5239f0fc07ac64"
+        },
+        "aigc_style_transfer_task": {
+          "count": 2,
+          "sha256": "6f92d119942d545c4a82d4db765d0599c42dafe6117491ada6d370215de93782"
+        },
+        "aigc_photo_restore_task": {
+          "count": 1,
+          "sha256": "35cd6ad71e5de214507cb302c5791b6cd750fc61eb0ad957096de34d8c9e9c3d"
+        },
+        "aigc_model_wear_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "aigc_background_removal_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "aigc_image_translate_task": {
+          "count": 1,
+          "sha256": "4463e7d48af54a66a9e34b83b7ea2a286a22554f4bdc22bb7a6f4ef6c8eb2001"
+        },
+        "aigc_one_click_cleanup_task": {
+          "count": 2,
+          "sha256": "138938b0c27b6caa6652f921b2eb1f2ba0eb600d59d819b7356ec3d7cd93b1c0"
+        },
+        "aigc_product_multi_angle_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "aigc_fashion_lookbook_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "aigc_outpaint_task": {
+          "count": 3,
+          "sha256": "abd9a37f7004a87f538329d7f16eab2653926e8d69750e534c8b4247f482b6e5"
+        },
+        "aigc_local_redraw_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        },
+        "aigc_fitting_task": {
+          "count": 2,
+          "sha256": "8e66136e78f4a6a9f0c73d32b5de3a68510b412c2b62586442a13d0e5eabd60b"
+        },
+        "aigc_product_promo_video_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "balance": 4372.96
+    },
+    "additional3": {
+      "scope": "Read-only original user task rows and wallet; hashes only",
+      "tables": {
+        "aigc_music_cover_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_digital_human_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_micro_video_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        }
+      },
+      "balance": 4372.96
+    },
+    "native_clip": {
+      "scope": "Read-only original user task rows and wallet; hashes only",
+      "tables": {
+        "smart_clip_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+        }
+      },
+      "balance": 4372.96
+    }
+  },
+  "original_task_rows_unchanged": true,
+  "production_balance_before_and_after": 4372.96,
+  "boundary_notes": [
+    "Full combined run: 40 canonical tasks = 34 consumption-backed tasks plus 6 native clipping tasks. Native outcomes: 4 success, 1 known failure, 1 deleted. Twenty-one managed media assets include four clipping videos.",
+    "Thirty-four consumption rows retain 33 settled/1 refunded. Four native clipping bills are separate; no extra AiConsumptionLog created for clipping. User/tenant fake deltas 44.1/38.1 match balances 55.9/61.9. Media/text reserve and settle events remain 19 each.",
+    "Focused final run: baseline 5 tasks plus 6 clipping tasks, 9 managed assets, fake balances 81/87. This is a separate run, never added to full-run counts.",
+    "Completion was observed through private SQL until ready. No task/detail/list HTTP polling drove any of the three normal-mode completions. One owned worker was SIGKILLed during a held supplier query; actual 10-second lease expiry preceded restart/reclaim of the same job.",
+    "Download503 leaves the same native task and canonical asset, no native bill. A new owned worker completes it after download recovery despite the accepted channel being disabled.",
+    "Legacy admitted row was seeded with a known provider receipt and saved accepted selection. Five synthetic supplier submissions plus one seeded admitted receipt produced six native tasks; no resubmission by workers.",
+    "Only the final idle restart had zero unfinished jobs. It is distinct from the mid-query kill/natural lease reclaim and incomplete-download restart checks.",
+    "Native ledger retains precheck and completion-time deduction. This batch does not invent a new reservation/refund contract or back-charge history.",
+    "New job type is excluded by old workers. Production deployment must load new code in worker processes; existing real worker PID1667 was deliberately preserved, and all restart tests used owned private workers.",
+    "Read-only common views do not query upstream or register files. Existing callbacks/native IDs and version-1 schema remain; responses gain optional generation_task. No new API path, DDL, menu/permission or manifest version change.",
+    "Mock/static preview provider and old unlinked terminal history keep their existing path. Missing supplier IDs, missing authoritative legacy routing, real suppliers, full SKU matrix, cloud/multihost/mixed-version failures are not certified.",
+    "Actual browser check covers real controls and empty history only. Managed ready/pending presentation is tested with the actual frontend handlers; synthetic generated results are validated through normal-login HTTP and production workers, not browser-paid generation."
+  ],
+  "fixture_corrections_not_product_findings": [
+    "Existing batch61 detail-triggered clip completion checks were replaced by background worker checks; fixture counts now separate native task outcomes from consumption-backed tasks.",
+    "Supplier receipt IDs are unique per explicit attempt; private query/download holds are not production hooks."
+  ],
+  "retained_blockers": {
+    "full_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17,
+    "application_options": 13,
+    "pixel_products": [
+      275,
+      277
+    ],
+    "pixel_skus": [
+      380,
+      383
+    ],
+    "seedance_token_product": 140,
+    "seedance_token_skus": [
+      210,
+      211,
+      212,
+      213,
+      214,
+      215
+    ],
+    "nano_unconfirmed": [
+      "nested inputs",
+      "image count",
+      "bare b64_json",
+      "supplier asset IDs"
+    ]
+  },
+  "not_verified": [
+    "Real upstream media generation/query, exact real model/SKU/voice/quality/terminal matrix and formal contract gaps.",
+    "Unknown supplier acceptance without a provider task ID, missing authoritative legacy selection, all native submission concurrency and generic client HTTP idempotency keys.",
+    "Every cloud, multihost, mixed-version, database/host/power-loss interruption combination.",
+    "Manual uploaded boundary image replacement (no existing endpoint), every music export failure/format, original song creation chain.",
+    "Five old compiled entry failures and existing clipping definePageMeta/micro resume-listener warnings."
+  ],
+  "upstream_refresh": "Not performed; last formal upstream observation remains batch50. No real prices, shelf, catalogue or reviewed contracts changed.",
+  "source_only": true,
+  "runtime_preserved": {
+    "server_skip_worktree": 3971,
+    "web_skip_worktree": 3,
+    "original_projects_not_edited": true,
+    "existing_worker_pid_1667_not_restarted": true
+  },
+  "browser_screenshots": [
+    "clip-worker-audit/clip-workbench.png"
+  ]
+}
