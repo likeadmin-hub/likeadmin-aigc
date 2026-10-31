@@ -61,7 +61,7 @@ try {
     Db::name('user')->where('id',$user)->update(['password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification'))]);
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
     $fixtureApps=['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite'];
-    if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1')$fixtureApps=array_unique(array_merge($fixtureApps,array_map(static fn($code)=>'aigc_'.$code,['style_transfer','photo_restore','model_wear','background_removal','image_translate','one_click_cleanup','product_multi_angle','fashion_lookbook','outpaint','local_redraw','fitting'])));
+    if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1')$fixtureApps=array_unique(array_merge($fixtureApps,array_map(static fn($code)=>'aigc_'.$code,['style_transfer','photo_restore','model_wear','background_removal','image_translate','one_click_cleanup','product_multi_angle','fashion_lookbook','outpaint','local_redraw','fitting','product_promo_video'])));
     foreach($fixtureApps as$code) {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
         Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled','create_time'=>time(),'update_time'=>time()]);
@@ -175,7 +175,8 @@ try {
     $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_fixture_user_balance']=$userAfter;$report['total_fixture_tenant_balance']=$tenantAfter;
     if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1') {
         require __DIR__.'/Support/MarketToolHttpMatrix.php';
-        $report['tool_matrix']=runMarketToolHttpMatrix($fixture,$api,$suffix,$token,$channel,$imageUri);
+        $report['tool_matrix']=[];
+        runMarketToolHttpMatrix($fixture,$api,$suffix,$token,$channel,$imageUri,$report['tool_matrix']);
         $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));
         $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');
         $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
