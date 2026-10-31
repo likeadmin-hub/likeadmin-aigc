@@ -655,7 +655,7 @@ class MarketVideoRuntimeService
             }
             if ($videos !== []) {
                 self::settle($consumptionId, $videos, self::requestId($response), $taskId, $response);
-                if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+                if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray()) || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $videos];
             }
             if (self::isTokenSnapshot($snapshot) || !empty($snapshot['requires_actual_duration'])) {
@@ -664,11 +664,13 @@ class MarketVideoRuntimeService
                     $stored = self::arrayValue($c['response_summary'] ?? []);
                     $settleVideos = $videos !== [] ? $videos : (array)($stored['videos'] ?? []);
                     self::settle($consumptionId, $settleVideos, self::requestId($response), $taskId, $response);
+                    if (MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                     return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $settleVideos];
                 }
                 $stored = self::arrayValue($c['response_summary'] ?? []);
                 $storedVideos = (array)($stored['videos'] ?? []);
                 if ($storedVideos !== []) {
+                    if (MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response($c->toArray());
                     return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $storedVideos];
                 }
             }
@@ -732,7 +734,7 @@ class MarketVideoRuntimeService
                 $usage['settlement_basis'] = 'awaiting_actual_usage';
                 $bounded=MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []));
                 $c->save(self::clearRefreshDiagnostics([
-                    'run_status' => 'success', 'billing_status' => $bounded || !empty($snapshot['requires_actual_duration']) ? 'reserved' : 'pending_usage',
+                    'run_status' => $bounded ? 'running' : 'success', 'billing_status' => $bounded || !empty($snapshot['requires_actual_duration']) ? 'reserved' : 'pending_usage',
                     'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'],
                     'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'],
                     'usage_snapshot' => $usage,
@@ -3744,7 +3746,8 @@ class MarketVideoRuntimeService
             'provider_request_id' => (string)$c['upstream_request_id'],
             'videos' => (array)($summary['videos'] ?? []),
         ];
-        if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c) && ($c['billing_status']??'')!=='settled') {
+        $snapshot=self::arrayValue($c['price_snapshot'] ?? []);
+        if ((\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c) || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) && ($c['billing_status']??'')!=='settled') {
             $response['videos']=[];
             if (!in_array($response['status'],['failed','canceled','pending_confirmation','submitting'],true)) $response['status']='running';
         }

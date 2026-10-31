@@ -54,10 +54,8 @@ class MarketBoundedTokenBillingTest extends TestCase
     }
     public static function absentReceipts(): array
     {
-        return [[[]],[['total_tokens'=>250]],[['data'=>['metadata'=>['total_tokens'=>250]]]],
-            [['data'=>['usage'=>['total_tokens'=>0]]]], [['data'=>['usage'=>['total_tokens'=>-1]]]],
-            [['data'=>['usage'=>['total_tokens'=>250.5]]]], [['data'=>['usage'=>['total_tokens'=>'1e2']]]]],
-            [['data'=>['usage'=>['total_tokens'=>INF]]]], [['data'=>['usage'=>['total_tokens'=>true]]]]];
+        return array_merge([[[]],[['total_tokens'=>250]],[['data'=>['metadata'=>['total_tokens'=>250]]]]],
+            array_map(static fn($value)=>[['data'=>['usage'=>['total_tokens'=>$value]]]], [0,-1,250.5,'1e2',INF,true]));
     }
     public function testOverBoundReceiptIsAnErrorInsteadOfASecondCharge(): void
     {
