@@ -1,0 +1,33 @@
+{
+  "batch": 31,
+  "date": "2026-10-31",
+  "source_web_commit": "bde7402a",
+  "source_server_commit": "bab28ccfa",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "task_writes": false,
+  "scope": "Synthetic saved request passed through the actual history restore helper and shared preparation payload before the fix. Not an observed fault on the three persisted tasks.",
+  "cases": [
+    {
+      "status": "reproduced_failure",
+      "scenario": "declared_nested_controls_subjects_and_explicit_material_mode_lost",
+      "entry": "pc_create",
+      "fixture_identity": "synthetic-only",
+      "before_web_commit": "5a2371d8",
+      "expected": {
+        "parameters": {
+          "audio": false,
+          "seed": 0
+        },
+        "subjects_count": 1,
+        "material_mode": "mixed"
+      },
+      "actual": {
+        "provider_params_present": false,
+        "material_mode_present": false
+      },
+      "fixed_web_commit": "bde7402a"
+    }
+  ]
+}
