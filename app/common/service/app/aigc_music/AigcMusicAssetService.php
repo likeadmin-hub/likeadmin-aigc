@@ -16,13 +16,13 @@ class AigcMusicAssetService
     private const ALLOWED_AUDIO_EXT = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus'];
     private const MAX_REMOTE_AUDIO_BYTES = 104857600;
 
-    public static function persistGeneratedAudio(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
+    public static function persistGeneratedAudio(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         if (str_starts_with($url, 'data:audio/')) {
-            return self::persistDataUri($url, $tenantId, $userId, $storageConfig);
+            return self::persistDataUri($url, $tenantId, $userId, $storageConfig, $resultAssetId);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig, $resultAssetId);
         }
         self::assertAudioUri($url);
         return ['uri' => $url, 'duration' => 0, 'stored' => false];
@@ -191,7 +191,7 @@ class AigcMusicAssetService
         }
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
     {
         [$content, $headers] = self::downloadRemoteContent($url);
         if ($content === '' || !self::isSuccessfulResponse($headers)) {
@@ -201,10 +201,10 @@ class AigcMusicAssetService
         if (self::isTextResponse($mime, $content)) {
             throw new Exception('生成音乐下载失败，远程地址返回的不是音频文件');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $mime), $mime, $storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $mime), $mime, $storageConfig, $resultAssetId);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
     {
         if (!preg_match('/^data:audio\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成音乐格式错误');
@@ -213,7 +213,7 @@ class AigcMusicAssetService
         if ($content === false || $content === '') {
             throw new Exception('生成音乐解析失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, strtolower($matches[1]), 'audio/' . strtolower($matches[1]), $storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, strtolower($matches[1]), 'audio/' . strtolower($matches[1]), $storageConfig, $resultAssetId);
     }
 
     private static function downloadRemoteContent(string $url): array
@@ -260,7 +260,7 @@ class AigcMusicAssetService
         return [$content, $headers];
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, string $mime = '', ?array $storageConfig = null): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, string $mime = '', ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         $ext = in_array($ext, self::ALLOWED_AUDIO_EXT, true) ? $ext : 'mp3';
         $tmp = tempnam(sys_get_temp_dir(), 'aigc_music_');
@@ -272,6 +272,7 @@ class AigcMusicAssetService
         file_put_contents($tmpPath, $content);
         $duration = MediaDurationService::detect($tmpPath);
         try {
+            if ($resultAssetId > 0) return \app\common\service\ai\AiTaskManagedFileService::persist($tmpPath, $resultAssetId, $tenantId, $userId, $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId), ['duration' => $duration, 'mime_type' => $mime ?: self::mimeByExt($ext)]);
             $stored = self::uploadLocalGeneratedFile($tmpPath, $tenantId, $userId, $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId));
         } finally {
             @unlink($tmpPath);
