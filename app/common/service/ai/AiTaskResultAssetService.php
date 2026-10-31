@@ -94,19 +94,29 @@ class AiTaskResultAssetService
                 default => throw new Exception('不支持的结果资源类型'),
             };
             if(empty($stored['stored'])||trim((string)($stored['uri']??''))==='')throw new Exception('结果资源尚未完成有效转存');
-            $asset->save([
+            [$asset, $completed] = \think\facade\Db::transaction(function () use ($assetId, $tenantId, $userId, $stored) {
+                $current = AiTaskResultAsset::lock(true)->findOrEmpty($assetId);
+                if ($current->isEmpty() || (int)$current['tenant_id'] !== $tenantId || (int)$current['user_id'] !== $userId) throw new Exception('转存资产归属已变化');
+                if ((string)$current['transfer_status'] === 'stored') {
+                    if ((array)$current['storage_meta'] !== $stored || (string)$current['local_uri'] !== (string)$stored['uri']) throw new Exception('已完成转存回执已变化');
+                    return [$current, false];
+                }
+                $current->save([
                 'local_uri' => (string)($stored['uri'] ?? ''),
                 'storage_scope' => (string)($stored['storage_scope'] ?? ''),
                 'storage_engine' => (string)($stored['storage_engine'] ?? ''),
                 'storage_domain' => (string)($stored['storage_domain'] ?? ''),
                 'storage_meta' => $stored,
                 'transfer_status' => 'stored',
-                'transfer_attempts' => (int)$asset['transfer_attempts'] + 1,
+                'transfer_attempts' => (int)$current['transfer_attempts'] + 1,
                 'last_error' => '',
                 'update_time' => time(),
-            ]);
+                ]);
+                return [$current, true];
+            });
             self::hydrateStoredSummary((int)$asset['consumption_id'],[$asset->toArray()]);
-            AiTaskJobService::requeueProcessResult((int)$asset['consumption_id']);
+            if ($completed) AiTaskJobService::requeueProcessResult((int)$asset['consumption_id']);
+            else AiTaskJobService::enqueueProcessResult((int)$asset['consumption_id']);
         } catch (\Throwable $e) {
             // A later projection/queue error must not reopen a completed upload.
             AiTaskResultAsset::where('id', $assetId)->where('transfer_status', '<>', 'stored')->update([

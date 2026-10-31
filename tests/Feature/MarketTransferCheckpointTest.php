@@ -157,4 +157,65 @@ class MarketTransferCheckpointTest extends TestCase
             self::assertSame(hash('sha256', $bytes), hash_file('sha256', $dir . '/public/' . $again['uri'])); self::assertSame(1, (int)TenantFile::where('tenant_id', self::TENANT)->count());
         });
     }
+
+    /** @dataProvider completedTransfers */
+    public function testLateDownloadsCannotReplaceACompletedReceipt(string $type, string $change): void
+    {
+        $this->local(function ($dir) use ($type, $change) {
+            $asset=$this->asset($type);[$ext,$bytes]=$this->media($type);$receipt=$this->persist($asset,$type,$ext,$bytes);
+            $asset->refresh();$asset->save(['local_uri'=>$receipt['uri'],'storage_scope'=>$receipt['storage_scope'],
+                'storage_engine'=>$receipt['storage_engine'],'storage_domain'=>$receipt['storage_domain'],
+                'storage_meta'=>$receipt,'transfer_status'=>'stored','transfer_attempts'=>1,'update_time'=>time()-60]);
+            $config=self::CONFIG;$user=self::USER;
+            if($change==='content')$bytes.='different valid container bytes';
+            if($change==='storage')$config['scope']='platform';
+            if($change==='asset_owner')$user++;
+            if($change==='file_owner')TenantFile::where('id',$receipt['file_id'])->update(['source_id'=>self::USER+1]);
+            if($change==='missing_receipt'){$broken=$receipt;unset($broken['checksum']);$asset->save(['storage_meta'=>$broken]);}
+            $before=AiTaskResultAsset::find($asset['id'])->toArray();$path=$dir.'/late.'.$ext;file_put_contents($path,$bytes);
+            $output=$dir.'/public/'.$receipt['uri'];touch($output,time()-60);clearstatcache(true,$output);$mtime=filemtime($output);$error=null;$again=null;
+            try{$again=Managed::persist($path,(int)$asset['id'],self::TENANT,$user,$config,['duration'=>999,'width'=>999]);}catch(\RuntimeException $e){$error=$e;}
+            if($change==='same'){self::assertNull($error);self::assertSame($receipt,$again);}else self::assertNotNull($error);
+            self::assertSame($before,AiTaskResultAsset::find($asset['id'])->toArray());
+            self::assertSame(1,(int)TenantFile::where('tenant_id',self::TENANT)->count());
+            self::assertCount(1,glob(dirname($output).'/*'));clearstatcache(true,$output);self::assertSame($mtime,filemtime($output));
+            self::assertSame($receipt['checksum'],hash_file('sha256',$output));
+        });
+    }
+
+    public static function completedTransfers(): array
+    {
+        $rows=[];foreach(['image','video','audio']as$type)foreach(['same','content','storage','asset_owner','file_owner','missing_receipt']as$change)$rows[]=[$type,$change];return $rows;
+    }
+
+    /** @dataProvider types */
+    public function testAParallelReceiptRegistrationReusesTheFirstFile(string $type, string $ext): void
+    {
+        $this->local(function()use($type,$ext){
+            $asset=$this->asset($type);[, $bytes]=$this->media($type);$receipt=$this->persist($asset,$type,$ext,$bytes);
+            $asset->refresh();$checkpoint=$asset['storage_meta']['transfer_checkpoint'];unset($checkpoint['receipt']);$before=$asset->toArray();
+            $method=new \ReflectionMethod(Managed::class,'receipt');$again=$method->invoke(null,(int)$asset['id'],self::TENANT,self::USER,$checkpoint);
+            self::assertSame($receipt,$again);self::assertSame($before,AiTaskResultAsset::find($asset['id'])->toArray());
+            self::assertSame(1,(int)TenantFile::where('tenant_id',self::TENANT)->count());
+        });
+    }
+
+    /** @dataProvider types */
+    public function testACompletedPeerCannotBeOverwrittenDuringAssetFinalization(string $type, string $ext): void
+    {
+        $this->local(function()use($type,$ext){
+            $asset=$this->asset($type);[, $bytes]=$this->media($type);$asset->save(['external_url'=>'data:'.$type.'/'.$ext.';base64,'.base64_encode($bytes)]);
+            $waiting=true;$peer=null;$id=(int)$asset['id'];
+            Db::event('after_update',function($query)use(&$waiting,&$peer,$id){
+                $data=$query->getOptions('data')?:[];
+                if(!$waiting||!str_ends_with($query->getTable(),'ai_task_result_asset')||!isset($data['storage_meta']))return;
+                $meta=is_array($data['storage_meta'])?$data['storage_meta']:json_decode($data['storage_meta'],true);
+                if(!isset($meta['transfer_checkpoint']['receipt']))return;
+                $waiting=false;\app\common\service\ai\AiTaskResultAssetService::transfer($id);$peer=AiTaskResultAsset::find($id)->toArray();
+            });
+            \app\common\service\ai\AiTaskResultAssetService::transfer($id);$waiting=false;
+            self::assertNotNull($peer);self::assertSame('stored',$peer['transfer_status']);self::assertSame(1,(int)$peer['transfer_attempts']);
+            self::assertSame($peer,AiTaskResultAsset::find($id)->toArray());self::assertSame(1,(int)TenantFile::where('tenant_id',self::TENANT)->count());
+        });
+    }
 }

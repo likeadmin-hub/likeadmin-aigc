@@ -267,10 +267,12 @@ class AiTaskJobService
 
     public static function succeed(array $job): void
     {
-        AiTaskJob::where(['id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token']])->update([
+        if ((string)$job['lease_token'] === '') return;
+        $updated = AiTaskJob::where(['id' => (int)$job['id'], 'status' => 'running', 'lease_token' => (string)$job['lease_token']])->update([
             'status' => 'success', 'lease_token' => '', 'lease_expire_time' => 0,
             'last_error' => '', 'finish_time' => time(), 'update_time' => time(),
         ]);
+        if (!$updated) return;
         AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_success', 'success', [
             'job_id' => (int)$job['id'],
             'job_type' => (string)$job['job_type'],
@@ -281,12 +283,14 @@ class AiTaskJobService
     {
         $attempts = max(1, (int)$job['attempts']);
         $delay = min(300, max(2, 2 ** min(8, $attempts)));
-        AiTaskJob::where(['id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token']])->update([
+        if ((string)$job['lease_token'] === '') return;
+        $updated = AiTaskJob::where(['id' => (int)$job['id'], 'status' => 'running', 'lease_token' => (string)$job['lease_token']])->update([
             'status' => 'retrying', 'lease_token' => '', 'lease_expire_time' => 0,
             'next_run_time' => time() + $delay,
             'last_error' => mb_substr($error->getMessage(), 0, 1000),
             'update_time' => time(),
         ]);
+        if (!$updated) return;
         AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_retry', 'retrying', [
             'job_id' => (int)$job['id'],
             'job_type' => (string)$job['job_type'],
@@ -299,10 +303,12 @@ class AiTaskJobService
     public static function reschedule(array $job, int $delay = 5): int
     {
         $delay = self::rescheduleDelay($job, $delay);
-        AiTaskJob::where(['id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token']])->update([
+        if ((string)$job['lease_token'] === '') return $delay;
+        $updated = AiTaskJob::where(['id' => (int)$job['id'], 'status' => 'running', 'lease_token' => (string)$job['lease_token']])->update([
             'status' => 'pending', 'lease_token' => '', 'lease_expire_time' => 0,
             'next_run_time' => time() + max(1, $delay), 'update_time' => time(),
         ]);
+        if (!$updated) return $delay;
         AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_waiting', 'pending', [
             'job_id' => (int)$job['id'],
             'job_type' => (string)$job['job_type'],
