@@ -1,0 +1,120 @@
+{
+  "batch": 27,
+  "date": "2026-10-31",
+  "source_web_commit": "d364eaa993b5cb3d3afca9813480297d45213f57",
+  "scope": "Historical source-extracted async loader replay with mocked catalogue responses and recorded setters. Not browser wire, price or current failure evidence.",
+  "cases": [
+    {
+      "order": "image-first",
+      "events": [
+        {
+          "field": "resolution",
+          "value": "1k"
+        },
+        {
+          "field": "ratio",
+          "value": "3:2"
+        },
+        {
+          "field": "count",
+          "value": "4 images"
+        },
+        {
+          "sync": "image",
+          "active": "video"
+        },
+        {
+          "sync": "video",
+          "channel": "market_video_app:grok_video:108"
+        },
+        {
+          "field": "resolution",
+          "value": "1k"
+        },
+        {
+          "field": "duration",
+          "value": "8s"
+        },
+        {
+          "field": "ratio",
+          "value": "16:9"
+        },
+        {
+          "sync": "video",
+          "channel": "market_video_app:wan:133"
+        },
+        {
+          "sync": "video",
+          "channel": "market_video_app:grok_video:108"
+        }
+      ],
+      "final": {
+        "model": "Grok",
+        "resolution": "1k",
+        "duration": "8s",
+        "ratio": "16:9",
+        "count": "4 images"
+      },
+      "status": "reproduced_failure",
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "catalogue_reload_image-first"
+    },
+    {
+      "order": "video-first",
+      "events": [
+        {
+          "field": "resolution",
+          "value": "480P"
+        },
+        {
+          "field": "duration",
+          "value": "8s"
+        },
+        {
+          "field": "ratio",
+          "value": "16:9"
+        },
+        {
+          "sync": "video",
+          "channel": "market_video_app:wan:133"
+        },
+        {
+          "sync": "video",
+          "channel": "market_video_app:grok_video:108"
+        },
+        {
+          "field": "resolution",
+          "value": "1k"
+        },
+        {
+          "field": "ratio",
+          "value": "3:2"
+        },
+        {
+          "field": "count",
+          "value": "4 images"
+        },
+        {
+          "sync": "image",
+          "active": "video"
+        },
+        {
+          "sync": "video",
+          "channel": "market_video_app:grok_video:108"
+        }
+      ],
+      "final": {
+        "model": "Grok",
+        "resolution": "1k",
+        "duration": "8s",
+        "ratio": "3:2",
+        "count": "4 images"
+      },
+      "status": "reproduced_failure",
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "catalogue_reload_video-first"
+    }
+  ]
+}

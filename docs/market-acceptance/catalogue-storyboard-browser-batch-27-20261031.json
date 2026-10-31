@@ -1,0 +1,162 @@
+{
+  "batch": 27,
+  "date": "2026-10-31",
+  "scope": "Actual authenticated creator reload/upload/replace/remove/estimate plus isolated real full storyboard component controls. Scope intentionally different; no generation, provider asset API, user project or market configuration mutations.",
+  "source_web_commit": "6234b454eeb350818d806ee58e52f2977062676f",
+  "browser_business_commit": "3ea8d121",
+  "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95",
+  "observations": [
+    {
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "query_reload_final_defaults",
+      "status": "observed_pass",
+      "controls": {
+        "tier": "fast",
+        "resolution": "480P",
+        "duration": 8,
+        "ratio": "3:4"
+      },
+      "quote_points": 148.83,
+      "scope": "Actual authenticated /ai/create?type=video&channel=... reload. Finite loading/stable DOM observation; no controlled browser response timing or captured SKU."
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "standard_no_image",
+      "status": "observed_expected_rejection",
+      "controls": {
+        "tier": "standard",
+        "resolution": "480P",
+        "duration": 8,
+        "ratio": "3:4"
+      },
+      "scope": "No reference; explicit error and disabled generate, tier retained."
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "standard_synthetic_upload_replace",
+      "status": "observed_pass",
+      "controls": {
+        "tier": "standard",
+        "resolution": "480P",
+        "duration": 8,
+        "ratio": "3:4"
+      },
+      "quote_points": 122.72,
+      "scope": "Normal SaaS upload blue PNG then replace in place with red PNG; @图片1, tier/parameters and estimate retained. Supplier asset registration not called."
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "standard_remove_image",
+      "status": "observed_expected_rejection",
+      "controls": {
+        "tier": "standard",
+        "resolution": "480P",
+        "duration": 8,
+        "ratio": "3:4"
+      },
+      "scope": "Remove uploaded reference through normal control; empty prompt refs, explicit unsupported combination, disabled generate and standard tier retained."
+    },
+    {
+      "entry": "short_drama",
+      "entry_surface": "single",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_browser_single_fast_480p_5s",
+      "status": "observed_constructor_fields",
+      "selected_sku": 137,
+      "controls": {
+        "mode": "video_generate",
+        "video_mode": "fast",
+        "resolution": "480p",
+        "duration": 5,
+        "generation_method": "image_to_video"
+      },
+      "quote_points": 148.83,
+      "scope": "Actual StoryboardCreationWorkbench component with production tiers/selectors and single builder or extracted batch payload declaration. Synthetic local project, catalogue from public model groups; all SaaS writes/provider APIs disconnected. Displayed billing calculated by component; backend check separately recorded. Not production project save or wire DTO."
+    },
+    {
+      "entry": "short_drama",
+      "entry_surface": "single",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_browser_single_standard_720p_5s",
+      "status": "observed_constructor_fields",
+      "selected_sku": 141,
+      "controls": {
+        "mode": "video_generate",
+        "video_mode": "standard",
+        "resolution": "720p",
+        "duration": 5,
+        "generation_method": "image_to_video"
+      },
+      "quote_points": 76.7,
+      "scope": "Actual StoryboardCreationWorkbench component with production tiers/selectors and single builder or extracted batch payload declaration. Synthetic local project, catalogue from public model groups; all SaaS writes/provider APIs disconnected. Displayed billing calculated by component; backend check separately recorded. Not production project save or wire DTO."
+    },
+    {
+      "entry": "short_drama",
+      "entry_surface": "batch",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_browser_batch_standard_720p_6s",
+      "status": "observed_constructor_fields",
+      "selected_sku": 141,
+      "controls": {
+        "mode": "video_generate",
+        "video_mode": "standard",
+        "resolution": "720p",
+        "duration": 6,
+        "generation_method": "image_to_video"
+      },
+      "quote_points": 92.04,
+      "scope": "Actual StoryboardCreationWorkbench component with production tiers/selectors and single builder or extracted batch payload declaration. Synthetic local project, catalogue from public model groups; all SaaS writes/provider APIs disconnected. Displayed billing calculated by component; backend check separately recorded. Not production project save or wire DTO."
+    },
+    {
+      "entry": "short_drama",
+      "entry_surface": "batch",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_browser_batch_standard_720p_8s",
+      "status": "observed_constructor_fields",
+      "selected_sku": 141,
+      "controls": {
+        "mode": "video_generate",
+        "video_mode": "standard",
+        "resolution": "720p",
+        "duration": 8,
+        "generation_method": "image_to_video"
+      },
+      "quote_points": 122.72,
+      "scope": "Actual StoryboardCreationWorkbench component with production tiers/selectors and single builder or extracted batch payload declaration. Synthetic local project, catalogue from public model groups; all SaaS writes/provider APIs disconnected. Displayed billing calculated by component; backend check separately recorded. Not production project save or wire DTO."
+    },
+    {
+      "entry": "short_drama",
+      "entry_surface": "single",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_browser_single_standard_720p_8s",
+      "status": "observed_constructor_fields",
+      "selected_sku": 141,
+      "controls": {
+        "mode": "video_generate",
+        "video_mode": "standard",
+        "resolution": "720p",
+        "duration": 8,
+        "generation_method": "image_to_video"
+      },
+      "quote_points": 122.72,
+      "scope": "Actual StoryboardCreationWorkbench component with production tiers/selectors and single builder or extracted batch payload declaration. Synthetic local project, catalogue from public model groups; all SaaS writes/provider APIs disconnected. Displayed billing calculated by component; backend check separately recorded. Not production project save or wire DTO."
+    }
+  ],
+  "excluded_initial_attempts": [
+    "Immediate post-reload empty DOM samples do not prove absence of transient controls.",
+    "Fixture startup needed CommonJS export variable, dependency scan, theme/config stubs, proper settings identity, topbar slot rendering and corrected read-only builder exposure. These were harness failures, not successful acceptance.",
+    "A real production Sass @use ordering error and stale model-change notice were found, fixed and revalidated."
+  ],
+  "safety": {
+    "auth_injection": false,
+    "paid_generation": false,
+    "user_project_writes": false,
+    "provider_asset_calls": false,
+    "market_configuration_writes": false,
+    "browser_wire_capture": false
+  }
+}
