@@ -107,7 +107,7 @@ final class GenerationSubmission
     {
         if (self::$context === null) return;
         $table = $model->getName();
-        if (!preg_match('/^(?:ai_app_task|aigc_[a-z0-9_]+_task|smart_clip_task|image_human_task|aigc_short_drama_canvas_run|aigc_canvas_run)$/D', $table)) return;
+        if (!preg_match('/^(?:ai_app_task|aigc_[a-z0-9_]+_task|smart_clip_task|image_human_task|aigc_short_drama_canvas_run|aigc_canvas_run|aigc_llm_message)$/D', $table)) return;
         if ((int)$model['tenant_id'] !== self::$context['tenant'] || (int)$model['user_id'] !== self::$context['user']) throw new \RuntimeException('生成任务归属不一致');
         self::$context['saw_task'] = true;
         $query = Db::name('ai_generation_submission')->where(['id' => self::$context['id'], 'owner_token' => self::$context['token']]);

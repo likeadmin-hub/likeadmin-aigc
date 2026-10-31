@@ -10,6 +10,8 @@ class ChatController extends BaseApiController
 {
     public function stream()
     {
+        // A disconnected reader must not kill an accepted text generation before local writeback.
+        ignore_user_abort(true);
         @ini_set('zlib.output_compression', '0');
         @ini_set('implicit_flush', '1');
         while (ob_get_level() > 0) {
