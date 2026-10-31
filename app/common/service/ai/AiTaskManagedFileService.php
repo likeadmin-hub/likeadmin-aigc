@@ -17,13 +17,21 @@ class AiTaskManagedFileService
     {
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $detected = UploadExtension::fromContent($path);
-        if ($detected === '') $detected = match ((new \finfo(FILEINFO_MIME_TYPE))->file($path)) {
+        $mime = (string)(new \finfo(FILEINFO_MIME_TYPE))->file($path);
+        if ($detected === '') $detected = match ($mime) {
             'audio/x-hx-aac-adts' => 'aac', 'video/x-m4v' => 'm4v', default => '',
         };
         $equivalent = $detected === $ext || ($detected === 'mp4' && $ext === 'm4v') || ($detected === 'ogg' && $ext === 'opus');
         if (!$equivalent || !is_file($path) || is_link($path)) {
             throw new \RuntimeException('结果文件类型与实际内容不匹配');
         }
+        // Delivery metadata comes from the verified file, never a supplier header.
+        $metadata['mime_type'] = match ($mime) {
+            'audio/x-wav', 'audio/wave', 'audio/vnd.wave' => 'audio/wav',
+            'audio/x-hx-aac-adts' => 'audio/aac', 'audio/x-m4a' => 'audio/mp4',
+            'audio/x-flac' => 'audio/flac', 'video/x-m4v' => 'video/mp4',
+            default => $mime,
+        };
         $bytes = (int)filesize($path);
         $checksum = hash_file('sha256', $path);
         $checkpoint = Db::transaction(function () use ($assetId, $tenantId, $userId, $config, $metadata, $ext, $bytes, $checksum) {

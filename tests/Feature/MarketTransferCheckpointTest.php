@@ -106,6 +106,8 @@ class MarketTransferCheckpointTest extends TestCase
             $path = getenv('AIGC_TRANSFER_MEDIA_DIR') . '/synthetic.' . $ext; self::assertFileExists($path);
             $bytes = file_get_contents($path); $asset = $this->asset($type); $receipt = $this->persist($asset, $type, $ext, $bytes);
             self::assertTrue($receipt['stored']); self::assertStringEndsWith('.' . $ext, $receipt['uri']);
+            $mime=['mp4'=>'video/mp4','webm'=>'video/webm','mov'=>'video/quicktime','m4v'=>'video/mp4','mp3'=>'audio/mpeg','wav'=>'audio/wav','ogg'=>'audio/ogg','flac'=>'audio/flac','aac'=>'audio/aac','m4a'=>'audio/mp4','opus'=>'audio/ogg'];
+            self::assertSame($mime[$ext], $receipt['mime_type']);
             self::assertSame(hash('sha256', $bytes), hash_file('sha256', $dir . '/public/' . $receipt['uri']));
             self::assertSame(1, (int)TenantFile::where(['tenant_id' => self::TENANT, 'source_id' => self::USER])->count());
         });
@@ -114,6 +116,15 @@ class MarketTransferCheckpointTest extends TestCase
     {
         $rows = []; foreach (['mp4', 'webm', 'mov', 'm4v'] as $ext) $rows[] = ['video', $ext];
         foreach (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus'] as $ext) $rows[] = ['audio', $ext]; return $rows;
+    }
+
+    public function testADeclaredMimeCannotOverrideTheVerifiedAudioContainer(): void
+    {
+        $this->local(function ($dir) {
+            $asset=$this->asset('audio');[$ext,$bytes]=$this->media('audio');$path=$dir.'/actual.wav';file_put_contents($path,$bytes);
+            $receipt=Managed::persist($path,(int)$asset['id'],self::TENANT,self::USER,self::CONFIG,['mime_type'=>'video/mp4','duration'=>1]);
+            self::assertSame('audio/wav',$receipt['mime_type']);self::assertSame(strlen($bytes),$receipt['file_size']);self::assertTrue($receipt['stored']);
+        });
     }
 
     /** @dataProvider fences */
