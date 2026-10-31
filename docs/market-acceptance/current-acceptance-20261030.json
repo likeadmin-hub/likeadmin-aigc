@@ -18,16 +18,16 @@
     "unique_skus": 567,
     "baseline_entry_cells": 8320,
     "fully_accepted_entry_cells": 0,
-    "evidence_files": 45,
-    "bound_observations": 1415,
-    "unbound_observations": 1932,
-    "bound_unique_keys": 975,
+    "evidence_files": 48,
+    "bound_observations": 1419,
+    "unbound_observations": 1934,
+    "bound_unique_keys": 979,
     "historical_bound_observation_statuses": {
-      "passed": 1350,
+      "passed": 1353,
       "expected_rejection": 12,
       "external_blocked": 40,
       "not_covered": 12,
-      "failed": 1
+      "failed": 2
     }
   },
   "resources": [
@@ -63,7 +63,7 @@
         "history_snapshot_compatibility": "not_fully_covered"
       },
       "bound_observation_indices": [
-        1391
+        1395
       ],
       "unbound_observation_indices": [
         251,
@@ -81,20 +81,20 @@
         464,
         465,
         466,
-        1393,
-        1394,
         1395,
         1396,
         1397,
         1398,
-        1586,
-        1587,
+        1399,
+        1400,
         1588,
         1589,
         1590,
         1591,
-        1794,
-        1795
+        1592,
+        1593,
+        1796,
+        1797
       ]
     },
     {
@@ -131,12 +131,12 @@
         467,
         468,
         469,
-        1399,
-        1400,
         1401,
-        1592,
-        1593,
-        1594
+        1402,
+        1403,
+        1594,
+        1595,
+        1596
       ]
     },
     {
@@ -179,8 +179,6 @@
         473,
         474,
         475,
-        1315,
-        1316,
         1317,
         1318,
         1319,
@@ -227,22 +225,24 @@
         1360,
         1361,
         1362,
-        1387,
-        1388,
+        1363,
+        1364,
         1389,
-        1392,
-        1402,
-        1403,
+        1390,
+        1391,
+        1394,
         1404,
         1405,
         1406,
         1407,
-        1595,
-        1596,
+        1408,
+        1409,
         1597,
         1598,
         1599,
-        1600
+        1600,
+        1601,
+        1602
       ]
     },
     {
@@ -281,23 +281,23 @@
         477,
         478,
         479,
-        1304,
-        1305,
         1306,
         1307,
-        1312,
-        1313,
+        1308,
+        1309,
         1314,
-        1408,
-        1409,
+        1315,
+        1316,
         1410,
         1411,
-        1601,
-        1602,
+        1412,
+        1413,
         1603,
         1604,
         1605,
-        1606
+        1606,
+        1607,
+        1608
       ]
     },
     {
@@ -340,18 +340,18 @@
         483,
         484,
         485,
-        1412,
-        1413,
         1414,
         1415,
         1416,
         1417,
-        1607,
-        1608,
+        1418,
+        1419,
         1609,
         1610,
         1611,
-        1612
+        1612,
+        1613,
+        1614
       ]
     },
     {
@@ -394,18 +394,18 @@
         489,
         490,
         491,
-        1418,
-        1419,
         1420,
         1421,
         1422,
         1423,
-        1613,
-        1614,
+        1424,
+        1425,
         1615,
         1616,
         1617,
-        1618
+        1618,
+        1619,
+        1620
       ]
     },
     {
@@ -440,10 +440,10 @@
         257,
         492,
         493,
-        1424,
-        1425,
-        1619,
-        1620
+        1426,
+        1427,
+        1621,
+        1622
       ]
     },
     {
@@ -482,14 +482,14 @@
         495,
         496,
         497,
-        1426,
-        1427,
         1428,
         1429,
-        1621,
-        1622,
+        1430,
+        1431,
         1623,
-        1624
+        1624,
+        1625,
+        1626
       ]
     },
     {
@@ -528,14 +528,14 @@
         499,
         500,
         501,
-        1430,
-        1431,
         1432,
         1433,
-        1625,
-        1626,
+        1434,
+        1435,
         1627,
-        1628
+        1628,
+        1629,
+        1630
       ]
     },
     {
@@ -574,14 +574,14 @@
         503,
         504,
         505,
-        1434,
-        1435,
         1436,
         1437,
-        1629,
-        1630,
+        1438,
+        1439,
         1631,
-        1632
+        1632,
+        1633,
+        1634
       ]
     },
     {
@@ -614,8 +614,8 @@
       "unbound_observation_indices": [
         261,
         506,
-        1438,
-        1633
+        1440,
+        1635
       ]
     },
     {
@@ -658,18 +658,18 @@
         510,
         511,
         512,
-        1439,
-        1440,
         1441,
         1442,
         1443,
         1444,
-        1634,
-        1635,
+        1445,
+        1446,
         1636,
         1637,
         1638,
-        1639
+        1639,
+        1640,
+        1641
       ]
     },
     {
@@ -702,8 +702,8 @@
       "unbound_observation_indices": [
         263,
         513,
-        1445,
-        1640
+        1447,
+        1642
       ]
     },
     {
@@ -736,8 +736,8 @@
       "unbound_observation_indices": [
         264,
         514,
-        1446,
-        1641
+        1448,
+        1643
       ]
     },
     {
@@ -772,10 +772,10 @@
         265,
         515,
         516,
-        1447,
-        1448,
-        1642,
-        1643
+        1449,
+        1450,
+        1644,
+        1645
       ]
     },
     {
@@ -812,12 +812,12 @@
         517,
         518,
         519,
-        1449,
-        1450,
         1451,
-        1644,
-        1645,
-        1646
+        1452,
+        1453,
+        1646,
+        1647,
+        1648
       ]
     },
     {
@@ -852,10 +852,10 @@
         267,
         520,
         521,
-        1452,
-        1453,
-        1647,
-        1648
+        1454,
+        1455,
+        1649,
+        1650
       ]
     },
     {
@@ -894,14 +894,14 @@
         523,
         524,
         525,
-        1454,
-        1455,
         1456,
         1457,
-        1649,
-        1650,
+        1458,
+        1459,
         1651,
-        1652
+        1652,
+        1653,
+        1654
       ]
     },
     {
@@ -936,10 +936,10 @@
         269,
         526,
         527,
-        1458,
-        1459,
-        1653,
-        1654
+        1460,
+        1461,
+        1655,
+        1656
       ]
     },
     {
@@ -972,8 +972,8 @@
       "unbound_observation_indices": [
         270,
         528,
-        1460,
-        1655
+        1462,
+        1657
       ]
     },
     {
@@ -1012,14 +1012,14 @@
         530,
         531,
         532,
-        1461,
-        1462,
         1463,
         1464,
-        1656,
-        1657,
+        1465,
+        1466,
         1658,
-        1659
+        1659,
+        1660,
+        1661
       ]
     },
     {
@@ -1058,14 +1058,14 @@
         534,
         535,
         536,
-        1465,
-        1466,
         1467,
         1468,
-        1660,
-        1661,
+        1469,
+        1470,
         1662,
-        1663
+        1663,
+        1664,
+        1665
       ]
     },
     {
@@ -1100,10 +1100,10 @@
         273,
         537,
         538,
-        1469,
-        1470,
-        1664,
-        1665
+        1471,
+        1472,
+        1666,
+        1667
       ]
     },
     {
@@ -1140,12 +1140,12 @@
         539,
         540,
         541,
-        1471,
-        1472,
         1473,
-        1666,
-        1667,
-        1668
+        1474,
+        1475,
+        1668,
+        1669,
+        1670
       ]
     },
     {
@@ -1175,9 +1175,9 @@
         "history_snapshot_compatibility": "not_fully_covered"
       },
       "bound_observation_indices": [
-        664,
-        665,
-        666
+        667,
+        668,
+        669
       ],
       "unbound_observation_indices": [
         275,
@@ -1186,8 +1186,8 @@
         309,
         310,
         542,
-        1474,
-        1669
+        1476,
+        1671
       ]
     },
     {
@@ -1218,8 +1218,8 @@
         "history_snapshot_compatibility": "not_fully_covered"
       },
       "bound_observation_indices": [
-        1389,
-        1390
+        1393,
+        1394
       ],
       "unbound_observation_indices": [
         276,
@@ -1236,8 +1236,6 @@
         355,
         543,
         544,
-        1363,
-        1364,
         1365,
         1366,
         1367,
@@ -1260,12 +1258,14 @@
         1384,
         1385,
         1386,
-        1390,
-        1391,
-        1475,
-        1476,
-        1670,
-        1671
+        1387,
+        1388,
+        1392,
+        1393,
+        1477,
+        1478,
+        1672,
+        1673
       ]
     },
     {
@@ -1300,10 +1300,10 @@
         277,
         545,
         546,
-        1477,
-        1478,
-        1672,
-        1673
+        1479,
+        1480,
+        1674,
+        1675
       ]
     },
     {
@@ -1336,8 +1336,8 @@
       "unbound_observation_indices": [
         278,
         547,
-        1479,
-        1674
+        1481,
+        1676
       ]
     },
     {
@@ -1372,10 +1372,10 @@
         279,
         548,
         549,
-        1480,
-        1481,
-        1675,
-        1676
+        1482,
+        1483,
+        1677,
+        1678
       ]
     },
     {
@@ -1410,10 +1410,10 @@
         280,
         550,
         551,
-        1482,
-        1483,
-        1677,
-        1678
+        1484,
+        1485,
+        1679,
+        1680
       ]
     },
     {
@@ -1446,8 +1446,8 @@
       "unbound_observation_indices": [
         281,
         552,
-        1484,
-        1679
+        1486,
+        1681
       ]
     },
     {
@@ -1496,20 +1496,18 @@
         559,
         560,
         561,
-        1286,
-        1287,
         1288,
         1289,
-        1297,
+        1290,
+        1291,
         1299,
         1301,
-        1302,
         1303,
-        1308,
+        1304,
+        1305,
         1310,
-        1311,
-        1485,
-        1486,
+        1312,
+        1313,
         1487,
         1488,
         1489,
@@ -1517,8 +1515,8 @@
         1491,
         1492,
         1493,
-        1680,
-        1681,
+        1494,
+        1495,
         1682,
         1683,
         1684,
@@ -1528,7 +1526,9 @@
         1688,
         1689,
         1690,
-        1691
+        1691,
+        1692,
+        1693
       ]
     },
     {
@@ -1579,15 +1579,13 @@
         568,
         569,
         570,
-        1290,
-        1291,
         1292,
         1293,
-        1298,
+        1294,
+        1295,
         1300,
-        1309,
-        1494,
-        1495,
+        1302,
+        1311,
         1496,
         1497,
         1498,
@@ -1595,8 +1593,8 @@
         1500,
         1501,
         1502,
-        1692,
-        1693,
+        1503,
+        1504,
         1694,
         1695,
         1696,
@@ -1604,8 +1602,10 @@
         1698,
         1699,
         1700,
-        1784,
-        1785
+        1701,
+        1702,
+        1786,
+        1787
       ]
     },
     {
@@ -1638,8 +1638,8 @@
       "unbound_observation_indices": [
         284,
         571,
-        1503,
-        1701
+        1505,
+        1703
       ]
     },
     {
@@ -1672,8 +1672,8 @@
       "unbound_observation_indices": [
         285,
         572,
-        1504,
-        1702
+        1506,
+        1704
       ]
     },
     {
@@ -1706,8 +1706,8 @@
       "unbound_observation_indices": [
         286,
         573,
-        1505,
-        1703
+        1507,
+        1705
       ]
     },
     {
@@ -1740,10 +1740,10 @@
       "unbound_observation_indices": [
         287,
         574,
-        1506,
-        1507,
-        1704,
-        1705
+        1508,
+        1509,
+        1706,
+        1707
       ]
     },
     {
@@ -1780,18 +1780,18 @@
         575,
         576,
         577,
-        1508,
-        1509,
         1510,
         1511,
         1512,
         1513,
-        1706,
-        1707,
+        1514,
+        1515,
         1708,
         1709,
         1710,
-        1711
+        1711,
+        1712,
+        1713
       ]
     },
     {
@@ -1828,18 +1828,18 @@
         578,
         579,
         580,
-        1514,
-        1515,
         1516,
         1517,
         1518,
         1519,
-        1712,
-        1713,
+        1520,
+        1521,
         1714,
         1715,
         1716,
-        1717
+        1717,
+        1718,
+        1719
       ]
     },
     {
@@ -1876,18 +1876,18 @@
         581,
         582,
         583,
-        1520,
-        1521,
         1522,
         1523,
         1524,
         1525,
-        1718,
-        1719,
+        1526,
+        1527,
         1720,
         1721,
         1722,
-        1723
+        1723,
+        1724,
+        1725
       ]
     },
     {
@@ -1920,10 +1920,10 @@
       "unbound_observation_indices": [
         291,
         584,
-        1526,
-        1527,
-        1724,
-        1725
+        1528,
+        1529,
+        1726,
+        1727
       ]
     },
     {
@@ -1956,10 +1956,10 @@
       "unbound_observation_indices": [
         292,
         585,
-        1528,
-        1529,
-        1726,
-        1727
+        1530,
+        1531,
+        1728,
+        1729
       ]
     },
     {
@@ -1996,18 +1996,18 @@
         586,
         587,
         588,
-        1530,
-        1531,
         1532,
         1533,
         1534,
         1535,
-        1728,
-        1729,
+        1536,
+        1537,
         1730,
         1731,
         1732,
-        1733
+        1733,
+        1734,
+        1735
       ]
     },
     {
@@ -2044,18 +2044,18 @@
         589,
         590,
         591,
-        1536,
-        1537,
         1538,
         1539,
         1540,
         1541,
-        1734,
-        1735,
+        1542,
+        1543,
         1736,
         1737,
         1738,
-        1739
+        1739,
+        1740,
+        1741
       ]
     },
     {
@@ -2092,18 +2092,18 @@
         592,
         593,
         594,
-        1542,
-        1543,
         1544,
         1545,
         1546,
         1547,
-        1740,
-        1741,
+        1548,
+        1549,
         1742,
         1743,
         1744,
-        1745
+        1745,
+        1746,
+        1747
       ]
     },
     {
@@ -2140,18 +2140,18 @@
         595,
         596,
         597,
-        1548,
-        1549,
         1550,
         1551,
         1552,
         1553,
-        1746,
-        1747,
+        1554,
+        1555,
         1748,
         1749,
         1750,
-        1751
+        1751,
+        1752,
+        1753
       ]
     },
     {
@@ -2186,14 +2186,14 @@
         297,
         598,
         599,
-        1554,
-        1555,
         1556,
         1557,
-        1752,
-        1753,
+        1558,
+        1559,
         1754,
-        1755
+        1755,
+        1756,
+        1757
       ]
     },
     {
@@ -2228,14 +2228,14 @@
         298,
         600,
         601,
-        1558,
-        1559,
         1560,
         1561,
-        1756,
-        1757,
+        1562,
+        1563,
         1758,
-        1759
+        1759,
+        1760,
+        1761
       ]
     },
     {
@@ -2277,10 +2277,10 @@
         319,
         320,
         602,
-        1562,
-        1563,
-        1760,
-        1761
+        1564,
+        1565,
+        1762,
+        1763
       ]
     },
     {
@@ -2322,10 +2322,10 @@
         321,
         322,
         603,
-        1564,
-        1565,
-        1762,
-        1763
+        1566,
+        1567,
+        1764,
+        1765
       ]
     },
     {
@@ -2367,10 +2367,10 @@
         323,
         324,
         604,
-        1566,
-        1567,
-        1764,
-        1765
+        1568,
+        1569,
+        1766,
+        1767
       ]
     },
     {
@@ -2412,10 +2412,10 @@
         325,
         326,
         605,
-        1568,
-        1569,
-        1766,
-        1767
+        1570,
+        1571,
+        1768,
+        1769
       ]
     },
     {
@@ -2476,32 +2476,32 @@
         606,
         607,
         608,
-        1570,
-        1571,
         1572,
         1573,
         1574,
         1575,
-        1768,
-        1769,
+        1576,
+        1577,
         1770,
         1771,
         1772,
         1773,
-        1791,
-        1792,
+        1774,
+        1775,
         1793,
-        1796,
-        1797,
-        1802,
-        1803,
+        1794,
+        1795,
+        1798,
+        1799,
         1804,
-        1813,
-        1814,
+        1805,
+        1806,
         1815,
         1816,
         1817,
-        1818
+        1818,
+        1819,
+        1820
       ]
     },
     {
@@ -2543,10 +2543,10 @@
         333,
         334,
         609,
-        1576,
-        1577,
-        1774,
-        1775
+        1578,
+        1579,
+        1776,
+        1777
       ]
     },
     {
@@ -2588,10 +2588,10 @@
         335,
         336,
         610,
-        1578,
-        1579,
-        1776,
-        1777
+        1580,
+        1581,
+        1778,
+        1779
       ]
     },
     {
@@ -2649,18 +2649,18 @@
         611,
         612,
         613,
-        1580,
-        1581,
         1582,
         1583,
         1584,
         1585,
-        1778,
-        1779,
+        1586,
+        1587,
         1780,
         1781,
         1782,
-        1783
+        1783,
+        1784,
+        1785
       ]
     },
     {
@@ -2876,9 +2876,9 @@
         191,
         192,
         193,
-        400,
-        401,
-        402,
+        272,
+        273,
+        274,
         403,
         404,
         405,
@@ -2930,9 +2930,9 @@
         451,
         452,
         453,
-        508,
-        509,
-        510,
+        454,
+        455,
+        456,
         511,
         512,
         513,
@@ -2984,9 +2984,9 @@
         559,
         560,
         561,
-        616,
-        617,
-        618,
+        562,
+        563,
+        564,
         619,
         620,
         621,
@@ -2996,9 +2996,9 @@
         625,
         626,
         627,
-        640,
-        641,
-        642,
+        628,
+        629,
+        630,
         643,
         644,
         645,
@@ -3008,8 +3008,12 @@
         649,
         650,
         651,
+        652,
+        653,
+        654,
         1392,
-        1393
+        1396,
+        1397
       ],
       "unbound_observation_indices": [
         415,
@@ -3027,24 +3031,25 @@
         713,
         714,
         715,
-        1253,
-        1254,
+        1246,
         1255,
         1256,
         1257,
         1258,
         1259,
-        1264,
-        1265,
-        1268,
-        1269,
+        1260,
+        1261,
+        1266,
+        1267,
         1270,
         1271,
         1272,
         1273,
         1274,
         1275,
-        1276
+        1276,
+        1277,
+        1278
       ]
     },
     {
@@ -3076,9 +3081,6 @@
         "history_snapshot_compatibility": "not_fully_covered"
       },
       "bound_observation_indices": [
-        454,
-        455,
-        456,
         457,
         458,
         459,
@@ -3130,9 +3132,9 @@
         505,
         506,
         507,
-        562,
-        563,
-        564,
+        508,
+        509,
+        510,
         565,
         566,
         567,
@@ -3184,9 +3186,9 @@
         613,
         614,
         615,
-        628,
-        629,
-        630,
+        616,
+        617,
+        618,
         631,
         632,
         633,
@@ -3196,9 +3198,9 @@
         637,
         638,
         639,
-        652,
-        653,
-        654,
+        640,
+        641,
+        642,
         655,
         656,
         657,
@@ -3207,7 +3209,10 @@
         660,
         661,
         662,
-        663
+        663,
+        664,
+        665,
+        666
       ],
       "unbound_observation_indices": [
         716,
@@ -3222,17 +3227,17 @@
         725,
         726,
         727,
-        1266,
-        1267,
-        1277,
-        1278,
+        1268,
+        1269,
         1279,
         1280,
         1281,
         1282,
         1283,
         1284,
-        1285
+        1285,
+        1286,
+        1287
       ]
     },
     {
@@ -3282,9 +3287,6 @@
         "history_snapshot_compatibility": "not_fully_covered"
       },
       "bound_observation_indices": [
-        787,
-        788,
-        789,
         790,
         791,
         792,
@@ -3408,9 +3410,9 @@
         910,
         911,
         912,
-        1251,
-        1252,
-        1253,
+        913,
+        914,
+        915,
         1254,
         1255,
         1256,
@@ -3458,9 +3460,9 @@
         1298,
         1299,
         1300,
-        1317,
-        1318,
-        1319,
+        1301,
+        1302,
+        1303,
         1320,
         1321,
         1322,
@@ -3488,9 +3490,9 @@
         1344,
         1345,
         1346,
-        1359,
-        1360,
-        1361,
+        1347,
+        1348,
+        1349,
         1362,
         1363,
         1364,
@@ -3517,7 +3519,10 @@
         1385,
         1386,
         1387,
-        1388
+        1388,
+        1389,
+        1390,
+        1391
       ],
       "unbound_observation_indices": [
         728,
@@ -3547,16 +3552,16 @@
         752,
         753,
         754,
-        1294,
-        1853,
-        1860,
-        1861,
+        1296,
+        1855,
         1862,
         1863,
         1864,
         1865,
         1866,
-        1884
+        1867,
+        1868,
+        1886
       ]
     },
     {
@@ -3628,9 +3633,6 @@
       "bound_observation_indices": [
         229,
         230,
-        913,
-        914,
-        915,
         916,
         917,
         918,
@@ -3718,9 +3720,9 @@
         1000,
         1001,
         1002,
-        1301,
-        1302,
-        1303,
+        1003,
+        1004,
+        1005,
         1304,
         1305,
         1306,
@@ -3734,9 +3736,9 @@
         1314,
         1315,
         1316,
-        1347,
-        1348,
-        1349,
+        1317,
+        1318,
+        1319,
         1350,
         1351,
         1352,
@@ -3745,7 +3747,10 @@
         1355,
         1356,
         1357,
-        1358
+        1358,
+        1359,
+        1360,
+        1361
       ],
       "unbound_observation_indices": [
         392,
@@ -3760,14 +3765,14 @@
         763,
         764,
         765,
-        1850,
-        1851,
         1852,
-        1875,
-        1876,
+        1853,
+        1854,
         1877,
         1878,
-        1883
+        1879,
+        1880,
+        1885
       ]
     },
     {
@@ -3828,9 +3833,6 @@
         "history_snapshot_compatibility": "not_fully_covered"
       },
       "bound_observation_indices": [
-        1003,
-        1004,
-        1005,
         1006,
         1007,
         1008,
@@ -4043,7 +4045,10 @@
         1215,
         1216,
         1217,
-        1218
+        1218,
+        1219,
+        1220,
+        1221
       ],
       "unbound_observation_indices": [
         766,
@@ -4078,8 +4083,8 @@
         795,
         796,
         797,
-        1295,
-        1854
+        1297,
+        1856
       ]
     },
     {
@@ -4362,9 +4367,6 @@
         232,
         233,
         234,
-        1219,
-        1220,
-        1221,
         1222,
         1223,
         1224,
@@ -4393,7 +4395,10 @@
         1247,
         1248,
         1249,
-        1250
+        1250,
+        1251,
+        1252,
+        1253
       ],
       "unbound_observation_indices": [
         442,
@@ -4406,11 +4411,11 @@
         855,
         856,
         857,
-        1855,
-        1856,
         1857,
         1858,
-        1859
+        1859,
+        1860,
+        1861
       ]
     },
     {
@@ -4586,9 +4591,6 @@
         199,
         200,
         201,
-        272,
-        273,
-        274,
         275,
         276,
         277,
@@ -4681,7 +4683,10 @@
         364,
         365,
         366,
-        367
+        367,
+        368,
+        369,
+        370
       ],
       "unbound_observation_indices": [
         418,
@@ -4698,11 +4703,11 @@
         888,
         889,
         890,
-        1245,
-        1246,
         1247,
         1248,
-        1251
+        1249,
+        1250,
+        1253
       ]
     },
     {
@@ -4733,9 +4738,6 @@
         "history_snapshot_compatibility": "not_fully_covered"
       },
       "bound_observation_indices": [
-        368,
-        369,
-        370,
         371,
         372,
         373,
@@ -4764,13 +4766,16 @@
         396,
         397,
         398,
-        399
+        399,
+        400,
+        401,
+        402
       ],
       "unbound_observation_indices": [
         891,
         892,
-        1249,
-        1250
+        1251,
+        1252
       ]
     },
     {
@@ -5053,17 +5058,17 @@
         185,
         186,
         187,
-        1394,
-        1400,
-        1401,
-        1402,
-        1403,
+        1398,
         1404,
         1405,
         1406,
         1407,
-        1413,
-        1414
+        1408,
+        1409,
+        1410,
+        1411,
+        1417,
+        1418
       ],
       "unbound_observation_indices": [
         78,
@@ -5114,20 +5119,20 @@
         978,
         979,
         980,
-        1885,
-        1913,
-        1914,
+        1887,
         1915,
         1916,
         1917,
-        1920,
-        1921,
+        1918,
+        1919,
+        1922,
         1923,
-        1924,
         1925,
         1926,
         1927,
-        1931
+        1928,
+        1929,
+        1933
       ]
     },
     {
@@ -6256,11 +6261,11 @@
         240,
         241,
         242,
-        1408,
-        1409,
-        1410,
-        1411,
-        1412
+        1412,
+        1413,
+        1414,
+        1415,
+        1416
       ],
       "unbound_observation_indices": [
         446,
@@ -6277,10 +6282,10 @@
         1171,
         1172,
         1173,
-        1922,
-        1928,
-        1929,
-        1930
+        1924,
+        1930,
+        1931,
+        1932
       ]
     },
     {
@@ -6373,7 +6378,7 @@
         1188,
         1189,
         1190,
-        1296
+        1298
       ]
     },
     {
@@ -6665,9 +6670,6 @@
         203,
         204,
         205,
-        695,
-        696,
-        697,
         698,
         699,
         700,
@@ -6677,9 +6679,9 @@
         704,
         705,
         706,
-        735,
-        736,
-        737,
+        707,
+        708,
+        709,
         738,
         739,
         740,
@@ -6689,9 +6691,9 @@
         744,
         745,
         746,
-        775,
-        776,
-        777,
+        747,
+        748,
+        749,
         778,
         779,
         780,
@@ -6700,7 +6702,10 @@
         783,
         784,
         785,
-        786
+        786,
+        787,
+        788,
+        789
       ],
       "unbound_observation_indices": [
         24,
@@ -6794,18 +6799,18 @@
         210,
         211,
         212,
-        687,
-        688,
-        689,
         690,
-        727,
-        728,
-        729,
+        691,
+        692,
+        693,
         730,
-        767,
-        768,
-        769,
-        770
+        731,
+        732,
+        733,
+        770,
+        771,
+        772,
+        773
       ],
       "unbound_observation_indices": [
         33,
@@ -6992,9 +6997,6 @@
         269,
         270,
         271,
-        667,
-        668,
-        669,
         670,
         671,
         672,
@@ -7012,9 +7014,9 @@
         684,
         685,
         686,
-        707,
-        708,
-        709,
+        687,
+        688,
+        689,
         710,
         711,
         712,
@@ -7032,9 +7034,9 @@
         724,
         725,
         726,
-        747,
-        748,
-        749,
+        727,
+        728,
+        729,
         750,
         751,
         752,
@@ -7052,11 +7054,14 @@
         764,
         765,
         766,
-        1395,
-        1396,
-        1397,
-        1398,
-        1399
+        767,
+        768,
+        769,
+        1399,
+        1400,
+        1401,
+        1402,
+        1403
       ],
       "unbound_observation_indices": [
         42,
@@ -7153,8 +7158,6 @@
         1240,
         1241,
         1242,
-        1819,
-        1820,
         1821,
         1822,
         1823,
@@ -7178,7 +7181,9 @@
         1841,
         1842,
         1843,
-        1912
+        1844,
+        1845,
+        1914
       ]
     },
     {
@@ -7224,12 +7229,12 @@
         218,
         219,
         220,
-        693,
-        694,
-        733,
-        734,
-        773,
-        774
+        696,
+        697,
+        736,
+        737,
+        776,
+        777
       ],
       "unbound_observation_indices": [
         49,
@@ -7311,12 +7316,12 @@
         226,
         227,
         228,
-        691,
-        692,
-        731,
-        732,
-        771,
-        772
+        694,
+        695,
+        734,
+        735,
+        774,
+        775
       ],
       "unbound_observation_indices": [
         56,
@@ -7372,23 +7377,23 @@
         1235,
         1236,
         1237,
-        1786,
-        1787,
         1788,
         1789,
         1790,
-        1798,
-        1799,
+        1791,
+        1792,
         1800,
         1801,
-        1805,
-        1806,
+        1802,
+        1803,
         1807,
         1808,
         1809,
         1810,
         1811,
-        1812
+        1812,
+        1813,
+        1814
       ]
     }
   ],
@@ -7585,6 +7590,23 @@
       "historical_reproduction": false
     },
     {
+      "file": "docs/market-acceptance/http-mixed-before-batch-30-20261031.json",
+      "sha256": "3bbea82a585b613317e8aeb5bf91b193a207ec3592d81f9b243c25527d904812",
+      "scope": "Resolved historical observations, not current fault counts. Synthetic normal-login projects only.",
+      "source_commits": {},
+      "historical_reproduction": true
+    },
+    {
+      "file": "docs/market-acceptance/http-persistence-browser-batch-30-20261031.json",
+      "sha256": "3212ef7271e96af92be1ee829cc561feb5c0ed72ea4585a5ab7e27613d05f6d3",
+      "scope": "Normal signed-in HTTP full pages with newly created and clearly named synthetic projects. No auth injection, API replacement, transaction-only fixture, original project writes or paid generation. Only the listed resource and material scenarios are accepted.",
+      "source_commits": {
+        "source_web_commit": "5a2371d8c1e677a799b33cb6748839813e971a26",
+        "source_server_commit": "df9dee35dcdeff14e529dfa5603245dc6b9bfe9c"
+      },
+      "historical_reproduction": false
+    },
+    {
       "file": "docs/market-acceptance/pc-home-wan-modes-batch-10-20261030.json",
       "sha256": "17a44603bdac6b6220674c15e303d3dac69fbe452375f4de4176266896ae02f6",
       "scope": null,
@@ -7766,6 +7788,16 @@
           "web": "cd3f9be5",
           "web_labels": "dbac7c4c"
         }
+      },
+      "historical_reproduction": false
+    },
+    {
+      "file": "docs/market-acceptance/persisted-mixed-preparation-batch-30-20261031.json",
+      "sha256": "ee77cc816b5e6c749a4602198e1451b6f54f669795c1f463f1168f9a7380fc5d",
+      "scope": "Read-only replay after real HTTP save, using production short-drama node options/runPayload on persisted synthetic nodes and current tenant declarations. Actual owned graph resolution, preview quote, admission and native/frozen preparation. Not captured browser wire and not paid execution.",
+      "source_commits": {
+        "source_web_commit": "5a2371d8c1e677a799b33cb6748839813e971a26",
+        "source_server_commit": "df9dee35dcdeff14e529dfa5603245dc6b9bfe9c"
       },
       "historical_reproduction": false
     },
@@ -16210,6 +16242,104 @@
       "coverage_level": "original_source_scope_only",
       "full_entry_status": "not_covered",
       "key": "866fc4da69cce02b8294d811e0a94264dfc59bb52a53359d175265f15d324ed9"
+    },
+    {
+      "source": "docs/market-acceptance/http-mixed-before-batch-30-20261031.json",
+      "pointer": "/cases/0",
+      "source_status": "reproduced_failure",
+      "observation_status": "failed",
+      "entry_original": "canvas",
+      "parameters": {},
+      "material_mode": "omni_reference",
+      "sku_id": 806,
+      "entry": "canvas",
+      "scenario": "uncached_new_graph_video_audio_types_missing",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:357",
+        "product_id": 357,
+        "resource_type": "model",
+        "model_code": "official-33-6861b6182fb4cff198",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "historical_reproduction": true,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "key": "d4479877270a14b67ff504b7e3309d19db556c87bf9ea49ec4dd7ac349171862"
+    },
+    {
+      "source": "docs/market-acceptance/http-persistence-browser-batch-30-20261031.json",
+      "pointer": "/cases/0",
+      "source_status": "http_graph_state_preserved",
+      "observation_status": "passed",
+      "entry_original": "canvas",
+      "parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "material_mode": "omni_reference",
+      "sku_id": 806,
+      "entry": "canvas",
+      "scenario": "normal_login_http_save_fresh_tab_and_final_process_restart_mixed_graph",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:357",
+        "product_id": 357,
+        "resource_type": "model",
+        "model_code": "official-33-6861b6182fb4cff198",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "key": "6df19a085dadc35b247c8edcb08fccb3d40a274cd8c0242a860313dce012f3a4"
+    },
+    {
+      "source": "docs/market-acceptance/http-persistence-browser-batch-30-20261031.json",
+      "pointer": "/cases/2",
+      "source_status": "http_graph_state_preserved",
+      "observation_status": "passed",
+      "entry_original": "canvas",
+      "parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "material_mode": "omni_reference",
+      "sku_id": 806,
+      "entry": "canvas",
+      "scenario": "normal_http_append_image_history_select_old_and_reopen_with_video_audio",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:357",
+        "product_id": 357,
+        "resource_type": "model",
+        "model_code": "official-33-6861b6182fb4cff198",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "key": "862e54c6e6cb31eba613da6b12817b6048de278fe19a1a549b54f1c8cefdb0fa"
     },
     {
       "source": "docs/market-acceptance/pc-home-wan-modes-batch-10-20261030.json",
@@ -46092,6 +46222,42 @@
       "coverage_level": "original_source_scope_only",
       "full_entry_status": "not_covered",
       "key": "d3eca8d9d03b01cffaec8681ea3350683061ce52a945805ba6270407d100a923"
+    },
+    {
+      "source": "docs/market-acceptance/persisted-mixed-preparation-batch-30-20261031.json",
+      "pointer": "/cases/0",
+      "source_status": "quote_admission_frozen_slots_equal",
+      "observation_status": "passed",
+      "entry_original": "short_drama",
+      "parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "material_mode": "omni_reference",
+      "sku_id": 806,
+      "entry": "short_drama",
+      "scenario": "saved_http_mixed_graph_owned_assets_audio_false_preparation",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:357",
+        "product_id": 357,
+        "resource_type": "model",
+        "model_code": "official-33-6861b6182fb4cff198",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "key": "fd79a985e62c7c202071c8265767f824a846bd5ad40fce18d01b195c6d10a745"
     },
     {
       "source": "docs/market-acceptance/short-drama-controls-batch-14-20261030.json",
@@ -83139,6 +83305,65 @@
         "baseline_sku_identity",
         "entry",
         "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/http-mixed-before-batch-30-20261031.json",
+      "pointer": "/cases/1",
+      "source_status": "reproduced_failure",
+      "observation_status": "failed",
+      "entry_original": "short_drama",
+      "parameters": {},
+      "material_mode": null,
+      "sku_id": null,
+      "entry": "short_drama",
+      "scenario": "uploaded_video_source_method_oscillation_after_http_reopen",
+      "identity": null,
+      "historical_reproduction": true,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "exact_resource_identity",
+        "baseline_sku_identity",
+        "material_mode"
+      ]
+    },
+    {
+      "source": "docs/market-acceptance/http-persistence-browser-batch-30-20261031.json",
+      "pointer": "/cases/1",
+      "source_status": "http_graph_state_preserved",
+      "observation_status": "passed",
+      "entry_original": "short_drama",
+      "parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "material_mode": "omni_reference",
+      "sku_id": null,
+      "entry": "short_drama",
+      "scenario": "normal_login_http_save_fresh_tab_and_final_process_restart_mixed_graph",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:357",
+        "product_id": 357,
+        "resource_type": "model",
+        "model_code": "official-33-6861b6182fb4cff198",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "historical_reproduction": false,
+      "coverage_level": "original_source_scope_only",
+      "full_entry_status": "not_covered",
+      "missing_bindings": [
+        "baseline_sku_identity"
       ]
     },
     {
