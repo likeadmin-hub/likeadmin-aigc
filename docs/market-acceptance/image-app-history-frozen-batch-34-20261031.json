@@ -1,0 +1,202 @@
+{
+  "batch": 34,
+  "date": "2026-10-31",
+  "source_web_commit": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+  "source_server_commit": "f8e4b18e734189a4073e8db9f37fba1b162c3f5f",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "new_uploads": 0,
+  "scope": "Six real persisted terminal image children from four additional apps, rebuilt with production historyGenerationRequest and their saved consumption price_snapshot. Enforced read-only SQL; real native preparation and JSON reopen equality only, not a historical wire DTO, current UI SKU or complete modern contract/meter certification.",
+  "cases": [
+    {
+      "application": "aigc_one_click_cleanup",
+      "channel": "market_image_model:91",
+      "sku_id": 101,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_image_application_frozen_aigc_one_click_cleanup_success",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "resolution": "1k",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "aa6a864beb99ee6f957269d3e08388c667e77f740fc01f5c4c893526e34aebde",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_equal": true,
+      "original_task_unchanged": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_one_click_cleanup",
+      "channel": "market_image_model:169",
+      "sku_id": 252,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_image_application_frozen_aigc_one_click_cleanup_failure",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "aspect_ratio": "auto",
+        "resolution": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "4805add26178a5cba432c0dcfd5841a07a8eac70f60003c02f3538cfda1cdb0b",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_equal": true,
+      "original_task_unchanged": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_outpaint",
+      "channel": "market_image_model:91",
+      "sku_id": 101,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_image_application_frozen_aigc_outpaint_ratio_2_3",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "2:3",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "2:3",
+        "resolution": "1k",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "42d93dc8f48e34b33a8a059cb1618a09fca98d13db5c21529fcff8ad57213a82",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_equal": true,
+      "original_task_unchanged": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_outpaint",
+      "channel": "market_image_model:91",
+      "sku_id": 101,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_image_application_frozen_aigc_outpaint_auto",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "resolution": "1k",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "79eba1b4f7c876a1a3bf2efe52840ddc3cf48cbae5ac6ab48a14d70899157629",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_equal": true,
+      "original_task_unchanged": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_fitting",
+      "channel": "market_image_model:91",
+      "sku_id": 101,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_image_application_frozen_aigc_fitting_custom_model",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 2
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "resolution": "1k",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "d177eb31706040335aca2623165a6845d5ef9741235f083dc96d0d944285610f",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_equal": true,
+      "original_task_unchanged": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_photo_restore",
+      "channel": "market_image_model:169",
+      "sku_id": 252,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_image_application_frozen_aigc_photo_restore_restore_and_color",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "aspect_ratio": "auto",
+        "resolution": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "11687f48783ccdf1ca4d4063d3e92faae02b7459099bbf9a159ff0613d5a3fe3",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_equal": true,
+      "original_task_unchanged": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    }
+  ]
+}
