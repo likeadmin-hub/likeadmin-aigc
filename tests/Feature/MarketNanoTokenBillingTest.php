@@ -65,6 +65,10 @@ class MarketNanoTokenBillingTest extends TestCase
                 $source=$s['source_payload'];$source['meter_contract']['maximum_quantity']=2000;$s->save(['source_payload'=>$source,'sale_points'=>99]);self::assertSame($snapshot,AiConsumptionLog::find($id)['price_snapshot']);
                 if(in_array($scenario,['failure','cancel'],true)){
                     if($scenario==='cancel')Images::cancel($id);else Images::fail($id,'Synthetic failure');Images::fail($id,'Duplicate failure');self::assertSame($before,$this->balances($user));
+                }elseif($scenario==='invalid_transport'){
+                    $guard=$snapshot;$guard['app_code']='offline-no-transport';$log->save(['price_snapshot'=>$guard]);$rejected=false;
+                    try{Images::submit($id,$request);}catch(\Exception $e){$rejected=true;self::assertStringContainsString('未注册',$e->getMessage());}
+                    self::assertTrue($rejected);self::assertSame('refunded',AiConsumptionLog::find($id)['billing_status']);self::assertSame($before,$this->balances($user));
                 }elseif($scenario==='preflight_unfunded'){
                     $guard=$snapshot;$guard['app_code']='offline-no-transport';$log->save(['price_snapshot'=>$guard,'reserved_tenant_cost'=>0,'reserved_user_price'=>0]);
                     try{Images::submit($id,$request);self::fail('Underfunded frozen bound cannot reach transport');}catch(\Exception $e){self::assertStringContainsString('预占未覆盖',$e->getMessage());}self::assertSame('refunded',AiConsumptionLog::find($id)['billing_status']);
@@ -92,6 +96,6 @@ class MarketNanoTokenBillingTest extends TestCase
         }finally{Db::rollback();}
         self::assertSame($before,$this->balances($user));self::assertSame(0,(int)Db::name('power_market_product')->where('product_code',$key)->count());
     }
-    public static function scenarios(): array{return array_map(static fn($s)=>[$s],['success','partial','missing','zero','wrong_path','invalid','over_bound','restart_ready','immediate_failure','accepted_unknown','failure','cancel','user_insufficient','tenant_insufficient','preflight_unfunded','fixed_override']);}
+    public static function scenarios(): array{return array_map(static fn($s)=>[$s],['success','partial','missing','zero','wrong_path','invalid','over_bound','restart_ready','immediate_failure','accepted_unknown','failure','cancel','user_insufficient','tenant_insufficient','preflight_unfunded','invalid_transport','fixed_override']);}
     private function balances(int $user): array{return ['tenant'=>(float)Db::name('tenant')->where('id',1)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money')];}
 }

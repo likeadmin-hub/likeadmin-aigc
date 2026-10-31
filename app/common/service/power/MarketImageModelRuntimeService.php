@@ -375,6 +375,7 @@ class MarketImageModelRuntimeService
         }
         $microSubmission=MicroVideoSubmission::applies($consumption->toArray());
         $price = (array)$consumption['price_snapshot'];
+        $plan=null;$submitUrl=null;
         try {
             if(MarketUsageSettlementService::isActualUsageSku($price)){
                 $meter=(array)($price['billing_meter']??[]);
@@ -384,6 +385,7 @@ class MarketImageModelRuntimeService
                     ||(float)$consumption['reserved_user_price']+0.000001<MarketGenerationMeter::price((float)$price['tenant_price'],$meter['maximum_quantity'],$price))throw new Exception('Token 预占未覆盖冻结费用上限，禁止提交');
             }
             $payload = self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput;
+            if(self::requiresMeterReceipt($price)){$plan=MarketGenerationAdapterRegistry::transport($price,'submit');$submitUrl=self::origin().$plan['path'];}
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             // Preparation failed before outbound I/O; release the reservation
@@ -405,8 +407,8 @@ class MarketImageModelRuntimeService
         $upstreamAccepted = false;
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
-            $plan = MarketGenerationAdapterRegistry::transport($price, 'submit');
-            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . $plan['path'], $payload, $tenantAdminConsumption||$microSubmission,$microSubmission);
+            $plan = $plan??MarketGenerationAdapterRegistry::transport($price, 'submit');
+            $submission = self::submitWithTransientRetry($consumptionId, $submitUrl??(self::origin() . $plan['path']), $payload, $tenantAdminConsumption||$microSubmission,$microSubmission);
             $response = $submission['response'];
             $upstreamAccepted = true;
             $submitAttempts = $submission['attempts'];
@@ -551,7 +553,7 @@ class MarketImageModelRuntimeService
         $lane = 'market-image-submit:' . substr(sha1($url . '|' . (string)($payload['channel'] ?? '') . '|' . (string)($payload['model'] ?? '')), 0, 32);
         $row = Db::query('SELECT GET_LOCK(?, ?) AS acquired', [$lane, self::SUBMIT_LANE_WAIT_SECONDS]);
         if (!(int)($row[0]['acquired'] ?? 0)) {
-            throw new Exception('图片模型当前请求较多，请稍后重试');
+            throw new MarketImageProviderRequestException('图片模型当前请求较多，请稍后重试');
         }
         $cooldownKey = 'aigc:' . $lane;
         $connectionLost = false;

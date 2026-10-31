@@ -346,6 +346,7 @@ class MarketNanoBananaAppRuntimeService
         $upstreamAccepted = false;
         $taskId = '';
         $requestId = '';
+        $plan=null;$submitUrl=null;
         try {
             if (MarketUsageSettlementService::isActualUsageSku($snapshot)) {
                 $meter=(array)($snapshot['billing_meter']??[]);
@@ -356,6 +357,7 @@ class MarketNanoBananaAppRuntimeService
             }
             $prepared = self::prepareRequest($snapshot, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
             if (isset($snapshot['billing_meter']) && $prepared->meterContext !== (array)($snapshot['meter_context'] ?? [])) throw new Exception('提交素材与预占计费快照不一致，请重新创建任务');
+            if(self::requiresMeterReceipt($snapshot)){$plan=MarketGenerationAdapterRegistry::transport($snapshot+['resource_type'=>'app_api'],'submit');$submitUrl=self::origin().$plan['path'];}
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             self::fail($consumptionId, $e->getMessage(), 'request_invalid');
@@ -364,8 +366,8 @@ class MarketNanoBananaAppRuntimeService
         if(!MarketBoundedImageSubmission::begin($consumptionId))return self::response(AiConsumptionLog::find($consumptionId)->toArray());
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
-            $plan = MarketGenerationAdapterRegistry::transport($snapshot + ['resource_type'=>'app_api'], 'submit');
-            $response = self::request($plan['method'], self::origin() . $plan['path'], $prepared->nativeInput);
+            $plan = $plan??MarketGenerationAdapterRegistry::transport($snapshot + ['resource_type'=>'app_api'], 'submit');
+            $response = self::request($plan['method'], $submitUrl??(self::origin() . $plan['path']), $prepared->nativeInput);
             $upstreamAccepted = true;
             $taskId = self::taskId($response);
             $requestId = self::requestId($response);
