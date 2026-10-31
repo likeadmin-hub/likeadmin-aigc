@@ -78,7 +78,9 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$accepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' child did not finish',30);
         MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->whereIn('consumption_id',\think\facade\Db::name('ai_consumption_log')->where('app_task_id',$accepted['generation_tasks'][0]['app_task_id'])->column('id'))->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
         $fixture->stop();
-        MarketWorkerFixture::check(\think\facade\Db::name('aigc_'.$code.'_task')->where('id',$accepted['task_id'])->value('status')==='success',$code.' parent still needs HTTP detail to finish');
+        $parent=\think\facade\Db::name('aigc_'.$code.'_task')->where('id',$accepted['task_id'])->find();
+        $children=\think\facade\Db::name('aigc_image_result')->where('task_id',(int)($accepted['image_task_id']??0))->field('id,image_uri,storage_scope,storage_engine')->select()->toArray();
+        MarketWorkerFixture::check($parent['status']==='success',$code.' parent not completed in worker: '.json_encode(['status'=>$parent['status'],'error'=>$parent['error'],'children'=>$children]));
         $detail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($detail['status']??'')==='success'&&count($detail['results']??[])===1&&($detail['generation_tasks'][0]['status']??'')==='success',$code.' result writeback failed');
         $after=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
