@@ -177,10 +177,11 @@ try {
     MarketWorkerFixture::check($imageView['status']==='success'&&count($imageView['results'])===1&&hash_file('sha256',$dir.'/public/'.$imageView['results'][0]['uri'])===hash_file('sha256',$dir.'/synthetic.png'),'Native image managed result mismatch');
     $imageUri=$imageView['results'][0]['uri'];
     app\common\service\app\aigc_product_image\AigcProductImageService::saveConfig($tenant,['status'=>1,'config_json'=>['channel'=>$channel,'quality'=>'1k','unit_price'=>3]]);
+    file_put_contents($dir.'/hold-from-index',(string)(count(file($dir.'/submissions.jsonl'))+1));
     $single=dataHttp($api,'/api/app.aigc_product_image.generate/index'.$suffix,['product_image'=>$imageUri,'custom_scene_image'=>$imageUri,'scene_mode'=>'custom','channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','size_key'=>'1:1','prompt'=>'Synthetic product'], $token);
     MarketWorkerFixture::check(count($single['generation_tasks']??[])===1,'Single application did not expose its owned generation child');
     $fixture->start(__FILE__,'aigc_image');
-    $singleNative=(int)$single['image_task_id'];MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$singleNative)->value('status')==='success'&&View::read((int)$single['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success','Single image application child did not complete',30);$fixture->stop();
+    unlink($dir.'/hold-from-index');$singleNative=(int)$single['image_task_id'];MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$singleNative)->value('status')==='success'&&View::read((int)$single['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success','Single image application child did not complete',30);$fixture->stop();
     MarketWorkerFixture::check(Db::name('aigc_product_image_task')->where('id',$single['task_id'])->value('status')==='success','Single image parent still needs HTTP detail to complete');
     $singleFinal=dataHttp($api,'/api/app.aigc_product_image.task/detail'.$suffix.'&id='.$single['task_id'],[],$token,'GET');
     MarketWorkerFixture::check($singleFinal['status']==='success'&&count($singleFinal['results'])===1&&$singleFinal['generation_tasks'][0]['status']==='success','Single app business result not reconciled '.json_encode(['status'=>$singleFinal['status'],'results'=>count($singleFinal['results']),'children'=>array_map(static fn($t)=>[$t['status'],$t['stage']],$singleFinal['generation_tasks'])]));
