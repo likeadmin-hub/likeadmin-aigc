@@ -16,6 +16,7 @@ use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_image\ImageAppTaskSync;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\Driver as StorageDriver;
@@ -437,11 +438,10 @@ class AigcBackgroundRemovalService
         $errors = array_values(array_filter(array_map(static fn($row) => trim((string)($row['error'] ?? '')), $imageTasks)));
         $finishTimes = array_filter(array_map(static fn($row) => (int)($row['finish_time'] ?? 0), $imageTasks));
         $task->error = implode('；', array_unique($errors));
-        $task->finish_time = in_array((string)$task->status, ['success', 'failed', 'canceled'], true) ? max($finishTimes ?: [time()]) : 0;
+        $task->finish_time = ImageAppTaskSync::finishTime($task, $finishTimes, ['success', 'failed', 'canceled']);
         $task->tenant_cost_points = number_format(array_sum(array_map(static fn($row) => (float)($row['tenant_cost_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->user_charge_points = number_format(array_sum(array_map(static fn($row) => (float)($row['user_charge_points'] ?? 0), $imageTasks)), 2, '.', '');
-        $task->update_time = time();
-        $task->save();
+        ImageAppTaskSync::saveChangedFacts($task);
         self::syncResultsFromImageTask($task);
     }
 

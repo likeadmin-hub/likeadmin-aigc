@@ -10,6 +10,7 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppSalePriceService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_image\ImageAppTaskSync;
 use app\common\service\FileService;
 use app\common\service\membership\MembershipService;
 use app\common\service\point\PointService;
@@ -676,11 +677,10 @@ class AigcFittingService
         $errors = array_values(array_filter(array_map(static fn($row) => trim((string)($row['error'] ?? '')), $imageTasks)));
         if ($interrupted) $errors[] = '批次提交中断，仅保留已受理的 ' . count($imageTaskIds) . '/' . $expectedCount . ' 张任务';
         $task->error = implode('；', array_unique($errors));
-        $task->finish_time = in_array((string)$task->status, ['success', 'partial_success', 'failed', 'canceled'], true) ? max($finishTimes ?: [time()]) : 0;
+        $task->finish_time = ImageAppTaskSync::finishTime($task, $finishTimes, ['success', 'partial_success', 'failed', 'canceled']);
         $task->tenant_cost_points = number_format(array_sum(array_map(static fn($row) => (float)($row['tenant_cost_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->user_charge_points = number_format(array_sum(array_map(static fn($row) => (float)($row['user_charge_points'] ?? 0), $imageTasks)), 2, '.', '');
-        $task->update_time = time();
-        $task->save();
+        ImageAppTaskSync::saveChangedFacts($task);
     }
 
     private static function refreshMappedTasks(int $tenantId, int $userId = 0, int $taskId = 0): void
