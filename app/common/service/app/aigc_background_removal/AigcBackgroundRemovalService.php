@@ -865,6 +865,7 @@ class AigcBackgroundRemovalService
         $storageEngine = (string)($config['default'] ?? 'local');
         $storageDomain = StorageConfigService::getEffectiveDomain($tenantId);
         TenantFile::create([
+            'tenant_id' => $tenantId,
             'cid' => 0,
             'type' => FileEnum::IMAGE_TYPE,
             'name' => basename($uri),
