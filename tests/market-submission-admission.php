@@ -31,6 +31,9 @@ try {
  $ran=false;$name=$f->prefix.'ai_generation_submission';Db::execute('RENAME TABLE `'.$name.'` TO `'.$name.'_unavailable`');
  try{$closed=$run('owned-schema-unavailable-06',$p,function()use(&$ran){$ran=true;return json(['code'=>1,'data'=>[]]);});MarketWorkerFixture::check($closed['code']===0&&!$ran,'Missing receipt storage allowed generation');}finally{Db::execute('RENAME TABLE `'.$name.'_unavailable` TO `'.$name.'`');}
  $report['missing_schema_fails_before_generation']=true;
+ $raw='synthetic-legacy-video-key';$legacy=sha1($t.'|aigc_video|video_generate|aigc_video_task|'.$raw.'|market_video');$legacyTask=AiAppTask::create(['tenant_id'=>$t,'user_id'=>$u,'task_no'=>'L'.bin2hex(random_bytes(12)),'app_code'=>'aigc_video','business_table'=>'aigc_video_task','idempotency_key'=>$legacy,'status'=>'running']);
+ $resolve=fn($owner)=>app\common\service\power\MarketVideoRuntimeService::userRequestBusinessId($t,$owner,'aigc_video','video_generate','aigc_video_task',$raw);
+ MarketWorkerFixture::check($resolve($u)===$raw&&$resolve($u+1)!==$raw&&$legacyTask['idempotency_key']===$legacy,'Legacy video reservation changed or crossed owners');$report['owned_legacy_video_key_preserved_other_owner_separated']=true;
  $report['private_task_rows']=$count();$report['private_receipt_rows']=Db::name('ai_generation_submission')->count();
 } catch(Throwable $error){$report['failure']=$error->getMessage();$failed=true;}
 finally{if($f){$f->cleanup();$report['private_tables_and_files_removed']=true;}}

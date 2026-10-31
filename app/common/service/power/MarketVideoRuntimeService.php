@@ -433,7 +433,7 @@ class MarketVideoRuntimeService
             MarketAppGateService::requireMarket($tenantId, $userId, $appCode, (string)($request['idempotency_key'] ?? $businessTaskId));
         }
         $idempotencyKey = self::reservationKey($tenantId, $appCode, $action, $businessTable, $businessTaskId);
-        $existing = self::existingReservation($tenantId, $idempotencyKey);
+        $existing = self::existingReservation($tenantId, $idempotencyKey, false, $userId);
         if ($existing !== null) {
             return $existing;
         }
@@ -469,7 +469,7 @@ class MarketVideoRuntimeService
             }
         }
         return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $market, $quantity, $quote, $deferredUsage, $billingOverride, $idempotencyKey) {
-            $existing = self::existingReservation($tenantId, $idempotencyKey, true);
+            $existing = self::existingReservation($tenantId, $idempotencyKey, true, $userId);
             if ($existing !== null) {
                 return $existing;
             }
@@ -507,12 +507,20 @@ class MarketVideoRuntimeService
         });
     }
 
+    /** Preserve an owned legacy reservation; all newly supplied client keys include the user boundary. */
+    public static function userRequestBusinessId(int $tenantId,int $userId,string $appCode,string $action,string $businessTable,string $requestKey): string
+    {
+        $legacy=self::reservationKey($tenantId,$appCode,$action,$businessTable,$requestKey);
+        if(AiAppTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>$appCode,'business_table'=>$businessTable,'idempotency_key'=>$legacy])->find())return $requestKey;
+        return hash('sha256',implode('|',[$tenantId,$userId,$appCode,$action,$businessTable,$requestKey]));
+    }
+
     private static function reservationKey(int $tenantId, string $appCode, string $action, string $businessTable, string $businessTaskId): string
     {
         return sha1($tenantId . '|' . $appCode . '|' . $action . '|' . $businessTable . '|' . $businessTaskId . '|market_video');
     }
 
-    private static function existingReservation(int $tenantId, string $idempotencyKey, bool $lock = false): ?array
+    private static function existingReservation(int $tenantId, string $idempotencyKey, bool $lock = false, ?int $userId = null): ?array
     {
         $taskQuery = AiAppTask::where(['tenant_id' => $tenantId, 'idempotency_key' => $idempotencyKey]);
         if ($lock) {
@@ -530,6 +538,7 @@ class MarketVideoRuntimeService
         if ($consumption->isEmpty()) {
             throw new Exception('Existing idempotent market task has no consumption record');
         }
+        if($userId!==null&&((int)$task['user_id']!==$userId||(int)$consumption['user_id']!==$userId||(int)$consumption['tenant_id']!==$tenantId))throw new Exception('生成请求所属用户不一致');
         return [
             'app_task_id' => (int)$task['id'],
             'consumption_id' => (int)$consumption['id'],
