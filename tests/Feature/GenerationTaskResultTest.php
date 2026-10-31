@@ -153,4 +153,15 @@ class GenerationTaskResultTest extends TestCase
             'generation_tasks'=>[Results::pending(43)],'generation_task_refs'=>['app_task:43']];
         self::assertSame(['task_id'=>123,'results'=>[['url'=>'uploads/owned.png']],'audio'=>false,'quality'=>'high'],Results::withoutView($payload));
     }
+    public function testCanvasHttpFormattersCarryCanonicalViewWithoutChangingLegacyTaskIdentity(): void
+    {
+        $controller=(new \ReflectionClass(\app\api\controller\app\aigc_canvas\GenerateController::class))->newInstanceWithoutConstructor();
+        $view=Results::pending(42);
+        foreach(['ImageResult','VideoResult','MusicResult','ImageTask','VideoTask','MusicTask']as$method){
+            $format=new \ReflectionMethod($controller,'format'.$method);$format->setAccessible(true);
+            $result=$format->invoke($controller,['id'=>7,'task_id'=>7,'status'=>'running','generation_task'=>$view,'results'=>[]]);
+            self::assertSame($view,$result['generation_task']);self::assertSame(7,$result['task_id']);self::assertSame('7',$result['taskId']);
+        }
+    }
+
 }
