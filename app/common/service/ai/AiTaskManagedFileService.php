@@ -17,7 +17,9 @@ class AiTaskManagedFileService
     {
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $detected = UploadExtension::fromContent($path);
-        if ($detected === '' && (new \finfo(FILEINFO_MIME_TYPE))->file($path) === 'audio/x-hx-aac-adts') $detected = 'aac';
+        if ($detected === '') $detected = match ((new \finfo(FILEINFO_MIME_TYPE))->file($path)) {
+            'audio/x-hx-aac-adts' => 'aac', 'video/x-m4v' => 'm4v', default => '',
+        };
         $equivalent = $detected === $ext || ($detected === 'mp4' && $ext === 'm4v') || ($detected === 'ogg' && $ext === 'opus');
         if (!$equivalent || !is_file($path) || is_link($path)) {
             throw new \RuntimeException('结果文件类型与实际内容不匹配');
