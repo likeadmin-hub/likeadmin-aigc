@@ -57,6 +57,7 @@ function runMarketClipWorkerHttp($f,$api,$suffix,$token,$supplier,array &$report
     try{app\common\service\ai\GenerationTaskResultService::read($deletedApp,$t,$u);throw new RuntimeException('Deleted canonical task exposed');}catch(InvalidArgumentException){}
     try{app\common\service\ai\GenerationTaskResultService::read((int)$accepted['generation_task']['app_task_id'],$t,$u+1);throw new RuntimeException('Foreign canonical task exposed');}catch(InvalidArgumentException){}
     $check($db::name('smart_clip_billing')->where('task_id',$deletedId)->count()===0,'Deleted task was charged');
+    $queries=array_map(fn($line)=>json_decode($line,true)['id'],file($f->dir.'/clip-queries.jsonl'));$check(!in_array($deleted['provider_task_id'],$queries,true),'Deleted task queried supplier');
     $check($billCount===(int)$db::name('ai_consumption_log')->count(),'Clipping introduced a second consumption ledger');
     $check((int)$db::name('smart_clip_billing')->count()===4,'Native clipping billing duplicated or missing');
     $before=[];foreach(['smart_clip_task','smart_clip_result','smart_clip_billing','ai_app_task','ai_task_result_asset','ai_task_job']as$table)$before[$table]=$db::name($table)->order('id')->select()->toArray();

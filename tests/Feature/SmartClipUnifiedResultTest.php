@@ -44,4 +44,14 @@ final class SmartClipUnifiedResultTest extends TestCase
     {
         $this->fixture(function($n,$a,$o){try{View::read((int)$a['id'],$o['tenant_id'],$o['user_id']+1);self::fail('Foreign owner accepted');}catch(\InvalidArgumentException){self::assertTrue(true);}$n->save(['delete_time'=>time()]);self::assertTrue(Runtime::run((int)$a['id']));self::assertSame('canceled',AiAppTask::find($a['id'])['status']);self::assertSame(0,SmartClipBilling::where('task_id',$n['id'])->count());});
     }
+    public function testMixedBatchKeepsRequestedOrderAndNativeReadDoesNotDuplicateTaskCenterRows(): void
+    {
+        $this->fixture(function($n,$a,$o){
+            $key='order-'.bin2hex(random_bytes(8));$other=AiAppTask::create($o+['task_no'=>$key,'app_code'=>'aigc_canvas','business_table'=>'aigc_canvas_run','business_id'=>0,'status'=>'running','idempotency_key'=>$key]);
+            self::assertSame([(int)$other['id'],(int)$a['id']],array_keys(View::readMany([(int)$other['id'],(int)$a['id']],...array_values($o))));
+            $rows=\app\common\service\ai\AiUsageService::appTaskLists(['user_id'=>$o['user_id'],'exclude_native_smart_clip'=>true],$o['tenant_id']);
+            self::assertSame(1,$rows['count']);self::assertSame((int)$other['id'],(int)$rows['rows'][0]['id']);
+        });
+    }
+
 }
