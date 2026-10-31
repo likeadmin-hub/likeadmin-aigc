@@ -1,0 +1,333 @@
+{
+  "batch": 51,
+  "date": "2026-10-31",
+  "source_server_commit": "60f53ee36499c65776560952e4287d417b7245ae",
+  "implementation_commit": "53332f1f1",
+  "source_web_commit": "1f7eaac80252928cfb7e28f8b2deb3efef5fa5eb",
+  "scope": "Valid inline image receipt through production result asset, app-scoped worker, local managed file and business result in disposable SQL/file/cache namespace; separate normal authenticated HTTP synthetic-project upload/save/reopen. No supplier calls, paid generation, live generation-task creation, market sync or real contract activation.",
+  "before": {
+    "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+    "provider_calls": 0,
+    "actual_wallet_mutations": 0,
+    "transfer_job_app_linked": false,
+    "transfer_error_class": "TypeError",
+    "transfer_error": "storage_config_argument_type_mismatch"
+  },
+  "worker_recovery": {
+    "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+    "provider_calls": 0,
+    "actual_wallet_mutations": 0,
+    "transfer_job_app_linked": true,
+    "legacy_pending_job_relinked": true,
+    "actual_worker_command": true,
+    "killed_after_claim_before_transfer": true,
+    "natural_lease_expiry_recovered": true,
+    "repeat_restart_idempotent": true,
+    "managed_uri_matches_business_result": true,
+    "file_rows": 1,
+    "stored_bytes_sha256": "0e6546437f520f4b40c757f3ca04217e7abdf2f4cb29ec26b05c86e4bd338f9c",
+    "storage_scope": "platform",
+    "storage_engine": "local",
+    "result_dimensions": [
+      1,
+      1
+    ],
+    "claimed_attempts": 2
+  },
+  "browser_projects": [
+    {
+      "entry": "canvas",
+      "project_id": 890,
+      "channel": "market_image_model:305",
+      "material_mode": "reference_image",
+      "scenario": "normal_login_http_synthetic_worker_image_save_close_reopen",
+      "status": "http_graph_state_preserved",
+      "scope": "Normal authenticated UI upload and HTTP save/reopen. Worker export manually uploaded; not a generated task written into this project. No raw network DTO capture.",
+      "nodes": 2,
+      "edges": 1,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "saved_graph_sha256": "2ac039c4ae1e504ac000025adc1d8c98dc01018099de7a64f4300fc15b7c406b",
+      "reopened_graph_sha256": "2ac039c4ae1e504ac000025adc1d8c98dc01018099de7a64f4300fc15b7c406b",
+      "ui_model": "FLUX 3 Klein",
+      "ui_controls": {
+        "ratio": "1:1",
+        "quality": "2k"
+      },
+      "screenshot_zoom_percent": 50,
+      "screenshot_scope": "After equality checkpoint, normal UI zoom adjusted only for evidence.",
+      "sku_id": 470,
+      "requested_parameters": {
+        "ratio": "1:1",
+        "quality": "2k",
+        "quantity": 1
+      },
+      "target_prompt_sha256": "c8568aea3dfdbed51fe2004b24944882a148f1aecb28d08e92b13f8bb4c94dc5"
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 531,
+      "channel": "market_image_model:305",
+      "material_mode": "reference_image",
+      "scenario": "normal_login_http_synthetic_worker_image_save_close_reopen",
+      "status": "http_graph_state_preserved",
+      "scope": "Normal authenticated UI upload and HTTP save/reopen. Worker export manually uploaded; not a generated task written into this project. No raw network DTO capture.",
+      "nodes": 4,
+      "edges": 2,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "saved_graph_sha256": "941e8b0f0e680988aeaf7adbd73aeb603483ffbdb98400eaf775fef1b87331c6",
+      "reopened_graph_sha256": "941e8b0f0e680988aeaf7adbd73aeb603483ffbdb98400eaf775fef1b87331c6",
+      "ui_model": "FLUX 3 Klein",
+      "ui_controls": {
+        "ratio": "1:1",
+        "quality": "2k"
+      },
+      "screenshot_zoom_percent": 50,
+      "screenshot_scope": "After equality checkpoint, normal UI zoom adjusted only for evidence.",
+      "sku_id": null,
+      "sku_scope": "Page did not expose SKU; do not infer it from a quote.",
+      "ui_quote_points": "10",
+      "target_prompt_sha256": "0b07fe4a73d169b27e4c825e9d64037ea3ccb986d6ddbc0678b404a9f34032c3"
+    }
+  ],
+  "normal_http_upload_storage": {
+    "canvas": [
+      {
+        "file_name": "market-batch51-worker-result.png",
+        "uri_sha256": "d5cabb2eb57030096e2feb75446cfacd101618f2c3cfb3224f42ab775d1bb3e3",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "short_drama": [
+      {
+        "file_name": "market-batch51-synthetic.png",
+        "uri_sha256": "b10733a680b9b4c6f38a533026b31b065aa05450039064f6cb1525861c04bfc9",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "market-batch51-worker-result.png",
+        "uri_sha256": "a975544f2c9d249f0f2e953a69a719ab9a28359f509c73d6450e773c32e7ebc0",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "fixture_cleanup": {
+      "remaining_owned_prefix_tables": 0,
+      "remaining_private_roots": 0,
+      "remaining_storage_test_roots": 0
+    }
+  },
+  "browser_media": {
+    "canvas": {
+      "worker_png_complete": true,
+      "natural_size": [
+        1,
+        1
+      ]
+    },
+    "short_drama": {
+      "worker_png_complete": true,
+      "worker_png_natural_size": [
+        1,
+        1
+      ],
+      "green_png_complete": true,
+      "green_png_natural_size": [
+        32,
+        32
+      ]
+    },
+    "visible_user_points_before_and_after": "4372.96",
+    "auth": "Existing normal login; no credentials/tokens read or identity injection.",
+    "http_wire_dto_captured": false
+  },
+  "regression": {
+    "tests": 733,
+    "assertions": 5492,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "new_phpunit_tests": 5,
+    "new_assertions": 46,
+    "new_db_scenarios_rolled_back": 5,
+    "test_memory_limit_mb": 256,
+    "peak_memory_mb": "164.80",
+    "native_pricing_rollback": "passed",
+    "worker_fixture_runs": "Actual production command; SIGKILL after claim before transfer, natural lease expiry, repeat process restart.",
+    "php_files_linted": 6,
+    "acceptance_index_boundary_tests": 2,
+    "web_tests_rerun": false
+  },
+  "retention": {
+    "original-video": {
+      "equal_to_batch50": true,
+      "sha256": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b",
+      "rows": 44
+    },
+    "original-image": {
+      "equal_to_batch50": true,
+      "sha256": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc",
+      "rows": 81
+    },
+    "original-app": {
+      "equal_to_batch50": true,
+      "sha256": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1",
+      "rows": null
+    },
+    "frozen": {
+      "equal_to_batch50": true,
+      "sha256": "5332bdb9fab4d7f648ef10e8d3a8d72b321fc9bb96b615e8e0c3f9ce8c0e633f",
+      "rows": 5
+    },
+    "meter": {
+      "equal_to_batch50": true,
+      "sha256": "2b37dafd443b9e34997e84b68f982887c9ebb626688b667e64d4b90b1a41d355",
+      "rows": 8
+    },
+    "price": {
+      "equal_to_batch50": true,
+      "sha256": "6beace6501cde4638983d37d535c880c1b86f051bcbe02e8ddc3dd05232dad44",
+      "rows": null
+    }
+  },
+  "current_prices": {
+    "scope": "READ ONLY comparison of old/new unit-price policy for tenant1 and platform over current saved SKU data; no repricing or task update",
+    "skus_checked": 848,
+    "level_comparisons": 1696,
+    "current_bounded_meter_versions": {
+      "2": 0,
+      "3": 0
+    },
+    "differences": []
+  },
+  "blocked_real_meter_admission": [
+    {
+      "channel": "market_image_model:275",
+      "sku_id": 380,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "image_to_image",
+      "source_payload_hash": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_image_model:277",
+      "sku_id": 383,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "text_to_image",
+      "source_payload_hash": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 210,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 211,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 212,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 213,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 214,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 215,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    }
+  ],
+  "upstream_review": {
+    "refreshed_this_batch": false,
+    "last_verified": "2026-10-31T18:38:45+08:00",
+    "source": "bounded-image-submission-batch-50-20261031.json",
+    "missing_complete_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17
+  },
+  "remaining": [
+    "18 complete model contracts and remaining 13 application options; opaque nested declarations",
+    "Qwen product275/SKU380 and277/SKU383 authoritative pixel caps and receipts",
+    "Seedance product140/SKU210-215 authoritative Token caps and receipts",
+    "Nano unmapped nested inputs, native count, bare b64_json and supplier asset IDs",
+    "Remote valid result download, cloud result-worker transfer, actual video/audio file transfer and supplier receipts",
+    "Crash during upload or after file write before durable receipt, DB/host failure and parallel transfer workers",
+    "Normal HTTP generation task to worker update of the same project node and real metered-contract execution",
+    "All model/mode/SKU/tool entry cross acceptance; initial fully accepted entry cells remain zero"
+  ],
+  "delivery_exclusions": [
+    "No generated output, private roots or fixture data committed",
+    "No web source changes, build, release or publication",
+    "Original user projects868/510 and other preexisting projects not operated",
+    "3971 server/public and3 web local flags preserved; existing services not restarted"
+  ]
+}
