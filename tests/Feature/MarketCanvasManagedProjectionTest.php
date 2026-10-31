@@ -47,7 +47,8 @@ class MarketCanvasManagedProjectionTest extends TestCase
             if($boundary==='foreign_run')$run->save(['user_id'=>199999957]);
             if($boundary==='foreign_project')$project->save(['user_id'=>199999957]);
             if($boundary==='deleted_project')$project->save(['delete_time'=>time()]);
-            if($boundary==='collection')$node['metadata']['mediaItems']=[['id'=>'prior','type'=>$kind,'url'=>'uploads/prior-result','mediaSource'=>'generated']];
+            if($boundary==='collection'){$node['metadata']['mediaItems']=[['id'=>'prior','type'=>$kind,'url'=>'uploads/prior-result','mediaSource'=>'generated']];
+                $node['metadata']+=['fileId'=>56,'poster'=>'uploads/old-preview','image'=>'uploads/old-preview','file_url'=>'uploads/old-result','width'=>999];}
             if($boundary==='legacy'){unset($node['metadata']['mediaItems']);$node['metadata']['url']='uploads/prior-result';}
             if($boundary==='expired_alias')$c->save(['response_summary'=>[$key=>[[$kind.'_uri'=>$uri,'url'=>'https://example.invalid/expired',
                 'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'https://untrusted.invalid']]]]);
@@ -64,6 +65,7 @@ class MarketCanvasManagedProjectionTest extends TestCase
                 if($boundary==='failure')self::assertSame('Owned fixture failure',$m['errorDetails']);
                 else {self::assertSame($uri,$m['uri']);self::assertCount(in_array($boundary,['collection','legacy'],true)?2:1,$m['mediaItems']);self::assertSame($uri,end($m['mediaItems'])['assetUri']);
                     self::assertStringContainsString($uri,$m['url']);self::assertStringNotContainsString('example.invalid',$m['url']);self::assertStringNotContainsString('untrusted.invalid',$m['url']);}
+                if($boundary==='collection'){self::assertSame('',$m['fileId']);self::assertSame('',$m['poster']);self::assertSame('',$m['file_url']);self::assertSame(32,$m['width']);self::assertSame($kind==='image'?$m['url']:'',$m['image']);}
             } else self::assertSame($beforeProject,$afterProject,'A late result must not overwrite an unrelated node or project');
             if(in_array($boundary,['foreign_run','untransferred','failed_run','terminal_conflict'],true))self::assertSame($beforeRun,$afterRun);
             else self::assertSame($boundary==='failure'?'failed':'success',$afterRun['status']);
