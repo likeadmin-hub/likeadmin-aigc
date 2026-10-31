@@ -29,7 +29,8 @@ final class MarketGenerationCreatorMaterials
                     $result[$key]=['kind'=>'full_video','url'=>$url,'start'=>$start,'end'=>$end,'maximum'=>(float)$rule['maximum']];
             }
             // A stable ordinary audio alias is a local reference name, not a provider voice ID.
-            if(($field['kind']??'')==='audio'&&array_diff($required,[$url,'name'])===[]&&count($required)===2
+            $referenceNames=array_filter($rules,static fn($rule)=>($rule['kind']??'')==='kling4'&&($rule['check']??'')==='names');
+            if($referenceNames!==[]&&($field['kind']??'')==='audio'&&array_diff($required,[$url,'name'])===[]&&count($required)===2
                 &&($properties['name']['type']??'')==='string'){
                 try{MarketGenerationSchema::validate(['name'=>$properties['name']],['name'=>'音频1']);
                     $result[$key]=['kind'=>'named_audio','url'=>$url];
