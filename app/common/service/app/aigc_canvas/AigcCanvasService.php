@@ -118,6 +118,10 @@ class AigcCanvasService
                         if (!$found) $collection[] = $media;
                         if (!isset($active)) $active = $media;
                     }
+                    // Match the collection editor: old preview aliases and dimensions must not shadow the new active item.
+                    foreach (['image', 'image_url', 'video_url', 'audio_url', 'file_url', 'output_url', 'download_url', 'media_url',
+                        'video', 'audio', 'audio_uri', 'preview_url', 'localPreviewUrl', 'poster', 'poster_url', 'cover_url', 'cover', 'thumbnail'] as $key) $metadata[$key] = '';
+                    foreach (['width', 'height', 'imageWidth', 'imageHeight', 'videoWidth', 'videoHeight'] as $key) $metadata[$key] = 0;
                     $metadata = array_replace($metadata, ['mediaItems' => $collection, 'activeMediaId' => $active['id'],
                         'url' => $active['url'], $kind . '_url' => $active['url'], 'uri' => $active['assetUri'],
                         'assetUri' => $active['assetUri'], 'mediaSource' => 'generated', 'generatedAt' => $finish * 1000,
@@ -127,8 +131,10 @@ class AigcCanvasService
                         'poster' => '', 'poster_url' => '', 'cover_url' => '', 'thumbnail' => '',
                         'storage_scope' => $active['storage_scope'] ?? '', 'storage_engine' => $active['storage_engine'] ?? '',
                         'storage_domain' => $active['storage_domain'] ?? '', 'mediaWidth' => $active['width'] ?? 0,
-                        'mediaHeight' => $active['height'] ?? 0, 'mediaDuration' => $active['duration'] ?? 0]);
+                        'mediaHeight' => $active['height'] ?? 0, 'width' => $active['width'] ?? 0, 'height' => $active['height'] ?? 0,
+                        'mediaDuration' => $active['duration'] ?? 0]);
                     if ($kind === 'image') $metadata['image'] = $active['url'];
+                    if ($kind !== 'audio') {$metadata[$kind . 'Width'] = $active['width'] ?? 0; $metadata[$kind . 'Height'] = $active['height'] ?? 0;}
                 }
                 $node['metadata'] = array_replace($metadata, ['status' => $status, 'pending' => false,
                     'errorDetails' => (string)($result['error'] ?? '')]);
