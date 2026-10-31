@@ -38,7 +38,11 @@ final class ImageAppTaskSync
             $service='app\\common\\service\\app\\'.$code.'\\'.$name;
             foreach($query->column('id')as$id)Db::transaction(function()use($table,$owner,$id,$service){
                 $parent=Db::name($table)->where($owner+['id'=>$id,'delete_time'=>0])->lock(true)->find();
-                if($parent)self::localReads(static fn()=>$service::taskDetail($owner['tenant_id'],(int)$id,$owner['user_id']));
+                if(!$parent)return;
+                $raw=$parent['image_task_ids']??[];$ids=is_array($raw)?$raw:(json_decode((string)$raw,true)?:[]);
+                $ids=array_values(array_unique(array_filter(array_map('intval',array_merge(is_array($ids)?$ids:[],[(int)$parent['image_task_id']])))));
+                if(count($ids)!==Db::name('aigc_image_task')->where($owner+['delete_time'=>0])->whereIn('id',$ids)->count())throw new \RuntimeException('工具关联的生成子任务归属不一致');
+                self::localReads(static fn()=>$service::taskDetail($owner['tenant_id'],(int)$id,$owner['user_id']));
             });
         }
     }
