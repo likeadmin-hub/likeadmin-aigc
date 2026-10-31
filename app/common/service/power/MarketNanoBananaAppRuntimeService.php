@@ -56,6 +56,7 @@ class MarketNanoBananaAppRuntimeService
                     continue;
                 }
                 $quality = self::qualityValue($locked) ?: '1k';
+                $pixel=false;try{$pixel=MarketGenerationPixelMeter::applies(MarketGenerationMeter::contract($sku));}catch(\InvalidArgumentException){}
                 $byModel[$model][] = [
                     'market_sku_id' => (int)$sku['id'],
                     'sku_key' => (string)$sku['sku_key'],
@@ -67,7 +68,7 @@ class MarketNanoBananaAppRuntimeService
                     'tenant_unit_price' => self::points((float)$market['tenant_price']),
                     'usage_unit' => (string)$sku['usage_unit'],
                     'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
-                    'settlement_mode' => MarketUsageSettlementService::isActualUsageSku($sku) ? 'actual_usage' : 'reserved',
+                    'settlement_mode' => MarketUsageSettlementService::isActualUsageSku($sku)||$pixel ? 'actual_usage' : 'reserved',
                 ];
             }
             foreach ($byModel as $model => $skus) {
@@ -150,8 +151,9 @@ class MarketNanoBananaAppRuntimeService
     private static function quoteMarket(array $market, int $quantity): array
     {
         $quantity = max(1, $quantity);
+        $market['requested_image_quantity']=$quantity;
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
-        [$tenant, $user] = MarketGenerationImageBilling::amounts(self::snapshot($market), $quantity);
+        [$tenant, $user] = MarketGenerationImageBilling::reservationAmounts(self::snapshot($market),self::maximumOutputImages($market,$quantity));
         return [
             'billing_unit' => (string)$market['sku']['usage_unit'],
             'billing_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
@@ -160,7 +162,7 @@ class MarketNanoBananaAppRuntimeService
             'user_unit_points' => self::points((float)$market['tenant_price']),
             'tenant_cost_points' => $deferredUsage ? 0 : $tenant,
             'user_charge_points' => $deferredUsage ? 0 : $user,
-            'settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved',
+            'settlement_mode' => $deferredUsage||MarketGenerationPixelMeter::applies((array)($market['billing_meter']??[])) ? 'actual_usage' : 'reserved',
             'price_source' => 'power_market_app_api',
             'market_product_id' => (int)$market['product']['id'],
             'market_sku_id' => (int)$market['sku']['id'],
@@ -176,7 +178,7 @@ class MarketNanoBananaAppRuntimeService
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
         $quantity = max(1, $quantity);
         $cost = (float)$market['sku']['sale_points'];
-        $costTotal = MarketGenerationImageBilling::price($cost, $quantity, self::snapshot($market));
+        $costTotal = MarketGenerationImageBilling::price($cost, self::maximumOutputImages($market,$quantity), self::snapshot($market));
         if (array_key_exists('tenant_unit_cost', $billingOverride) && abs((float)$billingOverride['tenant_unit_cost'] - $cost) > 0.000001
             || array_key_exists('tenant_cost_points', $billingOverride) && abs((float)$billingOverride['tenant_cost_points'] - $costTotal) > 0.000001) throw new Exception('应用不能覆盖算力市场平台成本');
         if (array_key_exists('user_charge_points', $billingOverride)) $market['tenant_price'] = self::points((float)$billingOverride['user_charge_points'] / $quantity);
@@ -189,12 +191,20 @@ class MarketNanoBananaAppRuntimeService
     {
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::hasDeclaration($market['sku']) ? MarketGenerationMeter::contract($market['sku']) : null;
-        if ($meter!==null && MarketGenerationPixelMeter::applies($meter)) throw new Exception('该图片应用尚未接入实际像素回执结算');
+        if ($meter!==null && MarketGenerationPixelMeter::applies($meter)) MarketGenerationPixelMeter::assertUnitSize($market['sku']['usage_unit_size']??null);
         if ($meter !== null && !in_array($meter['basis'], ['call','image','megapixel'], true)) throw new Exception('该图片应用计费数量规则尚未适配');
         if ($meter !== null) $market['billing_meter'] = $meter;
         $prepared = self::prepareRequest(self::snapshot($market), $request, '', $tenantId, $deferMissingPrompt);
         if ($meter !== null) $market['meter_context'] = $prepared->meterContext;
         return $market;
+    }
+
+    private static function maximumOutputImages(array $market,int $requested): int
+    {
+        $meter=(array)($market['billing_meter']??[]);
+        // This application protocol has no verified request-count binding.
+        // Reserve the declared global maximum, never infer it from UI quantity.
+        return MarketGenerationPixelMeter::applies($meter)?$meter['maximum_images']:$requested;
     }
 
     /** Pure request preparation shared by quote, admission, reservation and submit. */
@@ -247,10 +257,11 @@ class MarketNanoBananaAppRuntimeService
         $market = self::meterMarket(self::resolve($tenantId, $selection), $request, $tenantId);
         $market = self::applyRetailBinding($market, $billingOverride, $quantity, $tenantId);
         $quantity = max(1, $quantity);
+        $market['requested_image_quantity']=$quantity;
         self::assertReferences($market, $request);
         self::assertDocumentedRatio($market, $request);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
-        [$tenantCost, $userPrice] = MarketGenerationImageBilling::amounts(self::snapshot($market), $quantity);
+        [$tenantCost, $userPrice] = MarketGenerationImageBilling::reservationAmounts(self::snapshot($market),self::maximumOutputImages($market,$quantity));
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
         return Db::transaction(function () use ($tenantId, $userId, $action, $businessTaskId, $market, $request, $quantity, $tenantCost, $userPrice, $deferredUsage, $appCode, $businessTable, $idempotencyKey) {
@@ -347,7 +358,9 @@ class MarketNanoBananaAppRuntimeService
             $upstreamAccepted = true;
             $taskId = self::taskId($response);
             $requestId = self::requestId($response);
-            $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
+            self::retainPixelReceipt($consumptionId,$response,$taskId,$requestId);
+            $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id'],$snapshot);
+            self::retainPixelImages($consumptionId,$images);
             Db::transaction(function () use ($consumptionId, $images, $taskId, $requestId) {
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption']; if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
@@ -406,6 +419,27 @@ class MarketNanoBananaAppRuntimeService
         $consumption = $context['consumption'];
         if ((string)$consumption['upstream_task_id'] === '' && in_array((string)$consumption['run_status'], ['submitting','pending_confirmation'], true) && !empty(self::arrayValue($consumption['price_snapshot'])['_open_platform_request_id'])) return self::response($consumption->toArray());
         $isActive = in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true);
+        $snapshot=self::arrayValue($consumption['price_snapshot']??[]);
+        $pixels=MarketGenerationPixelMeter::applies((array)($snapshot['billing_meter']??[]));
+        if($pixels){
+            if(!$isActive)return self::response($consumption->toArray());
+            $summary=self::arrayValue($consumption['response_summary']??[]);$receipt=(array)($summary['pixel_meter_receipt']??[]);
+            if(!empty($summary['images'])||(trim((string)$consumption['upstream_task_id'])===''&&$receipt)){
+                try{
+                    $images=(array)($summary['images']??[]);
+                    if(!$images&&in_array(self::status($receipt),['failed','error','canceled','cancelled'],true)){
+                        self::fail($consumptionId,self::error($receipt),'upstream_failed');return self::response(AiConsumptionLog::find($consumptionId)->toArray());
+                    }
+                    if(!$images)$images=self::images($receipt,(int)$consumption['tenant_id'],(int)$consumption['user_id'],$snapshot);
+                    if($images){self::retainPixelImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$consumption['upstream_request_id'],(string)$consumption['upstream_task_id'],$receipt);}
+                }catch(\Throwable $e){
+                    \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
+                    AiConsumptionLog::where('id',$consumptionId)->update(['error_code'=>'pixel_result_pending','error_message'=>mb_substr($e->getMessage(),0,500),'update_time'=>time()]);
+                }
+                return self::response(AiConsumptionLog::find($consumptionId)->toArray());
+            }
+            if(trim((string)$consumption['upstream_task_id'])===''&&$consumption['run_status']!=='reserved')return self::response($consumption->toArray());
+        }
         // A previous parser could persist non-URL response fields as images.
         // Only the linked business result worker may opt into a one-off recovery
         // query after settlement; refunded/failed tasks are never resurrected.
@@ -418,7 +452,7 @@ class MarketNanoBananaAppRuntimeService
         $timedOut = $createTime > 0 && time() - $createTime >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
-            if ($timedOut) {
+            if ($timedOut&&!$pixels) {
                 $message = '图片任务未返回上游任务号';
                 self::fail($consumptionId, $message, 'timeout');
                 return self::failureResponse('', $message);
@@ -429,7 +463,9 @@ class MarketNanoBananaAppRuntimeService
             $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
             $plan = MarketGenerationAdapterRegistry::transport($snapshot + ['resource_type'=>'app_api'], 'query', $taskId);
             $response = self::request($plan['method'], self::origin() . $plan['path'], $plan['payload']);
-            $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
+            self::retainPixelReceipt($consumptionId,$response,$taskId,self::requestId($response));
+            $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id'],$snapshot);
+            self::retainPixelImages($consumptionId,$images);
             if ($images !== []) {
                 if ($isActive) {
                     self::settle($consumptionId, $images, self::requestId($response), $taskId, $response);
@@ -452,11 +488,12 @@ class MarketNanoBananaAppRuntimeService
                 }
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
             }
-            if ($timedOut) { $message = '图片任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
+            if ($timedOut&&!$pixels) { $message = '图片任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         } catch (\Throwable $e) {
+            if($pixels)\app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             AiTaskLifecycleEventService::record($consumptionId, 'query_error', 'retrying', ['upstream_task_id' => $taskId, 'error' => $e->getMessage()]);
-            if ($timedOut) { $message = '图片任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
+            if ($timedOut&&!$pixels) { $message = '图片任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         }
     }
@@ -493,11 +530,12 @@ class MarketNanoBananaAppRuntimeService
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []); $quantity = max(1, count($images));
             $deferredUsage = MarketUsageSettlementService::isActualUsageSku($snapshot); $actualUsage = MarketUsageSettlementService::tokenUsage($response);
             if ($deferredUsage && $actualUsage <= 0) { $now = time(); $c->save(['run_status' => 'success', 'billing_status' => 'pending_usage', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'usage_snapshot' => ['settlement_basis' => 'awaiting_actual_usage'], 'response_summary' => ['image_count' => $quantity, 'images' => $images], 'finish_time' => $now, 'update_time' => $now]); $task->save(['status' => 'success', 'progress' => 100, 'finish_time' => $now, 'update_time' => $now]); self::event((int)$c['id'], 'await_usage', 'pending', ['image_count' => $quantity]); return; }
-            $billedQuantity = $deferredUsage ? $actualUsage : $quantity;
+            $pixel=(array)($snapshot['billing_meter']??[]);$pixels=MarketGenerationPixelMeter::applies($pixel);
+            $billedQuantity = $pixels?MarketGenerationPixelMeter::measured($pixel,$images,(int)($snapshot['reserved_image_quantity']??0)):($deferredUsage ? $actualUsage : $quantity);
             [$tenant, $user] = MarketGenerationImageBilling::amounts($snapshot, $quantity, $billedQuantity, $deferredUsage);
             if ($deferredUsage) { PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user); PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user, (string)$c['consume_no'], '短剧 nano-banana 实际用量结算', self::extra($task, $c, 'settled')); } else PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], $tenant, $user, (string)$c['consume_no'], '短剧 nano-banana 生图结算', self::extra($task, $c, 'settled'));
             $now = time();
-            $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0], 'response_summary' => ['image_count' => $quantity, 'images' => $images], 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['tenant_point_sn'], 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['user_point_sn'], 'finish_time' => $now, 'update_time' => $now]);
+            $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0]+($pixels?['actual_megapixels'=>$billedQuantity,'settlement_basis'=>'measured_output_pixels']:[]), 'response_summary' => array_replace((array)$c['response_summary'],['image_count' => $quantity, 'images' => $images]), 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['tenant_point_sn'], 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['user_point_sn'], 'error_code'=>'','error_message'=>'','finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['image_count' => $quantity]);
         });
@@ -517,6 +555,7 @@ class MarketNanoBananaAppRuntimeService
             if ((string)$consumption['run_status'] !== 'success' || (string)$consumption['billing_status'] !== 'settled') return;
 
             $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
+            if(MarketGenerationPixelMeter::applies((array)($snapshot['billing_meter']??[])))return;
             $count = max(1, count($images));
             $actualTenant = (float)$consumption['actual_tenant_cost'];
             $actualUser = (float)$consumption['actual_user_price'];
@@ -649,8 +688,10 @@ class MarketNanoBananaAppRuntimeService
     }
 
     /** @return array<int,array<string,mixed>> */
-    private static function images(array $data, int $tenantId, int $userId): array
+    private static function images(array $data, int $tenantId, int $userId, array $snapshot=[]): array
     {
+        if(MarketGenerationPixelMeter::applies((array)($snapshot['billing_meter']??[])))
+            return MarketPixelImageResult::persist($snapshot,$data,$tenantId,$userId,self::status($data),self::taskId($data));
         // The shared collector only returns valid http(s) values from known
         // result containers. Do not treat task IDs, statuses, or timestamps as
         // files merely because they appear beside a result object.
@@ -686,6 +727,10 @@ class MarketNanoBananaAppRuntimeService
             'max_reference_images'=>(int)$market['reference_limit'], 'billing_meter'=>$market['billing_meter'] ?? null,
             'meter_context'=>$market['meter_context'] ?? []];
         if (array_key_exists('fixed_user_unit_price', $market)) $snapshot['fixed_user_unit_price'] = $market['fixed_user_unit_price'];
+        if(MarketGenerationPixelMeter::applies((array)($snapshot['billing_meter']??[]))){
+            $snapshot['reserved_image_quantity']=$snapshot['billing_meter']['maximum_images'];
+            if(isset($market['requested_image_quantity']))$snapshot['requested_image_quantity']=$market['requested_image_quantity'];
+        }
         return $snapshot;
     }
     private static function marketContext(array $snapshot): array { $skuKey = trim((string)($snapshot['sku_key'] ?? '')); $skuId = (int)($snapshot['sku_id'] ?? 0); return ['market_product_id' => (int)($snapshot['product_id'] ?? 0), 'market_sku_id' => $skuId, 'sku_id' => $skuId, 'market_sku_key' => $skuKey, 'sku_key' => $skuKey, 'pricing_sku_key' => $skuKey, 'price_source' => 'power_market_app_api']; }
@@ -830,9 +875,29 @@ class MarketNanoBananaAppRuntimeService
     private static function response(array $consumption): array
     {
         $summary = self::arrayValue($consumption['response_summary'] ?? []);
+        $pending=MarketGenerationPixelMeter::applies((array)(self::arrayValue($consumption['price_snapshot']??[])['billing_meter']??[]))&&($consumption['billing_status']??'')!=='settled';
+        if($pending){$summary['images']=[];if(!in_array($consumption['run_status'],['failed','canceled'],true))$consumption['run_status']='running';}
         $response = ['status' => (string)$consumption['run_status'], 'provider_task_id' => (string)$consumption['upstream_task_id'], 'provider_request_id' => (string)$consumption['upstream_request_id'], 'images' => (array)($summary['images'] ?? [])];
         $message = trim((string)($consumption['error_message'] ?? ''));
         return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
+    }
+    private static function retainPixelReceipt(int $id,array $receipt,string $taskId,string $requestId): void
+    {
+        Db::transaction(function()use($id,$receipt,$taskId,$requestId){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($id);
+            if($c->isEmpty()||!MarketGenerationPixelMeter::applies((array)(self::arrayValue($c['price_snapshot'])['billing_meter']??[]))||!in_array($c['billing_status'],['reserved','pending_usage'],true))return;
+            $summary=self::arrayValue($c['response_summary']);$summary['pixel_meter_receipt']=$receipt;
+            $c->save(['run_status'=>'running','response_summary'=>$summary,'upstream_task_id'=>$taskId?:$c['upstream_task_id'],'upstream_request_id'=>$requestId?:$c['upstream_request_id'],'update_time'=>time()]);
+        });
+    }
+    private static function retainPixelImages(int $id,array $images): void
+    {
+        if(!$images)return;
+        Db::transaction(function()use($id,$images){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($id);
+            if($c->isEmpty()||!MarketGenerationPixelMeter::applies((array)(self::arrayValue($c['price_snapshot'])['billing_meter']??[]))||!in_array($c['billing_status'],['reserved','pending_usage'],true))return;
+            $summary=self::arrayValue($c['response_summary']);$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);
+        });
     }
     private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []], self::failureFields($message)); }
     private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }

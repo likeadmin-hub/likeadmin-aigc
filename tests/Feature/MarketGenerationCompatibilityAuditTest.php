@@ -15,7 +15,8 @@ class MarketGenerationCompatibilityAuditTest extends TestCase
         self::assertSame('unsupported_or_invalid_meter',Audit::sku('image','model',$sku)['meter_status']);
         $sku['usage_unit_size']=1;$r=Audit::sku('image','model',$sku);self::assertSame('recognized_pixel_upper_bound',$r['meter_status']);
         self::assertSame(1000000,$r['meter']['maximum_pixels_per_image']);self::assertSame(2,$r['meter']['maximum_images']);
-        self::assertSame('unsupported_meter',Audit::sku('image','app_api',$sku,'nano_banana')['meter_status']);
+        self::assertSame('recognized_pixel_upper_bound',Audit::sku('image','app_api',$sku,'nano_banana')['meter_status']);
+        self::assertSame('unsupported_or_invalid_meter',Audit::sku('image','app_api',$sku,'unadapted_app')['meter_status']);
     }
     public static function invalidPixelUnitSizes(): array{return [[0],[.5],['bad'],[INF],[NAN],[null]];}
     public function testIdenticalFieldNamesDoNotConcealChangedNestedConstraints(): void

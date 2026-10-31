@@ -4,6 +4,13 @@ namespace app\common\service\power;
 /** Snapshot-only image amounts, shared by model and application lifecycles. */
 final class MarketGenerationImageBilling
 {
+    public static function reservationAmounts(array $snapshot,int $maximumImages): array
+    {
+        return [self::price((float)($snapshot['platform_price']??0),$maximumImages,$snapshot),
+            array_key_exists('fixed_user_unit_price',$snapshot)
+                ?round(max(0,(float)$snapshot['fixed_user_unit_price'])*$maximumImages,6)
+                :self::price((float)($snapshot['tenant_price']??0),$maximumImages,$snapshot)];
+    }
     public static function price(float $unitPrice, int $quantity, array $snapshot): float
     {
         $meter=(array)($snapshot['billing_meter']??[]);

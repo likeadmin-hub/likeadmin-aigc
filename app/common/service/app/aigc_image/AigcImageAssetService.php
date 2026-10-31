@@ -10,18 +10,19 @@ use Exception;
 
 class AigcImageAssetService
 {
-    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, bool $safeDownload = false): array
+    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, bool $safeDownload = false, int $maximumPixels = 0): array
     {
+        $safeDownload=$safeDownload||$maximumPixels>0;
         if (str_starts_with($url, 'data:image/')) {
-            return self::persistDataUri($url, $tenantId, $userId, $safeDownload);
+            return self::persistDataUri($url, $tenantId, $userId, $safeDownload,$maximumPixels);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId, $safeDownload);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $safeDownload,$maximumPixels);
         }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload, int $maximumPixels = 0): array
     {
         $context = stream_context_create([
             'http' => [
@@ -36,10 +37,10 @@ class AigcImageAssetService
         if ($content === false || $content === '') {
             throw new Exception('生成图片下载失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $safeDownload);
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $safeDownload,$maximumPixels);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, bool $verifyOutput = false): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, bool $verifyOutput = false, int $maximumPixels = 0): array
     {
         if (!preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成图片格式错误');
@@ -49,12 +50,12 @@ class AigcImageAssetService
             throw new Exception('生成图片解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput,$maximumPixels);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false, int $maximumPixels = 0): array
     {
-        $verifiedSize=$verifyOutput?self::verifiedImageInfo($content):null;
+        $verifiedSize=$verifyOutput?self::verifiedImageInfo($content,$maximumPixels):null;
         if($verifiedSize!==null)$ext=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp','image/gif'=>'gif'][$verifiedSize['mime']];
         $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? $ext : 'png';
         $tmp = tempnam(sys_get_temp_dir(), 'aigc_image_');
@@ -81,11 +82,12 @@ class AigcImageAssetService
         ];
     }
 
-    private static function verifiedImageInfo(string $content): array
+    private static function verifiedImageInfo(string $content, int $maximumPixels = 0): array
     {
         $info=strlen($content)<=20971520?@getimagesizefromstring($content):false;
         if(!$info||($info[0]??0)<1||($info[1]??0)<1||!in_array($info['mime']??'', ['image/png','image/jpeg','image/webp','image/gif'],true))
             throw new Exception('生成图片不是可核验的图片内容');
+        if($maximumPixels>0&&$info[0]*$info[1]>$maximumPixels)throw new Exception('实际图片像素超过冻结合同上限，请核查');
         return $info;
     }
 

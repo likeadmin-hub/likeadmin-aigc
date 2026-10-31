@@ -228,8 +228,7 @@ class MarketImageModelRuntimeService
     {
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::contract($market['sku']);
-        if (MarketGenerationPixelMeter::applies($meter) && (!is_numeric($market['sku']['usage_unit_size']??null)
-            || !is_finite((float)$market['sku']['usage_unit_size']) || (float)$market['sku']['usage_unit_size']<1)) throw new Exception('像素计费单位无效');
+        if (MarketGenerationPixelMeter::applies($meter)) MarketGenerationPixelMeter::assertUnitSize($market['sku']['usage_unit_size']??null);
         if (!in_array($meter['basis'], ['call', 'image', 'megapixel'], true)) throw new Exception('该图片模型计费数量规则尚未适配');
         // Legacy image channels priced each requested image even when their unit was per_call.
         // Only an explicit supplier meter may change that established contract.
@@ -1575,24 +1574,8 @@ class MarketImageModelRuntimeService
     private static function images(array $data, int $tenantId, int $userId, array $snapshot=[]): array
     {
         $pixelMeter=(array)($snapshot['billing_meter']??[]);
-        if(MarketGenerationPixelMeter::applies($pixelMeter)){
-            $status=self::status($data);
-            if(in_array($status,['failed','error','canceled','cancelled'],true))return [];
-            try{$urls=MarketGenerationPixelMeter::urls($pixelMeter,$data);}
-            catch(\InvalidArgumentException $e){
-                if(in_array($status,['pending','queued','processing','running','submitted','created'],true)||($status===''&&self::taskId($data)!==''))return [];
-                throw $e;
-            }
-            if(count($urls)>(int)($snapshot['reserved_image_quantity']??0))throw new \InvalidArgumentException('实际图片数量超过预占数量或缺失');
-            $result=[];$stored=[];
-            foreach($urls as$url){
-                $asset=$stored[$url]??=AigcImageAssetService::persistGeneratedImage($url,$tenantId,$userId,true);
-                $result[]=['image_uri'=>(string)$asset['uri'],'width'=>(int)($asset['width']??0),'height'=>(int)($asset['height']??0),
-                    'storage_scope'=>(string)($asset['storage_scope']??'tenant'),'storage_engine'=>(string)($asset['storage_engine']??'local'),'storage_domain'=>(string)($asset['storage_domain']??'')];
-            }
-            MarketGenerationPixelMeter::measured($pixelMeter,$result,(int)($snapshot['reserved_image_quantity']??0));
-            return $result;
-        }
+        if(MarketGenerationPixelMeter::applies($pixelMeter))
+            return MarketPixelImageResult::persist($snapshot,$data,$tenantId,$userId,self::status($data),self::taskId($data));
         $urls = [];
         foreach ([
             $data['images'] ?? [],

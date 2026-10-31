@@ -68,10 +68,10 @@ class MarketPixelBillingTest extends TestCase
         self::assertSame([6.,6.],Billing::amounts(['platform_price'=>3,'tenant_price'=>3],2));
         $this->expectExceptionMessage('缺少可核验的像素报价');Meter::context(Meter::contract(['meter_summary'=>'百万像素，总点数向上取整','usage_unit'=>'business_unit']),['image_size'=>'square_hd']);
     }
-    public function testPixelContractDoesNotOpenAnUnmeasuredApplicationConsumer(): void
+    public function testPixelApplicationCannotPrepareWithoutAVerifiedBillingUnit(): void
     {
         $market=['sku'=>['source_payload'=>['meter_contract'=>self::declaration()],'usage_unit'=>'business_unit']];
-        $this->expectExceptionMessage('该图片应用尚未接入实际像素回执结算');
+        $this->expectExceptionMessage('像素计费单位无效');
         (new \ReflectionMethod(\app\common\service\power\MarketNanoBananaAppRuntimeService::class,'meterMarket'))->invoke(null,$market,[],1);
     }
     public function testTooManyDeclaredOutputsAreRejectedBeforeAnyStorage(): void
