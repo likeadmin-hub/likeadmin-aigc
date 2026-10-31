@@ -98,10 +98,15 @@ class AiTaskJobService
         $now = time();
         $key = $customKey !== '' ? $customKey : $type . ':' . ($consumptionId ?: $assetId);
         return Db::transaction(function () use ($type, $consumptionId, $assetId, $payload, $priority, $wake, $key, $now) {
+            // Two transfers can finish together. Lock an existing parent before locking
+            // the absent queue key, whose shared gap locks cannot serialize two inserts.
+            $appTaskId = $consumptionId > 0
+                ? (int)(AiConsumptionLog::where('id', $consumptionId)->lock(true)->value('app_task_id') ?: 0)
+                : 0;
             $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
             if ($job->isEmpty()) {
                 $job = AiTaskJob::create([
-                    'app_task_id' => $consumptionId > 0 ? (int)(AiConsumptionLog::where('id', $consumptionId)->value('app_task_id') ?: 0) : 0,
+                    'app_task_id' => $appTaskId,
                     'consumption_id' => $consumptionId,
                     'result_asset_id' => $assetId,
                     'job_type' => $type,
@@ -127,7 +132,7 @@ class AiTaskJobService
                 return (int)$job['id'];
             }
             if($type===self::TYPE_TRANSFER_RESULT&&$consumptionId>0){
-                $linked=(int)(AiConsumptionLog::where('id',$consumptionId)->value('app_task_id')?:0);
+                $linked=$appTaskId;
                 if((int)$job['consumption_id']!==$consumptionId||(int)$job['app_task_id']!==$linked)$job->save(['consumption_id'=>$consumptionId,'app_task_id'=>$linked]);
             }
             $liveTransfer=$type===self::TYPE_TRANSFER_RESULT&&$job['status']==='running'&&(int)$job['lease_expire_time']>$now;
