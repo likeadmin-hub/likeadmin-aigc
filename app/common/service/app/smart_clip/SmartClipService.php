@@ -132,6 +132,7 @@ class SmartClipService
             'channel' => $selection['channel']['code'],
             'quality' => $selection['spec']['quality'],
             'ratio' => $selection['spec']['ratio'],
+            'provider_payload' => ['accepted_selection'=>self::freezeSelection($selection)],
             'status' => 'running',
             'error' => '',
             'delete_time' => 0,
@@ -141,10 +142,10 @@ class SmartClipService
 
         $request = self::buildRequest($task, $selection, $payload);
         $openId=\app\common\service\open_platform\OpenCallContext::id();
-        if ($openId !== '') $task->save(['provider_payload'=>['_open_platform_request_id'=>$openId],'update_time'=>time()]);
+        if ($openId !== '') $task->save(['provider_payload'=>array_merge((array)$task['provider_payload'],['_open_platform_request_id'=>$openId]),'update_time'=>time()]);
         $result = self::providerFor((string)$selection['channel']['provider'])->generate($request);
         $task->provider_task_id = $result->providerTaskId;
-        $task->provider_payload = ['submit' => $result->raw] + (\app\common\service\open_platform\OpenCallContext::id() !== '' ? ['_open_platform_request_id' => \app\common\service\open_platform\OpenCallContext::id()] : []);
+        $task->provider_payload = array_merge((array)$task['provider_payload'], ['submit' => $result->raw]);
         $task->update_time = time();
         if (!$result->success) {
             $unknown=$openId!==''&&!\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed();
@@ -511,7 +512,8 @@ class SmartClipService
         }
         foreach ($query->limit(10)->select() as $task) {
             try {
-                $selection = SmartClipChannelService::resolveSelection($tenantId, ['channel' => $task['channel']]);
+                $selection = (array)($task['provider_payload']['accepted_selection'] ?? []);
+                if (empty($selection['channel']['code']) || empty($selection['spec']['quality'])) $selection = SmartClipChannelService::resolveSelection($tenantId, ['channel' => $task['channel']]);
                 $payload = self::normalizeSubmit($task->toArray() + [
                     'api' => $task['clip_type'],
                     'styleId' => $task['style_id'],
@@ -534,6 +536,7 @@ class SmartClipService
                     continue;
                 }
                 if (empty($result->videos)) {
+                    $task->error = $result->error;
                     $task->update_time = time();
                     $task->save();
                     continue;
@@ -545,6 +548,16 @@ class SmartClipService
                 }
             }
         }
+    }
+
+    private static function freezeSelection(array $selection): array
+    {
+        // Result polling needs only routing and ordinary specification facts;
+        // do not persist channel credentials or arbitrary provider parameters.
+        $channel = array_intersect_key($selection['channel'],array_flip(['code','name','provider','model']));
+        $channel['config_json'] = array_intersect_key((array)($selection['channel']['config_json'] ?? []),array_flip(['task_path','timeout']));
+        $spec = array_intersect_key($selection['spec'],array_flip(['quality','quality_label','ratio','unit_seconds','width','height','platform_unit_cost','tenant_unit_price']));
+        return ['channel'=>$channel,'spec'=>$spec];
     }
 
     private static function finishTaskWithVideos(SmartClipTask $task, array $selection, array $videos): array
