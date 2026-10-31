@@ -125,6 +125,7 @@ final class BuiltinPosterService
     {
         self::prefix($prefix);
         $db=$connection instanceof PDO ? $connection : ($connection ?: Db::connect())->connect();
+        self::prepareFileStorageSchema($db,$prefix);
         $table=$prefix.'distribution_poster_template';
         if (!$db->query("SHOW COLUMNS FROM `{$table}` LIKE 'builtin_key'")->fetch(PDO::FETCH_ASSOC)) $db->exec("ALTER TABLE `{$table}` ADD COLUMN builtin_key varchar(32) DEFAULT NULL");
         $indexes=$db->query("SHOW INDEX FROM `{$table}` WHERE Key_name='uk_tenant_builtin'")->fetchAll(PDO::FETCH_ASSOC);
@@ -134,6 +135,38 @@ final class BuiltinPosterService
             if (array_column($indexes,'Column_name')!==['tenant_id','builtin_key'] || (int)$indexes[0]['Non_unique']!==0) throw new RuntimeException('内置海报索引定义冲突');
         }
         return self::seedAll($db,$prefix);
+    }
+
+    /** Historical split tables predate storage receipts. DDL belongs only to explicit upgrades. */
+    private static function prepareFileStorageSchema(PDO $db,string $prefix): void
+    {
+        // MySQL ALTER commits implicitly. Never commit a caller's business transaction.
+        if ($db->inTransaction()) throw new RuntimeException('素材存储结构升级不能在数据事务中执行');
+        $tables=[$prefix.'tenant_file'];
+        foreach ($db->query("SELECT sn FROM `{$prefix}tenant` WHERE id>0 AND tactics=1")->fetchAll(PDO::FETCH_COLUMN) as $sn) {
+            if (!preg_match('/^[a-zA-Z0-9_-]+$/D',(string)$sn)) throw new RuntimeException('无效租户分表标识');
+            $tables[]=$prefix.'tenant_file_'.$sn;
+        }
+        $definitions=[
+            'storage_scope'=>"varchar(20) NOT NULL DEFAULT 'platform' COMMENT '存储作用域'",
+            'storage_engine'=>"varchar(30) NOT NULL DEFAULT 'local' COMMENT '存储引擎'",
+            'storage_domain'=>"varchar(255) NOT NULL DEFAULT '' COMMENT '存储域名'",
+        ];
+        $plans=[];
+        // Preflight every file and publication target before changing any table.
+        $targets=array_unique([...$tables,$prefix.'distribution_poster_template',$prefix.'distribution_poster_version']);
+        $engine=$db->prepare('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+        foreach ($targets as $table) {
+            $engine->execute([$table]);$value=$engine->fetchColumn();
+            if ($value===false) throw new RuntimeException('素材存储升级缺少目标表: '.$table);
+            if (strcasecmp((string)$value,'InnoDB')!==0) throw new RuntimeException('素材存储升级要求目标表使用 InnoDB: '.$table);
+            if (!in_array($table,$tables,true)) continue;
+            $columns=array_column($db->query("SHOW COLUMNS FROM `{$table}`")->fetchAll(PDO::FETCH_ASSOC),'Field');
+            $add=[];
+            foreach ($definitions as $name=>$definition) if (!in_array($name,$columns,true)) $add[]='ADD COLUMN `'.$name.'` '.$definition;
+            if ($add) $plans[]='ALTER TABLE `'.$table.'` '.implode(', ',$add);
+        }
+        foreach ($plans as $sql) $db->exec($sql);
     }
 
     private static function prefix(string $prefix): void

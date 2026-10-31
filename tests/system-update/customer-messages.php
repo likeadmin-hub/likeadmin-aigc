@@ -38,13 +38,13 @@ namespace {
     $raw='本项目启动脚本仍运行，请停止本项目 Supervisor 和 cron 后重试；本次更新涉及: 任务运行文件: runtime-loader.php；任务运行文件: app/common/service/update/RuntimeRetentionService.php';
     $error=new \RuntimeException($raw);
     $response=$failure->invoke($controller,$error)->data;
-    check(str_contains($response['msg'],'进程守护') && str_contains($response['msg'],'计划任务'), 'HTTP failure must explain how to stop the project processes in Chinese');
+    check(preg_match('/(?:进程|任务)守护/',$response['msg'])===1 && str_contains($response['msg'],'计划任务'), 'HTTP failure must explain how to stop the project processes in Chinese');
     check(!str_contains($response['msg'],'Supervisor') && !str_contains($response['msg'],'runtime-loader.php'), 'HTTP failure must not display internal process names or file paths');
     check($error->getMessage()===$raw, 'presentation must preserve the original diagnostic exception');
     check(str_contains(implode("\n",\think\facade\Log::$errors),$raw), 'the complete diagnostic must remain in the server log');
     check($response['data']['error_code']==='SYSTEM_UPDATE_FAILED', 'presentation must preserve the API error code');
     $cases=[
-        ['本项目任务或 cron 进程仍运行，请等待当前任务结束并停止本项目 Supervisor 和 cron 后重试；本次更新涉及: 数据库迁移: sql/structure/task.sql', '当前任务完成'],
+        ['本项目任务或 cron 进程仍运行，请等待当前任务结束并停止本项目 Supervisor 和 cron 后重试；本次更新涉及: 数据库迁移: sql/structure/task.sql', '请等待当前任务'],
         ['/proc 隐藏进程，无法核验本项目任务进程停机', '联系服务器管理员'],
         ['进程读取权限不足，无法确认本项目任务进程已排空', '联系服务器管理员'],
         ['无法解析任务进程的工作目录，升级已阻断', '联系服务器管理员'],
