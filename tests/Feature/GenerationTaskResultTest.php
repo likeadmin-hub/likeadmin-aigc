@@ -37,6 +37,7 @@ class GenerationTaskResultTest extends TestCase
             $before=[$t->refresh()->toArray(),$c->refresh()->toArray(),$a->refresh()->toArray()];$jobs=(int)Db::name('ai_task_job')->where('consumption_id',$c['id'])->count();
             $r=Results::read((int)$t['id'],$owner['tenant_id'],$owner['user_id']);
             self::assertSame(1,$r['schema_version']);self::assertSame('app_task:'.$t['id'],$r['task_ref']);self::assertSame($status,$r['status']);self::assertSame($stage,$r['stage']);
+            self::assertGreaterThan(time()-60,$r['created_at']);self::assertGreaterThan(time()-60,$r['finished_at']);
             self::assertSame($storage==='stored'?1:0,count($r['results']));
             if($r['results']){self::assertSame((int)$a['id'],$r['results'][0]['result_asset_id']);self::assertSame('uploads/unify-owned.mp4',$r['results'][0]['uri']);self::assertStringNotContainsString('example.invalid',$r['results'][0]['url']);}
             self::assertArrayNotHasKey('price_snapshot',$r);self::assertStringNotContainsString('never-return-this',json_encode($r));
@@ -98,8 +99,8 @@ class GenerationTaskResultTest extends TestCase
     public function testCompoundApplicationKeepsParentStatePriceAndBusinessResults(): void
     {
         $this->fixture(function($t,$c,$a,$owner){
-            $other=$t->toArray();unset($other['id']);$other['task_no']='second-'.bin2hex(random_bytes(6));$other['idempotency_key']=$other['task_no'];$second=AiAppTask::create($other);
-            $receipt=$c->toArray();unset($receipt['id']);$receipt['consume_no']=$other['task_no'];$receipt['app_task_id']=$second['id'];AiConsumptionLog::create($receipt);
+            $other=$t->toArray();unset($other['id']);foreach(['create_time','update_time','finish_time']as$key)$other[$key]=time();$other['task_no']='second-'.bin2hex(random_bytes(6));$other['idempotency_key']=$other['task_no'];$second=AiAppTask::create($other);
+            $receipt=$c->toArray();unset($receipt['id']);foreach(['create_time','update_time','finish_time']as$key)$receipt[$key]=time();$receipt['consume_no']=$other['task_no'];$receipt['app_task_id']=$second['id'];AiConsumptionLog::create($receipt);
             $children=[];foreach([$t['id'],$second['id']]as$id)$children[]=Db::name('aigc_image_task')->insertGetId($owner+['app_task_id'=>$id,'prompt'=>'Owned composite fixture','provider'=>'power_market','status'=>'success','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
             $foreign=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$owner['tenant_id'],'user_id'=>$owner['user_id']+1,'app_task_id'=>$second['id'],'prompt'=>'Not this user','status'=>'success','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
             $parent=['task_id'=>987,'status'=>'running','estimate'=>['user_charge_points'=>123],'results'=>[['module'=>'owned-business-result']]];

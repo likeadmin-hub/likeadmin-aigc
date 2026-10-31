@@ -84,7 +84,12 @@ final class GenerationTaskResultService
             'billing_status'=>$billingPending?'pending':($consumptions ? (string)end($consumptions)['billing_status'] : 'none'),
             'delivery_status'=>$transferPending?'pending':'ready', 'results'=>$results,
             'error'=>$error===''?null:['code'=>'generation_failed','message'=>UpstreamErrorMessageService::normalize($error)],
-            'created_at'=>(int)$task['create_time'], 'finished_at'=>(int)$task['finish_time']];
+            'created_at'=>self::timestamp($task['create_time']), 'finished_at'=>self::timestamp($task['finish_time'])];
+    }
+
+    private static function timestamp(mixed $value): int
+    {
+        return is_numeric($value) ? (int)$value : (is_string($value) && $value!=='' ? (strtotime($value) ?: 0) : 0);
     }
 
     public static function appendConsumption(array $response, int $id, int $tenantId, int $userId): array
