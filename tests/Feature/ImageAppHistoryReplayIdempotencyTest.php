@@ -54,11 +54,14 @@ class ImageAppHistoryReplayIdempotencyTest extends TestCase
             $replay->invoke(null, $parent);
             self::assertSame($before, Db::name($table)->where('id', $parent['id'])->find());
         }
+        $child->save(['finish_time'=>1700000099]);
+        $replay->invoke(null, $parent);
+        self::assertSame($before, Db::name($table)->where('id', $parent['id'])->find(), 'Late child time cannot redate an unchanged terminal parent');
         $parent->save(['status'=>'running','finish_time'=>0,'update_time'=>1700000004]);
         $replay->invoke(null, $parent);
         $after = Db::name($table)->where('id', $parent['id'])->find();
         self::assertSame('failed', $after['status']);
-        self::assertGreaterThan(1700000004, (int)$after['finish_time']);
+        self::assertSame(1700000099, (int)$after['finish_time']);
         $replay->invoke(null, $parent);
         self::assertSame($after, Db::name($table)->where('id', $parent['id'])->find());
         self::assertSame(1, (int)Db::name('aigc_image_task')->where('id', $child['id'])->count());
