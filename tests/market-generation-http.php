@@ -171,6 +171,15 @@ try {
     MarketWorkerFixture::check($userBefore-$userAfter===10.&&$tenantBefore-$tenantAfter===4.,'Native/application retail overrides charged incorrect fixture amounts');
     $report['image_http']=['native_managed_result_checksum'=>true,'single_application_parent_and_child_success'=>true,'suite_first_child_does_not_finish_parent'=>true,'suite_two_children_two_results'=>true,'native_price'=>1,'application_retail_price_per_child'=>3,'fixture_user_delta'=>10,'fixture_tenant_delta'=>4];
     $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_fixture_user_balance']=$userAfter;$report['total_fixture_tenant_balance']=$tenantAfter;
+    $beforeRestart=[];foreach(['ai_app_task','ai_consumption_log','ai_task_result_asset','ai_task_job']as$table)$beforeRestart[$table]=Db::name($table)->order('id')->select()->toArray();
+    $fixture->start(__FILE__,'aigc_image');usleep(1200000);$fixture->stop();
+    $afterRestart=[];foreach(array_keys($beforeRestart)as$table)$afterRestart[$table]=Db::name($table)->order('id')->select()->toArray();
+    MarketWorkerFixture::check($beforeRestart===$afterRestart,'Restart changed completed task, billing, asset or job records');
+    $eventCounts=array_count_values(Db::name('ai_consumption_event')->column('event_type'));$acceptedCount=count(file($dir.'/submissions.jsonl'));
+    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount&&($eventCounts['settle']??0)===$acceptedCount,'Final accepted tasks did not each have exactly one reservation and settlement');
+    $report['worker_restart_preserved_completed_rows']=true;$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];
+    $report['total_tasks']=(int)Db::name('ai_app_task')->count();$report['total_result_assets']=(int)Db::name('ai_task_result_asset')->count();
+
 } catch(Throwable $e) {
     $failure=$e;$report['failure']=$e->getMessage();$report['fixture_line']=array_values(array_map(static fn($frame)=>$frame['line']??0,array_filter($e->getTrace(),static fn($frame)=>($frame['file']??'')===__FILE__))); 
     if($fixture&&isset($runId)) {

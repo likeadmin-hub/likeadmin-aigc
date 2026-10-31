@@ -134,6 +134,7 @@ final class GenerationTaskResultService
             $response['generation_tasks']=$children;
             $response['generation_task_refs']=array_column($children,'task_ref');
         }
+        foreach (['generation_tasks_pending','generation_task_unavailable'] as $flag) if (($source[$flag]??false)===true) $response[$flag]=true;
         return $response;
     }
 

@@ -196,4 +196,11 @@ class GenerationTaskResultTest extends TestCase
         });
     }
 
+    public function testLegacyWrappersRetainTemporaryDeliveryProjectionOutage(): void
+    {
+        $response=Results::carry(['task_id'=>7,'status'=>'success'],['generation_tasks_pending'=>true]);
+        self::assertTrue($response['generation_tasks_pending']);self::assertSame(7,$response['task_id']);
+        self::assertSame(['task_id'=>7,'status'=>'success'],Results::withoutView($response));
+    }
+
 }
