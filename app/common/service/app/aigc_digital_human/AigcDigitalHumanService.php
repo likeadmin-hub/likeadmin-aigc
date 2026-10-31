@@ -931,7 +931,7 @@ class AigcDigitalHumanService
         Db::startTrans();
         try {
             self::lockSubmitOwner($userId);
-            $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, $duplicateCriteria);
+            $duplicateTask = \app\common\service\ai\GenerationSubmission::key() !== '' ? null : self::findRecentDuplicateTask($tenantId, $userId, $duplicateCriteria);
             if ($duplicateTask) {
                 Db::commit();
                 return self::buildDuplicateGenerateResponse($duplicateTask, $tenantId, $userId);

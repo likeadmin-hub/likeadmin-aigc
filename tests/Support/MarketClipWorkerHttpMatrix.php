@@ -12,7 +12,7 @@ function runMarketClipWorkerHttp($f,$api,$suffix,$token,$supplier,array &$report
     $form=fn($kind,$title)=>['api'=>$kind,'channel'=>'private-clip','styleId'=>'private-template','title'=>$title,'videoUrl'=>$supplier.'/fixture/result.mp4','audioUrl'=>$supplier.'/fixture/input.wav','materials'=>[['type'=>'video','url'=>$supplier.'/fixture/result.mp4','duration'=>2]],'processRules'=>['videoDuration'=>2],'duration'=>2];
     $completed=[];$lastNative=null;
     foreach(['realman_broadcast','broadcast_mixcut','news_mixcut']as$i=>$kind){
-        $input=$form($kind,'Synthetic background '.$kind);$q=$post('generate/estimate',$input);$check((float)$q['user_charge_points']===2.,'Private clipping quote differs');
+        $input=$form($kind,'Synthetic background '.$kind);$input['idempotency_key']='clip-original-'.$kind;$q=$post('generate/estimate',$input);$check((float)$q['user_charge_points']===2.,'Private clipping quote differs');
         $accepted=$post('generate/index',$input);$id=(int)$accepted['task_id'];$ref=$accepted['generation_task']['task_ref']??'';$app=(int)($accepted['generation_task']['app_task_id']??0);
         $check($ref==='app_task:'.$app&&$app>0,'Clip accepted no canonical identity');$same=$post('generate/index',$input);$check($same['task_id']===$id&&$same['generation_task']['task_ref']===$ref,'Clip duplicate changed accepted identity');
         $provider=(string)$db::name('smart_clip_task')->where('id',$id)->value('provider_task_id');

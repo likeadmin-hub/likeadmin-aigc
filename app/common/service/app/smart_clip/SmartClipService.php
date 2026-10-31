@@ -101,7 +101,7 @@ class SmartClipService
         $estimate = SmartClipChannelService::estimate($tenantId, $params);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $payload);
+        $duplicate = \app\common\service\ai\GenerationSubmission::key() !== '' ? null : self::findRecentDuplicateTask($tenantId, $userId, $payload);
         if ($duplicate) {
             return self::duplicateResponse($duplicate, $tenantId, $userId);
         }
