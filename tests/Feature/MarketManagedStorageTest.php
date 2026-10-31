@@ -62,7 +62,7 @@ class MarketManagedStorageTest extends TestCase
         return [
             ['video',['width'=>0,'height'=>0],['width'=>32,'height'=>64],['width'=>32,'height'=>64]],
             ['video',['width'=>128,'height'=>256],['width'=>32,'height'=>64],['width'=>128,'height'=>256]],
-            ['audio',['file_size'=>16078,'duration'=>1,'mime_type'=>'audio/wav'],['file_size'=>0,'duration'=>0,'mime_type'=>'audio/mpeg'],['file_size'=>16078,'duration'=>1.0,'mime_type'=>'audio/wav']],
+            ['audio',['file_size'=>16078,'duration'=>1,'mime_type'=>'audio/wav'],['file_size'=>0,'duration'=>0,'mime_type'=>'audio/mpeg'],['file_size'=>16078,'duration'=>1,'mime_type'=>'audio/wav']],
             ['audio',['file_size'=>0,'duration'=>0,'mime_type'=>''],['file_size'=>8,'duration'=>2,'mime_type'=>'audio/wav'],['file_size'=>8,'duration'=>2,'mime_type'=>'audio/wav']],
             ['audio',['file_size'=>-1,'duration'=>INF],['file_size'=>8,'duration'=>2],['file_size'=>8,'duration'=>2]],
         ];
