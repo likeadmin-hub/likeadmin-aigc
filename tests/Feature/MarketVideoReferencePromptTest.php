@@ -33,7 +33,7 @@ class MarketVideoReferencePromptTest extends TestCase
         $catalog=new \ReflectionProperty(Native::class,'catalog');$this->previous=$catalog->getValue();
         $catalog->setValue(null,['models'=>['offline-reference-prompt'=>[
             'fingerprint'=>Reviewed::digest([$schema,Materials::contract($this->metadata)]),
-            'modes'=>['reference_to_video'=>['schema'=>$schema,'rules'=>[['kind'=>'kling4','check'=>'names'],['kind'=>'kling4','check'=>'prompt']]]]]]]);
+            'modes'=>['reference_to_video'=>['schema'=>$schema,'rules'=>[['kind'=>'kling4','check'=>'names','message'=>'素材名称无效'],['kind'=>'kling4','check'=>'prompt','message'=>'每个 @引用须匹配本次素材']]]]]]]);
     }
 
     protected function tearDown(): void{(new \ReflectionProperty(Native::class,'catalog'))->setValue(null,$this->previous);}
