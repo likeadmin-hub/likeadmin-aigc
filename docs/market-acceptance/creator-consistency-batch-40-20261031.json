@@ -1,0 +1,660 @@
+{
+  "batch": 40,
+  "date": "2026-10-31",
+  "source_server_commit": "f85944aa8071878e8b7d4a01eeeac2358b77149b",
+  "source_web_commit": "7a8b362ff0735dc055bd33d46b6a5e723c3e6f15",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "live_model_sync_executed": false,
+  "scope": "Five real normal-login PC pages using the same synthetic video and explicit 360P/4s/16:9 settings; four models across both production canvas source builders (8 preparations), plus 5 saved HTTP-node source preparations. UI price observations do not infer a SKU; exact SKU checks remain in separately scoped readonly source preparations. Five persisted terminal reconstructions retain unknown original entry.",
+  "creator_policy": {
+    "optional_editors_hidden_across_shared_panel": true,
+    "regular_audio_quality_and_output_controls_preserved": true,
+    "full_video_range": "Both missing endpoints become 0 to server-measured duration only under admitted seconds/clip-range contract. Over-limit videos reject without truncation. Explicit old ranges and partial invalid ranges are not overwritten.",
+    "named_audio": "Admitted reference-name rule uses ordinary audio aliases, not supplier voice IDs.",
+    "optional_timeline_subject_character": "No automatic advanced grouping or invented timing/IDs; ordinary references remain.",
+    "additive_public_mode_field": "creator_automatic",
+    "migration_permission_manifest_changes": false
+  },
+  "ui_checks": [
+    {
+      "entry": "home",
+      "channel": "market_video_model:358",
+      "method": "omni_reference",
+      "scenario": "same_video_explicit_360p_4s_16_9",
+      "status": "presentation_checked",
+      "clipError": false,
+      "has360": true,
+      "has666": true,
+      "optionalMaterialEditors": 0
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_model:358",
+      "method": "omni_reference",
+      "scenario": "same_video_explicit_360p_4s_16_9",
+      "status": "presentation_checked",
+      "clipError": false,
+      "has360": true,
+      "has666": true,
+      "optionalMaterialEditors": 0
+    },
+    {
+      "entry": "standalone",
+      "channel": "market_video_model:358",
+      "method": "omni_reference",
+      "scenario": "same_video_explicit_360p_4s_16_9",
+      "status": "presentation_checked",
+      "clipError": false,
+      "has360": true,
+      "has666": true,
+      "optionalMaterialEditors": 0
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "method": "omni_reference",
+      "scenario": "same_video_explicit_360p_4s_16_9",
+      "status": "presentation_checked",
+      "clipError": false,
+      "has360": true,
+      "has666": true,
+      "optionalMaterialEditors": 0
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "method": "omni_reference",
+      "scenario": "same_video_explicit_360p_4s_16_9",
+      "status": "presentation_checked",
+      "clipError": false,
+      "has360": true,
+      "has666": true,
+      "optionalMaterialEditors": 0
+    }
+  ],
+  "projects": [
+    {
+      "entry": "canvas",
+      "project_id": 866,
+      "nodes": 4,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_hash": "2d474a9de260df91c6c96aefa39a4e054363471594a458d0de9e190d0916e322",
+      "edges_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "normal_login_http_save_reopen": true,
+      "final_sql_nodes_equal": true
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 507,
+      "nodes": 1,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_hash": "2fbbf07c24029ef59c000d82b0bcf06707a560783fdb20a79dca4330e9d5f5e7",
+      "edges_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "normal_login_http_save_reopen": true,
+      "final_sql_nodes_equal": true
+    }
+  ],
+  "short_first_reopen_layout_note": "Initial short-drama node dimensions were normalized to 250x250 and layout_revision advanced from1 to2. Business metadata/materials stayed equal; the next independent reopen preserved the full node JSON.",
+  "synthetic_upload_actions": 4,
+  "visible_balance_before": 4372.96,
+  "visible_balance_after": 4372.96,
+  "cases": [
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "41bc1138e4a9c912425f14534015586a40cf61cdab42dbf8ba12f213ac054f1f",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "material_mode": ":reference",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:358",
+      "source_request_hash": "35b386ecd690fed2764e2f5b8bc039f9ba4e930309e6e9434fc2eb5b47eb9781"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "41bc1138e4a9c912425f14534015586a40cf61cdab42dbf8ba12f213ac054f1f",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "material_mode": ":reference",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:358",
+      "source_request_hash": "e61ed360a9120d9fc354b3df5313d679e74a66aef860e5754bf8cdfea0e1be70"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 703,
+      "admission_sku_id": 703,
+      "points": 998,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "4be46dd100662583427b8fd05b92db2580f1935ed040e49579eea5bd89cc16d5",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "material_mode": "default:0",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:344",
+      "source_request_hash": "97d1d2fadf0d4b8dd03a15860c208db8b5cc207ff28b138ee0b162b378d206a9"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 703,
+      "admission_sku_id": 703,
+      "points": 998,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "4be46dd100662583427b8fd05b92db2580f1935ed040e49579eea5bd89cc16d5",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "material_mode": "default:0",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:344",
+      "source_request_hash": "8a87bb138319b20a7f6fe2ce30ab0751ae69089be716b15aa6e93a3ed226bf10"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:308",
+      "source_request_hash": "859248e292ab3b66a66a371bb3f07de8ee8b0faf192fcc7e797162c313e8acd3"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:308",
+      "source_request_hash": "a04da0d10365ea79679e48ec43685500b7b0f135aa5f25413396f7eea5b30b27"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 717,
+      "admission_sku_id": 717,
+      "points": 144,
+      "frozen_equal": true,
+      "request_duration": 8,
+      "native_duration": 8,
+      "native_hash": "31011bac3f6fa58ab3cb19c370e188745e9da4950a316ebc78b2e97fc6fb2670",
+      "required_declared_media_fields": [
+        {
+          "field": "image_urls",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "material_mode": ":reference",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:345",
+      "source_request_hash": "4bd86dec65be037734b8c92bd753205d8b0fad37e34b377a95dfe15c128c24ff"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 717,
+      "admission_sku_id": 717,
+      "points": 144,
+      "frozen_equal": true,
+      "request_duration": 8,
+      "native_duration": 8,
+      "native_hash": "31011bac3f6fa58ab3cb19c370e188745e9da4950a316ebc78b2e97fc6fb2670",
+      "required_declared_media_fields": [
+        {
+          "field": "image_urls",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "material_mode": ":reference",
+      "scenario": "ordinary_upload_no_optional_fields",
+      "channel": "market_video_model:345",
+      "source_request_hash": "74ad669f0877aaab69f1d7edae172194a36680f6de5f7e2a1c36424fb685f324"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "41bc1138e4a9c912425f14534015586a40cf61cdab42dbf8ba12f213ac054f1f",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "material_mode": ":reference",
+      "method": "omni_reference",
+      "scenario": "normal_http_saved_node_ordinary_upload",
+      "project_id": 866,
+      "channel": "market_video_model:358",
+      "source_request_hash": "35b386ecd690fed2764e2f5b8bc039f9ba4e930309e6e9434fc2eb5b47eb9781"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 703,
+      "admission_sku_id": 703,
+      "points": 998,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "4be46dd100662583427b8fd05b92db2580f1935ed040e49579eea5bd89cc16d5",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "material_mode": "default:0",
+      "method": "omni_reference",
+      "scenario": "normal_http_saved_node_ordinary_upload",
+      "project_id": 866,
+      "channel": "market_video_model:344",
+      "source_request_hash": "97d1d2fadf0d4b8dd03a15860c208db8b5cc207ff28b138ee0b162b378d206a9"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "normal_http_saved_node_ordinary_upload",
+      "project_id": 866,
+      "channel": "market_video_model:308",
+      "source_request_hash": "859248e292ab3b66a66a371bb3f07de8ee8b0faf192fcc7e797162c313e8acd3"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 717,
+      "admission_sku_id": 717,
+      "points": 144,
+      "frozen_equal": true,
+      "request_duration": 8,
+      "native_duration": 8,
+      "native_hash": "31011bac3f6fa58ab3cb19c370e188745e9da4950a316ebc78b2e97fc6fb2670",
+      "required_declared_media_fields": [
+        {
+          "field": "image_urls",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "material_mode": ":reference",
+      "method": "image_reference",
+      "scenario": "normal_http_saved_node_ordinary_upload",
+      "project_id": 866,
+      "channel": "market_video_model:345",
+      "source_request_hash": "4bd86dec65be037734b8c92bd753205d8b0fad37e34b377a95dfe15c128c24ff"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "c8a1fd15f600d1e7c6f281aadc279dc328f151eb62486702acf04b8528e2cea6",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "method": "omni_reference",
+      "scenario": "normal_http_saved_node_ordinary_upload",
+      "project_id": 507,
+      "channel": "market_video_model:358",
+      "source_request_hash": "d1959770acceef168f454077955bfcda9758f0ccda73f33f3274c0851ddcee26"
+    }
+  ],
+  "frozen_history": [
+    {
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 235,
+      "sku_id": 321,
+      "channel": "market_video_model:235",
+      "method": "",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "audio": true,
+          "duration": 10,
+          "resolution": "720p"
+        },
+        "native_hash": "cb07b56ed326116768163036dff869faef44d8bca2748dcca2a7e7156071a1c7",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "post_sync_creator_policy_frozen_history_replay",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 97,
+      "sku_id": 113,
+      "channel": "market_video_model:97",
+      "method": "image_reference",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "quality": "720p",
+          "duration": 6
+        },
+        "native_hash": "0cbb807054d6e62a67559c4f3d9a12f44ae04895bf203844452eebc323c0fd3d",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "post_sync_creator_policy_frozen_history_replay",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 103,
+      "sku_id": 128,
+      "channel": "market_video_app:full_video:103",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "768P",
+          "duration": 6,
+          "ratio": "16:9"
+        },
+        "native_hash": "fa9a9f0056bdd8846bd527bf78e5084448bac45f6a4030cd52804e515b760f00",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "post_sync_creator_policy_frozen_history_replay",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 108,
+      "sku_id": 137,
+      "channel": "market_video_app:grok_video:108",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "480p",
+          "duration": 6,
+          "aspect_ratio": "2:3"
+        },
+        "native_hash": "045be7187c459de1b7c5f16c13cdeb1db811df3521a6e251da24b5d740d495a2",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "post_sync_creator_policy_frozen_history_replay",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 357,
+      "sku_id": 808,
+      "channel": "market_video_model:357",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": true,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": {
+          "frozen_audio": true,
+          "changed_copy_audio": false,
+          "frozen_snapshot_unchanged": true
+        },
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "480P",
+          "aspect_ratio": "adaptive",
+          "duration": 3,
+          "audio": true
+        },
+        "native_hash": "9a6dc32f1f06e3c3e696bda4513e6c34439f71f9410ba42a7176d836e058fc61",
+        "meter_hash": "e6f26db8063021722155e687a935899084cb252b79395ed3a2e3e4fba5a957f9"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "post_sync_creator_policy_frozen_history_replay",
+      "status": "frozen_history_replay_equal"
+    }
+  ],
+  "original_row_retention": [
+    {
+      "kind": "video",
+      "rows": 44,
+      "tables": 1,
+      "before_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b",
+      "after_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b",
+      "full_rows_equal": true
+    },
+    {
+      "kind": "app",
+      "rows": 10,
+      "tables": 14,
+      "before_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1",
+      "after_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1",
+      "full_rows_equal": true
+    },
+    {
+      "kind": "image",
+      "rows": 81,
+      "tables": 1,
+      "before_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc",
+      "after_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc",
+      "full_rows_equal": true
+    }
+  ],
+  "validation": {
+    "pc_tests": 635,
+    "phpunit_existing_tests": 285,
+    "phpunit_existing_assertions": 1470,
+    "phpunit_new_automatic_material_tests": 5,
+    "phpunit_new_assertions": 11,
+    "sfc_script_template_style": 6,
+    "typescript_files": 3
+  },
+  "limitations": [
+    "Current source projections are not captured browser wire DTOs.",
+    "Token-budget scenarios remain externally blocked; no paid task was created to bypass them.",
+    "Original project502 was not changed in this batch because the user was actively reviewing it.",
+    "This finite scope does not certify all entry lifecycle checkpoints."
+  ]
+}
