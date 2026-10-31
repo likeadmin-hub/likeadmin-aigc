@@ -155,7 +155,18 @@ final class MarketGenerationMeter
             $extra = bcdiv(bcmul($unitPrice, (string)($count * $meter['image_numerator']), 12), (string)$meter['image_denominator'], 12);
             $amount = bcadd($amount, $extra, 12);
         }
-        $amount = bcdiv($amount, number_format($size, 6, '.', ''), 12);
+        $divisor=number_format($size,6,'.','');
+        if ($meter['round_up'] && (self::boundedToken($meter)||MarketGenerationPixelMeter::applies($meter))) {
+            // Divide only to an integer account unit, then compare the exact
+            // remainder. Truncating the ratio to 12 decimals first can erase a
+            // positive charge or a remainder just above a cent/whole point.
+            $scale=$meter['rounding_scale'] ?? 0;$factor=$scale===2?'100':'1';
+            $numerator=bcmul($amount,$factor,12);
+            $integer=bcdiv($numerator,$divisor,0);
+            if(bccomp($numerator,bcmul($integer,$divisor,12),12)>0)$integer=bcadd($integer,'1',0);
+            return (float)bcdiv($integer,$factor,$scale);
+        }
+        $amount = bcdiv($amount, $divisor, 12);
         if ($meter['round_up']) {
             // New Token contracts explicitly round at the account precision
             // or to whole points. Never reserve a sub-cent amount that the
