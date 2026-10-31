@@ -99,6 +99,23 @@ class MarketTransferCheckpointTest extends TestCase
     }
     public static function types(): array { return [['image', 'png'], ['video', 'mp4'], ['audio', 'wav']]; }
 
+    /** @dataProvider formats */
+    public function testActualSupportedMediaContainersKeepTheirBytes(string $type, string $ext): void
+    {
+        $this->local(function ($dir) use ($type, $ext) {
+            $path = getenv('AIGC_TRANSFER_MEDIA_DIR') . '/synthetic.' . $ext; self::assertFileExists($path);
+            $bytes = file_get_contents($path); $asset = $this->asset($type); $receipt = $this->persist($asset, $type, $ext, $bytes);
+            self::assertTrue($receipt['stored']); self::assertStringEndsWith('.' . $ext, $receipt['uri']);
+            self::assertSame(hash('sha256', $bytes), hash_file('sha256', $dir . '/public/' . $receipt['uri']));
+            self::assertSame(1, (int)TenantFile::where(['tenant_id' => self::TENANT, 'source_id' => self::USER])->count());
+        });
+    }
+    public static function formats(): array
+    {
+        $rows = []; foreach (['mp4', 'webm', 'mov', 'm4v'] as $ext) $rows[] = ['video', $ext];
+        foreach (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus'] as $ext) $rows[] = ['audio', $ext]; return $rows;
+    }
+
     /** @dataProvider fences */
     public function testAChangedSourceStorageOrOwnerCannotReuseTheReceipt(string $change): void
     {
