@@ -259,14 +259,14 @@ class AigcFittingService
         if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::complete($tenantId, $userId);
         $task = self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate, $imageTaskIds);
         self::syncTaskFromImageTask($task);
-        return [
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated([
             'task_id' => (int)$task['id'],
             'image_task_id' => $imageTaskId,
             'image_task_ids' => $imageTaskIds,
             'status' => (string)($task['status'] ?: 'running'),
             'results' => $imageResults,
             'estimate' => $estimate,
-        ];
+        ],'image',$imageTaskIds,$tenantId,$userId);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array

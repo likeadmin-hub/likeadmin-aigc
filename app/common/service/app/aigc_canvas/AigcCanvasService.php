@@ -140,6 +140,7 @@ class AigcCanvasService
                 }
                 $node['metadata'] = array_replace($metadata, ['status' => $status, 'pending' => false,
                     'errorDetails' => (string)($result['error'] ?? '')]);
+                if ((int)($consumption['app_task_id'] ?? 0) > 0) $node['metadata']['generationTaskRef'] = 'app_task:' . (int)$consumption['app_task_id'];
                 $project->save(['nodes_json' => $nodes, 'update_time' => time()]);
                 return;
             }
@@ -405,7 +406,9 @@ class AigcCanvasService
             throw new Exception('此项目包含多个画布，请刷新页面后再保存');
         }
         $data = [
-            'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
+            'nodes_json' => self::preserveTerminalGenerationMetadata(
+                self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
+                self::normalizeList($project['nodes_json'] ?? [])),
             'edges_json' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? []))),
             'viewport_json' => $incomingViewport,
             'thumbnail' => self::normalizeThumbnail(
@@ -437,6 +440,35 @@ class AigcCanvasService
         $project->save($data);
         return self::formatProject($project->toArray(), true);
         });
+    }
+
+    /** A late autosave may contain the accepted pending node. Keep this attempt's durable result, while retaining all user edits. */
+    private static function preserveTerminalGenerationMetadata(array $incoming, array $stored): array
+    {
+        $byId = [];
+        foreach ($stored as $node) $byId[(string)($node['id'] ?? '')] = $node;
+        $resultFields = ['status','pending','errorDetails','generationTaskRef','mediaItems','activeMediaId','url','uri','assetUri',
+            'mediaSource','generatedAt','image','image_url','video_url','audio_url','file_url','output_url','download_url','media_url',
+            'video','audio_uri','preview_url','localPreviewUrl','poster','poster_url','cover_url','cover','thumbnail',
+            'fileId','file_id','fileName','filename','mimeType','mime_type','fileSize','file_size',
+            'storage_scope','storage_engine','storage_domain','width','height','imageWidth','imageHeight','videoWidth','videoHeight',
+            'mediaWidth','mediaHeight','mediaDuration'];
+        foreach ($incoming as &$node) {
+            $old = $byId[(string)($node['id'] ?? '')] ?? [];
+            $m = (array)($node['metadata'] ?? []); $previous = (array)($old['metadata'] ?? []);
+            if (($node['type'] ?? '') !== ($old['type'] ?? '')
+                || !in_array($previous['status'] ?? '', ['success','failed','canceled'], true)
+                || !in_array($m['status'] ?? '', ['running','queued','pending','processing'], true)
+                || empty($m['taskId']) || (string)$m['taskId'] !== (string)($previous['taskId'] ?? '')
+                || (string)($m['generationStartedAt'] ?? '') !== (string)($previous['generationStartedAt'] ?? '')
+                || (!empty($m['generationTaskRef']) && !empty($previous['generationTaskRef']) && $m['generationTaskRef'] !== $previous['generationTaskRef'])) continue;
+            foreach ($resultFields as $field) {
+                if (array_key_exists($field, $previous)) $m[$field] = $previous[$field];
+            }
+            $node['metadata'] = $m;
+        }
+        unset($node);
+        return $incoming;
     }
 
     private static function sameProjectSaveContent(array $stored, array $incoming): bool

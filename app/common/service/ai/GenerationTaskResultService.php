@@ -180,11 +180,12 @@ final class GenerationTaskResultService
         foreach ($rows as $row) if ((int)($row['app_task_id']??0)>0 && (int)($row['tenant_id']??0)>0 && (int)($row['user_id']??0)>0) {
             $key=$row['tenant_id'].':'.$row['user_id'];$groups[$key]['owner']=[(int)$row['tenant_id'],(int)$row['user_id']];$groups[$key]['ids'][]=(int)$row['app_task_id'];
         }
-        $views=[];
-        foreach ($groups as $key=>$group) {try{$views[$key]=self::readMany($group['ids'],...$group['owner']);}catch(\Throwable){$views[$key]=[];}}
+        $views=[];$outages=[];
+        foreach ($groups as $key=>$group) {try{$views[$key]=self::readMany($group['ids'],...$group['owner']);}catch(\Throwable){$views[$key]=[];$outages[$key]=true;}}
         foreach ($rows as &$row) {
             $key=($row['tenant_id']??0).':'.($row['user_id']??0);$id=(int)($row['app_task_id']??0);
             if (isset($views[$key][$id])) $row['generation_task']=$views[$key][$id];
+            elseif ($id>0 && !empty($outages[$key])) $row['generation_task']=self::pending($id);
         }
         unset($row);return $rows;
     }
@@ -200,15 +201,16 @@ final class GenerationTaskResultService
             $ids=array_values(array_filter(array_map('intval',(array)$ids),static fn($id)=>$id>0));
             $key=$tenant.':'.$user;$keys[$index]=[$key,$ids];$groups[$key]['owner']=[$tenant,$user];$groups[$key]['ids']=array_merge($groups[$key]['ids']??[],$ids);
         }
-        $links=[];$views=[];
+        $links=[];$views=[];$outages=[];
         foreach($groups as$key=>$group){
             try{
                 $native=\think\facade\Db::name($table)->where(['tenant_id'=>$group['owner'][0],'user_id'=>$group['owner'][1],'delete_time'=>0])->whereIn('id',array_unique($group['ids']))->field('id,app_task_id')->select()->toArray();
                 $links[$key]=array_column($native,'app_task_id','id');$views[$key]=self::readMany(array_values($links[$key]),...$group['owner']);
-            }catch(\Throwable){$views[$key]=[];$links[$key]=[];}
+            }catch(\Throwable){$views[$key]=[];$links[$key]=[];$outages[$key]=true;}
         }
         foreach($keys as$index=>[$key,$ids]){
             $children=[];foreach($ids as$id){$taskId=(int)($links[$key][$id]??0);if(isset($views[$key][$taskId]))$children[]=$views[$key][$taskId];}
+            if($ids && !empty($outages[$key]))$rows[$index]['generation_tasks_pending']=true;
             $rows[$index]['generation_tasks']=$children;$rows[$index]['generation_task_refs']=array_column($children,'task_ref');
         }
         return $rows;
