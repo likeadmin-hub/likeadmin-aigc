@@ -8570,7 +8570,7 @@
     },
     {
       "file": "docs/market-acceptance/video-required-modes-batch-37-20261031.json",
-      "sha256": "d4bbc8342ac6146d61dc23830ba1f41fa0460e2ae09dcf8046d1088ad8d16ebb",
+      "sha256": "31beb7be5ec01d0ab4c96a5adadcb47e9d2b7c5dac8077d0abb2eb54a3b6e085",
       "scope": "Limited readonly production request projections/preparation and persisted old business-request reconstruction. Two new normal-login HTTP synthetic projects; not complete per-model HTTP E2E or provider lifecycle. User canceled proposed regular/tool category UI split: it was not implemented. Prior material-mode selector fix retained; later work focuses on strict upstream model-category sync.",
       "source_commits": {
         "source_web_commit": "babfe152fa38bbc130958e9e5e0153abb36206c5",
@@ -117324,7 +117324,7 @@
       "material_mode": null,
       "sku_id": null,
       "entry": "canvas",
-      "scenario": "authenticated_synthetic_project_saved_reopened",
+      "scenario": "authenticated_synthetic_project_save_stable_readback",
       "identity": null,
       "historical_reproduction": false,
       "coverage_level": "original_source_scope_only",
