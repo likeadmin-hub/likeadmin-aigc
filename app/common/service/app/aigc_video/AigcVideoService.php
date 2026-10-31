@@ -23,6 +23,9 @@ use app\common\service\power\MarketGenerationCatalogService;
 use Exception;
 use think\facade\Db;
 
+use app\common\service\power\MarketGenerationRuntime;
+use app\common\service\ai\GenerationTaskResultService;
+
 class AigcVideoService
 {
     public const APP_CODE = 'aigc_video';
@@ -216,7 +219,8 @@ class AigcVideoService
         try {
             $idempotencyKey = trim((string)($params['idempotency_key'] ?? ''));
             $businessTaskId = $idempotencyKey !== '' ? $idempotencyKey : (string)$task['id'];
-            $reserve = $runtime::reserve($tenantId, $userId, $marketAppCode, 'video_generate', 'aigc_video_task', $businessTaskId, $selection, $params, $billingOverride);
+            $sharedRuntime = MarketGenerationRuntime::selection('video',$selection);
+            $reserve = $sharedRuntime->reserve($tenantId,$userId,$marketAppCode,'video_generate','aigc_video_task',$businessTaskId,$params,1,$billingOverride);
             $existingTask = AigcVideoTask::where('app_task_id', (int)$reserve['app_task_id'])
                 ->where('id', '<>', (int)$task['id'])
                 ->where('delete_time', 0)
@@ -237,8 +241,8 @@ class AigcVideoService
                 'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? 0), 'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? 0),
                 'model_json' => $selection, 'pricing_snapshot' => (array)$reserve['market_snapshot'], 'update_time' => time(),
             ]);
-            $runtime::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = $runtime::submit((int)$reserve['consumption_id'], $params);
+            $sharedRuntime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $sharedRuntime->submit((int)$reserve['consumption_id'],$params,$tenantId,$userId);
             return self::applyMarketVideoResult($task, $result, $selection);
         } catch (\Throwable $e) {
             $current = AigcVideoTask::findOrEmpty((int)$task['id']);
@@ -279,12 +283,12 @@ class AigcVideoService
         $changes = array_filter($changes, static fn($value, $key) => (string)$task->getData($key) !== (string)$value, ARRAY_FILTER_USE_BOTH);
         if ($changes !== []) $task->save($changes + ['update_time' => time()]);
         if ($status === 'failed') {
-            return ['task_id' => (int)$task['id'], 'status' => 'failed', 'results' => []];
+            return GenerationTaskResultService::carry(['task_id'=>(int)$task['id'],'status'=>'failed','results'=>[]],$result);
         }
         $videos = (array)($result['videos'] ?? []);
-        if ($videos === []) return ['task_id' => (int)$task['id'], 'status' => 'running', 'results' => []];
+        if ($videos === []) return GenerationTaskResultService::carry(['task_id'=>(int)$task['id'],'status'=>'running','results'=>[]],$result);
         $rows = self::finishMarketTaskWithVideos($task, $videos, $selection);
-        return ['task_id' => (int)$task['id'], 'status' => 'success', 'results' => $rows];
+        return GenerationTaskResultService::carry(['task_id'=>(int)$task['id'],'status'=>'success','results'=>$rows],$result);
     }
 
     private static function finishMarketTaskWithVideos(AigcVideoTask $task, array $videos, array $selection): array
@@ -749,7 +753,7 @@ class AigcVideoService
             (array)($data['reference_images'] ?: []),
             (array)($data['reference_assets'] ?: [])
         );
-        return $data;
+        return GenerationTaskResultService::appendBusiness($data,(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function retryTask(int $tenantId, int $taskId): array

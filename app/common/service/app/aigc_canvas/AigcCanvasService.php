@@ -3,6 +3,8 @@
 namespace app\common\service\app\aigc_canvas;
 
 use app\common\service\power\MarketGenerationControls;
+use app\common\service\power\MarketGenerationRuntime;
+use app\common\service\ai\GenerationTaskResultService;
 
 use app\common\enum\FileEnum;
 use app\common\model\app\TenantAppConfig;
@@ -793,26 +795,12 @@ class AigcCanvasService
     private static function generateMarketImage(int $tenantId, int $userId, AigcCanvasRun $run, array $params): array
     {
         $request = self::normalizeImageParams($params, $tenantId, $userId);
-        if (is_array($params['provider_params'] ?? null)) {
-            $request['provider_params'] = (array)$params['provider_params'];
-        }
-        $runtime = MarketNanoBananaAppRuntimeService::isSelection($params)
-            ? MarketNanoBananaAppRuntimeService::class
-            : MarketImageModelRuntimeService::class;
-        $reserve = $runtime::reserve(
-            $tenantId,
-            $userId,
-            'generate',
-            (string)$run['id'],
-            $params,
-            $request,
-            (int)$request['quantity'],
-            self::APP_CODE,
-            'aigc_canvas_run'
-        );
-        $runtime::linkBusinessTask((int)$reserve['app_task_id'], (int)$run['id']);
-        $result = $runtime::submit((int)$reserve['consumption_id'], $request);
-        return self::formatMarketImageResult((int)$reserve['consumption_id'], $reserve, $result);
+        if (is_array($params['provider_params'] ?? null)) $request['provider_params'] = (array)$params['provider_params'];
+        $runtime = MarketGenerationRuntime::selection('image', $params);
+        $reserve = $runtime->reserve($tenantId,$userId,self::APP_CODE,'generate','aigc_canvas_run',(string)$run['id'],$request,(int)$request['quantity']);
+        $runtime->bind((int)$reserve['app_task_id'],(int)$run['id'],$tenantId,$userId);
+        $result = $runtime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
+        return self::formatMarketImageResult((int)$reserve['consumption_id'],$reserve,$result);
     }
 
     private static function imageMarketAttemptInputs(int $tenantId, array $params, bool $modelSelectionExplicit = false): array
@@ -985,7 +973,7 @@ class AigcCanvasService
         }
         $snapshot = (array)($reserve['market_snapshot'] ?? []);
         $status = (string)($result['status'] ?? (empty($items) ? 'running' : 'success'));
-        return [
+        return GenerationTaskResultService::carry([
             'task_id' => $consumptionId,
             'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
@@ -995,7 +983,7 @@ class AigcCanvasService
             'market_sku_id' => (int)($snapshot['sku_id'] ?? 0),
             'images' => $items,
             'results' => $items,
-        ];
+        ], $result);
     }
 
     private static function marketImageErrorMessage(string $message): string
@@ -1054,23 +1042,12 @@ class AigcCanvasService
     private static function generateMarketVideo(int $tenantId, int $userId, AigcCanvasRun $run, array $params): array
     {
         $request = self::normalizeVideoParams($params, $tenantId, $userId);
-        if (is_array($params['provider_params'] ?? null)) {
-            $request['provider_params'] = (array)$params['provider_params'];
-        }
-        $runtime = self::marketVideoRuntime($params);
-        $reserve = $runtime::reserve(
-            $tenantId,
-            $userId,
-            self::APP_CODE,
-            'video_generate',
-            'aigc_canvas_run',
-            (string)$run['id'],
-            $params,
-            $request
-        );
-        $runtime::linkBusinessTask((int)$reserve['app_task_id'], (int)$run['id']);
-        $result = $runtime::submit((int)$reserve['consumption_id'], $request);
-        return self::formatMarketVideoResult((int)$reserve['consumption_id'], $reserve, $result);
+        if (is_array($params['provider_params'] ?? null)) $request['provider_params'] = (array)$params['provider_params'];
+        $runtime = MarketGenerationRuntime::selection('video', $params);
+        $reserve = $runtime->reserve($tenantId,$userId,self::APP_CODE,'video_generate','aigc_canvas_run',(string)$run['id'],$request);
+        $runtime->bind((int)$reserve['app_task_id'],(int)$run['id'],$tenantId,$userId);
+        $result = $runtime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
+        return self::formatMarketVideoResult((int)$reserve['consumption_id'],$reserve,$result);
     }
 
     private static function formatMarketVideoResult(int $consumptionId, array $reserve, array $result): array
@@ -1094,7 +1071,7 @@ class AigcCanvasService
         }
         $snapshot = (array)($reserve['market_snapshot'] ?? []);
         $status = (string)($result['status'] ?? (empty($items) ? 'running' : 'success'));
-        return [
+        return GenerationTaskResultService::carry([
             'task_id' => $consumptionId,
             'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
@@ -1104,28 +1081,18 @@ class AigcCanvasService
             'market_sku_id' => (int)($snapshot['sku_id'] ?? 0),
             'videos' => $items,
             'results' => $items,
-        ];
+        ], $result);
     }
 
     private static function generateMarketMusic(int $tenantId, int $userId, AigcCanvasRun $run, array $params): array
     {
         $request = self::normalizeMusicParams($params);
-        if (is_array($params['provider_params'] ?? null)) {
-            $request['provider_params'] = (array)$params['provider_params'];
-        }
-        $reserve = MarketMusicAppRuntimeService::reserve(
-            $tenantId,
-            $userId,
-            (string)$run['id'],
-            $params,
-            $request,
-            self::APP_CODE,
-            'music_generate',
-            'aigc_canvas_run'
-        );
-        MarketMusicAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$run['id']);
-        $result = MarketMusicAppRuntimeService::submit((int)$reserve['consumption_id'], $request);
-        return self::formatMarketMusicResult((int)$reserve['consumption_id'], $reserve, $result);
+        if (is_array($params['provider_params'] ?? null)) $request['provider_params'] = (array)$params['provider_params'];
+        $runtime = MarketGenerationRuntime::selection('audio', $params + ['resource_type'=>'app_api','upstream_app_code'=>'music_generation']);
+        $reserve = $runtime->reserve($tenantId,$userId,self::APP_CODE,'music_generate','aigc_canvas_run',(string)$run['id'],$request);
+        $runtime->bind((int)$reserve['app_task_id'],(int)$run['id'],$tenantId,$userId);
+        $result = $runtime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
+        return self::formatMarketMusicResult((int)$reserve['consumption_id'],$reserve,$result);
     }
 
     private static function formatMarketMusicResult(int $consumptionId, array $reserve, array $result): array
@@ -1149,7 +1116,7 @@ class AigcCanvasService
         }
         $snapshot = (array)($reserve['market_snapshot'] ?? []);
         $status = (string)($result['status'] ?? (empty($items) ? 'running' : 'success'));
-        return [
+        return GenerationTaskResultService::carry([
             'task_id' => $consumptionId,
             'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
@@ -1160,7 +1127,7 @@ class AigcCanvasService
             'items' => $items,
             'audios' => $items,
             'results' => $items,
-        ];
+        ], $result);
     }
 
     public static function generateText(int $tenantId, int $userId, array $params): array
@@ -1377,9 +1344,7 @@ class AigcCanvasService
         if ($consumption->isEmpty()) {
             return [];
         }
-        $result = (string)$consumption['protocol'] === 'application_api'
-            ? MarketNanoBananaAppRuntimeService::refresh($consumptionId)
-            : MarketImageModelRuntimeService::refresh($consumptionId);
+        $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketImageResult($consumptionId, [
             'market_snapshot' => (array)$consumption['price_snapshot'],
         ], $result + [
@@ -1404,7 +1369,7 @@ class AigcCanvasService
         if ($consumption->isEmpty()) {
             return [];
         }
-        $result = MarketMusicAppRuntimeService::refresh($consumptionId);
+        $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketMusicResult($consumptionId, [
             'market_snapshot' => (array)$consumption['price_snapshot'],
         ], $result + [
@@ -1429,8 +1394,7 @@ class AigcCanvasService
             return [];
         }
         $snapshot = (array)$consumption['price_snapshot'];
-        $runtime = self::marketVideoRuntime($snapshot);
-        $result = $runtime::refresh($consumptionId);
+        $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketVideoResult($consumptionId, [
             'market_snapshot' => $snapshot,
         ], $result + [
