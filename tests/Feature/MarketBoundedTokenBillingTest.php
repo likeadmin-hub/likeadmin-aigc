@@ -31,6 +31,7 @@ class MarketBoundedTokenBillingTest extends TestCase
         Meter::tokenContract(self::sku(array_replace(self::declaration(),['maximum_quantity'=>2000])));
         self::assertSame(2.5,Meter::price(10.,Usage::boundedTokenUsage(['data'=>['usage'=>['total_tokens'=>250]]],$meter),$frozen));
         self::assertSame(1000,$frozen['billing_meter']['maximum_quantity']);
+        self::assertSame(3.,Meter::price(10.,250.,['billing_meter'=>Meter::tokenContract(self::sku(array_replace(self::declaration(),['rounding'=>'ceil']))),'usage_unit_size'=>1000]));
         self::assertSame('recognized_upper_bound',Audit::sku('video','app_api',self::sku(self::declaration()))['meter_status']);
         self::assertSame('requires_submission_token_budget',Audit::sku('video','app_api',['usage_unit'=>'token'])['meter_status']);
     }
@@ -95,6 +96,8 @@ class MarketBoundedTokenBillingTest extends TestCase
                 try{Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key,$request,$request);self::fail('Insufficient balance must reject before reservation');}catch(\RuntimeException$e){self::assertNotSame('',$e->getMessage());}
                 self::assertSame($low,$this->balances($user));self::assertSame(0,(int)Db::name('ai_app_task')->where('idempotency_key',sha1('1|aigc_video|generate|aigc_video_task|'.$key.'|market_video'))->count());return;
             }
+            try{Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key.'-override',$request,$request,['user_charge_points'=>1]);self::fail('Token billing cannot use fixed app-price overrides');}catch(\Exception$e){self::assertStringContainsString('按实际用量',$e->getMessage());}
+            self::assertSame($before,$this->balances($user));
             $reserve=fn()=>Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key,$request,$request);
             $r=$reserve();self::assertSame($r['consumption_id'],$reserve()['consumption_id']);$id=(int)$r['consumption_id'];
             $log=AiConsumptionLog::find($id);$snapshot=$log['price_snapshot'];
@@ -105,6 +108,7 @@ class MarketBoundedTokenBillingTest extends TestCase
             $settle=new \ReflectionMethod(Videos::class,'settle');$videos=[['url'=>'https://fixtures.invalid/offline.mp4']];
             if($scenario==='missing'){
                 $settle->invoke(null,$id,$videos,'','',['data'=>['metadata'=>['total_tokens'=>250]]]);
+                $pending=(new \ReflectionMethod(Videos::class,'response'))->invoke(null,AiConsumptionLog::find($id)->toArray());self::assertSame('running',$pending['status']);self::assertSame([],$pending['videos']);
                 self::assertSame('reserved',AiConsumptionLog::find($id)['billing_status']);self::assertSame('running',Db::name('ai_app_task')->where('id',$r['app_task_id'])->value('status'));self::assertSame(round($before['user']-10,2),$this->balances($user)['user']);
             }
             if($scenario==='over_bound'){

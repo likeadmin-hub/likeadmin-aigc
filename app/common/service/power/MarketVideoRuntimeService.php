@@ -455,7 +455,7 @@ class MarketVideoRuntimeService
         $quantity = self::quantity($market, $billingRequest, $prepared);
         $quote = self::applyBillingOverride(self::quoteMarket($market, $quantity), $billingOverride);
         $deferredUsage = self::isTokenSku($market['sku']) && !MarketGenerationMeter::boundedToken((array)($market['billing_meter'] ?? []));
-        if ($deferredUsage && $billingOverride !== []) {
+        if (self::isTokenSku($market['sku']) && $billingOverride !== []) {
             throw new Exception('按应用售价结算暂不支持按实际用量计费的视频 SKU');
         }
         if (!$deferredUsage) {
@@ -588,9 +588,14 @@ class MarketVideoRuntimeService
                 AiTaskJobService::enqueueProcessResult($consumptionId);
             }
             else AiTaskJobService::enqueueQueryResult($consumptionId);
-            if ($microSubmission) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            if ($microSubmission || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             return ['status' => $videos === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'videos' => $videos];
         } catch (\Throwable $e) {
+            if (MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? [])) && isset($response)
+                && (self::taskId($response)!=='' || !empty($videos))) {
+                self::recordRefreshError($consumptionId,self::taskId($response),$e);
+                return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
             if ($microSubmission && \app\common\service\app\aigc_micro_video\MicroVideoSubmission::hold($consumptionId,$e->getMessage())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
@@ -628,7 +633,12 @@ class MarketVideoRuntimeService
         if ($taskId === '' && ($receipt=(\app\common\service\app\aigc_micro_video\MicroVideoSubmission::receipt($c->toArray()) ?? \app\common\service\open_platform\OpenSubmission::receipt($c->toArray())))!==null) {
             try{
                 $videos=self::videos($receipt,(int)$c['tenant_id'],(int)$c['user_id'],self::requiresDurableResultStorage((string)$context['app_task']['app_code']));
-                if($videos!==[]){self::settle($consumptionId,$videos,self::requestId($receipt),'',$receipt);return ['status'=>'success','provider_task_id'=>'','videos'=>$videos];}
+                if($videos!==[]){
+                    self::settle($consumptionId,$videos,self::requestId($receipt),'',$receipt);
+                    $snapshot=self::arrayValue($c['price_snapshot'] ?? []);
+                    if (MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+                    return ['status'=>'success','provider_task_id'=>'','videos'=>$videos];
+                }
             }catch(\Throwable $e){self::recordRefreshError($consumptionId,'',$e);}
         }
         if ($taskId === '') {
@@ -658,7 +668,7 @@ class MarketVideoRuntimeService
                 if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray()) || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $videos];
             }
-            if (self::isTokenSnapshot($snapshot) || !empty($snapshot['requires_actual_duration'])) {
+            if ((self::isTokenSnapshot($snapshot) && ((string)$c['billing_status']==='pending_usage' || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? [])))) || !empty($snapshot['requires_actual_duration'])) {
                 $usage = self::usage($response, (float)($snapshot['quantity']??0), $snapshot);
                 if ((float)($usage['actual_quantity'] ?? 0) > 0) {
                     $stored = self::arrayValue($c['response_summary'] ?? []);
