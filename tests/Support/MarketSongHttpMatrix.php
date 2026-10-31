@@ -2,7 +2,7 @@
 /** Original song -> owned result -> exports/persona/upload reference -> new music. Private loopback only. */
 function runMarketSongHttpMatrix($f,$api,$suffix,$token,$supplier,array &$report): void
 {
-    $db=think\facade\Db::class;$t=$f->tenant;$u=$f->user;$file=dirname(__DIR__).'/market-generation-http.php';
+    $db=think\facade\Db::class;$t=$f->tenant;$u=$f->user;$file=dirname(__DIR__).'/market-generation-http.php';putenv('AIGC_HTTP_FIXTURE_DIR='.$f->dir);
     $check=fn($ok,$why)=>MarketWorkerFixture::check((bool)$ok,$why);
     $post=fn($route,$p)=>dataHttp($api,'/api/app.aigc_music.'.$route.$suffix,$p,$token);
     $get=fn($id)=>dataHttp($api,'/api/app.aigc_music.task/detail'.$suffix.'&id='.$id,[],$token,'GET');
@@ -10,7 +10,7 @@ function runMarketSongHttpMatrix($f,$api,$suffix,$token,$supplier,array &$report
         $p=app\common\model\power\PowerMarketProduct::create(['product_code'=>$f->prefix.'song_'.$code,'name'=>'Private song '.$code,'resource_type'=>'app_api','model_type'=>'audio','upstream_app_code'=>'music_generation','upstream_api_code'=>$code,'source_code'=>'isolated-fixture','upstream_resource_key'=>$f->prefix.'song_'.$code,'source_payload'=>['market_metadata'=>$metadata],'status'=>1]);
         $s=app\common\model\power\PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$f->prefix.'song_'.$code,'title'=>'Private song operation','locked_params'=>$locked,'usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>1,'upstream_price'=>1,'sale_status'=>1,'status'=>1]);return [(int)$p['id'],(int)$s['id']];
     };
-    $properties=[];foreach(['prompt','lyric','style','vocal_gender','language','audio_id','persona_id']as$key)$properties[$key]=['type'=>'string'];foreach(['custom','instrumental']as$key)$properties[$key]=['type'=>'boolean'];$properties['duration']=['type'=>'integer','enum'=>[5]];
+    $properties=[];foreach(['prompt','lyric','style','vocal_gender','language','audio_id','persona_id']as$key)$properties[$key]=['type'=>'string'];foreach(['custom','instrumental']as$key)$properties[$key]=['type'=>'boolean'];$properties['duration']=['type'=>'integer','enum'=>[5]];$properties['audio_urls']=['type'=>'array','items'=>['type'=>'string'],'maxItems'=>1];
     [$p,$sku]=$product('create',['type'=>'generate','duration'=>5],['params_schema'=>['properties'=>$properties],'capabilities'=>['allow_reference_audio'=>true]]);$product('query');
     foreach(['wav','midi','mp4','persona','upload_audio','voice_clone']as$code)$product($code);
     file_put_contents($f->dir.'/synthetic.midi',hex2bin('4d546864000000060000000100604d54726b0000000c00903c4060803c4000ff2f00'));
