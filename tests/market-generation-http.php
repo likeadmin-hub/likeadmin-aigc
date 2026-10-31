@@ -253,6 +253,7 @@ try {
         catch(Throwable $diagnostic){$report['reconcile_diagnostic']=$diagnostic->getMessage();}
     }
     if($fixture)foreach(glob($fixture->dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).": ".substr(file_get_contents($log),-2500)."\n");
+    if($fixture && is_dir($fixture->dir.'/runtime'))foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($fixture->dir.'/runtime',FilesystemIterator::SKIP_DOTS))as$log)if($log->isFile()&&$log->getExtension()==='log')fwrite(STDERR,$log->getBasename().": ".substr(file_get_contents($log->getPathname()),-5000)."\n");
 } finally {
     foreach($processes as$process)if(is_resource($process)){$state=proc_get_status($process);if($state['running'])posix_kill($state['pid'],SIGTERM);proc_close($process);}
     if($fixture){$fixture->cleanup();$report['private_tables_and_files_removed']=true;}

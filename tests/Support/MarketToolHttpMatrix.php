@@ -28,6 +28,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
     ];
     $report=[];
     foreach($cases as$code=>$input) {
+        if(getenv('AIGC_HTTP_TOOL_CASES') && !in_array($code,explode(',',getenv('AIGC_HTTP_TOOL_CASES')),true))continue;
         $class='app\\common\\service\\app\\aigc_'.$code.'\\Aigc'.str_replace(' ','',ucwords(str_replace('_',' ',$code))).'Service';
         $caseChannel=$code==='product_promo_video'?$videoChannel:$channel;
         $caseQuality=$code==='product_promo_video'?'720P':'1k';
