@@ -19,7 +19,7 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     $avatar=think\facade\Db::name('aigc_digital_human_avatar')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'name'=>'Synthetic blocks','source'=>'mine','media_type'=>'video','media_uri'=>'uploads/deep/avatar.mp4','provider'=>'xhadmin','provider_asset_id'=>'deep-avatar','status'=>1,'delete_time'=>0]);
     $voice=think\facade\Db::name('aigc_digital_human_voice')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'name'=>'Synthetic tone','source'=>'mine','provider'=>'xhadmin','provider_asset_id'=>'deep-voice','status'=>'ready','delete_time'=>0]);
     $channels=app\common\service\app\aigc_digital_human\DigitalHumanMarketService::channels($t);$check(count($channels)===1,'Deep lipsync channel unavailable');
-    $form=['avatar_id'=>$avatar,'voice_id'=>$voice,'script_text'=>'彩色色块向右移动。','title'=>'Synthetic text avatar','channel'=>$channels[0]['code'],'quality'=>'source','ratio'=>'adaptive'];
+    $form=['avatar_id'=>$avatar,'voice_id'=>$voice,'script_text'=>'彩色色块向右移动。','title'=>'Synthetic text avatar','channel'=>$channels[0]['code'],'quality'=>'source','ratio'=>'adaptive','idempotency_key'=>'deep-avatar-original'];
     $accepted=$post('aigc_digital_human.generate/index',$form);$id=(int)$accepted['task_id'];
     $f->start($file,'aigc_digital_human');
     MarketWorkerFixture::wait(function()use($get,$id){$d=$get('aigc_digital_human.task/detail',$id);if($d['status']==='failed')throw new RuntimeException('TTS native failure: '.$d['error']);return $d['status']==='success';},'TTS then lipsync did not finish',35);

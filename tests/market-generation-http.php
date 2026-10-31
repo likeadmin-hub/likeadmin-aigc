@@ -5,6 +5,7 @@ require dirname(__DIR__).'/vendor/autoload.php';
 class IsolatedGenerationHttpApp extends think\App { public function getBasePath(): string { return dirname(__DIR__).'/app/'; } }
 (new IsolatedGenerationHttpApp(dirname(__DIR__)))->initialize();
 require __DIR__.'/Support/MarketWorkerFixture.php';
+if(getenv('AIGC_HTTP_CONCURRENT_MATRIX')==='1')require __DIR__.'/Support/MarketConcurrentHttp.php';
 if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')require __DIR__.'/Support/MarketDeepHttpTransport.php';
 use think\facade\Db;
 use app\common\service\ai\GenerationTaskResultService as View;
@@ -15,6 +16,7 @@ if(PHP_SAPI==='cli-server') {
     MarketWorkerFixture::activate($original,$prefix,$dir);chdir($dir.'/public');app()->env->set('database.prefix',$prefix);app()->setRuntimePath($dir.'/runtime/');
     if(getenv('AIGC_HTTP_FIXTURE_ROLE')==='supplier') {
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);header('Content-Type: application/json');
+        if(getenv('AIGC_HTTP_CONCURRENT_MATRIX')==='1'&&($_SERVER['REQUEST_METHOD']??'')==='POST'&&!str_ends_with((string)$path,'/query'))usleep(350000);
         if($path==='/health'){echo '{}';return;}
         if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1'){require __DIR__.'/Support/MarketDeepHttpSupplier.php';if(marketDeepSupplier($path,$dir))return;}
         if(in_array($path,['/fixture/input.wav','/fixture/result.wav','/fixture/result.mp4'],true)) {
@@ -58,8 +60,8 @@ if(($argv[1]??'')==='--worker') {
 }
 MarketWorkerFixture::check(getenv('AIGC_GENERATION_HTTP_TESTS')==='1','Explicit local fixture opt-in required');
 $fixture=null;$processes=[];$report=['scope'=>'Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement','external_generation_calls'=>0,'production_wallet_writes'=>0];
-function callHttp(string $base,string $path,array $data=[],string $token='',string $method='POST'): array {
-    $headers=['Content-Type: application/json'];if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$headers[]='Host: private-media.example.test';if($token!=='')$headers[]='token: '.$token;
+function callHttp(string $base,string $path,array $data=[],string $token='',string $method='POST',array $extraHeaders=[]): array {
+    $headers=array_merge(['Content-Type: application/json'],$extraHeaders);if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$headers[]='Host: private-media.example.test';if($token!=='')$headers[]='token: '.$token;
     $curl=curl_init($base.$path);curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>$headers]);
     if($method==='POST'){curl_setopt($curl,CURLOPT_POST,true);curl_setopt($curl,CURLOPT_POSTFIELDS,json_encode($data));}
     $raw=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);$response=json_decode((string)$raw,true);
@@ -67,11 +69,12 @@ function callHttp(string $base,string $path,array $data=[],string $token='',stri
     return $response;
 }
 function dataHttp(string $base,string $path,array $data=[],string $token='',string $method='POST'): array {
+    if(getenv('AIGC_HTTP_CONCURRENT_MATRIX')==='1'&&$method==='POST'&&preg_match('~/(app\.[^/]+)/([^?]+)~',$path,$m)&&\app\common\service\ai\GenerationSubmission::operation($m[1],$m[2])!=='')return marketConcurrentDataHttp($base,$path,$data,$token);
     $r=callHttp($base,$path,$data,$token,$method);if(($r['code']??0)!==1)throw new RuntimeException('HTTP '.$path.': '.($r['msg']??json_encode($r)));return $r['data']??[];
 }
 try {
     $names=['tenant','user','user_session','config','tenant_config','tenant_file','tenant_file_cate','file','file_cate','app','tenant_app','tenant_app_order','tenant_app_config','tenant_system_role_menu','membership_plan','membership_plan_app','update_source',
-        'ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','ai_task_audit_log','ai_model_pricing','tenant_points_log','user_account_log','power_market_product','power_market_sku','power_market_price_rule','tenant_power_market_sku_price','tenant_power_market_product',
+        'ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','ai_task_audit_log','ai_generation_submission','ai_model_pricing','tenant_points_log','user_account_log','power_market_product','power_market_sku','power_market_price_rule','tenant_power_market_sku_price','tenant_power_market_product',
         'aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config'];
     foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_','smart_clip_','tenant_point_','user_point_','open_platform_']as$group){$base=$original['connections']['mysql']['prefix'];if(str_starts_with($table,$base.$group))$names[]=substr($table,strlen($base));}
     $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;app()->env->set('database.prefix',$prefix);
@@ -89,7 +92,7 @@ try {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
         Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled','create_time'=>time(),'update_time'=>time()]);
     }
-    foreach(['supplier','api']as$role){
+    foreach(getenv('AIGC_HTTP_CONCURRENT_MATRIX')==='1'?['supplier','api','api_peer']:['supplier','api']as$role){
         $socket=stream_socket_server('tcp://127.0.0.1:0',$errno,$error);$address=stream_socket_get_name($socket,false);fclose($socket);$urls[$role]='http://'.$address;
         $pipes=[];$processes[$role]=proc_open([PHP_BINARY,'-d','disable_functions=','-S',$address,__FILE__],[0=>['pipe','r'],1=>['file',$dir.'/'.$role.'.log','a'],2=>['file',$dir.'/'.$role.'.log','a']],$pipes,dirname(__DIR__),array_merge(getenv(),['AIGC_HTTP_FIXTURE_PREFIX'=>$prefix,'AIGC_HTTP_FIXTURE_DIR'=>$dir,'AIGC_HTTP_FIXTURE_ROLE'=>$role]));fclose($pipes[0]);
         MarketWorkerFixture::check(is_resource($processes[$role]),'Cannot start private HTTP server');

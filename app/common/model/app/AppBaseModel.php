@@ -10,6 +10,7 @@ class AppBaseModel extends BaseModel
     public static function onAfterInsert($model): void
     {
         \app\common\service\open_platform\OpenCallContext::linkNativeTask($model);
+        \app\common\service\ai\GenerationSubmission::linkTask($model);
     }
 }
 
