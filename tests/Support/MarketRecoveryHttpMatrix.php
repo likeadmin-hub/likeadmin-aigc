@@ -12,7 +12,7 @@ function runMarketFrameRecoveryHttp($f,$api,$suffix,$token,$id,$detail,$product,
         MarketWorkerFixture::wait(function()use($id){$r=think\facade\Db::name('aigc_micro_video_task')->where('id',$id)->find();if($r['frame_status']==='waiting_continue')throw new RuntimeException('Replacement frame failed');return $r['frame_status']==='review';},'Replacement frames did not finish',65);
         $f->stop('micro');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Replacement result jobs pending',20);$f->stop();return $get();
     };
-    $p=['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision'],'frame_id'=>$old[1]['id'],'prompt'=>'同一彩色色块在中央，替换这一锚图。','reference_indices'=>[]];
+    $p=['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision'],'frame_id'=>$old[1]['id'],'prompt'=>'同一彩色色块在中央，替换这一锚图。','reference_indices'=>[0]];
     $edited=$post('frame/save',$p);$check($edited['frames'][0]['id']===$old[0]['id']&&$edited['frames'][1]['version']===$old[1]['version']+1&&$edited['frames'][2]['version']===$old[2]['version']+1,'Frame replacement invalidated wrong boundaries');
     $stale=callHttp($api,'/api/app.aigc_micro_video.frame/estimate'.$suffix,['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision']],$token);$check($stale['code']!==1,'Stale frame revision quoted');
     $middle=$generate($edited,[$edited['frames'][1]['id']],'recovery-middle-frame');
