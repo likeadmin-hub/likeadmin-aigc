@@ -700,6 +700,7 @@ class AigcImageService
             'width' => (int)($image['width'] ?? 0),
             'height' => (int)($image['height'] ?? 0),
             'provider_task_id' => (string)($consumption['upstream_task_id'] ?? ''),
+            'storage_scope'=>$image['storage_scope']??null,'storage_engine'=>$image['storage_engine']??null,'storage_domain'=>$image['storage_domain']??null,
         ], array_filter((array)($summary['images'] ?? []), 'is_array'));
         if ($images === []) return;
         $count = max(1, count($images));
@@ -1497,9 +1498,9 @@ class AigcImageService
                     'quality' => $selection['spec']['quality'],
                     'ratio' => $selection['spec']['ratio'],
                     'image_uri' => $image['uri'],
-                    'storage_scope' => $storage['scope'],
-                    'storage_engine' => $storage['default'],
-                    'storage_domain' => StorageConfigService::getEffectiveDomain($tenantId),
+                    'storage_scope' => $image['storage_scope']??$storage['scope'],
+                    'storage_engine' => $image['storage_engine']??$storage['default'],
+                    'storage_domain' => $image['storage_domain']??StorageConfigService::getEffectiveDomain($tenantId),
                     'width' => $image['width'] ?? 0,
                     'height' => $image['height'] ?? 0,
                     'tenant_cost_points' => $estimate['platform_unit_cost'],
