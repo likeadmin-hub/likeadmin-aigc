@@ -1159,7 +1159,13 @@ class ShortDramaCanvasService
             if (!is_array($params['advanced_params'])) throw new Exception('高级参数格式不正确');
             $payload['advanced_params'] = $params['advanced_params'];
         }
-        return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
+        $filtered = array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
+        // Native video contracts may use 0 for the input video's full duration.
+        // Keep that explicit choice; an omitted duration must remain omitted.
+        if ($type === 'video' && array_key_exists('duration', $params)) {
+            $filtered['duration'] = $payload['duration'];
+        }
+        return $filtered;
     }
 
     /**

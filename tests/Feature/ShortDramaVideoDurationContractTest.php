@@ -10,6 +10,18 @@ use ReflectionMethod;
 
 class ShortDramaVideoDurationContractTest extends TestCase
 {
+    public function testCanvasBridgePreservesExplicitAutomaticAndPositiveVideoDurations(): void
+    {
+        $method = new ReflectionMethod(\app\common\service\app\aigc_short_drama\ShortDramaCanvasService::class, 'generationPayload');
+        foreach ([0, 2, 5] as $duration) {
+            $payload = $method->invoke(null, 'video', ['prompt' => 'Synthetic video', 'duration' => $duration], 1, 1, 0);
+            self::assertArrayHasKey('duration', $payload);
+            self::assertSame($duration, $payload['duration']);
+        }
+        self::assertArrayNotHasKey('duration', $method->invoke(null, 'video', ['prompt' => 'Synthetic video'], 1, 1, 0));
+        self::assertArrayNotHasKey('duration', $method->invoke(null, 'image', ['prompt' => 'Synthetic image', 'duration' => 0], 1, 1, 0));
+    }
+
     public function testDurationNormalizerIsAvailableToBothMarketVideoRuntimeFacades(): void
     {
         self::assertTrue(method_exists(MarketVideoRuntimeService::class, 'normalizeDurationSelection'));
