@@ -1,0 +1,229 @@
+{
+  "batch": 33,
+  "date": "2026-10-31",
+  "source_web_commit": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+  "source_server_commit": "2840719e7920e2b10d175eb1b9c0adaf4540f961",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "scope": "Seven persisted core image children owned by three image applications. Production historyGenerationRequest -> saved consumption price_snapshot -> real image runtime preparation in enforced read-only SQL. Saved SKU identities only; no current UI DTO/SKU capture or historical wire verification. Empty old meter context does not establish modern meter coverage.",
+  "cases": [
+    {
+      "application": "aigc_image_translate",
+      "channel": "market_image_model:169",
+      "sku_id": 252,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_application_image_history_frozen_reopen_aigc_image_translate",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "3:4",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "aspect_ratio": "3:4",
+        "resolution": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "ab2d30196237d2ba78e2c52737b73841244b80cef8169e20aee07d63b7db2e73",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_style_transfer",
+      "channel": "market_image_model:91",
+      "sku_id": 101,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_application_image_history_frozen_reopen_aigc_style_transfer_success",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 2
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "resolution": "1k",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "f89162f41f356f2c329a594e3993b93efa886caf612ef4f47f79523c5885bde9",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_style_transfer",
+      "channel": "market_image_model:170",
+      "sku_id": 255,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_application_image_history_frozen_reopen_aigc_style_transfer_failed",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 2
+      },
+      "native_controls": {
+        "aspect_ratio": "auto",
+        "resolution": "1k"
+      },
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "daf6e6850551148a8a78e8bb9428a97408f1e3fa178aa4e6dca3e3b476a623c1",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "application": "aigc_product_suite",
+      "channel": "market_image_model:88",
+      "sku_id": 90,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_application_image_history_frozen_reopen_aigc_product_suite_module_1",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "74f22147de4225e8b0e35453e98e6b691e87b63b8a7a20405ec86df06b1b416e",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": true
+    },
+    {
+      "application": "aigc_product_suite",
+      "channel": "market_image_model:88",
+      "sku_id": 90,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_application_image_history_frozen_reopen_aigc_product_suite_module_2",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "31d7f0bf0dc91045fbe658b3295857e73c665d1f0e4b0c94e1da8966bf6ee44b",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": true
+    },
+    {
+      "application": "aigc_product_suite",
+      "channel": "market_image_model:88",
+      "sku_id": 90,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_application_image_history_frozen_reopen_aigc_product_suite_module_3",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "8eb5e4b981e7c69d1fe226f3d10f9060ab58ebd2f63b6465a4e0b5eaea89b33d",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": true
+    },
+    {
+      "application": "aigc_product_suite",
+      "channel": "market_image_model:88",
+      "sku_id": 90,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_application_image_history_frozen_reopen_aigc_product_suite_module_4",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "auto",
+        "quantity": 1,
+        "reference_images": 1
+      },
+      "native_controls": {
+        "n": 1,
+        "aspect_ratio": "auto",
+        "image_size": "1k"
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "48a90420604956600e0b4c5e9f7570a5fdc6b49bbe3810a3a24f83c99530c754",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": true
+    }
+  ]
+}
