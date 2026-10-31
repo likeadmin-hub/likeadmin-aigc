@@ -1,12 +1,14 @@
 {
   "batch": 56,
   "date": "2026-10-31",
-  "source_server_commit": "a5a40f634",
+  "source_server_commit": "5a7b9323d",
   "implementation_commits": [
     "18afc5777",
     "94e38f3a5",
     "54cab23c3",
-    "b2a7dc9e3"
+    "b2a7dc9e3",
+    "6d449fd0b",
+    "5a7b9323d"
   ],
   "source_web_commit": "1f52cb5f38ac67ba6283c2c59562748809266811",
   "scope": "Configured tenant Aliyun normal managed transfer and disposable post-provider receipt -> production result worker -> owned run -> persisted canvas node. Separately normal authenticated HTTP parameter selection/save/close/reopen. No generation submission or supplier calls. These are not one authenticated supplier-generation E2E.",
@@ -498,12 +500,12 @@
   "validation": {
     "phpunit": {
       "tests": 912,
-      "assertions": 6977,
+      "assertions": 6992,
       "errors": 0,
       "failures": 0,
       "skipped": 0,
       "added_tests": 45,
-      "added_assertions": 585
+      "added_assertions": 600
     },
     "web_parameter_tests": {
       "tests": 121,
@@ -512,7 +514,9 @@
     },
     "php_lint_files": 6,
     "native_price_rollback": "passed",
-    "no_frontend_source_changes": true
+    "no_frontend_source_changes": true,
+    "evidence_index_boundary_tests": 2,
+    "intermediate_preview_cleanup_regression": "Caught and fixed before delivery: legacy audio=false was mistaken for a media alias; all 45 projection cases now preserve generation controls."
   },
   "retention": {
     "video": {
@@ -651,7 +655,8 @@
   "actual_wallet_mutations": 0,
   "cleanup": {
     "owned_sql_tables": 0,
-    "private_fixture_roots": 0
+    "private_fixture_roots": 0,
+    "owned_worker_processes": 0
   },
   "completion_metric_boundary": "fully_accepted_entry_cells=0 is a compatibility placeholder, not computed completion, outstanding cells or estimated effort; computed=false is now explicit.",
   "remaining": [
