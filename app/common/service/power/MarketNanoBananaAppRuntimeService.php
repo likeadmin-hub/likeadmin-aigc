@@ -542,6 +542,7 @@ class MarketNanoBananaAppRuntimeService
             $ctx = self::context($consumptionId, true); if ($ctx === null) return;
             $c = $ctx['consumption']; $task = $ctx['app_task'];
             if (in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
+            if($code==='request_invalid'&&self::requiresMeterReceipt((array)$c['price_snapshot'])&&(string)$c['run_status']!=='reserved')return;
             if($code==='canceled'&&(string)$c['run_status']!=='reserved')throw new Exception('图片任务已提交至 nano-banana 应用 API，无法取消');
             if ((float)$c['reserved_tenant_cost'] > 0 || (float)$c['reserved_user_price'] > 0) PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', '短剧 nano-banana 生图失败退回', self::extra($task, $c, 'refunded'));
             $now = time();
