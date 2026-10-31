@@ -1,0 +1,192 @@
+{
+  "batch": 36,
+  "date": "2026-10-31",
+  "source_web_commit": "5881a8012dd12dc4f262f30827b769fe3977cbe8",
+  "source_server_commit": "44deeca1558d6a9c3a8ae92e20faf12cd5414221",
+  "scope": "Final source production projections from actual HTTP-persisted isolated projects 857 and 498. Six regular video requests: readonly real estimate, admission and JSON frozen native/meter preparation. Not browser-captured wire DTOs or paid submissions.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:355",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 795,
+      "admission_sku_id": 795,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "c707d5359db00e48c0d15b3aa6f2249bda61721eea287fc80a4638575cee8623",
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "final_regular_saved_project_quote_frozen",
+      "requested_method": "omni_reference",
+      "material_mode": "omni_reference",
+      "requested_parameters": {
+        "resolution": "4K",
+        "quality": "4k",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "audio",
+        "elements"
+      ],
+      "native_group_values_sha256": "fb86b5094e11f70f8ca73ffff62bc1a4a2dd8ef2bdeba3b1443b5bab20590ffb",
+      "native_array_counts": {
+        "elements": 0
+      },
+      "optional_subjects_or_character_ids_sent": false
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:344",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 705,
+      "admission_sku_id": 705,
+      "points": 666,
+      "frozen_equal": true,
+      "native_hash": "ce0e21700c8e956d01edaf1833b42e0acc48c54f262c7c2dc1ec420ecb273da0",
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "scenario": "final_regular_saved_project_quote_frozen",
+      "requested_method": "omni_reference",
+      "material_mode": "default:0",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [],
+      "native_group_values_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "native_array_counts": {},
+      "optional_subjects_or_character_ids_sent": false
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 810,
+      "admission_sku_id": 810,
+      "points": 666,
+      "frozen_equal": true,
+      "native_hash": "22d26177357f15914a70c9fe4a9d26a4ded69b044630a64e9c6160282678e91c",
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "scenario": "final_regular_saved_project_quote_frozen",
+      "requested_method": "omni_reference",
+      "material_mode": ":reference",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [],
+      "native_group_values_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "native_array_counts": {},
+      "optional_subjects_or_character_ids_sent": false
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:355",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "9aa41cb8154bef3b11862913c0811d976317cc7be41e7d27f79430f3d114e868",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "final_regular_saved_project_quote_frozen",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "fb86b5094e11f70f8ca73ffff62bc1a4a2dd8ef2bdeba3b1443b5bab20590ffb",
+      "native_array_counts": {
+        "elements": 0
+      },
+      "optional_subjects_or_character_ids_sent": false
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:344",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 708,
+      "admission_sku_id": 708,
+      "points": 583,
+      "frozen_equal": true,
+      "native_hash": "15d9abacba84a0ab168ecb0c5bf6a79d5f5ed4f561112192ad6a00d229c4337b",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "final_regular_saved_project_quote_frozen",
+      "requested_method": "omni_reference",
+      "material_mode": "omni_reference",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [],
+      "native_group_values_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "native_array_counts": {},
+      "optional_subjects_or_character_ids_sent": false
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 825,
+      "admission_sku_id": 825,
+      "points": 250,
+      "frozen_equal": true,
+      "native_hash": "108f872ee4caca57e793fc2ab642dc99cc3d15f99038588ecebca9568e4af1e3",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "final_regular_saved_project_quote_frozen",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video",
+      "requested_parameters": {
+        "resolution": "360p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [],
+      "native_group_values_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "native_array_counts": {},
+      "optional_subjects_or_character_ids_sent": false
+    }
+  ]
+}

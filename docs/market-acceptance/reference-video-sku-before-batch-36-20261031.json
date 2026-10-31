@@ -1,0 +1,50 @@
+{
+  "batch": 36,
+  "date": "2026-10-31",
+  "source_web_commit": "bfa0e714b9299f353cc730d57f272453d9234476",
+  "source_server_commit": "44deeca1558d6a9c3a8ae92e20faf12cd5414221",
+  "scope": "Historical source defect before 5c8831f: fixed-duration non-input-video SKUs were preferred before filtering input-video billing, leaving a foreign Vidu SKU834 in ordinary Gemini metadata/request. Preparation rejected, no paid submission or charging. Invalid foreign SKU stays unbound.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "cases": [
+    {
+      "channel": "market_video_model:344",
+      "entry": "canvas",
+      "requested_sku": 834,
+      "requested_method": "omni_reference",
+      "scenario": "foreign_sku_before_input_video_fallback_saved_custom",
+      "status": "reproduced_failure",
+      "message": "当前模型不支持所选规格"
+    },
+    {
+      "channel": "market_video_model:358",
+      "entry": "canvas",
+      "requested_sku": 834,
+      "requested_method": "omni_reference",
+      "scenario": "foreign_sku_before_input_video_fallback_saved_custom",
+      "status": "reproduced_failure",
+      "message": "当前模型不支持所选规格"
+    },
+    {
+      "channel": "market_video_model:344",
+      "entry": "canvas",
+      "requested_sku": 834,
+      "requested_method": "omni_reference",
+      "scenario": "foreign_sku_before_input_video_fallback_regular",
+      "status": "reproduced_failure",
+      "message": "当前模型不支持所选规格"
+    },
+    {
+      "channel": "market_video_model:358",
+      "entry": "canvas",
+      "requested_sku": 834,
+      "requested_method": "omni_reference",
+      "scenario": "foreign_sku_before_input_video_fallback_regular",
+      "status": "reproduced_failure",
+      "message": "当前模型不支持所选规格"
+    }
+  ]
+}
