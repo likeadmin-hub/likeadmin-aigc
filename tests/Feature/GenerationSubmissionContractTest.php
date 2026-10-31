@@ -15,4 +15,11 @@ final class GenerationSubmissionContractTest extends TestCase
         self::assertSame(GenerationSubmission::fingerprint($a),GenerationSubmission::fingerprint(array_reverse($a,true)));
         foreach ([array_replace($a,['sound'=>'']),array_replace($a,['duration'=>'0']),array_replace($a,['refs'=>['b','a']]),array_replace($a,['nested'=>['quality'=>'4K','seed'=>1]])] as $other) self::assertNotSame(GenerationSubmission::fingerprint($a),GenerationSubmission::fingerprint($other));
     }
+    public function testFrameworkCamelCaseControllersMatchTheirExistingSnakeCaseRoutes(): void
+    {
+        self::assertSame('app.aigc_music.voice_clone/create',GenerationSubmission::operation('App.aigc_music.VoiceClone','create'));
+        self::assertSame('app.aigc_music.mashup_lyrics/index',GenerationSubmission::operation('App.aigc_music.MashupLyrics','index'));
+        self::assertSame('app.image_human.generate/submit',GenerationSubmission::operation('App.image_human.Generate','submit'));
+        self::assertSame('',GenerationSubmission::operation('App.aigc_music.Style','generate'));
+    }
 }

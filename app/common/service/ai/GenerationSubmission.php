@@ -12,15 +12,16 @@ final class GenerationSubmission
 
     public static function operation(string $controller, string $action): string
     {
-        $operation = strtolower($controller . '/' . $action);
-        if (preg_match('~^app\.(aigc_(?:image|video|music|music_cover|product_image|product_suite|style_transfer|photo_restore|model_wear|background_removal|image_translate|one_click_cleanup|product_multi_angle|fashion_lookbook|outpaint|local_redraw|fitting|hairstyle|product_promo_video|digital_human|pic_lipsync|watermark_removal|action_transfer|person_replacement)|smart_clip|image_human)\.generate/index$~D', $operation)) return $operation;
+        // ThinkPHP resolves voice_clone to VoiceClone before route middleware executes.
+        $operation = strtolower(preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', '_', $controller) . '/' . $action);
+        if (preg_match('~^app\.(aigc_(?:image|video|music|music_cover|product_image|product_suite|style_transfer|photo_restore|model_wear|background_removal|image_translate|one_click_cleanup|product_multi_angle|fashion_lookbook|outpaint|local_redraw|fitting|hairstyle|product_promo_video|digital_human|pic_lipsync|watermark_removal|action_transfer|person_replacement)|smart_clip)\.generate/index$~D', $operation)) return $operation;
         $routes = [
             'app.aigc_canvas.generate/image', 'app.aigc_canvas.generate/video', 'app.aigc_canvas.generate/music',
             'app.aigc_short_drama.canvas/run',
             'app.aigc_micro_video.plan/create', 'app.aigc_micro_video.prompt/write',
             'app.aigc_micro_video.frame/generate', 'app.aigc_micro_video.generate/index', 'app.aigc_micro_video.task/retry',
             'app.aigc_music_cover.task/retry',
-            'app.aigc_music.lyrics/index', 'app.aigc_music.lyrics/mashup', 'app.aigc_music.style/generate',
+            'app.aigc_music.lyrics/index', 'app.aigc_music.mashup_lyrics/index', 'app.image_human.generate/submit',
             'app.aigc_music.export/wav', 'app.aigc_music.export/midi', 'app.aigc_music.export/mp4', 'app.aigc_music.export/vox', 'app.aigc_music.export/timing',
             'app.aigc_music.persona/upstream', 'app.aigc_music.asset/upload_upstream', 'app.aigc_music.voice_clone/create',
         ];
@@ -94,7 +95,7 @@ final class GenerationSubmission
     {
         if (self::$context === null) return;
         $table = $model->getName();
-        if (!preg_match('/^(?:ai_app_task|aigc_[a-z0-9_]+_task|smart_clip_task|image_human_task|aigc_short_drama_canvas_run)$/D', $table)) return;
+        if (!preg_match('/^(?:ai_app_task|aigc_[a-z0-9_]+_task|smart_clip_task|image_human_task|aigc_short_drama_canvas_run|aigc_canvas_run)$/D', $table)) return;
         if ((int)$model['tenant_id'] !== self::$context['tenant'] || (int)$model['user_id'] !== self::$context['user']) throw new \RuntimeException('生成任务归属不一致');
         self::$context['saw_task'] = true;
         $query = Db::name('ai_generation_submission')->where(['id' => self::$context['id'], 'owner_token' => self::$context['token']]);
