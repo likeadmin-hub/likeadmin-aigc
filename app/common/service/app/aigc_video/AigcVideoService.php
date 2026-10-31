@@ -269,9 +269,16 @@ class AigcVideoService
     private static function applyMarketVideoResult(AigcVideoTask $task, array $result, array $selection): array
     {
         $status = (string)($result['status'] ?? 'running');
-        $task->save(['provider_task_id' => (string)($result['provider_task_id'] ?? $task['provider_task_id']), 'update_time' => time()]);
+        $changes = ['provider_task_id' => (string)($result['provider_task_id'] ?? $task['provider_task_id'])];
         if ($status === 'failed') {
-            $task->save(['status' => 'failed', 'error' => (string)($result['error'] ?? '视频生成失败'), 'finish_time' => time(), 'update_time' => time()]);
+            $changes += ['status' => 'failed', 'error' => (string)($result['error'] ?? '视频生成失败')];
+            // Replaying a locally terminal result must preserve its completion
+            // time. List reads also use this recovery path.
+            if ((string)$task['status'] !== 'failed' || (int)$task['finish_time'] <= 0) $changes['finish_time'] = time();
+        }
+        $changes = array_filter($changes, static fn($value, $key) => (string)$task->getData($key) !== (string)$value, ARRAY_FILTER_USE_BOTH);
+        if ($changes !== []) $task->save($changes + ['update_time' => time()]);
+        if ($status === 'failed') {
             return ['task_id' => (int)$task['id'], 'status' => 'failed', 'results' => []];
         }
         $videos = (array)($result['videos'] ?? []);
