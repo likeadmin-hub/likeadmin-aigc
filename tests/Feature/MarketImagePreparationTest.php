@@ -96,6 +96,16 @@ class MarketImagePreparationTest extends TestCase
         self::assertCount(2,$request['reference_images']);
     }
 
+    public function testOldFrozenImageCodecKeepsItsOriginalDeduplication(): void
+    {
+        $snapshot=$this->snapshot();$snapshot['image_reference_slot_revision']=1;
+        $request=$this->request();$request['reference_images']=array_fill(0,2,'https://fixture.invalid/same.png');
+        $payload=new ReflectionMethod(Images::class,'payload');
+        self::assertCount(2,$payload->invoke(null,$snapshot,$request,'')['image_urls']);
+        unset($snapshot['image_reference_slot_revision']);
+        self::assertSame(['https://fixture.invalid/same.png'],$payload->invoke(null,$snapshot,$request,'')['image_urls']);
+    }
+
     /** @dataProvider imageMeters */
     public function testMeterContextUsesPreciselyThePreparedSubmission(array $source): void
     {
