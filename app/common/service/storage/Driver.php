@@ -57,6 +57,15 @@ class Driver
         return $this->engine->upload($save_dir);
     }
 
+    /** Immutable result checkpoints use a verified atomic local publish. Cloud semantics stay with their driver. */
+    public function uploadManaged(string $saveDir, string $checksum, int $bytes): bool
+    {
+        if ($this->engine instanceof \app\common\service\storage\engine\Local) {
+            return $this->engine->uploadManaged($saveDir, $checksum, $bytes);
+        }
+        return (bool)$this->engine->upload($saveDir);
+    }
+
     /**
      * Notes: 抓取网络资源
      * @param $url

@@ -57,9 +57,9 @@ class MarketStorageBarrier
 
     public function stream_lock($operation): bool
     {
-        if(($operation&LOCK_EX)===LOCK_EX)self::mark('lock-waiting');
+        if(($operation&~LOCK_NB)===LOCK_EX)self::mark('lock-waiting');
         $ok=flock($this->handle,$operation);
-        if($ok && ($operation&LOCK_EX)===LOCK_EX)self::mark('lock-acquired');
+        if($ok && ($operation&~LOCK_NB)===LOCK_EX)self::mark('lock-acquired');
         return $ok;
     }
     public function stream_read($count){return fread($this->handle,$count);}
