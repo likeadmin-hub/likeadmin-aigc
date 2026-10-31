@@ -104,6 +104,12 @@ class MarketPixelBillingTest extends TestCase
             $native=Images::prepareRequest($snapshot,$request)->nativeInput;self::assertArrayNotHasKey('maximum_pixels_per_image',$native);self::assertSame($native,Images::prepareRequest(json_decode(json_encode($snapshot),true),$request)->nativeInput);
             $settle=new \ReflectionMethod(Images::class,'settle');$one=['image_uri'=>'https://fixtures.invalid/same.png','width'=>500,'height'=>500];$images=[$one,$one];
             if($scenario==='partial')$images=[$one];
+            if($scenario==='immediate_failure'){
+                (new \ReflectionMethod(Images::class,'retainPixelReceipt'))->invoke(null,$id,['status'=>'failed','message'=>'Offline failure'],'','offline-pixel-receipt');
+                self::assertSame('failed',Images::refresh($id)['status']);self::assertSame($before,$this->balances($user));
+                self::assertSame('failed',Images::refresh($id)['status']);self::assertSame($before,$this->balances($user));
+                return;
+            }
             if($scenario==='immediate_unmeasured'){
                 $receipt=['status'=>'completed','request_id'=>'offline-pixel-receipt','data'=>['image_urls'=>['data:image/png;base64,'.base64_encode('invalid image bytes')]]];
                 (new \ReflectionMethod(Images::class,'retainPixelReceipt'))->invoke(null,$id,$receipt,'','offline-pixel-receipt');
@@ -133,6 +139,6 @@ class MarketPixelBillingTest extends TestCase
         }finally{Db::rollback();}
         self::assertSame(0,(int)Db::name('power_market_product')->where('product_code',$key)->count());
     }
-    public static function scenarios(): array{return [['success'],['partial'],['over_bound'],['unknown_dimensions'],['failure'],['user_insufficient'],['tenant_insufficient'],['immediate_unmeasured'],['restart_measured']];}
+    public static function scenarios(): array{return [['success'],['partial'],['over_bound'],['unknown_dimensions'],['failure'],['user_insufficient'],['tenant_insufficient'],['immediate_unmeasured'],['restart_measured'],['immediate_failure']];}
     private function balances(int $user): array{return ['tenant'=>(float)Db::name('tenant')->where('id',1)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money')];}
 }
