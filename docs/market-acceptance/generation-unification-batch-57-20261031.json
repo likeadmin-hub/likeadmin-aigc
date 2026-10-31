@@ -93,7 +93,19 @@
       "tenant_id": 1,
       "model_type": "video",
       "resource_type": "model",
-      "generation_method": "text_to_video"
+      "generation_method": "text_to_video",
+      "channel": "market_video_model:355",
+      "material_mode": "text_to_video",
+      "scenario": "http_save_close_reopen_config_only_no_generation",
+      "controls": {
+        "generation_method": "text_to_video",
+        "quality": "4k",
+        "duration": 5,
+        "ratio": "16:9",
+        "generate_audio": false
+      },
+      "sku_id": 783,
+      "scope": "Configuration persistence and visible controls only; no generation, lifecycle or whole-entry acceptance"
     },
     {
       "entry": "short_drama",
@@ -116,7 +128,18 @@
       "tenant_id": 1,
       "model_type": "video",
       "resource_type": "model",
-      "generation_method": "text_to_video"
+      "generation_method": "text_to_video",
+      "channel": "market_video_model:355",
+      "material_mode": "text_to_video",
+      "scenario": "http_save_close_reopen_config_only_no_generation",
+      "controls": {
+        "generation_method": "text_to_video",
+        "quality": "4k",
+        "duration": 5,
+        "ratio": "16:9",
+        "generate_audio": false
+      },
+      "scope": "Configuration persistence and visible controls only; no generation, lifecycle or whole-entry acceptance"
     }
   ],
   "concurrent_user_edit": "User confirmed manually operating project 1343; after control was returned, final before/after snapshots were recaptured. No automated model drift finding.",
