@@ -59,7 +59,7 @@ class MarketNativeMeterExpansionTest extends TestCase
             $p=Product::create(['product_code'=>$key,'name'=>'Offline meter fixture','resource_type'=>($nano||$video)?'app_api':'model','model_type'=>$video?'video':'image','upstream_model_code'=>($nano||$video)?'':'offline-image','upstream_channel_code'=>($nano||$video)?'':'offline','upstream_app_code'=>$nano?'nano_banana':($video?'grok_video':''),'upstream_api_code'=>$nano?'submit':($video?'create':''),'source_payload'=>['market_metadata'=>$meta,'resource'=>['max_reference_images'=>2]],'source_code'=>'offline-fixture','upstream_resource_key'=>$key,'status'=>1,'create_time'=>time(),'update_time'=>time()]);
             $s=Sku::create(['product_id'=>$p['id'],'sku_key'=>$key,'title'=>'Offline meter SKU','usage_unit'=>$pixel?'megapixel':'token','usage_unit_size'=>$pixel?1:1000,'sale_points'=>10,'upstream_price'=>10,'status'=>1,'sale_status'=>1,'locked_params'=>$locks,'source_payload'=>['meter_contract'=>$pixel?self::pixel():self::token()],'create_time'=>time(),'update_time'=>time()]);
             Prices::manual(0,(int)$p['id'],(int)$s['id'],10);Prices::manual(1,(int)$p['id'],(int)$s['id'],20);
-            if(!$nano&&!$video){
+            {
                 $plan=Compiler::compileProduct($p->toArray()+['skus'=>[$s->toArray()]]);self::assertCount(1,$plan['drafts'],json_encode($plan['blockers']??[]));
                 self::assertSame($pixel?3:2,$plan['drafts'][0]['config']['billing'][0]['native_meter']['version']);
             }
