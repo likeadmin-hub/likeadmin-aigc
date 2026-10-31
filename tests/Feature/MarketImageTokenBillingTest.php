@@ -12,7 +12,7 @@ class MarketImageTokenBillingTest extends TestCase
 {
     private static function declaration(): array{return ['version'=>2,'basis'=>'token','rounding'=>'ceil_2','maximum_quantity'=>1000,'usage_path'=>'data.usage.total_tokens'];}
     private static function sku(): array{return ['usage_unit'=>'token','usage_unit_size'=>1000,'source_payload'=>['meter_contract'=>self::declaration()]];}
-    public function testImageModelBudgetUsesTheSharedContractWithoutOpeningApplicationOrNativePaths(): void
+    public function testImageModelBudgetAndNativeBindingUseTheSharedContract(): void
     {
         $snapshot=['platform_price'=>10,'tenant_price'=>20,'usage_unit_size'=>1000,'billing_meter'=>Meter::tokenContract(self::sku())];
         self::assertSame(10.,Billing::price(10,2,$snapshot));self::assertSame([2.5,5.],Billing::amounts($snapshot,2,250));
