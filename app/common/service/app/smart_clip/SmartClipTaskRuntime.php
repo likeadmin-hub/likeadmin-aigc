@@ -33,6 +33,7 @@ final class SmartClipTaskRuntime
     /** Repairs accepted legacy/crash-gap jobs without submitting any supplier generation. */
     public static function sweep(int $limit=100): int
     {
+        if(!Db::name('app')->where(['code'=>'smart_clip','status'=>'installed'])->count())return 0;
         $count=0;
         $linked=AiAppTask::alias('a')->join('ai_task_job j','j.app_task_id=a.id')->where(['a.app_code'=>'smart_clip','a.business_table'=>'smart_clip_task','j.job_type'=>AiTaskJobService::TYPE_SMART_CLIP])->field('a.business_id')->buildSql();
         foreach(SmartClipTask::where(['status'=>'running','delete_time'=>0])->whereIn('provider',['xhadmin','smart_clip'])->where('provider_task_id','<>','')->whereNotIn('id',Db::raw($linked))->order('id')->limit(max(1,min(500,$limit)))->select()as$task){
@@ -57,7 +58,8 @@ final class SmartClipTaskRuntime
             if(!$result->success){
                 Db::transaction(function()use($task,$app,$result){
                     $current=SmartClipTask::where('id',$task['id'])->lock(true)->findOrEmpty();
-                    if($current->isEmpty()||$current['status']!=='running'||(int)$current['delete_time']>0)return;
+                    if($current->isEmpty()||(int)$current['delete_time']>0){self::terminal($app,'canceled');return;}
+                    if($current['status']!=='running'){if(in_array($current['status'],['failed','canceled'],true))self::terminal($app,(string)$current['status']);return;}
                     $current->save(['status'=>'failed','error'=>$result->error,'finish_time'=>time(),'update_time'=>time()]);
                     self::terminal($app,'failed');
                 });return true;
