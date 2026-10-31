@@ -1,0 +1,1047 @@
+{
+  "batch": 42,
+  "date": "2026-10-31",
+  "source_server_commit": "8c967969259a26c00bc1f6ba0ae88f5f70b9bc7d",
+  "source_web_commit": "1f7eaac80252928cfb7e28f8b2deb3efef5fa5eb",
+  "paid_generation": false,
+  "live_model_sync_executed": false,
+  "original_task_writes": false,
+  "provider_task_or_asset_endpoint_invoked": false,
+  "scope": "Shared source correction, finite production-source projection into real READ ONLY quote/admission/native and JSON-frozen meter preparation, plus normal-login HTTP saved nodes. These are not captured browser wire DTOs or provider generation. Optional automatic drafts remain stored; mandatory/conditional/unknown contracts and ambiguities stay strict.",
+  "corrected_cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": ":reference",
+      "source_request_hash": "3f1571d986e265dbd38e6eae7943159912e3336fcde97372a0129d6ee200771c",
+      "requested_sku": 809,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": ":reference",
+      "source_request_hash": "df19804de6388372f447317240a17435f204bc153c78415dff9783f3905bef9b",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "replace_automatic_video_source",
+      "material_mode": ":reference",
+      "source_request_hash": "4cdcd6131d2632fd9aec76cf98b4105fae5d096cf1f56d0459b78f1d614530fa",
+      "requested_sku": 809,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "replace_automatic_video_source",
+      "material_mode": ":reference",
+      "source_request_hash": "d420abcb173ca60b5801fdc89c21e1d4e3634511fa8cb61103c19775c35ee271",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "5637decfd9bc29244cdde753fea716b13749e2c5d33e4551ebbe4c9cee23b438",
+      "requested_sku": 493,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "736946933af19a524099d6efaf9bee8c9f9597395b2f875cb6d6941761373487"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "a59e5bafccab5040a105461f293aa80f60bf94fd1e571be7be2ee8206cd0da5e",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "736946933af19a524099d6efaf9bee8c9f9597395b2f875cb6d6941761373487"
+    }
+  ],
+  "additional_boundaries": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "unchanged_legacy_source",
+      "material_mode": ":reference",
+      "source_request_hash": "778d482c371d2aafb83163299db276d6450f6a708661515f32cfa796ffdbc3dc",
+      "requested_sku": 809,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "edc8ac99f5df3551c4d4ab9c02d4cb31ec4137402012f0d44a51ff7ed9ca4866",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 1,
+          "ends": 5
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "unchanged_legacy_source",
+      "material_mode": ":reference",
+      "source_request_hash": "b44afa4259f114e238c74a267037e1f594073ff047a3bb6c5064c23e1cf95f30",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "edc8ac99f5df3551c4d4ab9c02d4cb31ec4137402012f0d44a51ff7ed9ca4866",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 1,
+          "ends": 5
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "removed_without_replacement",
+      "material_mode": ":reference",
+      "source_request_hash": "e0f27e2c1d3ad95e5032b7021159faad8831a0ca16d7759f62bebf5a18ea2e00",
+      "requested_sku": 825,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 825,
+      "admission_sku_id": 825,
+      "points": 250,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "925a59da33d23051b3d230e85a54eb2c3813a322499a68ef28da53d80771138a",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "removed_without_replacement",
+      "material_mode": ":reference",
+      "source_request_hash": "3a8c3bfb2faf5c4061b4ae4385fab56c6bd9b14a3abeea23eaef84d32f117450",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 825,
+      "admission_sku_id": 825,
+      "points": 250,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "925a59da33d23051b3d230e85a54eb2c3813a322499a68ef28da53d80771138a",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "partial_range_kept",
+      "material_mode": ":reference",
+      "source_request_hash": "f3a65647fec5232d0d2339a10b05afacb6b69a8c9e6f689b90d10c776299061e",
+      "requested_sku": 809,
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：video_list[0].ends"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "partial_range_kept",
+      "material_mode": ":reference",
+      "source_request_hash": "5db2b16aff0d25b1522ad669c56312bccdcb852b38ebe961c6cf64a8c88b6bd2",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：video_list[0].ends"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "unchanged_legacy_source",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "34deb3a36ef44f36d43edea73aa57cc5d6d4340868ee7465593cd2554aa280af",
+      "requested_sku": 493,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "f68c233c452e7d15d0ceb8494fd4fbaf1450d6c2748e3b498d04d2e382e51df3",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "bd5b928fa02dfb104434b1c85b067885c5b6d30f48547ffd5d75674d99c5c0f4",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "e981bb83251cf4415616fa24c1937a36e0a2d818fbfa194bd80844741ac7c02e"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "unchanged_legacy_source",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "983c8820653e6693cc96f8e29ce112098ad58d1e6540a2880939dce982d942c9",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "f68c233c452e7d15d0ceb8494fd4fbaf1450d6c2748e3b498d04d2e382e51df3",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "bd5b928fa02dfb104434b1c85b067885c5b6d30f48547ffd5d75674d99c5c0f4",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "e981bb83251cf4415616fa24c1937a36e0a2d818fbfa194bd80844741ac7c02e"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "removed_without_replacement",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "a70824cd95a37270bfd37bce41adf8dd9d6209bef75c8935b7191cf38cfc55ac",
+      "requested_sku": 493,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "e545192b33c4a34cb350a6f1b88a922ccc37d716054dd691a19fb46270301f97",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_groups_hash": "61013dc8f57a3c9407bf9afc003cd53ee1b0992860da9cb2bd2745e93c74546d",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "9cbdb190ee65fb56acafc865864743f1bd27eefc8ba5105fce1b04b06a264070"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "removed_without_replacement",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "a41a0976b9068a098d7117a161fd3479d6b09147187d4b909c2c011c633e727c",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "e545192b33c4a34cb350a6f1b88a922ccc37d716054dd691a19fb46270301f97",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_groups_hash": "61013dc8f57a3c9407bf9afc003cd53ee1b0992860da9cb2bd2745e93c74546d",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "9cbdb190ee65fb56acafc865864743f1bd27eefc8ba5105fce1b04b06a264070"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "replace_named_audio_source",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "b1072a44b86dba8bbfe42fd2af5b96ecf4dc487b5c3d7940d6b3c871d98ea0e4",
+      "requested_sku": 493,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "feaa35c9f56fa1ebae0af6692de7f01cbd5e7c08401c686e689f4fb8f2da211d",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "d2d249714a25c83954cf03a069a0295cf6f43158ddacd0386f8a48be018200bf",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "e981bb83251cf4415616fa24c1937a36e0a2d818fbfa194bd80844741ac7c02e"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "replace_named_audio_source",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "4d0e3aa3e12f4928a2afcdbaf79aed251cf694bdd7eb86516852df01fd7d5d08",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "feaa35c9f56fa1ebae0af6692de7f01cbd5e7c08401c686e689f4fb8f2da211d",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "d2d249714a25c83954cf03a069a0295cf6f43158ddacd0386f8a48be018200bf",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "e981bb83251cf4415616fa24c1937a36e0a2d818fbfa194bd80844741ac7c02e"
+    }
+  ],
+  "http_saved_node_phases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_mixed",
+      "phase": "mixed",
+      "project_id": 871,
+      "material_mode": ":reference",
+      "source_request_hash": "979ad9324b8086b0e14d8707fa71c38cc26685c4dfd724d45625ff133fa3eaf6",
+      "requested_sku": 809,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_mixed",
+      "phase": "mixed",
+      "project_id": 871,
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "17dfc536319488ce1dc7ac9a01782da6931f65196c2dbe72f0a40fa663b2c7c0",
+      "requested_sku": 494,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "13a50bdae9c88dedb50781e26532c7ea7ec2b7ad32ad901c9046e0e1c9a95104",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "736946933af19a524099d6efaf9bee8c9f9597395b2f875cb6d6941761373487"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_mixed",
+      "phase": "mixed",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "3d93add8889535204982d01a46258a12d95b7e5c97685663f4b4a9b873d5d9c1",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "11ff50b716c4c92d79bab8e8ff5e24eadb8e0f46baa498b2d47b942c362955a5",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_mixed",
+      "phase": "mixed",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "2da9686e4614298c8406ecef0e37ae3ab6ecdc46737bdbc386f3bc0eb77dfbae",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "a3f1fb03eaf7aa1f92033d847230f87a5fe0fbdce2edeac238058a539c48e18b",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "3a274ada23bfb035bb082f8ef18a4b27858986aec775c96343bf3c0f5121e87e",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "736946933af19a524099d6efaf9bee8c9f9597395b2f875cb6d6941761373487"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_audio-only",
+      "phase": "audio-only",
+      "project_id": 871,
+      "material_mode": ":reference",
+      "source_request_hash": "979ad9324b8086b0e14d8707fa71c38cc26685c4dfd724d45625ff133fa3eaf6",
+      "requested_sku": 809,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_audio-only",
+      "phase": "audio-only",
+      "project_id": 871,
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "17dfc536319488ce1dc7ac9a01782da6931f65196c2dbe72f0a40fa663b2c7c0",
+      "requested_sku": 494,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "13a50bdae9c88dedb50781e26532c7ea7ec2b7ad32ad901c9046e0e1c9a95104",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "736946933af19a524099d6efaf9bee8c9f9597395b2f875cb6d6941761373487"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_audio-only",
+      "phase": "audio-only",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "3d93add8889535204982d01a46258a12d95b7e5c97685663f4b4a9b873d5d9c1",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "11ff50b716c4c92d79bab8e8ff5e24eadb8e0f46baa498b2d47b942c362955a5",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_audio-only",
+      "phase": "audio-only",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "e23481ff331f9b38f9ff4bf0ce005b558c01e2b2815b5974db8369174b8aaff3",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "92d932b75dea6057bebf2cacd45ef9873b7cbc0f3e07f71e42f1c59c40b25b90",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "3a274ada23bfb035bb082f8ef18a4b27858986aec775c96343bf3c0f5121e87e",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "1c9ca0a319532eb03aeffca97da8f0cbd1cdff1c9d5d480b2b72a0eec0a3d748"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_no-audio",
+      "phase": "no-audio",
+      "project_id": 871,
+      "material_mode": ":reference",
+      "source_request_hash": "979ad9324b8086b0e14d8707fa71c38cc26685c4dfd724d45625ff133fa3eaf6",
+      "requested_sku": 809,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_no-audio",
+      "phase": "no-audio",
+      "project_id": 871,
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "16c9173ba6ebfb55d4444ebb7ea07a38365410d6a5aca914aa7714ee6f37de52",
+      "requested_sku": 494,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "0d17b999f35e54c6640bef5664c869a65ac655df657e60d8ffb565f3dbff23f3",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_groups_hash": "a457aaa92a2ba8b6522c48b40f3c6bf64000c7c75d6e0e22839ab51e4c9728c4",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "9cbdb190ee65fb56acafc865864743f1bd27eefc8ba5105fce1b04b06a264070"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_no-audio",
+      "phase": "no-audio",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "3d93add8889535204982d01a46258a12d95b7e5c97685663f4b4a9b873d5d9c1",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "11ff50b716c4c92d79bab8e8ff5e24eadb8e0f46baa498b2d47b942c362955a5",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_no-audio",
+      "phase": "no-audio",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "a5ba023b17b0d0cad8d4ae7fa72a1dedece01aff5c78a5ae5a2e4ec03d28ffa8",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "38497748d6886199cdc7849c146313c2051150b04e9ce72cfcafee2adfc02ec6",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_groups_hash": "61013dc8f57a3c9407bf9afc003cd53ee1b0992860da9cb2bd2745e93c74546d",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "9cbdb190ee65fb56acafc865864743f1bd27eefc8ba5105fce1b04b06a264070"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_final-before",
+      "phase": "final-before",
+      "project_id": 871,
+      "material_mode": ":reference",
+      "source_request_hash": "979ad9324b8086b0e14d8707fa71c38cc26685c4dfd724d45625ff133fa3eaf6",
+      "requested_sku": 809,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_final-before",
+      "phase": "final-before",
+      "project_id": 871,
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "c2dade6a2f42145475f64b5459a267065b98e6d7f1d22d020bf2e515015b5cba",
+      "requested_sku": 494,
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "1fd6b07b30d43cb227cbb4cb759595eb744703a2362c6bf2eba62c381f983579",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "e03a980590b1485a658d8220a8d0321aa10cc282e7654f611784a626e626119b",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "736946933af19a524099d6efaf9bee8c9f9597395b2f875cb6d6941761373487"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "normal_http_final-before",
+      "phase": "final-before",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "3d93add8889535204982d01a46258a12d95b7e5c97685663f4b4a9b873d5d9c1",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "11ff50b716c4c92d79bab8e8ff5e24eadb8e0f46baa498b2d47b942c362955a5",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 6
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_groups_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "normal_http_final-before",
+      "phase": "final-before",
+      "project_id": 513,
+      "material_mode": "omni_reference",
+      "source_request_hash": "629554b75185a18a90d5a5dd4df565cfef2cc6dd2ea54937d6c87f6ca1f54a78",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "0f4ceb41333dd430885968db91e76732de0cfcd5231bd4e9a2b60654c3ee0dcf",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_groups_hash": "713acf195ef928d346bb34c8c9032140892a4ea4c0a7d6c0481a1e120a9eef47",
+      "native_prompt_hash": "0c1823a3a6c740609425681e999851ac35949b39c04187c1ed6a88e14c98da55",
+      "native_reference_names_hash": "736946933af19a524099d6efaf9bee8c9f9597395b2f875cb6d6941761373487"
+    }
+  ],
+  "browser_graphs": [
+    {
+      "entry": "canvas",
+      "project_id": 871,
+      "status": "http_graph_state_preserved",
+      "scenario": "normal_login_save_reopen",
+      "node_count": 2,
+      "edge_count": 0,
+      "run_rows": 0,
+      "nodes_hash_before": "26414693ac1e4be5f5a6452352c72bcfff8467ce280041bc9c3f572bc5585eb2",
+      "nodes_hash_after": "26414693ac1e4be5f5a6452352c72bcfff8467ce280041bc9c3f572bc5585eb2",
+      "edges_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "viewport_equal": true,
+      "viewport_note": "No viewport change."
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 513,
+      "status": "http_graph_state_preserved",
+      "scenario": "normal_login_save_reopen",
+      "node_count": 2,
+      "edge_count": 0,
+      "run_rows": 0,
+      "nodes_hash_before": "5cafa4c33ab4ea3ffd71f1f201ba2735d6eb6957562d8b0f5c078510381dea52",
+      "nodes_hash_after": "5cafa4c33ab4ea3ffd71f1f201ba2735d6eb6957562d8b0f5c078510381dea52",
+      "edges_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "viewport_equal": false,
+      "viewport_note": "Short-drama zoom changed explicitly from215% to100% to reveal the node after reopen; node/edge JSON remained equal."
+    }
+  ],
+  "browser_cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "sound_quality_and_optional_editor_after_reopen",
+      "status": "presentation_checked_payload_unchanged",
+      "material_mode": "omni_reference",
+      "visible_sound_control": true,
+      "sound_enabled": true,
+      "resolution": "720P",
+      "duration": 5,
+      "ratio": "16:9",
+      "visible_points": 565,
+      "optional_subject_or_voice_editor_visible": false,
+      "scope": "UI observation; no SKU inferred from displayed price."
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "sound_quality_and_optional_editor_after_reopen",
+      "status": "presentation_checked_payload_unchanged",
+      "material_mode": "omni_reference",
+      "visible_sound_control": true,
+      "sound_enabled": true,
+      "resolution": "720P",
+      "duration": 5,
+      "ratio": "16:9",
+      "visible_points": 565,
+      "optional_subject_or_voice_editor_visible": false,
+      "scope": "UI observation; no SKU inferred from displayed price."
+    }
+  ],
+  "popover_repair": {
+    "entry": "short_drama",
+    "status": "presentation_checked_payload_unchanged",
+    "scenario": "overlapped_720p_click_keeps_grid_state",
+    "before": "Canvas controls obscured720P; click toggled grid snapping instead.",
+    "after": "720P and16:9 selectable while grid state stays false; grid explicitly restored true afterward.",
+    "closed_toolbar_z_index": 3,
+    "open_toolbar_z_index": 0
+  },
+  "synthetic_upload_actions": 7,
+  "console": {
+    "canvas_errors": 0,
+    "canvas_warnings": 2,
+    "canvas_warning": "Existing Nuxt definePageMeta compiler-hint warning, not changed in this batch.",
+    "short_errors": 0,
+    "short_warnings": 0
+  },
+  "validation": {
+    "pc_tests": 645,
+    "phpunit_existing_tests": 285,
+    "phpunit_existing_assertions": 1470,
+    "phpunit_focused_tests": 31,
+    "phpunit_focused_assertions": 81,
+    "sfc_script_template_style": 7,
+    "typescript_files": 4
+  },
+  "limitations": [
+    "Normal-login legacy orphan draft UI replay was performed on ordinary canvas; short-drama used real ordinary uploads and shared source preparation, not injected historical project state.",
+    "No process/database/container restart certification this batch.",
+    "User-active868/510 and original497/502 were not changed."
+  ]
+}
