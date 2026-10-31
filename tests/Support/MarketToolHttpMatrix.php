@@ -28,7 +28,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         $config=dataHttp($api,'/api/app.aigc_'.$code.'.config/detail'.$suffix,[],$token,'GET');
         $input+=['channel'=>$channel,'quality'=>'1k','ratio'=>'1:1'];
         if($code==='style_transfer') {
-            $category=\think\facade\Db::name('aigc_style_transfer_style_category')->where('tenant_id',$tenant)->value('id');
+            $category=$class::categoryLists($tenant)[0]['id'];
             $template=$class::saveTemplate($tenant,['category_id'=>$category,'name'=>'Private synthetic style','image'=>$uri]);
             $input['template_id']=$template['id'];
         }
