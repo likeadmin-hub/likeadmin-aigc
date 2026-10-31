@@ -68,6 +68,11 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     $product=app\common\model\power\PowerMarketProduct::create(['product_code'=>$f->prefix.'micro','name'=>'Private micro','resource_type'=>'model','model_type'=>'video','source_code'=>'isolated-fixture','upstream_resource_key'=>$f->prefix.'micro','upstream_model_code'=>'synthetic-video','upstream_channel_code'=>'fixture','source_payload'=>['category_code'=>'video','market_metadata'=>$meta],'status'=>1]);
     app\common\model\power\PowerMarketSku::create(['product_id'=>$product['id'],'sku_key'=>$f->prefix.'micro','title'=>'Private micro','locked_params'=>['duration'=>2,'resolution'=>'720P'],'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1]);
     $model='market_video_model:'.$product['id'];
+    $options=app\common\service\app\aigc_video\AigcVideoService::marketOptions($tenant);
+    $chosen=array_values(array_filter($options['channels']??[],fn($row)=>$row['id']===$model));
+    MarketWorkerFixture::check(count($chosen)===1,'Private micro model missing from shared options');
+    try { app\common\service\app\aigc_micro_video\MicroVideoCatalog::quote($tenant,['quality'=>'720P','ratio'=>'1:1','duration'=>2,'generation_method'=>'image_to_video','resource_type'=>'model','market_product_id'=>(int)$product['id']],$model); }
+    catch(Throwable $e){throw new RuntimeException('Private micro admission: '.$e->getMessage());}
     app\common\service\app\aigc_micro_video\MicroVideoSettings::save($tenant,['video_model_ids'=>[$model],'default_model_id'=>$model,'default_quality'=>'720P','default_ratio'=>'1:1','target_duration_options'=>[4],'frames_enabled'=>0]);
     $form=['model_id'=>$model,'quality'=>'720P','ratio'=>'1:1','target_duration'=>4,'mode'=>'theme','theme'=>'Synthetic colored blocks','images'=>[['uri'=>$image]],'direction_id'=>0,'idempotency_key'=>'private-micro-plan'];
     $path='/api/app.aigc_micro_video';$plan=dataHttp($api,$path.'.plan/create'.$suffix,$form,$token);$id=(int)$plan['id'];
