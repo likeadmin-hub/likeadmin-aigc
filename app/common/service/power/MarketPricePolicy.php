@@ -11,7 +11,9 @@ final class MarketPricePolicy
         if (!is_numeric($value) || !is_finite((float)$value) || (float)$value < 0 || (float)$value >= 10000000000) {
             throw new InvalidArgumentException('价格必须是小于 100 亿的非负有限数');
         }
-        $text = (string)$value;
+        // PHP's default float-to-string precision can discard a valid sixth
+        // decimal on a large unit price before BCMath sees it.
+        $text = is_float($value) ? number_format($value,6,'.','') : (string)$value;
         if (!preg_match('/^\d+(?:\.\d+)?$/D', $text)) $text = sprintf('%.12F', (float)$value);
         $rounded = bcadd($text, '0.0000005', 6);
         if (bccomp($rounded, '10000000000', 6) >= 0) throw new InvalidArgumentException('价格超过精度上限');
