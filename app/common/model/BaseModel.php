@@ -86,7 +86,9 @@ class BaseModel extends Model
             // 分表全局控制
             if (!in_array($tableNoPrefix, self::$notCheckTables)) {
                 // 根据租户唯一标识获取对应表是否存在
-                $tenantInfo = Tenant::query()->where('id', $tenantId)->find()->toArray();
+                // Reading unrelated accessors (avatar -> storage config -> tenant scope) recurses on a cold cache.
+                $tenantInfo = Tenant::query()->where('id', $tenantId)->field('id,sn,tactics')->find();
+                if (!$tenantInfo) throw new \RuntimeException('租户不存在');
                 // 租户分表策略
                 if ($tenantInfo['tactics'] == 1) {
                     $table = $table . '_' . $tenantInfo['sn'];

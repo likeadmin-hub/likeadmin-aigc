@@ -27,7 +27,7 @@ if(PHP_SAPI==='cli-server') {
         http_response_code(404);echo json_encode(['error'=>'Unexpected fixture supplier path']);return;
     }
     // Normal production middleware, including password login, tenant and app access.
-    pcntl_async_signals(true);pcntl_signal(SIGALRM,static function(){error_log('Fixture watchdog '.json_encode(['prefix'=>env('database.prefix'),'stack'=>array_map(static fn($f)=>($f['class']??'').'::'.($f['function']??''),debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,18))]));throw new RuntimeException('Private HTTP watchdog');});pcntl_alarm(1);
+    pcntl_async_signals(true);pcntl_signal(SIGALRM,static function(){error_log('Fixture watchdog '.json_encode(['prefix'=>env('database.prefix'),'stack'=>array_map(static fn($f)=>($f['class']??'').'::'.($f['function']??''),debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,18))]));throw new RuntimeException('Private HTTP watchdog');});pcntl_alarm(15);
     $http=app()->http;$response=$http->run();pcntl_alarm(0);$response->send();$http->end($response);return;
 }
 if(($argv[1]??'')==='--worker') {
