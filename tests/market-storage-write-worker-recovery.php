@@ -25,7 +25,7 @@ if(($argv[1]??'')==='--worker'){
     $command=new AiTaskWorker();exit($command->run(new think\console\Input(['--app='.($kind==='video'?'aigc_video':'aigc_music'),'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
 }
 $kind=$argv[1]??'';$mode=$argv[2]??'';
-check55(in_array($kind,['video','audio'],true)&&in_array($mode,['kill','contend','late-open'],true),'Pass video/audio and kill/contend/late-open');
+check55(in_array($kind,['video','audio'],true)&&in_array($mode,['kill','contend','contend-kill','late-open'],true),'Pass video/audio and kill/contend/contend-kill/late-open');
 $appCode=$kind==='video'?'aigc_video':'aigc_music';$prefix='b55_'.bin2hex(random_bytes(6)).'_';$dir='/tmp/'.$prefix.'fixture';mkdir($dir,0700);file_put_contents($dir.'/owner',$prefix);mkdir($dir.'/public',0700);mkdir($dir.'/tmp',0700);
 $pdo=new PDO('mysql:host='.$mysql['hostname'].';port='.($mysql['hostport']?:3306).';dbname='.$mysql['database'].';charset=utf8mb4',$mysql['username'],$mysql['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
 $names=['ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','tenant_file','tenant','user','config','tenant_config','app','tenant_app_config','aigc_image_task','aigc_image_result','aigc_image_billing','aigc_image_quota','aigc_short_drama_config','power_market_product','power_market_sku','tenant_power_market_sku_price','power_market_price_rule','aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config','aigc_video_task','aigc_video_result','aigc_video_billing','aigc_video_quota','aigc_video_config','aigc_product_promo_video_task','aigc_music_task','aigc_music_result','aigc_music_billing','aigc_music_quota'];
@@ -57,11 +57,12 @@ try{
         $stop('first',SIGKILL);$report['killed_mid_storage_write']=true;$spawn('second');
     }else{
         wait55(fn()=>time()>(int)$held['lease_expire_time'],'Natural lease expiry not reached',15);$spawn('second');
-        if($mode==='contend'){
+        if(in_array($mode,['contend','contend-kill'],true)){
             wait55(fn()=>is_file($dir.'/second-lock-waiting')||Db::name($businessTable)->where('id',$business)->value('status')==='success','Contender did not enter same-key write',20);
             $report['contender_waited_on_same_key_lock']=is_file($dir.'/second-lock-waiting')&&!is_file($dir.'/second-lock-acquired');
             $report['business_pending_while_first_writing']=Db::name($businessTable)->where('id',$business)->value('status')!=='success';
-            file_put_contents($dir.'/release-write','1');wait55(fn()=>$finished('first',$job['id']),'First writer did not finish',15);$stop('first');
+            if($mode==='contend-kill'){$stop('first',SIGKILL);$report['killed_mid_storage_write']=true;}
+            else{file_put_contents($dir.'/release-write','1');wait55(fn()=>$finished('first',$job['id']),'First writer did not finish',15);$stop('first');}
         }else{
             wait55(fn()=>Db::name($businessTable)->where('id',$business)->value('status')==='success','Second writer did not publish',30);
             $processJob=Db::name('ai_task_job')->where(['consumption_id'=>$c['id'],'job_type'=>'process_result'])->find();wait55(fn()=>$finished('second',$processJob['id']),'Winner did not finish queue event');$stop('second');
@@ -86,10 +87,10 @@ try{
     check55($report['sql_errors']===0,'Concurrent SQL exception retained');
     foreach(['result_assets','physical_canonical_files','file_records','business_results']as$key)check55($report[$key]===1,$key.' duplicated');check55($report['partial_files_remaining']===0,'Orphan partial file after recovery');
     if($mode!=='late-open')check55(!$report['canonical_exists_while_first_paused'],'Incomplete storage bytes exposed at canonical URI');
-    if($mode==='contend')check55($report['contender_waited_on_same_key_lock']&&$report['business_pending_while_first_writing'],'Contender bypassed unfinished writer');
+    if(in_array($mode,['contend','contend-kill'],true))check55($report['contender_waited_on_same_key_lock']&&$report['business_pending_while_first_writing'],'Contender bypassed unfinished writer');
     if($mode==='late-open')check55($report['winner_file_inode_mtime_preserved']&&$report['winner_asset_unchanged']&&$report['winner_business_unchanged']&&($report['late_writer_skipped_completed_file']??false),'Late writer rewrote a completed file');
     copy($target,'/tmp/market-batch55-worker-result-'.$kind.'.'.$ext);echo json_encode($report,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE)."\n";
-}catch(Throwable $error){$failure=$error;echo json_encode($report+['failure_class'=>get_class($error),'failure'=>$error->getMessage()],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE)."\n";fwrite(STDERR,$error->getMessage()."\n".$error->getTraceAsString()."\n");foreach(glob($dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).":\n".substr(file_get_contents($log),-3000)."\n");}
+}catch(Throwable $error){$failure=$error;$sqlFailures=[];foreach(glob($dir.'/*-sql.log')?:[]as$log)foreach(file($log)as$line){$row=json_decode($line,true);$sqlFailures[]=['class'=>$row['class']??'','message'=>$row['message']??'','statement'=>strtok($row['sql_template']??'',' '),'service_frames'=>array_values(array_filter($row['trace']??[],static fn($f)=>str_contains($f,'/service/ai/')))];}echo json_encode($report+['failure_class'=>get_class($error),'failure'=>$error->getMessage(),'sql_failures'=>$sqlFailures],JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE)."\n";fwrite(STDERR,$error->getMessage()."\n".$error->getTraceAsString()."\n");foreach(glob($dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).":\n".substr(file_get_contents($log),-3000)."\n");}
 finally{
     foreach(array_keys($children)as$role)$stop($role,SIGKILL);foreach(array_reverse($tables)as$table)$pdo->exec('DROP TABLE `'.$table.'`');
     if(is_dir($dir)&&is_file($dir.'/owner')&&trim(file_get_contents($dir.'/owner'))===$prefix){$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);foreach($it as$f){if($f->isDir())rmdir($f->getPathname());else unlink($f->getPathname());}rmdir($dir);}
