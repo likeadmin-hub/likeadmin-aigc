@@ -38,7 +38,12 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         if($packages)$input['price_package_code']=$packages[0]['code'];
         if($code==='outpaint')$input['spec_code']=$input['price_package_code'];
         $path='/api/app.aigc_'.$code;
-        $estimate=dataHttp($api,$path.'.generate/estimate'.$suffix,$input,$token);
+        try {$estimate=dataHttp($api,$path.'.generate/estimate'.$suffix,$input,$token);}
+        catch(\Throwable $error) {
+            $prepare=new ReflectionMethod($class,'prepareGeneratePayload');$prepare->setAccessible(true);
+            $prepared=$prepare->invoke(null,$tenant,$input,true);
+            throw new RuntimeException($code.': '.$error->getMessage().' prepared references: '.json_encode($prepared['image_payload']['reference_images']??[]),0,$error);
+        }
         $before=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
         $accepted=dataHttp($api,$path.'.generate/index'.$suffix,$input,$token);
         MarketWorkerFixture::check(count($accepted['generation_tasks']??[])===1,$code.' did not return one owned canonical child');
