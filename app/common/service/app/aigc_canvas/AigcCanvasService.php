@@ -120,7 +120,7 @@ class AigcCanvasService
                     }
                     // Match the collection editor: old preview aliases and dimensions must not shadow the new active item.
                     foreach (['image', 'image_url', 'video_url', 'audio_url', 'file_url', 'output_url', 'download_url', 'media_url',
-                        'video', 'audio', 'audio_uri', 'preview_url', 'localPreviewUrl', 'poster', 'poster_url', 'cover_url', 'cover', 'thumbnail'] as $key) $metadata[$key] = '';
+                        'video', 'audio_uri', 'preview_url', 'localPreviewUrl', 'poster', 'poster_url', 'cover_url', 'cover', 'thumbnail'] as $key) $metadata[$key] = '';
                     foreach (['width', 'height', 'imageWidth', 'imageHeight', 'videoWidth', 'videoHeight'] as $key) $metadata[$key] = 0;
                     $metadata = array_replace($metadata, ['mediaItems' => $collection, 'activeMediaId' => $active['id'],
                         'url' => $active['url'], $kind . '_url' => $active['url'], 'uri' => $active['assetUri'],
