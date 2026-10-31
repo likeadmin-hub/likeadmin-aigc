@@ -73,13 +73,13 @@ class AigcImageService
             ]));
         }
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_app_api') {
-            $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, array_merge($params, [
+            $quote = MarketGenerationRuntime::selection('image',array_merge($params, [
                 'channel' => (string)$selection['channel']['code'],
                 'quality' => (string)($spec['quality'] ?? ''),
                 'ratio' => (string)($spec['ratio'] ?? ''),
                 'variant' => (string)($spec['variant'] ?? $params['variant'] ?? ''),
                 'market_sku_id' => (int)($spec['market_sku_id'] ?? $params['market_sku_id'] ?? 0),
-            ]), (int)($estimate['quantity'] ?? 1));
+            ]))->quote($tenantId,(int)($estimate['quantity'] ?? 1));
             $estimate['follow_market_prices'] = (bool)($quote['follow_market_prices'] ?? false);
             $estimate['platform_unit_cost'] = $quote['tenant_unit_points'];
             $estimate['tenant_unit_price'] = $quote['user_unit_points'];
@@ -105,7 +105,7 @@ class AigcImageService
     public static function estimateMarketModel(int $tenantId, array $params, array $billingOverride = []): array
     {
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
-        $quote = MarketImageModelRuntimeService::quote($tenantId, $params, $quantity, $billingOverride);
+        $quote = MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride);
         return [
             'quantity' => $quantity,
             'platform_unit_cost' => (float)$quote['tenant_unit_points'],
@@ -169,7 +169,7 @@ class AigcImageService
         $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? []), $tenantId, $userId);
         self::checkSensitiveWords($tenantId, $prompt);
         $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
-        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)MarketImageModelRuntimeService::quote($tenantId,$params,$quantity,$billingOverride)['market_snapshot'],$params)) throw new Exception('请输入提示词');
+        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride)['market_snapshot'],$params)) throw new Exception('请输入提示词');
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $claim = AigcImageSubmission::claim([
@@ -399,7 +399,7 @@ class AigcImageService
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
         ]);
-        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, $request, $quantity, $billingOverride);
+        $quote = MarketGenerationRuntime::selection('image',$request)->quote($tenantId,$quantity,$billingOverride);
         $providerParams = [
             'variant' => (string)($request['variant'] ?? ''),
             'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),

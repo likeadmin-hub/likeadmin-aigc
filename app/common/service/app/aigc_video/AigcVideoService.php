@@ -360,8 +360,7 @@ class AigcVideoService
 
     private static function marketQuote(int $tenantId, array $params): array
     {
-        $runtime = self::marketRuntime(self::marketSelection($params));
-        return $runtime::quote($tenantId, self::marketSelection($params));
+        return MarketGenerationRuntime::selection('video',self::marketSelection($params))->quote($tenantId);
     }
 
     private static function marketSelection(array $params): array
