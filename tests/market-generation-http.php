@@ -188,7 +188,7 @@ try {
     $report['total_tasks']=(int)Db::name('ai_app_task')->count();$report['total_result_assets']=(int)Db::name('ai_task_result_asset')->count();
 
 } catch(Throwable $e) {
-    $failure=$e;$report['failure']=$e->getMessage();$report['fixture_line']=array_values(array_map(static fn($frame)=>$frame['line']??0,array_filter($e->getTrace(),static fn($frame)=>($frame['file']??'')===__FILE__))); 
+    $failure=$e;$report['failure']=$e->getMessage();$report['fixture_line']=array_values(array_map(static fn($frame)=>$frame['line']??0,array_filter($e->getTrace(),static fn($frame)=>($frame['file']??'')===__FILE__)));
     if($fixture&&isset($runId)) {
         $row=Db::name('aigc_short_drama_canvas_run')->where('id',$runId)->find();
         $report['short_run_at_failure']=array_intersect_key($row??[],array_flip(['id','status','progress','error','provider_task_id']));
