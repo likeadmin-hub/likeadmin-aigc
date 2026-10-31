@@ -27,6 +27,7 @@ final class GenerationTaskResultService
     {
         $ids=array_values(array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0)));
         if (!$ids || $tenantId<=0 || $userId<=0) return [];
+        $requested=$ids;
         $owner=['tenant_id'=>$tenantId,'user_id'=>$userId];
         $tasks=AiAppTask::where($owner)->whereIn('id',$ids)->select()->toArray();
         if (!$tasks) return [];
@@ -35,8 +36,10 @@ final class GenerationTaskResultService
         $consumptionIds=array_column($consumptions,'id');
         $assets=$consumptionIds ? AiTaskResultAsset::where($owner)->whereIn('app_task_id',array_merge([0],$ids))->whereIn('consumption_id',$consumptionIds)->order('id')->select()->toArray() : [];
         $result=[];
-        foreach ($tasks as $task) {
-            $id=(int)$task['id'];$owned=array_values(array_filter($consumptions,static fn($c)=>(int)$c['app_task_id']===$id));
+        $byId=array_column($tasks,null,'id');
+        foreach ($requested as $id) {
+            if (!isset($byId[$id])) continue;
+            $task=$byId[$id];$owned=array_values(array_filter($consumptions,static fn($c)=>(int)$c['app_task_id']===$id));
             $result[$id]=self::project($id,$task,$owned,array_values(array_filter($assets,static fn($a)=>(int)$a['app_task_id']===0||(int)$a['app_task_id']===$id)));
         }
         return $result;
@@ -134,7 +137,8 @@ final class GenerationTaskResultService
         $table=match($kind){'image'=>'aigc_image_task','video'=>'aigc_video_task',default=>throw new InvalidArgumentException('不支持的生成子任务类型')};
         try {
             $rows=\think\facade\Db::name($table)->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0])->whereIn('id',array_map('intval',$ids))->field('id,app_task_id')->select()->toArray();
-            $views=self::readMany(array_column($rows,'app_task_id'),$tenantId,$userId);
+            $links=array_column($rows,'app_task_id','id');
+            $views=self::readMany(array_map(static fn($nativeId)=>(int)($links[$nativeId]??0),$ids),$tenantId,$userId);
             $response['generation_tasks']=array_values($views);
             $response['generation_task_refs']=array_column($response['generation_tasks'],'task_ref');
         } catch (\Throwable) {
