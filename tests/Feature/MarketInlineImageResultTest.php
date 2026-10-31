@@ -14,6 +14,13 @@ class MarketInlineImageResultTest extends TestCase
         $uri='data:image/png;base64,YQ==';$payload=['data'=>['results'=>[['url'=>$uri],['image_url'=>$uri],['url'=>'https://fixtures.invalid/result.png']]],'prompt'=>$uri,'reference_images'=>[$uri]];
         self::assertSame(['https://fixtures.invalid/result.png'],Urls::collect($payload));self::assertSame([$uri,'https://fixtures.invalid/result.png'],Urls::collectImages($payload));
     }
+    public function testStandardHttpStringListsWorkForAllMediaWithoutReadingInputs(): void
+    {
+        foreach(['image_urls','video_urls','audio_urls']as$key){
+            $url='https://fixtures.invalid/result';$input=['data'=>[$key=>[$url,$url]],'reference_images'=>['https://fixtures.invalid/input'],'input'=>['images'=>['https://fixtures.invalid/input']]];
+            self::assertSame([$url],Urls::collect($input));
+        }
+    }
     public function testUnsupportedOrUnboundedInlineFormatsDoNotBecomeImageResults(): void
     {
         foreach(['data:audio/wav;base64,YQ==','data:image/png;base64,%%%','data:image/png;base64,'.str_repeat('A',27962112),'blob:fixture']as$url)self::assertSame([],Urls::collectImages(['images'=>[$url]]));

@@ -13,7 +13,7 @@ class AiTaskResultUrlService
 
     private const CONTAINER_FIELDS = [
         'data', 'result', 'results', 'output', 'outputs', 'files', 'assets', 'media',
-        'images', 'videos', 'audios', 'items', 'content', 'response', 'task', 'file', 'payload',
+        'images', 'videos', 'audios', 'imageurls', 'videourls', 'audiourls', 'items', 'content', 'response', 'task', 'file', 'payload',
     ];
 
     /** @return array<int,string> */
@@ -49,7 +49,7 @@ class AiTaskResultUrlService
         foreach ($value as $key => $item) {
             $field = strtolower(str_replace(['_', '-'], '', (string)$key));
             if (is_scalar($item)) {
-                if (in_array($field, self::URL_FIELDS, true) && self::isResultUrl((string)$item,$inlineImages)) {
+                if ((in_array($field, self::URL_FIELDS, true)||($allowScalarUrl&&(is_int($key)||ctype_digit((string)$key)))) && self::isResultUrl((string)$item,$inlineImages)) {
                     $urls[] = trim((string)$item);
                 }
                 continue;
