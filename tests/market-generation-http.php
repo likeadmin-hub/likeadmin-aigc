@@ -205,6 +205,7 @@ try {
     MarketWorkerFixture::check($userBefore-$userAfter===10.&&$tenantBefore-$tenantAfter===4.,'Native/application retail overrides charged incorrect fixture amounts');
     $report['image_http']=['native_managed_result_checksum'=>true,'single_application_parent_and_child_success'=>true,'suite_first_child_does_not_finish_parent'=>true,'suite_two_children_two_results'=>true,'native_price'=>1,'application_retail_price_per_child'=>3,'fixture_user_delta'=>10,'fixture_tenant_delta'=>4];
     $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_fixture_user_balance']=$userAfter;$report['total_fixture_tenant_balance']=$tenantAfter;
+    if(getenv('AIGC_HTTP_DISTINCT_MATRIX')==='1'){require __DIR__.'/Support/MarketDistinctHttpMatrix.php';$report['distinct_matrix']=[];runMarketDistinctHttp($fixture,$api,$suffix,$token,$request,$product,$sku,$urls['supplier'],$report['distinct_matrix']);}
     if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1') {
         require __DIR__.'/Support/MarketToolHttpMatrix.php';
         $report['tool_matrix']=[];
@@ -221,7 +222,7 @@ try {
         $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     }
     if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')require __DIR__.'/Support/MarketRecoveryHttpMatrix.php';
-    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1'&&getenv('AIGC_HTTP_CLIP_WORKER_ONLY')!=='1'&&getenv('AIGC_HTTP_SONG_ONLY')!=='1') {
+    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1'&&getenv('AIGC_HTTP_CLIP_WORKER_ONLY')!=='1'&&getenv('AIGC_HTTP_SONG_ONLY')!=='1'&&getenv('AIGC_HTTP_DISTINCT_ONLY')!=='1') {
         require __DIR__.'/Support/MarketDeepHttpMatrix.php';$report['deep_matrix']=[];
         runMarketDeepHttpMatrix($fixture,$api,$suffix,$token,$imageUri,$urls['supplier'],$report['deep_matrix']);
     }
