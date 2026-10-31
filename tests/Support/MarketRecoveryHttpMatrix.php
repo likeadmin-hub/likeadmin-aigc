@@ -35,7 +35,7 @@ function runMarketRecoveryHttpMatrix($f,$api,$suffix,$token,$supplier,array &$re
     $get=fn($route,$id)=>dataHttp($api,'/api/app.'.$route.$suffix.'&id='.$id,[],$token,'GET');
     $report['phase']='smart_clip';
     think\facade\Db::name('smart_clip_channel')->insert(['tenant_id'=>0,'code'=>'private-clip','name'=>'Private clip','provider'=>'xhadmin','model'=>'smart_clip','status'=>1,'config_json'=>'{}']);
-    think\facade\Db::name('smart_clip_channel_spec')->insert(['tenant_id'=>0,'channel_code'=>'private-clip','quality'=>'1','quality_label'=>'1秒','ratio'=>'duration','unit_seconds'=>1,'platform_unit_cost'=>1,'tenant_unit_price'=>1,'status'=>1,'provider_params_json'=>'{}']);
+    think\facade\Db::name('smart_clip_channel_spec')->insert(['tenant_id'=>0,'channel_code'=>'private-clip','quality'=>'1','quality_label'=>'1秒','ratio'=>'duration','platform_unit_cost'=>1,'tenant_unit_price'=>1,'status'=>1,'provider_params_json'=>'{}']);
     foreach(['realman_broadcast','broadcast_mixcut','news_mixcut']as$i=>$kind){
         $form=['api'=>$kind,'channel'=>'private-clip','styleId'=>'private-template','title'=>'Synthetic clip '.$kind,'videoUrl'=>$supplier.'/fixture/result.mp4','audioUrl'=>$supplier.'/fixture/input.wav','materials'=>[['type'=>'video','url'=>$supplier.'/fixture/result.mp4','duration'=>2]],'processRules'=>['videoDuration'=>2],'duration'=>2];
         $q=$post('smart_clip.generate/estimate',$form);$check((float)$q['user_charge_points']===2.,'Private clip quote not per second');
