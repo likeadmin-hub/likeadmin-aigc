@@ -632,6 +632,7 @@ class SmartClipService
                 $rows[] = $item;
             }
             $task->status = 'success';
+            $task->error = '';
             $task->finish_time = time();
             $task->update_time = time();
             $task->save();

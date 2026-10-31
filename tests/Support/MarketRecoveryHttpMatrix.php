@@ -17,15 +17,19 @@ function runMarketFrameRecoveryHttp($f,$api,$suffix,$token,$id,$detail,$product,
     $stale=callHttp($api,'/api/app.aigc_micro_video.frame/generate'.$suffix,['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision'],'quote_token'=>'expired-frame-quote','idempotency_key'=>'recovery-stale-frame'],$token);$check($stale['code']!==1,'Stale frame revision generated');
     $middle=$generate($edited,[$edited['frames'][1]['id']],'recovery-middle-frame');
     $check($middle['frames'][2]['status']==='stale','Dependent tail accepted without regeneration');
-    $ready=$generate($middle,[$middle['frames'][2]['id']],'recovery-tail-frame');
+    $tail=$post('frame/save',['id'=>$id,'plan_revision'=>$middle['plan_revision'],'frames_revision'=>$middle['frames_revision'],'frame_id'=>$middle['frames'][2]['id'],'prompt'=>'最终尾帧的色块静止在右侧。','reference_indices'=>[0]]);
+    $check(array_slice(array_column($tail['frames'],'id'),0,2)===array_slice(array_column($middle['frames'],'id'),0,2),'Tail edit invalidated independent prefix');
+    $ready=$generate($tail,[$tail['frames'][2]['id']],'recovery-tail-frame');
     $check($ready['frames'][1]['image_url']!==$old[1]['image_url']&&$ready['frames'][0]['image_url']===$old[0]['image_url'],'Replacement lost independent anchor or reused old generated image');
     [$frame]=$product('replacement_image','image','synthetic-image',['max_reference_images'=>3,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'image_size'=>['type'=>'string','enum'=>['1K']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>3]]],['image_size'=>'1K','aspect_ratio'=>'1:1']);
     $model='market_image_model:'.$frame;$cfg=app\common\service\app\aigc_micro_video\MicroVideoSettings::get($f->tenant);$cfg['frame_model_ids'][]=$model;app\common\service\app\aigc_micro_video\MicroVideoSettings::save($f->tenant,$cfg);
     $replaced=$post('frame/configure',['id'=>$id,'plan_revision'=>$ready['plan_revision'],'generation_mode'=>'start_end','frame_model_id'=>$model,'frame_quality'=>'1k']);
     $check($replaced['frames'][1]['prompt']===$ready['frames'][1]['prompt']&&$replaced['frames'][1]['reference_indices']===$ready['frames'][1]['reference_indices'],'Changing frame model discarded edited prompt/references');
     $check(array_column($replaced['frames'],'status')===['stale','stale','stale'],'Changing frame model kept stale images ready');
-    $final=$generate($replaced,null,'recovery-model-frames');$check(array_column($final['frames'],'status')===['success','success','success'],'Replacement model results not ready');
-    $report['frame_recovery']=['middle_edit_preserves_prefix_invalidates_tail'=>true,'stale_revision_rejected'=>true,'individual_regeneration_and_same_key_replay'=>true,'model_replacement_regenerates_three_versions'=>true,'manual_boundary_file_upload'=>'No existing upload/replace endpoint; not introduced by this test'];return $final;
+    $first=$post('frame/save',['id'=>$id,'plan_revision'=>$replaced['plan_revision'],'frames_revision'=>$replaced['frames_revision'],'frame_id'=>$replaced['frames'][0]['id'],'prompt'=>'首帧的色块静止在左侧。','reference_indices'=>[0]]);
+    $check(array_column($first['frames'],'status')===['stale','stale','stale']&&min(array_column($first['frames'],'version'))>min(array_column($replaced['frames'],'version')),'First edit did not replace all dependent versions');
+    $final=$generate($first,null,'recovery-model-frames');$check(array_column($final['frames'],'status')===['success','success','success'],'Replacement model results not ready');
+    $report['frame_recovery']=['middle_edit_preserves_prefix_invalidates_tail'=>true,'tail_edit_preserves_prefix'=>true,'first_edit_invalidates_all_dependents'=>true,'model_change_preserves_edited_inputs'=>true,'stale_revision_rejected'=>true,'individual_regeneration_and_same_key_replay'=>true,'model_replacement_regenerates_three_versions'=>true,'manual_boundary_file_upload'=>'No existing upload/replace endpoint; not introduced by this test'];return $final;
 }
 
 function runMarketRecoveryHttpMatrix($f,$api,$suffix,$token,$supplier,array &$report): void
@@ -43,10 +47,11 @@ function runMarketRecoveryHttpMatrix($f,$api,$suffix,$token,$supplier,array &$re
         $accepted=$post('smart_clip.generate/index',$form);$id=(int)$accepted['task_id'];$same=$post('smart_clip.generate/index',$form);$check($same['task_id']===$id,'Clip duplicate submitted twice');
         if($i===0){file_put_contents($f->dir.'/clip-download-fail','1');$pending=$get('smart_clip.task/detail',$id);$check($pending['status']==='running','Accepted clip became terminal on temporary result download failure');unlink($f->dir.'/clip-download-fail');}
         if($i===2)think\facade\Db::name('smart_clip_channel')->where('code','private-clip')->update(['status'=>0]);
-        $done=$get('smart_clip.task/detail',$id);$check($done['status']==='success'&&count($done['results'])===1,'Accepted clip did not survive storage/config recovery');
+        $done=$get('smart_clip.task/detail',$id);$check($done['status']==='success'&&$done['error']===''&&count($done['results'])===1,'Accepted clip did not survive storage/config recovery');
+        $clipFile=$f->dir.'/public/'.$done['results'][0]['video_uri'];$check(is_file($clipFile)&&hash_file('sha256',$clipFile)===hash_file('sha256',$f->dir.'/synthetic.mp4'),'Native clip stored bytes differ');
         $bill=think\facade\Db::name('smart_clip_billing')->where('task_id',$id)->find();$check($bill!==null,'Clip native bill missing');
         $before=think\facade\Db::name('smart_clip_task')->where('id',$id)->find();$get('smart_clip.task/detail',$id);$check($before===think\facade\Db::name('smart_clip_task')->where('id',$id)->find(),'Clip terminal read changed row');
-        $report['smart_clip'][$kind]=['normal_http_quote_submit_duplicate_result_native_bill_history'=>true];
+        $report['smart_clip'][$kind]=['normal_http_quote_submit_duplicate_result_native_bill_history'=>true,'stored_video_checksum'=>true,'temporary_download_recovery'=>$i===0,'accepted_channel_disabled_recovery'=>$i===2];
     }
     $report['phase']='music_text';
     foreach(['lyrics','mashup_lyrics','style']as$op){$p=app\common\model\power\PowerMarketProduct::create(['product_code'=>$f->prefix.$op,'name'=>'Private '.$op,'resource_type'=>'app_api','model_type'=>'audio','upstream_app_code'=>'music_generation','upstream_api_code'=>$op,'source_code'=>'isolated-fixture','upstream_resource_key'=>$f->prefix.$op,'status'=>1]);app\common\model\power\PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$f->prefix.$op,'title'=>'Private text','locked_params'=>[],'usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>1,'upstream_price'=>1,'sale_status'=>1,'status'=>1]);}
