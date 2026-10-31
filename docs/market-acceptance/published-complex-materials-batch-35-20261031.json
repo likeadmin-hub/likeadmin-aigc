@@ -1,0 +1,308 @@
+{
+  "batch": 35,
+  "date": "2026-10-31",
+  "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6",
+  "source_server_commit": "4ad894afc9d87689ee342505b4fc8a05531e78a0",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "scope": "Current published declarations; four resources, ordinary and short-drama production projections, readonly quote/admission/frozen positive and negative preparations. This is not normal-login end-to-end coverage for these four resources, provider assets or generation. Request projection functions unchanged between d61dfa2d capture and final 7c53d4eb. Final source regressions run separately.",
+  "catalogue_sha256": "1a1647071c5e0d42aaa08cb8a965678c2ff36a48634b6f9240c2fe8df31bc921",
+  "short_catalogue_parity": {
+    "resources": [
+      354,
+      308,
+      344,
+      358
+    ],
+    "enabled": true,
+    "material_modes_skus_dimensions_equal": true,
+    "controls_field_layout": "Canvas canvas_parameters and short-drama generation_parameters use different envelopes; not asserted equal."
+  },
+  "cases": [
+    {
+      "id": 354,
+      "entry": "canvas",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 779,
+      "admission_sku_id": 779,
+      "points": 266,
+      "frozen_equal": true,
+      "native_hash": "5fd93741c7cd0b80184c4705e7ce355db320717e5ddb6855f1371baf1d721d2e",
+      "native_slots": {
+        "image": 4,
+        "video": 1,
+        "audio": 1
+      },
+      "channel": "market_video_model:354",
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "0eeefc9bcfb181b3e411ba532479a9f45f7ce4609d0a0abc9c206cb1194f069c",
+      "native_parameter_keys": [
+        "audio",
+        "elements"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 354,
+      "entry": "short_drama",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 779,
+      "admission_sku_id": 779,
+      "points": 266,
+      "frozen_equal": true,
+      "native_hash": "5fd93741c7cd0b80184c4705e7ce355db320717e5ddb6855f1371baf1d721d2e",
+      "native_slots": {
+        "image": 4,
+        "video": 1,
+        "audio": 1
+      },
+      "channel": "market_video_model:354",
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "0eeefc9bcfb181b3e411ba532479a9f45f7ce4609d0a0abc9c206cb1194f069c",
+      "native_parameter_keys": [
+        "audio",
+        "elements"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 308,
+      "entry": "canvas",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "02c3918245decf61610706f8fb522d4aaab1b3172c4bb583f9c6353b7179778f",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "e0ae25a2454f7fbdbc59c8ef3799152563fd22f02158eb72a37b2126596e0a81",
+      "native_parameter_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 308,
+      "entry": "short_drama",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "02c3918245decf61610706f8fb522d4aaab1b3172c4bb583f9c6353b7179778f",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "e0ae25a2454f7fbdbc59c8ef3799152563fd22f02158eb72a37b2126596e0a81",
+      "native_parameter_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 344,
+      "entry": "canvas",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 716,
+      "admission_sku_id": 716,
+      "points": 250,
+      "frozen_equal": true,
+      "native_hash": "d6c77604e92db1857a1dd4dd73cf6e59cdd9ffec048504a10e4b52e0d8da8e8b",
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:344",
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "bc74a574586f9383316f9bddc7e6851c16cdfc165129d0f183e5b955eb98f577",
+      "native_parameter_keys": [
+        "character_ids",
+        "seed"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 344,
+      "entry": "short_drama",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 716,
+      "admission_sku_id": 716,
+      "points": 250,
+      "frozen_equal": true,
+      "native_hash": "d6c77604e92db1857a1dd4dd73cf6e59cdd9ffec048504a10e4b52e0d8da8e8b",
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:344",
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "bc74a574586f9383316f9bddc7e6851c16cdfc165129d0f183e5b955eb98f577",
+      "native_parameter_keys": [
+        "character_ids",
+        "seed"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 358,
+      "entry": "canvas",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 826,
+      "admission_sku_id": 826,
+      "points": 250,
+      "frozen_equal": true,
+      "native_hash": "f64c79987297ccbba51e8410985c6e98c66219fe962c5032fc73a895a29ea650",
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "bc74a574586f9383316f9bddc7e6851c16cdfc165129d0f183e5b955eb98f577",
+      "native_parameter_keys": [
+        "character_ids",
+        "seed"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 358,
+      "entry": "short_drama",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 826,
+      "admission_sku_id": 826,
+      "points": 250,
+      "frozen_equal": true,
+      "native_hash": "f64c79987297ccbba51e8410985c6e98c66219fe962c5032fc73a895a29ea650",
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "requested_method": "omni_reference",
+      "scenario": "published_complex_material_quote_admission_frozen",
+      "native_parameters_sha256": "bc74a574586f9383316f9bddc7e6851c16cdfc165129d0f183e5b955eb98f577",
+      "native_parameter_keys": [
+        "character_ids",
+        "seed"
+      ],
+      "scope": "Actual production page option/request functions; short-drama generationPayload; enforced read-only real estimate/admission/native/frozen preparation. No provider validation of synthetic character IDs."
+    },
+    {
+      "id": 354,
+      "entry": "canvas",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：video_urls",
+      "channel": "market_video_model:354",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    },
+    {
+      "id": 354,
+      "entry": "short_drama",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：video_urls",
+      "channel": "market_video_model:354",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    },
+    {
+      "id": 308,
+      "entry": "canvas",
+      "status": "expected_contract_rejection",
+      "message": "当前生成方式不支持已添加的素材角色",
+      "channel": "market_video_model:308",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    },
+    {
+      "id": 308,
+      "entry": "short_drama",
+      "status": "expected_contract_rejection",
+      "message": "当前生成方式不支持已添加的素材角色",
+      "channel": "market_video_model:308",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    },
+    {
+      "id": 344,
+      "entry": "canvas",
+      "status": "expected_contract_rejection",
+      "message": "素材数量不符合当前方式要求：character_ids",
+      "channel": "market_video_model:344",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    },
+    {
+      "id": 344,
+      "entry": "short_drama",
+      "status": "expected_contract_rejection",
+      "message": "素材数量不符合当前方式要求：character_ids",
+      "channel": "market_video_model:344",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    },
+    {
+      "id": 358,
+      "entry": "canvas",
+      "status": "expected_contract_rejection",
+      "message": "素材数量不符合当前方式要求：character_ids",
+      "channel": "market_video_model:358",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    },
+    {
+      "id": 358,
+      "entry": "short_drama",
+      "status": "expected_contract_rejection",
+      "message": "素材数量不符合当前方式要求：character_ids",
+      "channel": "market_video_model:358",
+      "scenario": "required_video_or_subject_image_minimum_or_character_limit",
+      "requested_method": "omni_reference",
+      "scope": "No new SKU inferred from the preceding successful request."
+    }
+  ]
+}
