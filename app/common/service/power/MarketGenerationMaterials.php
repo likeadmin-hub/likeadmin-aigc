@@ -58,6 +58,8 @@ final class MarketGenerationMaterials
             else $method = match ($kinds[0] ?? '') { 'video'=>'video_edit', 'audio'=>'audio_reference', default=>'image_reference' };
             $fingerprint = json_encode([$code, $method, $fields]);
             if (isset($result[$fingerprint])) continue;
+            $automatic=MarketGenerationCreatorMaterials::policies($metadata,$code,$fields);
+            foreach($fields as&$field)if(isset($automatic[$field['field']]))$field['creator_automatic']=$automatic[$field['field']]['kind'];unset($field);
             $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields, 'parameter_schema'=>MarketGenerationNativeContract::schema($metadata, $code)]);
         }
         return array_values($result);
