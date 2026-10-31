@@ -33,6 +33,86 @@ use think\facade\Db;
 class AigcCanvasService
 {
     public const APP_CODE = 'aigc_canvas';
+
+    /** Publish a local terminal receipt without polling or submitting to a provider. */
+    public static function syncManagedConsumption(array $consumption, int $runId): void
+    {
+        $owner = ['tenant_id' => (int)$consumption['tenant_id'], 'user_id' => (int)$consumption['user_id']];
+        $identity = $owner + ['id' => $runId, 'source_task_id' => (int)$consumption['id'], 'delete_time' => 0];
+        $run = AigcCanvasRun::where($identity)->find();
+        $status = (string)($consumption['run_status'] ?? '');
+        if (!$run || ($consumption['app_code'] ?? '') !== self::APP_CODE
+            || !in_array($run['run_type'], ['image', 'video', 'music'], true)
+            || !in_array($status, ['success', 'failed', 'canceled', 'cancelled'], true)) return;
+        $status = $status === 'cancelled' ? 'canceled' : $status;
+        $kind = $run['run_type'] === 'music' ? 'audio' : $run['run_type'];
+        $summary = array_replace(self::normalizeRunPayload($consumption['response_summary'] ?? []), ['status' => $status]);
+        $result = match ($kind) {
+            'image' => self::formatMarketImageResult((int)$consumption['id'], [], $summary),
+            'video' => self::formatMarketVideoResult((int)$consumption['id'], [], $summary),
+            'audio' => self::formatMarketMusicResult((int)$consumption['id'], [], $summary),
+        };
+        // A direct caller may arrive before transfer_result. Never publish a raw supplier URL.
+        $stored = Db::name('ai_task_result_asset')->where($owner + ['consumption_id' => (int)$consumption['id'],
+            'asset_type' => $kind, 'transfer_status' => 'stored'])->select()->toArray();
+        $byUri = array_column($stored, null, 'local_uri');
+        if ($status === 'success') {
+            if (empty($result['results'])) return;
+            foreach ($result['results'] as $item) {
+                if (!isset($byUri[(string)($item[$kind . '_uri'] ?? '')])) return;
+            }
+        }
+        $result = self::sanitizeRunPayload($result);
+        Db::transaction(function () use ($identity, $owner, $run, $consumption, $result, $status, $kind): void {
+            $project = AigcCanvasProject::where($owner + ['id' => (int)$run['project_id'], 'delete_time' => 0])->lock(true)->find();
+            $current = AigcCanvasRun::where($identity)->lock(true)->find();
+            if (!$current || in_array($current['status'], ['failed', 'canceled'], true)) return;
+            $finish = (int)$current['finish_time'] ?: ((int)($consumption['finish_time'] ?? 0) ?: time());
+            $patch = ['status' => $status, 'result_json' => $result, 'error' => (string)($result['error'] ?? ''), 'finish_time' => $finish];
+            if ($current['status'] !== $status || (array)$current['result_json'] !== $result
+                || (string)$current['error'] !== $patch['error'] || (int)$current['finish_time'] !== $finish) {
+                $current->save($patch + ['update_time' => time()]);
+            }
+            if (!$project) return;
+            $nodes = self::normalizeRunPayload($project['nodes_json']);
+            foreach ($nodes as &$node) {
+                if ((string)($node['id'] ?? '') !== (string)$current['node_id'] || ($node['type'] ?? '') !== $kind) continue;
+                $metadata = (array)($node['metadata'] ?? []);
+                if ((string)($metadata['taskId'] ?? '') !== (string)$consumption['id']
+                    || !in_array($metadata['status'] ?? '', ['running', 'queued', 'pending'], true)) return;
+                if ($status === 'success') {
+                    $collection = is_array($metadata['mediaItems'] ?? null) ? $metadata['mediaItems'] : [];
+                    foreach ($result['results'] as $item) {
+                        $uri = (string)$item[$kind . '_uri'];
+                        $media = ['id' => 'result-' . $kind . '-' . substr(hash('sha256', $item['url']), 0, 12),
+                            'type' => $kind, 'url' => $item['url'], 'assetUri' => $uri, 'mediaSource' => 'generated'];
+                        foreach (['storage_scope', 'storage_engine', 'storage_domain', 'width', 'height', 'duration'] as $key) {
+                            if (isset($item[$key])) $media[$key] = $item[$key];
+                        }
+                        $found = false;
+                        foreach ($collection as &$old) {
+                            if (($old['url'] ?? '') !== $media['url']) continue;
+                            $media['id'] = $old['id']; $old = array_replace($old, $media); $found = true; break;
+                        }
+                        unset($old);
+                        if (!$found) $collection[] = $media;
+                        if (!isset($active)) $active = $media;
+                    }
+                    $metadata = array_replace($metadata, ['mediaItems' => $collection, 'activeMediaId' => $active['id'],
+                        'url' => $active['url'], $kind . '_url' => $active['url'], 'uri' => $active['assetUri'],
+                        'assetUri' => $active['assetUri'], 'mediaSource' => 'generated', 'generatedAt' => $finish * 1000,
+                        'storage_scope' => $active['storage_scope'] ?? '', 'storage_engine' => $active['storage_engine'] ?? '',
+                        'storage_domain' => $active['storage_domain'] ?? '', 'mediaWidth' => $active['width'] ?? 0,
+                        'mediaHeight' => $active['height'] ?? 0, 'mediaDuration' => $active['duration'] ?? 0]);
+                    if ($kind === 'image') $metadata['image'] = $active['url'];
+                }
+                $node['metadata'] = array_replace($metadata, ['status' => $status, 'pending' => false,
+                    'errorDetails' => (string)($result['error'] ?? '')]);
+                $project->save(['nodes_json' => $nodes, 'update_time' => time()]);
+                return;
+            }
+        });
+    }
     private const LEGACY_TEXT_REPLACEMENTS = [
         "\u{74A7}\u{52EA}\u{9A87}\u{7459}\u{55DB}\u{E576}" => '资产视频',
         '璧勪骇鍥剧墖' => '资产图片',

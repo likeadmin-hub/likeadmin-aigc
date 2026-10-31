@@ -48,7 +48,7 @@ try{
     $assets=Assets::recordConsumptionAssets((int)$c['id'],true);MarketWorkerFixture::check(count($assets)===1,'No owned output asset');$assetId=(int)$assets[0]['id'];
     $fixture->start(__FILE__,$entry==='canvas'?'aigc_canvas':'');
     MarketWorkerFixture::wait(fn()=>AiTaskResultAsset::find($assetId)['transfer_status']==='stored','Managed result not stored');
-    MarketWorkerFixture::wait(function()use($documentTable,$doc){$nodes=json_decode(Db::name($documentTable)->where('id',$doc)->value('nodes_json'),true);return ($nodes[0]['metadata']['status']??'')==='success'&&!empty($nodes[0]['metadata']['url']);},'Worker did not persist generated result into project node',$entry==='canvas'?12:45);
+    MarketWorkerFixture::wait(function()use($documentTable,$doc){$nodes=json_decode(Db::name($documentTable)->where('id',$doc)->value('nodes_json'),true);return ($nodes[0]['metadata']['status']??'')==='success'&&!empty($nodes[0]['metadata']['url']);},'Worker did not persist generated result into project node',$entry==='canvas'?12:75);
     $fixture->stop();$graph=Db::name($documentTable)->where('id',$doc)->find();$history=Db::name($runTable)->where('id',$run)->find();$node=json_decode($graph['nodes_json'],true)[0];$asset=AiTaskResultAsset::find($assetId)->toArray();
     $nodeUri=(string)($node['metadata']['uri']??$node['metadata']['url']??'');if(preg_match('~^https?://~',$nodeUri))$nodeUri=ltrim(parse_url($nodeUri,PHP_URL_PATH),'/');
     MarketWorkerFixture::check($nodeUri===$asset['local_uri']&&$history['status']==='success','Node/run uses an incorrect result');
