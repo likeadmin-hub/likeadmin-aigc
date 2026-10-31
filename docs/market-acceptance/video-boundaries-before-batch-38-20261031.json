@@ -1,0 +1,109 @@
+{
+  "phase": "pre_batch39_model_resync",
+  "batch": 38,
+  "date": "2026-10-31",
+  "source_web_commit": "babfe152fa38bbc130958e9e5e0153abb36206c5",
+  "source_server_commit": "c700c0d5cfb3781cae329d0dbfe02d89621ba286",
+  "scope": "Historical reproduction only. Four source projections were reproduced from the immutable prior page/shared source with the captured public catalogue; short-drama rejection is retained from the initial readonly run. After observations refer to corrected source functions, not provider runs.",
+  "paid_generation": false,
+  "cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:340",
+      "material_mode": "default:0",
+      "scenario": "declared_zero_duration",
+      "status": "reproduced_failure",
+      "sku_id": 686,
+      "requested_parameters": {
+        "duration": 0
+      },
+      "observed_source_request": {
+        "duration": 2,
+        "sku_id": 686,
+        "method": "omni_reference"
+      },
+      "corrected_source_observation": {
+        "duration": 0,
+        "sku_id": 686,
+        "method": "omni_reference"
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:315",
+      "material_mode": "default:0",
+      "scenario": "input_image_sku",
+      "status": "reproduced_failure",
+      "sku_id": 519,
+      "requested_parameters": {
+        "duration": 5
+      },
+      "observed_source_request": {
+        "duration": 5,
+        "sku_id": 519,
+        "method": "image_reference"
+      },
+      "corrected_source_observation": {
+        "duration": 5,
+        "sku_id": 522,
+        "method": "image_reference"
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:345",
+      "material_mode": ":first",
+      "scenario": "required_first_frame_removed",
+      "status": "reproduced_failure",
+      "sku_id": 717,
+      "requested_parameters": {
+        "duration": 8
+      },
+      "observed_source_request": {
+        "duration": 8,
+        "sku_id": 717,
+        "method": "image_reference"
+      },
+      "corrected_source_observation": {
+        "duration": 8,
+        "sku_id": 717,
+        "method": "image_to_video",
+        "message": "请添加首帧图片（至少 1 个）"
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:345",
+      "material_mode": ":last",
+      "scenario": "required_last_frame_removed",
+      "status": "reproduced_failure",
+      "sku_id": 717,
+      "requested_parameters": {
+        "duration": 8
+      },
+      "observed_source_request": {
+        "duration": 8,
+        "sku_id": 717,
+        "method": "image_reference"
+      },
+      "corrected_source_observation": {
+        "duration": 8,
+        "sku_id": 717,
+        "method": "last_frame",
+        "message": "请添加尾帧图片（至少 1 个）"
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:340",
+      "material_mode": "default:0",
+      "scenario": "declared_zero_duration_bridge",
+      "requested_parameters": {
+        "duration": 0
+      },
+      "status": "reproduced_failure",
+      "observed_message": "当前视频模型不支持所选时长",
+      "scope": "Original batch38 readonly preparation before the bridge fix; no historical wire DTO or SKU was captured."
+    }
+  ]
+}
