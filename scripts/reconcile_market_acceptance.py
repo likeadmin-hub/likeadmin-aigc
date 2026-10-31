@@ -136,6 +136,8 @@ def reconcile():
             'not_applicable_policy': 'Requires an explicit reviewed reason; this importer never infers it.',
             'summary': {'resources': len(current), 'unique_skus': len({sku for r in current for sku in r['sku_ids']}),
                         'baseline_entry_cells': baseline['summary']['entry_cells'], 'fully_accepted_entry_cells': 0,
+                        'fully_accepted_entry_cells_computed': False,
+                        'completion_metric_note': 'Legacy zero is a conservative placeholder. This importer does not compute whole-entry acceptance, remaining work, or completion percentage.',
                         'evidence_files': len(sources), 'bound_observations': len(observations), 'unbound_observations': len(unbound),
                         'bound_unique_keys': len({r['key'] for r in observations}),
                         'historical_bound_observation_statuses': dict(collections.Counter(r['observation_status'] for r in observations))},

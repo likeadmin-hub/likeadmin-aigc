@@ -26,6 +26,8 @@ class AcceptanceBoundaries(unittest.TestCase):
         self.assertEqual(len(resources), 121)
         self.assertEqual(result['summary']['unique_skus'], 567)
         self.assertEqual(result['summary']['fully_accepted_entry_cells'], 0)
+        self.assertFalse(result['summary']['fully_accepted_entry_cells_computed'])
+        self.assertIn('placeholder', result['summary']['completion_metric_note'])
         self.assertGreater(len(result['observations']), 0)
         for row in result['observations']:
             self.assertIn(row['sku_id'], resources[row['identity']['id']]['sku_ids'])
