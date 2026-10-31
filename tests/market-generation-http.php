@@ -229,6 +229,7 @@ try {
     MarketWorkerFixture::check($afterRestart===$idleRestart,'Idle restart rewrote completed task, billing, asset or job records');
     $report['unfinished_jobs_completed_on_restart']=$pendingJobs;
     $eventCounts=array_count_values(Db::name('ai_consumption_event')->column('event_type'));$acceptedCount=count(file($dir.'/submissions.jsonl'));
+    $report['total_local_supplier_submissions']=$acceptedCount;
     MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount&&($eventCounts['settle']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0),'Final accepted tasks did not each have exactly one reservation and settlement');
     $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');$report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     $report['worker_restart_preserved_completed_rows']=true;$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];

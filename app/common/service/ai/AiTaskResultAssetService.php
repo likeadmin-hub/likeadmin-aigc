@@ -42,7 +42,10 @@ class AiTaskResultAssetService
                         'storage_scope' => (string)($item['storage_scope'] ?? ''),
                         'storage_engine' => (string)($item['storage_engine'] ?? ''),
                         'storage_domain' => (string)($item['storage_domain'] ?? ''),
-                        'storage_meta' => [],
+                        'storage_meta' => self::isExternal($uri) ? [] : array_intersect_key($item,array_flip([
+                            'uri','stored','width','height','duration','mime_type','file_size',
+                            'storage_scope','storage_engine','storage_domain',
+                        ])),
                         'transfer_status' => self::isExternal($uri) ? 'external' : 'stored',
                         'transfer_attempts' => 0,
                         'last_error' => '',
