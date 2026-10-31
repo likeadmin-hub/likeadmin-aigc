@@ -114,16 +114,15 @@ class AiTaskJobService
                 if($native->isEmpty())throw new \InvalidArgumentException('剪辑作业缺少统一任务');
                 $appTaskId=(int)$native['id'];
             }
-            $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
-            if ($job->isEmpty()) {
-                $job = AiTaskJob::create([
+            // Insert before locking the identity. Missing-key gap locks can deadlock distinct jobs as well.
+            $created = Db::name('ai_task_job')->extra('IGNORE')->insert([
                     'app_task_id' => $appTaskId,
                     'consumption_id' => $consumptionId,
                     'result_asset_id' => $assetId,
                     'job_type' => $type,
                     'status' => 'pending',
                     'priority' => $priority,
-                    'payload' => $payload,
+                    'payload' => json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
                     'attempts' => 0,
                     'max_attempts' => 0,
                     'next_run_time' => $now,
@@ -135,6 +134,9 @@ class AiTaskJobService
                     'update_time' => $now,
                     'finish_time' => 0,
                 ]);
+            $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
+            if ($job->isEmpty()) throw new \RuntimeException('结果作业创建失败');
+            if ($created) {
                 AiTaskLifecycleEventService::record($consumptionId, 'job_enqueued', 'pending', [
                     'job_id' => (int)$job['id'],
                     'job_type' => $type,

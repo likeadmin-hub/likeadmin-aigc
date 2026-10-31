@@ -16,14 +16,17 @@ final class SmartClipTaskRuntime
             $task=SmartClipTask::where(['id'=>$native['id'],'tenant_id'=>$native['tenant_id'],'user_id'=>$native['user_id']])->lock(true)->findOrEmpty();
             if($task->isEmpty()||(int)$task['delete_time']>0)throw new \RuntimeException('剪辑任务不存在');
             $key='smart_clip:'.$task['id'];
-            $app=AiAppTask::where(['tenant_id'=>$task['tenant_id'],'idempotency_key'=>$key])->lock(true)->findOrEmpty();
-            if($app->isEmpty())$app=AiAppTask::create([
+            // Do not lock an absent unique-key gap: independent admissions must be able to insert together.
+            $created=Db::name('ai_app_task')->extra('IGNORE')->insert([
                 'task_no'=>'CL'.bin2hex(random_bytes(16)),'tenant_id'=>$task['tenant_id'],'user_id'=>$task['user_id'],
                 'app_code'=>'smart_clip','action_code'=>$task['clip_type'],'business_table'=>'smart_clip_task','business_id'=>$task['id'],
-                'status'=>'running','progress'=>5,'request_summary'=>['runtime_adapter'=>'native_smart_clip'],
-                'result_summary'=>[],'estimated_tenant_cost'=>$task['tenant_cost_points'],'estimated_user_price'=>$task['user_charge_points'],
+                'status'=>'running','progress'=>5,'request_summary'=>json_encode(['runtime_adapter'=>'native_smart_clip']),
+                'result_summary'=>'[]','estimated_tenant_cost'=>round(max(0,(float)$task['tenant_cost_points']),2),'estimated_user_price'=>round(max(0,(float)$task['user_charge_points']),2),
                 'actual_tenant_cost'=>0,'actual_user_price'=>0,'idempotency_key'=>$key,'create_time'=>time(),'update_time'=>time(),'finish_time'=>0,
             ]);
+            $app=AiAppTask::where(['tenant_id'=>$task['tenant_id'],'idempotency_key'=>$key])->lock(true)->findOrEmpty();
+            if($app->isEmpty())throw new \RuntimeException('剪辑统一任务创建失败');
+            if($created)\app\common\service\ai\GenerationSubmission::linkTask($app);
             if((int)$app['user_id']!==(int)$task['user_id']||$app['business_table']!=='smart_clip_task'||(int)$app['business_id']!==(int)$task['id'])throw new \RuntimeException('剪辑任务关联不一致');
             AiTaskJobService::enqueueSmartClip((int)$app['id']);
             return (int)$app['id'];
