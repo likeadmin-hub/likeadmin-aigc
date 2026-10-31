@@ -35,6 +35,7 @@ class AiTaskWorker extends Command
         $batch = max(1, min(100, (int)$input->getOption('batch')));
         $worker = gethostname() . ':' . getmypid();
         $running = true;
+        $clipSweepAt = 0;
         $stop = static function () use (&$running): void { $running = false; };
         if (function_exists('pcntl_signal')) {
             pcntl_async_signals(true);
@@ -48,6 +49,7 @@ class AiTaskWorker extends Command
                     $output->writeln('Runtime generation changed; worker drained and stopped.');
                     break;
                 }
+                if(($appCode===''||$appCode==='smart_clip')&&time()>=$clipSweepAt){\app\common\service\app\smart_clip\SmartClipTaskRuntime::sweep($batch);$clipSweepAt=time()+30;}
                 if ($appCode === '' || $appCode === 'aigc_short_drama') \app\common\service\app\aigc_short_drama\ShortDramaCanvasService::reconcilePendingRuns();
                 if ($appCode === '') ShortDramaCanvasPosterJobService::recoverExpired();
                 $jobs = AiTaskJobService::claim($worker, $lease, $batch, $appCode);

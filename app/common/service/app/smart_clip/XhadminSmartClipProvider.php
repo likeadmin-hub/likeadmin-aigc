@@ -66,7 +66,7 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
         }
     }
 
-    public function fetchResult(string $taskId, SmartClipGenerateRequest $request): SmartClipGenerateResult
+    public function queryResult(string $taskId, SmartClipGenerateRequest $request): SmartClipGenerateResult
     {
         try {
             $config = $this->resolveConfig($request->channelConfig);
@@ -87,13 +87,13 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
             }
             $videos = [];
             foreach ($videoUrls as $url) {
-                $stored = SmartClipAssetService::persistGeneratedVideo($url, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
-                $videos[] = array_merge($stored, [
+                $videos[] = [
+                    'url' => $url,
                     'provider_task_id' => $taskId,
                     'duration' => (float)$this->extractResultValue($task, ['duration', 'result.duration', 'data.result.duration', 'data.result.data.duration']),
                     'cover_url' => (string)$this->extractResultValue($task, ['cover_url', 'coverUrl', 'result.cover_url', 'result.coverUrl', 'data.result.cover_url', 'data.result.coverUrl', 'data.result.data.cover_url', 'data.result.data.coverUrl']),
                     'raw' => $task,
-                ]);
+                ];
             }
             return new SmartClipGenerateResult(true, $videos, '', $taskId, $task);
         } catch (\Throwable $e) {
@@ -101,6 +101,16 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
             // Explicit upstream failure is handled above; retry this same receipt.
             return new SmartClipGenerateResult(true, [], '结果查询或保存暂未完成，将继续跟踪原任务', $taskId);
         }
+    }
+
+    public function fetchResult(string $taskId, SmartClipGenerateRequest $request): SmartClipGenerateResult
+    {
+        $result=$this->queryResult($taskId,$request);
+        if(!$result->success||!$result->videos)return $result;
+        try{
+            foreach($result->videos as &$video)$video=array_merge($video,SmartClipAssetService::persistGeneratedVideo($video['url'],$request->channelConfig['tenant_id']??0,$request->channelConfig['user_id']??0));
+            unset($video);return $result;
+        }catch(\Throwable){return new SmartClipGenerateResult(true,[],'结果查询或保存暂未完成，将继续跟踪原任务',$taskId);}
     }
 
     private function buildPayload(SmartClipGenerateRequest $request): array

@@ -41,11 +41,12 @@ final class GenerationTaskResultService
         $consumptionIds=array_column($consumptions,'id');
         $assetFields="id,app_task_id,consumption_id,asset_type,local_uri,storage_scope,storage_engine,storage_domain,transfer_status,storage_meta,CASE WHEN transfer_status='stored' OR LEFT(external_url,5)='data:' THEN '' ELSE external_url END AS external_url";
         $assets=$consumptionIds ? AiTaskResultAsset::where($owner)->whereIn('app_task_id',array_merge([0],$ids))->whereIn('consumption_id',$consumptionIds)->fieldRaw($assetFields)->order('id','asc')->select()->toArray() : [];
-        $result=[];
+        $native=array_values(array_filter($tasks,static fn($t)=>$t['app_code']==='smart_clip'&&$t['business_table']==='smart_clip_task'));
+        $result=\app\common\service\app\smart_clip\SmartClipTaskRuntime::views($native,$tenantId,$userId);
         $byId=array_column($tasks,null,'id');
         foreach ($requested as $id) {
             if (!isset($byId[$id])) continue;
-            $task=$byId[$id];$owned=array_values(array_filter($consumptions,static fn($c)=>(int)$c['app_task_id']===$id));
+            $task=$byId[$id];if($task['app_code']==='smart_clip'&&$task['business_table']==='smart_clip_task')continue;$owned=array_values(array_filter($consumptions,static fn($c)=>(int)$c['app_task_id']===$id));
             $result[$id]=self::project($id,$task,$owned,array_values(array_filter($assets,static fn($a)=>(int)$a['app_task_id']===0||(int)$a['app_task_id']===$id)));
         }
         return $result;
@@ -68,15 +69,8 @@ final class GenerationTaskResultService
                 if ($c['run_status']!=='success' || !in_array($c['billing_status'],['settled','none'],true)) continue;
                 $uri = (string)($stored ? $asset['local_uri'] : $asset['external_url']);
                 if ($uri==='' || preg_match('~^(?:data|blob|javascript|file):~i', $uri)) continue;
-                $meta = (array)$asset['storage_meta'];
-                $scope = (string)$asset['storage_scope']; $engine = (string)$asset['storage_engine']; $domain = (string)$asset['storage_domain'];
-                if ($stored && ($scope==='' || $engine==='')) { $transferPending = true; continue; }
-                $results[] = ['result_asset_id'=>(int)$asset['id'], 'type'=>(string)$asset['asset_type'], 'uri'=>$uri,
-                    'url'=>$stored ? FileService::getFileUrlByStorage($uri,$scope,$engine,$domain) : $uri,
-                    'storage_scope'=>$scope, 'storage_engine'=>$engine, 'storage_domain'=>$domain,
-                    'transfer_status'=>(string)$asset['transfer_status'], 'width'=>(int)($meta['width']??0),
-                    'height'=>(int)($meta['height']??0), 'duration'=>(float)($meta['duration']??0),
-                    'mime_type'=>(string)($meta['mime_type']??''), 'file_size'=>(int)($meta['file_size']??0)];
+                if($stored&&(empty($asset['storage_scope'])||empty($asset['storage_engine']))){$transferPending=true;continue;}
+                if($dto=self::resultAsset($asset,$stored))$results[]=$dto;
             }
         }
         $raw = (string)$task['status'];
@@ -94,6 +88,21 @@ final class GenerationTaskResultService
             'delivery_status'=>$transferPending?'pending':'ready', 'results'=>$results,
             'error'=>$error===''?null:['code'=>'generation_failed','message'=>UpstreamErrorMessageService::normalize($error)],
             'created_at'=>self::timestamp($task['create_time']), 'finished_at'=>self::timestamp($task['finish_time'])];
+    }
+
+    /** The same typed media whitelist is used by market and native task adapters. */
+    public static function resultAsset(array $asset,bool $stored): ?array
+    {
+        $uri=(string)($stored?$asset['local_uri']:$asset['external_url']);
+        if($uri===''||preg_match('~^(?:data|blob|javascript|file):~i',$uri))return null;
+        $scope=(string)$asset['storage_scope'];$engine=(string)$asset['storage_engine'];$domain=(string)$asset['storage_domain'];
+        if($stored&&($scope===''||$engine===''))return null;
+        $meta=(array)$asset['storage_meta'];
+        return ['result_asset_id'=>(int)$asset['id'],'type'=>(string)$asset['asset_type'],'uri'=>$uri,
+            'url'=>$stored?FileService::getFileUrlByStorage($uri,$scope,$engine,$domain):$uri,
+            'storage_scope'=>$scope,'storage_engine'=>$engine,'storage_domain'=>$domain,'transfer_status'=>(string)$asset['transfer_status'],
+            'width'=>(int)($meta['width']??0),'height'=>(int)($meta['height']??0),'duration'=>(float)($meta['duration']??0),
+            'mime_type'=>(string)($meta['mime_type']??''),'file_size'=>(int)($meta['file_size']??0)];
     }
 
     private static function timestamp(mixed $value): int

@@ -14,6 +14,7 @@ class AiTaskJobService
     public const TYPE_QUERY_RESULT = 'query_result';
     // A distinct type keeps pre-upgrade workers from treating music exports as generation.
     public const TYPE_MUSIC_OPERATION = 'music_operation';
+    public const TYPE_SMART_CLIP = 'native_smart_clip';
     public const TYPE_PROCESS_RESULT = 'process_result';
     public const TYPE_TRANSFER_RESULT = 'transfer_result';
     public const TYPE_SETTLE = 'settle';
@@ -24,6 +25,11 @@ class AiTaskJobService
     {
         return self::enqueue(self::TYPE_QUERY_RESULT, $consumptionId, 0, [], $priority, $wake);
     }
+    public static function enqueueSmartClip(int $appTaskId): int
+    {
+        return self::enqueue(self::TYPE_SMART_CLIP,0,0,['app_task_id'=>$appTaskId],0,false,'native_smart_clip:'.$appTaskId);
+    }
+
     public static function enqueueMusicOperation(int $consumptionId): int
     {
         return self::enqueue(self::TYPE_MUSIC_OPERATION,$consumptionId);
@@ -103,6 +109,11 @@ class AiTaskJobService
             $appTaskId = $consumptionId > 0
                 ? (int)(AiConsumptionLog::where('id', $consumptionId)->lock(true)->value('app_task_id') ?: 0)
                 : 0;
+            if($type===self::TYPE_SMART_CLIP){
+                $native=AiAppTask::where(['id'=>(int)($payload['app_task_id']??0),'app_code'=>'smart_clip','business_table'=>'smart_clip_task'])->lock(true)->findOrEmpty();
+                if($native->isEmpty())throw new \InvalidArgumentException('剪辑作业缺少统一任务');
+                $appTaskId=(int)$native['id'];
+            }
             $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
             if ($job->isEmpty()) {
                 $job = AiTaskJob::create([
@@ -169,7 +180,7 @@ class AiTaskJobService
                     })->whereOr(function ($expired) use ($now) {
                         $expired->where('status', 'running')->where('lease_expire_time', '<=', $now);
                     });
-                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
+                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
                     ->when($appCode !== '', function ($query) use ($appCode) {
                         $query->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
                     })
@@ -244,6 +255,7 @@ class AiTaskJobService
         if ($type === self::TYPE_QUERY_RESULT) {
             return self::queryResult((int)$job['consumption_id'], (int)$job['attempts']);
         }
+        if ($type === self::TYPE_SMART_CLIP) return \app\common\service\app\smart_clip\SmartClipTaskRuntime::run((int)$job['app_task_id']);
         if ($type === self::TYPE_MUSIC_OPERATION) {
             \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$job['consumption_id']);
             $c=AiConsumptionLog::findOrEmpty((int)$job['consumption_id']);
@@ -366,7 +378,7 @@ class AiTaskJobService
 
     private static function rescheduleDelay(array $job, int $delay): int
     {
-        if (!in_array((string)($job['job_type'] ?? ''), [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_PROCESS_RESULT], true)) {
+        if (!in_array((string)($job['job_type'] ?? ''), [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT], true)) {
             return max(1, $delay);
         }
 
