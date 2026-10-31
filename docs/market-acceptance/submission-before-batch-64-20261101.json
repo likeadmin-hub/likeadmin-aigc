@@ -1,0 +1,40 @@
+{
+  "batch": 64,
+  "date": "2026-11-01",
+  "scope": "Historical private synthetic reproductions only, no real model/SKU acceptance and no production account mutations.",
+  "observations": [
+    {
+      "entry": "standalone_app",
+      "scenario": "camel_case_voice_clone_two_native_operations",
+      "status": "reproduced_failure",
+      "identity": {
+        "id": "private_fixture:submission-before"
+      },
+      "source_server_commit": "4a1d953cac28ed3a0c48ff34436398e57cc0e333",
+      "failure": "Concurrent admission returned different task receipts: app.aigc_music.voice_clone/create [{\"code\":1,\"show\":1,\"msg\":\"\\u521b\\u5efa\\u6210\\u529f\",\"data\":{\"task_id\":1,\"status\":\"success\",\"billing_status\":\"settled\",\"provider_voice_id\":\"deep-owned-voice\",\"voice_clone_id\":1,\"auth_status\":\"confirmed\",\"audit_status\":\"pending\"}},{\"code\":1,\"show\":1,\"msg\":\"\\u521b\\u5efa\\u6210\\u529f\",\"data\":{\"task_id\":2,\"status\":\"success\",\"billing_status\":\"settled\",\"provider_voice_id\":\"deep-owned-voice\",\"voice_clone_id\":2,\"auth_status\":\"confirmed\",\"audit_status\":\"pending\"}}]",
+      "private_tables_and_files_removed": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "same_raw_video_key_cross_owner_collision",
+      "status": "reproduced_failure",
+      "identity": {
+        "id": "private_fixture:submission-before"
+      },
+      "source_server_commit": "78dd37fd382e2b535de84d0f41116917cb54c617",
+      "failure": "Another user could not independently submit same raw key: {\"code\":1,\"show\":0,\"msg\":\"\\u751f\\u6210\\u6210\\u529f\",\"data\":{\"task_id\":1,\"status\":\"success\",\"results\":[]},\"generation_submission\":{\"state\":\"accepted\",\"replayed\":false}}",
+      "private_tables_and_files_removed": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "independent_clip_identity_queue_insertion_conflict",
+      "status": "reproduced_failure",
+      "identity": {
+        "id": "private_fixture:submission-before"
+      },
+      "source_server_commit": "0a027650068ebf45f0bff6541dfe0051f290048f",
+      "failure": "Distinct HTTP rejected smart_clip.generate/index: {\"code\":0,\"show\":1,\"msg\":\"SQLSTATE[42000]: Syntax error or access violation: 1305 SAVEPOINT trans2 does not exist\",\"data\":[],\"generation_submission\":{\"state\":\"uncertain\",\"replayed\":false}}",
+      "private_tables_and_files_removed": true
+    }
+  ]
+}
