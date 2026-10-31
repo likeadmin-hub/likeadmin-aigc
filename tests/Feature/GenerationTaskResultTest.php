@@ -28,6 +28,20 @@ class GenerationTaskResultTest extends TestCase
         } finally {Db::rollback();}
     }
 
+    public function testExistingManagedImageRegistrationPreservesItsMeasuredFacts(): void
+    {
+        $this->fixture(function($task,$c,$asset,$owner){
+            $asset->delete();$uri='uploads/managed-image.png';
+            $c->save(['protocol'=>'image_generate','response_summary'=>['images'=>[['image_uri'=>$uri,'stored'=>true,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','width'=>32,'height'=>32,'file_size'=>120,'mime_type'=>'image/png','provider_private'=>'must-not-copy']]]]);
+            $assets=\app\common\service\ai\AiTaskResultAssetService::recordConsumptionAssets((int)$c['id']);
+            self::assertCount(1,$assets);self::assertSame(32,$assets[0]['storage_meta']['width']);self::assertArrayNotHasKey('provider_private',$assets[0]['storage_meta']);
+            $view=Results::read((int)$task['id'],$owner['tenant_id'],$owner['user_id']);
+            self::assertSame('success',$view['status']);self::assertSame(120,$view['results'][0]['file_size']);self::assertSame('image/png',$view['results'][0]['mime_type']);
+            \app\common\service\ai\AiTaskResultAssetService::recordConsumptionAssets((int)$c['id']);
+            self::assertSame(1,AiTaskResultAsset::where('consumption_id',$c['id'])->count());
+        });
+    }
+
     /** @dataProvider states */
     public function testTaskViewSeparatesExecutionBillingAndDelivery(string $execution,string $billing,string $storage,string $status,string $stage): void
     {

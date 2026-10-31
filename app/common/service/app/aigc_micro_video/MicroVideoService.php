@@ -212,6 +212,14 @@ final class MicroVideoService
             foreach($out['segments'] as &$s){$source=MicroVideoStore::table('segment')->where('id',$s['id'])->find();$s['video_url']=self::fileUrl($source['video_uri'],$source);}unset($s);
         }
         $generationIds=MicroVideoStore::table('attempt')->where(['task_id'=>$id,'tenant_id'=>$tenant,'user_id'=>(int)$row['user_id']])->order('id')->column('consumption_id');
+        // Older frame workers stored images without the common asset handoff.
+        // Repair owned settled receipts locally; this never queries a provider.
+        if($generationIds){
+            $ready=Db::name('ai_consumption_log')->where(['tenant_id'=>$tenant,'user_id'=>$row['user_id'],'app_code'=>MicroVideoStore::APP,'protocol'=>'image_generate','run_status'=>'success','billing_status'=>'settled'])->whereIn('id',$generationIds)->column('id');
+            if($ready){$registered=Db::name('ai_task_result_asset')->where(['tenant_id'=>$tenant,'user_id'=>$row['user_id'],'asset_type'=>'image'])->whereIn('consumption_id',$ready)->column('consumption_id');
+                foreach(array_diff($ready,$registered)as$consumptionId)\app\common\service\ai\AiTaskJobService::enqueueProcessResult((int)$consumptionId);
+            }
+        }
         return \app\common\service\ai\GenerationTaskResultService::appendConsumptionIds($out,$generationIds,$tenant,(int)$row['user_id']);
     }
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array

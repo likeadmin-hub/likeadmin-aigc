@@ -722,7 +722,7 @@ class MarketImageModelRuntimeService
             if($boundedToken&&in_array($status,['failed','error','canceled','cancelled'],true)){self::fail($consumptionId,self::error($response),'upstream_failed');return self::failureResponse($taskId,self::error($response));}
             $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id'], (array)$c['price_snapshot']);
             if(!$images&&$boundedToken)$images=(array)(((array)$c['response_summary'])['images']??[]);
-            if ($images !== []) { self::retainReadyImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return $boundedToken?self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray()):['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
+            if ($images !== []) { self::retainReadyImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); if(MicroVideoSubmission::applies($c->toArray()))self::enqueueResultJob($consumptionId,true); return $boundedToken?self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray()):['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) {
                 $message = self::error($response);
                 self::fail($consumptionId, $message, 'upstream_failed');

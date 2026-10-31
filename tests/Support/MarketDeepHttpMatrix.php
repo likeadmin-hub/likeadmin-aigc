@@ -78,6 +78,17 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
         $check($view['status']==='success'&&count($view['results'])===1,'Micro completed media missing canonical stored result');
     }
     $report['micro_frames']=['three_ordered_anchors_two_video_segments_actual_merge'=>true,'frame_and_video_confirmation_replay'=>true,'reopen_keeps_generation_identities'=>true,'actual_duration'=>$detail['actual_duration']];
+    // Model a historical frame whose old worker wrote its file but skipped the
+    // canonical handoff. Remove only these private test rows, never the file.
+    $legacy=(int)think\facade\Db::name('aigc_micro_video_attempt')->where(['task_id'=>$micro,'kind'=>'frame'])->order('id')->value('consumption_id');
+    $billBefore=think\facade\Db::name('ai_consumption_log')->where('id',$legacy)->find();$submitsBefore=count(file($f->dir.'/submissions.jsonl'));
+    think\facade\Db::name('ai_task_job')->where('consumption_id',$legacy)->delete();
+    think\facade\Db::name('ai_task_result_asset')->where('consumption_id',$legacy)->delete();
+    $get('aigc_micro_video.task/detail',$micro);$f->start($file,'aigc_micro_video');
+    MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_result_asset')->where(['consumption_id'=>$legacy,'transfer_status'=>'stored'])->count()===1,'Legacy frame handoff not repaired',20);
+    MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Legacy frame repair pending',20);$f->stop();
+    $check($billBefore===think\facade\Db::name('ai_consumption_log')->where('id',$legacy)->find()&&$submitsBefore===count(file($f->dir.'/submissions.jsonl')),'Legacy repair changed bill or called supplier');
+    $report['micro_frames']['legacy_missing_handoff_recovered_without_submission_or_billing']=true;
 
     }
     $report['phase']='music_clone_exports';
@@ -114,4 +125,11 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     $calls=array_map(fn($line)=>json_decode($line,true),file($f->dir.'/deep-calls.jsonl'));$kinds=array_count_values(array_column($calls,'kind'));
     $check(($kinds['tts']??0)===(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')==='1'?0:1)&&($kinds['text']??0)===(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')==='1'?0:2),'TTS or planning submitted twice');
     $report['supplier_call_counts']=$kinds;$report['music_operation_count']=8;$report['phase']='complete';
+    $bills=think\facade\Db::name('ai_consumption_log')->select()->toArray();
+    $check(count($bills)===count(file($f->dir.'/submissions.jsonl'))+($kinds['text']??0)+8,'Accepted supplier calls do not match local bills');
+    $check(count(array_filter($bills,fn($bill)=>$bill['billing_status']==='settled'))===count($bills),'An accepted stage remains unsettled');
+    $userCost=array_sum(array_column($bills,'actual_user_price'));$tenantCost=array_sum(array_column($bills,'actual_tenant_cost'));
+    $check(abs(100-(float)think\facade\Db::name('user')->where('id',$u)->value('user_money')-$userCost)<0.000001,'Fake user ledger mismatch');
+    $check(abs(100-(float)think\facade\Db::name('tenant')->where('id',$t)->value('point_balance')-$tenantCost)<0.000001,'Fake tenant ledger mismatch');
+    $report['settlement_totals']=['consumptions'=>count($bills),'settled'=>count($bills),'actual_user'=>round($userCost,6),'actual_tenant'=>round($tenantCost,6),'protocols'=>array_count_values(array_column($bills,'protocol'))];
 }
