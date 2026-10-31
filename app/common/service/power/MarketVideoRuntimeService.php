@@ -3074,7 +3074,12 @@ class MarketVideoRuntimeService
         return preg_match('/(?:^|_)(?:input_|output_)?(?:second|seconds|sec)(?:$|_)/', $unit) === 1;
     }
     private static function isTokenSku(array $sku): bool { return str_contains(strtolower((string)($sku['usage_unit'] ?? '')), 'token'); }
-    private static function isDeferredUsageSku(array $sku): bool { return self::isTokenSku($sku); }
+    private static function isDeferredUsageSku(array $sku): bool
+    {
+        if (!self::isTokenSku($sku)) return false;
+        if (!MarketGenerationMeter::hasDeclaration($sku)) return true;
+        return !MarketGenerationMeter::boundedToken(MarketGenerationMeter::tokenContract($sku));
+    }
     private static function isTokenSnapshot(array $snapshot): bool { return str_contains(strtolower((string)($snapshot['usage_unit'] ?? '')), 'token'); }
     private static function priceForQuantity(float $unitPrice, float $quantity, array $snapshot): float
     {
