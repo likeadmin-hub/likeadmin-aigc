@@ -19,6 +19,7 @@ final class GenerationSubmission
             'app.aigc_short_drama.canvas/run',
             'app.aigc_micro_video.plan/create', 'app.aigc_micro_video.prompt/write',
             'app.aigc_micro_video.frame/generate', 'app.aigc_micro_video.generate/index', 'app.aigc_micro_video.task/retry',
+            'app.aigc_music_cover.task/retry',
             'app.aigc_music.lyrics/index', 'app.aigc_music.lyrics/mashup', 'app.aigc_music.style/generate',
             'app.aigc_music.export/wav', 'app.aigc_music.export/midi', 'app.aigc_music.export/mp4', 'app.aigc_music.export/vox', 'app.aigc_music.export/timing',
             'app.aigc_music.persona/upstream', 'app.aigc_music.asset/upload_upstream', 'app.aigc_music.voice_clone/create',
@@ -72,9 +73,12 @@ final class GenerationSubmission
             $response = $dispatch();
             $body = $response->getData();
             if (!is_array($body) || !array_key_exists('code', $body)) throw new \RuntimeException('生成受理回执格式异常');
+            // Models/collections may serialize lazily. Freeze once for both the first response and replays.
+            $encoded = json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+            $body = json_decode($encoded, true, 512, JSON_THROW_ON_ERROR);
             $state = (int)$body['code'] === 1 ? 'accepted' : (self::$context['saw_task'] ? 'uncertain' : 'rejected');
             Db::name('ai_generation_submission')->where(['id' => $row['id'], 'owner_token' => $token])->update([
-                'status' => $state, 'response_json' => json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE), 'update_time' => time(),
+                'status' => $state, 'response_json' => $encoded, 'update_time' => time(),
             ]);
             return json($body + ['generation_submission' => ['state' => $state, 'replayed' => false]], $response->getCode());
         } catch (\Throwable $error) {

@@ -28,7 +28,7 @@ function marketConcurrentDataHttp(string $api,string $path,array $params,string 
         if(!is_array($r)||($r['generation_submission']['state']??'')==='submitting')$r=callHttp($api,$path,$params,$token,'POST',['X-Generation-Request-Key: '.$key]);
         $responses[]=$r;
     }
-    MarketWorkerFixture::check($responses[0]['data']===$responses[1]['data']&&$responses[0]['code']===$responses[1]['code'],'Concurrent admission returned different task receipts: '.$route);
+    MarketWorkerFixture::check($responses[0]['data']===$responses[1]['data']&&$responses[0]['code']===$responses[1]['code'],'Concurrent admission returned different task receipts: '.$route.' '.json_encode($responses));
     $counts=static function()use($fixture){$r=[];foreach(['ai_app_task','ai_consumption_log','ai_task_result_asset']as$table)$r[$table]=\think\facade\Db::name($table)->count();foreach(['submissions.jsonl','deep-calls.jsonl']as$file)$r[$file]=is_file($fixture->dir.'/'.$file)?count(file($fixture->dir.'/'.$file)):0;return $r;};
     $before=$counts();
     $replayed=callHttp($urls['api_peer'],$path,$params,$token,'POST',['X-Generation-Request-Key: '.$key]);
