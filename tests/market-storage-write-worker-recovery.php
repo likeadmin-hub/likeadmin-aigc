@@ -81,7 +81,9 @@ try{
         'transfer_attempts'=>(int)Db::name('ai_task_job')->where('id',$job['id'])->value('attempts'),'frozen_price_preserved'=>AiConsumptionLog::find($c['id'])['price_snapshot']===['platform_price'=>0,'tenant_price'=>0],
         'parent_success'=>AiAppTask::find($task['id'])['status']==='success','wallets_unchanged'=>(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===100.&&(float)Db::name('user')->where('id',$user)->value('user_money')===100.];
     $snapshot=[AiTaskResultAsset::find($id)->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray(),$result];$spawn('repeat');usleep(1200000);$stop('repeat');$report['repeat_restart_preserved_rows']=$snapshot===[AiTaskResultAsset::find($id)->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray(),Db::name($resultTable)->where('task_id',$business)->find()];
+    $report['sql_errors']=0;foreach(glob($dir.'/*-sql.log')?:[]as$log)$report['sql_errors']+=count(file($log));
     foreach(['stored_checksum_valid','asset_business_uri_match','frozen_price_preserved','parent_success','wallets_unchanged','repeat_restart_preserved_rows']as$key)check55($report[$key],$key.' failed');
+    check55($report['sql_errors']===0,'Concurrent SQL exception retained');
     foreach(['result_assets','physical_canonical_files','file_records','business_results']as$key)check55($report[$key]===1,$key.' duplicated');check55($report['partial_files_remaining']===0,'Orphan partial file after recovery');
     if($mode!=='late-open')check55(!$report['canonical_exists_while_first_paused'],'Incomplete storage bytes exposed at canonical URI');
     if($mode==='contend')check55($report['contender_waited_on_same_key_lock']&&$report['business_pending_while_first_writing'],'Contender bypassed unfinished writer');
