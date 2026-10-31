@@ -94,6 +94,7 @@ class AiTaskResultAssetService
                 default => throw new Exception('不支持的结果资源类型'),
             };
             if(empty($stored['stored'])||trim((string)($stored['uri']??''))==='')throw new Exception('结果资源尚未完成有效转存');
+            $stored = json_decode(json_encode($stored, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
             [$asset, $completed] = \think\facade\Db::transaction(function () use ($assetId, $tenantId, $userId, $stored) {
                 $current = AiTaskResultAsset::lock(true)->findOrEmpty($assetId);
                 if ($current->isEmpty() || (int)$current['tenant_id'] !== $tenantId || (int)$current['user_id'] !== $userId) throw new Exception('转存资产归属已变化');
