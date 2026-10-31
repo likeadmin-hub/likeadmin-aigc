@@ -5,7 +5,7 @@ function marketConcurrentDataHttp(string $api,string $path,array $params,string 
     global $fixture,$urls,$report;
     $route=explode('?',ltrim(substr($path,strpos($path,'app.')),'/'))[0];
     $native='';foreach(['request_key','idempotency_key','batch_key','submission_key']as$field)if(!empty($params[$field])){$native=(string)$params[$field];break;}
-    $key=$native!==''?'native_'.hash('sha256',$route.'|'.$native):'fixture_'.bin2hex(random_bytes(16));
+    $key=$native!==''?'native_'.hash('sha256',substr($route,4).'|'.$native):'fixture_'.bin2hex(random_bytes(16));
     $headers=['Content-Type: application/json','token: '.$token,'X-Generation-Request-Key: '.$key];
     if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$headers[]='Host: private-media.example.test';
     $make=function($base,$timeout=20000)use($path,$params,$headers){$c=curl_init($base.$path);curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($params),CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPHEADER=>$headers,CURLOPT_TIMEOUT_MS=>$timeout]);return $c;};
