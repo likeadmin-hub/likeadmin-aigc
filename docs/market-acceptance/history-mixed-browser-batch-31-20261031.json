@@ -1,12 +1,11 @@
 {
   "batch": 31,
   "date": "2026-10-31",
-  "source_web_commit": "bde7402a",
-  "source_server_commit": "bab28ccfa",
+  "source_web_commit": "bde7402a880e6b859a52539f5d4a30c522f0ea31",
+  "source_server_commit": "a411b23fe545720d72676cc1102bacd97cce9651",
   "paid_generation": false,
   "provider_task_or_asset_calls": false,
   "original_project_writes": false,
-  "task_writes": false,
   "scope": "Normal authenticated localhost PC history re-edit and synthetic local uploads, plus a separately labelled isolated page using real shared SFCs and restore/payload helpers. No raw browser DTO capture; page estimates never infer a SKU from price.",
   "normal_page_cases": [
     {
@@ -123,8 +122,8 @@
     }
   ],
   "final_pc_tests": 544,
-  "final_phpunit_tests": 229,
-  "final_phpunit_assertions": 986,
+  "final_phpunit_tests": 233,
+  "final_phpunit_assertions": 1012,
   "sfc_compiles": 2,
   "typescript_modules": 2,
   "excluded_attempts": [
@@ -137,5 +136,13 @@
     "Normal browser network DTO and provider submission not captured.",
     "Source/style mixed fields use synthetic declarations only; not proof that every current market resource supports them.",
     "18 incomplete legacy contracts / 14 opaque structures / 13 application coverage gaps and 2 pixel / 6 Token SKU blockers remain."
-  ]
+  ],
+  "direct_original_task_mutations": false,
+  "initial_http_automatic_terminal_updates_observed": true,
+  "final_http_terminal_check": {
+    "status": "http_terminal_rows_preserved",
+    "rows": 44,
+    "all_task_hashes_equal": true,
+    "scope": "Final new authenticated history page, three re-edits and reload after terminal reconciliation fix. Earlier page visits did update timestamps automatically and are not included as no-write passes."
+  }
 }

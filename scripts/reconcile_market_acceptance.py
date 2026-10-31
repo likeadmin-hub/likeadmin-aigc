@@ -21,6 +21,7 @@ ENTRIES = {
 }
 # This classification describes only the recorded observation. It is never a whole-entry result.
 PASS = {
+    'http_terminal_rows_preserved',
     'frozen_history_replay_equal',
     'http_graph_state_preserved',
     'presentation_checked_payload_unchanged', 'frontend_sku_quote_and_frozen_preparation_equal',
