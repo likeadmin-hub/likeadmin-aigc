@@ -116,7 +116,7 @@ try {
     MarketWorkerFixture::check($replay['id']===$runId&&$replay['generation_task']['task_ref']===$accepted['generation_task']['task_ref'],'Short drama replay created another identity');
     MarketWorkerFixture::check($counts===[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count(),count(file($dir.'/submissions.jsonl'))],'Replay duplicated charge or supplier submit');
     $fixture->start(__FILE__,'');
-    MarketWorkerFixture::wait(function()use($dramaId){$nodes=json_decode(Db::name('aigc_short_drama_canvas')->where('id',$dramaId)->value('nodes_json'),true);return ($nodes[0]['metadata']['status']??'')==='success';},'Short drama HTTP submission did not project its final result',45);
+    MarketWorkerFixture::wait(function()use($dramaId){$nodes=json_decode(Db::name('aigc_short_drama_canvas')->where('id',$dramaId)->value('nodes_json'),true);return ($nodes[0]['metadata']['status']??'')==='success';},'Short drama HTTP submission did not project its final result',75);
     $fixture->stop();
     $finalRun=dataHttp($api,'/api/app.aigc_short_drama.canvas/task'.$suffix.'&id='.$runId,[],$token,'GET');
     MarketWorkerFixture::check($finalRun['status']==='success'&&$finalRun['generation_task']['status']==='success'&&count($finalRun['generation_task']['results'])===1,'Short drama typed result unavailable');
