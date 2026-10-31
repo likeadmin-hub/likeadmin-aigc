@@ -20,7 +20,8 @@ function marketConcurrentDataHttp(string $api,string $path,array $params,string 
     }while($active&&microtime(true)<$until);
     $b=$make($urls['api_peer']);curl_multi_add_handle($multi,$b);
     do{curl_multi_exec($multi,$active);if($active)curl_multi_select($multi,0.01);}while($active);
-    $raw=[curl_multi_getcontent($a),curl_multi_getcontent($b)];$errors=[curl_errno($a),curl_errno($b)];
+    $raw=[curl_multi_getcontent($a),curl_multi_getcontent($b)];$errors=[];
+    while($info=curl_multi_info_read($multi))$errors[]=$info['result'];
     foreach([$a,$b]as$c){curl_multi_remove_handle($multi,$c);curl_close($c);}curl_multi_close($multi);
     $responses=[];
     foreach($raw as$i=>$body){$r=json_decode((string)$body,true);
