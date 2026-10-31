@@ -244,10 +244,11 @@ class PowerMarketService
             try {
                 $remoteModels = self::withUpstreamRetry(fn() => UpstreamPricingService::queryModels($modelType, true));
                 $syncedModelTypes[] = $modelType;
-                if ($remoteModels === []) {
-                    $emptyModelTypes[] = $modelType;
-                }
+                $acceptedModels = 0;
                 foreach ($remoteModels as $model) {
+                    $declaredType = self::syncModelType($model, ['model_type' => $modelType]);
+                    if ($declaredType === '') continue;
+                    $acceptedModels++;
                     $model = self::mergeDeveloperDocModelDetail($model);
                     $code = trim((string)($model['model_code'] ?? $model['code'] ?? ''));
                     if ($code === '') {
@@ -255,9 +256,10 @@ class PowerMarketService
                     }
                     $channel = trim((string)($model['channel_code'] ?? ''));
                     $models[$code . '|' . $channel] = array_merge($model, [
-                        'type_code' => trim((string)($model['type_code'] ?? '')) ?: $modelType,
+                        'type_code' => $declaredType,
                     ]);
                 }
+                if ($acceptedModels === 0) $emptyModelTypes[] = $modelType;
             } catch (\Throwable $e) {
                 // A single upstream type must not prevent other model types from reaching the market.
                 $typeErrors[$modelType] = '同步失败';
@@ -954,6 +956,8 @@ class PowerMarketService
             return [];
         }
         $model = self::arrayValue($request['catalog_model'] ?? []);
+        $modelType = self::syncModelType($model, self::arrayValue($request['market_metadata'] ?? []));
+        if ($modelType === '') return [];
         $pricing = self::arrayValue($model['pricing'] ?? []);
         $pricingV2 = self::arrayValue($pricing['pricing_v2'] ?? []);
         $skuItems = array_values(array_filter((array)($pricingV2['items'] ?? []), 'is_array'));
@@ -973,7 +977,7 @@ class PowerMarketService
                 'model_name' => trim((string)($model['model_name'] ?? $model['name'] ?? $modelCode)),
                 'channel_code' => '',
                 'channel_name' => '',
-                'type_code' => self::normalizeModelType((string)($model['type_code'] ?? 'text')),
+                'type_code' => $modelType,
                 'type_name' => trim((string)($model['type_name'] ?? '')),
                 'call_type' => $model['call_type'] ?? null,
                 'supports_vision' => !empty($model['supports_vision']),
@@ -1026,6 +1030,7 @@ class PowerMarketService
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
             $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
             $modelType = self::normalizeModelType((string)($product['model_type'] ?? 'text'));
+            $metadata['model_type'] = $modelType;
             $requests[] = [
                 'local_key' => 'model:' . $model . ':' . $channel,
                 'type' => self::TYPE_MODEL,
@@ -1242,6 +1247,9 @@ class PowerMarketService
             return null;
         }
         $isModel = $type === self::TYPE_MODEL;
+        $metadata = (array)($item['market_metadata'] ?? []);
+        $modelType = $isModel ? self::syncModelType($resource, $metadata) : '';
+        if ($isModel && $modelType === '') return null;
         $code = trim((string)($isModel ? ($resource['model_code'] ?? '') : ($resource['app_code'] ?? '')));
         $apiCode = $isModel ? '' : trim((string)($resource['api_code'] ?? ''));
         if ($code === '' || (!$isModel && $apiCode === '')) {
@@ -1251,7 +1259,6 @@ class PowerMarketService
         $resourceKey = $isModel
             ? 'model:' . $code . ':' . $channelCode
             : 'app_api:' . $code . ':' . $apiCode;
-        $metadata = (array)($item['market_metadata'] ?? []);
         $name = $isModel
             ? trim((string)($resource['model_name'] ?? $metadata['model_name'] ?? $code))
             : trim((string)($resource['app_name'] ?? $metadata['app_name'] ?? $code)) . ' / ' . trim((string)($resource['api_name'] ?? $apiCode));
@@ -1270,7 +1277,7 @@ class PowerMarketService
             'upstream_api_code' => $apiCode,
             'upstream_model_code' => $isModel ? $code : '',
             'upstream_channel_code' => $channelCode,
-            'model_type' => $isModel ? self::normalizeModelType((string)($metadata['model_type'] ?? 'text')) : '',
+            'model_type' => $modelType,
             'source_payload' => self::productSnapshot($item),
             'status' => $available ? 1 : 0,
             'update_time' => time(),
@@ -1344,6 +1351,21 @@ class PowerMarketService
     {
         $type = strtolower(trim($type));
         return in_array($type, ['text', 'image', 'video'], true) ? $type : 'text';
+    }
+
+    /** Only supported model categories enter price synchronization. An explicit
+     * upstream reclassification overrides stale local catalogue metadata. The
+     * request's known type remains a fallback for old responses without a type. */
+    private static function syncModelType(array $resource, array $metadata = []): string
+    {
+        foreach ([$resource['type_code'] ?? null, $metadata['upstream_metadata']['type_code'] ?? null, $metadata['model_type'] ?? null] as $raw) {
+            if ($raw === null || $raw === '') continue;
+            if (!is_string($raw)) return '';
+            $type = strtolower(trim($raw));
+            if ($type === '') continue;
+            return in_array($type, ['text', 'image', 'video'], true) ? $type : '';
+        }
+        return '';
     }
 
     /** @param array<string, mixed> $model */
