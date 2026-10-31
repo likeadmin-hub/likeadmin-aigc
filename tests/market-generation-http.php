@@ -140,7 +140,8 @@ try {
     }
     $userBefore=(float)Db::name('user')->where('id',$user)->value('user_money');$tenantBefore=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     file_put_contents($dir.'/synthetic.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII='));
-    $imageMeta=['max_reference_images'=>3,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'image_size'=>['type'=>'string','enum'=>['1K']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>3]]];
+    $referenceLimit=getenv('AIGC_HTTP_TOOL_MATRIX')==='1'?6:3;
+    $imageMeta=['max_reference_images'=>$referenceLimit,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'image_size'=>['type'=>'string','enum'=>['1K']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>$referenceLimit]]];
     $imageProduct=app\common\model\power\PowerMarketProduct::create(['product_code'=>$prefix.'image','name'=>'Private synthetic image','resource_type'=>'model','model_type'=>'image','source_code'=>'isolated-fixture','upstream_resource_key'=>$prefix.'image','upstream_model_code'=>'synthetic-image','upstream_channel_code'=>'fixture','source_payload'=>['market_metadata'=>$imageMeta],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
     $imageSku=app\common\model\power\PowerMarketSku::create(['product_id'=>$imageProduct['id'],'sku_key'=>$prefix.'image-sku','title'=>'Private image fixture','locked_params'=>['image_size'=>'1K','aspect_ratio'=>'1:1'],'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>['version'=>1,'basis'=>'call','rounding'=>'ceil']],'create_time'=>time(),'update_time'=>time()]);
     $channel='market_image_model:'.$imageProduct['id'];
