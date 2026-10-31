@@ -1374,7 +1374,7 @@ class AigcCanvasService
         }
         $consumption = $query->findOrEmpty();
         if ($consumption->isEmpty()) {
-            return [];
+            throw new Exception('任务不存在或无权访问');
         }
         $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketImageResult($consumptionId, [
@@ -1399,7 +1399,7 @@ class AigcCanvasService
         }
         $consumption = $query->findOrEmpty();
         if ($consumption->isEmpty()) {
-            return [];
+            throw new Exception('任务不存在或无权访问');
         }
         $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketMusicResult($consumptionId, [
@@ -1423,7 +1423,7 @@ class AigcCanvasService
         }
         $consumption = $query->findOrEmpty();
         if ($consumption->isEmpty()) {
-            return [];
+            throw new Exception('任务不存在或无权访问');
         }
         $snapshot = (array)$consumption['price_snapshot'];
         $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);

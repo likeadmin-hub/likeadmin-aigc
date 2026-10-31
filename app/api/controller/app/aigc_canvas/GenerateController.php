@@ -345,8 +345,8 @@ class GenerateController extends BaseApiController
             ];
         }
         return \app\common\service\ai\GenerationTaskResultService::carry([
-            'task_id' => (int)($task['id'] ?? 0),
-            'taskId' => (string)($task['id'] ?? ''),
+            'task_id' => (int)($task['task_id'] ?? $task['id'] ?? 0),
+            'taskId' => (string)($task['task_id'] ?? $task['id'] ?? ''),
             'status' => (string)($task['status'] ?? ''),
             'error' => (string)($task['error'] ?? ''),
             'url' => (string)($items[0]['url'] ?? ''),
@@ -372,8 +372,8 @@ class GenerateController extends BaseApiController
             ];
         }
         return \app\common\service\ai\GenerationTaskResultService::carry([
-            'task_id' => (int)($task['id'] ?? 0),
-            'taskId' => (string)($task['id'] ?? ''),
+            'task_id' => (int)($task['task_id'] ?? $task['id'] ?? 0),
+            'taskId' => (string)($task['task_id'] ?? $task['id'] ?? ''),
             'status' => (string)($task['status'] ?? ''),
             'error' => (string)($task['error'] ?? ''),
             'url' => (string)($items[0]['url'] ?? ''),
@@ -386,8 +386,8 @@ class GenerateController extends BaseApiController
     {
         $items = $this->formatMusicItems((array)($task['results'] ?? []));
         return \app\common\service\ai\GenerationTaskResultService::carry([
-            'task_id' => (int)($task['id'] ?? 0),
-            'taskId' => (string)($task['id'] ?? ''),
+            'task_id' => (int)($task['task_id'] ?? $task['id'] ?? 0),
+            'taskId' => (string)($task['task_id'] ?? $task['id'] ?? ''),
             'provider_task_id' => (string)($task['provider_task_id'] ?? ''),
             'status' => (string)($task['status'] ?? ''),
             'error' => (string)($task['error'] ?? ''),
