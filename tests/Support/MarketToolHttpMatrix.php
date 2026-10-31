@@ -64,6 +64,12 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         if($code==='product_promo_video') {
             $same=dataHttp($api,$path.'.generate/index'.$suffix,$input,$token);
             MarketWorkerFixture::check($same['task_id']===$accepted['task_id'],$code.' same request key created a duplicate task');
+            $native=\app\common\model\app\aigc_video\AigcVideoTask::find($accepted['video_task_id']);
+            $lookup=new ReflectionMethod(\app\common\service\app\aigc_video\AigcVideoService::class,'findRecentMarketDuplicateTask');
+            $scopeParams=['reference_assets'=>(array)$native['reference_assets'],'reference_images'=>(array)$native['reference_images'],
+                'ratio'=>$native['ratio'],'duration'=>$native['duration'],'idempotency_key'=>$input['idempotency_key']];
+            MarketWorkerFixture::check($lookup->invoke(null,$tenant,$user,$native['prompt'],(array)$native['model_json'],$scopeParams,'aigc_product_promo_video')!==null,'Same-app exact video intent was not reusable');
+            MarketWorkerFixture::check($lookup->invoke(null,$tenant,$user,$native['prompt'],(array)$native['model_json'],$scopeParams,'aigc_video')===null,'Native entry reused another app billing owner');
         }
         $workerApp=$accepted['generation_tasks'][0]['app_code'];
         $fixture->start(dirname(__DIR__).'/market-generation-http.php',$workerApp);
@@ -98,7 +104,10 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         foreach(['source_image','source_images','product_image','product_images','custom_scene_image','model_image','model_images','wear_image','clothes_images','garment_images','mask_image','restore_type','source_language','target_language','module_codes','view_codes','option_codes','ratio','quality','channel']as$key)
             if(array_key_exists($key,$detail))MarketWorkerFixture::check($detail[$key]===($redetail[$key]??null),$code.' reused field changed: '.$key);
         $report[$code]=['normal_http_estimate_submit'=>true,'managed_result_and_business_writeback'=>true,'list_detail_same_owned_children'=>true,'history_rebuilt_new_attempt'=>true,'history_parameters_and_results_preserved'=>true,'both_attempts_settled_quoted_amount_once'=>true,'user_price'=>(float)$estimate['user_charge_points']];
-        if($code==='product_promo_video')$report[$code]['explicit_new_intent_key_and_same_key_replay']=true;
+        if($code==='product_promo_video') {
+            $report[$code]['explicit_new_intent_key_and_same_key_replay']=true;
+            $report[$code]['cross_application_duplicate_scope_preserved']=true;
+        }
     }
     return $report;
 }
