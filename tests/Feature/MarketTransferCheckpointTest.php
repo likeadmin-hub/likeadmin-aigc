@@ -41,7 +41,7 @@ class MarketTransferCheckpointTest extends TestCase
 
     private function media(string $type): array
     {
-        if ($type === 'image') return ['png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a9sAAAAASUVORK5CYII=')];
+        if ($type === 'image') return ['png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=')];
         $ext = $type === 'video' ? 'mp4' : 'wav'; $path = getenv('AIGC_TRANSFER_MEDIA_DIR') . '/synthetic.' . $ext;
         self::assertFileExists($path, 'Generate the isolated ffmpeg color/silence fixtures first');
         return [$ext, file_get_contents($path)];
