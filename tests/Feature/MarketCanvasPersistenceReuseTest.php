@@ -36,6 +36,11 @@ class MarketCanvasPersistenceReuseTest extends TestCase
             'channel'=>'declared-persistence-fixture','mode'=>'steady','resolution'=>'720p','duration'=>5,'ratio'=>'1:1',
             'generation_method'=>'start_end',
             'generationParameters'=>['declared-persistence-fixture'=>['sound'=>false,'seed'=>0,'optional'=>'']],
+            'generationMaterialModes'=>['declared-persistence-fixture'=>'groups'],
+            'generationMaterials'=>['declared-persistence-fixture'=>[
+                'group_a'=>[['name'=>'Synthetic A','images'=>[$image],'video_url'=>$video,'audio_url'=>$audio,'enabled'=>false,'start_time'=>0]],
+                'group_b'=>[['name'=>'Synthetic B','images'=>[$image],'video_url'=>$video,'audio_url'=>$audio,'enabled'=>false,'start_time'=>0]],
+            ]],
             'referenceImages'=>[
                 ['url'=>$image,'uri'=>$image,'role'=>'last_frame_image','field'=>'last_frame_url','reference_slot_id'=>'tail-use','sourceId'=>'9002'],
                 ['url'=>$image,'uri'=>$image,'role'=>'first_frame_image','field'=>'first_frame_url','reference_slot_id'=>'head-use','sourceId'=>'9001'],
