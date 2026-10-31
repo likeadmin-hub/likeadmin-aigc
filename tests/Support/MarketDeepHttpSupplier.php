@@ -37,7 +37,7 @@ function marketDeepSupplier(string $path,string $dir): bool
     }
     if(preg_match('~^/api/v1/apps/music_generation/(voice_clone|wav|midi|mp4|vox|timing|upload_audio|persona|lyrics|mashup_lyrics|style)$~',$path,$m)) {
         $op=$m[1];$record('music_'.$op);
-        if(in_array($op,['wav','midi','vox'],true)){echo json_encode(['code'=>1,'data'=>['task_id'=>'deep-export-'.$op,'status'=>'processing']]);return true;}
+        if(in_array($op,['wav','midi','vox'],true)){echo json_encode(['code'=>1,'data'=>['task_id'=>'deep-export-'.$op.'-'.count(array_filter(array_map(fn($line)=>json_decode($line,true),file($dir.'/deep-calls.jsonl')),fn($row)=>$row['kind']==='music_'.$op)),'status'=>'processing']]);return true;}
         $result=['status'=>'completed'];
         if($op==='voice_clone')$result['voice_id']='deep-owned-voice';
         elseif($op==='upload_audio')$result['audio_id']='deep-uploaded-audio';
@@ -47,8 +47,8 @@ function marketDeepSupplier(string $path,string $dir): bool
         else $result['file_url']='https://private-media.example.test/fixture/export.mp4';
         echo json_encode(['code'=>1,'data'=>['result'=>$result]]);return true;
     }
-    if(preg_match('~^/api/v1/tasks/deep-export-(wav|midi|vox)$~',$path,$m)) {
-        $counter=$dir.'/query-'.$m[1];$n=is_file($counter)?(int)file_get_contents($counter):0;file_put_contents($counter,(string)($n+1));
+    if(preg_match('~^/api/v1/tasks/deep-export-(wav|midi|vox)(?:-(\d+))?$~',$path,$m)) {
+        $counter=$dir.'/query-'.$m[1].'-'.($m[2]??1);$n=is_file($counter)?(int)file_get_contents($counter):0;file_put_contents($counter,(string)($n+1));
         if($n===0){echo json_encode(['code'=>1,'data'=>['status'=>'processing']]);return true;}
         $result=['status'=>is_file($dir.'/export-terminal-fail-'.$m[1])?'failed':'completed'];
         if($m[1]==='vox')$result['audio_id']='deep-vox-id';else$result['file_url']='https://private-media.example.test/fixture/export.'.$m[1];
