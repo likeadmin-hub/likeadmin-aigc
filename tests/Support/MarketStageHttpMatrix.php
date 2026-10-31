@@ -27,9 +27,12 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     $quote=dataHttp($api,$path.'.generate/estimate'.$suffix,$cover,$token);
     $accepted=dataHttp($api,$path.'.generate/index'.$suffix,$cover,$token);
     MarketWorkerFixture::check(($accepted['generation_task']['schema_version']??0)===1,'Music cover missing canonical acceptance');
+    think\facade\Db::name('power_market_sku')->where('id',$seed['seedsvc']['market_sku_id'])->update(['sale_points'=>99,'sale_status'=>0]);
     $finish('aigc_music_cover',$accepted['task_id'],'aigc_music_cover_task');
     $detail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
     MarketWorkerFixture::check(count($detail['results'])===1&&$detail['generation_task']['status']==='success','Music cover result not ready');
+    MarketWorkerFixture::check((float)$detail['actual_user_price']===1.,'Cover reinterpreted accepted price after shelf change');
+    think\facade\Db::name('power_market_sku')->where('id',$seed['seedsvc']['market_sku_id'])->update(['sale_points'=>1,'sale_status'=>1]);
     $before=think\facade\Db::name('aigc_music_cover_task')->where('id',$accepted['task_id'])->find();
     dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
     MarketWorkerFixture::check($before===think\facade\Db::name('aigc_music_cover_task')->where('id',$accepted['task_id'])->find(),'Music cover history read rewrote terminal task');
@@ -39,7 +42,7 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     foreach(['source_uri','source_url','reference_uri','reference_url','title','market_product_id','market_sku_id'] as $key)
         MarketWorkerFixture::check($detail[$key]===$again[$key],'Cover reuse changed '.$key);
     MarketWorkerFixture::check($detail['generation_task']['task_ref']!==$again['generation_task']['task_ref'],'Cover retry reused old task');
-    $report['music_cover']=['http_submit_worker_writeback_history_retry'=>true,'canonical_result'=>true,'terminal_read_unchanged'=>true];
+    $report['music_cover']=['http_submit_worker_writeback_history_retry'=>true,'canonical_result'=>true,'terminal_read_unchanged'=>true,'accepted_price_survives_private_shelf_change'=>true];
 
     $dir=$f->dir.'/public/uploads/stage';mkdir($dir,0700,true);copy($f->dir.'/synthetic.wav',$dir.'/driver.wav');copy($f->dir.'/synthetic.mp4',$dir.'/avatar.mp4');
     $avatar=think\facade\Db::name('aigc_digital_human_avatar')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'name'=>'Private synthetic blocks','source'=>'mine','media_type'=>'video','media_uri'=>'uploads/stage/avatar.mp4','status'=>1,'delete_time'=>0]);
@@ -86,10 +89,21 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     $quote=dataHttp($api,$path.'.generate/estimate'.$suffix,['id'=>$id,'plan_revision'=>$plan['plan_revision']],$token);
     $confirm=['id'=>$id,'plan_revision'=>$plan['plan_revision'],'quote_token'=>$quote['quote_token'],'idempotency_key'=>'private-micro-confirm'];
     dataHttp($api,$path.'.generate/index'.$suffix,$confirm,$token);dataHttp($api,$path.'.generate/index'.$suffix,$confirm,$token);
+    file_put_contents($f->dir.'/hold-from-index',(string)(count(file($f->dir.'/submissions.jsonl'))+1));
     $f->start($file,'fixture_micro_runner','micro');$f->start($file,'aigc_micro_video');
+    MarketWorkerFixture::wait(fn()=>think\facade\Db::name('aigc_micro_video_attempt')->where(['task_id'=>$id,'kind'=>'video'])->where('consumption_id','>',0)->count()===2,'Micro did not reserve two distinct attempts',25);
+    think\facade\Db::name('power_market_sku')->where('product_id',$product['id'])->update(['sale_points'=>99,'sale_status'=>0]);
+    unlink($f->dir.'/hold-from-index');
     MarketWorkerFixture::wait(fn()=>think\facade\Db::name('aigc_micro_video_task')->where('id',$id)->value('status')==='success','Micro two-segment result or merge failed',60);
     $f->stop('micro');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Micro result jobs pending',20);$f->stop();
     $result=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$id,[],$token,'GET');
     MarketWorkerFixture::check(count($result['generation_tasks'])===2&&$result['result_url']!==''&&$result['actual_duration']>0,'Micro missing composed result or child task identities');
-    $report['micro_video']=['http_create_confirm_duplicate_worker_two_segments_merge_reopen'=>true,'planning_receipt_seeded_not_llm'=>true,'frame_generation_disabled'=>true,'actual_duration'=>$result['actual_duration']];
+    foreach(think\facade\Db::name('aigc_micro_video_attempt')->where(['task_id'=>$id,'kind'=>'video'])->select() as $attempt) {
+        $saved=json_decode($attempt['request_json'],true);$request=$saved['request'];
+        MarketWorkerFixture::check(!isset($saved['selection']['prompt'])&&$request['prompt']!==''&&!str_contains($request['prompt'],'Video segment pricing'),'Micro persisted or submitted pricing placeholder');
+        MarketWorkerFixture::check($request['generation_method']==='image_to_video'&&(int)$request['duration']===2&&$request['ratio']==='1:1','Micro lost concrete single-frame specification');
+        $bill=think\facade\Db::name('ai_consumption_log')->where('id',$attempt['consumption_id'])->find();
+        MarketWorkerFixture::check((float)$bill['actual_user_price']===1.,'Micro changed an admitted segment price');
+    }
+    $report['micro_video']=['http_create_confirm_duplicate_worker_two_segments_merge_reopen'=>true,'planning_receipt_seeded_not_llm'=>true,'frame_generation_disabled'=>true,'actual_duration'=>$result['actual_duration'],'read_only_prompt_not_persisted'=>true,'admitted_prices_survive_private_shelf_change'=>true];
 }
