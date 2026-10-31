@@ -49,7 +49,7 @@ function dataHttp(string $base,string $path,array $data=[],string $token='',stri
 }
 try {
     $names=['tenant','user','user_session','config','tenant_config','tenant_file','tenant_file_cate','file','file_cate','app','tenant_app','tenant_app_order','tenant_system_role_menu','membership_plan','membership_plan_app','update_source',
-        'ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','ai_task_audit_log','ai_model_pricing','tenant_points_log','user_account_log','power_market_product','power_market_sku','power_market_price_rule','tenant_power_market_sku_price','tenant_power_market_product_display',
+        'ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','ai_task_audit_log','ai_model_pricing','tenant_points_log','user_account_log','power_market_product','power_market_sku','power_market_price_rule','tenant_power_market_sku_price','tenant_power_market_product',
         'aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config'];
     foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_canvas_','aigc_short_drama_','aigc_video_']as$group){$base=$original['connections']['mysql']['prefix'];if(str_starts_with($table,$base.$group))$names[]=substr($table,strlen($base));}
     $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;app()->env->set('database.prefix',$prefix);
@@ -72,6 +72,7 @@ try {
         'supported_durations'=>[1],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1'],'material_capabilities'=>['modes'=>[['code'=>'text_to_video','method'=>'text_to_video','fields'=>[]]]]];
     $product=app\common\model\power\PowerMarketProduct::create(['product_code'=>$prefix.'video','name'=>'Private synthetic video','resource_type'=>'model','model_type'=>'video','source_code'=>'isolated-fixture','upstream_resource_key'=>$prefix,'upstream_model_code'=>'synthetic-video','upstream_channel_code'=>'fixture','source_payload'=>['category_code'=>'video','market_metadata'=>$meta],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
     $sku=app\common\model\power\PowerMarketSku::create(['product_id'=>$product['id'],'sku_key'=>$prefix.'sku','title'=>'Private fixture','locked_params'=>['duration'=>1,'resolution'=>'720P'],'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>['version'=>1,'basis'=>'call','rounding'=>'ceil']],'create_time'=>time(),'update_time'=>time()]);
+    MarketWorkerFixture::check(count(app\common\service\power\MarketVideoModelRuntimeService::options($tenant))===1,'Synthetic model not in real catalogue');
     $api=$urls['api'];$suffix='?tenant_id='.$tenant;
     $login=fn()=>dataHttp($api,'/api/login/account'.$suffix,['account'=>$prefix,'password'=>'Private-fixture-pass-2026','scene'=>1,'terminal'=>4]);$token=$login()['token'];
     $report['normal_password_login']=true;
