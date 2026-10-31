@@ -45,6 +45,7 @@ function marketDeepSupplier(string $path,string $dir): bool
         echo json_encode(['code'=>1,'data'=>['status'=>'success','items'=>$songs]]);return true;
     }
     if($path==='/api/v1/chat/completions') {
+        if(getenv('AIGC_HTTP_AGENT_MATRIX')==='1'&&in_array($input['model']??'', ['synthetic-stream-text','synthetic-agent-text'],true)){require_once __DIR__.'/MarketAgentHttpSupplier.php';return marketAgentTextSupplier($input,$dir);}
         $record('text');$last=$input['messages'][count($input['messages'])-1]['content']??'';
         $content='图片是无隐私的彩色色块，保持色块与背景一致。';
         if(is_string($last)) {
