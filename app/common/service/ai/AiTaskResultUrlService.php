@@ -66,8 +66,8 @@ class AiTaskResultUrlService
 
     private static function isResultUrl(string $value,bool $inlineImages): bool
     {
-        if(self::isHttpUrl($value))return true;
-        return $inlineImages&&strlen($value)<=27962112&&preg_match('~^data:image/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$~iD',$value)===1;
+        if(str_starts_with($value,'data:'))return $inlineImages&&strlen($value)<=27962112&&preg_match('~^data:image/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$~iD',$value)===1;
+        return self::isHttpUrl($value);
     }
 
     private static function isHttpUrl(string $value): bool
