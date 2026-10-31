@@ -95,10 +95,9 @@ final class MarketGenerationCompatibilityAudit
             $result['meter'] = array_intersect_key($meter, array_flip(['source','basis','round_up','free_images','image_numerator','image_denominator']));
             $result['meter_status'] = $meter['basis'] === 'megapixel' ? 'requires_verified_pixels' : 'recognized';
             if(MarketGenerationPixelMeter::applies($meter)){
-                $size=$sku['usage_unit_size']??null;
-                if(!is_numeric($size)||!is_finite((float)$size)||(float)$size<1)throw new \InvalidArgumentException('像素计费单位无效');
+                MarketGenerationPixelMeter::assertUnitSize($sku['usage_unit_size']??null);
                 $result['meter']+=array_intersect_key($meter,array_flip(['version','rounding_scale','maximum_pixels_per_image','maximum_images','result_path','result_item_url']));
-                $result['meter_status']=$type==='image'&&$resource==='model'?'recognized_pixel_upper_bound':'unsupported_meter';
+                $result['meter_status']=$type==='image'&&($resource==='model'||($resource==='app_api'&&$appCode==='nano_banana'))?'recognized_pixel_upper_bound':'unsupported_meter';
             }
             if ($type === 'image' && !in_array($meter['basis'], ['call','image','megapixel'], true)) $result['meter_status'] = 'unsupported_meter';
             if ($type === 'video' && in_array($meter['basis'], ['image','megapixel'], true)) $result['meter_status'] = 'unsupported_meter';

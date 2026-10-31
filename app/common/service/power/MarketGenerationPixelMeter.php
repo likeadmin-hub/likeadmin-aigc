@@ -26,6 +26,11 @@ final class MarketGenerationPixelMeter
         return ($meter['version']??null)===3 && ($meter['basis']??null)==='megapixel';
     }
 
+    public static function assertUnitSize($size): void
+    {
+        if(!is_numeric($size)||!is_finite((float)$size)||(float)$size<1)throw new InvalidArgumentException('像素计费单位无效');
+    }
+
     public static function upperBound(array $meter, int $images): float
     {
         if ($images<1 || $images>$meter['maximum_images']) throw new InvalidArgumentException('图片数量超过像素计量合同上限');
