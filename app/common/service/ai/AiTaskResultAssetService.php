@@ -108,9 +108,10 @@ class AiTaskResultAssetService
             self::hydrateStoredSummary((int)$asset['consumption_id'],[$asset->toArray()]);
             AiTaskJobService::requeueProcessResult((int)$asset['consumption_id']);
         } catch (\Throwable $e) {
-            $asset->save([
+            // A later projection/queue error must not reopen a completed upload.
+            AiTaskResultAsset::where('id', $assetId)->where('transfer_status', '<>', 'stored')->update([
                 'transfer_status' => 'retrying',
-                'transfer_attempts' => (int)$asset['transfer_attempts'] + 1,
+                'transfer_attempts' => \think\facade\Db::raw('transfer_attempts + 1'),
                 'last_error' => mb_substr($e->getMessage(), 0, 1000),
                 'update_time' => time(),
             ]);
