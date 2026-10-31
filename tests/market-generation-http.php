@@ -102,7 +102,7 @@ try {
     Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'status'=>1,'config_json'=>'{}','create_time'=>time(),'update_time'=>time()]);
     $drama=dataHttp($api,'/api/app.aigc_short_drama.canvas/create'.$suffix,['title'=>'Private HTTP drama'], $token);
     $dramaId=(int)$drama['id'];$dramaNode=['id'=>'1','type'=>'video','title'=>'Synthetic video','position'=>['x'=>0,'y'=>0],'metadata'=>['prompt'=>'Synthetic colored block','channel'=>$request['channel'],'status'=>'idle','quality'=>'720P','duration'=>1,'ratio'=>'1:1']];
-    $drama=dataHttp($api,'/api/app.aigc_short_drama.canvas/save'.$suffix,['id'=>$dramaId,'nodes'=>[$dramaNode],'edges'=>[],'viewport'=>[],'expected_revision'=>$drama['revision']],$token);
+    $drama=dataHttp($api,'/api/app.aigc_short_drama.canvas/save'.$suffix,['id'=>$dramaId,'nodes'=>[$dramaNode],'edges'=>[],'viewport'=>[],'expected_revision'=>$drama['graph_revision']],$token);
     $input=$request;unset($input['project_id']);$input=array_replace($input,['canvas_id'=>$dramaId,'node_id'=>'1','type'=>'video','request_key'=>$prefix.'drama']);
     $quoted=dataHttp($api,'/api/app.aigc_short_drama.canvas/quote'.$suffix,$input,$token);
     dataHttp($api,'/api/app.aigc_short_drama.canvas/confirmQuote'.$suffix,$input+['quote_token'=>$quoted['quote_token']],$token);
