@@ -89,6 +89,9 @@ class MarketBoundedTokenBillingTest extends TestCase
             $sku=PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$key,'title'=>'Offline fixture','locked_params'=>['duration'=>4,'resolution'=>'720P'],'usage_unit'=>'token','usage_unit_size'=>1000,'upstream_price'=>10,'sale_points'=>10,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>self::declaration()],'create_time'=>time(),'update_time'=>time()]);
             $request=['resource_type'=>'model','model_id'=>'market_video_model:'.$p['id'],'market_sku_id'=>$sku['id'],'prompt'=>'Synthetic bounded Token fixture','duration'=>4,'quality'=>'720P','ratio'=>'1:1','generation_method'=>'text_to_video','maximum_quantity'=>1,'token_budget'=>1];
             $quote=Videos::quote(1,$request);self::assertSame(1000.,$quote['quantity']);self::assertSame(10.,$quote['user_charge_points']);self::assertSame('actual_usage',$quote['settlement_mode']);
+            $admission=Videos::openPlatformAdmissionQuote(1,$request);
+            self::assertSame($quote['market_sku_id'],$admission['quote']['market_sku_id']);self::assertSame($quote['user_charge_points'],$admission['quote']['user_charge_points']);
+            self::assertSame(10.,\app\common\service\open_platform\OpenToolAdapter::estimateBudget($admission['quote'])['user']);
             if(in_array($scenario,['user_insufficient','tenant_insufficient'],true)){
                 if($scenario==='user_insufficient')Db::name('user')->where('id',$user)->update(['user_money'=>0]);
                 else Db::name('tenant')->where('id',1)->update(['point_balance'=>0]);
