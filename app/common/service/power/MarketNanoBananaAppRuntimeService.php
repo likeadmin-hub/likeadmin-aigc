@@ -189,6 +189,7 @@ class MarketNanoBananaAppRuntimeService
     {
         if (MarketUsageSettlementService::isActualUsageSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
         $meter = MarketGenerationMeter::hasDeclaration($market['sku']) ? MarketGenerationMeter::contract($market['sku']) : null;
+        if ($meter!==null && MarketGenerationPixelMeter::applies($meter)) throw new Exception('该图片应用尚未接入实际像素回执结算');
         if ($meter !== null && !in_array($meter['basis'], ['call','image','megapixel'], true)) throw new Exception('该图片应用计费数量规则尚未适配');
         if ($meter !== null) $market['billing_meter'] = $meter;
         $prepared = self::prepareRequest(self::snapshot($market), $request, '', $tenantId, $deferMissingPrompt);

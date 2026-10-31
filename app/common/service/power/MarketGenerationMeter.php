@@ -67,6 +67,7 @@ final class MarketGenerationMeter
     private static function structured($value, string $summary, string $unit): array
     {
         $invalid = static fn() => new InvalidArgumentException('模型结构化计费规则无效或尚未适配，请同步并核验模型价格');
+        if (is_array($value) && ($value['version'] ?? null)===3) return MarketGenerationPixelMeter::contract($value,$summary,$unit);
         // Version 2 is a trusted SKU-wide hard bound, not a browser budget or
         // an estimate inferred from resolution, seconds or a model name.
         if (is_array($value) && ($value['version'] ?? null) === 2) {
@@ -125,6 +126,7 @@ final class MarketGenerationMeter
             $context['reference_video_seconds']=(float)$seconds;
         }
         if ($contract['basis'] === 'megapixel') {
+            if (MarketGenerationPixelMeter::applies($contract)) return $context;
             // Resolution labels and browser metadata do not prove billed pixel dimensions.
             throw new InvalidArgumentException('该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格');
         }
@@ -134,6 +136,9 @@ final class MarketGenerationMeter
     public static function price(float $price, float $quantity, array $snapshot): float
     {
         $meter = $snapshot['billing_meter'] ?? null;
+        if ($meter && MarketGenerationPixelMeter::applies($meter)
+            && (!is_finite($quantity)||$quantity<=0||$quantity>MarketGenerationPixelMeter::upperBound($meter,$meter['maximum_images'])))
+            throw new InvalidArgumentException('像素计费数量超过合同上限或无效');
         if ($meter && self::boundedToken($meter) && (!is_finite($quantity) || $quantity<1 || floor($quantity)!==$quantity || $quantity>$meter['maximum_quantity']))
             throw new InvalidArgumentException('Token 计费数量超过合同上限或无效');
         $size = max(1, (float)($snapshot['usage_unit_size'] ?? 1));

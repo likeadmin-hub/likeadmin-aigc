@@ -10,18 +10,18 @@ use Exception;
 
 class AigcImageAssetService
 {
-    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0): array
+    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, bool $safeDownload = false): array
     {
         if (str_starts_with($url, 'data:image/')) {
-            return self::persistDataUri($url, $tenantId, $userId);
+            return self::persistDataUri($url, $tenantId, $userId, $safeDownload);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $safeDownload);
         }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload): array
     {
         $context = stream_context_create([
             'http' => [
@@ -31,15 +31,15 @@ class AigcImageAssetService
                 'header' => "User-Agent: LikeAdminAigcImage/1.0\r\n",
             ],
         ]);
-        $openDownload=\app\common\service\open_platform\OpenCallContext::active()?\app\common\service\open_platform\OpenSafeHttp::get($url,20971520):null;
+        $openDownload=$safeDownload||\app\common\service\open_platform\OpenCallContext::active()?\app\common\service\open_platform\OpenSafeHttp::get($url,20971520):null;
         $content = $openDownload!==null?$openDownload['body']:@file_get_contents($url, false, $context);
         if ($content === false || $content === '') {
             throw new Exception('生成图片下载失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content));
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $safeDownload);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, bool $verifyOutput = false): array
     {
         if (!preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成图片格式错误');
@@ -49,11 +49,13 @@ class AigcImageAssetService
             throw new Exception('生成图片解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false): array
     {
+        $verifiedSize=$verifyOutput?self::verifiedImageInfo($content):null;
+        if($verifiedSize!==null)$ext=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp','image/gif'=>'gif'][$verifiedSize['mime']];
         $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? $ext : 'png';
         $tmp = tempnam(sys_get_temp_dir(), 'aigc_image_');
         if ($tmp === false) {
@@ -62,7 +64,7 @@ class AigcImageAssetService
         $tmpPath = $tmp . '.' . $ext;
         @rename($tmp, $tmpPath);
         file_put_contents($tmpPath, $content);
-        $size = @getimagesize($tmpPath) ?: [];
+        $size = $verifiedSize ?? (@getimagesize($tmpPath) ?: []);
         try {
             $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId);
         } finally {
@@ -77,6 +79,14 @@ class AigcImageAssetService
             'storage_engine' => $stored['storage_engine'],
             'storage_domain' => $stored['storage_domain'],
         ];
+    }
+
+    private static function verifiedImageInfo(string $content): array
+    {
+        $info=strlen($content)<=20971520?@getimagesizefromstring($content):false;
+        if(!$info||($info[0]??0)<1||($info[1]??0)<1||!in_array($info['mime']??'', ['image/png','image/jpeg','image/webp','image/gif'],true))
+            throw new Exception('生成图片不是可核验的图片内容');
+        return $info;
     }
 
     private static function uploadLocalFile(string $filePath, int $tenantId, int $userId): array

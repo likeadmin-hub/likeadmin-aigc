@@ -94,6 +94,7 @@ final class MarketGenerationCompatibilityAudit
             $meter = MarketGenerationMeter::contract($sku);
             $result['meter'] = array_intersect_key($meter, array_flip(['source','basis','round_up','free_images','image_numerator','image_denominator']));
             $result['meter_status'] = $meter['basis'] === 'megapixel' ? 'requires_verified_pixels' : 'recognized';
+            if(MarketGenerationPixelMeter::applies($meter))$result['meter_status']=$type==='image'&&$resource==='model'?'recognized_pixel_upper_bound':'unsupported_meter';
             if ($type === 'image' && !in_array($meter['basis'], ['call','image','megapixel'], true)) $result['meter_status'] = 'unsupported_meter';
             if ($type === 'video' && in_array($meter['basis'], ['image','megapixel'], true)) $result['meter_status'] = 'unsupported_meter';
         } catch (\InvalidArgumentException) {
