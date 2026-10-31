@@ -27,7 +27,9 @@ function marketDeepSupplier(string $path,string $dir): bool
             $segments=[];foreach([1,2]as$i)$segments[]=['title'=>'色块镜头'.$i,'duration'=>2,'prompt'=>"0-1秒：同一彩色色块向右移动。\n1-2秒：延续动作，保持背景。",'image_indices'=>[0],'start_state'=>'色块在左侧','end_state'=>'色块在右侧','continuity'=>'同一色块与背景'];
             $content=json_encode(['prompt'=>'四秒色块移动','continuity'=>'同一色块与背景','segments'=>$segments],JSON_UNESCAPED_UNICODE);
         }
-        echo json_encode(['id'=>'deep-chat-1','object'=>'chat.completion','choices'=>[['index'=>0,'message'=>['role'=>'assistant','content'=>$content],'finish_reason'=>'stop']],'usage'=>['prompt_tokens'=>20,'completion_tokens'=>30,'total_tokens'=>50]],JSON_UNESCAPED_UNICODE);return true;
+        header('Content-Type: text/event-stream');
+        echo 'data: '.json_encode(['id'=>'deep-chat-1','choices'=>[['index'=>0,'delta'=>['role'=>'assistant','content'=>$content],'finish_reason'=>null]]],JSON_UNESCAPED_UNICODE)."\n\n";
+        echo 'data: '.json_encode(['id'=>'deep-chat-1','choices'=>[['index'=>0,'delta'=>new stdClass(),'finish_reason'=>'stop']],'usage'=>['prompt_tokens'=>20,'completion_tokens'=>30,'total_tokens'=>50]])."\n\ndata: [DONE]\n\n";return true;
     }
     if(preg_match('~^/api/v1/apps/music_generation/(voice_clone|wav|midi|mp4|vox|timing|upload_audio|persona)$~',$path,$m)) {
         $op=$m[1];$record('music_'.$op);
@@ -41,6 +43,8 @@ function marketDeepSupplier(string $path,string $dir): bool
         echo json_encode(['code'=>1,'data'=>['result'=>$result]]);return true;
     }
     if(preg_match('~^/api/v1/tasks/deep-export-(wav|midi|vox)$~',$path,$m)) {
+        $counter=$dir.'/query-'.$m[1];$n=is_file($counter)?(int)file_get_contents($counter):0;file_put_contents($counter,(string)($n+1));
+        if($n===0){echo json_encode(['code'=>1,'data'=>['status'=>'processing']]);return true;}
         $result=['status'=>'completed'];
         if($m[1]==='vox')$result['audio_id']='deep-vox-id';else$result['file_url']='https://private-media.example.test/fixture/export.'.$m[1];
         echo json_encode(['code'=>1,'data'=>['result'=>$result]]);return true;
