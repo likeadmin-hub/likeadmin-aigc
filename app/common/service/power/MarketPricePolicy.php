@@ -20,6 +20,12 @@ final class MarketPricePolicy
         return $rounded;
     }
 
+    /** Bind exact DECIMAL values as strings; the ORM otherwise coerces them to float. */
+    public static function databaseValue(mixed $value): \think\db\Raw
+    {
+        return \think\facade\Db::raw('?',[[self::amount($value),\PDO::PARAM_STR]]);
+    }
+
     public static function normalize(string $mode, mixed $value): array
     {
         if (!in_array($mode, ['inherit', 'add', 'percent', 'manual'], true)) throw new InvalidArgumentException('定价方式无效');

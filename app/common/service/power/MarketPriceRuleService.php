@@ -134,7 +134,7 @@ final class MarketPriceRuleService
     private static function put(int $owner, string $scope, int $id, string $mode, string $value): void
     {
         $where = ['owner_id' => $owner, 'scope_type' => $scope, 'scope_id' => $id];
-        $data = ['mode' => $mode, 'value' => $value, 'update_time' => time()];
+        $data = ['mode' => $mode, 'value' => MarketPricePolicy::databaseValue($value), 'update_time' => time()];
         $row = Db::name('power_market_price_rule')->where($where)->find();
         if ($row) Db::name('power_market_price_rule')->where('id', $row['id'])->update($data);
         else Db::name('power_market_price_rule')->insert($where + $data + ['revision' => 0, 'follow_apps' => 0, 'create_time' => time()]);

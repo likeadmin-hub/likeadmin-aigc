@@ -99,7 +99,7 @@ class PowerMarketService
                 }
                 if (($price['manual_override'] ?? true) !== false) MarketPriceRuleService::manual(0, $productId, $skuId, $sale);
                 PowerMarketSku::where('id', $skuId)->update([
-                    'sale_points' => MarketPricePolicy::amount($sale),
+                    'sale_points' => MarketPricePolicy::databaseValue($sale),
                     'sale_status' => (int)($price['sale_status'] ?? $price['status'] ?? 1) === 1 ? 1 : 0,
                     'update_time' => time(),
                 ]);
@@ -1322,8 +1322,8 @@ class PowerMarketService
             'usage_unit' => $usageUnit,
             // PDO string conversion must not discard the sixth decimal of a
             // large unit/price before the DECIMAL column receives it.
-            'usage_unit_size' => number_format(max(1, (float)($sku['usage_unit_size'] ?? 1)),6,'.',''),
-            'upstream_price' => MarketPricePolicy::amount(max(0, (float)($price['points'] ?? 0))),
+            'usage_unit_size' => MarketPricePolicy::databaseValue(max(1, (float)($sku['usage_unit_size'] ?? 1))),
+            'upstream_price' => MarketPricePolicy::databaseValue(max(0, (float)($price['points'] ?? 0))),
             'price_hash' => sha1(json_encode($sku, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
             'source_payload' => self::skuSnapshot($sku),
             'status' => 1,
