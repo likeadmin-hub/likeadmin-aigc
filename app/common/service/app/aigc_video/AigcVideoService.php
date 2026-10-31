@@ -715,6 +715,7 @@ class AigcVideoService
                 (array)($row['reference_assets'] ?: [])
             );
         }
+        self::appendRequestDurations($rows);
         if ($usePage) {
             return [
                 'lists' => $rows,
@@ -739,6 +740,9 @@ class AigcVideoService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
+        $history = [$data];
+        self::appendRequestDurations($history);
+        $data = $history[0];
         self::appendTaskModelDisplay($data);
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
         $data['reference_image_urls'] = self::referenceImageUrls(
@@ -855,6 +859,7 @@ class AigcVideoService
                 (array)($task['reference_assets'] ?: [])
             );
         }
+        self::appendRequestDurations($tasks);
         return $tasks;
     }
 
@@ -959,6 +964,34 @@ class AigcVideoService
             ];
         }
         return $query->limit($defaultLimit)->select()->toArray();
+    }
+
+    /** Enrich response copies in one bounded read; never repair terminal task rows. */
+    private static function appendRequestDurations(array &$tasks): void
+    {
+        $ids=[];
+        foreach($tasks as$task)if(self::historicalRequestDuration($task,null)===null&&($task['consumption_id']??0)>0)$ids[]=(int)$task['consumption_id'];
+        $logs=[];
+        if($ids!==[])foreach(Db::name('ai_consumption_log')->whereIn('id',array_unique($ids))
+            ->whereIn('tenant_id',array_unique(array_column($tasks,'tenant_id')))
+            ->field('id,tenant_id,user_id,app_task_id,request_summary')->select()->toArray()as$log)$logs[(int)$log['id']]=$log;
+        foreach($tasks as&$task){
+            $duration=self::historicalRequestDuration($task,$logs[(int)($task['consumption_id']??0)]??null);
+            if($duration!==null)$task['request_duration']=$duration;
+        }unset($task);
+    }
+
+    /** Requested duration can differ from the measured result duration. */
+    private static function historicalRequestDuration(array $task,?array $log): ?int
+    {
+        $valid=static fn($v)=>is_numeric($v)&&is_finite((float)$v)&&(float)$v===(float)(int)$v;
+        $model=$task['model_json']??[];if(!is_array($model))$model=json_decode((string)$model,true)?:[];
+        if($valid($model['duration']??null))return (int)$model['duration'];
+        if($log===null||(int)($task['consumption_id']??0)<=0||(int)($task['app_task_id']??0)<=0)return null;
+        foreach(['consumption_id'=>'id','tenant_id'=>'tenant_id','user_id'=>'user_id','app_task_id'=>'app_task_id']as$taskKey=>$logKey)
+            if((int)($task[$taskKey]??0)!==(int)($log[$logKey]??0))return null;
+        $summary=$log['request_summary']??[];if(!is_array($summary))$summary=json_decode((string)$summary,true)?:[];
+        return $valid($summary['duration']??null)?(int)$summary['duration']:null;
     }
 
     private static function appendTaskModelDisplay(array &$task): void
