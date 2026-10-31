@@ -46,7 +46,7 @@ class MarketNativeMeterExpansionTest extends TestCase
             $meta=['method'=>'POST','call_type'=>2,'params_schema'=>['prompt'=>['type'=>'string','required'=>true]],'material_capabilities'=>['modes'=>[['code'=>$video?'text_to_video':'text_to_image','method'=>$video?'text_to_video':'text_to_image','fields'=>[]]]]];
             $raw=['model'=>'offline-image','channel'=>'offline','prompt'=>'Synthetic native meter fixture'];$locks=[];
             if($nano){$f=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/canvas-generation-market-contracts.json'),true);foreach($f['contracts']as$r)if(($r['app_code']??'')==='nano_banana'){$meta=$r;break;}$locks=['model'=>'nano-banana-2','resolution'=>'1K'];$raw=['model'=>'nano-banana-2','action'=>'generate','resolution'=>'1K','aspect_ratio'=>'1:1','prompt'=>'Synthetic Nano fixture'];}
-            if($video){$f=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/canvas-generation-market-contracts.json'),true);foreach($f['contracts']as$r)if(($r['app_code']??'')==='grok_video'){$meta=$r;break;}$meta['category_code']='video';$locks=['duration'=>6,'resolution'=>'720p'];$raw=['prompt'=>'Synthetic video app fixture','duration'=>6,'resolution'=>'720p','ratio'=>'16:9'];}
+            if($video){$f=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/canvas-generation-market-contracts.json'),true);foreach($f['contracts']as$r)if(($r['app_code']??'')==='grok_video'){$meta=$r;break;}$meta['category_code']='video';$locks=['model'=>'grok-imagine-video-1.5-fast','duration'=>6,'resolution'=>'720p'];$raw=['model'=>'grok-imagine-video-1.5-fast','prompt'=>'Synthetic video app fixture','duration'=>6,'resolution'=>'720p','ratio'=>'16:9'];}
             if(!$nano&&!$video)$raw['n']=2;
             $meta['developer_doc_content']="```json\n".json_encode($raw)."\n```\n```json\n".json_encode(['data'=>['task_id'=>'offline-task','status'=>'success','image_urls'=>['https://fixtures.invalid/out.png']]])."\n```";
             $p=Product::create(['product_code'=>$key,'name'=>'Offline meter fixture','resource_type'=>($nano||$video)?'app_api':'model','model_type'=>$video?'video':'image','upstream_model_code'=>($nano||$video)?'':'offline-image','upstream_channel_code'=>($nano||$video)?'':'offline','upstream_app_code'=>$nano?'nano_banana':($video?'grok_video':''),'upstream_api_code'=>$nano?'submit':($video?'create':''),'source_payload'=>['market_metadata'=>$meta,'resource'=>['max_reference_images'=>2]],'source_code'=>'offline-fixture','upstream_resource_key'=>$key,'status'=>1,'create_time'=>time(),'update_time'=>time()]);
@@ -71,6 +71,11 @@ class MarketNativeMeterExpansionTest extends TestCase
                     try{Billing::reserve($row,$budget);self::fail('Upper bound must be funded');}catch(\RuntimeException $e){self::assertNotSame('',$e->getMessage());}self::assertSame($low,$this->balances($user));
                 }else{
                 Billing::reserve($row,$budget);$log=AiConsumptionLog::where('consume_no',$rid)->find();self::assertSame(round($before['user']-$upper,2),$this->balances($user)['user']);
+                if($scenario==='lease_lost'){
+                    Store::table('request')->where('id',$row['id'])->update(['lease_token'=>'new-worker','lease_expire'=>time()+60]);Context::enter($rid,'old-worker');
+                    try{Billing::settle($row,['data'=>['image_urls'=>['http://127.0.0.1/never-download']]],false);self::fail('Lost lease must reject before a download or charge');}catch(OpenException $e){self::assertSame('recovery_lease_lost',$e->errorType);}
+                    self::assertSame(round($before['user']-$upper,2),$this->balances($user)['user']);Context::enter($rid,'new-worker');
+                }
                 $source=$s['source_payload'];$source['meter_contract'][$pixel?'maximum_pixels_per_image':'maximum_quantity']=2000000;$s->save(['source_payload'=>$source,'sale_points'=>99]);
                 if(in_array($scenario,['missing','over_bound','invalid_bytes','too_many'],true)){
                     $bad=$pixel?['data'=>['image_urls'=>[]]]:['data'=>['metadata'=>['total_tokens'=>250]]];
@@ -91,7 +96,7 @@ class MarketNativeMeterExpansionTest extends TestCase
     public static function scenarios(): array
     {
         $out=[];foreach(['image_token','nano_token','video_app_token','image_pixel','nano_pixel']as$kind)foreach(['success','missing','over_bound','failure','stale_binding']as$s)$out[]=[$kind,$s];
-        foreach(['invalid_bytes','too_many','user_insufficient','tenant_insufficient']as$s)$out[]=['image_pixel',$s];foreach(['user_insufficient','tenant_insufficient']as$s)$out[]=['image_token',$s];return $out;
+        foreach(['invalid_bytes','too_many','user_insufficient','tenant_insufficient','lease_lost']as$s)$out[]=['image_pixel',$s];foreach(['user_insufficient','tenant_insufficient']as$s)$out[]=['image_token',$s];return $out;
     }
     private function balances(int $user): array{return ['tenant'=>(float)Db::name('tenant')->where('id',1)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money')];}
 }
