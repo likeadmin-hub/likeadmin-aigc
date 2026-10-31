@@ -73,7 +73,7 @@
   },
   "browser_projects": [
     {
-      "entry": "ordinary_canvas",
+      "entry": "canvas",
       "project_id": 1343,
       "node_count": 1,
       "generation_runs": 0,
@@ -89,10 +89,14 @@
       "same_viewport": true,
       "status": "http_graph_state_preserved",
       "market_product_id": 355,
-      "market_sku_id": 783
+      "market_sku_id": 783,
+      "tenant_id": 1,
+      "model_type": "video",
+      "resource_type": "model",
+      "generation_method": "text_to_video"
     },
     {
-      "entry": "short_drama_canvas",
+      "entry": "short_drama",
       "project_id": 554,
       "node_count": 1,
       "generation_runs": 0,
@@ -108,7 +112,11 @@
       "same_viewport": true,
       "status": "http_graph_state_preserved",
       "market_product_id": 355,
-      "sku_identity_captured": false
+      "sku_identity_captured": false,
+      "tenant_id": 1,
+      "model_type": "video",
+      "resource_type": "model",
+      "generation_method": "text_to_video"
     }
   ],
   "concurrent_user_edit": "User confirmed manually operating project 1343; after control was returned, final before/after snapshots were recaptured. No automated model drift finding.",
@@ -173,5 +181,10 @@
     "server_public_flags": 3971,
     "web_local_flags": 3,
     "existing_worker_restarted": false
-  }
+  },
+  "browser_screenshots": [
+    "/Users/panda/.codex/visualizations/2026/10/30/01a18c5a-529f-7781-97be-a101d579cb0b/unification/creation-options.jpg",
+    "/Users/panda/.codex/visualizations/2026/10/30/01a18c5a-529f-7781-97be-a101d579cb0b/unification/canvas-http-reopened.jpg",
+    "/Users/panda/.codex/visualizations/2026/10/30/01a18c5a-529f-7781-97be-a101d579cb0b/unification/short-drama-http-reopened.jpg"
+  ]
 }
