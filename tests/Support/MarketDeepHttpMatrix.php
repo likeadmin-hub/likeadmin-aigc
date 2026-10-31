@@ -64,6 +64,7 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     }
     $denied=callHttp($api,'/api/app.aigc_micro_video.generate/estimate'.$suffix,['id'=>$micro],$token);
     $check($denied['code']!==1,'Video accepted unconfirmed anchor images');
+    if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')$detail=runMarketFrameRecoveryHttp($f,$api,$suffix,$token,$micro,$detail,$product,$report);
     $ready=$post('aigc_micro_video.frame/confirm',['id'=>$micro,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision']]);
     $quote=$post('aigc_micro_video.generate/estimate',['id'=>$micro,'plan_revision'=>$ready['plan_revision']]);
     $confirm=['id'=>$micro,'plan_revision'=>$ready['plan_revision'],'quote_token'=>$quote['quote_token'],'idempotency_key'=>'deep-video-confirm'];$post('aigc_micro_video.generate/index',$confirm);$post('aigc_micro_video.generate/index',$confirm);
