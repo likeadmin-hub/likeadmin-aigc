@@ -707,7 +707,7 @@ class MarketImageModelRuntimeService
             try{
                 $images=(array)($summary['images']??[]);
                 if(!$images&&$receipt)$images=self::images($receipt,(int)$c['tenant_id'],(int)$c['user_id'],(array)$c['price_snapshot']);
-                if($images){self::retainReadyImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt??[]);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
+                if($images){self::retainReadyImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt??[]);self::enqueueResultJob($consumptionId,true);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
             }catch(\Throwable $e){self::recordRefreshError($consumptionId,(string)$c['upstream_task_id'],$e);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
         }
         $taskId = trim((string)$c['upstream_task_id']);
@@ -1942,7 +1942,11 @@ class MarketImageModelRuntimeService
      */
     private static function enqueueResultJob(int $consumptionId, bool $processResult = false): void
     {
-        $micro=AiConsumptionLog::findOrEmpty($consumptionId);if(!$micro->isEmpty()&&MicroVideoSubmission::applies($micro->toArray()))return;
+        // The micro stage owns provider polling. Completed local images still
+        // need the common result job to register their canonical asset receipt.
+        $micro=AiConsumptionLog::findOrEmpty($consumptionId);
+        if(!$micro->isEmpty()&&MicroVideoSubmission::applies($micro->toArray())
+            && (!$processResult || $micro['run_status']!=='success' || $micro['billing_status']!=='settled'))return;
         try {
             if ($processResult) {
                 AiTaskJobService::enqueueProcessResult($consumptionId);
