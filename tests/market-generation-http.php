@@ -215,7 +215,7 @@ try {
         $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     }
     if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')require __DIR__.'/Support/MarketRecoveryHttpMatrix.php';
-    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1') {
+    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1'&&getenv('AIGC_HTTP_CLIP_WORKER_ONLY')!=='1') {
         require __DIR__.'/Support/MarketDeepHttpMatrix.php';$report['deep_matrix']=[];
         runMarketDeepHttpMatrix($fixture,$api,$suffix,$token,$imageUri,$urls['supplier'],$report['deep_matrix']);
     }

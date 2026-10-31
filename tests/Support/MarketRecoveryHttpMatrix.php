@@ -39,20 +39,8 @@ function runMarketRecoveryHttpMatrix($f,$api,$suffix,$token,$supplier,array &$re
     $post=fn($route,$p)=>dataHttp($api,'/api/app.'.$route.$suffix,$p,$token);
     $get=fn($route,$id)=>dataHttp($api,'/api/app.'.$route.$suffix.'&id='.$id,[],$token,'GET');
     $report['phase']='smart_clip';
-    think\facade\Db::name('smart_clip_channel')->insert(['tenant_id'=>0,'code'=>'private-clip','name'=>'Private clip','provider'=>'xhadmin','model'=>'smart_clip','status'=>1,'config_json'=>'{}']);
-    think\facade\Db::name('smart_clip_channel_spec')->insert(['tenant_id'=>0,'channel_code'=>'private-clip','quality'=>'1','quality_label'=>'1秒','ratio'=>'duration','platform_unit_cost'=>1,'tenant_unit_price'=>1,'status'=>1,'provider_params_json'=>'{}']);
-    foreach(['realman_broadcast','broadcast_mixcut','news_mixcut']as$i=>$kind){
-        $form=['api'=>$kind,'channel'=>'private-clip','styleId'=>'private-template','title'=>'Synthetic clip '.$kind,'videoUrl'=>$supplier.'/fixture/result.mp4','audioUrl'=>$supplier.'/fixture/input.wav','materials'=>[['type'=>'video','url'=>$supplier.'/fixture/result.mp4','duration'=>2]],'processRules'=>['videoDuration'=>2],'duration'=>2];
-        $q=$post('smart_clip.generate/estimate',$form);$check((float)$q['user_charge_points']===2.,'Private clip quote not per second');
-        $accepted=$post('smart_clip.generate/index',$form);$id=(int)$accepted['task_id'];$same=$post('smart_clip.generate/index',$form);$check($same['task_id']===$id,'Clip duplicate submitted twice');
-        if($i===0){file_put_contents($f->dir.'/clip-download-fail','1');$pending=$get('smart_clip.task/detail',$id);$check($pending['status']==='running','Accepted clip became terminal on temporary result download failure');unlink($f->dir.'/clip-download-fail');}
-        if($i===2)think\facade\Db::name('smart_clip_channel')->where('code','private-clip')->update(['status'=>0]);
-        $done=$get('smart_clip.task/detail',$id);$check($done['status']==='success'&&$done['error']===''&&count($done['results'])===1,'Accepted clip did not survive storage/config recovery');
-        $clipFile=$f->dir.'/public/'.$done['results'][0]['video_uri'];$check(is_file($clipFile)&&hash_file('sha256',$clipFile)===hash_file('sha256',$f->dir.'/synthetic.mp4'),'Native clip stored bytes differ');
-        $bill=think\facade\Db::name('smart_clip_billing')->where('task_id',$id)->find();$check($bill!==null,'Clip native bill missing');
-        $before=think\facade\Db::name('smart_clip_task')->where('id',$id)->find();$get('smart_clip.task/detail',$id);$check($before===think\facade\Db::name('smart_clip_task')->where('id',$id)->find(),'Clip terminal read changed row');
-        $report['smart_clip'][$kind]=['normal_http_quote_submit_duplicate_result_native_bill_history'=>true,'stored_video_checksum'=>true,'temporary_download_recovery'=>$i===0,'accepted_channel_disabled_recovery'=>$i===2];
-    }
+    require_once __DIR__.'/MarketClipWorkerHttpMatrix.php';runMarketClipWorkerHttp($f,$api,$suffix,$token,$supplier,$report);
+    if(getenv('AIGC_HTTP_CLIP_WORKER_ONLY')==='1'){$report['phase']='complete';return;}
     $report['phase']='music_text';
     foreach(['lyrics','mashup_lyrics','style']as$op){$p=app\common\model\power\PowerMarketProduct::create(['product_code'=>$f->prefix.$op,'name'=>'Private '.$op,'resource_type'=>'app_api','model_type'=>'audio','upstream_app_code'=>'music_generation','upstream_api_code'=>$op,'source_code'=>'isolated-fixture','upstream_resource_key'=>$f->prefix.$op,'status'=>1]);app\common\model\power\PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$f->prefix.$op,'title'=>'Private text','locked_params'=>[],'usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>1,'upstream_price'=>1,'sale_status'=>1,'status'=>1]);}
     foreach(['lyrics'=>['prompt'=>'Synthetic colored blocks'],'mashup_lyrics'=>['lyrics_a'=>'彩色色块','lyrics_b'=>'随节奏移动']]as$op=>$params){$r=$post('aigc_music.'.$op.'/index',$params);$check($r['status']==='success'&&trim($r['lyrics']??'')!=='','Music '.$op.' did not complete');$id=(int)$r['task_id'];$get('aigc_music.task/detail',$id);$report['music_text'][$op]=['normal_login_http'=>true,'native_task_and_settlement'=>true];}
@@ -84,7 +72,7 @@ function runMarketRecoveryHttpMatrix($f,$api,$suffix,$token,$supplier,array &$re
     $statuses=array_count_values(array_column($bills,'billing_status'));
     $check(($statuses['refunded']??0)===1&&($statuses['settled']??0)===count($bills)-1,'Recovery billing not terminal');
     $clips=think\facade\Db::name('smart_clip_billing')->select()->toArray();
-    $check(count($clips)===3&&array_column($clips,'billing_status')===['deducted','deducted','deducted'],'Native clip billing missing or duplicated');
+    $check(count($clips)===4&&count(array_filter($clips,fn($c)=>$c['billing_status']==='deducted'))===4,'Native clip billing missing or duplicated');
     $userCost=array_sum(array_column($bills,'actual_user_price'))+array_sum(array_column($clips,'user_charge_points'));
     $tenantCost=array_sum(array_column($bills,'actual_tenant_cost'))+array_sum(array_column($clips,'tenant_cost_points'));
     $check(abs(100-(float)think\facade\Db::name('user')->where('id',$u)->value('user_money')-$userCost)<0.000001,'Recovery user ledger mismatch');

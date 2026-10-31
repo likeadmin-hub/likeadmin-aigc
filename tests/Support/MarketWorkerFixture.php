@@ -52,10 +52,10 @@ class MarketWorkerFixture
             [0=>['pipe','r'],1=>['file',$this->dir.'/'.$role.'.log','a'],2=>['file',$this->dir.'/'.$role.'.log','a']],$pipes,null,array_merge(getenv(),['TMPDIR'=>$this->dir.'/tmp']));
         self::check(is_resource($process),'Cannot start owned worker');fclose($pipes[0]);$this->children[$role]=$process;
     }
-    public function stop(string $role='worker'): void
+    public function stop(string $role='worker',bool $kill=false): void
     {
         if(!isset($this->children[$role]))return;$process=$this->children[$role];$state=proc_get_status($process);
-        if($state['running'])posix_kill($state['pid'],SIGTERM);
+        if($state['running'])posix_kill($state['pid'],$kill?SIGKILL:SIGTERM);
         try{self::wait(fn()=>!proc_get_status($process)['running'],'Owned worker did not stop',5);}
         catch(Throwable){posix_kill($state['pid'],SIGKILL);self::wait(fn()=>!proc_get_status($process)['running'],'Owned worker kill failed',5);}
         proc_close($process);unset($this->children[$role]);
