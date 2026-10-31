@@ -24,11 +24,10 @@ class MarketTransferCheckpointTest extends TestCase
         self::assertContains(Db::connect()->getConfig('database'), ['x_cn', 'z_cn']);
         $root = new \ReflectionProperty(\think\App::class, 'rootPath'); $root->setAccessible(true); $old = $root->getValue(app());
         $dir = sys_get_temp_dir() . '/b52-storage-' . bin2hex(random_bytes(8)); mkdir($dir, 0700); mkdir($dir . '/public', 0700); $root->setValue(app(), $dir . '/');
-        $event = new \ReflectionProperty(\think\Model::class, 'event'); $event->setAccessible(true); $oldEvent = $event->getValue();
         Db::startTrans();
-        try { $check($dir, $oldEvent); }
+        try { $check($dir); }
         finally {
-            \think\Model::setEvent($oldEvent); Db::rollback(); $root->setValue(app(), $old);
+            Db::rollback(); $root->setValue(app(), $old);
             $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
             foreach ($files as $file) { if ($file->isDir()) rmdir($file->getPathname()); else unlink($file->getPathname()); } rmdir($dir);
         }
@@ -61,18 +60,18 @@ class MarketTransferCheckpointTest extends TestCase
     /** @dataProvider interruptions */
     public function testLocalBytesRecoverBeforeOrAfterTheDurableFileReceipt(string $type, bool $beforeReceipt): void
     {
-        $this->local(function ($dir, $oldEvent) use ($type, $beforeReceipt) {
+        $this->local(function ($dir) use ($type, $beforeReceipt) {
             $asset = $this->asset($type); [$ext, $bytes] = $this->media($type);
-            if ($beforeReceipt) \think\Model::setEvent(new class($oldEvent) {
-                public function __construct(private $previous) {}
-                public function trigger($event, $model) {
-                    if ($event === TenantFile::class . '.BeforeInsert' && (int)$model['source_id'] === 199999962) throw new \RuntimeException('fixture interruption after upload');
-                    return $this->previous->trigger($event, $model);
-                }
+            $interrupt = $beforeReceipt;
+            Db::event('after_insert', function ($query) use (&$interrupt) {
+                if ($interrupt && str_ends_with($query->getTable(), 'tenant_file') && (int)($query->getOptions('data')['source_id'] ?? 0) === self::USER) throw new \RuntimeException('fixture interruption after upload');
             });
-            try { $this->persist($asset, $type, $ext, $bytes); self::assertFalse($beforeReceipt); }
-            catch (\RuntimeException $e) { self::assertTrue($beforeReceipt); self::assertSame('fixture interruption after upload', $e->getMessage()); }
-            \think\Model::setEvent($oldEvent); $fresh = AiTaskResultAsset::find($asset['id']); $checkpoint = $fresh['storage_meta']['transfer_checkpoint'];
+            $error = null;
+            try { $this->persist($asset, $type, $ext, $bytes); } catch (\RuntimeException $e) { $error = $e; }
+            $interrupt = false;
+            if ($beforeReceipt) { self::assertNotNull($error); self::assertSame('fixture interruption after upload', $error->getMessage()); }
+            else self::assertNull($error);
+            $fresh = AiTaskResultAsset::find($asset['id']); $checkpoint = $fresh['storage_meta']['transfer_checkpoint'];
             self::assertSame('external', $fresh['transfer_status']); self::assertSame(!$beforeReceipt, isset($checkpoint['receipt']));
             $path = $dir . '/public/' . $checkpoint['uri']; self::assertSame(hash('sha256', $bytes), hash_file('sha256', $path));
             self::assertSame($beforeReceipt ? 0 : 1, (int)TenantFile::where('tenant_id', self::TENANT)->count());
