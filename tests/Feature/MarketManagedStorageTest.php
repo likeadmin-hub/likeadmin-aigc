@@ -20,7 +20,7 @@ class MarketManagedStorageTest extends TestCase
     public function testValidInlineBytesHaveAnOwnedManagedReceiptAndExplicitStorageScope(): void
     {
         $this->local(function($dir){
-            $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a9sAAAAASUVORK5CYII=');
+            $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=');
             $stored=Images::persistGeneratedImage('data:image/png;base64,'.base64_encode($png),199999953,199999954,true,1,['scope'=>'tenant','default'=>'local','engine'=>['local'=>[]]]);
             self::assertTrue($stored['stored']);self::assertSame(1,$stored['width']);self::assertSame(1,$stored['height']);self::assertSame('tenant',$stored['storage_scope']);self::assertSame('local',$stored['storage_engine']);
             self::assertSame(hash('sha256',$png),hash_file('sha256',$dir.'/public/'.$stored['uri']));$row=Db::name('tenant_file')->where(['tenant_id'=>199999953,'source_id'=>199999954,'uri'=>$stored['uri']])->find();self::assertNotEmpty($row);self::assertSame('tenant',$row['storage_scope']);self::assertSame('local',$row['storage_engine']);
