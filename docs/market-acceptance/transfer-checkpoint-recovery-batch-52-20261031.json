@@ -88,25 +88,25 @@
         {
           "title": "b52-synthetic-blue.mp4",
           "media_type": "video",
-          "uri_sha256": "0c3686b6ba48decfef06336261f45d724d502d389b991ffe9051a25c36231390",
+          "uri_sha256": "9b91c74ad3f09871027a63f6618f26ccdef44ff74a1a7d4737915fa599339cbc",
           "asset_id_present": false
         },
         {
           "title": "b52-synthetic-silence.wav",
           "media_type": "audio",
-          "uri_sha256": "f728b4b12c350ea711624a9b63002a0a7fd16b55af5809625ba769df0677b8ff",
+          "uri_sha256": "d7ab9285a166a84045cd8d5ab86fb58f348d86347d6023cca63e6377c1331391",
           "asset_id_present": false
         },
         {
           "title": "b52-managed-image.png",
           "media_type": "image",
-          "uri_sha256": "90d25e69c4c5bcb5bd9e351571ada0d79921f3a75c88b7289ce7462bc7992b10",
+          "uri_sha256": "57035a7a9602adeed0de05518cdf5dd89fb8a708676601a22479173dba9d678f",
           "asset_id_present": false
         },
         {
           "title": "b52-managed-crc-image.png",
           "media_type": "image",
-          "uri_sha256": "81b68d448e2eabdb120af1d83d113bc75ba4e198b71db5e3a3590ceabc18763a",
+          "uri_sha256": "fd7c462435d902294e0e5ff8aba76ae40aa95d70be0513dab03315e0523d2bff",
           "asset_id_present": false
         }
       ]
@@ -129,25 +129,25 @@
         {
           "title": "b52-synthetic-blue.mp4",
           "media_type": "video",
-          "uri_sha256": "6c4460ea65a3a0f4657d9d95e0b8e1a9b05ec9e0eed3b995060c3f18efc1e202",
+          "uri_sha256": "4c103566d5393c15394632379de8497adca28d7b492d2e897d5df81db704370b",
           "asset_id_present": true
         },
         {
           "title": "b52-synthetic-silence.wav",
           "media_type": "audio",
-          "uri_sha256": "866c51fa3a6637fb48eaad051c9bba2aeaa43da6622c2d5bef60a11687c882b6",
+          "uri_sha256": "12bc33284db9fc1e95647c1326aa992a0414ab780239e88a0351b59e200c973c",
           "asset_id_present": true
         },
         {
           "title": "b52-managed-image.png",
           "media_type": "image",
-          "uri_sha256": "16218c593add52e816ddea2c9e9f68c03e9a4b1486a3d77ee133a1d1883cc1d9",
+          "uri_sha256": "f27a61472ac7111ed3763d703199375ebb787757291cc4daa2d3e7af407c6491",
           "asset_id_present": true
         },
         {
           "title": "b52-managed-crc-image.png",
           "media_type": "image",
-          "uri_sha256": "b615c14f261b0cebe897edacba0b098b24af857fb67c4c2e42da41488783ba38",
+          "uri_sha256": "c4a18b319b8fef0082cfa6e7e54828670389db5f9aad235ad221ad23355c13ea",
           "asset_id_present": true
         }
       ]
