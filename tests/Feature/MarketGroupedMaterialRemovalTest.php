@@ -11,8 +11,8 @@ class MarketGroupedMaterialRemovalTest extends TestCase
     public static function snapshot(): array
     {
         $group=['type'=>'array','minItems'=>1,'maxItems'=>1,'items'=>['type'=>'object','properties'=>[
-            'name'=>['type'=>'string','minLength'=>1],'images'=>['type'=>'array','minItems'=>1,'maxItems'=>1,'items'=>['type'=>'string']],
-            'video_url'=>['type'=>'string','minLength'=>1],'audio_url'=>['type'=>'string','minLength'=>1],
+            'name'=>['type'=>'string','minLength'=>1],'images'=>['type'=>'array','minItems'=>1,'maxItems'=>1,'items'=>['type'=>'string','format'=>'uri']],
+            'video_url'=>['type'=>'string','format'=>'uri','minLength'=>1],'audio_url'=>['type'=>'string','format'=>'uri','minLength'=>1],
             'enabled'=>['type'=>'boolean'],'start_time'=>['type'=>'integer','minimum'=>0]],'required'=>['name','images','video_url','audio_url']]];
         return ['resource_type'=>'model','model_code'=>'synthetic-grouped-media','channel_code'=>'fixture','locked_params'=>[],
             'market_metadata'=>['params_schema'=>['type'=>'object','properties'=>['prompt'=>['type'=>'string'],'duration'=>['type'=>'integer'],
@@ -50,16 +50,16 @@ class MarketGroupedMaterialRemovalTest extends TestCase
         elseif($case==='video'||$case==='audio'){unset($r['provider_params']['group_a'][0][$case.'_url']);unset($r['reference_assets'][$case==='video'?1:2]);}
         elseif($case==='name')unset($r['provider_params']['group_a'][0]['name']);
         else $r['provider_params']['group_a'][]=$r['provider_params']['group_a'][0];
-        $this->expectException(\InvalidArgumentException::class);Videos::prepareRequest(self::snapshot(),$r);
+        $this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage(['group'=>'group_a','image'=>'images','video'=>'video_url','audio'=>'audio_url','name'=>'name','over_group_limit'=>'group_a'][$case]);Videos::prepareRequest(self::snapshot(),$r);
     }
     public static function missingInputs(): array {return array_map(static fn($v)=>[$v],['group','image','video','audio','name','over_group_limit']);}
     public function testImageFrozenDefaultsStaySeparateFromNewDefaultsAndExplicitFalseZero(): void
     {
         $s=['resource_type'=>'model','model_code'=>'synthetic-image-history','channel_code'=>'fixture','locked_params'=>[],
-            'market_metadata'=>['params_schema'=>['prompt'=>['type'=>'string'],'aspect_ratio'=>['type'=>'string','enum'=>['3:4']],
+            'market_metadata'=>['default_params'=>['seed'=>0,'watermark'=>false],'params_schema'=>['prompt'=>['type'=>'string'],'aspect_ratio'=>['type'=>'string','enum'=>['3:4']],
                 'seed'=>['type'=>'integer','default'=>0],'watermark'=>['type'=>'boolean','default'=>false]]]];
         $r=['prompt'=>'Synthetic frozen image','ratio'=>'3:4','quantity'=>1];$before=$r;
-        $old=Images::prepareRequest($s,$r);$new=$s;$new['market_metadata']['params_schema']['seed']['default']=19;$new['market_metadata']['params_schema']['watermark']['default']=true;
+        $old=Images::prepareRequest($s,$r);$new=$s;$new['market_metadata']['default_params']=['seed'=>19,'watermark'=>true];$new['market_metadata']['params_schema']['seed']['default']=19;$new['market_metadata']['params_schema']['watermark']['default']=true;
         $changed=Images::prepareRequest($new,$r);$reopen=Images::prepareRequest(json_decode(json_encode($s),true),json_decode(json_encode($r),true));
         self::assertSame($old->nativeInput,$reopen->nativeInput);self::assertSame($old->meterContext,$reopen->meterContext);
         self::assertFalse($old->nativeInput['watermark']);self::assertSame(0,$old->nativeInput['seed']);
