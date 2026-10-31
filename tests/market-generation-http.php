@@ -241,6 +241,7 @@ try {
     $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');$report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     $report['worker_restart_preserved_completed_rows']=true;$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];
     $report['total_tasks']=(int)Db::name('ai_app_task')->count();$report['total_result_assets']=(int)Db::name('ai_task_result_asset')->count();
+    $report['total_consumptions']=(int)Db::name('ai_consumption_log')->count();$report['total_consumption_billing_statuses']=array_count_values(Db::name('ai_consumption_log')->column('billing_status'));
 
 } catch(Throwable $e) {
     $failure=$e;$report['failure']=$e->getMessage();$report['fixture_line']=array_values(array_map(static fn($frame)=>$frame['line']??0,array_filter($e->getTrace(),static fn($frame)=>($frame['file']??'')===__FILE__)));

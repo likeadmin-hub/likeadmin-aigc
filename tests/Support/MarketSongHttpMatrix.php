@@ -25,6 +25,7 @@ function runMarketSongHttpMatrix($f,$api,$suffix,$token,$supplier,array &$report
         MarketWorkerFixture::wait(fn()=>$db::name('ai_task_job')->where('status','<>','success')->count()===0,'Original song result jobs not drained',20);$f->stop();
         if($freeze)$db::name('power_market_sku')->where('id',$sku)->update(['sale_status'=>1,'sale_points'=>1]);
         $done=$get($id);$view=$done['generation_task'];$check($view['status']==='success'&&count($view['results'])===2&&count($done['results'])===2,'Original song lost one of its two outputs');
+        foreach($view['results']as$row)$check($row['type']==='audio'&&hash_file('sha256',$f->dir.'/public/'.$row['uri'])===hash_file('sha256',$f->dir.'/synthetic.wav'),'Canonical song result bytes differ');
         foreach($done['results']as$row){$raw=is_array($row['result_json'])?$row['result_json']:json_decode($row['result_json'],true);$check(!empty($raw['audio_id']??$raw['id']??''),'Generated song lost supplier audio identity');$check(hash_file('sha256',$f->dir.'/public/'.$row['audio_uri'])===hash_file('sha256',$f->dir.'/synthetic.wav'),'Generated song bytes differ');}
         $bill=$db::name('ai_consumption_log')->where('id',$cid)->find();$check($bill['billing_status']==='settled'&&(float)$bill['actual_user_price']===1.&&$db::name('aigc_music_billing')->where('task_id',$id)->count()===1,'Two song outputs billed twice');
         $generated[]=$id;return $done;
