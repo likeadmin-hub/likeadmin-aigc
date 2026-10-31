@@ -1,0 +1,533 @@
+{
+  "batch": 53,
+  "date": "2026-10-31",
+  "source_server_commit": "03808ff67",
+  "implementation_commit": "6775e55ed",
+  "worker_fixture_commit": "6d30cb9eb",
+  "source_web_commit": "1f52cb5f38ac67ba6283c2c59562748809266811",
+  "scope": "Video-model business and market_music_generation business workers, durable local result metadata, actual process recovery, owned loopback HTTP download interruption, and separate normal authenticated upload-only project checks. No supplier call, paid generation, market sync, historical repair or real contract activation.",
+  "before": [
+    {
+      "entry": "shared_media_business_worker",
+      "scenario": "video_delivery_metadata_loss",
+      "status": "reproduced_failure",
+      "scope": "Owned disposable SQL prefix and synthetic terminal receipt, no supplier or real generation. Business completed but delivery metadata was lost.",
+      "report": {
+        "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "legacy_pending_job_relinked": true,
+        "actual_worker_command": true,
+        "killed_after_upload_before_receipt_commit": true,
+        "complete_local_bytes_not_rewritten": true,
+        "late_projection_failure_retained_stored_asset": true,
+        "natural_lease_expiry_recovered": true,
+        "repeat_restart_idempotent": true,
+        "managed_uri_matches_business_result": true,
+        "file_rows": 1,
+        "stored_bytes_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "storage_scope": "platform",
+        "storage_engine": "local",
+        "media_type": "video",
+        "business_metadata": {
+          "width": 0,
+          "height": 0
+        },
+        "claimed_attempts": 3,
+        "failure_class": "RuntimeException",
+        "failure": "Managed video dimensions lost"
+      }
+    },
+    {
+      "entry": "shared_media_business_worker",
+      "scenario": "audio_delivery_metadata_loss",
+      "status": "reproduced_failure",
+      "scope": "Owned disposable SQL prefix and synthetic terminal receipt, no supplier or real generation. Business completed but delivery metadata was lost.",
+      "report": {
+        "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "legacy_pending_job_relinked": true,
+        "actual_worker_command": true,
+        "killed_after_upload_before_receipt_commit": true,
+        "complete_local_bytes_not_rewritten": true,
+        "late_projection_failure_retained_stored_asset": true,
+        "natural_lease_expiry_recovered": true,
+        "repeat_restart_idempotent": true,
+        "managed_uri_matches_business_result": true,
+        "file_rows": 1,
+        "stored_bytes_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "storage_scope": "platform",
+        "storage_engine": "local",
+        "media_type": "audio",
+        "business_metadata": {
+          "mime_type": "audio/mpeg",
+          "file_size": 0,
+          "duration": "0.00"
+        },
+        "claimed_attempts": 3,
+        "failure_class": "RuntimeException",
+        "failure": "Measured audio duration/size/MIME lost"
+      }
+    }
+  ],
+  "worker_scenarios": [
+    {
+      "entry": "shared_media_business_worker",
+      "scenario": "video_inline_interruption_recovery",
+      "status": "local_worker_business_recovery_verified",
+      "scope": "Production worker and business adapter in disposable local namespace. Inline: kill after upload before durable receipt. Loopback: kill while owned HTTP source waits before download completion, not a supplier call or mid-storage upload kill.",
+      "report": {
+        "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "legacy_pending_job_relinked": true,
+        "actual_worker_command": true,
+        "transfer_source": "inline",
+        "killed_after_upload_before_receipt_commit": true,
+        "killed_during_loopback_download": false,
+        "complete_local_bytes_not_rewritten": true,
+        "late_projection_failure_retained_stored_asset": true,
+        "natural_lease_expiry_recovered": true,
+        "repeat_restart_idempotent": true,
+        "managed_uri_matches_business_result": true,
+        "file_rows": 1,
+        "stored_bytes_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "storage_scope": "platform",
+        "storage_engine": "local",
+        "media_type": "video",
+        "business_metadata": {
+          "width": 32,
+          "height": 32
+        },
+        "claimed_attempts": 3,
+        "business_replay_preserved_rows": true,
+        "business_result_rows": 1
+      }
+    },
+    {
+      "entry": "shared_media_business_worker",
+      "scenario": "video_loopback_http_interruption_recovery",
+      "status": "local_worker_business_recovery_verified",
+      "scope": "Production worker and business adapter in disposable local namespace. Inline: kill after upload before durable receipt. Loopback: kill while owned HTTP source waits before download completion, not a supplier call or mid-storage upload kill.",
+      "report": {
+        "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "legacy_pending_job_relinked": true,
+        "actual_worker_command": true,
+        "transfer_source": "http",
+        "killed_after_upload_before_receipt_commit": false,
+        "killed_during_loopback_download": true,
+        "complete_local_bytes_not_rewritten": true,
+        "late_projection_failure_retained_stored_asset": true,
+        "natural_lease_expiry_recovered": true,
+        "repeat_restart_idempotent": true,
+        "managed_uri_matches_business_result": true,
+        "file_rows": 1,
+        "stored_bytes_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "storage_scope": "platform",
+        "storage_engine": "local",
+        "media_type": "video",
+        "business_metadata": {
+          "width": 32,
+          "height": 32
+        },
+        "claimed_attempts": 3,
+        "business_replay_preserved_rows": true,
+        "business_result_rows": 1,
+        "loopback_file_requests": 2
+      }
+    },
+    {
+      "entry": "shared_media_business_worker",
+      "scenario": "audio_inline_interruption_recovery",
+      "status": "local_worker_business_recovery_verified",
+      "scope": "Production worker and business adapter in disposable local namespace. Inline: kill after upload before durable receipt. Loopback: kill while owned HTTP source waits before download completion, not a supplier call or mid-storage upload kill.",
+      "report": {
+        "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "legacy_pending_job_relinked": true,
+        "actual_worker_command": true,
+        "transfer_source": "inline",
+        "killed_after_upload_before_receipt_commit": true,
+        "killed_during_loopback_download": false,
+        "complete_local_bytes_not_rewritten": true,
+        "late_projection_failure_retained_stored_asset": true,
+        "natural_lease_expiry_recovered": true,
+        "repeat_restart_idempotent": true,
+        "managed_uri_matches_business_result": true,
+        "file_rows": 1,
+        "stored_bytes_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "storage_scope": "platform",
+        "storage_engine": "local",
+        "media_type": "audio",
+        "business_metadata": {
+          "mime_type": "audio/wav",
+          "file_size": 16078,
+          "duration": "1.00"
+        },
+        "claimed_attempts": 3,
+        "business_replay_preserved_rows": true,
+        "business_result_rows": 1
+      }
+    },
+    {
+      "entry": "shared_media_business_worker",
+      "scenario": "audio_loopback_http_interruption_recovery",
+      "status": "local_worker_business_recovery_verified",
+      "scope": "Production worker and business adapter in disposable local namespace. Inline: kill after upload before durable receipt. Loopback: kill while owned HTTP source waits before download completion, not a supplier call or mid-storage upload kill.",
+      "report": {
+        "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "legacy_pending_job_relinked": true,
+        "actual_worker_command": true,
+        "transfer_source": "http",
+        "killed_after_upload_before_receipt_commit": false,
+        "killed_during_loopback_download": true,
+        "complete_local_bytes_not_rewritten": true,
+        "late_projection_failure_retained_stored_asset": true,
+        "natural_lease_expiry_recovered": true,
+        "repeat_restart_idempotent": true,
+        "managed_uri_matches_business_result": true,
+        "file_rows": 1,
+        "stored_bytes_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "storage_scope": "platform",
+        "storage_engine": "local",
+        "media_type": "audio",
+        "business_metadata": {
+          "mime_type": "audio/wav",
+          "file_size": 16078,
+          "duration": "1.00"
+        },
+        "claimed_attempts": 3,
+        "business_replay_preserved_rows": true,
+        "business_result_rows": 1,
+        "loopback_file_requests": 2
+      }
+    }
+  ],
+  "browser_projects": [
+    {
+      "entry": "canvas",
+      "project_id": 898,
+      "scenario": "normal_login_http_upload_worker_media_save_close_reopen",
+      "status": "http_graph_state_preserved",
+      "scope": "Separate normal authenticated SaaS upload-only nodes. Not a generation task or worker update into the same HTTP project. No raw browser wire DTO capture.",
+      "nodes": 2,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "before_sha256": "012346913b68e797f24b7ab994c01db081033e67ec30c4c527f20e021b21b6f2",
+      "after_sha256": "012346913b68e797f24b7ab994c01db081033e67ec30c4c527f20e021b21b6f2",
+      "files": [
+        {
+          "title": "b53-worker-video.mp4",
+          "uri_sha256": "13b7ba61137dc68578ae9823eef8315536eb58acc4f44c7a80a4a0b9f2935f7c",
+          "mime_type": "video/mp4"
+        },
+        {
+          "title": "b53-worker-audio.wav",
+          "uri_sha256": "7fba5a5c919b249dd7e84d9cd8ee770f7ca76df9a890a2d186c10e6141dc702e",
+          "mime_type": "audio/wav"
+        }
+      ]
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 540,
+      "scenario": "normal_login_http_upload_worker_media_save_close_reopen",
+      "status": "http_graph_state_preserved",
+      "scope": "Separate normal authenticated SaaS upload-only nodes. Not a generation task or worker update into the same HTTP project. No raw browser wire DTO capture.",
+      "nodes": 2,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "before_sha256": "5d6be2b2e990903493d5a52ac2322405f886d8b76a6f637823adc0c946f3eba4",
+      "after_sha256": "5d6be2b2e990903493d5a52ac2322405f886d8b76a6f637823adc0c946f3eba4",
+      "files": [
+        {
+          "title": "b53-worker-video.mp4",
+          "uri_sha256": "a53326ac02bb1e2d1a479b2da9a852aa0c1d98da0255d53d1d3d22d02bbd5fe4",
+          "mime_type": "video/mp4"
+        },
+        {
+          "title": "b53-worker-audio.wav",
+          "uri_sha256": "38ba20140ec0accb6d534bfa817572819199b08e12e03ddaf7cf0d40f48c6718",
+          "mime_type": "audio/wav"
+        }
+      ]
+    }
+  ],
+  "browser_media": {
+    "canvas": [
+      {
+        "duration": 1,
+        "error": null,
+        "height": 32,
+        "ready": 4,
+        "tag": "VIDEO",
+        "width": 32
+      },
+      {
+        "duration": 1,
+        "error": null,
+        "height": null,
+        "ready": 4,
+        "tag": "AUDIO",
+        "width": null
+      }
+    ],
+    "short_drama": [
+      {
+        "duration": 1,
+        "error": null,
+        "height": 32,
+        "ready": 4,
+        "tag": "VIDEO",
+        "width": 32
+      },
+      {
+        "duration": 1,
+        "error": null,
+        "height": null,
+        "ready": 4,
+        "tag": "AUDIO",
+        "width": null
+      }
+    ]
+  },
+  "normal_upload_storage": {
+    "canvas": [
+      {
+        "file_name": "b53-worker-video.mp4",
+        "uri_sha256": "9b6ee24c0cd053976be26fb48f154c87b6c0ddf7dd0154634e568156b256573e",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b53-worker-audio.wav",
+        "uri_sha256": "3973a26f51119792911cc961cd531648ed1edd0ed2f6c777ea0bf8c048ba3ded",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "short_drama": [
+      {
+        "file_name": "b53-worker-video.mp4",
+        "uri_sha256": "a53326ac02bb1e2d1a479b2da9a852aa0c1d98da0255d53d1d3d22d02bbd5fe4",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b53-worker-audio.wav",
+        "uri_sha256": "38ba20140ec0accb6d534bfa817572819199b08e12e03ddaf7cf0d40f48c6718",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "fixture_cleanup": {
+      "remaining_owned_prefix_tables": 0,
+      "remaining_private_roots": 0,
+      "remaining_storage_test_roots": 0
+    }
+  },
+  "visible_points_before_after": "4372.96",
+  "validation": {
+    "phpunit_tests": 765,
+    "assertions": 5750,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "new_tests": 6,
+    "added_assertions": 59,
+    "new_db_scenarios_rolled_back": 6,
+    "worker_scenarios": 4,
+    "php_lints": 5,
+    "native_pricing_rollback": "passed",
+    "index_boundary_tests": 2,
+    "pc_tests_rerun": false,
+    "web_source_changed": false,
+    "test_memory_limit_mb": 256,
+    "peak_memory_mb": "164.80",
+    "fixture_correction": "JSON canonicalizes duration1.0 to numeric1. Updated the assertion; not a production failure."
+  },
+  "retention": {
+    "video": {
+      "equal_to_batch52": true,
+      "sha256": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b"
+    },
+    "image": {
+      "equal_to_batch52": true,
+      "sha256": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc"
+    },
+    "app": {
+      "equal_to_batch52": true,
+      "sha256": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1"
+    },
+    "frozen": {
+      "equal_to_batch52": true,
+      "sha256": "5332bdb9fab4d7f648ef10e8d3a8d72b321fc9bb96b615e8e0c3f9ce8c0e633f"
+    },
+    "price": {
+      "equal_to_batch52": true,
+      "sha256": "6beace6501cde4638983d37d535c880c1b86f051bcbe02e8ddc3dd05232dad44"
+    },
+    "meter": {
+      "equal_to_batch52": true,
+      "sha256": "2b37dafd443b9e34997e84b68f982887c9ebb626688b667e64d4b90b1a41d355"
+    }
+  },
+  "current_prices": {
+    "scope": "READ ONLY comparison of old/new unit-price policy for tenant1 and platform over current saved SKU data; no repricing or task update",
+    "skus_checked": 848,
+    "level_comparisons": 1696,
+    "current_bounded_meter_versions": {
+      "2": 0,
+      "3": 0
+    },
+    "differences": []
+  },
+  "blocked_meter_admission": [
+    {
+      "channel": "market_image_model:275",
+      "sku_id": 380,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "image_to_image",
+      "source_payload_hash": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_image_model:277",
+      "sku_id": 383,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "text_to_image",
+      "source_payload_hash": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 210,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 211,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 212,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 213,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 214,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 215,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    }
+  ],
+  "contract_changes": {
+    "route_permission_manifest_sql_schema": false,
+    "delivery_metadata": "Preserve prior dimensions when storage has no measurement; project positive measured duration/size and byte-derived canonical MIME into existing fields. Frozen billing untouched.",
+    "old_results_rewritten": false
+  },
+  "upstream_review": {
+    "refreshed_this_batch": false,
+    "last_verified": "2026-10-31T18:38:45+08:00",
+    "source": "bounded-image-submission-batch-50-20261031.json",
+    "missing_complete_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17
+  },
+  "remaining": [
+    "18 complete model contracts,14 opaque models/17 paths and remaining13 application option coverage",
+    "Qwen pixel SKU380/383 and Seedance Token SKU210-215 authoritative bounds and receipt basis",
+    "Nano unmapped nested inputs, native image count, bare b64_json and supplier asset IDs",
+    "Actual cloud result transfer, signed supplier URL expiry and real supplier receipts",
+    "Kill during storage writing, database/host failure, parallel writers and other audio/business protocol branches",
+    "Same normal HTTP generation task to worker update of its project node; real activated bounded meters, long-term storage and all tool/model/mode/SKU cross acceptance"
+  ],
+  "delivery_exclusions": [
+    "Only source/tests/docs; no generated media/build/runtime files delivered",
+    "Only owned HTTP projects898/540 and4 synthetic uploads retained; original projects untouched",
+    "Random worker SQL/file/cache/temp namespaces, HTTP fixture servers and child workers cleaned",
+    "3971 server public and3 web local flags, proxy settings and existing services preserved"
+  ],
+  "screenshot_scope": "Fit-to-screen was explicitly applied after the equality checkpoint; screenshots show media loading and playback."
+}
