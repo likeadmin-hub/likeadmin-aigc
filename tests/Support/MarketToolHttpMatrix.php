@@ -1,9 +1,15 @@
 <?php
 
 /** Runs only inside the private authenticated HTTP fixture, never against real tenant tables or suppliers. */
-function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, string $suffix, string $token, string $channel, string $uri): array
+function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, string $suffix, string $token, string $channel, string $uri, array &$report): array
 {
     $tenant=$fixture->tenant;$user=$fixture->user;
+    $videoMeta=['category_code'=>'video','supported_durations'=>[1],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1'],
+        'params_schema'=>['properties'=>['prompt'=>['type'=>'string'],'duration'=>['type'=>'integer','enum'=>[1]],'resolution'=>['type'=>'string','enum'=>['720P']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'minItems'=>1,'maxItems'=>1]],'required'=>['prompt','image_urls']],
+        'material_capabilities'=>['modes'=>[['code'=>'image_to_video','method'=>'image_to_video','fields'=>[['field'=>'image_urls','kind'=>'image','role'=>'first','required'=>true,'minimum'=>1,'maximum'=>1]]]]]];
+    $videoProduct=\app\common\model\power\PowerMarketProduct::create(['product_code'=>$fixture->prefix.'promo','name'=>'Private promo video','resource_type'=>'model','model_type'=>'video','source_code'=>'isolated-fixture','upstream_resource_key'=>$fixture->prefix.'promo','upstream_model_code'=>'synthetic-video','upstream_channel_code'=>'fixture','source_payload'=>['category_code'=>'video','market_metadata'=>$videoMeta],'status'=>1]);
+    \app\common\model\power\PowerMarketSku::create(['product_id'=>$videoProduct['id'],'sku_key'=>$fixture->prefix.'promo','title'=>'Private promo fixture','locked_params'=>['duration'=>1,'resolution'=>'720P'],'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>['version'=>1,'basis'=>'call','rounding'=>'ceil']]]);
+    $videoChannel='market_video_model:'.$videoProduct['id'];
     $cases=[
         'product_image'=>['product_image'=>$uri,'custom_scene_image'=>$uri,'scene_mode'=>'custom','size_key'=>'1:1','prompt'=>'Synthetic product'],
         'product_suite'=>['product_images'=>[$uri],'module_codes'=>['hero'],'prompt'=>'Synthetic suite'],
@@ -17,21 +23,25 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         'fashion_lookbook'=>['clothes_images'=>[$uri],'model_image'=>$uri,'prompt'=>'Synthetic clothes'],
         'outpaint'=>['source_image'=>$uri],
         'local_redraw'=>['source_image'=>$uri,'mask_image'=>$uri,'prompt'=>'Synthetic redraw'],
+        'product_promo_video'=>['source_image'=>$uri,'ratio'=>'1:1','quality'=>'720P','duration'=>1,'prompt'=>'Synthetic promo'],
         'fitting'=>['garment_images'=>[$uri],'model_images'=>[$uri],'mode'=>'custom','quantity'=>1,'prompt'=>'Synthetic fitting'],
     ];
     $report=[];
     foreach($cases as$code=>$input) {
         $class='app\\common\\service\\app\\aigc_'.$code.'\\Aigc'.str_replace(' ','',ucwords(str_replace('_',' ',$code))).'Service';
-        $package=['code'=>'private-fixture','name'=>'Private fixture','channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','unit_price'=>3,'status'=>1];
-        $class::saveConfig($tenant,['status'=>1,'default_channel'=>$channel,'default_quality'=>'1k','default_ratio'=>'1:1','unit_price'=>3,
-            'config_json'=>['channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','unit_price'=>3,'price_packages'=>[$package]],'price_config'=>[$package]]);
+        $caseChannel=$code==='product_promo_video'?$videoChannel:$channel;
+        $caseQuality=$code==='product_promo_video'?'720P':'1k';
+        $package=['code'=>'private-fixture','name'=>'Private fixture','channel'=>$caseChannel,'quality'=>$caseQuality,'ratio'=>'1:1','unit_price'=>3,'status'=>1];
+        $class::saveConfig($tenant,['status'=>1,'default_channel'=>$caseChannel,'default_quality'=>$caseQuality,'default_ratio'=>'1:1','unit_price'=>3,
+            'config_json'=>['channel'=>$caseChannel,'quality'=>$caseQuality,'ratio'=>'1:1','unit_price'=>3,'price_packages'=>[$package]],'price_config'=>[$package]]);
         $config=dataHttp($api,'/api/app.aigc_'.$code.'.config/detail'.$suffix,[],$token,'GET');
-        $input+=['channel'=>$channel,'quality'=>'1k','ratio'=>'1:1'];
+        $input+=['channel'=>$caseChannel,'quality'=>$caseQuality,'ratio'=>'1:1'];
         if($code==='style_transfer') {
             $category=$class::categoryLists($tenant)[0]['id'];
             $template=$class::saveTemplate($tenant,['category_id'=>$category,'name'=>'Private synthetic style','image'=>$uri]);
             $input['template_id']=$template['id'];
         }
+        if($code==='product_promo_video')$input['video_type_code']=$config['types'][0]['code'];
         if($code==='one_click_cleanup')$input['option_codes']=[$config['options'][0]['code']];
         if($code==='product_multi_angle')$input['view_codes']=[$config['views'][0]['code']];
         $packages=$config['price_packages']??$config['price_options']??[];
@@ -50,7 +60,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         $workerApp=$accepted['generation_tasks'][0]['app_code'];
         $fixture->start(dirname(__DIR__).'/market-generation-http.php',$workerApp);
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$accepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' child did not finish',30);
-        MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->where('app_code',$workerApp)->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
+        MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->whereIn('consumption_id',\think\facade\Db::name('ai_consumption_log')->where('app_task_id',$accepted['generation_tasks'][0]['app_task_id'])->column('id'))->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
         $fixture->stop();
         $detail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($detail['status']??'')==='success'&&count($detail['results']??[])===1&&($detail['generation_tasks'][0]['status']??'')==='success',$code.' result writeback failed');
@@ -69,7 +79,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         $workerApp=$accepted['generation_tasks'][0]['app_code'];
         $fixture->start(dirname(__DIR__).'/market-generation-http.php',$workerApp);
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$reaccepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' reused child did not finish',30);
-        MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->where('app_code',$workerApp)->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
+        MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->whereIn('consumption_id',\think\facade\Db::name('ai_consumption_log')->where('app_task_id',$reaccepted['generation_tasks'][0]['app_task_id'])->column('id'))->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
         $fixture->stop();
         $redetail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$reaccepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($redetail['status']??'')==='success'&&count($redetail['results']??[])===1,$code.' reused result failed');
