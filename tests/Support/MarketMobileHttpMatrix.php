@@ -8,7 +8,7 @@ function runMarketMobileHttp($f,$api,$peer,$token,$video,$channel,array &$report
     $input=['api'=>$api,'api_peer'=>$peer,'tenant'=>$f->tenant,'token'=>$token,'video'=>$native,'image'=>['channel'=>$channel,'prompt'=>'Synthetic mobile batch image','quality'=>'1k','ratio'=>'1:1','quantity'=>1]];
     file_put_contents($f->dir.'/mobile-input.json',json_encode($input,JSON_THROW_ON_ERROR));fwrite(STDERR,'MOBILE_FIXTURE_READY '.$f->dir."\n");
     $read=function($name)use($f){if(is_file($f->dir.'/mobile-failed.json'))throw new RuntimeException(file_get_contents($f->dir.'/mobile-failed.json'));return is_file($f->dir.'/'.$name)?json_decode(file_get_contents($f->dir.'/'.$name),true):null;};
-    $drain=function()use($f,$script,$db){foreach(['aigc_image','aigc_video']as$app){$f->start($script,$app);MarketWorkerFixture::wait(fn()=>$db::name('ai_task_job')->where('app_code',$app)->where('status','<>','success')->count()===0,'Mobile results incomplete '.$app,40);$f->stop();}};
+    $drain=function()use($f,$script,$db){$f->start($script,'');MarketWorkerFixture::wait(fn()=>$db::name('ai_task_job')->where('status','<>','success')->count()===0,'Mobile result jobs incomplete',40);$f->stop();};
     $submitted=null;MarketWorkerFixture::wait(function()use($read,&$submitted){return (bool)($submitted=$read('mobile-submitted.json'));},'Host mobile submit did not finish',120);
     $frozen=$db::name('ai_consumption_log')->order('id')->column('price_snapshot','id');$drain();
     $old=[];foreach(['aigc_image_task','aigc_video_task']as$table)$old[$table]=$db::name($table)->order('id')->select()->toArray();
