@@ -357,6 +357,7 @@ class MarketNanoBananaAppRuntimeService
             $prepared = self::prepareRequest($snapshot, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
             if (isset($snapshot['billing_meter']) && $prepared->meterContext !== (array)($snapshot['meter_context'] ?? [])) throw new Exception('提交素材与预占计费快照不一致，请重新创建任务');
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             self::fail($consumptionId, $e->getMessage(), 'request_invalid');
             throw $e;
         }
@@ -392,6 +393,7 @@ class MarketNanoBananaAppRuntimeService
             if ($images === [] && $taskId === '') throw new Exception('nano-banana 应用 API 未返回任务 ID');
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
+            \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             if ($upstreamAccepted) {
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 $current = self::context($consumptionId, false);
