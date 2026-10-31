@@ -662,6 +662,10 @@ class MarketImageModelRuntimeService
             if(!empty($summary['images']) || (trim((string)$c['upstream_task_id'])===''&&$receipt)){
                 try{
                     $images=(array)($summary['images']??[]);
+                    if(!$images&&in_array(self::status($receipt),['failed','error','canceled','cancelled'],true)){
+                        self::fail($consumptionId,self::error($receipt),'upstream_failed');
+                        return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+                    }
                     if(!$images)$images=self::images($receipt,(int)$c['tenant_id'],(int)$c['user_id'],(array)$c['price_snapshot']);
                     if($images){self::retainReadyImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt);}
                 }catch(\Throwable $e){self::recordRefreshError($consumptionId,(string)$c['upstream_task_id'],$e);}
