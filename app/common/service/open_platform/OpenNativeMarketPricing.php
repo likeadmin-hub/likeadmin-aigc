@@ -93,7 +93,7 @@ final class OpenNativeMarketPricing
             foreach(['input','params','parameters']as$key)if(!empty($raw[$key]))throw new OpenException('native_request_mapping_required','Nano 原生计量暂只支持已审核的顶层请求结构',503);
             $action=self::alias($raw,['action']);$expected=empty($selection['reference_images'])?'generate':'edit';
             if($action!==null&&$action!==$expected)throw new OpenException('invalid_request','Nano 操作与图片素材不一致');
-            $metadata=\app\common\service\power\MarketGenerationSchema::array(self::object($product['source_payload']??[])['market_metadata']??[]);
+            $metadata=\app\common\service\power\MarketGenerationSchema::array(\app\common\service\power\MarketGenerationSchema::array($product['source_payload']??[])['market_metadata']??[]);
             $allowed=array_flip(array_column(\app\common\service\power\MarketGenerationParameters::definitions($metadata,'image'),'key'));
             $selection['provider_params']=array_intersect_key($raw,$allowed);
         }

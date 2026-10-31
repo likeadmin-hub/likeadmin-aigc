@@ -33,6 +33,13 @@ class MarketNativeMeterExpansionTest extends TestCase
         self::assertNull(Pixels::measure($native,['width'=>1,'height'=>1]));
         $this->expectException(OpenException::class);Pixels::measure($native,['data'=>['image_urls'=>['http://127.0.0.1/private.png']]]);
     }
+    public function testNanoRawModeAndNestedProjectionStayExplicit(): void
+    {
+        $p=['id'=>1,'resource_type'=>'app_api','model_type'=>'image','upstream_app_code'=>'nano_banana','upstream_api_code'=>'submit','source_payload'=>[]];$s=['locked_params'=>['model'=>'nano-banana-2']];
+        foreach([['prompt'=>'Synthetic','action'=>'edit'],['prompt'=>'Synthetic','params'=>['seed'=>1]]]as$raw){
+            try{Native::bind($p,$raw,2,$s);self::fail('Unmapped Nano input must not silently change modes');}catch(OpenException $e){self::assertContains($e->errorType,['invalid_request','native_request_mapping_required']);}
+        }
+    }
     /** @dataProvider scenarios */
     public function testLocalRollbackNativeMetersWithFrozenBindingAndWire(string $kind,string $scenario): void
     {
