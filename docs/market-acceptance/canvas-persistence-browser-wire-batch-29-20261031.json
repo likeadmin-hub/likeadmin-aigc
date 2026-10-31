@@ -1,0 +1,932 @@
+{
+  "batch": 29,
+  "date": "2026-10-31",
+  "source_web_commit": "ce16bace3d69892949133eaeb9bb187af09564c9",
+  "source_server_commit": "c7c545c25b18a208b3d64c2033902e2f8d7fefc5",
+  "scope": "Actual CanvasNode and ShortDramaCanvasNode on a temporary localhost page; production page/composer request and reconcile functions; captured browser DTOs forwarded to real Canvas/Drama save/read/quote services and SQL under one outer transaction. Short-drama graph owned-asset resolution, real Drama::quote, video estimate/admission/native and frozen preparation are exercised. Synthetic documents and ready asset metadata only. No normal authenticated HTTP persistence, committed durability, provider call or original user project writes. Source replacement control is a fixture supplying a new ready asset, not the actual upload handler.",
+  "summary": {
+    "quote_admission_frozen_slots_equal": 13,
+    "expected_local_rejection": 2
+  },
+  "quote_cases": [
+    {
+      "sequence": 2,
+      "scenario": "rollback_sql_initial_read_99a935e2c35d",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "484cb23874483e6541473a84471f4afe57ea005280bf8add702454c2682f39f5",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 4,
+      "scenario": "rollback_sql_initial_read_99a935e2c35d",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "484cb23874483e6541473a84471f4afe57ea005280bf8add702454c2682f39f5",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 6,
+      "scenario": "rollback_sql_saved_graph_99a935e2c35d",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "484cb23874483e6541473a84471f4afe57ea005280bf8add702454c2682f39f5",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 8,
+      "scenario": "rollback_sql_reopened_graph_99a935e2c35d",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "484cb23874483e6541473a84471f4afe57ea005280bf8add702454c2682f39f5",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 9,
+      "scenario": "rollback_sql_reopened_graph_25e71185c041",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "0adff56b7cb7fc26e1b61d4bb423a757ca7309062a0fd3b622b5e787c4ebba1a",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 11,
+      "scenario": "rollback_sql_saved_graph_25e71185c041",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "0adff56b7cb7fc26e1b61d4bb423a757ca7309062a0fd3b622b5e787c4ebba1a",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 13,
+      "scenario": "rollback_sql_reopened_graph_25e71185c041",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "0adff56b7cb7fc26e1b61d4bb423a757ca7309062a0fd3b622b5e787c4ebba1a",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 15,
+      "scenario": "rollback_sql_after_stale_save_rejection_25e71185c041",
+      "entry": "canvas",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "0adff56b7cb7fc26e1b61d4bb423a757ca7309062a0fd3b622b5e787c4ebba1a",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 17,
+      "scenario": "rollback_sql_initial_read_99a935e2c35d",
+      "entry": "short_drama",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "expected_local_rejection",
+      "error": "NODE_NOT_FOUND",
+      "expected": "Unpersisted target is unavailable"
+    },
+    {
+      "sequence": 19,
+      "scenario": "rollback_sql_saved_graph_869ebbad2499",
+      "entry": "short_drama",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "484cb23874483e6541473a84471f4afe57ea005280bf8add702454c2682f39f5",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 21,
+      "scenario": "rollback_sql_reopened_graph_869ebbad2499",
+      "entry": "short_drama",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "484cb23874483e6541473a84471f4afe57ea005280bf8add702454c2682f39f5",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 23,
+      "scenario": "rollback_sql_replacement_before_graph_save_594ab2a5cfee",
+      "entry": "short_drama",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "expected_local_rejection",
+      "error": "start/end frame generation requires both first and last frame images",
+      "expected": "New replacement asset is not yet saved in authoritative graph; old and new graph inputs must not submit as one pair"
+    },
+    {
+      "sequence": 25,
+      "scenario": "rollback_sql_saved_graph_594ab2a5cfee",
+      "entry": "short_drama",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "0adff56b7cb7fc26e1b61d4bb423a757ca7309062a0fd3b622b5e787c4ebba1a",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 27,
+      "scenario": "rollback_sql_reopened_graph_594ab2a5cfee",
+      "entry": "short_drama",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "0adff56b7cb7fc26e1b61d4bb423a757ca7309062a0fd3b622b5e787c4ebba1a",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    },
+    {
+      "sequence": 29,
+      "scenario": "rollback_sql_after_stale_save_rejection_594ab2a5cfee",
+      "entry": "short_drama",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "requested_parameters": {
+        "resolution": "768P",
+        "ratio": "16:9",
+        "duration": 5,
+        "generation_method": "start_end"
+      },
+      "wire_material_uses": [
+        {
+          "type": "image",
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "type": "image",
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 119,
+      "points": 250,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "prepared_hash": "0adff56b7cb7fc26e1b61d4bb423a757ca7309062a0fd3b622b5e787c4ebba1a",
+      "native_controls": {
+        "model": "h3-video",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "frozen_native_and_meter_equal": true
+    }
+  ],
+  "persistence_events": [
+    {
+      "sequence": 1,
+      "entry": "canvas",
+      "operation": "read",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": false,
+      "version": 0,
+      "uses": [],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 3,
+      "entry": "canvas",
+      "operation": "read",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": false,
+      "version": 0,
+      "uses": [],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 5,
+      "entry": "canvas",
+      "operation": "save",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 1,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 7,
+      "entry": "canvas",
+      "operation": "read",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 1,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 10,
+      "entry": "canvas",
+      "operation": "save",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 2,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 12,
+      "entry": "canvas",
+      "operation": "read",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 2,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 14,
+      "entry": "canvas",
+      "operation": "save",
+      "status": "expected_local_rejection",
+      "error": "项目已在其他标签页或窗口更新，当前修改保留在本地，请刷新后再编辑",
+      "scope": "stale fixture version only; persisted state unchanged"
+    },
+    {
+      "sequence": 16,
+      "entry": "short_drama",
+      "operation": "read",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": false,
+      "version": 0,
+      "uses": [],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 18,
+      "entry": "short_drama",
+      "operation": "save",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 1,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 20,
+      "entry": "short_drama",
+      "operation": "read",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 1,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "96750d72508487e096b4a378e2c7cd09ec2b388f70796cedf159f32ee0cfc02f"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 22,
+      "entry": "short_drama",
+      "operation": "replacement_source",
+      "scope": "synthetic ready owned asset metadata inserted within the same outer transaction; no physical upload/provider asset request",
+      "status": "fixture_source_registered"
+    },
+    {
+      "sequence": 24,
+      "entry": "short_drama",
+      "operation": "save",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 2,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 26,
+      "entry": "short_drama",
+      "operation": "read",
+      "status": "sql_service_roundtrip_preserved",
+      "has_target": true,
+      "version": 2,
+      "uses": [
+        {
+          "role": "last_frame_image",
+          "reference_slot_id": "tail-use",
+          "sourceId": "9001",
+          "storage_fingerprint": "90eda706e253c706ce358c6383ca07454afcacc03bd34f191c5bdece677929fb"
+        },
+        {
+          "role": "first_frame_image",
+          "reference_slot_id": "head-use",
+          "sourceId": "9002",
+          "storage_fingerprint": "b5f5d96167cfdbf15cd0eaddffdbe32fd98f7bb97f47d12b928db698adfd14a3"
+        }
+      ],
+      "scope": "actual service and SQL in an outer rollback transaction; not committed or authenticated HTTP"
+    },
+    {
+      "sequence": 28,
+      "entry": "short_drama",
+      "operation": "save",
+      "status": "expected_local_rejection",
+      "error": "VERSION_CONFLICT: 云端画布已变化，请重新读取",
+      "scope": "stale fixture version only; persisted state unchanged"
+    }
+  ],
+  "transaction_cleanup": {
+    "rolled_back": true,
+    "remaining_fixture_rows": {
+      "canvas": 0,
+      "short_drama": 0,
+      "fixture_assets": 0
+    }
+  },
+  "exclusions": [
+    "Initial short-drama unsaved target and replacement-before-graph-save rejections are recorded, not generation success.",
+    "Earlier fixture mistakes used local storage for OSS URLs or retained an old owned asset ID during replacement; those attempts were rolled back and excluded from final acceptance.",
+    "No image/video/audio effect, provider upload, billing settlement or committed/restarted project durability acceptance."
+  ],
+  "console_observation": "Temporary wrapper omitted Nuxt auto-registration of ModelSourceBadge, producing component-resolution warnings on the ordinary node. These warnings are fixture-only; this run does not claim a warning-free console."
+}
