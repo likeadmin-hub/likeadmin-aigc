@@ -1,0 +1,181 @@
+{
+  "batch": 34,
+  "date": "2026-10-31",
+  "source_web_commit": "d0e87b5ad1dcfa5901a331f59bd731fefce1c507",
+  "source_server_commit": "22f34ece6743492ede564dec3286a7dda7ed3132",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "new_uploads": 0,
+  "scope": "Normal existing authenticated local HTTP pages, six explicit old task re-edits, local composer drafts only; no generate/rerun/retry. Final normal canvas and short-drama read-only reopen additionally checked with final web commit. No private prompt/media/task IDs retained.",
+  "normal_page_cases": [
+    {
+      "application": "aigc_one_click_cleanup",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_aigc_one_click_cleanup_success_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "source_images": 1,
+        "cleanup_options": 1
+      },
+      "current_quote_sku": "not captured; never inferred from displayed points"
+    },
+    {
+      "application": "aigc_one_click_cleanup",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_aigc_one_click_cleanup_failure_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "source_images": 1,
+        "cleanup_options": 1
+      },
+      "current_quote_sku": "not captured; never inferred from displayed points"
+    },
+    {
+      "application": "aigc_outpaint",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_aigc_outpaint_ratio_2_3_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "reference_restored": true,
+        "quality": "1k",
+        "ratio": "2:3"
+      },
+      "current_quote_sku": "not captured; never inferred from displayed points"
+    },
+    {
+      "application": "aigc_outpaint",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_aigc_outpaint_auto_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "reference_restored": true,
+        "quality": "1k",
+        "ratio": "auto"
+      },
+      "current_quote_sku": "not captured; never inferred from displayed points"
+    },
+    {
+      "application": "aigc_fitting",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_aigc_fitting_custom_model_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "garment_image_restored": true,
+        "mode": "custom",
+        "category": "one-piece",
+        "selected_models": 1,
+        "displayed_points": 10
+      },
+      "current_quote_sku": "not captured; never inferred from displayed points"
+    },
+    {
+      "application": "aigc_photo_restore",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_aigc_photo_restore_restore_and_color_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "reference_restored": true,
+        "restore_type": "restore_and_color",
+        "quality": "1k",
+        "ratio": "auto"
+      },
+      "current_quote_sku": "not captured; never inferred from displayed points"
+    }
+  ],
+  "terminal_parent_rows": {
+    "status": "http_terminal_rows_preserved",
+    "count": 10,
+    "applications_with_history": 7,
+    "whole_rows_before_after_equal": true,
+    "newly_reopened_parents": 6,
+    "inventory_scope": "14 named image application tables, same existing tenant/account owner of authorized synthetic project"
+  },
+  "terminal_core_image_rows": {
+    "status": "http_terminal_rows_preserved",
+    "count": 80,
+    "whole_rows_equal_to_batch33_final_baseline": true
+  },
+  "real_readonly_detail_replays": [
+    {
+      "application": "aigc_one_click_cleanup",
+      "old_status": "failed",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_one_click_cleanup",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_outpaint",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_outpaint",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_fitting",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_photo_restore",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    }
+  ],
+  "normal_canvas_revisits": [
+    {
+      "channel": "market_video_model:357",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "scenario": "normal_authenticated_mixed_canvas_reopen_after_shared_group_guard",
+      "status": "http_graph_state_preserved",
+      "node_count": 4,
+      "edge_count": 3,
+      "mixed_uses": 3,
+      "complete_readback_equal_before_after": true,
+      "readback_hash": "848379a654464cb17390925941741db8ad977cb5fb0f9f9fb77164fabaa75c74"
+    },
+    {
+      "channel": "market_video_model:357",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "scenario": "normal_authenticated_mixed_canvas_reopen_after_shared_group_guard",
+      "status": "http_graph_state_preserved",
+      "node_count": 4,
+      "edge_count": 3,
+      "mixed_uses": 3,
+      "complete_readback_equal_before_after": true,
+      "readback_hash": "42b1460aaf95b929915265286f0e59134ff7dc3249760c41dfbd3cf50fc16606",
+      "page_quote_points": 635,
+      "ratio": "16:9",
+      "resolution": "1080P",
+      "duration": 5,
+      "generate_audio": false
+    }
+  ]
+}

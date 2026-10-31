@@ -1,0 +1,347 @@
+{
+  "batch": 34,
+  "date": "2026-10-31",
+  "source_web_commit": "6200ff8634487576596f486cbb9485b555ed6688",
+  "source_server_commit": "22f34ece6743492ede564dec3286a7dda7ed3132",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "new_uploads": 0,
+  "scope": "Isolated HTTP browser shell uses actual production node/material SFCs and extracted actual ordinary/short-drama option, reconciliation and request projection functions. Current published declarations from Canvas::config(1), existing synthetic tenant uploads, no synthetic replacement schema. Real server estimate -> open-platform admission -> native/frozen preparation in enforced read-only SQL. Short-drama projection also passes its real generationPayload adapter. This is not full authenticated published-group project E2E or provider/asset/task lifecycle acceptance.",
+  "published_catalogue": {
+    "image_options": 56,
+    "video_options": 65,
+    "subject_group_resources": 4,
+    "character_id_resources": 2,
+    "source_sha256": "1a1647071c5e0d42aaa08cb8a965678c2ff36a48634b6f9240c2fe8df31bc921",
+    "tested_declarations": [
+      {
+        "channel": "market_video_model:355",
+        "name": "Kling 3.0 Omni",
+        "sha256": "6e901fd55071cf95e29c3091a410c2fd9a8a4e28b249f8092826ed2ebe0136d9",
+        "selected_mode": "text_to_video:0"
+      },
+      {
+        "channel": "market_video_model:335",
+        "name": "Kling 3.0",
+        "sha256": "a36a47c0ea302b9e011913ff3dc0de615c8ddf5abc6597f3f2f3fb9071d47e46",
+        "selected_mode": ":text"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "published_initial_groups",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 1,
+      "sku_id": 646,
+      "admission_sku_id": 646,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "d32964459e648798928f822a4e1e9e90031fa51c128b86ec28718950857f0162",
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "ambiguous_replacement_json_reopen",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 1,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "name_edit_does_not_resolve",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 1,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "explicit_uri_repair_json_reopen",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 2,
+      "sku_id": 646,
+      "admission_sku_id": 646,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "02ec37c2c6016a204a9d27167c26941c899311aca30068d529952cceb525cc2d",
+      "other_group_unchanged": true,
+      "selected_live_uri": true,
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_initial_groups",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 3,
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "f9aaa8f12fce06f7a9c028f831e076df730757f871f11557e2b44a73f9f297ae",
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "ambiguous_replacement_json_reopen",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 3,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "name_edit_does_not_resolve",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 3,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "explicit_uri_repair_json_reopen",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 4,
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "50e795c42faf324c4dd5624d8195de2751fdee53be72057c473f7b075175549b",
+      "other_group_unchanged": true,
+      "selected_live_uri": true,
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "published_initial_groups",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 5,
+      "sku_id": 646,
+      "admission_sku_id": 646,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "d32964459e648798928f822a4e1e9e90031fa51c128b86ec28718950857f0162",
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "ambiguous_replacement_json_reopen",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 5,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "name_edit_does_not_resolve",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 5,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "explicit_uri_repair_json_reopen",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 6,
+      "sku_id": 646,
+      "admission_sku_id": 646,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "02ec37c2c6016a204a9d27167c26941c899311aca30068d529952cceb525cc2d",
+      "other_group_unchanged": true,
+      "selected_live_uri": true,
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_initial_groups",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 7,
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "f9aaa8f12fce06f7a9c028f831e076df730757f871f11557e2b44a73f9f297ae",
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "ambiguous_replacement_json_reopen",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 7,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "name_edit_does_not_resolve",
+      "status": "expected_local_rejection",
+      "backend_calls_so_far": 7,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Blocked before any new backend call; no SKU guessed from a preceding quote"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "scenario": "explicit_uri_repair_json_reopen",
+      "status": "quote_admission_frozen_slots_equal",
+      "backend_calls_so_far": 8,
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "50e795c42faf324c4dd5624d8195de2751fdee53be72057c473f7b075175549b",
+      "other_group_unchanged": true,
+      "selected_live_uri": true,
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      }
+    }
+  ],
+  "summary": {
+    "quote_admission_frozen_passes": 8,
+    "expected_pre_backend_rejections": 8,
+    "rejected_cases_added_no_backend_calls": true,
+    "tested_resources": 2,
+    "tested_skus": [
+      646,
+      782
+    ],
+    "each_quote_points": 1330,
+    "points_are_quotes_only": true
+  },
+  "reset_cases": [
+    {
+      "entry": "普通画布",
+      "model": "Kling 3.0",
+      "groups_empty": true,
+      "conflicts_empty": true,
+      "retained_uses": 4,
+      "status": "observed_pass"
+    },
+    {
+      "entry": "普通画布",
+      "model": "Kling 3.0 Omni",
+      "groups_empty": true,
+      "conflicts_empty": true,
+      "retained_uses": 4,
+      "status": "observed_pass"
+    },
+    {
+      "entry": "短剧画布",
+      "model": "Kling 3.0",
+      "groups_empty": true,
+      "conflicts_empty": true,
+      "retained_uses": 4,
+      "status": "observed_pass"
+    },
+    {
+      "entry": "短剧画布",
+      "model": "Kling 3.0 Omni",
+      "groups_empty": true,
+      "conflicts_empty": true,
+      "retained_uses": 4,
+      "status": "observed_pass"
+    }
+  ],
+  "sql_persistence": {
+    "source_server_commit": "7f38d86ac7c48bccfaa01c5540953f610c8ce0e6",
+    "status": "unit_contract_pass",
+    "entries": [
+      "canvas",
+      "short_drama"
+    ],
+    "per_uri_conflict_objects_and_legacy_field_arrays_roundtrip": true,
+    "new_synthetic_documents_only": true,
+    "complete_rollback": true
+  },
+  "temporary_fixture_limitations": [
+    "Missing Nuxt auto-import registrations and native string-ID adapter were corrected before final cross results",
+    "Two copies of the same shared SFC in the isolated shell duplicate field IDs; scoped DOM selectors used for the shell repair form",
+    "Node footer initially overlapped the shell reset button; corrected shell spacing then four reset cases repeated",
+    "Temporary server diagnostics are not product source or delivered APIs"
+  ],
+  "screenshot": "/tmp/market-batch34-groups-repaired.png (local temporary proof only)"
+}
