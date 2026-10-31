@@ -122,10 +122,10 @@ final class AigcMusicMarketService
             self::syncConsumption((int)$task['consumption_id'], (int)$task['id']);
         }
         $task->refresh();
-        return ['task_id' => (int)$task['id'], 'id' => (int)$task['id'], 'provider_task_id' => (string)$task['provider_task_id'],
+        return \app\common\service\ai\GenerationTaskResultService::appendBusiness(['task_id' => (int)$task['id'], 'id' => (int)$task['id'], 'provider_task_id' => (string)$task['provider_task_id'],
             'status' => (string)$task['status'], 'billing_status' => (string)$task['billing_status'], 'error' => (string)$task['error'],
             'estimate' => $quote, 'market_sku_id' => (int)$task['market_sku_id'], 'consumption_id' => (int)$task['consumption_id'],
-            'results' => $task['status'] === 'success' ? AigcMusicService::taskDetail($tenantId, (int)$task['id'], $userId)['results'] : []];
+            'results' => $task['status'] === 'success' ? AigcMusicService::taskDetail($tenantId, (int)$task['id'], $userId)['results'] : []],(int)$task['app_task_id'],$tenantId,$userId);
     }
 
     public static function syncConsumption(int $consumptionId, int $taskId): void
