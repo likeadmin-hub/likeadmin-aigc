@@ -89,7 +89,8 @@ final class OpenNativeMarketPricing
     /** Published binding excludes prices, which are captured separately at admission. */
     public static function boundedTokenBinding(array $product,array $sku): ?array
     {
-        if(!self::supports($product)||(($product['resource_type']??'')==='model'&&($product['model_type']??'')!=='video'))return null;
+        // Application APIs retain their own raw request/receipt adaptation gate.
+        if(($product['resource_type']??'')!=='model'||($product['model_type']??'')!=='video')return null;
         try{$meter=Meter::tokenContract($sku);}catch(\InvalidArgumentException){return null;}
         return ['version'=>2,'maximum_quantity'=>$meter['maximum_quantity'],'usage_path'=>$meter['usage_path'],
             'rounding_scale'=>$meter['rounding_scale'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>number_format((float)$sku['usage_unit_size'],6,'.','')];
