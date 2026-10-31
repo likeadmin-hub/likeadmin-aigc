@@ -233,7 +233,8 @@ class PowerMarketService
         });
     }
 
-    public static function syncFromUpstream(): array
+    /** Model-only maintenance leaves application products and pricing untouched. */
+    public static function syncFromUpstream(bool $modelsOnly = false): array
     {
         $requests = [];
         $models = [];
@@ -315,7 +316,7 @@ class PowerMarketService
 
         $appsSynced = false;
         try {
-            foreach (self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps()) as $app) {
+            foreach ($modelsOnly ? [] : self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps()) as $app) {
                 $appCode = trim((string)($app['code'] ?? ''));
                 if ($appCode === '') {
                     continue;
@@ -340,7 +341,7 @@ class PowerMarketService
                     ];
                 }
             }
-            $appsSynced = true;
+            $appsSynced = !$modelsOnly;
         } catch (\Throwable $e) {
             $typeErrors['app_api'] = '同步失败';
         }
