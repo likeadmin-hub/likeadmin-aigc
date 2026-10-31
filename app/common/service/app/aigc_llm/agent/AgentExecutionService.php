@@ -15,6 +15,7 @@ final class AgentExecutionService
     public static function submit(int $tenant,int $user,array $params): array
     {
         AgentStore::access($tenant,$user);
+        $submissionHash=\app\common\service\ai\GenerationSubmission::fingerprint($params);
         $content=trim((string)($params['content']??''));$requestId=(string)($params['request_id']??'');
         if($content===''||mb_strlen($content)>10000)throw new \InvalidArgumentException('请输入1至10000字的请求');
         if(!preg_match('/^[a-zA-Z0-9_-]{16,96}$/D',$requestId))throw new \InvalidArgumentException('请求标识无效');
@@ -36,7 +37,7 @@ final class AgentExecutionService
         if($projectReferences)$identity[]=['project_references'=>$projectReferences];
         $hash=hash('sha256',AgentStore::encode($identity));
         $existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();
-        if($existing){if($existing['payload_hash']!==$hash)throw new \InvalidArgumentException('同一请求标识不能提交不同内容');return self::detail($tenant,$user,(int)$existing['id']);}
+        if($existing){if($existing['payload_hash']!==$hash)throw new \InvalidArgumentException('同一请求标识不能提交不同内容');self::assertSubmission($existing,$submissionHash);return self::detail($tenant,$user,(int)$existing['id']);}
         if(AgentWorkspaceScope::app()==='aigc_canvas'&&$subjectIds)throw new \InvalidArgumentException('请先将短剧主体导入当前项目，再从 @ 中引用');
         if(AgentWorkspaceScope::app()!=='aigc_canvas'&&$projectReferences)throw new \InvalidArgumentException('项目引用只能用于当前画布');
         $assets=[];foreach($attachments as $id)$assets[]=OpenAssets::detail($tenant,$user,$id);
@@ -50,6 +51,7 @@ final class AgentExecutionService
         }
         // Freeze server-owned audio routing for new runs; never rewrite an existing plan.
         $preferences=AgentCapabilityCatalog::withAudioDefaults($tenant,$preferences);
+        $preferences['_submission_hash']=$submissionHash;
         try{$id=Db::transaction(function()use($tenant,$user,$sessionId,$content,$assets,$preferences,$requestId,$hash){
             if(!AgentWorkspaceScope::activeRunWorkspace(['tenant_id'=>$tenant,'user_id'=>$user,'preferences'=>$preferences],true))throw new \InvalidArgumentException('项目或页面已删除');
             if($sessionId){$session=AigcLlmSession::where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$sessionId,'delete_time'=>0])->lock(true)->findOrEmpty();if($session->isEmpty())throw new \InvalidArgumentException('会话不存在');}
@@ -68,8 +70,14 @@ final class AgentExecutionService
             $answer=AigcLlmMessage::create($base+['role'=>'assistant','content'=>'','status'=>'streaming','seq'=>$seq+2,'parent_user_message_id'=>$message['id']]);
             $session->save(['status'=>'streaming','last_message_at'=>time(),'update_time'=>time(),'model_code'=>$preferences['models']['text'],'message_count'=>(int)$session['message_count']+2]);
             return AgentStore::table('run')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'message_id'=>$answer['id'],'request_id'=>$requestId,'payload_hash'=>$hash,'content'=>$content,'preferences'=>AgentStore::encode($preferences),'attachments'=>AgentStore::encode($assets),'status'=>'queued','phase'=>'chat','reply'=>'','create_time'=>time(),'update_time'=>time()]);
-        });}catch(\Throwable $e){$existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();if(!$existing||$existing['payload_hash']!==$hash)throw $e;$id=(int)$existing['id'];}
+        });}catch(\Throwable $e){$existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();if(!$existing||$existing['payload_hash']!==$hash)throw $e;self::assertSubmission($existing,$submissionHash);$id=(int)$existing['id'];}
         return self::detail($tenant,$user,(int)$id);
+    }
+    private static function assertSubmission(array $run,string $hash): void
+    {
+        // Old runs retain their original identity contract; new runs freeze all submitted preferences too.
+        $saved=AgentStore::json($run['preferences'])['_submission_hash']??'';
+        if($saved!==''&&!hash_equals($saved,$hash))throw new \InvalidArgumentException('同一请求标识不能更改运行模式或参数，请新建请求');
     }
     public static function detail(int $tenant,int $user,int $id): array
     {
