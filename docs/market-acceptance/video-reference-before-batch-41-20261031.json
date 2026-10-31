@@ -1,0 +1,117 @@
+{
+  "batch": 41,
+  "date": "2026-10-31",
+  "source_server_commit": "2bea04dcf2e4a94834b61a2137d7b45e59775008",
+  "source_web_commit": "7a8b362ff0735dc055bd33d46b6a5e723c3e6f15",
+  "scope": "Pre-fix actual production-source projections and readonly preparation: four Kling reference-alias failures and four already passing controls. Ordinary canvas normal-login page reproduced the same error. A rejection does not infer a newly selected SKU; only the source request explicit SKU is retained.",
+  "paid_generation": false,
+  "cases": [
+    {
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_0",
+      "channel": "market_video_model:308",
+      "source_request_hash": "cd030e9040cd1f639a82a24cc20b17fcf0866996f4a4ad1b9826690fb278e032",
+      "status": "reproduced_failure",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "requested_sku": 493,
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "521d5c2c421bc7c84f8de7a63a3b627b70354cba4523a2fa4ff090ba139cb646"
+    },
+    {
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_1",
+      "channel": "market_video_model:308",
+      "source_request_hash": "49b980ec6d48fbfd6a31f3592ccfcf908aae2932e917877591482df3b612a5ce",
+      "status": "reproduced_failure",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "requested_sku": 493,
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "521d5c2c421bc7c84f8de7a63a3b627b70354cba4523a2fa4ff090ba139cb646"
+    },
+    {
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_2",
+      "channel": "market_video_model:308",
+      "source_request_hash": "b502ca63077cc96146961462f249162b95a531d9e7a0ad5319557952f0a959d9",
+      "status": "reproduced_failure",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "requested_sku": 493,
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "2ffb0eea4c68c3c151f4540a1aafffdd428f2a99fddde6cb11c0183ec7eae757"
+    },
+    {
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_3",
+      "channel": "market_video_model:308",
+      "source_request_hash": "859248e292ab3b66a66a371bb3f07de8ee8b0faf192fcc7e797162c313e8acd3",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "frozen_equal": true,
+      "requested_sku": 493,
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd"
+    },
+    {
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_0",
+      "channel": "market_video_model:308",
+      "source_request_hash": "c173902b0580e6d91169f2d7eb57e6ae1e2b06001d734984040308184a508362",
+      "status": "reproduced_failure",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "75943b39e8ab8322b38f684c1ca8afe57e1ba9e172bef77a3eef226b2f01cd0a"
+    },
+    {
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_1",
+      "channel": "market_video_model:308",
+      "source_request_hash": "cdfb7c8e05f1964d7c40fd9edef60bd5653d563450737b10f0fc16e77fe8b68d",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "frozen_equal": true,
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "75943b39e8ab8322b38f684c1ca8afe57e1ba9e172bef77a3eef226b2f01cd0a"
+    },
+    {
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_2",
+      "channel": "market_video_model:308",
+      "source_request_hash": "be88ae09fc374eceb44ac432c3d0a599d164b2857892ec55563f7fc88e20ca29",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "frozen_equal": true,
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "90f61b1ff7a307ad12d0f95e6502ea32222ed5f1584019c64877f7731fd92ea2"
+    },
+    {
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_3",
+      "channel": "market_video_model:308",
+      "source_request_hash": "a04da0d10365ea79679e48ec43685500b7b0f135aa5f25413396f7eea5b30b27",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "frozen_equal": true,
+      "after_status": "quote_admission_frozen_slots_equal",
+      "after_native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd"
+    }
+  ],
+  "standalone_history_before": {
+    "task_id": 25,
+    "entry": "standalone",
+    "channel": "market_video_app:seedance:140",
+    "scope": "Actual normal-login reuse before the history fix; no supplier submission.",
+    "observed_reference_count": 0,
+    "persisted_reference_count": 4,
+    "task_measured_duration": 1,
+    "persisted_request_duration": 5,
+    "observed_restoration": "The old handler copied only prompt/channel/output dimensions; materials and controls were not restored."
+  }
+}
