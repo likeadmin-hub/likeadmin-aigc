@@ -356,7 +356,7 @@ class MarketImageModelRuntimeService
             ]);
             if (!$deferredUsage) PointService::reserveBusinessAmountsInCurrentTransaction($tenantId, $userId, $tenantCost, $userPrice, $consumeNo . '-reserve', self::taskLabel($appCode) . '预占', self::extra($appTask, $consumption, 'reserved'));
             self::event((int)$consumption['id'], 'reserve', 'success', ['quantity' => $quantity, 'settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved']);
-            return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::requiresMeterReceipt(self::snapshot($market)) ? self::snapshotWithBillingOverride($market,$billingOverride,$quantity) : self::snapshot($market)];
+            return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::requiresMeterReceipt(self::snapshot($market)) ? (array)$consumption['price_snapshot'] : self::snapshot($market)];
         });
     }
 

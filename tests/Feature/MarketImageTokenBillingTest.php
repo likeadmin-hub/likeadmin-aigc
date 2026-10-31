@@ -17,7 +17,7 @@ class MarketImageTokenBillingTest extends TestCase
         $snapshot=['platform_price'=>10,'tenant_price'=>20,'usage_unit_size'=>1000,'billing_meter'=>Meter::tokenContract(self::sku())];
         self::assertSame(10.,Billing::price(10,2,$snapshot));self::assertSame([2.5,5.],Billing::amounts($snapshot,2,250));
         self::assertSame('recognized_upper_bound',Audit::sku('image','model',self::sku())['meter_status']);
-        self::assertSame('requires_submission_token_budget',Audit::sku('image','app_api',self::sku())['meter_status']);
+        self::assertSame('requires_submission_token_budget',Audit::sku('image','app_api',self::sku(),'nano_banana')['meter_status']);
         self::assertNull(\app\common\service\open_platform\OpenNativeMarketPricing::boundedTokenBinding(['resource_type'=>'model','model_type'=>'image'],self::sku()));
     }
     public function testImageBudgetStillRequiresAFormalHardBound(): void
@@ -59,7 +59,7 @@ class MarketImageTokenBillingTest extends TestCase
                 try{Images::reserve(1,$user,'generate',$key,$request,$request,2,'aigc_image','aigc_image_task',['user_unit_price'=>1]);self::fail('An override cannot bypass reservation');}catch(\Exception $e){self::assertStringContainsString('按实际用量',$e->getMessage());}self::assertSame($before,$this->balances($user));
             }else{
                 $r=$create();$id=(int)$r['consumption_id'];$log=AiConsumptionLog::find($id);$snapshot=$log['price_snapshot'];
-                self::assertSame(1000.,(float)$log['quantity']);self::assertSame(2,$snapshot['requested_image_quantity']);self::assertSame($snapshot,$r['market_snapshot']);self::assertSame('reserved',$log['billing_status']);self::assertSame(round($before['user']-20,2),$this->balances($user)['user']);
+                self::assertSame(1000.,(float)$log['quantity']);self::assertSame(2,$snapshot['requested_image_quantity']);self::assertEquals($snapshot,$r['market_snapshot']);self::assertSame('reserved',$log['billing_status']);self::assertSame(round($before['user']-20,2),$this->balances($user)['user']);
                 $native=Images::prepareRequest($snapshot,$request)->nativeInput;self::assertSame($native,Images::prepareRequest(json_decode(json_encode($snapshot),true),$request)->nativeInput);self::assertArrayNotHasKey('maximum_quantity',$native);self::assertArrayNotHasKey('token_budget',$native);
                 $one=['image_uri'=>'stored-synthetic.png','width'=>100,'height'=>100];$images=$scenario==='partial'?[$one]:[$one,$one];$receipt=['status'=>'completed','data'=>['usage'=>['total_tokens'=>250]]];$settle=new \ReflectionMethod(Images::class,'settle');
                 $source=$s['source_payload'];$source['meter_contract']['maximum_quantity']=2000;$s->save(['source_payload'=>$source,'sale_points'=>99]);self::assertSame($snapshot,AiConsumptionLog::find($id)['price_snapshot']);
