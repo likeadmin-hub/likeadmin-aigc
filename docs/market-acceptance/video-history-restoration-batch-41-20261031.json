@@ -1,0 +1,302 @@
+{
+  "batch": 41,
+  "date": "2026-10-31",
+  "source_server_commit": "bc61e1edd4da718373b0133b11d226450d6d00f8",
+  "source_web_commit": "6e4957ab7b542ffa23223245bc1d5e24935635a0",
+  "paid_generation": false,
+  "live_model_sync_executed": false,
+  "original_task_writes": false,
+  "provider_task_or_asset_endpoint_invoked": false,
+  "scope": "Actual standalone history reuse of existing terminal tasks plus read-only detail/enrichment and five frozen native/meter reconstructions. Current editable reuse is not a frozen paid rerun. No original task row was rewritten.",
+  "contract_change": "Optional numeric request_duration on video list/results/detail response copies, resolved from saved model selection or strictly associated tenant/user/app-task consumption summary; no migration or permission change.",
+  "history_ui": [
+    {
+      "entry": "standalone",
+      "channel": "market_video_app:seedance:140",
+      "task_id": 25,
+      "scenario": "mixed_history_request_duration",
+      "status": "presentation_checked",
+      "before_reference_count": 0,
+      "after_reference_count": 4,
+      "measured_output_duration": 1,
+      "restored_request_duration": 5,
+      "restored_method": "omni_reference",
+      "current_quote": "blocked_missing_token_budget",
+      "scope": "Actual UI; no current quote SKU captured."
+    },
+    {
+      "entry": "standalone",
+      "channel": "market_video_model:94",
+      "task_id": 30,
+      "scenario": "mixed_history_restore",
+      "status": "presentation_checked",
+      "after_reference_count": 3,
+      "restored_request_duration": 4,
+      "restored_method": "omni_reference",
+      "visible_quote_points": 96,
+      "scope": "Actual UI; no current quote SKU captured. Identified by matching original creation time and prompt context, not a similar neighboring task."
+    },
+    {
+      "entry": "standalone",
+      "channel": "market_video_model:98",
+      "task_id": 85,
+      "scenario": "plain_history_clears_previous_mixed_draft",
+      "status": "presentation_checked",
+      "after_reference_count": 0,
+      "restored_request_duration": 4,
+      "restored_method": "text_to_video",
+      "scope": "Actual UI; no current quote SKU captured."
+    }
+  ],
+  "readonly_detail_and_enrichment": [
+    {
+      "task_id": 85,
+      "model_selection_id": "market_video_model:98",
+      "market_product_id": 98,
+      "channel": "market_video_model:98",
+      "task_duration": 4,
+      "request_duration": 4,
+      "list_request_duration": 4,
+      "reference_asset_count": 0,
+      "record_unchanged": true
+    },
+    {
+      "task_id": 54,
+      "model_selection_id": "market_video_model:94",
+      "market_product_id": 94,
+      "channel": "market_video_model:94",
+      "task_duration": 30,
+      "request_duration": 30,
+      "list_request_duration": 30,
+      "reference_asset_count": 0,
+      "record_unchanged": true
+    },
+    {
+      "task_id": 28,
+      "model_selection_id": "market_video_app:seedance:140",
+      "market_product_id": 140,
+      "channel": "market_video_app:seedance:140",
+      "task_duration": 4,
+      "request_duration": 4,
+      "list_request_duration": 4,
+      "reference_asset_count": 3,
+      "record_unchanged": true
+    },
+    {
+      "task_id": 25,
+      "model_selection_id": "market_video_app:seedance:140",
+      "market_product_id": 140,
+      "channel": "market_video_app:seedance:140",
+      "task_duration": 1,
+      "request_duration": 5,
+      "list_request_duration": 5,
+      "reference_asset_count": 4,
+      "record_unchanged": true
+    },
+    {
+      "task_id": 30,
+      "model_selection_id": "market_video_model:94",
+      "market_product_id": 94,
+      "channel": "market_video_model:94",
+      "task_duration": 4,
+      "request_duration": 4,
+      "list_request_duration": 4,
+      "reference_asset_count": 3,
+      "record_unchanged": true
+    }
+  ],
+  "list_read_scope_note": "Full resultLists in a READ ONLY transaction encountered the existing compensation-job enqueue write before enrichment. It is not certified as a wholly read-only API. The new response decorator and terminal taskDetail were separately validated in READ ONLY transactions; actual list loading/reuse was checked through normal-login HTTP. No lifecycle/queue semantics were changed.",
+  "frozen_history": [
+    {
+      "task_id": 85,
+      "task_duration": 4,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 98,
+      "sku_id": 119,
+      "channel": "market_video_model:98",
+      "method": "text_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": true,
+      "scope": "Persisted historical business inputs; original generation entry unknown. Separate from the known standalone reuse UI.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "ratio": "1:1",
+          "resolution": "768P",
+          "duration": 4
+        },
+        "native_hash": "693f93243f3451723448764470992ba3b89f15d27495426640dc5e5f096e06f7",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "status": "frozen_history_replay_equal",
+      "entry": "persisted_task_readonly",
+      "scenario": "additional_terminal_business_input_frozen_reconstruction"
+    },
+    {
+      "task_id": 54,
+      "task_duration": 30,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 94,
+      "sku_id": 105,
+      "channel": "market_video_model:94",
+      "method": "",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Persisted historical business inputs; original generation entry unknown. Separate from the known standalone reuse UI.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 0,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": [],
+        "native_hash": "8dde5f60c706cc01789c9c8524a8d58bcf3eec442e45b344b000b162a30f8a53",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "status": "frozen_history_replay_equal",
+      "entry": "persisted_task_readonly",
+      "scenario": "additional_terminal_business_input_frozen_reconstruction"
+    },
+    {
+      "task_id": 28,
+      "task_duration": 4,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 140,
+      "sku_id": 211,
+      "channel": "market_video_app:seedance:140",
+      "method": "omni_reference",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Persisted historical business inputs; original generation entry unknown. Separate from the known standalone reuse UI.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 1
+        },
+        "controls": {
+          "resolution": "480p",
+          "ratio": "16:9",
+          "duration": 4,
+          "generate_audio": true
+        },
+        "native_hash": "6ba0ef4eb749f0100ba5cd0cd4cf4238c0fbb5f47f9435382f452801d0665d5d",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "status": "frozen_history_replay_equal",
+      "entry": "persisted_task_readonly",
+      "scenario": "additional_terminal_business_input_frozen_reconstruction"
+    },
+    {
+      "task_id": 25,
+      "task_duration": 1,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 140,
+      "sku_id": 211,
+      "channel": "market_video_app:seedance:140",
+      "method": "omni_reference",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Persisted historical business inputs; original generation entry unknown. Separate from the known standalone reuse UI.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 3,
+          "video": 0,
+          "audio": 1
+        },
+        "controls": {
+          "resolution": "480p",
+          "ratio": "16:9",
+          "duration": 5
+        },
+        "native_hash": "007a2d62ee436d77c2285de37474a4d6ea6275e99d278d5987dcd508bec8b5e0",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "status": "frozen_history_replay_equal",
+      "entry": "persisted_task_readonly",
+      "scenario": "additional_terminal_business_input_frozen_reconstruction"
+    },
+    {
+      "task_id": 30,
+      "task_duration": 4,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 94,
+      "sku_id": 104,
+      "channel": "market_video_model:94",
+      "method": "omni_reference",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Persisted historical business inputs; original generation entry unknown. Separate from the known standalone reuse UI.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 1
+        },
+        "controls": [],
+        "native_hash": "d3a1f0876a0e4565705cd5201c0726acddffb7b73e5ad2568a21edab76f067f3",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "status": "frozen_history_replay_equal",
+      "entry": "persisted_task_readonly",
+      "scenario": "additional_terminal_business_input_frozen_reconstruction"
+    }
+  ],
+  "original_rows": [
+    {
+      "kind": "video",
+      "rows": 44,
+      "tables": 1,
+      "before_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b",
+      "after_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b",
+      "full_rows_equal": true
+    },
+    {
+      "kind": "app",
+      "rows": 10,
+      "tables": 14,
+      "before_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1",
+      "after_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1",
+      "full_rows_equal": true
+    },
+    {
+      "kind": "image",
+      "rows": 81,
+      "tables": 1,
+      "before_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc",
+      "after_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc",
+      "full_rows_equal": true
+    }
+  ],
+  "visible_balance_before": 4372.96,
+  "visible_balance_after": 4372.96,
+  "validation": {
+    "pc_tests": 638,
+    "phpunit_existing_tests": 285,
+    "phpunit_existing_assertions": 1470,
+    "phpunit_focused_tests": 31,
+    "phpunit_focused_assertions": 81,
+    "sfc_script_template_style": 7,
+    "typescript_files": 4
+  },
+  "exclusions": [
+    "No paid generation, reserve, retry or supplier task/asset endpoint invocation.",
+    "No live catalogue/pricing sync in this batch.",
+    "Current Seedance Token-budget admission block is not resolved by successful historical frozen reconstruction.",
+    "Initial catalogue matrix and previous incomplete contract/lifecycle gaps remain historical, not closed by these checks."
+  ]
+}

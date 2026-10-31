@@ -1,0 +1,1313 @@
+{
+  "batch": 41,
+  "date": "2026-10-31",
+  "source_server_commit": "bc61e1edd4da718373b0133b11d226450d6d00f8",
+  "source_web_commit": "6e4957ab7b542ffa23223245bc1d5e24935635a0",
+  "paid_generation": false,
+  "live_model_sync_executed": false,
+  "original_task_writes": false,
+  "provider_task_or_asset_endpoint_invoked": false,
+  "scope": "Finite actual production-source projections into readonly quote/admission/JSON-frozen native+meter preparation. All five current Kling material views plus sound/quality combinations and unknown references:22 cases. Eight original alias contexts rerun after correction. Thirteen saved HTTP-node phase cases include video removal,2s replacement,12s rejection and mixed references. Not captured browser wire DTOs, every model/parameter combination, supplier generation or full entry acceptance.",
+  "catalogue": {
+    "image_entries": 56,
+    "video_entries": 51
+  },
+  "cases": [
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "074deb1a3ee963f4f3f3253174cd124145a353cea50c7d727a4e7339a6832c5a",
+      "required_declared_media_fields": [],
+      "native_prompt": "Synthetic colored blocks.",
+      "native_reference_names": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:reference",
+      "method": "text_to_video",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "a6ecfabd8daa952d249d2ab4d3d8826fd21de4b2413278f5c648c69315bb27a9",
+      "requested_sku": 489
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "074deb1a3ee963f4f3f3253174cd124145a353cea50c7d727a4e7339a6832c5a",
+      "required_declared_media_fields": [],
+      "native_prompt": "Synthetic colored blocks.",
+      "native_reference_names": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:reference",
+      "method": "text_to_video",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "4f1f314f0faccde1a6d557286542411c6bb0f8ba1cf007d7f1eb06ae5801949e"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "ab4f163edc5766db42b533d543bb085fd5429d63d22c08606b82393daf4d1884",
+      "required_declared_media_fields": [
+        {
+          "field": "first_frame_url",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_prompt": "@first_frame 配合生成。\n参考素材：@first_frame",
+      "native_reference_names": {
+        "first_frame_url": [
+          "first_frame"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:first",
+      "method": "image_to_video",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "96912bfcf363c311dbb3300e88f91674bcbd0fcc9bba89d026deae35292056ba",
+      "requested_sku": 489
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "c4b2945f53dbc15a8abe4e7c9200f3a74e83a610a85b97900bfa3e284cd2fa35",
+      "required_declared_media_fields": [
+        {
+          "field": "first_frame_url",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_prompt": "@first_frame 配合生成。",
+      "native_reference_names": {
+        "first_frame_url": [
+          "first_frame"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:first",
+      "method": "image_to_video",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "541ebc156b00b20d1b51e2f58999707c091290c22e1e629f133ea5da7a7f03aa"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "d7bab278a2d324c649541883f9469372d240304cf94b99b6aeadf6fc155975d6",
+      "required_declared_media_fields": [
+        {
+          "field": "last_frame_url",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_prompt": "@last_frame 配合生成。\n参考素材：@last_frame",
+      "native_reference_names": {
+        "last_frame_url": [
+          "last_frame"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:last",
+      "method": "last_frame",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "bf30ea7939811dfeda9e60fb16d5b8bbff3596cd822092613498753722b29b49",
+      "requested_sku": 489
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "a196d948ac62653ace29ef3f3960dce27922a162692433b28cfd9949259a95f1",
+      "required_declared_media_fields": [
+        {
+          "field": "last_frame_url",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_prompt": "@last_frame 配合生成。",
+      "native_reference_names": {
+        "last_frame_url": [
+          "last_frame"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:last",
+      "method": "last_frame",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "5921c4716084c443f736c27f768b6f15de3c9dce6a0405aa6193ee2aa1584760"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "7b628570a4f54bc52d0b4c0231d5b2e9270e1753bacd5b59610808df1d424386",
+      "required_declared_media_fields": [
+        {
+          "field": "first_frame_url",
+          "kind": "image",
+          "native_present": true
+        },
+        {
+          "field": "last_frame_url",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_prompt": "@first_frame 与 @last_frame 配合生成。\n参考素材：@first_frame @last_frame",
+      "native_reference_names": {
+        "first_frame_url": [
+          "first_frame"
+        ],
+        "last_frame_url": [
+          "last_frame"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:pair",
+      "method": "start_end",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "57dc0053676f0506803140e950a432e59d3ae3ddb39ee343c6e35dcf54d661d0",
+      "requested_sku": 489
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 489,
+      "admission_sku_id": 489,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "f70f56cd6ac81de61c9d19b275169143014c7287f8677ab81b6bc6b77b72956c",
+      "required_declared_media_fields": [
+        {
+          "field": "first_frame_url",
+          "kind": "image",
+          "native_present": true
+        },
+        {
+          "field": "last_frame_url",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_prompt": "@first_frame 与 @last_frame 配合生成。",
+      "native_reference_names": {
+        "first_frame_url": [
+          "first_frame"
+        ],
+        "last_frame_url": [
+          "last_frame"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:pair",
+      "method": "start_end",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "f3b1d3272a79fc8d38a14bdd6f9e97c9bb1eaaf57d9bc51c3639d69f1fa331de"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "150f185f4e8d8c915f934b81ea2feab3fbea52cb459f43563f249c52b62eb66a",
+      "required_declared_media_fields": [],
+      "native_prompt": "@image_1 配合生成。\n参考素材：@image_1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "61013dc8f57a3c9407bf9afc003cd53ee1b0992860da9cb2bd2745e93c74546d",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "5b1409d4fda832547f78a3f74641bcef25712b8680d44c0b8da05ee9c970ef43",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "55c444637f41ef09eaf9a0591d01e82bebe780b1c2c3a6f5eddd05376a7833e6",
+      "required_declared_media_fields": [],
+      "native_prompt": "@image_1 配合生成。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "61013dc8f57a3c9407bf9afc003cd53ee1b0992860da9cb2bd2745e93c74546d",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "native_mode_typed_reference_prompt",
+      "source_request_hash": "8d083fa5be809a1814b7de4ef8cf568a8e0a1fcea38bd9e19b832e11ea799427"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "2a21322a2b8b427bdf41fbfb313888cd6fb0b3740c4caff44cf69b6e53e3eeab",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_true_quality_720P",
+      "source_request_hash": "88ca84bf7008edd6e885e46205176eeb75f68284f601763ca03e7dff4e6c6f88",
+      "requested_sku": 494
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "fa876582e426c705b943164d367d8fe246ff569d3d08356316f645917565b05e",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_true_quality_1080P",
+      "source_request_hash": "eb87a2d813934d0a53053f0ea3b774afaca1b0336f6b6a52b3983e45f2dec02d",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "0de0dee0a426b7732314b87e24ef2c20ab2ae14a0cbfb175798c3169bd455b9c",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_false_quality_720P",
+      "source_request_hash": "2bfb2317dbd75ae99e4b9a36803c86eeda48cecd27cdce26a36d46891f314839",
+      "requested_sku": 494
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "521d5c2c421bc7c84f8de7a63a3b627b70354cba4523a2fa4ff090ba139cb646",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_false_quality_1080P",
+      "source_request_hash": "aea1f973a43d98092d8ec466f9eaab266391a4f8aab8fdebbef1820498220d2c",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "a5927a778435ed5d006bd9a24a3a92cd9f5f0387e763702f8d7260134c57fcd2",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_true_quality_720P",
+      "source_request_hash": "150b57f9e364243b83efd68ace20ab349bae6cd2d72206ab5d457d6e6e346cec"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "6d5fd7dfbeb7503336b253f7e30f7e2ecc4438dc6e04f1a015a95d4ad98768c7",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_true_quality_1080P",
+      "source_request_hash": "1832aa8f70f450f4fdb6a21a2ae868b53595b13a8a2e9b446a77a52cbcc28336"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "4a4484bbbad22e821fb5d7effb152431460eceb9b31c6f91082e8ac732567149",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_false_quality_720P",
+      "source_request_hash": "fffa088dc84cb7a125ff2f880cefa7115c25948fcc26b9b66ff4949997766ced"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "75943b39e8ab8322b38f684c1ca8afe57e1ba9e172bef77a3eef226b2f01cd0a",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "sound_false_quality_1080P",
+      "source_request_hash": "c8a9ebeec851649f2cc2c6f9093bf639529d66f03960c25c628c4883a9cdf1a3"
+    },
+    {
+      "status": "expected_contract_rejection",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "unbound_prompt_@图片10",
+      "source_request_hash": "c7cf0519dd9c19612187221eb8eeee9b2eeff8b476f990f9cb577fbd71c058bc",
+      "requested_sku": 493
+    },
+    {
+      "status": "expected_contract_rejection",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "unbound_prompt_@未上传角色",
+      "source_request_hash": "7376c857233dd331d0567f4b5239e5384555c58841670fcf32ccf230fa76fcac",
+      "requested_sku": 493
+    },
+    {
+      "status": "expected_contract_rejection",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "unbound_prompt_@图片10",
+      "source_request_hash": "535e095f85c7e971ba5e8d2e947a234a29e87a73eabce4cbade9bbd33daa320d"
+    },
+    {
+      "status": "expected_contract_rejection",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "unbound_prompt_@未上传角色",
+      "source_request_hash": "275138067c22edfa56db32cab1739117f363a5c75925567a65e6950032c2325f"
+    }
+  ],
+  "corrected_alias_contexts": [
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "521d5c2c421bc7c84f8de7a63a3b627b70354cba4523a2fa4ff090ba139cb646",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_0",
+      "channel": "market_video_model:308",
+      "source_request_hash": "cd030e9040cd1f639a82a24cc20b17fcf0866996f4a4ad1b9826690fb278e032",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "521d5c2c421bc7c84f8de7a63a3b627b70354cba4523a2fa4ff090ba139cb646",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_1",
+      "channel": "market_video_model:308",
+      "source_request_hash": "49b980ec6d48fbfd6a31f3592ccfcf908aae2932e917877591482df3b612a5ce",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "2ffb0eea4c68c3c151f4540a1aafffdd428f2a99fddde6cb11c0183ec7eae757",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_2",
+      "channel": "market_video_model:308",
+      "source_request_hash": "b502ca63077cc96146961462f249162b95a531d9e7a0ad5319557952f0a959d9",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "canvas",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_3",
+      "channel": "market_video_model:308",
+      "source_request_hash": "859248e292ab3b66a66a371bb3f07de8ee8b0faf192fcc7e797162c313e8acd3",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "75943b39e8ab8322b38f684c1ca8afe57e1ba9e172bef77a3eef226b2f01cd0a",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_0",
+      "channel": "market_video_model:308",
+      "source_request_hash": "c173902b0580e6d91169f2d7eb57e6ae1e2b06001d734984040308184a508362"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "75943b39e8ab8322b38f684c1ca8afe57e1ba9e172bef77a3eef226b2f01cd0a",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_1",
+      "channel": "market_video_model:308",
+      "source_request_hash": "cdfb7c8e05f1964d7c40fd9edef60bd5653d563450737b10f0fc16e77fe8b68d"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "90f61b1ff7a307ad12d0f95e6502ea32222ed5f1584019c64877f7731fd92ea2",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_2",
+      "channel": "market_video_model:308",
+      "source_request_hash": "be88ae09fc374eceb44ac432c3d0a599d164b2857892ec55563f7fc88e20ca29"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "b6258c4c30ad3c64c0ff6458e6e28aae5899cce620788ca135524fa67eadbbfd",
+      "required_declared_media_fields": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "e7077a6baf773b89bf3c2826f752ebdab125f3f68ff58b194f8f1375f302e24f",
+      "entry": "short_drama",
+      "material_mode": "reference_to_video:4",
+      "scenario": "kling_reference_alias_3",
+      "channel": "market_video_model:308",
+      "source_request_hash": "a04da0d10365ea79679e48ec43685500b7b0f135aa5f25413396f7eea5b30b27"
+    }
+  ],
+  "http_node_phases": [
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 825,
+      "admission_sku_id": 825,
+      "points": 250,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "925a59da33d23051b3d230e85a54eb2c3813a322499a68ef28da53d80771138a",
+      "required_declared_media_fields": [],
+      "native_prompt": "Synthetic colored blocks.",
+      "native_reference_names": [],
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "method": "omni_reference",
+      "scenario": "normal_http_missing_saved_node",
+      "phase": "missing",
+      "project_id": 868,
+      "source_request_hash": "e0f27e2c1d3ad95e5032b7021159faad8831a0ca16d7759f62bebf5a18ea2e00",
+      "requested_sku": 825
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "fa876582e426c705b943164d367d8fe246ff569d3d08356316f645917565b05e",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "normal_http_missing_saved_node",
+      "phase": "missing",
+      "project_id": 868,
+      "source_request_hash": "eb87a2d813934d0a53053f0ea3b774afaca1b0336f6b6a52b3983e45f2dec02d",
+      "requested_sku": 493
+    },
+    {
+      "status": "expected_contract_rejection",
+      "message": "提示词不能为空白；每个 @引用须匹配本次已提供的素材名称。",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "method": "omni_reference",
+      "scenario": "normal_http_missing_saved_node",
+      "phase": "missing",
+      "project_id": 510,
+      "source_request_hash": "14d09daeb92f99fc689b0cf37cb8cedd8dddab726de1312b222a9b314ff6a233"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "bd0d5a3810b768f6b4f2fde033c0bc258127634c0e9d4d65073365e0cdf3fd0d",
+      "required_declared_media_fields": [],
+      "native_prompt": "Synthetic colored blocks.",
+      "native_reference_names": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "method": "omni_reference",
+      "scenario": "normal_http_short-video_saved_node",
+      "phase": "short-video",
+      "project_id": 868,
+      "source_request_hash": "14a53eb85da1b3f3b17999f2102dcb60b4af7219ae6ef84d68a23016e84a3493",
+      "requested_sku": 809
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "fa876582e426c705b943164d367d8fe246ff569d3d08356316f645917565b05e",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "normal_http_short-video_saved_node",
+      "phase": "short-video",
+      "project_id": 868,
+      "source_request_hash": "eb87a2d813934d0a53053f0ea3b774afaca1b0336f6b6a52b3983e45f2dec02d",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "f855782bb1c1b153614a3856c486bd817981d2955854b95f722618f939ee170c",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "a5b78eb765b30e29e67b4722bbf1329c18835c7334d16a9dafe3e45ecdfae7ab",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "method": "omni_reference",
+      "scenario": "normal_http_short-video_saved_node",
+      "phase": "short-video",
+      "project_id": 510,
+      "source_request_hash": "cb4617d740e6763d4e67eab3f55d8eecedb87503ff7c6a1b75d128ef335da8e6"
+    },
+    {
+      "status": "expected_contract_rejection",
+      "message": "参考视频请使用不超过10秒的素材；普通创作引用完整视频",
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "method": "omni_reference",
+      "scenario": "normal_http_long-video_saved_node",
+      "phase": "long-video",
+      "project_id": 868,
+      "source_request_hash": "83e320874d13548eb75948ef8ba3db9d5108ff40bcd530aa6321aa6ea69c4847",
+      "requested_sku": 809
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "admission_sku_id": 493,
+      "points": 845,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "fa876582e426c705b943164d367d8fe246ff569d3d08356316f645917565b05e",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "normal_http_long-video_saved_node",
+      "phase": "long-video",
+      "project_id": 868,
+      "source_request_hash": "eb87a2d813934d0a53053f0ea3b774afaca1b0336f6b6a52b3983e45f2dec02d",
+      "requested_sku": 493
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "e16b035f5c11803b987000c23f10c08fb3dce92245d6e09131e4ee578c2cbad0",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "a5b78eb765b30e29e67b4722bbf1329c18835c7334d16a9dafe3e45ecdfae7ab",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "method": "omni_reference",
+      "scenario": "normal_http_long-video_saved_node",
+      "phase": "long-video",
+      "project_id": 510,
+      "source_request_hash": "94c0454b32aef3922d2b1ba4dbf741b2258247aa9ce5435835be7f8f03bf1f12"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "8ed07ae59672c007154045bfcdac9695b6be50f07287515ee54f7aabf344f759",
+      "required_declared_media_fields": [],
+      "native_prompt": "Synthetic colored blocks.",
+      "native_reference_names": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "method": "omni_reference",
+      "scenario": "normal_http_final-before_saved_node",
+      "phase": "final-before",
+      "project_id": 868,
+      "source_request_hash": "ddfddbad6612ef404a79e8cac316b0ff3f37c28c4ff7aacdd7fc82f3e666110f",
+      "requested_sku": 809
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "2a21322a2b8b427bdf41fbfb313888cd6fb0b3740c4caff44cf69b6e53e3eeab",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。\n参考素材：@image_1 @音频1",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "9dcf63433f359b1448c98607623f287cf52b1fb09c68311725dced8c2e1c01e2",
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "method": "omni_reference",
+      "scenario": "normal_http_final-before_saved_node",
+      "phase": "final-before",
+      "project_id": 868,
+      "source_request_hash": "88ca84bf7008edd6e885e46205176eeb75f68284f601763ca03e7dff4e6c6f88",
+      "requested_sku": 494
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 494,
+      "admission_sku_id": 494,
+      "points": 565,
+      "frozen_equal": true,
+      "request_duration": 5,
+      "native_duration": 5,
+      "native_hash": "e16b035f5c11803b987000c23f10c08fb3dce92245d6e09131e4ee578c2cbad0",
+      "required_declared_media_fields": [],
+      "native_prompt": "让@image_1 使用@音频1 说话。",
+      "native_reference_names": {
+        "image_urls": [
+          "image_1"
+        ],
+        "voices": [
+          "音频1"
+        ]
+      },
+      "native_clip_ranges": [],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "native_group_hash": "a5b78eb765b30e29e67b4722bbf1329c18835c7334d16a9dafe3e45ecdfae7ab",
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "method": "omni_reference",
+      "scenario": "normal_http_final-before_saved_node",
+      "phase": "final-before",
+      "project_id": 510,
+      "source_request_hash": "94c0454b32aef3922d2b1ba4dbf741b2258247aa9ce5435835be7f8f03bf1f12"
+    },
+    {
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "admission_sku_id": 809,
+      "points": 666,
+      "frozen_equal": true,
+      "request_duration": 4,
+      "native_duration": "4",
+      "native_hash": "9859d2fd3ff51512ab14e8ee935a71dec29194b5c21cb7c3ffbb5c5dd12f00e2",
+      "required_declared_media_fields": [],
+      "native_prompt": "Synthetic colored blocks.",
+      "native_reference_names": [],
+      "native_clip_ranges": [
+        {
+          "start": 0,
+          "ends": 2
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 0
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "method": "omni_reference",
+      "scenario": "normal_http_final-before_saved_node",
+      "phase": "final-before",
+      "project_id": 510,
+      "source_request_hash": "00006d29bf501b5da693b7eb5bc244daf115e7dd28471a9e0307a6e1b423d1b1"
+    }
+  ],
+  "browser_cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "method": "omni_reference",
+      "scenario": "actual_page_typed_reference_prompt_sound_quality",
+      "status": "presentation_checked",
+      "visible_sound_control": true,
+      "sound_enabled": true,
+      "quality": "720P",
+      "visible_points": 565,
+      "optional_subject_or_voice_editor_visible": false
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "method": "omni_reference",
+      "scenario": "actual_page_typed_reference_prompt_sound_quality",
+      "status": "presentation_checked",
+      "visible_sound_control": true,
+      "sound_enabled": true,
+      "quality": "720P",
+      "visible_points": 565,
+      "optional_subject_or_voice_editor_visible": false
+    }
+  ],
+  "project_scope": {
+    "canvas_id": 868,
+    "short_drama_id": 510,
+    "initial_phase_nodes_each": 2,
+    "initial_phase_edges_each": 0,
+    "initial_phase_runs_each": 0,
+    "later_user_edits": {
+      "confirmed_by_user": true,
+      "ordinary_ratio_and_size_changed": true,
+      "short_added_reference_image": true,
+      "subsequent_agent_project_writes": false,
+      "full_graph_stability_claimed": false
+    }
+  },
+  "synthetic_upload_actions": 6,
+  "limitations": [
+    "UI price observations do not infer a SKU.",
+    "Later manual project changes remain user-owned, separate from captured phases.",
+    "Reference footer behavior differs by existing entry policy; compiler preserves that policy rather than claiming identical prompt text across all entries."
+  ]
+}
