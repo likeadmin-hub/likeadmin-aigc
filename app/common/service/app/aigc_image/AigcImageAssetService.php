@@ -85,6 +85,7 @@ class AigcImageAssetService
         } finally {
             @unlink($tmpPath);
         }
+        if ($resultAssetId > 0) return $stored;
         return array_intersect_key($stored, array_flip(['checksum', 'file_size', 'file_id'])) + [
             'uri' => $stored['uri'],
             'width' => (int)($size[0] ?? 0),

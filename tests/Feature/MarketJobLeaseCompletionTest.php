@@ -20,7 +20,7 @@ class MarketJobLeaseCompletionTest extends TestCase
             $job=AiTaskJob::create(['job_no'=>'b54-'.bin2hex(random_bytes(8)),'job_type'=>$type,'consumption_id'=>$c['id'],
                 'status'=>in_array($state,['success','pending'],true)?$state:'running','attempts'=>2,'lease_token'=>$state==='blank'?'':'current',
                 'lease_expire_time'=>time()+60,'last_error'=>'before','create_time'=>time(),'update_time'=>time()-60]);
-            $before=$job->toArray();$caller=$before;if($state==='stale')$caller['lease_token']='previous';
+            $before=AiTaskJob::find($job['id'])->toArray();$caller=$before;if($state==='stale')$caller['lease_token']='previous';
             $call=static function()use($method,$caller){return match($method){'succeed'=>Jobs::succeed($caller),'retry'=>Jobs::retry($caller,new \RuntimeException('owned fixture failure')),default=>Jobs::reschedule($caller,5)};};
             $delay=$call();if($method==='reschedule')self::assertSame(5,$delay);
             $after=AiTaskJob::find($job['id'])->toArray();$events=Db::name('ai_consumption_event')->where('consumption_id',$c['id'])->select()->toArray();
