@@ -41,7 +41,10 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
             $template=$class::saveTemplate($tenant,['category_id'=>$category,'name'=>'Private synthetic style','image'=>$uri]);
             $input['template_id']=$template['id'];
         }
-        if($code==='product_promo_video')$input['video_type_code']=$config['types'][0]['code'];
+        if($code==='product_promo_video') {
+            $input['video_type_code']=$config['types'][0]['code'];
+            $input['idempotency_key']=$fixture->prefix.'promo-first';
+        }
         if($code==='one_click_cleanup')$input['option_codes']=[$config['options'][0]['code']];
         if($code==='product_multi_angle')$input['view_codes']=[$config['views'][0]['code']];
         $packages=$config['price_packages']??$config['price_options']??[];
@@ -57,6 +60,10 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         $before=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
         $accepted=dataHttp($api,$path.'.generate/index'.$suffix,$input,$token);
         MarketWorkerFixture::check(count($accepted['generation_tasks']??[])===1,$code.' did not return one owned canonical child');
+        if($code==='product_promo_video') {
+            $same=dataHttp($api,$path.'.generate/index'.$suffix,$input,$token);
+            MarketWorkerFixture::check($same['task_id']===$accepted['task_id'],$code.' same request key created a duplicate task');
+        }
         $workerApp=$accepted['generation_tasks'][0]['app_code'];
         $fixture->start(dirname(__DIR__).'/market-generation-http.php',$workerApp);
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$accepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' child did not finish',30);
@@ -72,6 +79,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         $reused=$input;
         foreach($input as$key=>$value)if(array_key_exists($key,$detail))$reused[$key]=$detail[$key];
         if(array_key_exists('prompt',$input))$reused['prompt']=$detail['user_prompt']??$input['prompt'];
+        if($code==='product_promo_video')$reused['idempotency_key']=$fixture->prefix.'promo-second';
         $reestimate=dataHttp($api,$path.'.generate/estimate'.$suffix,$reused,$token);
         MarketWorkerFixture::check((float)$reestimate['user_charge_points']===(float)$estimate['user_charge_points'],$code.' historical reuse changed estimate');
         $reaccepted=dataHttp($api,$path.'.generate/index'.$suffix,$reused,$token);
@@ -86,6 +94,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         foreach(['source_image','source_images','product_image','product_images','custom_scene_image','model_image','model_images','wear_image','clothes_images','garment_images','mask_image','restore_type','source_language','target_language','module_codes','view_codes','option_codes','ratio','quality','channel']as$key)
             if(array_key_exists($key,$detail))MarketWorkerFixture::check($detail[$key]===($redetail[$key]??null),$code.' reused field changed: '.$key);
         $report[$code]=['normal_http_estimate_submit'=>true,'managed_result_and_business_writeback'=>true,'list_detail_same_owned_children'=>true,'history_rebuilt_new_attempt'=>true,'history_parameters_and_results_preserved'=>true,'user_price'=>(float)$estimate['user_charge_points']];
+        if($code==='product_promo_video')$report[$code]['explicit_new_intent_key_and_same_key_replay']=true;
     }
     return $report;
 }
