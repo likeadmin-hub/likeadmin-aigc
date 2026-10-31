@@ -81,6 +81,8 @@ class MarketStorageBarrier
 /** Same MySQL connector; retain the first SQL exception before a nested rollback can mask it. */
 class MarketStorageTraceMysql extends \think\db\connector\Mysql
 {
+    public function getBuilderClass(): string { return \think\db\builder\Mysql::class; }
+
     public function getPDOStatement(string $sql, array $bind=[], bool $master=false, bool $procedure=false): PDOStatement
     {
         try { return parent::getPDOStatement($sql,$bind,$master,$procedure); }
