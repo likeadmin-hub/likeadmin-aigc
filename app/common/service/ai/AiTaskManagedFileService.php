@@ -72,7 +72,7 @@ class AiTaskManagedFileService
         // No database transaction is held during storage I/O. Retries use this exact object key.
         $driver = new Driver($config);
         $driver->setUploadFileByReal($path, basename($checkpoint['uri']));
-        if (!$driver->upload(dirname($checkpoint['uri']))) throw new \RuntimeException($driver->getError() ?: '结果文件保存失败');
+        if (!$driver->uploadManaged(dirname($checkpoint['uri']), $checkpoint['checksum'], $checkpoint['file_size'])) throw new \RuntimeException($driver->getError() ?: '结果文件保存失败');
         return self::receipt($assetId, $tenantId, $userId, $checkpoint);
     }
 
