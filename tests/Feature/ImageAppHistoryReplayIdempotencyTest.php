@@ -40,7 +40,7 @@ class ImageAppHistoryReplayIdempotencyTest extends TestCase
             'status'=>'failed','error'=>'Synthetic failure','finish_time'=>0,'create_time'=>1700000000,
             'update_time'=>1700000001,'delete_time'=>0]);
         $this->rows[] = ['aigc_image_task', $child['id']];
-        $parent = $class::create(['tenant_id'=>1,'user_id'=>1999999384,'image_task_id'=>$child['id'],
+        $parent = $class::create(($code === 'product_suite' ? ['quantity'=>1] : []) + ['tenant_id'=>1,'user_id'=>1999999384,'image_task_id'=>$child['id'],
             'image_task_ids'=>[$child['id']],'status'=>'failed','error'=>'Synthetic failure','finish_time'=>1700000002,
             'create_time'=>1700000000,'update_time'=>1700000003,'delete_time'=>0]);
         $table = $app . '_task';
