@@ -74,6 +74,11 @@ class MarketPixelBillingTest extends TestCase
         $this->expectExceptionMessage('该图片应用尚未接入实际像素回执结算');
         (new \ReflectionMethod(\app\common\service\power\MarketNanoBananaAppRuntimeService::class,'meterMarket'))->invoke(null,$market,[],1);
     }
+    public function testTooManyDeclaredOutputsAreRejectedBeforeAnyStorage(): void
+    {
+        $this->expectExceptionMessage('实际图片数量超过预占数量');
+        (new \ReflectionMethod(Images::class,'images'))->invoke(null,['status'=>'completed','data'=>['image_urls'=>['https://fixtures.invalid/a.png','https://fixtures.invalid/b.png']]],1,1,['billing_meter'=>self::meter(),'reserved_image_quantity'=>1]);
+    }
     /** @dataProvider scenarios */
     public function testLocalRollbackPixelQuoteReserveSettlementAndRefund(string $scenario): void
     {
@@ -99,22 +104,35 @@ class MarketPixelBillingTest extends TestCase
             $native=Images::prepareRequest($snapshot,$request)->nativeInput;self::assertArrayNotHasKey('maximum_pixels_per_image',$native);self::assertSame($native,Images::prepareRequest(json_decode(json_encode($snapshot),true),$request)->nativeInput);
             $settle=new \ReflectionMethod(Images::class,'settle');$one=['image_uri'=>'https://fixtures.invalid/same.png','width'=>500,'height'=>500];$images=[$one,$one];
             if($scenario==='partial')$images=[$one];
+            if($scenario==='immediate_unmeasured'){
+                $receipt=['status'=>'completed','request_id'=>'offline-pixel-receipt','data'=>['image_urls'=>['data:image/png;base64,'.base64_encode('invalid image bytes')]]];
+                (new \ReflectionMethod(Images::class,'retainPixelReceipt'))->invoke(null,$id,$receipt,'','offline-pixel-receipt');
+                $pending=Images::refresh($id);self::assertSame('running',$pending['status']);self::assertSame([],$pending['images']);
+                self::assertSame($receipt,AiConsumptionLog::find($id)['response_summary']['pixel_meter_receipt']);self::assertSame('reserved',AiConsumptionLog::find($id)['billing_status']);
+                self::assertSame('offline-pixel-receipt',AiConsumptionLog::find($id)['upstream_request_id']);self::assertSame(round($before['user']-20,2),$this->balances($user)['user']);
+            }
             if(in_array($scenario,['over_bound','unknown_dimensions'],true)){
                 $bad=$images;$bad[0]['width']=$scenario==='over_bound'?2001:0;
                 try{$settle->invoke(null,$id,$bad,'','',[]);self::fail('Invalid pixel receipt must retain reservation');}catch(\InvalidArgumentException$e){self::assertNotSame('',$e->getMessage());}
                 self::assertSame('reserved',AiConsumptionLog::find($id)['billing_status']);self::assertSame(round($before['user']-20,2),$this->balances($user)['user']);
                 $pending=(new \ReflectionMethod(Images::class,'responseFromConsumption'))->invoke(null,AiConsumptionLog::find($id)->toArray());self::assertSame('running',$pending['status']);self::assertSame([],$pending['images']);
             }
-            if(in_array($scenario,['failure','over_bound','unknown_dimensions'],true)){
+            if(in_array($scenario,['failure','over_bound','unknown_dimensions','immediate_unmeasured'],true)){
                 Images::fail($id,'Offline fixture');Images::fail($id,'Duplicate failure');self::assertSame($before,$this->balances($user));
             }else{
                 $sku->save(['sale_points'=>99,'source_payload'=>['meter_contract'=>array_replace(self::declaration(),['maximum_pixels_per_image'=>2000000])]]);
-                $settle->invoke(null,$id,$images,'','',['width'=>999999,'height'=>999999]);$expected=$scenario==='partial'?2.5:5.;$done=$this->balances($user);self::assertSame(round($before['user']-$expected,2),$done['user']);self::assertSame('settled',AiConsumptionLog::find($id)['billing_status']);self::assertSame($scenario==='partial'?.25:.5,(float)AiConsumptionLog::find($id)['quantity']);
+                if($scenario==='restart_measured'){
+                    (new \ReflectionMethod(Images::class,'retainPixelReceipt'))->invoke(null,$id,['status'=>'completed'],'','offline-pixel-receipt');
+                    (new \ReflectionMethod(Images::class,'retainReadyImages'))->invoke(null,$id,$images);
+                    $replayed=Images::refresh($id);self::assertSame('success',$replayed['status']);self::assertSame($images,$replayed['images']);
+                    self::assertSame($replayed,Images::refresh($id));
+                }else $settle->invoke(null,$id,$images,'','',['width'=>999999,'height'=>999999]);
+                $expected=$scenario==='partial'?2.5:5.;$done=$this->balances($user);self::assertSame(round($before['user']-$expected,2),$done['user']);self::assertSame('settled',AiConsumptionLog::find($id)['billing_status']);self::assertSame($scenario==='partial'?.25:.5,(float)AiConsumptionLog::find($id)['quantity']);
                 $settle->invoke(null,$id,$images,'','',[]);Images::fail($id,'Late failure');self::assertSame($done,$this->balances($user));
             }
         }finally{Db::rollback();}
         self::assertSame(0,(int)Db::name('power_market_product')->where('product_code',$key)->count());
     }
-    public static function scenarios(): array{return [['success'],['partial'],['over_bound'],['unknown_dimensions'],['failure'],['user_insufficient'],['tenant_insufficient']];}
+    public static function scenarios(): array{return [['success'],['partial'],['over_bound'],['unknown_dimensions'],['failure'],['user_insufficient'],['tenant_insufficient'],['immediate_unmeasured'],['restart_measured']];}
     private function balances(int $user): array{return ['tenant'=>(float)Db::name('tenant')->where('id',1)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money')];}
 }

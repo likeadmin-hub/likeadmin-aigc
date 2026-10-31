@@ -400,6 +400,8 @@ class MarketImageModelRuntimeService
             $upstreamAccepted = true;
             $submitAttempts = $submission['attempts'];
             $taskId = self::taskId($response);
+            $requestId = self::requestId($response);
+            self::retainPixelReceipt($consumptionId,$response,$taskId,$requestId);
             if($microSubmission)MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             if ($tenantAdminConsumption) {
                 $requestId = self::requestId($response);
@@ -421,6 +423,7 @@ class MarketImageModelRuntimeService
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'image_count' => count($images), 'submit_attempts' => $submitAttempts], (int)round((microtime(true) - $started) * 1000));
             });
             if ($images !== []) {
+                self::retainReadyImages($consumptionId,$images);
                 self::settle($consumptionId, $images, $requestId, $taskId, $response);
                 self::enqueueResultJob($consumptionId, true);
             } else {
@@ -652,13 +655,26 @@ class MarketImageModelRuntimeService
         if ($context === null) throw new Exception('市场图片消耗记录不存在');
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::responseFromConsumption($c->toArray());
+        if(MarketGenerationPixelMeter::applies((array)($c['price_snapshot']['billing_meter']??[]))){
+            $summary=(array)$c['response_summary'];$receipt=(array)($summary['pixel_meter_receipt']??[]);
+            // A completed immediate result has no supplier task to query. Retry
+            // local persistence/settlement from its durable receipt only.
+            if(!empty($summary['images']) || (trim((string)$c['upstream_task_id'])===''&&$receipt)){
+                try{
+                    $images=(array)($summary['images']??[]);
+                    if(!$images)$images=self::images($receipt,(int)$c['tenant_id'],(int)$c['user_id'],(array)$c['price_snapshot']);
+                    if($images){self::retainReadyImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt);}
+                }catch(\Throwable $e){self::recordRefreshError($consumptionId,(string)$c['upstream_task_id'],$e);}
+                return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
+        }
         if(MicroVideoSubmission::pending($c->toArray()))return self::responseFromConsumption($c->toArray());
         if(MicroVideoSubmission::applies($c->toArray())){
             $summary=(array)$c['response_summary'];$receipt=MicroVideoSubmission::receipt($c->toArray());
             try{
                 $images=(array)($summary['images']??[]);
                 if(!$images&&$receipt)$images=self::images($receipt,(int)$c['tenant_id'],(int)$c['user_id'],(array)$c['price_snapshot']);
-                if($images){self::retainMicroImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt??[]);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
+                if($images){self::retainReadyImages($consumptionId,$images);self::settle($consumptionId,$images,(string)$c['upstream_request_id'],(string)$c['upstream_task_id'],$receipt??[]);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
             }catch(\Throwable $e){self::recordRefreshError($consumptionId,(string)$c['upstream_task_id'],$e);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
         }
         $taskId = trim((string)$c['upstream_task_id']);
@@ -668,9 +684,10 @@ class MarketImageModelRuntimeService
         try {
             $plan = MarketGenerationAdapterRegistry::transport((array)$c['price_snapshot'], 'query', $taskId);
             $response = self::request($plan['method'], self::origin() . $plan['path'], $plan['payload']);
+            self::retainPixelReceipt($consumptionId,$response,$taskId,self::requestId($response));
             $status = self::status($response); if(MicroVideoSubmission::applies($c->toArray())&&!in_array($status,['failed','error','canceled','cancelled'],true))MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
             $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id'], (array)$c['price_snapshot']);
-            if ($images !== []) { self::retainMicroImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
+            if ($images !== []) { self::retainReadyImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) {
                 $message = self::error($response);
                 self::fail($consumptionId, $message, 'upstream_failed');
@@ -1562,6 +1579,7 @@ class MarketImageModelRuntimeService
                 if(in_array($status,['pending','queued','processing','running','submitted','created'],true)||($status===''&&self::taskId($data)!==''))return [];
                 throw $e;
             }
+            if(count($urls)>(int)($snapshot['reserved_image_quantity']??0))throw new \InvalidArgumentException('实际图片数量超过预占数量或缺失');
             $result=[];$stored=[];
             foreach($urls as$url){
                 $asset=$stored[$url]??=AigcImageAssetService::persistGeneratedImage($url,$tenantId,$userId,true);
@@ -1852,9 +1870,18 @@ class MarketImageModelRuntimeService
         $message = trim((string)($c['error_message'] ?? ''));
         return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
     }
-    private static function retainMicroImages(int $id,array $images): void
+    private static function retainReadyImages(int $id,array $images): void
     {
-        Db::transaction(function()use($id,$images){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||!MicroVideoSubmission::applies($c->toArray()))return;$summary=(array)$c['response_summary'];$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);});
+        Db::transaction(function()use($id,$images){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||(!MicroVideoSubmission::applies($c->toArray())&&!MarketGenerationPixelMeter::applies((array)($c['price_snapshot']['billing_meter']??[]))))return;$summary=(array)$c['response_summary'];$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);});
+    }
+    private static function retainPixelReceipt(int $id,array $receipt,string $taskId,string $requestId): void
+    {
+        Db::transaction(function()use($id,$receipt,$taskId,$requestId){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($id);
+            if($c->isEmpty()||!MarketGenerationPixelMeter::applies((array)($c['price_snapshot']['billing_meter']??[]))||!in_array((string)$c['billing_status'],['reserved','pending_usage'],true))return;
+            $summary=(array)$c['response_summary'];$summary['pixel_meter_receipt']=$receipt;
+            $c->save(['run_status'=>'running','response_summary'=>$summary,'upstream_task_id'=>$taskId?:$c['upstream_task_id'],'upstream_request_id'=>$requestId?:$c['upstream_request_id'],'update_time'=>time()]);
+        });
     }
     private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []], self::failureFields($message)); }
     private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
