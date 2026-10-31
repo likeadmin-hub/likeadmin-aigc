@@ -1,0 +1,45 @@
+{
+  "batch": 37,
+  "date": "2026-10-31",
+  "source_web_commit": "babfe152fa38bbc130958e9e5e0153abb36206c5",
+  "source_server_commit": "7ca2eeeb2fa2e9e6c3c56480c094fbfa737b5d8b",
+  "scope": "Local sync boundary contract tests only. No real upstream category change, catalogue/price sync, shelf/config write or provider generation executed. Text/image/video model categories only; application API category behavior unchanged. No UI categorization or new video-tools entry.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "live_price_sync_executed": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "regression": {
+    "php_tests": 284,
+    "php_assertions": 1462,
+    "pc_tests": 629,
+    "sfc_checks": 6,
+    "ledger_boundary_tests": "Run after local develop integration"
+  },
+  "checked_methods": [
+    "catalogPricingItem",
+    "upsertProduct",
+    "syncModelType"
+  ],
+  "unsupported_model_type_fixtures": [
+    "audio",
+    "video_tool",
+    "motion_control",
+    "other",
+    "embedding"
+  ],
+  "expected_behavior": {
+    "unsupported_factory_pricing": "empty result; never normalized to text",
+    "unsupported_upsert": "null before database access",
+    "explicit_upstream_type": "overrides stale local metadata",
+    "known_legacy_context": "responses without type retain known text/image/video request context",
+    "absent_or_malformed_type_without_known_context": "skip",
+    "scope_empty_after_filter": "existing safe empty-catalog verification remains; no unconditional mass removal"
+  },
+  "implementation_limits": [
+    "Classification follows upstream type_code, not model names, brands, labels or hardcoded product IDs.",
+    "Renaming a display label while retaining video type does not exclude a model. Existing local products do not disappear before an actual later sync confirms upstream changes.",
+    "Existing price reconciliation and old task snapshots remain; no live retirement was performed."
+  ]
+}

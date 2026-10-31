@@ -1,0 +1,24 @@
+{
+  "batch": 37,
+  "date": "2026-10-31",
+  "source_web_commit": "5881a8012dd12dc4f262f30827b769fe3977cbe8",
+  "source_server_commit": "113eec20f739e51a85b4b9c3f0ec2c1e0182c887",
+  "scope": "Historical normal-login ordinary Wan2.7 compact inspector had only the omnibus method, without a material-mode selector. Selected scheme continuation had a distinct reference alternative. No contemporaneous HTTP SKU capture, so this observation remains unbound.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "live_price_sync_executed": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "cases": [
+    {
+      "channel": "market_video_model:341",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "material_mode": "image_to_video:continuation",
+      "scenario": "compact_material_mode_selector_missing",
+      "status": "reproduced_failure",
+      "missing_control": "material scheme selector; not the proposed regular/tool model category split"
+    }
+  ]
+}
