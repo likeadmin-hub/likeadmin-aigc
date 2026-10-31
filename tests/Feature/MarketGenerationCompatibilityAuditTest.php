@@ -7,6 +7,17 @@ use PHPUnit\Framework\TestCase;
 
 class MarketGenerationCompatibilityAuditTest extends TestCase
 {
+    /** @dataProvider invalidPixelUnitSizes */
+    public function testPixelAuditCannotRecognizeAUnitRejectedByAdmission($size): void
+    {
+        $sku=['usage_unit'=>'business_unit','usage_unit_size'=>$size,'source_payload'=>['meter_contract'=>[
+            'version'=>3,'basis'=>'megapixel','rounding'=>'ceil_2','maximum_pixels_per_image'=>1000000,'maximum_images'=>2,'result_path'=>'data.image_urls','result_item_url'=>'']]];
+        self::assertSame('unsupported_or_invalid_meter',Audit::sku('image','model',$sku)['meter_status']);
+        $sku['usage_unit_size']=1;$r=Audit::sku('image','model',$sku);self::assertSame('recognized_pixel_upper_bound',$r['meter_status']);
+        self::assertSame(1000000,$r['meter']['maximum_pixels_per_image']);self::assertSame(2,$r['meter']['maximum_images']);
+        self::assertSame('unsupported_meter',Audit::sku('image','app_api',$sku,'nano_banana')['meter_status']);
+    }
+    public static function invalidPixelUnitSizes(): array{return [[0],[.5],['bad'],[INF],[NAN],[null]];}
     public function testIdenticalFieldNamesDoNotConcealChangedNestedConstraints(): void
     {
         $captured = ['properties'=>['input'=>['type'=>'object','properties'=>['images'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>2]]]]];

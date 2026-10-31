@@ -6,6 +6,29 @@ use InvalidArgumentException;
 /** Offline evidence and candidate import only. Never grants runtime capability. */
 final class MarketGenerationContractReview
 {
+    private const DECLARATION_FIELDS=['params_schema','material_capabilities','generation_contract','native_contract',
+        'request_schema','validation_rules','default_params','generation_protocol','contract_version','gateway_version'];
+
+    /** Exact public declaration projection, including field presence and typed defaults.
+     * A changed fingerprint requests review; it never proves completeness or grants runtime support.
+     */
+    private static function declarationComparison(array $saved, array $remote): array
+    {
+        $select=static fn(array $value)=>array_intersect_key($value,array_flip(self::DECLARATION_FIELDS));
+        $before=$select($saved);$after=$select($remote);
+        $canonical=static function($value)use(&$canonical){
+            if(!is_array($value))return $value;
+            foreach($value as &$child)$child=$canonical($child);unset($child);
+            if(!array_is_list($value))ksort($value);return $value;
+        };
+        $fingerprint=static fn(array $value)=>hash('sha256',json_encode($canonical($value),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
+        $available=$remote!==[];
+        return ['declaration_comparison_scope'=>'saved_upstream_metadata_only',
+            'platform_declaration_fields'=>array_keys($after),'saved_declaration_fields'=>array_keys($before),
+            'platform_declaration_fingerprint'=>$available?$fingerprint($after):null,
+            'saved_declaration_fingerprint'=>$fingerprint($before),
+            'platform_declaration_matches_saved'=>$available?$canonical($after)===$canonical($before):null];
+    }
     /** Inspect the actual platform response, independently of the local native snapshot file. */
     public static function platformData(array $metadata, array $detail): array
     {
@@ -14,7 +37,7 @@ final class MarketGenerationContractReview
         $material=MarketGenerationMaterials::contract($pricing);
         $upstream=(array)($metadata['upstream_metadata'] ?? []);
         $contractFields=['params_schema','material_capabilities','generation_contract','native_contract','request_schema','validation_rules'];
-        return [
+        return self::declarationComparison($upstream,$pricing)+[
             'platform_detail_available'=>$pricing !== [],
             'platform_contract_fields'=>array_values(array_intersect($contractFields,array_keys($pricing))),
             'saved_upstream_contract_fields'=>array_values(array_intersect($contractFields,array_keys($upstream))),

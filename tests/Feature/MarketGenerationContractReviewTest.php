@@ -6,6 +6,33 @@ use PHPUnit\Framework\TestCase;
 
 class MarketGenerationContractReviewTest extends TestCase
 {
+    /** @dataProvider declarationChanges */
+    public function testSameSchemaAndModeCountCannotHideOtherDeclarationChanges(string $field,$before,$after): void
+    {
+        $schema=['prompt'=>['type'=>'string']];$saved=['params_schema'=>$schema,$field=>$before];$remote=array_replace($saved,[$field=>$after]);
+        $r=Review::platformData(['params_schema'=>$schema,'upstream_metadata'=>$saved],['model_pricing'=>$remote]);
+        self::assertTrue($r['platform_schema_matches_saved']);self::assertFalse($r['platform_declaration_matches_saved']);
+        self::assertNotSame($r['saved_declaration_fingerprint'],$r['platform_declaration_fingerprint']);self::assertSame('unverified',$r['runtime_readiness']);
+    }
+    public static function declarationChanges(): array
+    {
+        return [['default_params',['audio'=>false],['audio'=>true]],['default_params',['seed'=>0],['seed'=>null]],
+            ['material_capabilities',['modes'=>[['code'=>'reference','minimum'=>1]]],['modes'=>[['code'=>'reference','minimum'=>2]]]],
+            ['validation_rules',[['kind'=>'max','limit'=>1]],[['kind'=>'max','limit'=>2]]],
+            ['generation_contract',['rules'=>[]],['rules'=>[['kind'=>'requires']]]],['native_contract',['version'=>1],['version'=>2]],
+            ['request_schema',['type'=>'object'],['type'=>'string']],['generation_protocol','native_v1','native_v2'],
+            ['contract_version','one','two'],['gateway_version','one','two']];
+    }
+    public function testDeclarationFingerprintsPreserveTypedPresenceAndRedactOtherFields(): void
+    {
+        $saved=['default_params'=>['example'=>false,'seed'=>0],'params_schema'=>['prompt'=>['type'=>'string']]];
+        $remote=['params_schema'=>['prompt'=>['type'=>'string']],'default_params'=>['seed'=>0,'example'=>false],'api_key'=>'never expose','price'=>123.45];
+        $r=Review::catalogueData(['upstream_metadata'=>$saved],$remote);self::assertTrue($r['platform_declaration_matches_saved']);
+        self::assertStringNotContainsString('never expose',json_encode($r));self::assertStringNotContainsString('123.45',json_encode($r));
+        unset($remote['default_params']['example']);self::assertFalse(Review::catalogueData(['upstream_metadata'=>$saved],$remote)['platform_declaration_matches_saved']);
+        $missing=Review::applicationData(['upstream_metadata'=>$saved],[]);self::assertNull($missing['platform_declaration_matches_saved']);self::assertNull($missing['platform_declaration_fingerprint']);
+        $application=Review::applicationData(['upstream_metadata'=>$saved],['api_pricing'=>$saved,'model_pricing'=>['default_params'=>['seed'=>999]]]);self::assertTrue($application['platform_declaration_matches_saved']);
+    }
     public function testPlatformParametersAndLocalNativeSnapshotAreDifferentEvidenceLayers(): void
     {
         $schema=['image_urls'=>['type'=>'array']];
