@@ -21,7 +21,7 @@ if(($argv[1]??'')==='--worker'){
     check51(in_array($role,['kill','restart','repeat'],true),'Invalid fixture role');
     class Batch51Output extends think\console\Output{
         public function __construct(private string $dir,private string $role){parent::__construct('console');}
-        public function writeln($messages,int $type=self::OUTPUT_NORMAL){
+        public function writeln(string $messages,int $type=0): void{
             parent::writeln($messages,$type);
             if($this->role==='kill'&&is_string($messages)&&str_contains($messages,'[worker] claimed')){
                 file_put_contents($this->dir.'/claimed-kill',(string)getmypid());
