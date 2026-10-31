@@ -159,9 +159,19 @@ class GenerationTaskResultTest extends TestCase
         $view=Results::pending(42);
         foreach(['ImageResult','VideoResult','MusicResult','ImageTask','VideoTask','MusicTask']as$method){
             $format=new \ReflectionMethod($controller,'format'.$method);$format->setAccessible(true);
-            $result=$format->invoke($controller,['id'=>7,'task_id'=>7,'status'=>'running','generation_task'=>$view,'results'=>[]]);
+            $result=$format->invoke($controller,['task_id'=>7,'status'=>'running','generation_task'=>$view,'results'=>[]]);
             self::assertSame($view,$result['generation_task']);self::assertSame(7,$result['task_id']);self::assertSame('7',$result['taskId']);
         }
+    }
+
+    public function testCanvasMediaQueriesRejectUnownedTaskInsteadOfReturningAnEmptySuccess(): void
+    {
+        $this->fixture(function($t,$c,$a,$owner){
+            foreach(['imageTaskDetail','videoTaskDetail','musicTaskDetail']as$method){
+                try{\app\common\service\app\aigc_canvas\AigcCanvasService::$method($owner['tenant_id'],$owner['user_id']+1,(int)$c['id']);self::fail('Unowned task returned a success response');}
+                catch(\Exception $e){self::assertSame('任务不存在或无权访问',$e->getMessage());}
+            }
+        });
     }
 
 }
