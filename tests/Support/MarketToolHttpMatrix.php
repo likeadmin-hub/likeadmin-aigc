@@ -76,6 +76,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$accepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' child did not finish',30);
         MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->whereIn('consumption_id',\think\facade\Db::name('ai_consumption_log')->where('app_task_id',$accepted['generation_tasks'][0]['app_task_id'])->column('id'))->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
         $fixture->stop();
+        MarketWorkerFixture::check(\think\facade\Db::name('aigc_'.$code.'_task')->where('id',$accepted['task_id'])->value('status')==='success',$code.' parent still needs HTTP detail to finish');
         $detail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($detail['status']??'')==='success'&&count($detail['results']??[])===1&&($detail['generation_tasks'][0]['status']??'')==='success',$code.' result writeback failed');
         $after=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
@@ -103,7 +104,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         MarketWorkerFixture::check(abs($before-$replayUser-2*(float)$estimate['user_charge_points'])<0.001 && abs($tenantBefore-$replayTenant-2*(float)$estimate['tenant_cost_points'])<0.001,$code.' attempts did not each settle their quoted amounts once');
         foreach(['source_image','source_images','product_image','product_images','custom_scene_image','model_image','model_images','wear_image','clothes_images','garment_images','mask_image','restore_type','source_language','target_language','module_codes','view_codes','option_codes','ratio','quality','channel']as$key)
             if(array_key_exists($key,$detail))MarketWorkerFixture::check($detail[$key]===($redetail[$key]??null),$code.' reused field changed: '.$key);
-        $report[$code]=['normal_http_estimate_submit'=>true,'managed_result_and_business_writeback'=>true,'list_detail_same_owned_children'=>true,'history_rebuilt_new_attempt'=>true,'history_parameters_and_results_preserved'=>true,'both_attempts_settled_quoted_amount_once'=>true,'user_price'=>(float)$estimate['user_charge_points']];
+        $report[$code]=['normal_http_estimate_submit'=>true,'managed_result_and_business_writeback'=>true,'parent_finished_without_http_detail'=>true,'list_detail_same_owned_children'=>true,'history_rebuilt_new_attempt'=>true,'history_parameters_and_results_preserved'=>true,'both_attempts_settled_quoted_amount_once'=>true,'user_price'=>(float)$estimate['user_charge_points']];
         if($code==='product_promo_video') {
             $report[$code]['explicit_new_intent_key_and_same_key_replay']=true;
             $report[$code]['cross_application_duplicate_scope_preserved']=true;

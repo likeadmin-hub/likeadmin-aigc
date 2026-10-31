@@ -12,7 +12,7 @@ $original=config('database');
 if(PHP_SAPI==='cli-server') {
     $prefix=(string)getenv('AIGC_HTTP_FIXTURE_PREFIX');$dir=(string)getenv('AIGC_HTTP_FIXTURE_DIR');
     MarketWorkerFixture::check(in_array($_SERVER['REMOTE_ADDR']??'', ['127.0.0.1','::1'],true),'Loopback only');
-    MarketWorkerFixture::activate($original,$prefix,$dir);app()->env->set('database.prefix',$prefix);app()->setRuntimePath($dir.'/runtime/');
+    MarketWorkerFixture::activate($original,$prefix,$dir);chdir($dir.'/public');app()->env->set('database.prefix',$prefix);app()->setRuntimePath($dir.'/runtime/');
     if(getenv('AIGC_HTTP_FIXTURE_ROLE')==='supplier') {
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);header('Content-Type: application/json');
         if($path==='/health'){echo '{}';return;}
@@ -181,6 +181,7 @@ try {
     MarketWorkerFixture::check(count($single['generation_tasks']??[])===1,'Single application did not expose its owned generation child');
     $fixture->start(__FILE__,'aigc_image');
     $singleNative=(int)$single['image_task_id'];MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$singleNative)->value('status')==='success'&&View::read((int)$single['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success','Single image application child did not complete',30);$fixture->stop();
+    MarketWorkerFixture::check(Db::name('aigc_product_image_task')->where('id',$single['task_id'])->value('status')==='success','Single image parent still needs HTTP detail to complete');
     $singleFinal=dataHttp($api,'/api/app.aigc_product_image.task/detail'.$suffix.'&id='.$single['task_id'],[],$token,'GET');
     MarketWorkerFixture::check($singleFinal['status']==='success'&&count($singleFinal['results'])===1&&$singleFinal['generation_tasks'][0]['status']==='success','Single app business result not reconciled '.json_encode(['status'=>$singleFinal['status'],'results'=>count($singleFinal['results']),'children'=>array_map(static fn($t)=>[$t['status'],$t['stage']],$singleFinal['generation_tasks'])]));
     app\common\service\app\aigc_product_suite\AigcProductSuiteService::saveConfig($tenant,['status'=>1,'default_channel'=>$channel,'default_quality'=>'1k','default_ratio'=>'1:1','unit_price'=>3]);
@@ -193,6 +194,7 @@ try {
     MarketWorkerFixture::check($partial['status']==='running'&&$partial['generation_tasks'][0]['status']==='success'&&$partial['generation_tasks'][1]['status']==='running','First child incorrectly completed its parent');
     unlink($dir.'/hold-from-index');MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$secondChild)->value('status')==='success'&&View::read((int)$suite['generation_tasks'][1]['app_task_id'],$tenant,$user)['status']==='success','Second suite child did not finish',30);
     MarketWorkerFixture::wait(fn()=>Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Image baseline result handoffs not drained',30);$fixture->stop();
+    MarketWorkerFixture::check(Db::name('aigc_product_suite_task')->where('id',$suite['task_id'])->value('status')==='success','Suite parent still needs HTTP detail to complete');
     $suiteFinal=dataHttp($api,'/api/app.aigc_product_suite.task/detail'.$suffix.'&id='.$suite['task_id'],[],$token,'GET');
     MarketWorkerFixture::check($suiteFinal['status']==='success'&&count($suiteFinal['results'])===2&&array_column($suiteFinal['generation_tasks'],'status')===['success','success'],'Completed suite lost business or typed child results');
     $userAfter=(float)Db::name('user')->where('id',$user)->value('user_money');$tenantAfter=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
