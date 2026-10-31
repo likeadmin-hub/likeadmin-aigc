@@ -60,6 +60,18 @@ final class GenerationSubmission
             return JsonService::fail('生成提交组件暂不可用，请稍后重试');
         }
         if (!$row || !hash_equals($hash, $row['payload_hash'])) return JsonService::fail('同一提交编号的内容已变化，请新建请求');
+        if ($row['status'] === 'rejected') {
+            // A definitive refusal before any task was created can be revalidated (e.g. after recharging).
+            // Reclaim only the local receipt; never hold this lock over dispatch.
+            $row = Db::transaction(function () use ($identity, $token) {
+                $current = Db::name('ai_generation_submission')->where($identity)->lock(true)->find();
+                if ($current['status'] === 'rejected' && (json_decode($current['task_links'], true) ?: []) === []) {
+                    Db::name('ai_generation_submission')->where('id', $current['id'])->update(['owner_token' => $token, 'status' => 'submitting', 'response_json' => '', 'update_time' => time()]);
+                    $current['owner_token'] = $token; $current['status'] = 'submitting'; $current['response_json'] = '';
+                }
+                return $current;
+            });
+        }
         if (!hash_equals($token, $row['owner_token'])) {
             $until = microtime(true) + 1;
             while ($row['status'] === 'submitting' && microtime(true) < $until) {
