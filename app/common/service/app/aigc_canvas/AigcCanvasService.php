@@ -47,7 +47,7 @@ class AigcCanvasService
         $status = $status === 'cancelled' ? 'canceled' : $status;
         $kind = $run['run_type'] === 'music' ? 'audio' : $run['run_type'];
         $summary = array_replace(self::normalizeRunPayload($consumption['response_summary'] ?? []), ['status' => $status]);
-        if ($status !== 'success' && empty($summary['error'])) $summary['error'] = (string)($consumption['error_msg'] ?? '');
+        if ($status !== 'success' && empty($summary['error'])) $summary['error'] = (string)($consumption['error_message'] ?? '');
         $result = match ($kind) {
             'image' => self::formatMarketImageResult((int)$consumption['id'], [], $summary),
             'video' => self::formatMarketVideoResult((int)$consumption['id'], [], $summary),

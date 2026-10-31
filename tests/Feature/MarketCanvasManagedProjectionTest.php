@@ -32,7 +32,7 @@ class MarketCanvasManagedProjectionTest extends TestCase
             $key=['image'=>'images','video'=>'videos','audio'=>'items'][$kind];
             $c=AiConsumptionLog::create($owner+['consume_no'=>'b56-'.bin2hex(random_bytes(8)),'app_task_id'=>$task['id'],'app_code'=>'aigc_canvas',
                 'provider'=>'power_market','run_status'=>in_array($boundary,['failure','terminal_conflict'],true)?'failed':'success','billing_status'=>'settled',
-                'error_msg'=>'Owned fixture failure','price_snapshot'=>$frozen,'request_summary'=>$frozen,
+                'error_message'=>'Owned fixture failure','price_snapshot'=>$frozen,'request_summary'=>$frozen,
                 'response_summary'=>[$key=>[[$kind.'_uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','width'=>32,'height'=>32]]],
                 'create_time'=>time()-60,'update_time'=>time()-60,'finish_time'=>time()-30]);
             AiTaskResultAsset::create($owner+['consumption_id'=>$c['id'],'app_task_id'=>$task['id'],'asset_type'=>$kind,
