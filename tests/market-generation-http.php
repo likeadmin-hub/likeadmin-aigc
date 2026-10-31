@@ -5,6 +5,7 @@ require dirname(__DIR__).'/vendor/autoload.php';
 class IsolatedGenerationHttpApp extends think\App { public function getBasePath(): string { return dirname(__DIR__).'/app/'; } }
 (new IsolatedGenerationHttpApp(dirname(__DIR__)))->initialize();
 require __DIR__.'/Support/MarketWorkerFixture.php';
+if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')require __DIR__.'/Support/MarketDeepHttpTransport.php';
 use think\facade\Db;
 use app\common\service\ai\GenerationTaskResultService as View;
 $original=config('database');
@@ -15,6 +16,7 @@ if(PHP_SAPI==='cli-server') {
     if(getenv('AIGC_HTTP_FIXTURE_ROLE')==='supplier') {
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);header('Content-Type: application/json');
         if($path==='/health'){echo '{}';return;}
+        if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1'){require __DIR__.'/Support/MarketDeepHttpSupplier.php';if(marketDeepSupplier($path,$dir))return;}
         if(in_array($path,['/fixture/input.wav','/fixture/result.wav','/fixture/result.mp4'],true)) {
             header('Content-Type: '.(str_ends_with($path,'.wav')?'audio/wav':'video/mp4'));
             readfile($dir.(str_ends_with($path,'.wav')?'/synthetic.wav':'/synthetic.mp4'));return;
@@ -57,7 +59,7 @@ if(($argv[1]??'')==='--worker') {
 MarketWorkerFixture::check(getenv('AIGC_GENERATION_HTTP_TESTS')==='1','Explicit local fixture opt-in required');
 $fixture=null;$processes=[];$report=['scope'=>'Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement','external_generation_calls'=>0,'production_wallet_writes'=>0];
 function callHttp(string $base,string $path,array $data=[],string $token='',string $method='POST'): array {
-    $headers=['Content-Type: application/json'];if($token!=='')$headers[]='token: '.$token;
+    $headers=['Content-Type: application/json'];if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$headers[]='Host: private-media.example.test';if($token!=='')$headers[]='token: '.$token;
     $curl=curl_init($base.$path);curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>$headers]);
     if($method==='POST'){curl_setopt($curl,CURLOPT_POST,true);curl_setopt($curl,CURLOPT_POSTFIELDS,json_encode($data));}
     $raw=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);$response=json_decode((string)$raw,true);
@@ -80,6 +82,7 @@ try {
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
     $fixtureApps=['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite'];
     if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1')$fixtureApps=array_unique(array_merge($fixtureApps,array_map(static fn($code)=>'aigc_'.$code,['style_transfer','photo_restore','model_wear','background_removal','image_translate','one_click_cleanup','product_multi_angle','fashion_lookbook','outpaint','local_redraw','fitting','product_promo_video'])));
+    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music','aigc_digital_human','aigc_micro_video']);
     if(getenv('AIGC_HTTP_STAGE_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music_cover','aigc_digital_human','aigc_micro_video']);
     foreach($fixtureApps as$code) {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
@@ -90,6 +93,7 @@ try {
         $pipes=[];$processes[$role]=proc_open([PHP_BINARY,'-d','disable_functions=','-S',$address,__FILE__],[0=>['pipe','r'],1=>['file',$dir.'/'.$role.'.log','a'],2=>['file',$dir.'/'.$role.'.log','a']],$pipes,dirname(__DIR__),array_merge(getenv(),['AIGC_HTTP_FIXTURE_PREFIX'=>$prefix,'AIGC_HTTP_FIXTURE_DIR'=>$dir,'AIGC_HTTP_FIXTURE_ROLE'=>$role]));fclose($pipes[0]);
         MarketWorkerFixture::check(is_resource($processes[$role]),'Cannot start private HTTP server');
     }
+    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')file_put_contents($dir.'/supplier-url',$urls['supplier']);
     usleep(200000);
     Db::name('update_source')->insert(['name'=>'Private loopback fixture','base_url'=>$urls['supplier'],'online_base_url'=>$urls['supplier'],'license_key'=>'fixture-no-real-key','online_license_key'=>'fixture-no-real-key','status'=>1,'create_time'=>time(),'update_time'=>time()]);
     $meta=['category_code'=>'video','params_schema'=>['properties'=>['prompt'=>['type'=>'string'],'duration'=>['type'=>'integer','enum'=>[1]],'resolution'=>['type'=>'string','enum'=>['720P']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'generate_audio'=>['type'=>'boolean']],'required'=>['prompt','duration']],
@@ -209,6 +213,10 @@ try {
         $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');
         $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     }
+    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1') {
+        require __DIR__.'/Support/MarketDeepHttpMatrix.php';$report['deep_matrix']=[];
+        runMarketDeepHttpMatrix($fixture,$api,$suffix,$token,$imageUri,$urls['supplier'],$report['deep_matrix']);
+    }
     $beforeRestart=[];foreach(['ai_app_task','ai_consumption_log','ai_task_result_asset']as$table)$beforeRestart[$table]=Db::name($table)->order('id')->select()->toArray();
     $pendingJobs=(int)Db::name('ai_task_job')->where('status','<>','success')->count();
     $fixture->start(__FILE__,'aigc_image');
@@ -221,7 +229,8 @@ try {
     MarketWorkerFixture::check($afterRestart===$idleRestart,'Idle restart rewrote completed task, billing, asset or job records');
     $report['unfinished_jobs_completed_on_restart']=$pendingJobs;
     $eventCounts=array_count_values(Db::name('ai_consumption_event')->column('event_type'));$acceptedCount=count(file($dir.'/submissions.jsonl'));
-    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount&&($eventCounts['settle']??0)===$acceptedCount,'Final accepted tasks did not each have exactly one reservation and settlement');
+    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount&&($eventCounts['settle']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0),'Final accepted tasks did not each have exactly one reservation and settlement');
+    $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');$report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     $report['worker_restart_preserved_completed_rows']=true;$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];
     $report['total_tasks']=(int)Db::name('ai_app_task')->count();$report['total_result_assets']=(int)Db::name('ai_task_result_asset')->count();
 
