@@ -52,6 +52,7 @@ try {
         'aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config'];
     foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_canvas_','aigc_short_drama_','aigc_video_']as$group){$base=$original['connections']['mysql']['prefix'];if(str_starts_with($table,$base.$group))$names[]=substr($table,strlen($base));}
     $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;
+    mkdir($dir.'/config',0700);file_put_contents($dir.'/config/install.lock','private-fixture');
     copy('/tmp/market-batch52-media/synthetic.mp4',$dir.'/synthetic.mp4');
     Db::name('user')->where('id',$user)->update(['password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification'))]);
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
