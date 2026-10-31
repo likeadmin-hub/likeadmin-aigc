@@ -77,3 +77,19 @@ class MarketStorageBarrier
     public function rename($from,$to): bool{return rename(self::physical($from),self::physical($to));}
     public function stream_metadata($path,$option,$value): bool{return $option===STREAM_META_ACCESS && chmod(self::physical($path),$value);}
 }
+
+/** Same MySQL connector; retain the first SQL exception before a nested rollback can mask it. */
+class MarketStorageTraceMysql extends \think\db\connector\Mysql
+{
+    public function getPDOStatement(string $sql, array $bind=[], bool $master=false, bool $procedure=false): PDOStatement
+    {
+        try { return parent::getPDOStatement($sql,$bind,$master,$procedure); }
+        catch(Throwable $error){
+            file_put_contents(MarketStorageBarrier::$root.'/'.MarketStorageBarrier::$role.'-sql.log',json_encode([
+                'class'=>get_class($error),'message'=>$error->getMessage(),'sql_template'=>$sql,
+                'trace'=>array_map(static fn($f)=>($f['file']??'').':'.($f['line']??0).' '.($f['function']??''),$error->getTrace()),
+            ],JSON_UNESCAPED_UNICODE)."\n",FILE_APPEND);
+            throw $error;
+        }
+    }
+}
