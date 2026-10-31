@@ -687,23 +687,7 @@ class AigcProductPromoVideoService
         // Concrete material modes are stricter than the product-level union of capabilities.
         // This tool supplies one product image and cannot satisfy a required driving video/audio or a frame pair.
         $declared=(array)($option['material_modes']??[]);
-        if ($declared!==[]) {
-            $methods=[];
-            foreach ($declared as $mode) {
-                if (!is_array($mode)) continue;
-                $hasImage=false;$requiredImages=0;$unsupported=false;
-                foreach ((array)($mode['fields']??[]) as $field) {
-                    $minimum=max((int)($field['minimum']??0),!empty($field['required'])?1:0);
-                    if (($field['kind']??'')==='image') {
-                        $hasImage=true;$requiredImages+=$minimum;
-                    } elseif ($minimum>0) $unsupported=true;
-                }
-                if ($hasImage && !$unsupported && $requiredImages<=1) $methods[]=(string)($mode['method']??'');
-            }
-            foreach (['image_reference','image_to_video','omni_reference','text_to_video'] as $method)
-                if (in_array($method,$methods,true)) return $method;
-            return '';
-        }
+        if ($declared!==[]) return \app\common\service\power\MarketGenerationMaterials::singleImageMethod($option);
         $modes = self::promoModes($option);
         foreach (['image_reference', 'image_to_video', 'omni_reference', 'text_to_video', 'video_edit', 'audio_reference'] as $mode) {
             if (in_array($mode, $modes, true)) {

@@ -6,6 +6,25 @@ use InvalidArgumentException;
 /** Material fields are native contracts, not interchangeable URL aliases. */
 final class MarketGenerationMaterials
 {
+    /** Choose a concrete mode this single-image business input can satisfy. Broad aliases are not a substitute. */
+    public static function singleImageMethod(array $option): string
+    {
+        $methods=[];
+        foreach ((array)($option['material_modes']??[]) as $mode) {
+            if (!is_array($mode)) continue;
+            $hasImage=false;$requiredImages=0;$unsupported=false;
+            foreach ((array)($mode['fields']??[]) as $field) {
+                $minimum=max((int)($field['minimum']??0),!empty($field['required'])?1:0);
+                if (($field['kind']??'')==='image') {$hasImage=true;$requiredImages+=$minimum;}
+                elseif ($minimum>0) $unsupported=true;
+            }
+            if ($hasImage && !$unsupported && $requiredImages<=1) $methods[]=(string)($mode['method']??'');
+        }
+        foreach (['image_reference','image_to_video','omni_reference','text_to_video'] as $method)
+            if (in_array($method,$methods,true)) return $method;
+        return '';
+    }
+
     public static function contract(array $metadata): array
     {
         $reviewed=MarketGenerationReviewedContract::selected($metadata);
