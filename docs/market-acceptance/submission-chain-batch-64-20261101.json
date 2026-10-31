@@ -5,7 +5,8 @@
   "source_server_commit": "681518e07a6db1d92fd0f92ae6bdc7da48d1a7a2",
   "combined_source_server_commit": "df1adeb0acf92c535daa10d6e792a5037b1faa5d",
   "regression_source_server_commit": "0b99c41267625cb1a31cf3697a3691609c7e48e5",
-  "source_web_commit": "f50cd29909ecc5a0db20436cd8c13cbc9aa93903",
+  "source_web_commit": "2e3f84f463456beafde7c38f00bb2b26efb1c67f",
+  "pre_account_switch_retention_source_web_commit": "f50cd29909ecc5a0db20436cd8c13cbc9aa93903",
   "http_runs": {
     "combined": {
       "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
@@ -2226,7 +2227,7 @@
     "Local precheck rejection can be reclaimed only while no task links exist. Accepted, uncertain and old in-flight admissions are not re-entered or expired into another generation. SQL state fixtures do not claim provider crash recovery.",
     "Receipt JSON is serialized once for both first response and replay. It is an admission receipt, not an alternative current task-result API. Consumers retain their native history/query and version-1 owned result view.",
     "New image parent links precede supplier transport. Queue and native clipping identity allocation insert by unique key before locking an existing row; no database lock spans provider HTTP.",
-    "Client scope is a hash of the current login session. Profile loading does not change it; account switch before dispatch refuses locally. Unconfirmed keys survive same-session reload. Cross-device/new-login recovery is not certified.",
+    "Client scope is a hash of the current login session. Profile loading does not change it; account switch before dispatch refuses locally without acknowledging or clearing a previous unconfirmed key. Installed-hook regression preserves that key. Unconfirmed keys survive same-session reload. Cross-device/new-login recovery is not certified.",
     "Actual browser checks cover controls, old-history form restoration and refreshing existing suite results. No real generate/export/delete was clicked. Generated-result evidence comes from private normal-login HTTP and production workers.",
     "Existing real worker PID1667 was preserved. Local empty migration was applied; remote deployment, worker code reload, app/system releases and compiled packages were not performed."
   ],
