@@ -1,0 +1,601 @@
+{
+  "batch": 37,
+  "date": "2026-10-31",
+  "source_web_commit": "babfe152fa38bbc130958e9e5e0153abb36206c5",
+  "source_server_commit": "7ca2eeeb2fa2e9e6c3c56480c094fbfa737b5d8b",
+  "scope": "Limited readonly production request projections/preparation and persisted old business-request reconstruction. Two new normal-login HTTP synthetic projects; not complete per-model HTTP E2E or provider lifecycle. User canceled proposed regular/tool category UI split: it was not implemented. Prior material-mode selector fix retained; later work focuses on strict upstream model-category sync.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "live_price_sync_executed": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:352",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 768,
+      "admission_sku_id": 768,
+      "points": 145,
+      "frozen_equal": true,
+      "native_hash": "01e20025170fb4949dd482be0f8cfcd7186f79dc3b2092d14db18ef0df756fe2",
+      "required_declared_media_fields": [
+        {
+          "field": "image_references",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "material_mode": "reference_to_video:4",
+      "requested_method": "image_reference",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "duration": 5,
+        "ratio": "16:9"
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:337",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 673,
+      "admission_sku_id": 673,
+      "points": 480,
+      "frozen_equal": true,
+      "native_hash": "abc4ad9c47594911a004710f09924414a82dd3a8d5da6a10c27ffee1c37724a7",
+      "required_declared_media_fields": [
+        {
+          "field": "input_urls",
+          "kind": "image",
+          "native_present": true
+        },
+        {
+          "field": "video_urls",
+          "kind": "video",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "requested_parameters": {},
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:347",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 720,
+      "admission_sku_id": 720,
+      "points": 192,
+      "frozen_equal": true,
+      "native_hash": "15ccb03c90857b381bd46247d13878f32563d105ad76407d03f74450c838335b",
+      "required_declared_media_fields": [
+        {
+          "field": "video_url",
+          "kind": "video",
+          "native_present": true
+        },
+        {
+          "field": "audio_url",
+          "kind": "audio",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "requested_parameters": {},
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:341",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 691,
+      "admission_sku_id": 691,
+      "points": 320,
+      "frozen_equal": true,
+      "native_hash": "a5aea19e22d8dbdfd0188fe24fafff5dd4623717961ed11f72f165b036aba3b0",
+      "required_declared_media_fields": [
+        {
+          "field": "first_clip_url",
+          "kind": "video",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "material_mode": "image_to_video:continuation",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "duration": 5
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:352",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 768,
+      "admission_sku_id": 768,
+      "points": 145,
+      "frozen_equal": true,
+      "native_hash": "01e20025170fb4949dd482be0f8cfcd7186f79dc3b2092d14db18ef0df756fe2",
+      "required_declared_media_fields": [
+        {
+          "field": "image_references",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "material_mode": "reference_to_video:4",
+      "requested_method": "image_reference",
+      "requested_parameters": {
+        "resolution": "720p",
+        "quality": "",
+        "duration": 5,
+        "ratio": "16:9"
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:337",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 673,
+      "admission_sku_id": 673,
+      "points": 480,
+      "frozen_equal": true,
+      "native_hash": "abc4ad9c47594911a004710f09924414a82dd3a8d5da6a10c27ffee1c37724a7",
+      "required_declared_media_fields": [
+        {
+          "field": "input_urls",
+          "kind": "image",
+          "native_present": true
+        },
+        {
+          "field": "video_urls",
+          "kind": "video",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "resolution": "",
+        "quality": "",
+        "duration": 0,
+        "ratio": ""
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:347",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 720,
+      "admission_sku_id": 720,
+      "points": 192,
+      "frozen_equal": true,
+      "native_hash": "15ccb03c90857b381bd46247d13878f32563d105ad76407d03f74450c838335b",
+      "required_declared_media_fields": [
+        {
+          "field": "video_url",
+          "kind": "video",
+          "native_present": true
+        },
+        {
+          "field": "audio_url",
+          "kind": "audio",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "resolution": "",
+        "quality": "",
+        "duration": 0,
+        "ratio": ""
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:341",
+      "scenario": "baseline",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 691,
+      "admission_sku_id": 691,
+      "points": 320,
+      "frozen_equal": true,
+      "native_hash": "a5aea19e22d8dbdfd0188fe24fafff5dd4623717961ed11f72f165b036aba3b0",
+      "required_declared_media_fields": [
+        {
+          "field": "first_clip_url",
+          "kind": "video",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "material_mode": "image_to_video:continuation",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "resolution": "720p",
+        "quality": "",
+        "duration": 5,
+        "ratio": ""
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:352",
+      "scenario": "actual_saved_project_source_projection",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 768,
+      "admission_sku_id": 768,
+      "points": 145,
+      "frozen_equal": true,
+      "native_hash": "01e20025170fb4949dd482be0f8cfcd7186f79dc3b2092d14db18ef0df756fe2",
+      "required_declared_media_fields": [
+        {
+          "field": "image_references",
+          "kind": "image",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "material_mode": "reference_to_video:4",
+      "requested_method": "image_reference",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "duration": 5,
+        "ratio": "16:9"
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:337",
+      "scenario": "actual_saved_project_source_projection",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 673,
+      "admission_sku_id": 673,
+      "points": 480,
+      "frozen_equal": true,
+      "native_hash": "abc4ad9c47594911a004710f09924414a82dd3a8d5da6a10c27ffee1c37724a7",
+      "required_declared_media_fields": [
+        {
+          "field": "input_urls",
+          "kind": "image",
+          "native_present": true
+        },
+        {
+          "field": "video_urls",
+          "kind": "video",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "requested_parameters": {},
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:347",
+      "scenario": "actual_saved_project_source_projection",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 720,
+      "admission_sku_id": 720,
+      "points": 192,
+      "frozen_equal": true,
+      "native_hash": "15ccb03c90857b381bd46247d13878f32563d105ad76407d03f74450c838335b",
+      "required_declared_media_fields": [
+        {
+          "field": "video_url",
+          "kind": "video",
+          "native_present": true
+        },
+        {
+          "field": "audio_url",
+          "kind": "audio",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "material_mode": "default:0",
+      "requested_method": "omni_reference",
+      "requested_parameters": {},
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:341",
+      "scenario": "actual_saved_project_source_projection",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 693,
+      "admission_sku_id": 693,
+      "points": 320,
+      "frozen_equal": true,
+      "native_hash": "d52d32eb13e9d509e1abe07d7f22ccc6e60cb80d4c1cca130d27e81b68dbbc5e",
+      "required_declared_media_fields": [],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "material_mode": "reference_to_video:4",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "duration": 5,
+        "ratio": "16:9"
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:341",
+      "scenario": "actual_saved_project_source_projection",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 690,
+      "admission_sku_id": 690,
+      "points": 480,
+      "frozen_equal": true,
+      "native_hash": "f6e6ea06835b0e7c1885d44e11426dec10eaa71cee9a6280fcac69e3b6a0089c",
+      "required_declared_media_fields": [
+        {
+          "field": "first_clip_url",
+          "kind": "video",
+          "native_present": true
+        }
+      ],
+      "native_slots": {
+        "image": 0,
+        "video": 1,
+        "audio": 1
+      },
+      "material_mode": "omni_reference",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "resolution": "1080p",
+        "quality": "",
+        "duration": 5,
+        "ratio": ""
+      },
+      "native_group_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "channel": "market_video_model:235",
+      "sku_id": 321,
+      "entry": "canvas",
+      "requested_method": "",
+      "material_mode": "",
+      "scenario": "persisted_old_video_business_request_reconstruction",
+      "status": "frozen_history_replay_equal",
+      "frozen_native_and_meter_equal": true,
+      "native_hash": "cb07b56ed326116768163036dff869faef44d8bca2748dcca2a7e7156071a1c7",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "controls": {
+        "audio": true,
+        "duration": 10,
+        "resolution": "720p"
+      },
+      "slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "duration_source": "persisted_consumption_request_summary",
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+    },
+    {
+      "channel": "market_video_model:97",
+      "sku_id": 113,
+      "entry": "canvas",
+      "requested_method": "image_reference",
+      "material_mode": "image_reference",
+      "scenario": "persisted_old_video_business_request_reconstruction",
+      "status": "frozen_history_replay_equal",
+      "frozen_native_and_meter_equal": true,
+      "native_hash": "0cbb807054d6e62a67559c4f3d9a12f44ae04895bf203844452eebc323c0fd3d",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "controls": {
+        "quality": "720p",
+        "duration": 6
+      },
+      "slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "duration_source": "persisted_consumption_request_summary",
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+    },
+    {
+      "channel": "market_video_app:full_video:103",
+      "sku_id": 128,
+      "entry": "canvas",
+      "requested_method": "image_to_video",
+      "material_mode": "image_to_video",
+      "scenario": "persisted_old_video_business_request_reconstruction",
+      "status": "frozen_history_replay_equal",
+      "frozen_native_and_meter_equal": true,
+      "native_hash": "fa9a9f0056bdd8846bd527bf78e5084448bac45f6a4030cd52804e515b760f00",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "controls": {
+        "resolution": "768P",
+        "duration": 6,
+        "ratio": "16:9"
+      },
+      "slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "duration_source": "persisted_consumption_request_summary",
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+    },
+    {
+      "channel": "market_video_app:grok_video:108",
+      "sku_id": 137,
+      "entry": "canvas",
+      "requested_method": "image_to_video",
+      "material_mode": "image_to_video",
+      "scenario": "persisted_old_video_business_request_reconstruction",
+      "status": "frozen_history_replay_equal",
+      "frozen_native_and_meter_equal": true,
+      "native_hash": "045be7187c459de1b7c5f16c13cdeb1db811df3521a6e251da24b5d740d495a2",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "controls": {
+        "resolution": "480p",
+        "duration": 6,
+        "aspect_ratio": "2:3"
+      },
+      "slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "duration_source": "persisted_consumption_request_summary",
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+    },
+    {
+      "channel": "market_video_model:357",
+      "sku_id": 808,
+      "entry": "canvas",
+      "requested_method": "image_to_video",
+      "material_mode": "image_to_video",
+      "scenario": "persisted_old_video_business_request_reconstruction",
+      "status": "frozen_history_replay_equal",
+      "frozen_native_and_meter_equal": true,
+      "native_hash": "9a6dc32f1f06e3c3e696bda4513e6c34439f71f9410ba42a7176d836e058fc61",
+      "meter_hash": "e6f26db8063021722155e687a935899084cb252b79395ed3a2e3e4fba5a957f9",
+      "controls": {
+        "resolution": "480P",
+        "aspect_ratio": "adaptive",
+        "duration": 3,
+        "audio": true
+      },
+      "slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "task_unchanged": true,
+      "snapshot_has_metadata": true,
+      "duration_source": "persisted_consumption_request_summary",
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+    },
+    {
+      "entry": "canvas",
+      "scenario": "authenticated_synthetic_project_saved_reopened",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 859,
+      "synthetic_name": "AIGC批次37-隔离合成必填混合画布-20261031",
+      "nodes": 4,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_sha256": "6071b0d357207dc8a4cc77879e496e9ce0614d11d22c6fa5e4853bfc11917e04",
+      "node_json_equal_before_after": true,
+      "scope": "Ordinary four synthetic clipboard nodes; short-drama one authored Wan2.7 node with existing synthetic video/audio local gallery reuse. Not four models of short-drama HTTP E2E. HTTP price/SKU DTO not captured."
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "authenticated_synthetic_project_saved_reopened",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 500,
+      "synthetic_name": "AIGC批次37-隔离合成必填混合短剧-20261031",
+      "nodes": 1,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_sha256": "db6213ed38098059d29e8772343c86c60de18118cedbbd47220b923238527f6f",
+      "node_json_equal_before_after": true,
+      "scope": "Ordinary four synthetic clipboard nodes; short-drama one authored Wan2.7 node with existing synthetic video/audio local gallery reuse. Not four models of short-drama HTTP E2E. HTTP price/SKU DTO not captured."
+    }
+  ],
+  "instrumentation_notes": [
+    "Native media counts use the selected declared field kinds: input_urls is an image slot despite its generic name. Earlier schema-free diagnostic extraction reported zero images for motion control; input preservation itself passed. This was instrumentation, not a supplier-media loss defect.",
+    "Old product97 output duration1 was initially used as request duration and correctly rejected. Persisted consumption request summary records duration6. Reconstructing from that recorded request passed; no task, frozen contract or duration default was rewritten. Missing complete market_metadata remains a scope limit."
+  ],
+  "original_rows": {
+    "terminal_video": 44,
+    "image_app_parents": 10,
+    "core_images": 80,
+    "full_row_snapshots_unchanged": true
+  },
+  "local_gallery_reuse_files": 2
+}
