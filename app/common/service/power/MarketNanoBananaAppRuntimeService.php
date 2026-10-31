@@ -735,7 +735,7 @@ class MarketNanoBananaAppRuntimeService
         // The shared collector only returns valid http(s) values from known
         // result containers. Do not treat task IDs, statuses, or timestamps as
         // files merely because they appear beside a result object.
-        $urls = AiTaskResultUrlService::collect($data);
+        $urls = MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter']??[]))?AiTaskResultUrlService::collectImages($data):AiTaskResultUrlService::collect($data);
         $images = [];
         foreach (array_values(array_unique($urls)) as $url) { $stored = AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId,MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter']??[]))); $images[] = ['image_uri' => (string)$stored['uri'], 'width' => (int)($stored['width'] ?? 0), 'height' => (int)($stored['height'] ?? 0), 'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($stored['storage_engine'] ?? ''), 'storage_domain' => (string)($stored['storage_domain'] ?? '')]; }
         return $images;

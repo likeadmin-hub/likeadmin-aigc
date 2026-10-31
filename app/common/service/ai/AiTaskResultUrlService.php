@@ -24,14 +24,20 @@ class AiTaskResultUrlService
         return array_values(array_unique($urls));
     }
 
+    /** Image consumers may also receive the already-supported standard data URI form. */
+    public static function collectImages(array $payload): array
+    {
+        $urls=[];self::collectValue($payload,$urls,0,false,true);return array_values(array_unique($urls));
+    }
+
     /** @param array<int,string> $urls */
-    private static function collectValue(mixed $value, array &$urls, int $depth, bool $allowScalarUrl): void
+    private static function collectValue(mixed $value, array &$urls, int $depth, bool $allowScalarUrl, bool $inlineImages=false): void
     {
         if ($depth > 10) {
             return;
         }
         if (is_string($value)) {
-            if ($allowScalarUrl && self::isHttpUrl($value)) {
+            if ($allowScalarUrl && self::isResultUrl($value,$inlineImages)) {
                 $urls[] = trim($value);
             }
             return;
@@ -43,7 +49,7 @@ class AiTaskResultUrlService
         foreach ($value as $key => $item) {
             $field = strtolower(str_replace(['_', '-'], '', (string)$key));
             if (is_scalar($item)) {
-                if (in_array($field, self::URL_FIELDS, true) && self::isHttpUrl((string)$item)) {
+                if (in_array($field, self::URL_FIELDS, true) && self::isResultUrl((string)$item,$inlineImages)) {
                     $urls[] = trim((string)$item);
                 }
                 continue;
@@ -53,9 +59,15 @@ class AiTaskResultUrlService
             }
             $isResultContainer = is_int($key) || ctype_digit((string)$key) || in_array($field, self::CONTAINER_FIELDS, true);
             if ($isResultContainer) {
-                self::collectValue($item, $urls, $depth + 1, true);
+                self::collectValue($item, $urls, $depth + 1, true,$inlineImages);
             }
         }
+    }
+
+    private static function isResultUrl(string $value,bool $inlineImages): bool
+    {
+        if(self::isHttpUrl($value))return true;
+        return $inlineImages&&strlen($value)<=27962112&&preg_match('~^data:image/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$~iD',$value)===1;
     }
 
     private static function isHttpUrl(string $value): bool

@@ -1618,7 +1618,7 @@ class MarketImageModelRuntimeService
         if(MarketGenerationMeter::boundedToken($pixelMeter)){
             if(in_array(self::status($data),['failed','error','canceled','cancelled'],true))return [];
             $images=[];
-            foreach(array_values(array_unique(AiTaskResultUrlService::collect($data)))as$url){
+            foreach(array_values(array_unique(AiTaskResultUrlService::collectImages($data)))as$url){
                 $asset=AigcImageAssetService::persistGeneratedImage($url,$tenantId,$userId,true);
                 $images[]=['image_uri'=>(string)$asset['uri'],'width'=>(int)($asset['width']??0),'height'=>(int)($asset['height']??0),
                     'storage_scope'=>(string)($asset['storage_scope']??'tenant'),'storage_engine'=>(string)($asset['storage_engine']??'local'),'storage_domain'=>(string)($asset['storage_domain']??'')];
