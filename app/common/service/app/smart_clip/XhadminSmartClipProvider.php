@@ -97,7 +97,9 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
             }
             return new SmartClipGenerateResult(true, $videos, '', $taskId, $task);
         } catch (\Throwable $e) {
-            return new SmartClipGenerateResult(false, [], $this->friendlyError($e->getMessage()), $taskId);
+            // A known provider task must survive transient query/download errors.
+            // Explicit upstream failure is handled above; retry this same receipt.
+            return new SmartClipGenerateResult(true, [], '结果查询或保存暂未完成，将继续跟踪原任务', $taskId);
         }
     }
 
