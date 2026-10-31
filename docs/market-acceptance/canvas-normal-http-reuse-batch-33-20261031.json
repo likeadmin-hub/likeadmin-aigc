@@ -1,0 +1,68 @@
+{
+  "batch": 33,
+  "date": "2026-10-31",
+  "source_web_commit": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+  "source_server_commit": "2840719e7920e2b10d175eb1b9c0adaf4540f961",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "scope": "Normal authenticated full pages on two previously authorized named synthetic projects. Ordinary source image replacement, audio media-reference removal, two UI undo operations and reopen; short-drama source replacement, synthetic audio node deletion, two UI undo operations and reopen. SQL readback at every stage. Original user projects untouched. Three synthetic local image uploads total (one ordinary, two short drama including defect reproduction), files retained in existing normal storage. No provider assets/tasks, generation/rerun/retry or paid request.",
+  "isolated_synthetic_project_writes": true,
+  "synthetic_uploads": 3,
+  "cases": [
+    {
+      "channel": "market_video_model:357",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "scenario": "normal_http_synthetic_source_replace_remove_undo_save_reopen",
+      "status": "http_graph_state_preserved",
+      "restored_node_count": 4,
+      "restored_edge_count": 3,
+      "restored_reference_counts": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "nodes_equal_ignoring_server_content_layout_revisions": true,
+      "edges_equal": true,
+      "business_nodes_hash": "2d0d6f937a579aecbd2c362d376454222844a945bb43477333822d808c9e0658",
+      "edges_hash": "0142ddd5535bc72fb53a9738268f63dc7efa2ea73a3cb782937e5b9d99763618",
+      "ratio": "16:9",
+      "resolution": "1080P",
+      "duration": 5,
+      "generate_audio": false,
+      "sku": "not captured; never inferred from points",
+      "removal_action": "remove current audio media reference, retain source file",
+      "source_replacement_downstream_uri_refreshed": true,
+      "other_video_audio_inputs_preserved_on_image_replacement": true
+    },
+    {
+      "channel": "market_video_model:357",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "scenario": "normal_http_synthetic_source_replace_remove_undo_save_reopen",
+      "status": "http_graph_state_preserved",
+      "restored_node_count": 4,
+      "restored_edge_count": 3,
+      "restored_reference_counts": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "nodes_equal_ignoring_server_content_layout_revisions": true,
+      "edges_equal": true,
+      "business_nodes_hash": "125eb11d48758a8d41df4c814b9bc2ba7ad6206e0707fb85fd4480c9d3608e76",
+      "edges_hash": "d750f862e3d11fc30d5a246a23d77ab1f10bef96496fca5c8fa9ec8fed0449de",
+      "ratio": "16:9",
+      "resolution": "1080P",
+      "duration": 5,
+      "generate_audio": false,
+      "sku": "not captured; never inferred from points",
+      "removal_action": "remove synthetic audio node and its edge; undo restored node and references",
+      "source_replacement_downstream_uri_refreshed": true,
+      "other_video_audio_inputs_preserved_on_image_replacement": true,
+      "page_quote_points_after_restoration": 635
+    }
+  ]
+}

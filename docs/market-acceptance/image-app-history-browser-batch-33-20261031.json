@@ -1,0 +1,121 @@
+{
+  "batch": 33,
+  "date": "2026-10-31",
+  "source_web_commit": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+  "source_server_commit": "2840719e7920e2b10d175eb1b9c0adaf4540f961",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "scope": "Normal authenticated HTTP app pages. Four re-edits (translation, product suite, style success/failure), local drafts only. No rerun/generate/delete on original tasks. Three synthetic local uploads belong only to the isolated canvas projects; no new generation task.",
+  "normal_page_cases": [
+    {
+      "application": "aigc_image_translate",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_translation_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "reference_restored": true,
+        "source_language": "auto",
+        "target_language": "en",
+        "quality": "1k"
+      },
+      "quote": "not captured after settlement"
+    },
+    {
+      "application": "aigc_product_suite",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_product_suite_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "platform": "Amazon",
+        "country": "US",
+        "language": "en",
+        "selected_modules": 4,
+        "ratio": "auto",
+        "nonempty_prompt_restored": true
+      },
+      "source_image_count": "not independently counted",
+      "quote": "not captured after settlement"
+    },
+    {
+      "application": "aigc_style_transfer",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_style_success_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "reference_restored": true,
+        "quality": "1k",
+        "ratio": "auto"
+      }
+    },
+    {
+      "application": "aigc_style_transfer",
+      "entry": "standalone_image",
+      "scenario": "normal_authenticated_old_style_failure_reedit_without_retry",
+      "status": "observed_pass",
+      "controls": {
+        "reference_restored": true,
+        "quality": "1k",
+        "nonempty_prompt_restored": true
+      }
+    }
+  ],
+  "original_parent_rows": {
+    "status": "http_terminal_rows_preserved",
+    "count": 4,
+    "applications": 3,
+    "whole_rows_equal_before_after": true
+  },
+  "core_image_rows": {
+    "status": "http_terminal_rows_preserved",
+    "count": 80,
+    "whole_rows_equal_to_previous_batch_final_baseline": true,
+    "baseline": "batch32 final image inventory, same inspector and owner scope"
+  },
+  "read_only_application_detail_replays": [
+    {
+      "application": "aigc_product_suite",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_image_translate",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_style_transfer",
+      "old_status": "failed",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    },
+    {
+      "application": "aigc_style_transfer",
+      "old_status": "success",
+      "status": "observed_pass",
+      "row_unchanged": true,
+      "message": "",
+      "changed_field_names": []
+    }
+  ],
+  "synthetic_rollback_regression": {
+    "status": "unit_contract_pass",
+    "applications": 13,
+    "checks": [
+      "repeated failure facts stable",
+      "missing child finish time",
+      "late child finish time",
+      "running to failed transition",
+      "all inserted records absent after rollback"
+    ]
+  }
+}

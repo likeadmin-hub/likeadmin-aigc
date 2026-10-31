@@ -1,0 +1,41 @@
+{
+  "batch": 33,
+  "date": "2026-10-31",
+  "source_web_commit": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+  "source_server_commit": "2840719e7920e2b10d175eb1b9c0adaf4540f961",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "scope": "Historical observations from versions before the final batch33 fix; original task rows protected by enforced read-only SQL. These are retained reproductions, not current defect counts. Synthetic project changes were undone.",
+  "cases": [
+    {
+      "application": "aigc_style_transfer",
+      "channel": "market_image_model:170",
+      "sku_id": 255,
+      "entry": "standalone_image",
+      "requested_method": "image_reference",
+      "scenario": "old_failed_parent_replay_late_child_timestamp",
+      "status": "reproduced_failure",
+      "source_server_commit": "b818af982",
+      "observation": "Real read-only detail replay attempted finish_time/update_time change despite unchanged failed terminal status; SQL read-only guard rejected it.",
+      "original_row_unchanged": true,
+      "changed_field_names": [
+        "finish_time",
+        "update_time"
+      ],
+      "fixed_by": "f261d1761"
+    },
+    {
+      "channel": "market_video_model:357",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "scenario": "normal_http_synthetic_image_source_replacement_stale_downstream_cache",
+      "status": "reproduced_failure",
+      "source_web_commit": "a722d2af",
+      "observation": "Uploaded source image URI changed, persisted downstream cached image URI remained old; video/audio uses stable. Dynamic request projection not claimed wrong.",
+      "fixed_by": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+      "original_user_projects_untouched": true
+    }
+  ]
+}
