@@ -13,6 +13,7 @@ function marketDeepSupplier(string $path,string $dir): bool
         $file=$dir.'/'.(['wav'=>'synthetic.wav','midi'=>'synthetic.midi','mp4'=>'synthetic.mp4'][$m[1]]);
         header('Content-Type: application/octet-stream');readfile($file);return true;
     }
+    if(preg_match('~^/fixture/song-[1-9][0-9]*-[ab]\.wav$~',$path)){header('Content-Type: audio/wav');readfile($dir.'/synthetic.wav');return true;}
     if(($_SERVER['HTTP_AUTHORIZATION']??'')!=='Bearer fixture-no-real-key')return false;
     $input=json_decode(file_get_contents('php://input'),true)?:[];
     $record=function(string $kind)use($dir,$input){file_put_contents($dir.'/deep-calls.jsonl',json_encode(['kind'=>$kind,'input'=>$input])."\n",FILE_APPEND|LOCK_EX);};
@@ -34,6 +35,14 @@ function marketDeepSupplier(string $path,string $dir): bool
         }
         if(is_file($dir.'/clip-reject-'.$id)){echo json_encode(['code'=>1,'data'=>['status'=>'failed','error'=>'Synthetic rejection']]);return true;}
         echo json_encode(['code'=>1,'data'=>['status'=>'success','video_url'=>'http://'.$_SERVER['HTTP_HOST'].'/fixture/clip.mp4','duration'=>1]]);return true;
+    }
+    if($path==='/api/v1/apps/music_generation/create'){
+        $record('song_create');$calls=array_map(fn($line)=>json_decode($line,true),file($dir.'/deep-calls.jsonl'));$n=count(array_filter($calls,fn($c)=>$c['kind']==='song_create'));
+        echo json_encode(['code'=>1,'data'=>['task_id'=>'song-task-'.$n,'status'=>'running']]);return true;
+    }
+    if($path==='/api/v1/apps/music_generation/query'&&preg_match('/^song-task-([1-9][0-9]*)$/D',$_GET['task_id']??'',$m)){
+        $songs=[];foreach(['a','b']as$letter)$songs[]=['id'=>'song-audio-'.$m[1].'-'.$letter,'title'=>'Synthetic original '.$letter,'audio_url'=>'http://'.$_SERVER['HTTP_HOST'].'/fixture/song-'.$m[1].'-'.$letter.'.wav','duration'=>1,'lyrics'=>'彩色色块随节奏移动'];
+        echo json_encode(['code'=>1,'data'=>['status'=>'success','items'=>$songs]]);return true;
     }
     if($path==='/api/v1/chat/completions') {
         $record('text');$last=$input['messages'][count($input['messages'])-1]['content']??'';

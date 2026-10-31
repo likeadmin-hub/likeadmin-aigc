@@ -215,11 +215,12 @@ try {
         $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     }
     if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')require __DIR__.'/Support/MarketRecoveryHttpMatrix.php';
-    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1'&&getenv('AIGC_HTTP_CLIP_WORKER_ONLY')!=='1') {
+    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1'&&getenv('AIGC_HTTP_CLIP_WORKER_ONLY')!=='1'&&getenv('AIGC_HTTP_SONG_ONLY')!=='1') {
         require __DIR__.'/Support/MarketDeepHttpMatrix.php';$report['deep_matrix']=[];
         runMarketDeepHttpMatrix($fixture,$api,$suffix,$token,$imageUri,$urls['supplier'],$report['deep_matrix']);
     }
-    if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1') { $report['recovery_matrix']=[];runMarketRecoveryHttpMatrix($fixture,$api,$suffix,$token,$urls['supplier'],$report['recovery_matrix']); }
+    if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1'&&getenv('AIGC_HTTP_SONG_ONLY')!=='1') { $report['recovery_matrix']=[];runMarketRecoveryHttpMatrix($fixture,$api,$suffix,$token,$urls['supplier'],$report['recovery_matrix']); }
+    if(getenv('AIGC_HTTP_SONG_MATRIX')==='1'){require __DIR__.'/Support/MarketSongHttpMatrix.php';$report['song_matrix']=[];runMarketSongHttpMatrix($fixture,$api,$suffix,$token,$urls['supplier'],$report['song_matrix']);}
     $beforeRestart=[];foreach(['ai_app_task','ai_consumption_log','ai_task_result_asset']as$table)$beforeRestart[$table]=Db::name($table)->order('id')->select()->toArray();
     $pendingJobs=(int)Db::name('ai_task_job')->where('status','<>','success')->count();
     $fixture->start(__FILE__,'aigc_image');
@@ -233,7 +234,7 @@ try {
     $report['unfinished_jobs_completed_on_restart']=$pendingJobs;
     $eventCounts=array_count_values(Db::name('ai_consumption_event')->column('event_type'));$acceptedCount=count(file($dir.'/submissions.jsonl'));
     $report['total_local_supplier_submissions']=$acceptedCount;
-    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)&&($eventCounts['settle']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0),'Final accepted tasks did not each have exactly one reservation and settlement');
+    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)&&($eventCounts['settle']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0),'Final accepted tasks did not each have exactly one reservation and settlement');
     $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');$report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     $report['worker_restart_preserved_completed_rows']=true;$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];
     $report['total_tasks']=(int)Db::name('ai_app_task')->count();$report['total_result_assets']=(int)Db::name('ai_task_result_asset')->count();
