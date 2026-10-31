@@ -567,7 +567,7 @@
     },
     {
       "entry": "canvas",
-      "scenario": "authenticated_synthetic_project_saved_reopened",
+      "scenario": "authenticated_synthetic_project_save_stable_readback",
       "status": "http_graph_state_preserved",
       "synthetic_project_id": 859,
       "synthetic_name": "AIGC批次37-隔离合成必填混合画布-20261031",
@@ -576,7 +576,8 @@
       "run_rows": 0,
       "nodes_sha256": "6071b0d357207dc8a4cc77879e496e9ce0614d11d22c6fa5e4853bfc11917e04",
       "node_json_equal_before_after": true,
-      "scope": "Ordinary four synthetic clipboard nodes; short-drama one authored Wan2.7 node with existing synthetic video/audio local gallery reuse. Not four models of short-drama HTTP E2E. HTTP price/SKU DTO not captured."
+      "scope": "Ordinary four synthetic clipboard nodes; short-drama one authored Wan2.7 node with existing synthetic video/audio local gallery reuse. Not four models of short-drama HTTP E2E. HTTP price/SKU DTO not captured. Ordinary browser reopen not separately verified; stable readonly SQL node readback only.",
+      "browser_reopen_verified": false
     },
     {
       "entry": "short_drama",
@@ -589,7 +590,8 @@
       "run_rows": 0,
       "nodes_sha256": "db6213ed38098059d29e8772343c86c60de18118cedbbd47220b923238527f6f",
       "node_json_equal_before_after": true,
-      "scope": "Ordinary four synthetic clipboard nodes; short-drama one authored Wan2.7 node with existing synthetic video/audio local gallery reuse. Not four models of short-drama HTTP E2E. HTTP price/SKU DTO not captured."
+      "scope": "Ordinary four synthetic clipboard nodes; short-drama one authored Wan2.7 node with existing synthetic video/audio local gallery reuse. Not four models of short-drama HTTP E2E. HTTP price/SKU DTO not captured.",
+      "browser_reopen_verified": true
     }
   ],
   "instrumentation_notes": [
