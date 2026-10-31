@@ -29,7 +29,7 @@ class MarketCreatorAutomaticMaterialsTest extends TestCase
         $catalog=new \ReflectionProperty(Native::class,'catalog');$this->previous=$catalog->getValue();
         $catalog->setValue(null,['models'=>['offline-creator-media'=>[
             'fingerprint'=>Reviewed::digest([$schema,Materials::contract($this->metadata)]),
-            'modes'=>['reference_to_video'=>['schema'=>$schema,'rules'=>[['kind'=>'clip_range','field'=>'clips','start'=>'start','end'=>'ends','maximum'=>10]]]]]]]);
+            'modes'=>['reference_to_video'=>['schema'=>$schema,'rules'=>[['kind'=>'clip_range','field'=>'clips','start'=>'start','end'=>'ends','maximum'=>10],['kind'=>'kling4','check'=>'names']]]]]]]);
     }
 
     protected function tearDown(): void{(new \ReflectionProperty(Native::class,'catalog'))->setValue(null,$this->previous);}
@@ -55,7 +55,8 @@ class MarketCreatorAutomaticMaterialsTest extends TestCase
     {
         $params=['clips'=>[['url'=>'https://fixtures.invalid/clip.mp4','start'=>2,'ends'=>4]],'voices'=>[['name'=>'旧声音','audio_url'=>'https://fixtures.invalid/a.wav']]];
         self::assertSame($params,Creator::complete($this->metadata,$this->mode,$params,static function(){throw new \RuntimeException('No remeasurement of explicit ranges');}));
-        self::assertSame($params,Request::payload(['market_metadata'=>$this->metadata],['provider_params'=>$params]));
+        $normalized=$params;$normalized['clips'][0]['start']=2.0;$normalized['clips'][0]['ends']=4.0;
+        self::assertSame($normalized,Request::payload(['market_metadata'=>$this->metadata],['provider_params'=>$params]));
     }
 
     public function testPartialRangeStaysInvalidInsteadOfInventingTheMissingEndpoint(): void
