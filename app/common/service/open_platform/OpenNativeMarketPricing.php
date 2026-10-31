@@ -1,7 +1,7 @@
 <?php
 namespace app\common\service\open_platform;
 
-use app\common\service\power\{MarketImageModelRuntimeService as Images, MarketVideoRuntimeService as Videos, MarketUsageSettlementService as Usage};
+use app\common\service\power\{MarketImageModelRuntimeService as Images, MarketVideoRuntimeService as Videos, MarketUsageSettlementService as Usage, MarketGenerationMeter as Meter};
 
 /** Pricing-only projection. Never returns a replacement transport payload. */
 final class OpenNativeMarketPricing
@@ -81,7 +81,16 @@ final class OpenNativeMarketPricing
         return ['kind' => $isImage ? 'image' : 'video', 'selection' => $selection];
     }
 
-    public static function capture(int $tenantId, array $product, array $raw, int $skuId): array
+    /** Published binding excludes prices, which are captured separately at admission. */
+    public static function boundedTokenBinding(array $product,array $sku): ?array
+    {
+        if(!self::supports($product)||(($product['resource_type']??'')==='model'&&($product['model_type']??'')!=='video'))return null;
+        try{$meter=Meter::tokenContract($sku);}catch(\InvalidArgumentException){return null;}
+        return ['version'=>2,'maximum_quantity'=>$meter['maximum_quantity'],'usage_path'=>$meter['usage_path'],
+            'rounding_scale'=>$meter['rounding_scale'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>number_format((float)$sku['usage_unit_size'],6,'.','')];
+    }
+
+    public static function capture(int $tenantId, array $product, array $raw, int $skuId, ?array $publishedRule=null): array
     {
         $user=(int)(request()->userId??0);if($user<=0)$user=(int)(request()->userInfo['user_id']??0);
         if($user<=0)throw new OpenException('permission_denied','原生价格映射需要已认证的素材归属',403);
@@ -99,7 +108,18 @@ final class OpenNativeMarketPricing
         catch (\Exception $e) { throw new OpenException('invalid_sku', $e->getMessage()); }
         if ((int)$captured['market']['product']['id'] !== (int)$product['id'] || (int)$captured['market']['sku']['id'] !== $skuId) throw new OpenException('invalid_sku', '参数不能改选契约绑定的 SKU');
         if (\app\common\service\power\MarketGenerationPixelMeter::applies((array)($captured['quote']['market_snapshot']['billing_meter']??[]))) throw new OpenException('native_pixel_receipt_mapping_required','原生透传尚未接入服务端实测像素回执',503);
-        if (($captured['quote']['settlement_mode'] ?? '') !== 'reserved' || Usage::isActualUsageSku($captured['market']['sku'])) throw new OpenException('native_usage_boundary_required', '已有 Token SKU 按真实用量计费，当前透传执行尚需可信额度边界', 503);
+        $meter=(array)($captured['quote']['market_snapshot']['billing_meter']??[]);
+        $bounded=$bound['kind']==='video'&&Meter::boundedToken($meter);
+        if($bounded){
+            $binding=self::boundedTokenBinding($product,$captured['market']['sku']);
+            if(!$binding||!$publishedRule||($publishedRule['basis']??null)!=='usage'
+                ||(float)($publishedRule['max_units']??0)!==(float)$binding['maximum_quantity']
+                ||($publishedRule['usage_path']??null)!==$binding['usage_path']
+                ||!is_array($publishedRule['native_meter']??null)
+                ||OpenPolicy::fingerprint($publishedRule['native_meter'])!==OpenPolicy::fingerprint($binding)
+                ||(float)$captured['quote']['quantity']!==(float)$binding['maximum_quantity'])
+                throw new OpenException('native_usage_boundary_required','原生 Token 计量合同缺失或已变化，请重新审核发布',503);
+        }elseif (($captured['quote']['settlement_mode'] ?? '') !== 'reserved' || Usage::isActualUsageSku($captured['market']['sku'])) throw new OpenException('native_usage_boundary_required', '已有 Token SKU 按真实用量计费，当前透传执行尚需可信额度边界', 503);
         if ($bound['kind'] === 'image') {
             try { Images::qwenDimensionSummary($captured['quote']['market_snapshot'], $bound['selection']); }
             catch (\Exception $e) { throw new OpenException('invalid_request',$e->getMessage()); }
@@ -116,6 +136,12 @@ final class OpenNativeMarketPricing
     public static function settledUnits(array $native, array $result, bool $failed): ?float
     {
         if ($failed) return 0.;
+        $meter=(array)($native['market_snapshot']['billing_meter']??[]);
+        if(($native['kind']??'')==='video'&&Meter::boundedToken($meter)){
+            try{$tokens=Usage::boundedTokenUsage($result,$meter);}
+            catch(\InvalidArgumentException){throw new OpenException('usage_boundary_exceeded','Token 用量超过冻结合同上限，等待核对',502);}
+            return $tokens>0?$tokens:null;
+        }
         if ($native['kind'] === 'video') return Videos::openPlatformSettlementQuantity($native['market_snapshot'], $result);
         $slots = null; $identity = null;
         foreach (['', 'data.', 'result.', 'output.', 'data.result.', 'data.output.', 'data.result.output.'] as $prefix) foreach (['images', 'image_urls', 'results'] as $field) {
