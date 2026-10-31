@@ -1,0 +1,162 @@
+{
+  "batch": 32,
+  "date": "2026-10-31",
+  "source_web_commit": "0d4316ea4b0372f60fdc9e88cd06668abfb03a7e",
+  "source_server_commit": "46c3a959a61658c4f41454f1bf892cc004b390ce",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "direct_task_writes": false,
+  "scope": "Five persisted terminal image tasks reconstructed by the production historyGenerationRequest helper, then replayed against their saved consumption price_snapshot in an enforced read-only transaction. No current quote, reservation, supplier transport, billing writes or historical wire DTO capture.",
+  "cases": [
+    {
+      "channel": "market_image_model:169",
+      "sku_id": 252,
+      "entry": "pc_create",
+      "requested_method": "image_reference",
+      "scenario": "persisted_image_history_helper_to_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "3:4",
+        "quantity": 1,
+        "reference_images": 2
+      },
+      "native_controls": {
+        "aspect_ratio": "3:4",
+        "resolution": "1k"
+      },
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "5506b283f27341759b1084ccb062d77022fc9ef3b48c8b3f7c4eaf8376d439cd",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": false
+    },
+    {
+      "channel": "market_image_model:305",
+      "sku_id": 466,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "persisted_image_history_helper_to_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "4k",
+        "ratio": "9:16",
+        "quantity": 1,
+        "reference_images": 0
+      },
+      "native_controls": {
+        "aspect_ratio": "9:16",
+        "resolution": "4K"
+      },
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "a704fc192d1b45d6e8a84264ce99e64f74d40889c2eae42f5825b6ca4f5bd1ad",
+      "meter_hash": "f22bcd09d3443d2c05ca586b9f6f1d27d9e84d6a5d2c71f3456afcbd6a176673",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": true
+    },
+    {
+      "channel": "market_image_model:282",
+      "sku_id": 391,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "persisted_image_history_helper_to_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "",
+        "ratio": "2:3",
+        "quantity": 1,
+        "reference_images": 0
+      },
+      "native_controls": {
+        "aspect_ratio": "2:3"
+      },
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "4faabe54f7b32671e2004de0d99b918298292d1561941770c0eaccbf8c8f395b",
+      "meter_hash": "f22bcd09d3443d2c05ca586b9f6f1d27d9e84d6a5d2c71f3456afcbd6a176673",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": true
+    },
+    {
+      "channel": "market_image_model:296",
+      "sku_id": 428,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "persisted_image_history_helper_to_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "basic",
+        "ratio": "1:1",
+        "quantity": 1,
+        "reference_images": 0
+      },
+      "native_controls": {
+        "aspect_ratio": "1:1",
+        "quality": "basic"
+      },
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "8e4d3f4fa4971147ee51c09d86223b6dc8ff33f6080053206f21e549c6064f07",
+      "meter_hash": "f22bcd09d3443d2c05ca586b9f6f1d27d9e84d6a5d2c71f3456afcbd6a176673",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": true,
+      "frozen_meter_present": true
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+      "sku_id": 144,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "persisted_image_history_helper_to_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "requested_parameters": {
+        "quality": "1k",
+        "ratio": "1:1",
+        "quantity": 1,
+        "reference_images": 0
+      },
+      "native_controls": {
+        "resolution": "1K",
+        "aspect_ratio": "1:1"
+      },
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "1341d892864432bbf66155dc21379a9462ff4ac9f944fa73c204f7c2bde785db",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "frozen_native_and_meter_equal": true,
+      "task_unchanged_during_read_only_replay": true,
+      "frozen_metadata_present": false,
+      "frozen_meter_present": false
+    }
+  ],
+  "limitations": [
+    "Snapshots lacking frozen metadata/meter do not gain a complete contract or modern metering certification from replay equality.",
+    "Business methods here describe reference presence via the shared image method convention, not a recovered historical gateway discriminator.",
+    "Image defaults false/zero versus changed true/19 are tested separately using a synthetic declaration and default_params; no real market changes."
+  ]
+}
