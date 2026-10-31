@@ -73,7 +73,7 @@ try {
     $names=['tenant','user','user_session','config','tenant_config','tenant_file','tenant_file_cate','file','file_cate','app','tenant_app','tenant_app_order','tenant_app_config','tenant_system_role_menu','membership_plan','membership_plan_app','update_source',
         'ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','ai_task_audit_log','ai_model_pricing','tenant_points_log','user_account_log','power_market_product','power_market_sku','power_market_price_rule','tenant_power_market_sku_price','tenant_power_market_product',
         'aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config'];
-    foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_','tenant_point_','user_point_','open_platform_']as$group){$base=$original['connections']['mysql']['prefix'];if(str_starts_with($table,$base.$group))$names[]=substr($table,strlen($base));}
+    foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_','smart_clip_','tenant_point_','user_point_','open_platform_']as$group){$base=$original['connections']['mysql']['prefix'];if(str_starts_with($table,$base.$group))$names[]=substr($table,strlen($base));}
     $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;app()->env->set('database.prefix',$prefix);
     mkdir($dir.'/config',0700);file_put_contents($dir.'/config/install.lock','private-fixture');
     copy('/tmp/market-batch52-media/synthetic.mp4',$dir.'/synthetic.mp4');
@@ -82,6 +82,7 @@ try {
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
     $fixtureApps=['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite'];
     if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1')$fixtureApps=array_unique(array_merge($fixtureApps,array_map(static fn($code)=>'aigc_'.$code,['style_transfer','photo_restore','model_wear','background_removal','image_translate','one_click_cleanup','product_multi_angle','fashion_lookbook','outpaint','local_redraw','fitting','product_promo_video'])));
+    if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['smart_clip','open_platform']);
     if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music','aigc_digital_human','aigc_micro_video']);
     if(getenv('AIGC_HTTP_STAGE_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music_cover','aigc_digital_human','aigc_micro_video']);
     foreach($fixtureApps as$code) {
@@ -213,10 +214,12 @@ try {
         $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');
         $report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     }
+    if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')require __DIR__.'/Support/MarketRecoveryHttpMatrix.php';
     if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1') {
         require __DIR__.'/Support/MarketDeepHttpMatrix.php';$report['deep_matrix']=[];
         runMarketDeepHttpMatrix($fixture,$api,$suffix,$token,$imageUri,$urls['supplier'],$report['deep_matrix']);
     }
+    if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1') { $report['recovery_matrix']=[];runMarketRecoveryHttpMatrix($fixture,$api,$suffix,$token,$urls['supplier'],$report['recovery_matrix']); }
     $beforeRestart=[];foreach(['ai_app_task','ai_consumption_log','ai_task_result_asset']as$table)$beforeRestart[$table]=Db::name($table)->order('id')->select()->toArray();
     $pendingJobs=(int)Db::name('ai_task_job')->where('status','<>','success')->count();
     $fixture->start(__FILE__,'aigc_image');
