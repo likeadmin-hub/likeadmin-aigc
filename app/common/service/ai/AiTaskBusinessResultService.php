@@ -70,7 +70,7 @@ class AiTaskBusinessResultService
             'aigc_video_task' => self::syncVideoTask($consumption, $businessId),
             'aigc_short_drama_script_task' => AigcShortDramaService::refreshScriptTask($businessId),
             'aigc_short_drama_generation_task' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
-            'aigc_canvas_run' => null,
+            'aigc_canvas_run' => \app\common\service\app\aigc_canvas\AigcCanvasService::syncManagedConsumption($consumption, $businessId),
             // The decoration worker owns slot hydration after managed assets settle.
             'decorate_agent_image_slot' => null,
             'aigc_music_task' => self::syncMusicTask($consumption, $businessId),
