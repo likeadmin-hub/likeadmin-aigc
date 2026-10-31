@@ -13,6 +13,7 @@ class MarketGenerationContractReviewTest extends TestCase
         $r=Review::platformData(['params_schema'=>$schema,'upstream_metadata'=>$saved],['model_pricing'=>$remote]);
         self::assertTrue($r['platform_schema_matches_saved']);self::assertFalse($r['platform_declaration_matches_saved']);
         self::assertNotSame($r['saved_declaration_fingerprint'],$r['platform_declaration_fingerprint']);self::assertSame('unverified',$r['runtime_readiness']);
+        self::assertSame([$field],$r['declaration_changed_fields']);
     }
     public static function declarationChanges(): array
     {
@@ -29,9 +30,11 @@ class MarketGenerationContractReviewTest extends TestCase
         $remote=['params_schema'=>['prompt'=>['type'=>'string']],'default_params'=>['seed'=>0,'example'=>false],'api_key'=>'never expose','price'=>123.45];
         $r=Review::catalogueData(['upstream_metadata'=>$saved],$remote);self::assertTrue($r['platform_declaration_matches_saved']);
         self::assertStringNotContainsString('never expose',json_encode($r));self::assertStringNotContainsString('123.45',json_encode($r));
+        self::assertSame([],$r['declaration_changed_fields']);
         unset($remote['default_params']['example']);self::assertFalse(Review::catalogueData(['upstream_metadata'=>$saved],$remote)['platform_declaration_matches_saved']);
         $missing=Review::applicationData(['upstream_metadata'=>$saved],[]);self::assertNull($missing['platform_declaration_matches_saved']);self::assertNull($missing['platform_declaration_fingerprint']);
-        $application=Review::applicationData(['upstream_metadata'=>$saved],['api_pricing'=>$saved,'model_pricing'=>['default_params'=>['seed'=>999]]]);self::assertTrue($application['platform_declaration_matches_saved']);
+        $application=Review::applicationData($saved+['upstream_metadata'=>['default_params'=>['seed'=>999]]],['api_pricing'=>$saved,'model_pricing'=>['default_params'=>['seed'=>999]]]);
+        self::assertTrue($application['platform_declaration_matches_saved']);self::assertSame('saved_application_metadata',$application['declaration_comparison_scope']);
     }
     public function testPlatformParametersAndLocalNativeSnapshotAreDifferentEvidenceLayers(): void
     {

@@ -12,7 +12,7 @@ final class MarketGenerationContractReview
     /** Exact public declaration projection, including field presence and typed defaults.
      * A changed fingerprint requests review; it never proves completeness or grants runtime support.
      */
-    private static function declarationComparison(array $saved, array $remote): array
+    private static function declarationComparison(array $saved, array $remote, string $scope='saved_upstream_metadata_only'): array
     {
         $select=static fn(array $value)=>array_intersect_key($value,array_flip(self::DECLARATION_FIELDS));
         $before=$select($saved);$after=$select($remote);
@@ -23,8 +23,12 @@ final class MarketGenerationContractReview
         };
         $fingerprint=static fn(array $value)=>hash('sha256',json_encode($canonical($value),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
         $available=$remote!==[];
-        return ['declaration_comparison_scope'=>'saved_upstream_metadata_only',
+        $changed=[];
+        foreach(array_unique(array_merge(array_keys($before),array_keys($after)))as$field)
+            if(!array_key_exists($field,$before)||!array_key_exists($field,$after)||$canonical($before[$field])!==$canonical($after[$field]))$changed[]=$field;
+        return ['declaration_comparison_scope'=>$scope,
             'platform_declaration_fields'=>array_keys($after),'saved_declaration_fields'=>array_keys($before),
+            'declaration_changed_fields'=>$available?$changed:[],
             'platform_declaration_fingerprint'=>$available?$fingerprint($after):null,
             'saved_declaration_fingerprint'=>$fingerprint($before),
             'platform_declaration_matches_saved'=>$available?$canonical($after)===$canonical($before):null];
@@ -67,7 +71,10 @@ final class MarketGenerationContractReview
     {
         $result=self::platformData($metadata,['model_pricing'=>(array)($detail['api_pricing']??[]),'doc'=>(array)($detail['doc']??[])]);
         $result['api_declaration_available']=$result['platform_detail_available'];unset($result['platform_detail_available']);
-        $result['source_projection']='application_doc_detail';return $result;
+        $result['source_projection']='application_doc_detail';
+        // Applications persist their API declaration directly, not in the model
+        // upstream_metadata wrapper. Compare that exact evidence layer only.
+        return array_replace($result,self::declarationComparison($metadata,(array)($detail['api_pricing']??[]),'saved_application_metadata'));
     }
 
     public static function ledger(array $captured, array $observations, array $guidance = [], array $platformFlow = [], array $catalogueFlow = [], array $structureReview = []): array
