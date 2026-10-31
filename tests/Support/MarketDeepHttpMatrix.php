@@ -71,6 +71,12 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     MarketWorkerFixture::wait(function()use($micro){$r=think\facade\Db::name('aigc_micro_video_task')->where('id',$micro)->find();if($r['status']==='waiting_continue')throw new RuntimeException('Micro framed generation: '.$r['error']);return $r['status']==='success';},'Frame-driven segments/merge not finished',45);
     $f->stop('micro');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Video jobs pending',20);$f->stop();
     $detail=$get('aigc_micro_video.task/detail',$micro);$check($detail['result_url']!==''&&count($detail['generation_tasks'])>=5,'Micro canonical frame/video identities missing');
+    $report['micro_media_result_counts']=[];
+    foreach(think\facade\Db::name('aigc_micro_video_attempt')->where('task_id',$micro)->whereIn('kind',['frame','video'])->select() as $attempt) {
+        $view=app\common\service\ai\GenerationTaskResultService::read((int)$attempt['app_task_id'],$t,$u);
+        $report['micro_media_result_counts'][]=count($view['results']);
+        $check($view['status']==='success'&&count($view['results'])===1,'Micro completed media missing canonical stored result');
+    }
     $report['micro_frames']=['three_ordered_anchors_two_video_segments_actual_merge'=>true,'frame_and_video_confirmation_replay'=>true,'reopen_keeps_generation_identities'=>true,'actual_duration'=>$detail['actual_duration']];
 
     }
@@ -79,7 +85,7 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     file_put_contents($f->dir.'/synthetic.midi',hex2bin('4d546864000000060000000100604d54726b0000000c00903c4060803c4000ff2f00'));
     foreach(['voice_clone','wav','midi','mp4','vox','timing','upload_audio','persona']as$op){[$p,$sku]=$product('music_'.$op,'audio','',[],[],'per_call','music_generation',$op);if($op==='timing')think\facade\Db::name('power_market_sku')->where('id',$sku)->update(['sale_points'=>0,'upstream_price'=>0]);}
     think\facade\Db::name('tenant_file')->insert(['tenant_id'=>$t,'source_id'=>$u,'source'=>app\common\enum\FileEnum::SOURCE_USER,'type'=>app\common\enum\FileEnum::FILE_TYPE,'uri'=>'uploads/deep/input.wav','name'=>'Synthetic tone','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','delete_time'=>0]);
-    $asset=think\facade\Db::name('aigc_music_asset')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'asset_type'=>'voice_reference','name'=>'Synthetic tone','uri'=>'uploads/deep/input.wav','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','duration'=>1,'status'=>1,'delete_time'=>0]);
+    $asset=think\facade\Db::name('aigc_music_asset')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'asset_type'=>'voice_reference','title'=>'Synthetic tone','uri'=>'uploads/deep/input.wav','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','duration'=>1,'status'=>1,'delete_time'=>0]);
     think\facade\Db::name('user')->insert(['id'=>$u+2,'tenant_id'=>$t,'sn'=>$u+2,'account'=>$f->prefix.'deep_other','nickname'=>'Synthetic other','password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification')),'user_money'=>100]);
     $other=dataHttp($api,'/api/login/account'.$suffix,['account'=>$f->prefix.'deep_other','password'=>'Private-fixture-pass-2026','scene'=>1,'terminal'=>4])['token'];
     $denied=callHttp($api,'/api/app.aigc_music.voice_clone/create'.$suffix,['reference_asset_id'=>$asset,'name'=>'Synthetic rejected'],$other);
