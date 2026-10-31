@@ -1,12 +1,11 @@
 {
   "batch": 31,
   "date": "2026-10-31",
-  "source_web_commit": "bde7402a",
-  "source_server_commit": "bab28ccfa",
+  "source_web_commit": "bde7402a880e6b859a52539f5d4a30c522f0ea31",
+  "source_server_commit": "a411b23fe545720d72676cc1102bacd97cce9651",
   "paid_generation": false,
   "provider_task_or_asset_calls": false,
   "original_project_writes": false,
-  "task_writes": false,
   "scope": "Synthetic saved request passed through the actual history restore helper and shared preparation payload before the fix. Not an observed fault on the three persisted tasks.",
   "cases": [
     {
@@ -29,5 +28,7 @@
       },
       "fixed_web_commit": "bde7402a"
     }
-  ]
+  ],
+  "direct_original_task_mutations": false,
+  "initial_http_automatic_terminal_updates_observed": true
 }

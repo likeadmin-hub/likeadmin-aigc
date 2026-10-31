@@ -12,6 +12,7 @@ class AcceptanceBoundaries(unittest.TestCase):
         # the reconciliation boundary below still keeps whole entries uncovered.
         self.assertEqual(module.classify({'status': 'http_graph_state_preserved'}), 'passed')
         self.assertEqual(module.classify({'status': 'frozen_history_replay_equal'}), 'passed')
+        self.assertEqual(module.classify({'status': 'http_terminal_rows_preserved'}), 'passed')
         self.assertEqual(module.classify({'status': 'frozen_prepare_rejected'}), 'not_covered')
         self.assertEqual(module.classify({'status': 'local_rejection', 'expected': 'rejected_variant_combination'}), 'expected_rejection')
         self.assertEqual(module.classify({'status': 'local_rejection', 'expected': 'blocked_token_budget'}), 'external_blocked')
