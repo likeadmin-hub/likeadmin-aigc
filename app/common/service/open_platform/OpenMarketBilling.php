@@ -27,7 +27,7 @@ final class OpenMarketBilling
         }
         if(($operation['native_pricing']??'')===OpenNativeMarketPricing::ADAPTER){
             if(count($operation['billing'])!==1)throw new OpenException('invalid_contract','原生媒体价格只能绑定一个 SKU');
-            $native=OpenNativeMarketPricing::capture($tenantId,$product,$params,(int)$operation['billing'][0]['sku_id']);
+            $native=OpenNativeMarketPricing::capture($tenantId,$product,$params,(int)$operation['billing'][0]['sku_id'],$operation['billing'][0]);
             $native['snapshot']+=['billing_owner'=>'gateway','contract'=>$operation,'product_id'=>$productId];return $native;
         }
         $user=0.;$tenant=0.;$rules=[];$skus=array_column($product['skus'],null,'id');
