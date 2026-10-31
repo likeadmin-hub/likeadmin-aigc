@@ -23,7 +23,7 @@ class MarketInlineImageResultTest extends TestCase
     }
     public function testUnsupportedOrUnboundedInlineFormatsDoNotBecomeImageResults(): void
     {
-        foreach(['data:audio/wav;base64,YQ==','data:image/png;base64,%%%','data:image/png;base64,'.str_repeat('A',27962112),'blob:fixture']as$url)self::assertSame([],Urls::collectImages(['images'=>[$url]]));
+        foreach(['data:audio/wav;base64,YQ==','data:IMAGE/png;base64,YQ==','DATA:image/png;base64,YQ==','data:image/png;BASE64,YQ==','data:image/png;base64,%%%','data:image/png;base64,'.str_repeat('A',27962112),'blob:fixture']as$url)self::assertSame([],Urls::collectImages(['images'=>[$url]]));
         self::assertSame([],Urls::collectImages(['data'=>[['b64_json'=>'YQ==']],'asset_id'=>'unverified-id']));
     }
     public function testStandardInlineBytesCanBeMeasuredWithoutUpload(): void
@@ -37,6 +37,15 @@ class MarketInlineImageResultTest extends TestCase
         $meter=Meter::tokenContract(['usage_unit'=>'token','usage_unit_size'=>1000,'source_payload'=>['meter_contract'=>['version'=>2,'basis'=>'token','rounding'=>'ceil_2','maximum_quantity'=>1000,'usage_path'=>'usage.total_tokens']]]);
         $this->expectExceptionMessage('不是可核验的图片内容');
         (new \ReflectionMethod($runtime,'images'))->invoke(null,['status'=>'completed','data'=>['images'=>['data:image/png;base64,'.base64_encode('invalid image bytes')]]],1,1,['billing_meter'=>$meter]);
+    }
+    /** @dataProvider runtimes */
+    public function testAnUnstoredFallbackCannotCompleteTokenImageBilling(string $runtime): void
+    {
+        $meter=Meter::tokenContract(['usage_unit'=>'token','usage_unit_size'=>1000,'source_payload'=>['meter_contract'=>['version'=>2,'basis'=>'token','rounding'=>'ceil_2','maximum_quantity'=>1000,'usage_path'=>'usage.total_tokens']]]);
+        // This spelling reaches the legacy asset fallback, which does no I/O.
+        // A mere returned URI must never count as verified managed output.
+        $this->expectExceptionMessage('尚未完成核验转存');
+        (new \ReflectionMethod($runtime,'images'))->invoke(null,['status'=>'completed','images'=>[['url'=>'HTTPS://fixtures.invalid/unfetched.png']]],1,1,['billing_meter'=>$meter]);
     }
     public static function runtimes(): array{return [[Images::class],[Nano::class]];}
 }

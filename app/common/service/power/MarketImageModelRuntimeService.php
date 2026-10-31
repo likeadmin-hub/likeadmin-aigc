@@ -1620,6 +1620,7 @@ class MarketImageModelRuntimeService
             $images=[];
             foreach(array_values(array_unique(AiTaskResultUrlService::collectImages($data)))as$url){
                 $asset=AigcImageAssetService::persistGeneratedImage($url,$tenantId,$userId,true);
+                if(empty($asset['stored'])||(int)($asset['width']??0)<1||(int)($asset['height']??0)<1)throw new Exception('生成图片尚未完成核验转存');
                 $images[]=['image_uri'=>(string)$asset['uri'],'width'=>(int)($asset['width']??0),'height'=>(int)($asset['height']??0),
                     'storage_scope'=>(string)($asset['storage_scope']??'tenant'),'storage_engine'=>(string)($asset['storage_engine']??'local'),'storage_domain'=>(string)($asset['storage_domain']??'')];
             }
