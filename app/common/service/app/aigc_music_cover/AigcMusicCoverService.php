@@ -12,6 +12,9 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use app\common\service\power\MarketApplicationApiRuntimeService;
+use app\common\service\power\MarketGenerationRuntime;
+use app\common\service\ai\GenerationTaskResultService;
+use think\facade\Db;
 use Exception;
 
 class AigcMusicCoverService
@@ -71,7 +74,8 @@ class AigcMusicCoverService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepare($tenantId, $params, false);
-        $quote = MarketApplicationApiRuntimeService::quote($tenantId, $prepared['selection'], 1);
+        $runtime = MarketGenerationRuntime::selection('application', $prepared['selection']);
+        $quote = $runtime->quote($tenantId);
         return array_merge($quote, [
             'quantity' => 1,
             'ref_audio' => $prepared['request']['ref_audio'],
@@ -84,7 +88,8 @@ class AigcMusicCoverService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepare($tenantId, $params, true);
-        $quote = MarketApplicationApiRuntimeService::quote($tenantId, $prepared['selection'], 1);
+        $runtime = MarketGenerationRuntime::selection('application', $prepared['selection']);
+        $quote = $runtime->quote($tenantId);
         $task = AigcMusicCoverTask::create([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -113,18 +118,9 @@ class AigcMusicCoverService
             'finish_time' => 0,
             'delete_time' => 0,
         ]);
+        $accepted = false;
         try {
-            $reserve = MarketApplicationApiRuntimeService::reserve(
-                $tenantId,
-                $userId,
-                'music_cover',
-                (string)$task['id'],
-                $prepared['selection'],
-                $prepared['request'],
-                1,
-                self::APP_CODE,
-                'aigc_music_cover_task'
-            );
+            $reserve = $runtime->reserve($tenantId,$userId,self::APP_CODE,'music_cover','aigc_music_cover_task',(string)$task['id'],$prepared['request']);
             $task->save([
                 'app_task_id' => (int)$reserve['app_task_id'],
                 'consumption_id' => (int)$reserve['consumption_id'],
@@ -134,8 +130,9 @@ class AigcMusicCoverService
                 'status' => 'running',
                 'update_time' => time(),
             ]);
-            \app\common\service\power\MarketSeedSvcAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = MarketApplicationApiRuntimeService::submit((int)$reserve['consumption_id'], $prepared['request']);
+            $runtime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $runtime->submit((int)$reserve['consumption_id'],$prepared['request'],$tenantId,$userId);
+            $accepted = true;
             $task->save([
                 'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
                 'status' => (string)($result['status'] ?? 'running'),
@@ -144,6 +141,7 @@ class AigcMusicCoverService
             self::syncConsumption((int)$task['id']);
             return self::response($task, $quote);
         } catch (\Throwable $e) {
+            if ($accepted) return GenerationTaskResultService::appendBusiness(['task_id'=>(int)$task['id'],'status'=>'running','results'=>[]],(int)$task['app_task_id'],$tenantId,$userId);
             if ((int)$task['consumption_id'] > 0) {
                 try {
                     MarketApplicationApiRuntimeService::fail((int)$task['consumption_id'], $e->getMessage(), 'submit_failed');
@@ -181,7 +179,7 @@ class AigcMusicCoverService
             $row = self::formatTask($fresh?->toArray() ?: $row, $tenantId);
         }
         unset($row);
-        return ['lists' => $rows, 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
+        return ['lists' => GenerationTaskResultService::appendNativeList($rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
@@ -197,7 +195,7 @@ class AigcMusicCoverService
         self::refreshRunningTask($task->toArray());
         self::syncConsumption($taskId, $userId);
         $fresh = AigcMusicCoverTask::find($taskId);
-        return self::formatTask($fresh?->toArray() ?: $task->toArray(), $tenantId);
+        return GenerationTaskResultService::appendNativeList([self::formatTask($fresh?->toArray() ?: $task->toArray(), $tenantId)])[0];
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
@@ -264,74 +262,43 @@ class AigcMusicCoverService
 
     public static function syncConsumption(int $taskId, int $userId = 0): void
     {
-        $query = AigcMusicCoverTask::where(['id' => $taskId, 'delete_time' => 0]);
-        if ($userId > 0) {
-            $query->where('user_id', $userId);
-        }
-        $task = $query->findOrEmpty();
-        if ($task->isEmpty() || (int)$task['consumption_id'] <= 0) {
-            return;
-        }
-        $consumption = AiConsumptionLog::findOrEmpty((int)$task['consumption_id']);
-        if ($consumption->isEmpty()) {
-            return;
-        }
-        $terminal = in_array((string)$consumption['run_status'], ['success', 'failed', 'canceled', 'cancelled'], true)
-            || in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true);
-        if (!$terminal) {
-            return;
-        }
-        $summary = $consumption['response_summary'] ?? [];
-        if (is_string($summary)) {
-            $summary = json_decode($summary, true) ?: [];
-        }
-        $items = is_array($summary) ? (array)($summary['items'] ?? []) : [];
-        if ((string)$consumption['run_status'] === 'success' && $items !== []) {
-            foreach ($items as $item) {
-                if (!is_array($item) || trim((string)($item['audio_uri'] ?? '')) === '') {
-                    continue;
+        Db::transaction(function () use ($taskId,$userId) {
+            $query=AigcMusicCoverTask::where(['id'=>$taskId,'delete_time'=>0]);
+            if ($userId>0) $query->where('user_id',$userId);
+            $task=$query->lock(true)->findOrEmpty();
+            if ($task->isEmpty() || (int)$task['consumption_id']<=0) return;
+            $owner=['tenant_id'=>(int)$task['tenant_id'],'user_id'=>(int)$task['user_id']];
+            $bill=AiConsumptionLog::where($owner)->where('id',(int)$task['consumption_id'])->findOrEmpty();
+            $binding=\app\common\model\ai\AiAppTask::where($owner)->where('id',(int)$task['app_task_id'])->findOrEmpty();
+            if ($bill->isEmpty() || $binding->isEmpty() || (int)$bill['app_task_id']!==(int)$binding['id']
+                || $bill['app_code']!==self::APP_CODE || $binding['app_code']!==self::APP_CODE
+                || $binding['business_table']!=='aigc_music_cover_task' || (int)$binding['business_id']!==$taskId)
+                throw new Exception('音乐翻唱任务关联不一致');
+            if (in_array((string)$task['status'],['failed','canceled','cancelled'],true)) return;
+            $data=[];
+            if ($bill['run_status']==='success') {
+                $view=GenerationTaskResultService::read((int)$binding['id'],...array_values($owner));
+                if ($view['status']!=='success') return;
+                $items=array_values(array_filter($view['results'],static fn($item)=>$item['type']==='audio' && $item['transfer_status']==='stored'));
+                if (!$items) return;
+                foreach ($items as $item) {
+                    if (AigcMusicCoverResult::where($owner+['task_id'=>$taskId,'audio_uri'=>$item['uri'],'delete_time'=>0])->find()) continue;
+                    AigcMusicCoverResult::create($owner+['task_id'=>$taskId,'audio_uri'=>$item['uri'],'audio_url'=>$item['url'],
+                        'storage_scope'=>$item['storage_scope'],'storage_engine'=>$item['storage_engine'],'storage_domain'=>$item['storage_domain'],
+                        'mime_type'=>$item['mime_type'],'file_size'=>$item['file_size'],'duration'=>$item['duration'],
+                        'create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
                 }
-                $exists = AigcMusicCoverResult::where([
-                    'tenant_id' => (int)$task['tenant_id'],
-                    'task_id' => $taskId,
-                    'audio_uri' => (string)$item['audio_uri'],
-                    'delete_time' => 0,
-                ])->findOrEmpty();
-                if (!$exists->isEmpty()) {
-                    continue;
-                }
-                AigcMusicCoverResult::create([
-                    'tenant_id' => (int)$task['tenant_id'],
-                    'task_id' => $taskId,
-                    'user_id' => (int)$task['user_id'],
-                    'audio_uri' => (string)$item['audio_uri'],
-                    'audio_url' => (string)($item['audio_url'] ?? ''),
-                    'storage_scope' => (string)($item['storage_scope'] ?? 'tenant'),
-                    'storage_engine' => (string)($item['storage_engine'] ?? 'local'),
-                    'storage_domain' => (string)($item['storage_domain'] ?? ''),
-                    'mime_type' => (string)($item['mime_type'] ?? ''),
-                    'file_size' => (int)($item['file_size'] ?? 0),
-                    'duration' => (float)($item['duration'] ?? 0),
-                    'create_time' => time(),
-                    'update_time' => time(),
-                    'delete_time' => 0,
-                ]);
+                $data=['status'=>'success','error'=>''];
+            } elseif (in_array((string)$bill['run_status'],['failed','canceled','cancelled'],true) && $bill['billing_status']==='refunded') {
+                $data=['status'=>in_array($bill['run_status'],['canceled','cancelled'],true)?'canceled':'failed','error'=>(string)$bill['error_message']];
             }
-            $task->save([
-                'status' => 'success',
-                'error' => '',
-                'finish_time' => self::timestampValue($consumption['finish_time'] ?? 0) ?: time(),
-                'update_time' => time(),
-            ]);
-        } elseif (in_array((string)$consumption['run_status'], ['failed', 'canceled', 'cancelled'], true)
-            || (string)$consumption['billing_status'] === 'refunded') {
-            $task->save([
-                'status' => (string)$consumption['run_status'] === 'canceled' ? 'canceled' : 'failed',
-                'error' => (string)($consumption['error_message'] ?? '音乐翻唱任务失败'),
-                'finish_time' => self::timestampValue($consumption['finish_time'] ?? 0) ?: time(),
-                'update_time' => time(),
-            ]);
-        }
+            if (!$data) return;
+            $data+=['actual_tenant_cost'=>(float)$bill['actual_tenant_cost'],'actual_user_price'=>(float)$bill['actual_user_price']];
+            $changes=[];foreach($data as$key=>$value)if((string)$task[$key]!== (string)$value)$changes[$key]=$value;
+            if (!$changes) return;
+            $changes['finish_time']=self::timestampValue($task['finish_time']) ?: (self::timestampValue($bill['finish_time']) ?: time());
+            $changes['update_time']=time();$task->save($changes);
+        });
     }
 
     private static function prepare(int $tenantId, array $params, bool $required): array
@@ -414,7 +381,7 @@ class AigcMusicCoverService
             return;
         }
         try {
-            MarketApplicationApiRuntimeService::refresh((int)$task['consumption_id']);
+            MarketGenerationRuntime::consumption((int)$task['consumption_id'],(int)$task['tenant_id'],(int)$task['user_id'])->refresh((int)$task['consumption_id'],(int)$task['tenant_id'],(int)$task['user_id']);
         } catch (\Throwable) {
         }
     }
@@ -454,7 +421,7 @@ class AigcMusicCoverService
     {
         $results = AigcMusicCoverResult::where(['tenant_id' => $tenantId, 'task_id' => (int)$row['id'], 'delete_time' => 0])->order('id', 'asc')->select()->toArray();
         foreach ($results as &$result) {
-            $result['audio_url'] = (string)($result['audio_url'] ?? '') ?: FileService::getFileUrlByStorage($result['audio_uri'], $result['storage_scope'] ?? '', $result['storage_engine'] ?? '', $result['storage_domain'] ?? '');
+            $result['audio_url'] = !empty($result['audio_uri']) ? FileService::getFileUrlByStorage($result['audio_uri'], $result['storage_scope'] ?? '', $result['storage_engine'] ?? '', $result['storage_domain'] ?? '') : (string)($result['audio_url'] ?? '');
             $result['download_url'] = $result['audio_url'];
         }
         unset($result);
@@ -472,8 +439,9 @@ class AigcMusicCoverService
 
     private static function response(AigcMusicCoverTask $task, array $quote): array
     {
+        $task=AigcMusicCoverTask::find($task['id']) ?? $task;
         $formatted = self::formatTask($task->toArray(), (int)$task['tenant_id']);
-        return [
+        return GenerationTaskResultService::appendBusiness([
             'task_id' => (int)$task['id'],
             'status' => (string)$task['status'],
             'provider_task_id' => (string)($task['provider_task_id'] ?? ''),
@@ -485,7 +453,7 @@ class AigcMusicCoverService
                 'source_audio' => (string)($task['source_url'] ?? ''),
                 'display_points' => (float)$quote['user_charge_points'],
             ]),
-        ];
+        ],(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     private static function defaults(): array
