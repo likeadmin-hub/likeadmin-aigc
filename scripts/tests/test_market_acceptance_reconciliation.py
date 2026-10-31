@@ -8,6 +8,9 @@ spec.loader.exec_module(module)
 
 class AcceptanceBoundaries(unittest.TestCase):
     def test_rejection_and_billing_block_never_count_as_generation_pass(self):
+        # A named persistence checkpoint passes only its recorded source scope;
+        # the reconciliation boundary below still keeps whole entries uncovered.
+        self.assertEqual(module.classify({'status': 'http_graph_state_preserved'}), 'passed')
         self.assertEqual(module.classify({'status': 'local_rejection', 'expected': 'rejected_variant_combination'}), 'expected_rejection')
         self.assertEqual(module.classify({'status': 'local_rejection', 'expected': 'blocked_token_budget'}), 'external_blocked')
         self.assertEqual(module.classify({'status': 'local_rejection'}), 'not_covered')
