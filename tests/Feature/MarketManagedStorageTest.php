@@ -43,4 +43,28 @@ class MarketManagedStorageTest extends TestCase
         });
     }
     public static function types(): array{return [['image','images','image_uri'],['video','videos','video_uri'],['audio','items','audio_uri']];}
+
+    /** @dataProvider measuredMedia */
+    public function testMeasuredDeliveryMetadataPreservesUnknownsAndFrozenBilling(string $type, array $meta, array $original, array $expected): void
+    {
+        $this->local(function () use ($type, $meta, $original, $expected) {
+            $key=$type==='video'?'videos':'items';$uriKey=$type==='video'?'video_uri':'audio_uri';$uri='https://fixtures.invalid/result';
+            $summary=[$key=>[[$uriKey=>$uri]+$original],'receipt'=>['keep'=>'unchanged']];$price=['frozen'=>['units'=>17]];
+            $c=AiConsumptionLog::create(['consume_no'=>'b53-meta-'.bin2hex(random_bytes(8)),'tenant_id'=>199999953,'user_id'=>199999954,'app_code'=>'aigc_'.$type,'price_snapshot'=>$price,'response_summary'=>$summary,'run_status'=>'success','billing_status'=>'settled','create_time'=>time(),'update_time'=>time()]);
+            $asset=['consumption_id'=>$c['id'],'tenant_id'=>199999953,'user_id'=>199999954,'asset_type'=>$type,'transfer_status'=>'stored','external_url'=>$uri,'local_uri'=>'uploads/managed','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'http://localhost','storage_meta'=>$meta];
+            (new \ReflectionMethod(Results::class,'hydrateStoredSummary'))->invoke(null,(int)$c['id'],[$asset]);$fresh=AiConsumptionLog::find($c['id']);$row=$fresh['response_summary'][$key][0];
+            foreach($expected as$field=>$value)self::assertSame($value,$row[$field]);
+            self::assertSame('uploads/managed',$row[$uriKey]);self::assertSame($price,$fresh['price_snapshot']);self::assertSame($summary['receipt'],$fresh['response_summary']['receipt']);self::assertSame('settled',$fresh['billing_status']);
+        });
+    }
+    public static function measuredMedia(): array
+    {
+        return [
+            ['video',['width'=>0,'height'=>0],['width'=>32,'height'=>64],['width'=>32,'height'=>64]],
+            ['video',['width'=>128,'height'=>256],['width'=>32,'height'=>64],['width'=>128,'height'=>256]],
+            ['audio',['file_size'=>16078,'duration'=>1,'mime_type'=>'audio/wav'],['file_size'=>0,'duration'=>0,'mime_type'=>'audio/mpeg'],['file_size'=>16078,'duration'=>1.0,'mime_type'=>'audio/wav']],
+            ['audio',['file_size'=>0,'duration'=>0,'mime_type'=>''],['file_size'=>8,'duration'=>2,'mime_type'=>'audio/wav'],['file_size'=>8,'duration'=>2,'mime_type'=>'audio/wav']],
+            ['audio',['file_size'=>-1,'duration'=>INF],['file_size'=>8,'duration'=>2],['file_size'=>8,'duration'=>2]],
+        ];
+    }
 }

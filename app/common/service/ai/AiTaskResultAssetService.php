@@ -135,7 +135,11 @@ class AiTaskResultAssetService
                     if(!is_array($row))continue;$uri=(string)($row[$uriKey]??$row['url']??$row['audio_url']??'');
                     if(!in_array($uri,[$asset['external_url'],$asset['local_uri']],true))continue;
                     $row[$uriKey]=$asset['local_uri'];foreach(['storage_scope','storage_engine','storage_domain']as$field)$row[$field]=(string)$asset[$field];
-                    foreach(['width','height']as$field)if(isset($meta[$field]))$row[$field]=(int)$meta[$field];
+                    // Zero dimensions mean "not measured" for video storage.
+                    // Preserve existing result facts rather than replacing them with unknowns.
+                    foreach(['width','height','file_size']as$field)if(is_numeric($meta[$field]??null)&&(int)$meta[$field]>0)$row[$field]=(int)$meta[$field];
+                    if(is_numeric($meta['duration']??null)&&is_finite((float)$meta['duration'])&&(float)$meta['duration']>0)$row['duration']=(float)$meta['duration'];
+                    if(is_string($meta['mime_type']??null)&&$meta['mime_type']!=='')$row['mime_type']=$meta['mime_type'];
                 }unset($row);
             }
             if($summary!==$before)$c->save(['response_summary'=>$summary,'update_time'=>time()]);
