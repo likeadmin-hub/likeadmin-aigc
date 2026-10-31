@@ -54,6 +54,7 @@ if(PHP_SAPI==='cli-server') {
 if(($argv[1]??'')==='--worker') {
     MarketWorkerFixture::activate($original,$argv[2],$argv[3]);app()->env->set('database.prefix',$argv[2]);
     if(!is_dir($argv[3].'/runtime'))mkdir($argv[3].'/runtime',0700,true);app()->setRuntimePath($argv[3].'/runtime/');
+    if($argv[4]==='fixture_agent_runner') {while(true){app\common\service\app\aigc_llm\agent\AgentExecutionService::tick();usleep(100000);}}
     if($argv[4]==='fixture_micro_runner') {while(true){app\common\service\app\aigc_micro_video\MicroVideoWorker::tick();usleep(100000);}}
     $command=new app\common\command\AiTaskWorker();
     exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
@@ -75,7 +76,7 @@ function dataHttp(string $base,string $path,array $data=[],string $token='',stri
 try {
     $names=['tenant','user','user_session','config','tenant_config','tenant_file','tenant_file_cate','file','file_cate','app','tenant_app','tenant_app_order','tenant_app_config','tenant_system_role_menu','membership_plan','membership_plan_app','update_source',
         'ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','ai_task_audit_log','ai_generation_submission','ai_model_pricing','tenant_points_log','user_account_log','power_market_product','power_market_sku','power_market_price_rule','tenant_power_market_sku_price','tenant_power_market_product',
-        'aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config'];
+        'user_asset_state','app_frontend_entry','aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config'];
     foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_','smart_clip_','tenant_point_','user_point_','open_platform_']as$group){$base=$original['connections']['mysql']['prefix'];if(str_starts_with($table,$base.$group))$names[]=substr($table,strlen($base));}
     $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$dir=$fixture->dir;$prefix=$fixture->prefix;app()->env->set('database.prefix',$prefix);
     mkdir($dir.'/config',0700);file_put_contents($dir.'/config/install.lock','private-fixture');
@@ -88,6 +89,7 @@ try {
     if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['smart_clip','open_platform']);
     if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music','aigc_digital_human','aigc_micro_video']);
     if(getenv('AIGC_HTTP_STAGE_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music_cover','aigc_digital_human','aigc_micro_video']);
+    if(getenv('AIGC_HTTP_AGENT_MATRIX')==='1')$fixtureApps[]='aigc_llm';
     foreach($fixtureApps as$code) {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
         Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled','create_time'=>time(),'update_time'=>time()]);
@@ -205,6 +207,7 @@ try {
     MarketWorkerFixture::check($userBefore-$userAfter===10.&&$tenantBefore-$tenantAfter===4.,'Native/application retail overrides charged incorrect fixture amounts');
     $report['image_http']=['native_managed_result_checksum'=>true,'single_application_parent_and_child_success'=>true,'suite_first_child_does_not_finish_parent'=>true,'suite_two_children_two_results'=>true,'native_price'=>1,'application_retail_price_per_child'=>3,'fixture_user_delta'=>10,'fixture_tenant_delta'=>4];
     $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_fixture_user_balance']=$userAfter;$report['total_fixture_tenant_balance']=$tenantAfter;
+    if(getenv('AIGC_HTTP_AGENT_MATRIX')==='1'){require __DIR__.'/Support/MarketAgentHttpMatrix.php';$report['agent_matrix']=[];runMarketAgentHttp($fixture,$api,$urls['api_peer'],$suffix,$token,$channel,$report['agent_matrix']);}
     if(getenv('AIGC_HTTP_MOBILE_MATRIX')==='1'){require __DIR__.'/Support/MarketMobileHttpMatrix.php';$report['mobile_matrix']=[];runMarketMobileHttp($fixture,$api,$urls['api_peer'],$token,$request,$channel,$report['mobile_matrix']);}
     if(getenv('AIGC_HTTP_DISTINCT_MATRIX')==='1'){require __DIR__.'/Support/MarketDistinctHttpMatrix.php';$report['distinct_matrix']=[];runMarketDistinctHttp($fixture,$api,$suffix,$token,$request,$product,$sku,$urls['supplier'],$report['distinct_matrix']);}
     if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1') {
@@ -242,7 +245,7 @@ try {
     $report['unfinished_jobs_completed_on_restart']=$pendingJobs;
     $eventCounts=array_count_values(Db::name('ai_consumption_event')->column('event_type'));$acceptedCount=count(file($dir.'/submissions.jsonl'));
     $report['total_local_supplier_submissions']=$acceptedCount;
-    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)&&($eventCounts['settle']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0),'Final accepted tasks did not each have exactly one reservation and settlement');
+    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)+($report['agent_matrix']['text_settlements']??0)&&($eventCounts['settle']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)+($report['agent_matrix']['text_settlements']??0),'Final accepted tasks did not each have exactly one reservation and settlement');
     $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');$report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     $report['worker_restart_preserved_completed_rows']=true;$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];
     $report['total_tasks']=(int)Db::name('ai_app_task')->count();$report['total_result_assets']=(int)Db::name('ai_task_result_asset')->count();
