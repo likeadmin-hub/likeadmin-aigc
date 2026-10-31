@@ -133,6 +133,14 @@ try {
     $report['http_foreign_owner_reads_rejected']=3;$report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];$report['total_fixture_user_balance']=98;$report['total_fixture_tenant_balance']=98;
 } catch(Throwable $e) {
     $failure=$e;$report['failure']=$e->getMessage();$report['fixture_line']=array_values(array_map(static fn($frame)=>$frame['line']??0,array_filter($e->getTrace(),static fn($frame)=>($frame['file']??'')===__FILE__))); 
+    if($fixture&&isset($runId)) {
+        $row=Db::name('aigc_short_drama_canvas_run')->where('id',$runId)->find();
+        $report['short_run_at_failure']=array_intersect_key($row??[],array_flip(['id','status','progress','error','provider_task_id']));
+        $report['native_video_status_at_failure']=Db::name('aigc_video_task')->where('id',(int)($row['provider_task_id']??0))->value('status');
+        $report['short_node_at_failure']=json_decode(Db::name('aigc_short_drama_canvas')->where('id',$dramaId)->value('nodes_json'),true);
+        try{$method=new ReflectionMethod(app\common\service\app\aigc_short_drama\ShortDramaCanvasService::class,'refreshRun');$method->setAccessible(true);$method->invoke(null,$row,true);}
+        catch(Throwable $diagnostic){$report['reconcile_diagnostic']=$diagnostic->getMessage();}
+    }
     if($fixture)foreach(glob($fixture->dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).": ".substr(file_get_contents($log),-2500)."\n");
 } finally {
     foreach($processes as$process)if(is_resource($process)){$state=proc_get_status($process);if($state['running'])posix_kill($state['pid'],SIGTERM);proc_close($process);}
