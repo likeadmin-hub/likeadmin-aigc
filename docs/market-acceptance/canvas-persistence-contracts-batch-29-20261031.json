@@ -1,0 +1,56 @@
+{
+  "batch": 29,
+  "date": "2026-10-31",
+  "source_web_commit": "960b45593f8c05979d4e902c85ade5189b32db44",
+  "source_server_commit": "c7c545c25b18a208b3d64c2033902e2f8d7fefc5",
+  "scope": "Source-focused regressions and actual service/SQL rollback tests. Synthetic contracts are unbound to market identity or SKU. No automatic full entry acceptance.",
+  "validation": {
+    "pc_tests": 534,
+    "pc_passed": 534,
+    "phpunit_tests": 210,
+    "phpunit_assertions": 947,
+    "phpunit_passed": 210,
+    "sfc_script_template_style": 2,
+    "typescript_modules": 2,
+    "skipped": 0
+  },
+  "cases": [
+    {
+      "entry": "canvas",
+      "scenario": "same_file_reverse_frames_mixed_media_legacy_false_zero_sql_roundtrip",
+      "status": "sql_service_roundtrip_preserved",
+      "checks": [
+        "actual service create/save/read/re-read",
+        "same-file distinct first/last field/slot preservation",
+        "mixed video/audio fields and use IDs",
+        "sound=false, seed=0, empty string, null and legacy nested values",
+        "cross-user/cross-tenant/stale version rejection",
+        "new synthetic document ID count zero after rollback"
+      ],
+      "scope": "two PHPUnit tests, 30 assertions; actual SQL in a rollback transaction, not normal login HTTP or committed durability"
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "same_file_reverse_frames_mixed_media_legacy_false_zero_sql_roundtrip",
+      "status": "sql_service_roundtrip_preserved",
+      "checks": [
+        "actual service create/save/read/re-read",
+        "same-file distinct first/last field/slot preservation",
+        "mixed video/audio fields and use IDs",
+        "sound=false, seed=0, empty string, null and legacy nested values",
+        "cross-user/cross-tenant/stale version rejection",
+        "new synthetic document ID count zero after rollback"
+      ],
+      "scope": "two PHPUnit tests, 30 assertions; actual SQL in a rollback transaction, not normal login HTTP or committed durability"
+    }
+  ],
+  "shared_regressions": [
+    "authored tail-before-head roles and fields survive reconciliation and JSON reopen",
+    "source replacement clears old file facts, accepts fresh owned facts and retains authored use",
+    "same-file independent uses and explicit manual references remain independent",
+    "cached and live source aliases count once across request/composer/node availability",
+    "legacy string references and actual frame ordering use production dependencies",
+    "frozen old-default true/false and seed zero regression retained from batch28",
+    "actual ordinary request and short-drama reconciliation retain legacy string URL references"
+  ]
+}

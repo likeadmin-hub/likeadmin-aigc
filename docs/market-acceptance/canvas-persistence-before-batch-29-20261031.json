@@ -1,0 +1,67 @@
+{
+  "batch": 29,
+  "date": "2026-10-31",
+  "source_web_commit": "74212409d06cd9d600d327cf91d72d02d003723b",
+  "scope": "Historical source function reproduction, synthetic material URLs. These are resolved historical defects, not current fault counts or resource acceptance.",
+  "cases": [
+    {
+      "scenario": "saved_reverse_frame_uses_after_reconcile",
+      "status": "reproduced_failure",
+      "before": [
+        {
+          "url": "https://fixtures.invalid/last.png",
+          "uri": "https://fixtures.invalid/last.png",
+          "role": "last_frame_image",
+          "reference_slot_id": "last-use"
+        },
+        {
+          "url": "https://fixtures.invalid/first.png",
+          "uri": "https://fixtures.invalid/first.png",
+          "role": "first_frame_image",
+          "reference_slot_id": "first-use"
+        }
+      ],
+      "after": [
+        {
+          "url": "https://fixtures.invalid/last.png",
+          "uri": "https://fixtures.invalid/last.png",
+          "role": "first_frame_image",
+          "reference_slot_id": "last-use"
+        },
+        {
+          "url": "https://fixtures.invalid/first.png",
+          "uri": "https://fixtures.invalid/first.png",
+          "role": "last_frame_image",
+          "reference_slot_id": "first-use"
+        }
+      ],
+      "entry": "short_drama",
+      "resolved_by": "5ed3b9b8"
+    },
+    {
+      "status": "reproduced_failure",
+      "scenario": "cached_frames_plus_connected_sources",
+      "error": "首尾帧模式需要且只能使用首帧与尾帧两张图片",
+      "entry": "canvas",
+      "resolved_by": [
+        "89bf7dbf",
+        "a6eb3c40",
+        "a5c42202",
+        "b971fca7",
+        "d25ea0ce"
+      ]
+    }
+  ],
+  "additional_resolved_findings": [
+    {
+      "entry": "short_drama",
+      "observation": "Composer concatenated cached authored frames and generic graph aliases into four uses on an intermediate page.",
+      "resolved_by": "848664bc"
+    },
+    {
+      "entry": "short_drama",
+      "observation": "Affected existing regression showed generic owned alias asset_id 71 lost after shared deduplication.",
+      "resolved_by": "ce16bace"
+    }
+  ]
+}
