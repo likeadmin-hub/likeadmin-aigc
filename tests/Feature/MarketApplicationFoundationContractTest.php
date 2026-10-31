@@ -147,6 +147,34 @@ class MarketApplicationFoundationContractTest extends TestCase
         self::assertSame([], $item);
     }
 
+    public function testReclassifiedFactoryModelsNeverBecomeTextPriceProducts(): void
+    {
+        foreach (['audio', 'video_tool', 'motion_control', 'other', 'embedding'] as $category) {
+            $model = ['model_code'=>'synthetic-model','type_code'=>$category,'pricing'=>['pricing_v2'=>[
+                'resource_type'=>'factory_model','resource_id'=>1,'items'=>[['sku_key'=>'synthetic','usage_unit'=>'second','price'=>['points'=>1]]]
+            ]]];
+            self::assertSame([], $this->invoke(PowerMarketService::class, 'catalogPricingItem', [
+                'type'=>'model','model'=>'synthetic-model','channel'=>'','catalog_model'=>$model,'market_metadata'=>['model_type'=>'video']
+            ]));
+            // Rejection happens before any database access, including legacy
+            // pricing/batch responses carrying stale local video metadata.
+            self::assertNull($this->invoke(PowerMarketService::class, 'upsertProduct', 'model',
+                ['model_code'=>'synthetic-model','type_code'=>$category], ['market_metadata'=>['model_type'=>'video']]));
+        }
+    }
+
+    public function testSyncTypeRespectsPublishedClassificationAndKnownLegacyRequestContext(): void
+    {
+        foreach (['text','image','video'] as $type) {
+            self::assertSame($type, $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>strtoupper($type)], ['model_type'=>'text']));
+            self::assertSame($type, $this->invoke(PowerMarketService::class, 'syncModelType', [], ['model_type'=>$type]));
+        }
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', [], []));
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', [], ['upstream_metadata'=>['type_code'=>'other'],'model_type'=>'video']));
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>['video']], ['model_type'=>'video']));
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'other'], ['upstream_metadata'=>['type_code'=>'video'],'model_type'=>'video']));
+    }
+
     public function testApplicationCategoryIsFlattenedAndReturnedForImageVideoAndAudioApps(): void
     {
         $samples = [
