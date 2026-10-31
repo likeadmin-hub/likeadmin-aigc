@@ -52,8 +52,10 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     $finish('aigc_digital_human',$accepted['task_id'],'aigc_digital_human_task');
     $detail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
     MarketWorkerFixture::check(count($detail['results'])===1&&$detail['provider_payload_json']['drive_mode']==='audio','Avatar lost result or drive mode');
-    $created=(int)think\facade\Db::name('aigc_digital_human_task')->where('id',$accepted['task_id'])->value('create_time');
-    MarketWorkerFixture::wait(fn()=>time()>$created+6,'Legacy avatar duplicate window did not expire',8);
+    $same=dataHttp($api,$path.'.generate/index'.$suffix,$driver,$token);
+    MarketWorkerFixture::check($same['task_id']===$accepted['task_id'] && ($same['generation_task_refs']??[])===($detail['generation_task_refs']??[]),'Avatar duplicate reply lost canonical stage');
+    // Age only the private synthetic history beyond its existing 60-second body deduplication window.
+    think\facade\Db::name('aigc_digital_human_task')->where('id',$accepted['task_id'])->update(['create_time'=>time()-61]);
     $driver['driver_audio_uri']=$detail['tts_audio_uri'];
     $again=dataHttp($api,$path.'.generate/index'.$suffix,$driver,$token);
     MarketWorkerFixture::check($again['task_id']!==$accepted['task_id'],'Avatar history did not create a new attempt');
