@@ -1,7 +1,7 @@
 <?php
 namespace app\common\service\open_platform;
 
-use app\common\service\power\{MarketImageModelRuntimeService as Images, MarketVideoRuntimeService as Videos, MarketUsageSettlementService as Usage, MarketGenerationMeter as Meter};
+use app\common\service\power\{MarketImageModelRuntimeService as Images, MarketVideoRuntimeService as Videos, MarketUsageSettlementService as Usage, MarketGenerationMeter as Meter, MarketGenerationPixelMeter as Pixel, MarketNanoBananaAppRuntimeService as Nano};
 
 /** Pricing-only projection. Never returns a replacement transport payload. */
 final class OpenNativeMarketPricing
@@ -12,14 +12,19 @@ final class OpenNativeMarketPricing
     {
         return ($product['resource_type'] ?? '') === 'model'
             && in_array($product['model_type'] ?? '', ['image', 'video'], true)
-            || ($product['resource_type'] ?? '') === 'app_api' && Videos::isSupportedAppProduct($product);
+            || ($product['resource_type'] ?? '') === 'app_api' && (Videos::isSupportedAppProduct($product)||self::isNano($product));
+    }
+
+    public static function isNano(array $product): bool
+    {
+        return ($product['resource_type']??'')==='app_api'&&($product['model_type']??'')==='image'&&($product['upstream_app_code']??'')==='nano_banana'&&($product['upstream_api_code']??'')==='submit';
     }
 
     /** Identity is supplied by the bound contract, never by a pricing override in the body. */
     public static function bind(array $product, array $raw, int $skuId, array $sku = []): array
     {
         if (!self::supports($product) || $skuId <= 0) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
-        $isImage = ($product['model_type'] ?? '') === 'image' && $product['resource_type'] === 'model';
+        $isImage = ($product['model_type'] ?? '') === 'image';
         $selection = ['market_product_id' => (int)$product['id'], 'market_sku_id' => $skuId, 'resource_type' => $product['resource_type']];
         $prompt=self::alias($raw,['prompt'],false,true);
         if($prompt!==null){
@@ -57,6 +62,7 @@ final class OpenNativeMarketPricing
         $quantity = self::alias($raw, ['n', 'num_images', 'quantity'], true) ?? 1;
         if ($quantity < 1) throw new OpenException('invalid_request', '图片数量须为正整数');
         $selection['quantity'] = $quantity;
+        if(self::isNano($product))$selection['model_id']='market_nano_banana:'.$product['id'].':'.base64_encode((string)($locked['model']??''));
         $references=self::alias($raw,['reference_images','image_urls','images','urls'],false,true);
         if($references!==null)$selection['reference_images']=$references;
         foreach (['video_urls', 'audio_urls', 'reference_assets', 'first_frame_image', 'last_frame_image', 'generation_method', 'generationMethod'] as $name) {
@@ -83,17 +89,33 @@ final class OpenNativeMarketPricing
         // Pricing must see the same native fields as transport (including reference-image
         // surcharges and conditional generation modes). The runtime filters by its schema.
         $selection['provider_params'] = array_replace($raw, self::object($raw['input'] ?? []), self::object($raw['params'] ?? []), self::object($raw['parameters'] ?? []));
+        if(self::isNano($product)){
+            foreach(['input','params','parameters']as$key)if(!empty($raw[$key]))throw new OpenException('native_request_mapping_required','Nano 原生计量暂只支持已审核的顶层请求结构',503);
+            $action=self::alias($raw,['action']);$expected=empty($selection['reference_images'])?'generate':'edit';
+            if($action!==null&&$action!==$expected)throw new OpenException('invalid_request','Nano 操作与图片素材不一致');
+            $metadata=\app\common\service\power\MarketGenerationSchema::array(self::object($product['source_payload']??[])['market_metadata']??[]);
+            $allowed=array_flip(array_column(\app\common\service\power\MarketGenerationParameters::definitions($metadata,'image'),'key'));
+            $selection['provider_params']=array_intersect_key($raw,$allowed);
+        }
         return ['kind' => $isImage ? 'image' : 'video', 'selection' => $selection];
     }
 
     /** Published binding excludes prices, which are captured separately at admission. */
     public static function boundedTokenBinding(array $product,array $sku): ?array
     {
-        // Application APIs retain their own raw request/receipt adaptation gate.
-        if(($product['resource_type']??'')!=='model'||($product['model_type']??'')!=='video')return null;
+        if(!self::supports($product))return null;
         try{$meter=Meter::tokenContract($sku);}catch(\InvalidArgumentException){return null;}
         return ['version'=>2,'maximum_quantity'=>$meter['maximum_quantity'],'usage_path'=>$meter['usage_path'],
             'rounding_scale'=>$meter['rounding_scale'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>number_format((float)$sku['usage_unit_size'],6,'.','')];
+    }
+
+    public static function pixelBinding(array $product,array $sku): ?array
+    {
+        if(!self::supports($product)||($product['model_type']??'')!=='image')return null;
+        try{$meter=Meter::contract($sku);Pixel::assertUnitSize($sku['usage_unit_size']??null);}catch(\InvalidArgumentException){return null;}
+        if(!Pixel::applies($meter))return null;
+        return ['version'=>3,'rounding_scale'=>$meter['rounding_scale'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>number_format((float)$sku['usage_unit_size'],6,'.','')]
+            +array_intersect_key($meter,array_flip(['maximum_pixels_per_image','maximum_images','result_path','result_item_url']));
     }
 
     public static function capture(int $tenantId, array $product, array $raw, int $skuId, ?array $publishedRule=null): array
@@ -108,45 +130,54 @@ final class OpenNativeMarketPricing
         $bound = self::bind($product, $raw, $skuId, $sku->toArray());
         try {
             $captured = $bound['kind'] === 'image'
-                ? Images::openPlatformAdmissionQuote($tenantId, $bound['selection'], $bound['selection']['quantity'])
+                ? (self::isNano($product)?Nano::openPlatformAdmissionQuote($tenantId,$bound['selection'],$bound['selection']['quantity']):Images::openPlatformAdmissionQuote($tenantId, $bound['selection'], $bound['selection']['quantity']))
                 : Videos::openPlatformAdmissionQuote($tenantId, $bound['selection']);
         } catch (OpenException $e) { throw $e; }
         catch (\Exception $e) { throw new OpenException('invalid_sku', $e->getMessage()); }
         if ((int)$captured['market']['product']['id'] !== (int)$product['id'] || (int)$captured['market']['sku']['id'] !== $skuId) throw new OpenException('invalid_sku', '参数不能改选契约绑定的 SKU');
-        if (\app\common\service\power\MarketGenerationPixelMeter::applies((array)($captured['quote']['market_snapshot']['billing_meter']??[]))) throw new OpenException('native_pixel_receipt_mapping_required','原生透传尚未接入服务端实测像素回执',503);
         $meter=(array)($captured['quote']['market_snapshot']['billing_meter']??[]);
-        $bounded=$bound['kind']==='video'&&Meter::boundedToken($meter);
-        if($bounded){
-            $binding=self::boundedTokenBinding($product,$captured['market']['sku']);
+        $bounded=Meter::boundedToken($meter);$pixels=Pixel::applies($meter);
+        if($bounded||$pixels){
+            $binding=$bounded?self::boundedTokenBinding($product,$captured['market']['sku']):self::pixelBinding($product,$captured['market']['sku']);
+            $maximum=$bounded?($binding['maximum_quantity']??0):Pixel::upperBound($meter,$meter['maximum_images']);
+            $path=$bounded?($binding['usage_path']??''):($binding['result_path']??'');
+            $quoteUnits=$captured['quote']['billing_quantity']??$captured['quote']['quantity'];
             if(!$binding||!$publishedRule||($publishedRule['basis']??null)!=='usage'
-                ||(float)($publishedRule['max_units']??0)!==(float)$binding['maximum_quantity']
-                ||($publishedRule['usage_path']??null)!==$binding['usage_path']
-                ||!is_array($publishedRule['native_meter']??null)
-                ||OpenPolicy::fingerprint($publishedRule['native_meter'])!==OpenPolicy::fingerprint($binding)
-                ||(float)$captured['quote']['quantity']!==(float)$binding['maximum_quantity'])
-                throw new OpenException('native_usage_boundary_required','原生 Token 计量合同缺失或已变化，请重新审核发布',503);
+                ||(float)($publishedRule['max_units']??0)!==(float)$maximum||($publishedRule['usage_path']??null)!==$path
+                ||!is_array($publishedRule['native_meter']??null)||OpenPolicy::fingerprint($publishedRule['native_meter'])!==OpenPolicy::fingerprint($binding)
+                ||($bounded&&(float)$quoteUnits!==(float)$maximum))
+                throw new OpenException('native_usage_boundary_required','原生计量合同缺失或已变化，请重新审核发布',503);
         }elseif (($captured['quote']['settlement_mode'] ?? '') !== 'reserved' || Usage::isActualUsageSku($captured['market']['sku'])) throw new OpenException('native_usage_boundary_required', '已有 Token SKU 按真实用量计费，当前透传执行尚需可信额度边界', 503);
-        if ($bound['kind'] === 'image') {
+        if ($bound['kind'] === 'image'&&!self::isNano($product)) {
             try { Images::qwenDimensionSummary($captured['quote']['market_snapshot'], $bound['selection']); }
             catch (\Exception $e) { throw new OpenException('invalid_request',$e->getMessage()); }
         }
         $quote = $captured['quote'];
-        $units = ($quote['market_snapshot']['billing_meter']['basis'] ?? '') === 'call' ? 1. : (float)$quote['quantity'];
+        $units = $bounded?(float)$meter['maximum_quantity']:(($quote['market_snapshot']['billing_meter']['basis'] ?? '') === 'call' ? 1. : (float)$quote['quantity']);
+        if($pixels){
+            $quote['market_snapshot']['reserved_image_quantity']=self::isNano($product)?$meter['maximum_images']:$bound['selection']['quantity'];
+            $units=Pixel::upperBound($meter,$quote['market_snapshot']['reserved_image_quantity']);
+        }
         return ['user' => round((float)$quote['user_charge_points'], 2), 'tenant' => round((float)$quote['tenant_cost_points'], 2), 'snapshot' => [
-            'native_media' => ['kind' => $bound['kind'], 'market_snapshot' => $quote['market_snapshot'], 'submitted_units' => $units],
-            'rules' => [['sku_id' => $skuId, 'sku_key' => $captured['market']['sku']['sku_key'], 'basis' => 'native', 'units' => $units, 'max_units' => $units, 'unit_size' => $bound['kind'] === 'image' ? 1. : (float)$quote['billing_unit_size'], 'usage_unit' => $quote['billing_unit'], 'prices' => ['user' => (float)$quote['user_unit_points'], 'tenant' => (float)$quote['tenant_unit_points']]]],
+            'native_media' => ['kind' => $bound['kind'], 'market_snapshot' => $quote['market_snapshot'], 'submitted_units' => $units,'submitted_images'=>$bound['selection']['quantity']],
+            'rules' => [['sku_id' => $skuId, 'sku_key' => $captured['market']['sku']['sku_key'], 'basis' => 'native', 'units' => $units, 'max_units' => $units, 'unit_size' => $bound['kind'] === 'image'&&!$bounded&&!$pixels ? 1. : (float)$quote['billing_unit_size'], 'usage_unit' => $quote['billing_unit'], 'prices' => ['user' => (float)$quote['user_unit_points'], 'tenant' => (float)$quote['tenant_unit_points']]]],
         ]];
     }
 
     /** null means missing evidence, never a zero-price success. */
-    public static function settledUnits(array $native, array $result, bool $failed): ?float
+    public static function settledUnits(array $native, array $result, bool $failed, ?array $pixelEvidence=null): ?float
     {
         if ($failed) return 0.;
         $meter=(array)($native['market_snapshot']['billing_meter']??[]);
-        if(($native['kind']??'')==='video'&&Meter::boundedToken($meter)){
+        if(Meter::boundedToken($meter)){
             try{$tokens=Usage::boundedTokenUsage($result,$meter);}
             catch(\InvalidArgumentException){throw new OpenException('usage_boundary_exceeded','Token 用量超过冻结合同上限，等待核对',502);}
             return $tokens>0?$tokens:null;
+        }
+        if(Pixel::applies($meter)){
+            if(!$pixelEvidence)return null;
+            if(($pixelEvidence['native_hash']??'')!==OpenPolicy::fingerprint($native)||($pixelEvidence['result_hash']??'')!==OpenPolicy::fingerprint($result))throw new OpenException('native_measurement_changed','像素测量与冻结快照或结果不一致',502);
+            return Pixel::measured($meter,$pixelEvidence['images'],(int)($native['market_snapshot']['reserved_image_quantity']??0));
         }
         if ($native['kind'] === 'video') return Videos::openPlatformSettlementQuantity($native['market_snapshot'], $result);
         $slots = null; $identity = null;

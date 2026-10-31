@@ -22,6 +22,18 @@ class AigcImageAssetService
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
 
+    /** Byte measurement only: never uploads, rewrites a URL or creates a file row. */
+    public static function measureGeneratedImage(string $url, int $maximumPixels): array
+    {
+        if($maximumPixels<1)throw new Exception('缺少冻结像素上限');
+        if(str_starts_with($url,'data:image/')){
+            if(strlen($url)>27962112||!preg_match('/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/D',$url,$m))throw new Exception('生成图片格式或大小无效');
+            $content=base64_decode($m[1],true);if($content===false)throw new Exception('生成图片解析失败');
+        }else $content=\app\common\service\open_platform\OpenSafeHttp::get($url,20971520)['body'];
+        $info=self::verifiedImageInfo($content,$maximumPixels);
+        return ['width'=>(int)$info[0],'height'=>(int)$info[1]];
+    }
+
     private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload, int $maximumPixels = 0): array
     {
         $context = stream_context_create([

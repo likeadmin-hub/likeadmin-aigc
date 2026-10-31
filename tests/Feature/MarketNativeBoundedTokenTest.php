@@ -54,7 +54,7 @@ class MarketNativeBoundedTokenTest extends TestCase
     {
         return [[[],['source_payload'=>[]]],[[],['usage_unit_size'=>0]],[[],['usage_unit_size'=>INF]],[[],['usage_unit'=>'per_call']],
             [[],['source_payload'=>['meter_contract'=>null]]],[[],['source_payload'=>['meter_contract'=>array_replace(self::declaration(),['maximum_quantity'=>0])]]],
-            [['model_type'=>'image'],[]],[['model_type'=>'text'],[]],[['resource_type'=>'app_api','upstream_app_code'=>'unsupported','upstream_api_code'=>'create'],[]],
+            [['model_type'=>'text'],[]],[['resource_type'=>'app_api','upstream_app_code'=>'unsupported','upstream_api_code'=>'create'],[]],
             [['resource_type'=>'app_api','upstream_app_code'=>'seedance','upstream_api_code'=>'create'],[]]];
     }
     /** @dataProvider missingUsage */
