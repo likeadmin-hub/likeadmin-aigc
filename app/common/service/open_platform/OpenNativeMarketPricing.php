@@ -98,6 +98,7 @@ final class OpenNativeMarketPricing
         } catch (OpenException $e) { throw $e; }
         catch (\Exception $e) { throw new OpenException('invalid_sku', $e->getMessage()); }
         if ((int)$captured['market']['product']['id'] !== (int)$product['id'] || (int)$captured['market']['sku']['id'] !== $skuId) throw new OpenException('invalid_sku', '参数不能改选契约绑定的 SKU');
+        if (\app\common\service\power\MarketGenerationPixelMeter::applies((array)($captured['quote']['market_snapshot']['billing_meter']??[]))) throw new OpenException('native_pixel_receipt_mapping_required','原生透传尚未接入服务端实测像素回执',503);
         if (($captured['quote']['settlement_mode'] ?? '') !== 'reserved' || Usage::isActualUsageSku($captured['market']['sku'])) throw new OpenException('native_usage_boundary_required', '已有 Token SKU 按真实用量计费，当前透传执行尚需可信额度边界', 503);
         if ($bound['kind'] === 'image') {
             try { Images::qwenDimensionSummary($captured['quote']['market_snapshot'], $bound['selection']); }
