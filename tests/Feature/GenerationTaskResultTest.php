@@ -71,4 +71,27 @@ class GenerationTaskResultTest extends TestCase
             self::assertSame('transferring',Results::read((int)$t['id'],...array_values($owner))['stage']);
         });
     }
+
+    public function testBindingIsOwnedIdempotentAndCannotRetargetAnAcceptedTask(): void
+    {
+        $this->fixture(function($t,$c,$a,$owner){
+            $runtime=Runtime::consumption((int)$c['id'],...array_values($owner));
+            $runtime->bind((int)$t['id'],199999957,...array_values($owner));
+            $before=AiAppTask::find($t['id'])->toArray();
+            try{$runtime->bind((int)$t['id'],199999958,...array_values($owner));self::fail('Retarget accepted task');}
+            catch(\InvalidArgumentException $e){self::assertStringContainsString('不匹配',$e->getMessage());}
+            self::assertSame($before,AiAppTask::find($t['id'])->toArray());
+            $c->save(['user_id'=>$owner['user_id']+1]);
+            try{Runtime::consumption((int)$c['id'],$owner['tenant_id'],$owner['user_id']+1);self::fail('Cross-owner application link');}
+            catch(\InvalidArgumentException $e){self::assertStringContainsString('无权访问',$e->getMessage());}
+        });
+    }
+
+    public function testPendingViewNeverInventsAProviderOrLegacyBusinessIdentity(): void
+    {
+        $pending=Results::pending(42);self::assertSame('app_task:42',$pending['task_ref']);self::assertTrue($pending['polling_required']);
+        self::assertSame('running',$pending['status']);self::assertSame([], $pending['results']);
+        $r=Results::carry(['task_id'=>123,'results'=>['legacy']],['generation_task'=>$pending]);self::assertSame(123,$r['task_id']);self::assertSame(['legacy'],$r['results']);
+        self::assertSame(['task_id'=>123],Results::carry(['task_id'=>123],['generation_task'=>['schema_version'=>1,'app_task_id'=>42,'task_ref'=>'42']]));
+    }
 }

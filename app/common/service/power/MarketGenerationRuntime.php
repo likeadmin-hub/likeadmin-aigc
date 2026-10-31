@@ -2,13 +2,14 @@
 namespace app\common\service\power;
 
 use app\common\model\ai\AiConsumptionLog;
+use app\common\model\ai\AiAppTask;
 use app\common\service\ai\GenerationTaskResultService;
 use InvalidArgumentException;
 
 /** One tool-facing invocation contract. Existing adapters remain the sole owners of billing and transport. */
 final class MarketGenerationRuntime
 {
-    private function __construct(private readonly array $selection, public readonly string $adapter) {}
+    private function __construct(private readonly array $selection, public readonly string $adapter, private readonly int $taskId = 0) {}
 
     public static function selection(string $type, array $selection): self
     {
@@ -37,12 +38,13 @@ final class MarketGenerationRuntime
     {
         $c = AiConsumptionLog::where(['id'=>$id, 'tenant_id'=>$tenantId, 'user_id'=>$userId, 'provider'=>'power_market'])->find();
         if (!$c) throw new InvalidArgumentException('生成任务不存在或无权访问');
+        if (!AiAppTask::where(['id'=>(int)$c['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId])->find()) throw new InvalidArgumentException('生成任务关联不存在或无权访问');
         $snapshot = (array)$c['price_snapshot'];
-        if ($c['protocol'] === 'application_api') return new self($snapshot, MarketApplicationApiRuntimeService::adapterForConsumption($id));
+        if ($c['protocol'] === 'application_api') return new self($snapshot, MarketApplicationApiRuntimeService::adapterForConsumption($id), (int)$c['app_task_id']);
         $type = match ($c['protocol']) {'image_generate'=>'image', 'video_generate'=>'video', default=>''};
         if ($type === '') throw new InvalidArgumentException('该任务协议尚未接入统一运行接口');
         // No live product lookup here: the task continues with its accepted protocol even if the catalogue changes.
-        return new self($snapshot, MarketGenerationAdapterRegistry::runtime($type, $snapshot));
+        return new self($snapshot, MarketGenerationAdapterRegistry::runtime($type, $snapshot), (int)$c['app_task_id']);
     }
 
     public function quote(int $tenantId, int $quantity = 1, array $billingOverride = []): array
@@ -80,14 +82,14 @@ final class MarketGenerationRuntime
         $frozen = self::consumption($id, $tenantId, $userId);
         if ($frozen->adapter !== $this->adapter) throw new InvalidArgumentException('任务与生成适配器不匹配');
         $adapter = $frozen->adapter;
-        return GenerationTaskResultService::appendConsumption($adapter::submit($id, $request), $id, $tenantId, $userId);
+        return $frozen->decorate($adapter::submit($id, $request), $tenantId, $userId);
     }
 
     public function refresh(int $id, int $tenantId, int $userId): array
     {
         $frozen = self::consumption($id, $tenantId, $userId);
         $adapter = $frozen->adapter;
-        return GenerationTaskResultService::appendConsumption($adapter::refresh($id), $id, $tenantId, $userId);
+        return $frozen->decorate($adapter::refresh($id), $tenantId, $userId);
     }
 
     public function cancel(int $id, int $tenantId, int $userId): void
@@ -95,5 +97,25 @@ final class MarketGenerationRuntime
         $adapter = self::consumption($id, $tenantId, $userId)->adapter;
         if (!method_exists($adapter, 'cancel')) throw new InvalidArgumentException('该生成能力不支持取消');
         $adapter::cancel($id);
+    }
+
+    public function bind(int $appTaskId, int $businessId, int $tenantId, int $userId): void
+    {
+        \think\facade\Db::transaction(function()use($appTaskId,$businessId,$tenantId,$userId){
+            $task=AiAppTask::where(['id'=>$appTaskId,'tenant_id'=>$tenantId,'user_id'=>$userId])->lock(true)->find();
+            if (!$task || $businessId<=0 || ($task['business_id']>0 && (int)$task['business_id']!==$businessId)) throw new InvalidArgumentException('生成任务业务关联不匹配');
+            $adapter=$this->adapter;
+            $adapter::linkBusinessTask($appTaskId,$businessId);
+        });
+    }
+
+    private function decorate(array $response, int $tenantId, int $userId): array
+    {
+        try { $response['generation_task']=GenerationTaskResultService::read($this->taskId,$tenantId,$userId); }
+        catch (\Throwable) {
+            // Provider acceptance is already durable. A delivery-view outage must never enter a caller's refund/re-submit catch.
+            $response['generation_task']=GenerationTaskResultService::pending($this->taskId);
+        }
+        return $response;
     }
 }

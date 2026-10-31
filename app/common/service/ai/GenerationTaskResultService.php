@@ -8,6 +8,13 @@ use InvalidArgumentException;
 /** Versioned user-facing task view, built only from owned durable records. No provider polling or task writes. */
 final class GenerationTaskResultService
 {
+    /** For an identity verified before supplier transport; never infer a task ID from a provider response. */
+    public static function pending(int $id): array
+    {
+        return ['schema_version'=>1,'task_ref'=>'app_task:'.$id,'app_task_id'=>$id,'status'=>'running','stage'=>'reconciling',
+            'polling_required'=>true,'results'=>[],'error'=>null];
+    }
+
     public static function read(int $id, int $tenantId, int $userId): array
     {
         if ($id <= 0 || $tenantId <= 0 || $userId <= 0) throw new InvalidArgumentException('生成任务不存在或无权访问');
@@ -64,14 +71,26 @@ final class GenerationTaskResultService
     {
         $c = AiConsumptionLog::where(['id'=>$id,'tenant_id'=>$tenantId,'user_id'=>$userId])->find();
         if (!$c || (int)$c['app_task_id']<=0) return $response;
-        $response['generation_task'] = self::read((int)$c['app_task_id'], $tenantId, $userId);
-        return $response;
+        return self::appendBusiness($response,(int)$c['app_task_id'],$tenantId,$userId);
     }
 
     /** A native/legacy business ID keeps its meaning; the canonical task reference is a separate field. */
     public static function appendBusiness(array $response, int $appTaskId, int $tenantId, int $userId): array
     {
-        if ($appTaskId>0 && $tenantId>0 && $userId>0) $response['generation_task']=self::read($appTaskId,$tenantId,$userId);
+        if ($appTaskId>0 && $tenantId>0 && $userId>0) {
+            try { $response['generation_task']=self::read($appTaskId,$tenantId,$userId); }
+            catch (InvalidArgumentException) { $response['generation_task_unavailable']=true; }
+            catch (\Throwable) { $response['generation_task']=self::pending($appTaskId); }
+        }
+        return $response;
+    }
+
+    /** Carry only our versioned view through legacy result formatters; legacy task_id/results retain their meanings. */
+    public static function carry(array $response, array $source): array
+    {
+        $task=$source['generation_task']??null;
+        if (is_array($task) && ($task['schema_version']??null)===1 && (int)($task['app_task_id']??0)>0
+            && ($task['task_ref']??'')==='app_task:'.$task['app_task_id']) $response['generation_task']=$task;
         return $response;
     }
 }

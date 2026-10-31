@@ -23,6 +23,9 @@ use app\common\model\ai\AiConsumptionLog;
 use Exception;
 use think\facade\Db;
 
+use app\common\service\power\MarketGenerationRuntime;
+use app\common\service\ai\GenerationTaskResultService;
+
 class AigcImageService
 {
     public const APP_CODE = 'aigc_image';
@@ -188,16 +191,14 @@ class AigcImageService
         if ($onTaskCreated) $onTaskCreated($task);
         try {
             $request = array_merge($params, ['quantity' => $quantity, 'reference_images' => $referenceImages]);
-            $reserve = MarketImageModelRuntimeService::reserve(
-                $tenantId, $userId, 'generate', (string)$task['id'], $request, $request, $quantity,
-                $appCode, 'aigc_image_task', $billingOverride
-            );
+            $sharedRuntime = MarketGenerationRuntime::selection('image',$request);
+            $reserve = $sharedRuntime->reserve($tenantId,$userId,$appCode,'generate','aigc_image_task',(string)$task['id'],$request,$quantity,$billingOverride);
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'update_time' => time()]);
-            MarketImageModelRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = MarketImageModelRuntimeService::submit((int)$reserve['consumption_id'], $request);
+            $sharedRuntime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $sharedRuntime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
             $task->save(['provider_task_id' => (string)($result['provider_task_id'] ?? ''), 'update_time' => time()]);
             self::syncMarketTaskResult($tenantId, (int)$task['id'], $userId);
-            return ['task_id' => (int)$task['id'], 'results' => self::existingResultRows($tenantId, $userId, (int)$task['id']), 'status' => (string)($result['status'] ?? 'running')];
+            return GenerationTaskResultService::carry(['task_id' => (int)$task['id'], 'results' => self::existingResultRows($tenantId, $userId, (int)$task['id']), 'status' => (string)($result['status'] ?? 'running')], $result);
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save(['status' => 'failed', 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
@@ -433,30 +434,20 @@ class AigcImageService
 
         if ($onTaskCreated) $onTaskCreated($task);
         try {
-            $reserve = MarketNanoBananaAppRuntimeService::reserve(
-                $tenantId,
-                $userId,
-                'generate',
-                (string)$task['id'],
-                $request,
-                $request,
-                $quantity,
-                self::APP_CODE,
-                'aigc_image_task',
-                $billingOverride
-            );
+            $sharedRuntime = MarketGenerationRuntime::selection('image',$request);
+            $reserve = $sharedRuntime->reserve($tenantId,$userId,self::APP_CODE,'generate','aigc_image_task',(string)$task['id'],$request,$quantity,$billingOverride);
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'update_time' => time()]);
-            MarketNanoBananaAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = MarketNanoBananaAppRuntimeService::submit((int)$reserve['consumption_id'], $request);
+            $sharedRuntime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $sharedRuntime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
             $task->save([
                 'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
                 'update_time' => time(),
             ]);
-            return [
+            return GenerationTaskResultService::carry([
                 'task_id' => (int)$task['id'],
                 'results' => [],
                 'status' => (string)($result['status'] ?? 'running'),
-            ];
+            ], $result);
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save([
@@ -615,7 +606,7 @@ class AigcImageService
         $data = $task->toArray();
         self::appendTaskModelDisplay($data);
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
-        return $data;
+        return GenerationTaskResultService::appendBusiness($data,(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function refreshPendingTasks(int $limit = 20): int
