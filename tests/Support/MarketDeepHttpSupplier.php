@@ -22,8 +22,19 @@ function marketDeepSupplier(string $path,string $dir): bool
     if($path==='/api/v1/tasks/deep-tts-1') {
         echo json_encode(['code'=>1,'data'=>['status'=>'success','audio_url'=>'http://'.$_SERVER['HTTP_HOST'].'/fixture/result.wav']]);return true;
     }
-    if(preg_match('~^/api/v1/apps/smart_clip/(realman_broadcast|broadcast_mixcut|news_mixcut)$~',$path,$m)) { $record('clip_'.$m[1]);echo json_encode(['code'=>1,'data'=>['task_id'=>'recovery-clip-'.$m[1],'status'=>'running']]);return true; }
-    if(str_starts_with($path,'/api/v1/tasks/recovery-clip-')) { echo json_encode(['code'=>1,'data'=>['status'=>'success','video_url'=>'http://'.$_SERVER['HTTP_HOST'].'/fixture/clip.mp4','duration'=>1]]);return true; }
+    if(preg_match('~^/api/v1/apps/smart_clip/(realman_broadcast|broadcast_mixcut|news_mixcut)$~',$path,$m)) {
+        $record('clip_'.$m[1]);$calls=array_map(fn($line)=>json_decode($line,true),file($dir.'/deep-calls.jsonl'));$n=count(array_filter($calls,fn($c)=>$c['kind']==='clip_'.$m[1]));
+        echo json_encode(['code'=>1,'data'=>['task_id'=>'recovery-clip-'.$m[1].'-'.$n,'status'=>'running']]);return true;
+    }
+    if(str_starts_with($path,'/api/v1/tasks/recovery-clip-')) {
+        $id=basename($path);file_put_contents($dir.'/clip-queries.jsonl',json_encode(['id'=>$id])."\n",FILE_APPEND|LOCK_EX);
+        if(is_file($dir.'/clip-hold-'.$id)){
+            file_put_contents($dir.'/clip-query-entered-'.$id,'1');$until=microtime(true)+20;
+            while(is_file($dir.'/clip-hold-'.$id)&&microtime(true)<$until){clearstatcache();usleep(100000);}
+        }
+        if(is_file($dir.'/clip-reject-'.$id)){echo json_encode(['code'=>1,'data'=>['status'=>'failed','error'=>'Synthetic rejection']]);return true;}
+        echo json_encode(['code'=>1,'data'=>['status'=>'success','video_url'=>'http://'.$_SERVER['HTTP_HOST'].'/fixture/clip.mp4','duration'=>1]]);return true;
+    }
     if($path==='/api/v1/chat/completions') {
         $record('text');$last=$input['messages'][count($input['messages'])-1]['content']??'';
         $content='图片是无隐私的彩色色块，保持色块与背景一致。';
