@@ -82,6 +82,7 @@ final class GenerationTaskResultService
         $error = '';
         foreach ($consumptions as $c) if (!empty($c['error_message'])) $error = (string)$c['error_message'];
         return ['schema_version'=>1, 'task_ref'=>'app_task:'.$id, 'app_task_id'=>$id, 'app_code'=>(string)$task['app_code'],
+            'result_contract'=>array_filter($consumptions,static fn($c)=>$c['provider']==='power_market') ? 'managed_assets' : 'legacy_business',
             'status'=>$status, 'execution_status'=>$raw, 'stage'=>$stage, 'progress'=>$status==='success'?100:min(99,(int)$task['progress']),
             'polling_required'=>$status==='running' || $billingPending || $transferPending,
             'billing_status'=>$billingPending?'pending':($consumptions ? (string)end($consumptions)['billing_status'] : 'none'),
@@ -129,6 +130,25 @@ final class GenerationTaskResultService
             $response['generation_task_refs']=array_column($children,'task_ref');
         }
         return $response;
+    }
+
+    /** A live delivery view must not become part of a frozen request/provider receipt or its idempotency comparison. */
+    public static function withoutView(array $payload): array
+    {
+        unset($payload['generation_task'],$payload['generation_tasks'],$payload['generation_task_refs'],
+            $payload['generation_task_unavailable'],$payload['generation_tasks_pending']);
+        return $payload;
+    }
+
+    public static function appendNative(array $response, string $kind, int $nativeId, int $tenantId, int $userId): array
+    {
+        if ($nativeId<=0 || $tenantId<=0 || $userId<=0) return $response;
+        $table=match($kind){'image'=>'aigc_image_task','video'=>'aigc_video_task','audio'=>'aigc_music_task',default=>''};
+        if ($table==='') return $response;
+        try {
+            $id=(int)\think\facade\Db::name($table)->where(['id'=>$nativeId,'tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0])->value('app_task_id');
+            return self::appendBusiness($response,$id,$tenantId,$userId);
+        } catch (\Throwable) { return $response+['generation_task_unavailable'=>true]; }
     }
     /** The caller supplies child IDs from an already-owned business record, never from browser payloads. */
     public static function appendRelated(array $response, string $kind, array $ids, int $tenantId, int $userId): array

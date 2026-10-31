@@ -15,7 +15,12 @@ final class MarketGenerationRuntime
     {
         if (!in_array($type, ['image', 'video', 'audio', 'application'], true)) throw new InvalidArgumentException('该生成类型尚未接入统一运行接口');
         $id = (int)($selection['market_product_id'] ?? $selection['product_id'] ?? 0);
-        if ($id>0) {
+        $identity=(string)($selection['model_id']??'');
+        if ($identity==='' && is_string($selection['channel']??null)) $identity=$selection['channel'];
+        $declared=isset($selection['resource_type']) || str_starts_with($identity,'market_')
+            || !empty($selection['upstream_app_code']) || !empty($selection['app_code']) || !empty($selection['runtime_adapter']);
+        // Class selection must not prevent an adapter from recovering its existing immutable reservation before a live catalogue read.
+        if ($id>0 && !$declared) {
             $product = \app\common\model\power\PowerMarketProduct::find($id);
             if (!$product) throw new InvalidArgumentException('所选市场资源不存在');
             $resource = (string)$product['resource_type'];
@@ -28,8 +33,10 @@ final class MarketGenerationRuntime
                 $selection['upstream_app_code']=$app;
             }
         }
-        $adapter = $type === 'application' ? MarketGenerationAdapterRegistry::application($selection)
-            : MarketGenerationAdapterRegistry::runtime($type, $selection);
+        $routing=$selection;
+        if (is_array($routing['channel']??null)) $routing['channel']=(string)($routing['channel']['code']??'');
+        $adapter = $type === 'application' ? MarketGenerationAdapterRegistry::application($routing)
+            : MarketGenerationAdapterRegistry::runtime($type, $routing);
         return new self($selection, $adapter);
     }
 
@@ -47,34 +54,44 @@ final class MarketGenerationRuntime
         return new self($snapshot, MarketGenerationAdapterRegistry::runtime($type, $snapshot), (int)$c['app_task_id']);
     }
 
-    public function quote(int $tenantId, int $quantity = 1, array $billingOverride = []): array
+    public function quote(int $tenantId, int|float $quantity = 1, array $billingOverride = []): array
     {
         $adapter = $this->adapter;
+        self::quantity($quantity);
         if (in_array($adapter, [MarketImageModelRuntimeService::class, MarketNanoBananaAppRuntimeService::class], true)) {
-            return $adapter::quote($tenantId, $this->selection, $quantity, $billingOverride);
+            return $adapter::quote($tenantId, $this->selection, self::wholeQuantity($quantity), $billingOverride);
         }
         if ($billingOverride !== []) throw new InvalidArgumentException('该适配器的报价不接受应用售价覆盖');
         if (in_array($adapter, [MarketVideoModelRuntimeService::class, MarketVideoAppRuntimeService::class, MarketMusicAppRuntimeService::class], true)) {
-            if ($quantity !== 1) throw new InvalidArgumentException('该生成能力每次仅支持一个任务');
+            if ($quantity != 1) throw new InvalidArgumentException('该生成能力每次仅支持一个任务');
             return $adapter::quote($tenantId, $this->selection);
         }
-        return MarketApplicationApiRuntimeService::quote($tenantId, $this->selection, $quantity);
+        if (is_a($adapter,MarketPicLipsyncAppRuntimeService::class,true)) return $adapter::quote($tenantId,$this->selection,$quantity);
+        return MarketApplicationApiRuntimeService::quote($tenantId, $this->selection, self::wholeQuantity($quantity));
     }
 
     public function reserve(int $tenantId, int $userId, string $appCode, string $action, string $businessTable,
-        string $businessId, array $request, int $quantity = 1, array $billingOverride = []): array
+        string $businessId, array $request, int|float $quantity = 1, array $billingOverride = [], array $acceptedSnapshot = []): array
     {
         $adapter = $this->adapter;
+        self::quantity($quantity);
+        if ($acceptedSnapshot!==[] && $adapter!==MarketMusicAppRuntimeService::class) throw new InvalidArgumentException('该适配器不接受预先确认的应用快照');
         if (in_array($adapter, [MarketImageModelRuntimeService::class, MarketNanoBananaAppRuntimeService::class], true)) {
-            return $adapter::reserve($tenantId, $userId, $action, $businessId, $this->selection, $request, $quantity, $appCode, $businessTable, $billingOverride);
+            return $adapter::reserve($tenantId, $userId, $action, $businessId, $this->selection, $request, self::wholeQuantity($quantity), $appCode, $businessTable, $billingOverride);
         }
         if (in_array($adapter, [MarketVideoModelRuntimeService::class, MarketVideoAppRuntimeService::class], true)) {
-            if ($quantity !== 1) throw new InvalidArgumentException('视频生成每次仅支持一个任务');
+            if ($quantity != 1) throw new InvalidArgumentException('视频生成每次仅支持一个任务');
             return $adapter::reserve($tenantId, $userId, $appCode, $action, $businessTable, $businessId, $this->selection, $request, $billingOverride);
         }
         if ($billingOverride !== []) throw new InvalidArgumentException('该适配器尚未支持应用售价覆盖');
+        if ($adapter===MarketMusicAppRuntimeService::class) {
+            if ($quantity!=1) throw new InvalidArgumentException('音乐生成每次仅支持一个任务');
+            return $adapter::reserve($tenantId,$userId,$businessId,$this->selection,$request,$appCode,$action,$businessTable,$acceptedSnapshot?:null);
+        }
+        if ($acceptedSnapshot!==[]) throw new InvalidArgumentException('该适配器不接受预先确认的应用快照');
+        if (is_a($adapter,MarketPicLipsyncAppRuntimeService::class,true)) return $adapter::reserve($tenantId,$userId,$action,$businessId,$this->selection,$request,$quantity,$appCode,$businessTable);
         return MarketApplicationApiRuntimeService::reserve($tenantId, $userId, $action, $businessId, $this->selection,
-            $request, $quantity, $appCode, $businessTable);
+            $request, self::wholeQuantity($quantity), $appCode, $businessTable);
     }
 
     public function submit(int $id, array $request, int $tenantId, int $userId): array
@@ -117,5 +134,16 @@ final class MarketGenerationRuntime
             $response['generation_task']=GenerationTaskResultService::pending($this->taskId);
         }
         return $response;
+    }
+
+    private static function quantity(int|float $value): void
+    {
+        if (!is_finite((float)$value) || $value<=0) throw new InvalidArgumentException('生成计量数量必须为有限正数');
+    }
+
+    private static function wholeQuantity(int|float $value): int
+    {
+        if ((float)$value!==floor((float)$value) || $value>PHP_INT_MAX) throw new InvalidArgumentException('该生成能力的任务数量必须为整数');
+        return (int)$value;
     }
 }

@@ -102,8 +102,9 @@ final class AigcMusicMarketService
                 'status' => 'running', 'progress' => 5, 'billing_status' => 'prechecked', 'safety_status' => 'passed', 'error' => '',
                 'create_time' => time(), 'update_time' => time(), 'delete_time' => 0,
             ]);
-            $reserved = Runtime::reserve($tenantId, $userId, (string)$task['id'], $selection, $payload, 'aigc_music', 'music_generation', 'aigc_music_task', $quote['market_snapshot']);
-            Runtime::linkBusinessTask((int)$reserved['app_task_id'], (int)$task['id']);
+            $sharedRuntime = \app\common\service\power\MarketGenerationRuntime::selection('audio',$selection + ['resource_type'=>'app_api','upstream_app_code'=>'music_generation']);
+            $reserved = $sharedRuntime->reserve($tenantId,$userId,'aigc_music','music_generation','aigc_music_task',(string)$task['id'],$payload,1,[],(array)$quote['market_snapshot']);
+            $sharedRuntime->bind((int)$reserved['app_task_id'],(int)$task['id'],$tenantId,$userId);
             $task->save(['app_task_id' => $reserved['app_task_id'], 'consumption_id' => $reserved['consumption_id'],
                 'pricing_snapshot' => json_encode($reserved['market_snapshot'], JSON_UNESCAPED_UNICODE), 'billing_status' => 'reserved']);
             AgentToolContext::bindMusicTask($tenantId, $userId, (int)$task['id']);
@@ -112,7 +113,7 @@ final class AigcMusicMarketService
         $task = $context['task'];
         if ($onTaskCreated) $onTaskCreated($task);
         if ($context['new']) {
-            try { Runtime::submit((int)$task['consumption_id'], $payload); }
+            try { \app\common\service\power\MarketGenerationRuntime::consumption((int)$task['consumption_id'],$tenantId,$userId)->submit((int)$task['consumption_id'],$payload,$tenantId,$userId); }
             catch (\Throwable $error) {
                 OpenCallContext::rethrowLostAuthority($error);
                 $c = AiConsumptionLog::findOrEmpty((int)$task['consumption_id']);

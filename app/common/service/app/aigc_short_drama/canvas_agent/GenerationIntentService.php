@@ -159,6 +159,7 @@ final class GenerationIntentService
     /** Called after provider I/O, never while holding graph or intent locks. */
     public static function accepted(int $tenant, int $user, int $id, string $token, int $fence, string $providerTaskId, array $result, bool $synchronous=false): void
     {
+        $result=\app\common\service\ai\GenerationTaskResultService::withoutView($result);
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$providerTaskId,$result,$synchronous): void {
             $row=self::owned($tenant,$user,$id);
             self::assertClaimIdentity($row,$token,$fence);
