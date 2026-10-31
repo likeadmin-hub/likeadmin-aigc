@@ -8,8 +8,14 @@ final class MarketGenerationCreatorMaterials
 {
     public static function policies(array $metadata, string $native, array $fields): array
     {
-        $schema=MarketGenerationSchema::properties(MarketGenerationNativeContract::schema($metadata,$native));
+        // Most modes contain only plain uploads. Avoid rebuilding their native
+        // schemas/rules every time catalogue selection considers a candidate.
         $public=MarketGenerationSchema::properties(MarketGenerationSchema::array($metadata['params_schema']??[]));
+        $fields=array_values(array_filter($fields,static fn($field)=>in_array($field['kind']??'',['video','audio'],true)
+            &&empty($field['required'])&&empty($field['conditional_required'])
+            &&($public[$field['field']]['type']??'')==='array'&&($public[$field['field']]['items']['type']??'')==='object'));
+        if($fields===[])return [];
+        $schema=MarketGenerationSchema::properties(MarketGenerationNativeContract::schema($metadata,$native));
         $rules=MarketGenerationNativeContract::rules($metadata,$native);$result=[];
         foreach($fields as$field){
             $key=$field['field'];$definition=$schema[$key]??[];$item=$definition['items']??[];$properties=$item['properties']??[];
