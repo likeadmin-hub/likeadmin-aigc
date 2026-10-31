@@ -472,15 +472,7 @@ class AigcBackgroundRemovalService
                     continue;
                 }
                 try {
-                    $sourceUrl = (string)($result['image_url'] ?? $result['url'] ?? '');
-                    if ($sourceUrl === '' && (string)($result['image_uri'] ?? '') !== '') {
-                        $sourceUrl = FileService::getFileUrlByStorage(
-                            (string)$result['image_uri'],
-                            (string)($result['storage_scope'] ?? ''),
-                            (string)($result['storage_engine'] ?? ''),
-                            (string)($result['storage_domain'] ?? '')
-                        );
-                    }
+                    $sourceUrl = self::resultImageSource($result);
                     $stored = self::persistTransparentPng($sourceUrl, $tenantId, $userId);
                     AigcBackgroundRemovalResult::create([
                         'tenant_id' => $tenantId,
@@ -635,6 +627,17 @@ class AigcBackgroundRemovalService
         ]);
     }
 
+    /** Read owned managed local results directly; display domains are not a second storage source. */
+    private static function resultImageSource(array $result): string
+    {
+        $uri=trim((string)($result['image_uri']??''));
+        if (($result['storage_engine']??'')==='local' && in_array($result['storage_scope']??'', ['platform','tenant'],true)
+            && $uri!=='' && !preg_match('~^[a-z][a-z0-9+.-]*:|[\\x00-\\x1f\\x7f?#]~i',$uri)) return ltrim($uri,'/');
+        $url=(string)($result['image_url']??$result['url']??'');
+        return $url!=='' || $uri==='' ? $url : FileService::getFileUrlByStorage($uri,
+            (string)($result['storage_scope']??''),(string)($result['storage_engine']??''),(string)($result['storage_domain']??''));
+    }
+
     private static function readImageContent(string $url): string
     {
         if (str_starts_with($url, 'data:image/')) {
@@ -656,8 +659,10 @@ class AigcBackgroundRemovalService
             $content = \app\common\service\open_platform\OpenCallContext::active()?\app\common\service\open_platform\OpenSafeHttp::get($url,20*1024*1024)['body']:@file_get_contents($url, false, $context, 0, 20 * 1024 * 1024);
             return is_string($content) ? $content : '';
         }
-        $path = public_path() . ltrim($url, '/');
-        if (is_file($path) && filesize($path) <= 20 * 1024 * 1024) {
+        $root=realpath(public_path());
+        $path = realpath(public_path() . ltrim($url, '/'));
+        if ($root!==false && $path!==false && str_starts_with($path,$root.DIRECTORY_SEPARATOR)
+            && is_file($path) && filesize($path) <= 20 * 1024 * 1024) {
             return (string)@file_get_contents($path);
         }
         return '';
