@@ -81,3 +81,7 @@ $result = $frozen->refresh($consumptionId, $tenantId, $userId);
 ## 批次62原生剪辑统一结果
 
 原生剪辑在提交前同事务关联ai_app_task及native_smart_clip持久作业。版本1视图仍用app_task引用，原生task_id不变；对应资产consumption_id=0，只通过已核对归属／账务／发布状态的原生桥接读取，不虚构消费或二次结算。共享转存支持该类已关联资产，避免给0消费投普通process_result作业。HTTP详情／列表不查询供应商；已受理ID由worker／发现和reconcile继续跟踪。前端共用generationTaskStatus／PollingRequired及typed result，仅就绪后展示／下载。未知无ID不自动重发，新worker加载要求及具体证据见[批次62](market-acceptance/batch-62-20261101.md)。
+
+## 批次63图片父任务后台投影与原歌链路
+
+图片共享结果作业完成本地原生写回后，统一核对消费、子任务、已安装应用父任务及全部同组子任务归属，再在父锁内复用原业务聚合。局部只读作用域禁止聚合过程中查询供应商，异常退出恢复作用域。十三类图片父任务及透明PNG转换不再依赖详情HTTP访问，原有父状态、售价和结果身份保持；去背景显式登记文件租户。没有增加API或改动版本1。原歌生成到实际歌曲导出／Persona、multipart上传登记后引用生成及历史新尝试通过正常登录HTTP与生产worker，克隆直接生成仍拒绝。见[批次63范围与剩余](market-acceptance/batch-63-20261101.md)。

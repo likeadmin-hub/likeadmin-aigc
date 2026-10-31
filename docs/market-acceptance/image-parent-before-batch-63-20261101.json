@@ -1,0 +1,32 @@
+{
+  "batch": 63,
+  "date": "2026-11-01",
+  "scope": "Historical private synthetic reproductions; no real model or SKU identity, no post-fix acceptance.",
+  "source_server_commits": {
+    "suite": "c5065c4cf",
+    "background": "c6d5a2ab9"
+  },
+  "observations": [
+    {
+      "entry": "standalone_app",
+      "scenario": "suite_parent_after_both_shared_children_complete_before_http_detail",
+      "identity": {
+        "id": "private_fixture:product_suite"
+      },
+      "status": "reproduced_failure",
+      "failure": "Suite parent still needs HTTP detail to complete"
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "background_png_storage_from_worker_without_request_tenant",
+      "identity": {
+        "id": "private_fixture:background_removal"
+      },
+      "status": "reproduced_failure",
+      "failure": "Parent failed with generic transparent-background error after child finished. Internal diagnostic: SQLSTATE[HY000] General error 1364 tenant_id has no default value."
+    }
+  ],
+  "private_tables_and_files_removed": true,
+  "external_generation_calls": 0,
+  "production_wallet_writes": 0
+}
