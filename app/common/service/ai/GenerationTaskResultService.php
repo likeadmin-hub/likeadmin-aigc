@@ -17,19 +17,39 @@ final class GenerationTaskResultService
 
     public static function read(int $id, int $tenantId, int $userId): array
     {
-        if ($id <= 0 || $tenantId <= 0 || $userId <= 0) throw new InvalidArgumentException('生成任务不存在或无权访问');
-        $owner = ['tenant_id'=>$tenantId, 'user_id'=>$userId];
-        $task = AiAppTask::where($owner + ['id'=>$id])->find();
-        if (!$task) throw new InvalidArgumentException('生成任务不存在或无权访问');
-        $consumptions = AiConsumptionLog::where($owner + ['app_task_id'=>$id])->order('id')->select()->toArray();
-        $ids = array_column($consumptions, 'id');
-        $assets = $ids ? AiTaskResultAsset::where($owner)->whereIn('app_task_id', [0,$id])->whereIn('consumption_id', $ids)->order('id')->select()->toArray() : [];
+        $views=self::readMany([$id],$tenantId,$userId);
+        if (!isset($views[$id])) throw new InvalidArgumentException('生成任务不存在或无权访问');
+        return $views[$id];
+    }
+
+    /** Batch by owned task/consumption/asset, so a multi-image application does not perform per-child lookups. */
+    public static function readMany(array $ids, int $tenantId, int $userId): array
+    {
+        $ids=array_values(array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0)));
+        if (!$ids || $tenantId<=0 || $userId<=0) return [];
+        $owner=['tenant_id'=>$tenantId,'user_id'=>$userId];
+        $tasks=AiAppTask::where($owner)->whereIn('id',$ids)->select()->toArray();
+        if (!$tasks) return [];
+        $ids=array_column($tasks,'id');
+        $consumptions=AiConsumptionLog::where($owner)->whereIn('app_task_id',$ids)->order('id')->select()->toArray();
+        $consumptionIds=array_column($consumptions,'id');
+        $assets=$consumptionIds ? AiTaskResultAsset::where($owner)->whereIn('app_task_id',array_merge([0],$ids))->whereIn('consumption_id',$consumptionIds)->order('id')->select()->toArray() : [];
+        $result=[];
+        foreach ($tasks as $task) {
+            $id=(int)$task['id'];$owned=array_values(array_filter($consumptions,static fn($c)=>(int)$c['app_task_id']===$id));
+            $result[$id]=self::project($id,$task,$owned,array_values(array_filter($assets,static fn($a)=>(int)$a['app_task_id']===0||(int)$a['app_task_id']===$id)));
+        }
+        return $result;
+    }
+
+    private static function project(int $id, array $task, array $consumptions, array $assets): array
+    {
         $results = []; $transferPending = false; $billingPending = false; $executionPending = false; $unknown = false;
         foreach ($consumptions as $c) {
             $executionPending = $executionPending || !in_array($c['run_status'], ['success','failed','canceled','cancelled'], true);
             $unknown = $unknown || in_array($c['run_status'], ['submitting','pending_confirmation','needs_reconciliation'], true);
             $billingPending = $billingPending || !in_array($c['billing_status'], ['settled','refunded','none'], true);
-            $required = AiTaskBusinessResultService::requiresForcedTransfer((int)$c['id']);
+            $required = AiTaskBusinessResultService::requiresForcedTransferFor($c,(string)$task['app_code'],(string)$task['business_table']);
             $summary = (array)$c['response_summary'];
             $expected = false;
             foreach (['images','videos','items','audio','assets','image_count','video_count','audio_count','asset_count'] as $key) $expected = $expected || !empty($summary[$key]);
@@ -91,6 +111,32 @@ final class GenerationTaskResultService
         $task=$source['generation_task']??null;
         if (is_array($task) && ($task['schema_version']??null)===1 && (int)($task['app_task_id']??0)>0
             && ($task['task_ref']??'')==='app_task:'.$task['app_task_id']) $response['generation_task']=$task;
+        if (isset($source['generation_tasks']) && is_array($source['generation_tasks'])) {
+            $children=[];
+            foreach ($source['generation_tasks'] as $child) {
+                $copy=self::carry([],['generation_task'=>$child]);
+                if (isset($copy['generation_task'])) $children[]=$copy['generation_task'];
+            }
+            $response['generation_tasks']=$children;
+            $response['generation_task_refs']=array_column($children,'task_ref');
+        }
         return $response;
     }
+    /** The caller supplies child IDs from an already-owned business record, never from browser payloads. */
+    public static function appendRelated(array $response, string $kind, array $ids, int $tenantId, int $userId): array
+    {
+        if ($tenantId<=0 || $userId<=0 || !$ids) return $response;
+        $table=match($kind){'image'=>'aigc_image_task','video'=>'aigc_video_task',default=>throw new InvalidArgumentException('不支持的生成子任务类型')};
+        try {
+            $rows=\think\facade\Db::name($table)->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0])->whereIn('id',array_map('intval',$ids))->field('id,app_task_id')->select()->toArray();
+            $views=self::readMany(array_column($rows,'app_task_id'),$tenantId,$userId);
+            $response['generation_tasks']=array_values($views);
+            $response['generation_task_refs']=array_column($response['generation_tasks'],'task_ref');
+        } catch (\Throwable) {
+            // Parent/children may already be accepted. A projection outage is not permission to create another batch.
+            $response['generation_tasks_pending']=true;
+        }
+        return $response;
+    }
+
 }

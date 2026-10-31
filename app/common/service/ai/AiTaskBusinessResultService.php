@@ -14,6 +14,15 @@ use think\facade\Db;
 
 class AiTaskBusinessResultService
 {
+    private const ADAPTERS = [
+        'aigc_image_task'=>'image','aigc_video_task'=>'video','aigc_short_drama_script_task'=>'script',
+        'aigc_short_drama_generation_task'=>'short_drama','aigc_canvas_run'=>'canvas',
+        'decorate_agent_image_slot'=>'decoration_worker','aigc_music_task'=>'music','aigc_pic_lipsync_task'=>'pic_lipsync',
+        'aigc_digital_human_task'=>'digital_human','aigc_watermark_removal_task'=>'watermark',
+    ];
+
+    public static function businessTables(): array { return array_keys(self::ADAPTERS); }
+
     /**
      * Reconcile a result that is already terminal in local storage. This must
      * not query a provider, so list/detail APIs can safely recover a delayed
@@ -65,18 +74,18 @@ class AiTaskBusinessResultService
             return;
         }
 
-        match ($businessTable) {
-            'aigc_image_task' => AigcImageService::refreshAsyncTaskResult((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
-            'aigc_video_task' => self::syncVideoTask($consumption, $businessId),
-            'aigc_short_drama_script_task' => AigcShortDramaService::refreshScriptTask($businessId),
-            'aigc_short_drama_generation_task' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
-            'aigc_canvas_run' => \app\common\service\app\aigc_canvas\AigcCanvasService::syncManagedConsumption($consumption, $businessId),
+        match (self::ADAPTERS[$businessTable] ?? 'unsupported') {
+            'image' => AigcImageService::refreshAsyncTaskResult((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
+            'video' => self::syncVideoTask($consumption, $businessId),
+            'script' => AigcShortDramaService::refreshScriptTask($businessId),
+            'short_drama' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
+            'canvas' => \app\common\service\app\aigc_canvas\AigcCanvasService::syncManagedConsumption($consumption, $businessId),
             // The decoration worker owns slot hydration after managed assets settle.
-            'decorate_agent_image_slot' => null,
-            'aigc_music_task' => self::syncMusicTask($consumption, $businessId),
-            'aigc_pic_lipsync_task' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
-            'aigc_digital_human_task' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
-            'aigc_watermark_removal_task' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
+            'decoration_worker' => null,
+            'music' => self::syncMusicTask($consumption, $businessId),
+            'pic_lipsync' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
+            'digital_human' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
+            'watermark' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
         };
     }
@@ -97,10 +106,13 @@ class AiTaskBusinessResultService
         if ($context === null) {
             return false;
         }
-        return ((string)($context['consumption']['provider'] ?? '') === 'power_market'
-                && (string)$context['app_code'] !== 'aigc_watermark_removal')
-            || (string)$context['app_code'] === 'aigc_short_drama'
-            || (string)$context['business_table'] === 'aigc_short_drama_generation_task';
+        return self::requiresForcedTransferFor($context['consumption'],(string)$context['app_code'],(string)$context['business_table']);
+    }
+
+    public static function requiresForcedTransferFor(array $consumption, string $appCode, string $businessTable): bool
+    {
+        return (($consumption['provider']??'')==='power_market' && $appCode!=='aigc_watermark_removal')
+            || $appCode==='aigc_short_drama' || $businessTable==='aigc_short_drama_generation_task';
     }
 
     private static function assertOptionalBusinessAdapter(array $consumption, string $businessTable): void
@@ -118,18 +130,7 @@ class AiTaskBusinessResultService
 
     private static function hasBusinessAdapter(string $businessTable, int $businessId): bool
     {
-        return $businessId > 0 && in_array($businessTable, [
-            'aigc_image_task',
-            'aigc_video_task',
-            'aigc_short_drama_script_task',
-            'aigc_short_drama_generation_task',
-            'aigc_canvas_run',
-            'decorate_agent_image_slot',
-            'aigc_watermark_removal_task',
-            'aigc_pic_lipsync_task',
-            'aigc_digital_human_task',
-            'aigc_music_task',
-        ], true);
+        return $businessId > 0 && isset(self::ADAPTERS[$businessTable]);
     }
 
     private static function refundedWithoutBusinessTarget(array $context): bool

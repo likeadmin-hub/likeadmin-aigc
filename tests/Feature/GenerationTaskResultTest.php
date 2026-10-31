@@ -94,4 +94,20 @@ class GenerationTaskResultTest extends TestCase
         $r=Results::carry(['task_id'=>123,'results'=>['legacy']],['generation_task'=>$pending]);self::assertSame(123,$r['task_id']);self::assertSame(['legacy'],$r['results']);
         self::assertSame(['task_id'=>123],Results::carry(['task_id'=>123],['generation_task'=>['schema_version'=>1,'app_task_id'=>42,'task_ref'=>'42']]));
     }
+
+    public function testCompoundApplicationKeepsParentStatePriceAndBusinessResults(): void
+    {
+        $this->fixture(function($t,$c,$a,$owner){
+            $other=$t->toArray();unset($other['id']);$other['task_no']='second-'.bin2hex(random_bytes(6));$other['idempotency_key']=$other['task_no'];$second=AiAppTask::create($other);
+            $receipt=$c->toArray();unset($receipt['id']);$receipt['consume_no']=$other['task_no'];$receipt['app_task_id']=$second['id'];AiConsumptionLog::create($receipt);
+            $children=[];foreach([$t['id'],$second['id']]as$id)$children[]=Db::name('aigc_image_task')->insertGetId($owner+['app_task_id'=>$id,'prompt'=>'Owned composite fixture','provider'=>'power_market','status'=>'success','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
+            $foreign=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$owner['tenant_id'],'user_id'=>$owner['user_id']+1,'app_task_id'=>$second['id'],'prompt'=>'Not this user','status'=>'success','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]);
+            $parent=['task_id'=>987,'status'=>'running','estimate'=>['user_charge_points'=>123],'results'=>[['module'=>'owned-business-result']]];
+            $view=Results::appendRelated($parent,'image',array_merge($children,[$foreign]),...array_values($owner));
+            self::assertSame('running',$view['status']);self::assertSame($parent['estimate'],$view['estimate']);self::assertSame($parent['results'],$view['results']);self::assertCount(2,$view['generation_tasks']);
+            self::assertSame(['app_task:'.$t['id'],'app_task:'.$second['id']],$view['generation_task_refs']);self::assertArrayNotHasKey('generation_task',$view);
+            self::assertSame(987,Results::carry($parent,$view)['task_id']);self::assertCount(2,Results::carry($parent,$view)['generation_tasks']);
+            self::assertSame(['app_task:'.$t['id']],array_column(Results::readMany([$t['id'],2147483000],...array_values($owner)),'task_ref'));
+        });
+    }
 }
