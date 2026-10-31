@@ -1067,7 +1067,7 @@ class AigcDigitalHumanService
         if ($status === 'success') {
             $response['results'] = self::resultLists($tenantId, $userId, (int)$latest['id']);
         }
-        return $response;
+        return \app\common\service\ai\GenerationTaskResultService::carry($response,\app\common\service\ai\GenerationTaskResultService::appendWorkflowList([['id'=>(int)$latest['id'],'tenant_id'=>$tenantId,'user_id'=>$userId]],'aigc_digital_human_task')[0]);
     }
 
     public static function assistScript(int $tenantId, int $userId, array $params): array

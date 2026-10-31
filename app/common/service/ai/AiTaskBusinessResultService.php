@@ -87,7 +87,7 @@ class AiTaskBusinessResultService
             'decoration_worker' => null,
             'music' => self::syncMusicTask($consumption, $businessId),
             'pic_lipsync' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
-            'music_cover' => \app\common\service\app\aigc_music_cover\AigcMusicCoverService::syncConsumption($businessId,(int)$consumption['user_id']),
+            'music_cover' => \app\common\service\app\aigc_music_cover\AigcMusicCoverService::syncConsumption($businessId,(int)$consumption['user_id'],(int)$consumption['id']),
             'digital_human' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
             'watermark' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             'micro_segment' => self::wakeMicroVideo($consumption,$businessId,'segment'),

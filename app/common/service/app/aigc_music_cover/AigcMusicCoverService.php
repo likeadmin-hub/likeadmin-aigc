@@ -239,7 +239,7 @@ class AigcMusicCoverService
         }
         if ((int)$task['consumption_id'] > 0 && in_array((string)$task['status'], ['pending', 'running'], true)) {
             try {
-                MarketApplicationApiRuntimeService::cancel((int)$task['consumption_id']);
+                MarketGenerationRuntime::consumption((int)$task['consumption_id'],(int)$task['tenant_id'],(int)$task['user_id'])->cancel((int)$task['consumption_id'],(int)$task['tenant_id'],(int)$task['user_id']);
             } catch (\Throwable) {
             }
         }
@@ -260,17 +260,19 @@ class AigcMusicCoverService
         $result->save(['delete_time' => time()]);
     }
 
-    public static function syncConsumption(int $taskId, int $userId = 0): void
+    public static function syncConsumption(int $taskId, int $userId = 0, int $expectedConsumptionId = 0): void
     {
-        Db::transaction(function () use ($taskId,$userId) {
+        Db::transaction(function () use ($taskId,$userId,$expectedConsumptionId) {
             $query=AigcMusicCoverTask::where(['id'=>$taskId,'delete_time'=>0]);
             if ($userId>0) $query->where('user_id',$userId);
             $task=$query->lock(true)->findOrEmpty();
-            if ($task->isEmpty() || (int)$task['consumption_id']<=0) return;
+            if ($task->isEmpty() || (int)$task['consumption_id']<=0 || (int)$task['app_task_id']<=0) return;
+            if ($expectedConsumptionId>0 && (int)$task['consumption_id']!==$expectedConsumptionId) throw new Exception('音乐翻唱回执与当前任务不一致');
             $owner=['tenant_id'=>(int)$task['tenant_id'],'user_id'=>(int)$task['user_id']];
             $bill=AiConsumptionLog::where($owner)->where('id',(int)$task['consumption_id'])->findOrEmpty();
             $binding=\app\common\model\ai\AiAppTask::where($owner)->where('id',(int)$task['app_task_id'])->findOrEmpty();
             if ($bill->isEmpty() || $binding->isEmpty() || (int)$bill['app_task_id']!==(int)$binding['id']
+                || $bill['provider']!=='power_market' || $bill['protocol']!=='application_api' || ($bill['price_snapshot']['app_code']??'')!=='seedsvc'
                 || $bill['app_code']!==self::APP_CODE || $binding['app_code']!==self::APP_CODE
                 || $binding['business_table']!=='aigc_music_cover_task' || (int)$binding['business_id']!==$taskId)
                 throw new Exception('音乐翻唱任务关联不一致');
