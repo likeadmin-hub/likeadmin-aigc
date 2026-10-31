@@ -33,7 +33,7 @@ class MarketBoundedImageSubmissionTest extends TestCase
     {
         $this->fixture($kind,function($id,$user,$snapshot,$runtime,$before){
             AiConsumptionLog::where('id',$id)->update(['run_status'=>'submitting']);$held=$this->balances($user);
-            try{$runtime::fail($id,'Synthetic stale cancel','canceled');self::fail('A stale cancel must not refund an already claimed submission');}catch(\Exception $e){self::assertStringContainsString('无法取消',$e->getMessage());}
+            $blocked=false;try{$runtime::fail($id,'Synthetic stale cancel','canceled');}catch(\Exception $e){$blocked=true;self::assertStringContainsString('无法取消',$e->getMessage());}self::assertTrue($blocked,'A stale cancel must not refund an already claimed submission');
             self::assertSame('reserved',AiConsumptionLog::find($id)['billing_status']);self::assertSame($held,$this->balances($user));
         });
     }
