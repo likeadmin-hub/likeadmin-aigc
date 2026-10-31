@@ -5,6 +5,7 @@ namespace app\common\service\ai;
 use app\common\model\ai\AiAppTask;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiTaskJob;
+use app\common\model\ai\AiTaskResultAsset;
 use think\facade\Db;
 
 /** Durable DB queue for post-submit result work. Provider submission is never run here. */
@@ -83,7 +84,8 @@ class AiTaskJobService
 
     public static function enqueueTransfer(int $assetId, bool $forced = false): int
     {
-        return self::enqueue(self::TYPE_TRANSFER_RESULT, 0, $assetId, ['forced' => $forced], $forced ? 100 : 0, true);
+        $asset=AiTaskResultAsset::findOrEmpty($assetId);if($asset->isEmpty())return 0;
+        return self::enqueue(self::TYPE_TRANSFER_RESULT, (int)$asset['consumption_id'], $assetId, ['forced' => $forced], $forced ? 100 : 0, true,self::TYPE_TRANSFER_RESULT.':'.$assetId);
     }
 
     public static function enqueueAdminAction(int $operationItemId, string $key): int
@@ -124,7 +126,12 @@ class AiTaskJobService
                 ]);
                 return (int)$job['id'];
             }
-            if ($wake && !in_array((string)$job['status'], ['success', 'dead'], true)) {
+            if($type===self::TYPE_TRANSFER_RESULT&&$consumptionId>0){
+                $linked=(int)(AiConsumptionLog::where('id',$consumptionId)->value('app_task_id')?:0);
+                if((int)$job['consumption_id']!==$consumptionId||(int)$job['app_task_id']!==$linked)$job->save(['consumption_id'=>$consumptionId,'app_task_id'=>$linked]);
+            }
+            $liveTransfer=$type===self::TYPE_TRANSFER_RESULT&&$job['status']==='running'&&(int)$job['lease_expire_time']>$now;
+            if ($wake && !$liveTransfer && !in_array((string)$job['status'], ['success', 'dead'], true)) {
                 $job->save([
                     'status' => 'pending',
                     'priority' => max((int)$job['priority'], $priority),

@@ -10,14 +10,14 @@ use Exception;
 
 class AigcImageAssetService
 {
-    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, bool $safeDownload = false, int $maximumPixels = 0): array
+    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, bool $safeDownload = false, int $maximumPixels = 0, ?array $storageConfig = null): array
     {
         $safeDownload=$safeDownload||$maximumPixels>0;
         if (str_starts_with($url, 'data:image/')) {
-            return self::persistDataUri($url, $tenantId, $userId, $safeDownload,$maximumPixels);
+            return self::persistDataUri($url, $tenantId, $userId, $safeDownload,$maximumPixels,$storageConfig);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId, $safeDownload,$maximumPixels);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $safeDownload,$maximumPixels,$storageConfig);
         }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
@@ -34,7 +34,7 @@ class AigcImageAssetService
         return ['width'=>(int)$info[0],'height'=>(int)$info[1]];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload, int $maximumPixels = 0): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload, int $maximumPixels = 0, ?array $storageConfig = null): array
     {
         $context = stream_context_create([
             'http' => [
@@ -49,10 +49,10 @@ class AigcImageAssetService
         if ($content === false || $content === '') {
             throw new Exception('生成图片下载失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $safeDownload,$maximumPixels);
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $safeDownload,$maximumPixels,$storageConfig);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, bool $verifyOutput = false, int $maximumPixels = 0): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null): array
     {
         if (!preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成图片格式错误');
@@ -62,10 +62,10 @@ class AigcImageAssetService
             throw new Exception('生成图片解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput,$maximumPixels);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput,$maximumPixels,$storageConfig);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false, int $maximumPixels = 0): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null): array
     {
         $verifiedSize=$verifyOutput?self::verifiedImageInfo($content,$maximumPixels):null;
         if($verifiedSize!==null)$ext=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp','image/gif'=>'gif'][$verifiedSize['mime']];
@@ -79,7 +79,7 @@ class AigcImageAssetService
         file_put_contents($tmpPath, $content);
         $size = $verifiedSize ?? (@getimagesize($tmpPath) ?: []);
         try {
-            $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId);
+            $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId,$storageConfig);
         } finally {
             @unlink($tmpPath);
         }
@@ -103,9 +103,9 @@ class AigcImageAssetService
         return $info;
     }
 
-    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId): array
+    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId, ?array $storageConfig = null): array
     {
-        $config = StorageConfigService::getEffectiveConfig($tenantId);
+        $config = $storageConfig??StorageConfigService::getEffectiveConfig($tenantId);
         $saveDir = 'uploads/aigc_image/' . date('Ymd');
         $driver = new StorageDriver($config);
         $driver->setUploadFileByReal($filePath);
@@ -115,7 +115,7 @@ class AigcImageAssetService
         $uri = $saveDir . '/' . str_replace('\\', '/', $driver->getFileName());
         $scope = (string)($config['scope'] ?? 'tenant');
         $engine = (string)($config['default'] ?? 'local');
-        $domain = (string)StorageConfigService::getEffectiveDomain($tenantId);
+        $domain = (string)StorageConfigService::getStorageDomain($config);
         TenantFile::create([
             'tenant_id' => $tenantId,
             'cid' => 0,

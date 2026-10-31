@@ -27,11 +27,8 @@ class AiTaskResultAssetService
                 if ($uri === '') {
                     continue;
                 }
-                $asset = AiTaskResultAsset::where([
-                    'consumption_id' => $consumptionId,
-                    'asset_type' => $type,
-                    'external_url' => $uri,
-                ])->findOrEmpty();
+                $asset = AiTaskResultAsset::where(['consumption_id'=>$consumptionId,'asset_type'=>$type])
+                    ->where(function($q)use($uri){$q->where('external_url',$uri)->whereOr('local_uri',$uri);})->findOrEmpty();
                 if ($asset->isEmpty()) {
                     $asset = AiTaskResultAsset::create([
                         'app_task_id' => (int)$consumption['app_task_id'],
@@ -72,15 +69,15 @@ class AiTaskResultAssetService
                 }
             }
         }
+        self::hydrateStoredSummary($consumptionId,$assets);
         return $assets;
     }
 
     public static function transfer(int $assetId): void
     {
         $asset = AiTaskResultAsset::findOrEmpty($assetId);
-        if ($asset->isEmpty() || (string)$asset['transfer_status'] === 'stored') {
-            return;
-        }
+        if($asset->isEmpty())return;
+        if((string)$asset['transfer_status']==='stored'){self::hydrateStoredSummary((int)$asset['consumption_id'],[$asset->toArray()]);AiTaskJobService::enqueueProcessResult((int)$asset['consumption_id']);return;}
         $url = trim((string)$asset['external_url']);
         if (!self::isExternal($url)) {
             $asset->save(['local_uri' => $url, 'transfer_status' => 'stored', 'update_time' => time()]);
@@ -91,11 +88,12 @@ class AiTaskResultAssetService
         $storageConfig = self::shortDramaStorageConfig($asset, $tenantId);
         try {
             $stored = match ((string)$asset['asset_type']) {
-                'image' => AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId, $storageConfig),
+                'image' => AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId, true,0,$storageConfig),
                 'video' => AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId, $storageConfig),
                 'audio' => AigcMusicAssetService::persistGeneratedAudio($url, $tenantId, $userId, $storageConfig),
                 default => throw new Exception('不支持的结果资源类型'),
             };
+            if(empty($stored['stored'])||trim((string)($stored['uri']??''))==='')throw new Exception('结果资源尚未完成有效转存');
             $asset->save([
                 'local_uri' => (string)($stored['uri'] ?? ''),
                 'storage_scope' => (string)($stored['storage_scope'] ?? ''),
@@ -107,6 +105,7 @@ class AiTaskResultAssetService
                 'last_error' => '',
                 'update_time' => time(),
             ]);
+            self::hydrateStoredSummary((int)$asset['consumption_id'],[$asset->toArray()]);
             AiTaskJobService::requeueProcessResult((int)$asset['consumption_id']);
         } catch (\Throwable $e) {
             $asset->save([
@@ -117,6 +116,29 @@ class AiTaskResultAssetService
             ]);
             throw $e;
         }
+    }
+
+    /** Project only owned managed outputs; retain original URLs on the durable asset rows. */
+    private static function hydrateStoredSummary(int $consumptionId,array $assets): void
+    {
+        if(!$assets)return;
+        \think\facade\Db::transaction(function()use($consumptionId,$assets){
+            $c=AiConsumptionLog::lock(true)->findOrEmpty($consumptionId);if($c->isEmpty())return;
+            $summary=self::arrayValue($c['response_summary']);$before=$summary;
+            foreach($assets as$asset){
+                if((int)$asset['consumption_id']!==$consumptionId||(int)$asset['tenant_id']!==(int)$c['tenant_id']||(int)$asset['user_id']!==(int)$c['user_id']||$asset['transfer_status']!=='stored'||trim((string)$asset['local_uri'])===''||empty($asset['storage_scope'])||empty($asset['storage_engine']))continue;
+                [$key,$uriKey]=match($asset['asset_type']){'image'=>['images','image_uri'],'video'=>['videos','video_uri'],'audio'=>['items','audio_uri'],default=>['','']};
+                if($key===''||!is_array($summary[$key]??null))continue;
+                $meta=self::arrayValue($asset['storage_meta']??[]);
+                foreach($summary[$key]as&$row){
+                    if(!is_array($row))continue;$uri=(string)($row[$uriKey]??$row['url']??$row['audio_url']??'');
+                    if(!in_array($uri,[$asset['external_url'],$asset['local_uri']],true))continue;
+                    $row[$uriKey]=$asset['local_uri'];foreach(['storage_scope','storage_engine','storage_domain']as$field)$row[$field]=(string)$asset[$field];
+                    foreach(['width','height']as$field)if(isset($meta[$field]))$row[$field]=(int)$meta[$field];
+                }unset($row);
+            }
+            if($summary!==$before)$c->save(['response_summary'=>$summary,'update_time'=>time()]);
+        });
     }
 
     private static function isExternal(string $uri): bool
