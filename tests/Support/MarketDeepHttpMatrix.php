@@ -11,6 +11,7 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
         $s=app\common\model\power\PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$f->prefix.$name,'title'=>'Private '.$name,'locked_params'=>$locked,'usage_unit'=>$unit,'usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1]);
         return [(int)$p['id'],(int)$s['id']];
     };
+    if(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')!=='1') {
     $report['phase']='avatar_text_tts';
     $product('lipsync','audio','',[],['model'=>'synthetic-lipsync'],'second','lipsync','submit');
     $product('lipsync_query','audio','',[],[],'per_call','lipsync','query');
@@ -57,6 +58,12 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     MarketWorkerFixture::wait(function()use($micro){$r=think\facade\Db::name('aigc_micro_video_task')->where('id',$micro)->find();if($r['frame_status']==='waiting_continue')throw new RuntimeException('Frame stage failed');return $r['frame_status']==='review';},'Three anchor images did not finish',65);
     $f->stop('micro');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Frame jobs pending',20);$f->stop();
     $detail=$get('aigc_micro_video.task/detail',$micro);$check(count($detail['frames'])===3&&array_column($detail['frames'],'status')===['success','success','success'],'Frame boundaries missing');
+    foreach(think\facade\Db::name('aigc_micro_video_attempt')->where(['task_id'=>$micro,'kind'=>'frame'])->select() as $attempt) {
+        $snapshot=json_decode($attempt['request_json'],true);
+        $check(!isset($snapshot['selection']['prompt'])&&!str_contains($snapshot['request']['prompt'],'Image boundary pricing'),'Frame quote placeholder entered execution');
+    }
+    $denied=callHttp($api,'/api/app.aigc_micro_video.generate/estimate'.$suffix,['id'=>$micro],$token);
+    $check($denied['code']!==1,'Video accepted unconfirmed anchor images');
     $ready=$post('aigc_micro_video.frame/confirm',['id'=>$micro,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision']]);
     $quote=$post('aigc_micro_video.generate/estimate',['id'=>$micro,'plan_revision'=>$ready['plan_revision']]);
     $confirm=['id'=>$micro,'plan_revision'=>$ready['plan_revision'],'quote_token'=>$quote['quote_token'],'idempotency_key'=>'deep-video-confirm'];$post('aigc_micro_video.generate/index',$confirm);$post('aigc_micro_video.generate/index',$confirm);
@@ -66,15 +73,21 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     $detail=$get('aigc_micro_video.task/detail',$micro);$check($detail['result_url']!==''&&count($detail['generation_tasks'])>=5,'Micro canonical frame/video identities missing');
     $report['micro_frames']=['three_ordered_anchors_two_video_segments_actual_merge'=>true,'frame_and_video_confirmation_replay'=>true,'reopen_keeps_generation_identities'=>true,'actual_duration'=>$detail['actual_duration']];
 
+    }
     $report['phase']='music_clone_exports';
+    $dir=$f->dir.'/public/uploads/deep';if(!is_dir($dir))mkdir($dir,0700,true);copy($f->dir.'/synthetic.wav',$dir.'/input.wav');
     file_put_contents($f->dir.'/synthetic.midi',hex2bin('4d546864000000060000000100604d54726b0000000c00903c4060803c4000ff2f00'));
     foreach(['voice_clone','wav','midi','mp4','vox','timing','upload_audio','persona']as$op){[$p,$sku]=$product('music_'.$op,'audio','',[],[],'per_call','music_generation',$op);if($op==='timing')think\facade\Db::name('power_market_sku')->where('id',$sku)->update(['sale_points'=>0,'upstream_price'=>0]);}
-    think\facade\Db::name('tenant_file')->insert(['tenant_id'=>$t,'source_id'=>$u,'source'=>app\common\enum\FileEnum::SOURCE_USER,'type'=>app\common\enum\FileEnum::AUDIO_TYPE,'uri'=>'uploads/deep/input.wav','name'=>'Synthetic tone','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','delete_time'=>0]);
+    think\facade\Db::name('tenant_file')->insert(['tenant_id'=>$t,'source_id'=>$u,'source'=>app\common\enum\FileEnum::SOURCE_USER,'type'=>app\common\enum\FileEnum::FILE_TYPE,'uri'=>'uploads/deep/input.wav','name'=>'Synthetic tone','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','delete_time'=>0]);
     $asset=think\facade\Db::name('aigc_music_asset')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'asset_type'=>'voice_reference','name'=>'Synthetic tone','uri'=>'uploads/deep/input.wav','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','duration'=>1,'status'=>1,'delete_time'=>0]);
+    think\facade\Db::name('user')->insert(['id'=>$u+2,'tenant_id'=>$t,'sn'=>$u+2,'account'=>$f->prefix.'deep_other','nickname'=>'Synthetic other','password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification')),'user_money'=>100]);
+    $other=dataHttp($api,'/api/login/account'.$suffix,['account'=>$f->prefix.'deep_other','password'=>'Private-fixture-pass-2026','scene'=>1,'terminal'=>4])['token'];
+    $denied=callHttp($api,'/api/app.aigc_music.voice_clone/create'.$suffix,['reference_asset_id'=>$asset,'name'=>'Synthetic rejected'],$other);
+    $check($denied['code']!==1,'Cross-owner voice clone accepted');
     $source=think\facade\Db::name('aigc_music_result')->insertGetId(['tenant_id'=>$t,'user_id'=>$u,'task_id'=>0,'title'=>'Synthetic tone','audio_uri'=>'uploads/deep/input.wav','result_json'=>json_encode(['audio_id'=>'deep-owned-audio']),'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','delete_time'=>0]);
     $clone=$post('aigc_music.voice_clone/create',['reference_asset_id'=>$asset,'name'=>'Synthetic clone','description'=>'Synthetic tone only','authorization_confirmed'=>1,'authorization_text'=>'Private synthetic fixture']);
     $check(($clone['status']??'')==='success'&&($clone['voice_clone_id']??0)>0,'Music clone not written to native owner');
-    $report['music_clone']=['normal_http_owned_upload_authorization_voice_id_and_native_history'=>true];
+    $report['music_clone']=['normal_http_owned_upload_authorization_voice_id_and_native_history'=>true,'cross_owner_submission_rejected'=>true];
     foreach(['upload_audio'=>'asset/upload_upstream','persona'=>'persona/upstream']as$op=>$route){$p=$op==='upload_audio'?['asset_id'=>$asset]:['result_id'=>$source,'name'=>'Synthetic persona','description'=>'Synthetic'];$reply=$post('aigc_music.'.$route,$p);$check($reply['status']==='success','Music '.$op.' not ready');}
     foreach(['wav','midi','mp4','vox','timing']as$op) {
         $accepted=$post('aigc_music.export/'.$op,['result_id'=>$source]);$native=(int)$accepted['task_id'];
@@ -87,10 +100,12 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
             $export=think\facade\Db::name('aigc_music_export')->where(['tenant_id'=>$t,'user_id'=>$u,'result_id'=>$source,'export_type'=>$op])->find();$check($export!==null,'Missing owned export row');
             $curl=curl_init($api.'/api/app.aigc_music.export/download'.$suffix.'&export_id='.$export['id']);curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPHEADER=>['token: '.$token,'Host: private-media.example.test']]);$bytes=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);
             $meta=json_decode($export['result_json'],true);$check($status===200&&hash('sha256',$bytes)===$meta['sha256'],'Owned export HTTP bytes differ');
+            $denied=callHttp($api,'/api/app.aigc_music.export/download'.$suffix.'&export_id='.$export['id'],[],$other,'GET');
+            $check($denied['code']!==1,'Cross-owner export download accepted');
         }
         $report['music_exports'][$op]=['http_submit_native_worker_detail_replay'=>true,'owned_download_checksum'=>in_array($op,['wav','midi','mp4'],true)];
     }
     $calls=array_map(fn($line)=>json_decode($line,true),file($f->dir.'/deep-calls.jsonl'));$kinds=array_count_values(array_column($calls,'kind'));
-    $check(($kinds['tts']??0)===1&&($kinds['text']??0)===2,'TTS or planning submitted twice');
+    $check(($kinds['tts']??0)===(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')==='1'?0:1)&&($kinds['text']??0)===(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')==='1'?0:2),'TTS or planning submitted twice');
     $report['supplier_call_counts']=$kinds;$report['music_operation_count']=8;$report['phase']='complete';
 }
