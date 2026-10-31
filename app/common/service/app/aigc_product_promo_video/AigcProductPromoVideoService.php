@@ -192,13 +192,14 @@ class AigcProductPromoVideoService
             ])->order('id', 'asc')->findOrEmpty();
             if (!$existing->isEmpty()) {
                 self::syncTaskFromVideoTask($existing);
-                return [
+                $generationDetail = self::taskDetail($tenantId, (int)$existing['id'], $userId);
+                return \app\common\service\ai\GenerationTaskResultService::carry([
                     'task_id' => (int)$existing['id'],
                     'video_task_id' => (int)$existing['video_task_id'],
                     'status' => (string)($existing['status'] ?: 'running'),
                     'error' => (string)($existing['error'] ?? ''),
-                    'results' => self::taskDetail($tenantId, (int)$existing['id'], $userId)['results'] ?? [],
-                ];
+                    'results' => $generationDetail['results'] ?? [],
+                ], $generationDetail);
             }
         }
         self::assertAvailable($tenantId);
@@ -213,14 +214,15 @@ class AigcProductPromoVideoService
         }
         $task = self::createMappedTask($tenantId, $userId, $videoTaskId, $prepared, $estimate);
         self::syncTaskFromVideoTask($task);
-        return [
+        $generationDetail = self::taskDetail($tenantId, (int)$task['id'], $userId);
+        return \app\common\service\ai\GenerationTaskResultService::carry([
             'task_id' => (int)$task['id'],
             'video_task_id' => $videoTaskId,
             'status' => (string)($task['status'] ?: 'running'),
             'error' => (string)($task['error'] ?? ''),
-            'results' => self::taskDetail($tenantId, (int)$task['id'], $userId)['results'] ?? [],
+            'results' => $generationDetail['results'] ?? [],
             'estimate' => $estimate,
-        ];
+        ], $generationDetail);
     }
 
     public static function writePrompt(int $tenantId, int $userId, array $params): array
@@ -295,7 +297,7 @@ class AigcProductPromoVideoService
             throw new Exception('任务不存在');
         }
         $rows = self::appendTaskResults($tenantId, $userId, [$task->toArray()]);
-        return self::formatTaskRow($rows[0] ?? []);
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated(self::formatTaskRow($rows[0] ?? []),'video',[(int)$task['video_task_id']],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
