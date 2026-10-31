@@ -3,6 +3,7 @@ namespace Tests\Feature;
 
 use app\common\service\power\{MarketGenerationMeter as Meter,MarketImageModelRuntimeService as Images,MarketVideoRuntimeService as Videos};
 use app\common\service\power\MarketPricePolicy;
+use app\common\service\power\PowerMarketService;
 use app\common\model\power\{PowerMarketProduct,PowerMarketSku};
 use app\common\model\ai\AiConsumptionLog;
 use PHPUnit\Framework\TestCase;
@@ -75,8 +76,15 @@ class MarketBoundedMeterRoundingTest extends TestCase
             $meta=['params_schema'=>['prompt'=>['type'=>'string','required'=>true]],'material_capabilities'=>['modes'=>[['code'=>$method,'method'=>$method,'fields'=>[]]]]];
             if($video)$meta+=['category_code'=>'video','supported_durations'=>[4],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1']];
             $p=PowerMarketProduct::create(['product_code'=>$key,'name'=>'Offline account rounding fixture','resource_type'=>'model','model_type'=>$type,'source_code'=>'offline-fixture','upstream_resource_key'=>$key,'upstream_model_code'=>'offline-rounding','upstream_channel_code'=>'offline','source_payload'=>['market_metadata'=>$meta],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
-            $s=PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$key,'title'=>'Offline rounding fixture','locked_params'=>$video?['duration'=>4,'resolution'=>'720P']:[],
-                'usage_unit'=>$video?'token':'business_unit','usage_unit_size'=>$unit,'upstream_price'=>$price,'sale_points'=>$price,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>self::declaration($basis,$rounding,$maximum)],'create_time'=>time(),'update_time'=>time()]);
+            // Exercise the actual SKU persistence boundary with synthetic input;
+            // never call the upstream synchronization operation.
+            (new \ReflectionMethod(PowerMarketService::class,'upsertSku'))->invoke(null,(int)$p['id'],[
+                'sku_key'=>$key,'title'=>'Offline rounding fixture','locked_params'=>$video?['duration'=>4,'resolution'=>'720P']:[],
+                'usage_unit'=>$video?'token':'business_unit','usage_unit_size'=>$unit,'price'=>['points'=>$price],
+                'meter_contract'=>self::declaration($basis,$rounding,$maximum)],[]);
+            $s=PowerMarketSku::where('product_id',$p['id'])->where('sku_key',$key)->find();
+            self::assertSame(MarketPricePolicy::amount($price),Db::name('power_market_sku')->where('id',$s['id'])->value('upstream_price'));
+            self::assertSame(number_format($unit,6,'.',''),Db::name('power_market_sku')->where('id',$s['id'])->value('usage_unit_size'));
             $request=['resource_type'=>'model','model_id'=>'market_'.$type.'_model:'.$p['id'],'market_sku_id'=>$s['id'],'prompt'=>'Synthetic rounding fixture','generation_method'=>$method,'quantity'=>1];
             if($video)$request+=['duration'=>4,'quality'=>'720P','ratio'=>'1:1'];
             $quote=$video?Videos::quote(1,$request):Images::quote(1,$request,1);self::assertSame($reserve,$quote['user_charge_points']);self::assertSame($reserve,$quote['tenant_cost_points']);
@@ -112,6 +120,7 @@ class MarketBoundedMeterRoundingTest extends TestCase
             'token_above_cent'=>['token',1000000.000001,100000000.,1000,'ceil_2',1,10.01,.02],
             'pixel_tiny_whole'=>['megapixel',.000001,1000000000.,1000,'ceil',1,1.,1.],
             'token_above_whole'=>['token',100000000.000001,100000000.,1,'ceil',1,2.,2.],
+            'token_fractional_large_unit'=>['token',1000000.000001,100000000.000001,1,'ceil_2',1,.02,.02],
             'pixel_zero_balance'=>['megapixel',.000001,1000000000.,1000,'ceil_2',1,.01,.01,true],
             'token_zero_balance'=>['token',.000001,1000000000.,1,'ceil_2',1,.01,.01,true]];
     }
