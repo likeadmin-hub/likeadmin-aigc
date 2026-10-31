@@ -61,7 +61,7 @@ try{
     copy($path,'/tmp/market-batch51-worker-result.png');$report+=['actual_worker_command'=>true,'killed_after_claim_before_transfer'=>true,'natural_lease_expiry_recovered'=>true,'repeat_restart_idempotent'=>true,'managed_uri_matches_business_result'=>true,'file_rows'=>$count,'stored_bytes_sha256'=>hash_file('sha256',$path),'storage_scope'=>$stored['storage_scope'],'storage_engine'=>$stored['storage_engine'],'result_dimensions'=>[(int)$result['width'],(int)$result['height']],'claimed_attempts'=>(int)Db::name('ai_task_job')->where('id',$job['id'])->value('attempts')];
     echo json_encode($report,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)."\n";
     }
-}catch(Throwable $error){$failure=$error;fwrite(STDERR,get_class($error).': '.$error->getMessage()."\n".$error->getTraceAsString()."\n");}finally{
+}catch(Throwable $error){$failure=$error;fwrite(STDERR,get_class($error).': '.$error->getMessage()."\n".$error->getTraceAsString()."\n");foreach(glob($dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).":\n".substr(file_get_contents($log),-4000)."\n");}finally{
     foreach(array_keys($children)as$role)$stop($role,SIGKILL);
     foreach(array_reverse($tables)as$table)$pdo->exec('DROP TABLE `'.$table.'`');
     if(is_dir($dir)&&is_file($dir.'/owner')&&trim(file_get_contents($dir.'/owner'))===$prefix){$it=new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST);foreach($it as$f){if($f->isDir())rmdir($f->getPathname());else unlink($f->getPathname());}rmdir($dir);}
