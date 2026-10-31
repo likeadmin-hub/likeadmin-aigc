@@ -32,7 +32,7 @@ if(PHP_SAPI==='cli-server') {
 }
 if(($argv[1]??'')==='--worker') {
     MarketWorkerFixture::activate($original,$argv[2],$argv[3]);app()->env->set('database.prefix',$argv[2]);$command=new app\common\command\AiTaskWorker();
-    exit($command->run(new think\console\Input(['--poll=1','--app=aigc_canvas']),new think\console\Output()));
+    exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
 }
 MarketWorkerFixture::check(getenv('AIGC_GENERATION_HTTP_TESTS')==='1','Explicit local fixture opt-in required');
 $fixture=null;$processes=[];$report=['scope'=>'Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement','external_generation_calls'=>0,'production_wallet_writes'=>0];
