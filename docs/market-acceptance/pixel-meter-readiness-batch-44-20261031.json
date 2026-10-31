@@ -1,0 +1,622 @@
+{
+  "batch": 44,
+  "date": "2026-10-31",
+  "source_server_commit": "e8bd9fbea",
+  "source_web_commit": "1f7eaac80252928cfb7e28f8b2deb3efef5fa5eb",
+  "scope": "SKU-wide bounded megapixel reservation and server-measured image settlement in ordinary image-model shared runtime. Official document/pricing GET refresh and eight READ ONLY admission blocks. No full model contract gaps closed, supplier submit/query/assets, paid generation, synchronization, uploads or UI edits.",
+  "metadata_refresh": [
+    {
+      "product_id": 140,
+      "status": "metadata_read",
+      "scope": "Configured official document/pricing GET only; no generation or synchronization.",
+      "doc_content_sha256": "933dfe254c889c9d40c3da56e98be4b74b781b03fb679ae397e574cfa5aa2f59",
+      "document_pricing_sha256": "7f0e0cccd2de0a43dcb0c2b404370e258ac9a22c2b4aa6f7a1492880f338f114",
+      "same_as_batch43": true,
+      "authoritative_upper_bound_added": false
+    },
+    {
+      "product_id": 275,
+      "status": "metadata_read",
+      "scope": "Configured official document/pricing GET only; no generation or synchronization.",
+      "doc_content_sha256": "54225df6a76cf2c3dffc1b4978127a310e5abee36a9af838c7964de7af2d1656",
+      "document_pricing_sha256": "9d27330e03a763b94a596a5412815bca9699a1037c6e3ad419abca6f544540a6",
+      "same_as_batch43": true,
+      "authoritative_upper_bound_added": false
+    },
+    {
+      "product_id": 277,
+      "status": "metadata_read",
+      "scope": "Configured official document/pricing GET only; no generation or synchronization.",
+      "doc_content_sha256": "ceb536cd5c83931a78d03d64cb9caaf27955177f6406e9f5310505a9261d3491",
+      "document_pricing_sha256": "297d26e10a52c1c74ee7cb0bab62a0062c72688c0e03d7b5167365c4c6b8c13e",
+      "same_as_batch43": true,
+      "authoritative_upper_bound_added": false
+    }
+  ],
+  "current_blocked_skus": [
+    {
+      "channel": "market_image_model:275",
+      "sku_id": 380,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "image_to_image",
+      "source_payload_hash": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_image_model:277",
+      "sku_id": 383,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "text_to_image",
+      "source_payload_hash": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 210,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 211,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 212,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 213,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 214,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 215,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    }
+  ],
+  "synthetic_contract_tests": [
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testBoundQuoteAndMeasuredSettlementUseDifferentPhysicalQuantities",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #0",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #1",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #2",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #3",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #4",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #5",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #6",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #7",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #8",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #9",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #10",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testInvalidBoundsCannotAcquirePixelPricing with data set #11",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testMissingAndOverBoundMeasuredOutputCannotCharge with data set #0",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testMissingAndOverBoundMeasuredOutputCannotCharge with data set #1",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testMissingAndOverBoundMeasuredOutputCannotCharge with data set #2",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testMissingAndOverBoundMeasuredOutputCannotCharge with data set #3",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testMissingAndOverBoundMeasuredOutputCannotCharge with data set #4",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testMissingAndOverBoundMeasuredOutputCannotCharge with data set #5",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testMissingAndOverBoundMeasuredOutputCannotCharge with data set #6",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testDeclaredResultPathIgnoresUnrelatedDimensionsAndChecksTransferStates",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testRealImageByteInspectionPrecedesStorageAndDoesNotTrustExtensions",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testUnboundedExistingPixelAndLegacyImagePricesRemainUnchanged",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testPixelContractDoesNotOpenAnUnmeasuredApplicationConsumer",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testTooManyDeclaredOutputsAreRejectedBeforeAnyStorage",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #0",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #1",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #2",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #3",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #4",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #5",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #6",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #7",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #8",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketPixelBillingTest",
+      "scenario": "testLocalRollbackPixelQuoteReserveSettlementAndRefund with data set #9",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version3 pixel meter only, unbound to any real resource/SKU; settlement/recovery invoked locally, no provider transport."
+    }
+  ],
+  "validation": {
+    "phpunit_suites": {
+      "existing": {
+        "tests": 285,
+        "assertions": 1470
+      },
+      "token": {
+        "tests": 43,
+        "assertions": 279
+      },
+      "focused": {
+        "tests": 31,
+        "assertions": 81
+      },
+      "related": {
+        "tests": 62,
+        "assertions": 407
+      },
+      "pixel": {
+        "tests": 35,
+        "assertions": 178
+      }
+    },
+    "phpunit_total_tests": 456,
+    "phpunit_total_assertions": 2415,
+    "pc_regression_tests": 645,
+    "php_lint_files": 10,
+    "native_raw_regression": "rollback_fixture_passed_no_transport",
+    "native_fixture_correction": "Independent quality/resolution case now uses its own exact declaration; original fixture correctly required parameters.quality and rejected that different wire. Production required validation unchanged."
+  },
+  "frozen_regressions": [
+    {
+      "task_id": 62,
+      "task_duration": 3,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 357,
+      "sku_id": 808,
+      "channel": "market_video_model:357",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": true,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": {
+          "frozen_audio": true,
+          "changed_copy_audio": false,
+          "frozen_snapshot_unchanged": true
+        },
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "480P",
+          "aspect_ratio": "adaptive",
+          "duration": 3,
+          "audio": true
+        },
+        "native_hash": "9a6dc32f1f06e3c3e696bda4513e6c34439f71f9410ba42a7176d836e058fc61",
+        "meter_hash": "e6f26db8063021722155e687a935899084cb252b79395ed3a2e3e4fba5a957f9"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_pixel_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 15,
+      "task_duration": 1,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 97,
+      "sku_id": 113,
+      "channel": "market_video_model:97",
+      "method": "image_reference",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "quality": "720p",
+          "duration": 6
+        },
+        "native_hash": "0cbb807054d6e62a67559c4f3d9a12f44ae04895bf203844452eebc323c0fd3d",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_pixel_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 36,
+      "task_duration": 6,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 103,
+      "sku_id": 128,
+      "channel": "market_video_app:full_video:103",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "768P",
+          "duration": 6,
+          "ratio": "16:9"
+        },
+        "native_hash": "fa9a9f0056bdd8846bd527bf78e5084448bac45f6a4030cd52804e515b760f00",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_pixel_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 42,
+      "task_duration": 6,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 108,
+      "sku_id": 137,
+      "channel": "market_video_app:grok_video:108",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "480p",
+          "duration": 6,
+          "aspect_ratio": "2:3"
+        },
+        "native_hash": "045be7187c459de1b7c5f16c13cdeb1db811df3521a6e251da24b5d740d495a2",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_pixel_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 61,
+      "task_duration": 10,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 235,
+      "sku_id": 321,
+      "channel": "market_video_model:235",
+      "method": "",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "audio": true,
+          "duration": 10,
+          "resolution": "720p"
+        },
+        "native_hash": "cb07b56ed326116768163036dff869faef44d8bca2748dcca2a7e7156071a1c7",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_pixel_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    }
+  ],
+  "original_task_retention": [
+    {
+      "kind": "video",
+      "rows": 44,
+      "tables": 1,
+      "baseline_batch": 43,
+      "full_rows_equal": true,
+      "baseline_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b",
+      "current_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b"
+    },
+    {
+      "kind": "image",
+      "rows": 81,
+      "tables": 1,
+      "baseline_batch": 43,
+      "full_rows_equal": true,
+      "baseline_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc",
+      "current_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc"
+    },
+    {
+      "kind": "app",
+      "rows": 10,
+      "tables": 14,
+      "baseline_batch": 43,
+      "full_rows_equal": true,
+      "baseline_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1",
+      "current_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1"
+    }
+  ],
+  "paid_generation": false,
+  "active_model_contracts_added": 0,
+  "active_meter_contracts_added": 0,
+  "actual_remaining": {
+    "missing_complete_model_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17,
+    "historical_application_options_not_fully_accepted": 13,
+    "pixel_skus": [
+      380,
+      383
+    ],
+    "token_skus": [
+      210,
+      211,
+      212,
+      213,
+      214,
+      215
+    ]
+  },
+  "limitations": [
+    "Version3 is the SaaS finite contract grammar for a formally verified SKU-wide maximum, not an assertion that upstream provides it. No guessed size map or upper bound is activated.",
+    "Current real model contract completeness remains the batch43 reviewed scope, not a new 18-model catalogue audit in batch44.",
+    "Only ordinary image-model consumers implement this physical measurement path. Nano applications and native raw passthrough explicitly reject version3 until their own verified receipt/storage integrations exist.",
+    "Successful physical image storage is not exercised end to end in this batch. Tests inspect a real 1x1 PNG locally, reject invalid bytes before storage, and drive settlement using synthetic server measurement rows. No provider full lifecycle is certified.",
+    "Pixel settlement/failure idempotency is checked; duplicate image reservation with the same task key is not claimed.",
+    "No per-tool uniform UI acceptance was started; PC checks are regression tests. Retained historical tasks have no inferred original entry binding."
+  ]
+}

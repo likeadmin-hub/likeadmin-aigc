@@ -87,7 +87,7 @@ Wan 系列的 `file` / `link` 仅在完整审核模式显式声明对应 kind �
 
 ## 第43批：Token视频的有上限计量合同
 
-这是SaaS共享计量器新增的有限格式，不代表当前上游已经提供这些字段或可放开Seedance。当前6个Token SKU仍缺上限、保持报价／准入阻塞；原生透传API的Token门槛仍单独保留。图片Token和像素计价没有获得此能力。
+这是SaaS共享计量器新增的有限格式，不代表当前上游已经提供这些字段或可放开Seedance。当前6个Token SKU仍缺上限、保持报价／准入阻塞；原生透传API的Token门槛仍单独保留。该version2能力不适用于图片Token或像素计价。
 
 受信任SKU的`source_payload.meter_contract`可声明如下合成格式；1000仅是测试数字，禁止用于真实型号：
 
@@ -100,3 +100,19 @@ Wan 系列的 `file` / `link` 仅在完整审核模式显式声明对应 kind �
 version2只允许Token单位及有效单位大小、1至10^12的整数上限、舍入`ceil`（整点）或`ceil_2`（两位账户精度向上取整）。更细的正金额可能被账户舍成零，因此本版不接受`half_up_6`；version1既有语义不变。`usage_path`仅允许`usage.total_tokens`、`data.usage.total_tokens`、`result.usage.total_tokens`或`data.result.usage.total_tokens`四个明确回执位置之一，不执行表达式或模糊递归。新快照冻结该规则、单位及单价；后续更新不重算旧快照。
 
 共享视频报价／内部准入和预占按上限计费，实际回执按原价格结算、退回差额。预占前同时检查租户和用户余额；没有上限或声明不合法仍拒绝。指定位置无有效正整数回执时保持预占和running状态；超上限回执报错等待核查，不补扣、不截值后冒认结算。重复预占、结算及失败释放保持幂等。Token不能使用固定应用售价覆盖；上限字段不会传给供应商，不能被前端请求覆盖。
+
+## 第44批：图片像素的有上限计量合同
+
+仅适用于普通图片模型共享运行时。以下是SaaS有限格式的合成示例，数字不是任何真实型号的已验证上限：
+
+```json
+{"version":3,"basis":"megapixel","rounding":"ceil_2","maximum_pixels_per_image":1000000,"maximum_images":4,"result_path":"data.image_urls","result_item_url":""}
+```
+
+启用前须有精确型号／渠道、SKU及网关版本绑定的正式计费合同，保证单张最大像素和最大张数覆盖全部允许请求，并说明成功输出与转存回执。不能用用户预算、浏览器宽高或其他供应商同名尺寸替代上限。当前380、383没有这种声明，继续拒绝；没有写入活动version3合同。若只有逐尺寸映射，仍须完整覆盖自动尺寸、所有合法组合和输出数量，不能从不完整映射提取最大值冒充硬上限。
+
+允许`business_unit`、`megapixel`、`per_megapixel`单位及有效单位大小（至少1）；单张上限是1至10^9的整数，最大张数1至16。仅支持`ceil`或`ceil_2`，版本1旧语义保留。输出列表路径仅允许`images`、`image_urls`、`data.images`、`data.image_urls`、`result.images`、`result.image_urls`、`data.result.images`、`data.result.image_urls`、`data.result.results`；URL字段仅允许空字符串（直接字符串列表）、`url`、`image_url`、`uri`。不允许表达式、递归猜测或混用别名；声明中的其他字段拒绝。
+
+预占物理量为请求张数×单张上限／10^6，结算物理量为服务端实测各成功槽宽×高总和／10^6。相同URL的两个槽分别计数，不能去重少收；同次下载可复用文件。响应或浏览器自报尺寸不用于计费。字段型结果若给出type须为image／image_url；显式成功转存可计量，失败／隐藏槽排除，未知／未完成转存拒绝。缺尺寸、超冻结上限或无有效输出保留预占等待核查，不按猜测值结算。
+
+即时回执在本地处理前持久保存，已存图片及尺寸可继续结算；没有任务ID的回执只重试本地处理，明确失败回执幂等退款。Nano应用与原生透传暂未接入这条物理测量链路，显式拒绝version3；不能将其按张数计量。测试及未实测范围见[批次44台账](market-acceptance/batch-44-20261031.md)。
