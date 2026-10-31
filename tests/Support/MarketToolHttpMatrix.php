@@ -59,6 +59,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         }
         $before=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
         $tenantBefore=(float)\think\facade\Db::name('tenant')->where('id',$tenant)->value('point_balance');
+        file_put_contents($fixture->dir.'/hold-from-index',(string)(count(file($fixture->dir.'/submissions.jsonl'))+1));
         $accepted=dataHttp($api,$path.'.generate/index'.$suffix,$input,$token);
         MarketWorkerFixture::check(count($accepted['generation_tasks']??[])===1,$code.' did not return one owned canonical child');
         if($code==='product_promo_video') {
@@ -71,6 +72,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
             MarketWorkerFixture::check($lookup->invoke(null,$tenant,$user,$native['prompt'],(array)$native['model_json'],$scopeParams,'aigc_product_promo_video')!==null,'Same-app exact video intent was not reusable');
             MarketWorkerFixture::check($lookup->invoke(null,$tenant,$user,$native['prompt'],(array)$native['model_json'],$scopeParams,'aigc_video')===null,'Native entry reused another app billing owner');
         }
+        unlink($fixture->dir.'/hold-from-index');
         $workerApp=$accepted['generation_tasks'][0]['app_code'];
         $fixture->start(dirname(__DIR__).'/market-generation-http.php',$workerApp);
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$accepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' child did not finish',30);

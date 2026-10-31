@@ -593,7 +593,7 @@ class AigcImageService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
+        if(ImageAppTaskSync::providerRefreshAllowed())self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
 
         $query = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {

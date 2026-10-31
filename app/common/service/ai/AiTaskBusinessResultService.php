@@ -78,7 +78,7 @@ class AiTaskBusinessResultService
         }
 
         match (self::ADAPTERS[$businessTable] ?? 'unsupported') {
-            'image' => AigcImageService::refreshAsyncTaskResult((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
+            'image' => self::syncImageTask($consumption,$businessId),
             'video' => self::syncVideoTask($consumption, $businessId),
             'script' => AigcShortDramaService::refreshScriptTask($businessId),
             'short_drama' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
@@ -94,6 +94,12 @@ class AiTaskBusinessResultService
             'micro_frame' => self::wakeMicroVideo($consumption,$businessId,'frame'),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
         };
+    }
+
+    private static function syncImageTask(array $consumption,int $businessId): void
+    {
+        AigcImageService::refreshAsyncTaskResult((int)$consumption['tenant_id'],$businessId,(int)$consumption['user_id']);
+        \app\common\service\app\aigc_image\ImageAppTaskSync::projectParents($consumption,$businessId);
     }
 
     private static function syncMusicTask(array $consumption, int $businessId): void
