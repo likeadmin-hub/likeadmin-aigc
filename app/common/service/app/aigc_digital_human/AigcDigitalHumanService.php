@@ -958,7 +958,7 @@ class AigcDigitalHumanService
                 'provider_stage' => $audioDriven ? 'lipsync_submitted' : 'created',
                 'tts_task_id' => '',
                 'tts_audio_uri' => $driverAudioUri,
-                'provider_payload_json' => ['market_selection'=>$selection, 'market_estimate'=>$estimate,'drive_mode'=>$audioDriven?'audio':'text'],
+                'provider_payload_json' => ['market_selection'=>$selection, 'market_estimate'=>$estimate,'drive_mode'=>$audioDriven?'audio':'text','request_duration'=>$duration],
                 'status' => 'running',
                 'progress' => $audioDriven ? 45 : 5,
                 'error' => '',
@@ -1021,12 +1021,16 @@ class AigcDigitalHumanService
             ->where('channel', $criteria['channel'])
             ->where('quality', $criteria['quality'])
             ->where('ratio', $criteria['ratio'])
-            ->where('duration', (int)$criteria['duration'])
             ->where('create_time', '>=', time() - self::DUPLICATE_WINDOW_SECONDS)
             ->order('id', 'desc')
             ->limit(5)
             ->select();
         foreach ($rows as $row) {
+            // TTS replaces the displayed duration with measured audio length.
+            // Match the accepted input, not that later business-result projection.
+            $saved = (array)$row['provider_payload_json'];
+            $requestedDuration = $saved['request_duration'] ?? $saved['market_estimate']['duration'] ?? $row['duration'];
+            if ((int)$requestedDuration !== (int)$criteria['duration']) continue;
             if (isset($criteria['tts_audio_uri']) && (string)($criteria['tts_audio_uri'] ?? '') !== '' && (string)$row['tts_audio_uri'] !== (string)$criteria['tts_audio_uri']) {
                 continue;
             }
