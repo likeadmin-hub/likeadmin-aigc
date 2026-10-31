@@ -361,6 +361,7 @@ class MarketNanoBananaAppRuntimeService
             self::fail($consumptionId, $e->getMessage(), 'request_invalid');
             throw $e;
         }
+        if(!MarketBoundedImageSubmission::begin($consumptionId))return self::response(AiConsumptionLog::find($consumptionId)->toArray());
         \app\common\service\open_platform\OpenSubmission::start($consumptionId);
         try {
             $plan = MarketGenerationAdapterRegistry::transport($snapshot + ['resource_type'=>'app_api'], 'submit');
@@ -401,8 +402,7 @@ class MarketNanoBananaAppRuntimeService
                     'status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => [],
                 ];
             }
-            if(MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter']??[]))){
-                AiConsumptionLog::where('id',$consumptionId)->where('billing_status','reserved')->update(['run_status'=>'pending_confirmation','finish_time'=>0,'error_code'=>'pending_confirmation','error_message'=>'图片服务受理状态待核对，禁止自动重试','update_time'=>time()]);
+            if(self::requiresMeterReceipt($snapshot)&&MarketBoundedImageSubmission::holdUnknown($consumptionId)){
                 return self::response(AiConsumptionLog::find($consumptionId)->toArray());
             }
             if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
@@ -542,6 +542,7 @@ class MarketNanoBananaAppRuntimeService
             $ctx = self::context($consumptionId, true); if ($ctx === null) return;
             $c = $ctx['consumption']; $task = $ctx['app_task'];
             if (in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
+            if($code==='canceled'&&(string)$c['run_status']!=='reserved')throw new Exception('图片任务已提交至 nano-banana 应用 API，无法取消');
             if ((float)$c['reserved_tenant_cost'] > 0 || (float)$c['reserved_user_price'] > 0) PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', '短剧 nano-banana 生图失败退回', self::extra($task, $c, 'refunded'));
             $now = time();
             $c->save(['run_status' => $code === 'canceled' ? 'canceled' : 'failed', 'billing_status' => 'refunded', 'error_code' => $code, 'error_message' => mb_substr($message, 0, 1000), 'finish_time' => $now, 'update_time' => $now]);

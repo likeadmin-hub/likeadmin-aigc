@@ -396,6 +396,7 @@ class MarketImageModelRuntimeService
             $claimed = AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update(['run_status' => 'submitting', 'update_time' => time()]);
             if (!$claimed) return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         }
+        if(!$microSubmission&&!$tenantAdminConsumption&&!MarketBoundedImageSubmission::begin($consumptionId))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         if($microSubmission&&!MicroVideoSubmission::begin($consumptionId))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         $started = microtime(true);
         $taskId = '';
@@ -453,12 +454,13 @@ class MarketImageModelRuntimeService
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
             }
-            if (($tenantAdminConsumption || MarketGenerationMeter::boundedToken((array)($price['billing_meter']??[]))) && (!($e instanceof MarketImageProviderRequestException) || $e->wasAccepted())) {
+            if (($tenantAdminConsumption || self::requiresMeterReceipt($price)) && (!($e instanceof MarketImageProviderRequestException) || $e->wasAccepted())) {
                 if ($e instanceof MarketImageProviderRequestException && $e->receipt()) {
                     self::retainMeterReceipt($consumptionId,$e->receipt(),self::taskId($e->receipt()),self::requestId($e->receipt()));
                 }
-                // A timeout/invalid response proves neither rejection nor acceptance. Keep cost reserved.
-                AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
+                // A timeout/invalid response proves neither rejection nor acceptance.
+                if(self::requiresMeterReceipt($price))MarketBoundedImageSubmission::holdUnknown($consumptionId);
+                else AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
                     'run_status' => 'pending_confirmation', 'error_code' => 'pending_confirmation',
                     'error_message' => '图片服务受理状态待核对，禁止自动重试', 'finish_time' => 0, 'update_time' => time(),
                 ]);
