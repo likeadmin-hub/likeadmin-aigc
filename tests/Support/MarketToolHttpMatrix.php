@@ -47,8 +47,10 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         $before=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
         $accepted=dataHttp($api,$path.'.generate/index'.$suffix,$input,$token);
         MarketWorkerFixture::check(count($accepted['generation_tasks']??[])===1,$code.' did not return one owned canonical child');
-        $fixture->start(dirname(__DIR__).'/market-generation-http.php','aigc_image');
+        $workerApp=$accepted['generation_tasks'][0]['app_code'];
+        $fixture->start(dirname(__DIR__).'/market-generation-http.php',$workerApp);
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$accepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' child did not finish',30);
+        MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->where('app_code',$workerApp)->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
         $fixture->stop();
         $detail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($detail['status']??'')==='success'&&count($detail['results']??[])===1&&($detail['generation_tasks'][0]['status']??'')==='success',$code.' result writeback failed');
@@ -64,8 +66,10 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         MarketWorkerFixture::check((float)$reestimate['user_charge_points']===(float)$estimate['user_charge_points'],$code.' historical reuse changed estimate');
         $reaccepted=dataHttp($api,$path.'.generate/index'.$suffix,$reused,$token);
         MarketWorkerFixture::check($reaccepted['task_id']!==$accepted['task_id']&&($reaccepted['generation_task_refs']??[])!==($accepted['generation_task_refs']??[]),$code.' new attempt reused old identity');
-        $fixture->start(dirname(__DIR__).'/market-generation-http.php','aigc_image');
+        $workerApp=$accepted['generation_tasks'][0]['app_code'];
+        $fixture->start(dirname(__DIR__).'/market-generation-http.php',$workerApp);
         MarketWorkerFixture::wait(fn()=>\app\common\service\ai\GenerationTaskResultService::read((int)$reaccepted['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success',$code.' reused child did not finish',30);
+        MarketWorkerFixture::wait(fn()=>\think\facade\Db::name('ai_task_job')->where('app_code',$workerApp)->where('status','<>','success')->count()===0,$code.' unfinished business handoff',30);
         $fixture->stop();
         $redetail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$reaccepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($redetail['status']??'')==='success'&&count($redetail['results']??[])===1,$code.' reused result failed');
