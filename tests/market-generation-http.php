@@ -54,7 +54,7 @@ try {
     Db::name('user')->where('id',$user)->update(['password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification'))]);
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
     foreach(['aigc_canvas','aigc_video','aigc_short_drama']as$code) {
-        Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','create_time'=>time(),'update_time'=>time()]);
+        Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
         Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled','create_time'=>time(),'update_time'=>time()]);
     }
     foreach(['supplier','api']as$role){
@@ -93,7 +93,7 @@ try {
     MarketWorkerFixture::check($frozen===Db::name('ai_consumption_log')->where('id',$consumption)->value('price_snapshot'),'Frozen pricing changed');
     $report+=['authenticated_submission'=>true,'worker_completed_without_browser_poll'=>true,'managed_result_checksum'=>true,'stale_autosave_preserved_result_and_user_edit'=>true,'logout_login_reopen'=>true,'local_supplier_submissions'=>count(file($dir.'/submissions.jsonl')),'tasks'=>(int)Db::name('ai_app_task')->count(),'consumptions'=>(int)Db::name('ai_consumption_log')->count(),'result_assets'=>(int)Db::name('ai_task_result_asset')->count(),'billing_events'=>Db::name('ai_consumption_event')->column('event_type'),'fixture_user_balance'=>(float)Db::name('user')->where('id',$user)->value('user_money'),'fixture_tenant_balance'=>(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')];
 } catch(Throwable $e) {
-    $failure=$e;$report['failure']=$e->getMessage();
+    $failure=$e;$report['failure']=$e->getMessage();$report['fixture_line']=array_values(array_map(static fn($frame)=>$frame['line']??0,array_filter($e->getTrace(),static fn($frame)=>($frame['file']??'')===__FILE__))); 
     if($fixture)foreach(glob($fixture->dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).": ".substr(file_get_contents($log),-2500)."\n");
 } finally {
     foreach($processes as$process)if(is_resource($process)){$state=proc_get_status($process);if($state['running'])posix_kill($state['pid'],SIGTERM);proc_close($process);}
