@@ -1,0 +1,26 @@
+{
+  "batch": 35,
+  "date": "2026-10-31",
+  "source_web_commit": "12f26ffd31ac9b99dd1699361a2a67c48013e0ab",
+  "source_server_commit": "4ad894afc9d87689ee342505b4fc8a05531e78a0",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "scope": "Historical production HTTP reproduction only. The full source commit is recorded from Git in the ledger; this record does not certify fixed source.",
+  "cases": [
+    {
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "scenario": "partial_local_use_deletion_kept_old_group_without_conflict",
+      "status": "reproduced_failure",
+      "requested_method": "text_to_video",
+      "reference_uses": 3,
+      "structured_uri_uses": 4,
+      "conflict_retained": false,
+      "run_rows": 0,
+      "scope": "Synthetic project only; old version before e4b45c6c. No new SKU guessed."
+    }
+  ]
+}
