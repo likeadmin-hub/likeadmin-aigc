@@ -71,6 +71,19 @@ class MarketCanvasManagedProjectionTest extends TestCase
             else self::assertSame($boundary==='failure'?'failed':'success',$afterRun['status']);
             AiTaskBusinessResultService::syncByConsumptionId((int)$c['id']);
             self::assertSame($afterRun,AigcCanvasRun::find($run['id'])->toArray());self::assertSame($afterProject,AigcCanvasProject::find($project['id'])->toArray());
+            if(in_array($boundary,['active','collection','legacy','expired_alias','failure'],true)) {
+                $draft=$beforeProject['nodes_json'];$draft[0]['metadata']['prompt']='User edited prompt during generation';
+                $draft[0]['metadata']['quality']='next-request-quality';
+                $saved=\app\common\service\app\aigc_canvas\AigcCanvasService::saveProject($owner['tenant_id'],$owner['user_id'],
+                    ['id'=>$project['id'],'nodes'=>$draft,'edges'=>$beforeProject['edges_json'],'viewport'=>$beforeProject['viewport_json']]);
+                $m=AigcCanvasProject::find($project['id'])['nodes_json'][0]['metadata'];
+                self::assertSame($boundary==='failure'?'failed':'success',$m['status']);
+                self::assertSame('app_task:'.$task['id'],$m['generationTaskRef']);
+                self::assertSame('User edited prompt during generation',$m['prompt']);
+                self::assertSame('next-request-quality',$m['quality']);
+                if($boundary!=='failure')self::assertSame($uri,$m['uri']);
+            }
+
         } finally {Db::rollback();}
     }
 
