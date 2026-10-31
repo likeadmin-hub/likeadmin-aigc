@@ -48,6 +48,9 @@ class MarketCanvasManagedProjectionTest extends TestCase
             if($boundary==='foreign_project')$project->save(['user_id'=>199999957]);
             if($boundary==='deleted_project')$project->save(['delete_time'=>time()]);
             if($boundary==='collection')$node['metadata']['mediaItems']=[['id'=>'prior','type'=>$kind,'url'=>'uploads/prior-result','mediaSource'=>'generated']];
+            if($boundary==='legacy'){unset($node['metadata']['mediaItems']);$node['metadata']['url']='uploads/prior-result';}
+            if($boundary==='expired_alias')$c->save(['response_summary'=>[$key=>[[$kind.'_uri'=>$uri,'url'=>'https://example.invalid/expired',
+                'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'https://untrusted.invalid']]]]);
             $project->save(['nodes_json'=>$boundary==='deleted_node'?[]:[$node]]);
             $beforeProject=AigcCanvasProject::find($project['id'])->toArray();$beforeRun=AigcCanvasRun::find($run['id'])->toArray();$beforeC=AiConsumptionLog::find($c['id'])->toArray();
             AiTaskBusinessResultService::syncByConsumptionId((int)$c['id']);
@@ -55,11 +58,12 @@ class MarketCanvasManagedProjectionTest extends TestCase
             self::assertSame($beforeC,AiConsumptionLog::find($c['id'])->toArray(),'Consumption and frozen billing must not change');
             self::assertSame($frozen,$afterRun['params_json']);
             self::assertSame($beforeProject['edges_json'],$afterProject['edges_json']);self::assertSame($beforeProject['viewport_json'],$afterProject['viewport_json']);
-            if(in_array($boundary,['active','collection','failure'],true)) {
+            if(in_array($boundary,['active','collection','legacy','expired_alias','failure'],true)) {
                 $m=$afterProject['nodes_json'][0]['metadata'];self::assertSame($boundary==='failure'?'failed':'success',$m['status']);self::assertFalse($m['pending']);
                 self::assertSame(false,$m['audio']);self::assertSame('fixture',$m['quality']);self::assertSame(1,$m['duration']);
                 if($boundary==='failure')self::assertSame('Owned fixture failure',$m['errorDetails']);
-                else {self::assertSame($uri,$m['uri']);self::assertCount($boundary==='collection'?2:1,$m['mediaItems']);self::assertSame($uri,end($m['mediaItems'])['assetUri']);}
+                else {self::assertSame($uri,$m['uri']);self::assertCount(in_array($boundary,['collection','legacy'],true)?2:1,$m['mediaItems']);self::assertSame($uri,end($m['mediaItems'])['assetUri']);
+                    self::assertStringContainsString($uri,$m['url']);self::assertStringNotContainsString('example.invalid',$m['url']);self::assertStringNotContainsString('untrusted.invalid',$m['url']);}
             } else self::assertSame($beforeProject,$afterProject,'A late result must not overwrite an unrelated node or project');
             if(in_array($boundary,['foreign_run','untransferred','failed_run','terminal_conflict'],true))self::assertSame($beforeRun,$afterRun);
             else self::assertSame($boundary==='failure'?'failed':'success',$afterRun['status']);
@@ -70,7 +74,7 @@ class MarketCanvasManagedProjectionTest extends TestCase
 
     public static function boundaries(): array
     {
-        $cases=[];foreach(['image','video','audio']as$kind)foreach(['active','collection','failure','stale_task','canceled_node','completed_node',
+        $cases=[];foreach(['image','video','audio']as$kind)foreach(['active','collection','legacy','expired_alias','failure','stale_task','canceled_node','completed_node',
             'failed_run','terminal_conflict','foreign_run','foreign_project','deleted_project','deleted_node','untransferred']as$boundary)$cases[]=[$kind,$boundary];return $cases;
     }
 }
