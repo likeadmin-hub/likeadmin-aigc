@@ -42,11 +42,11 @@ final class GenerationTaskResultService
         $assetFields="id,app_task_id,consumption_id,asset_type,local_uri,storage_scope,storage_engine,storage_domain,transfer_status,storage_meta,CASE WHEN transfer_status='stored' OR LEFT(external_url,5)='data:' THEN '' ELSE external_url END AS external_url";
         $assets=$consumptionIds ? AiTaskResultAsset::where($owner)->whereIn('app_task_id',array_merge([0],$ids))->whereIn('consumption_id',$consumptionIds)->fieldRaw($assetFields)->order('id','asc')->select()->toArray() : [];
         $native=array_values(array_filter($tasks,static fn($t)=>$t['app_code']==='smart_clip'&&$t['business_table']==='smart_clip_task'));
-        $result=\app\common\service\app\smart_clip\SmartClipTaskRuntime::views($native,$tenantId,$userId);
+        $nativeViews=\app\common\service\app\smart_clip\SmartClipTaskRuntime::views($native,$tenantId,$userId);$result=[];
         $byId=array_column($tasks,null,'id');
         foreach ($requested as $id) {
             if (!isset($byId[$id])) continue;
-            $task=$byId[$id];if($task['app_code']==='smart_clip'&&$task['business_table']==='smart_clip_task')continue;$owned=array_values(array_filter($consumptions,static fn($c)=>(int)$c['app_task_id']===$id));
+            $task=$byId[$id];if($task['app_code']==='smart_clip'&&$task['business_table']==='smart_clip_task'){if(isset($nativeViews[$id]))$result[$id]=$nativeViews[$id];continue;}$owned=array_values(array_filter($consumptions,static fn($c)=>(int)$c['app_task_id']===$id));
             $result[$id]=self::project($id,$task,$owned,array_values(array_filter($assets,static fn($a)=>(int)$a['app_task_id']===0||(int)$a['app_task_id']===$id)));
         }
         return $result;
