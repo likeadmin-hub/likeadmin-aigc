@@ -195,12 +195,13 @@ class AigcVideoService
         }
         if (\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot'])) $selection['q4_options'] = \app\common\service\power\Q4VideoContract::options($params);
         $selection['generation_parameters_signature'] = \app\common\service\power\MarketGenerationRequest::parameterSignature($params);
-        $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
+        $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params, $appCode);
         if ($duplicate !== null) {
             return self::marketDuplicateResponse($duplicate, $tenantId, $userId);
         }
         self::checkQuota($tenantId, $userId, 1);
         $now = time();
+        $selection['submission_request_key']=trim((string)($params['idempotency_key']??''));
         $task = AigcVideoTask::create([
             'tenant_id' => $tenantId, 'user_id' => $userId, 'prompt' => $prompt,
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''), 'reference_images' => $params['reference_images'], 'reference_assets' => $referenceAssets,
@@ -381,7 +382,7 @@ class AigcVideoService
         return \app\common\service\power\MarketGenerationAdapterRegistry::runtime('video', $selection);
     }
 
-    private static function findRecentMarketDuplicateTask(int $tenantId, int $userId, string $prompt, array $selection, array $params): ?AigcVideoTask
+    private static function findRecentMarketDuplicateTask(int $tenantId, int $userId, string $prompt, array $selection, array $params, string $appCode): ?AigcVideoTask
     {
         $skuId = (int)($selection['market_sku_id'] ?? 0);
         if ($skuId <= 0) {
@@ -396,7 +397,12 @@ class AigcVideoService
         ])->where('create_time', '>=', time() - self::DUPLICATE_WINDOW_SECONDS)
             ->order('id', 'desc')->limit(3)->select();
         $signature = self::referenceAssetSignature((array)$params['reference_assets'], (array)$params['reference_images']);
+        $owned=\app\common\model\ai\AiAppTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'app_code'=>$appCode])
+            ->whereIn('id',array_column($rows->toArray(),'app_task_id'))->column('id');
+        $requestKey=trim((string)($params['idempotency_key']??''));
         foreach ($rows as $row) {
+            if (!in_array((int)$row['app_task_id'],array_map('intval',$owned),true)
+                || !self::matchesSubmissionIntent((array)$row['model_json'],$requestKey)) continue;
             if (($row['model_json']['generation_parameters_signature'] ?? '') !== ($selection['generation_parameters_signature'] ?? '')) continue;
             if (($row['model_json']['q4_options'] ?? []) !== ($selection['q4_options'] ?? [])) continue;
             if (($row['model_json']['effect_snapshot']['version'] ?? '') !== ($selection['effect_snapshot']['version'] ?? '')) continue;
@@ -411,6 +417,11 @@ class AigcVideoService
             }
         }
         return null;
+    }
+
+    private static function matchesSubmissionIntent(array $saved, string $requestKey): bool
+    {
+        return $requestKey==='' || ($saved['submission_request_key']??'')===$requestKey;
     }
 
     private static function marketDuplicateResponse(AigcVideoTask $task, int $tenantId, int $userId): array
