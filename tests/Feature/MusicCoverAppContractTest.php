@@ -82,8 +82,9 @@ class MusicCoverAppContractTest extends TestCase
         self::assertStringContainsString("SUBMIT_API_CODE = 'submit'", $runtime);
         self::assertStringContainsString("'ref_audio'", $runtime);
         self::assertStringContainsString("'source_audio'", $runtime);
-        self::assertStringContainsString('AppAccessService::assertTenantCanUse', $service);
-        self::assertStringContainsString('MarketApplicationApiRuntimeService::reserve', $service);
+        self::assertStringContainsString('AppAccessService::assertTenantAvailable', $service);
+        self::assertStringContainsString("MarketGenerationRuntime::selection('application'", $service);
+        self::assertStringContainsString('$runtime->reserve', $service);
         self::assertStringContainsString("\$query->where('user_id', \$userId)", $service);
         self::assertStringContainsString(
             "retryTask((int)\$this->request->tenantId, (int)\$this->request->post('id', 0), \$this->userId)",

@@ -186,7 +186,8 @@ try {
     MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$firstChild)->value('status')==='success'&&View::read((int)$suite['generation_tasks'][0]['app_task_id'],$tenant,$user)['status']==='success','First suite child not completed',30);
     $partial=dataHttp($api,'/api/app.aigc_product_suite.task/detail'.$suffix.'&id='.$suite['task_id'],[],$token,'GET');
     MarketWorkerFixture::check($partial['status']==='running'&&$partial['generation_tasks'][0]['status']==='success'&&$partial['generation_tasks'][1]['status']==='running','First child incorrectly completed its parent');
-    unlink($dir.'/hold-from-index');MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$secondChild)->value('status')==='success'&&View::read((int)$suite['generation_tasks'][1]['app_task_id'],$tenant,$user)['status']==='success','Second suite child did not finish',30);$fixture->stop();
+    unlink($dir.'/hold-from-index');MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$secondChild)->value('status')==='success'&&View::read((int)$suite['generation_tasks'][1]['app_task_id'],$tenant,$user)['status']==='success','Second suite child did not finish',30);
+    MarketWorkerFixture::wait(fn()=>Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Image baseline result handoffs not drained',30);$fixture->stop();
     $suiteFinal=dataHttp($api,'/api/app.aigc_product_suite.task/detail'.$suffix.'&id='.$suite['task_id'],[],$token,'GET');
     MarketWorkerFixture::check($suiteFinal['status']==='success'&&count($suiteFinal['results'])===2&&array_column($suiteFinal['generation_tasks'],'status')===['success','success'],'Completed suite lost business or typed child results');
     $userAfter=(float)Db::name('user')->where('id',$user)->value('user_money');$tenantAfter=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
