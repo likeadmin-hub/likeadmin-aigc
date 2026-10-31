@@ -260,8 +260,12 @@ class MarketImageModelRuntimeService
             self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt),
             $snapshot['billing_meter'] ?? null, [], $declaredKinds
         );
+        $schema=self::arrayValue($metadata['params_schema']??[]);$schema=self::arrayValue($schema['properties']??$schema);
+        $imageUses=count(array_filter(MarketGenerationMaterials::assets($request),static fn($a)=>($a['type']??'image')==='image'));
+        $undeclaredReferenceField=$imageUses>0 && $schema!==[] && MarketGenerationMaterials::modes($metadata)===[]
+            && !self::usesStructuredTaskPayload($snapshot) && !array_key_exists(self::referenceImageField($snapshot),$schema);
         if(($snapshot['media_meter_revision']??0)===1 && isset($snapshot['billing_meter']['image_denominator'])
-            && count(array_filter(MarketGenerationMaterials::assets($request),static fn($a)=>($a['type']??'image')==='image'))>(int)($prepared->meterContext['reference_images']??0))
+            && ($undeclaredReferenceField || $imageUses>(int)($prepared->meterContext['reference_images']??0)))
             throw new Exception('参考素材计费数量尚不能完整核验，请切换模型或规格');
         MarketGenerationReviewedContract::validatePayload($snapshot,$request,$prepared->nativeInput,$deferMissingPrompt);
         MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput, static fn($asset)=>
@@ -1052,9 +1056,9 @@ class MarketImageModelRuntimeService
         }
         $params = self::providerParamsForFlatPayload($params, $schema);
         // URL aliases can represent separate input slots. Resolve each slot without collapsing multiplicity.
-        $referenceImages = MarketImageReferenceUrlService::normalizeRequest([
-            'reference_images' => (array)($request['reference_images'] ?? []),
-        ], $tenantId)['reference_images'];
+        $referenceImages = ($snapshot['image_reference_slot_revision'] ?? 0) === 1
+            ? MarketImageReferenceUrlService::normalizeRequest(['reference_images' => (array)($request['reference_images'] ?? [])], $tenantId)['reference_images']
+            : MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
         if (self::usesStructuredTaskPayload($snapshot)) {
             return MarketGenerationRequest::normalizeLegacyPayload($snapshot,
                 self::structuredTaskPayload($snapshot, $request, $params, $referenceImages, $ratio, $outputQuality, $imageSize, $idempotencyKey),
@@ -1892,7 +1896,7 @@ class MarketImageModelRuntimeService
     private static function isQwenImageModel(string $modelCode): bool { return in_array(strtolower(trim($modelCode)), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true); }
     private static function normalizedRatio(string $ratio): string { $ratio = trim($ratio); return self::isPlaceholderRatio($ratio) ? '' : $ratio; }
     private static function isPlaceholderRatio(string $ratio): bool { return trim($ratio) === ''; }
-    private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; $source = self::arrayValue($product['source_payload'] ?? []); return ['generation_validation_revision'=>8, 'media_meter_revision'=>1, 'billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'image', 'market_metadata' => self::metadata($product), 'pricing_attributes' => array_values(array_filter((array)($source['pricing_v2']['attributes'] ?? []), 'is_array')), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)($market['reference_limit'] ?? 0)]; }
+    private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; $source = self::arrayValue($product['source_payload'] ?? []); return ['generation_validation_revision'=>8, 'image_reference_slot_revision'=>1, 'media_meter_revision'=>1, 'billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'image', 'market_metadata' => self::metadata($product), 'pricing_attributes' => array_values(array_filter((array)($source['pricing_v2']['attributes'] ?? []), 'is_array')), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)($market['reference_limit'] ?? 0)]; }
     private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'reference_image_count' => count((array)($request['reference_images'] ?? [])), 'ratio' => self::firstValue($request, ['ratio', 'aspect_ratio']), 'quality' => (string)($request['quality'] ?? '')]; }
     private static function assertReferenceImagesAllowed(array $market, array $request, bool $deferMissingPrompt = false): void { if (MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []) { self::payload(self::snapshot($market), $request, 'admission', 0, $deferMissingPrompt); return; } $count = count(array_filter((array)($request['reference_images'] ?? []))); if ($count <= 0) return; $meta = self::metadata($market['product']); $limit = (int)($market['reference_limit'] ?? 0); if (!self::supportsReferenceImages($meta)) throw new Exception('所选图片模型不支持参考图'); if ($limit > 0 && $count > $limit) throw new Exception('所选图片模型最多支持 ' . $limit . ' 张参考图'); }
     private static function context(int $consumptionId, bool $lock): ?array { $q = AiConsumptionLog::where('id', $consumptionId); if ($lock) $q->lock(true); $c = $q->findOrEmpty(); if ($c->isEmpty()) return null; $tq = AiAppTask::where('id', (int)$c['app_task_id']); if ($lock) $tq->lock(true); $t = $tq->findOrEmpty(); return $t->isEmpty() ? null : ['consumption' => $c, 'app_task' => $t]; }
