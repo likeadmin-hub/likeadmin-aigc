@@ -958,7 +958,7 @@ class AigcDigitalHumanService
                 'provider_stage' => $audioDriven ? 'lipsync_submitted' : 'created',
                 'tts_task_id' => '',
                 'tts_audio_uri' => $driverAudioUri,
-                'provider_payload_json' => ['market_selection'=>$selection, 'market_estimate'=>$estimate],
+                'provider_payload_json' => ['market_selection'=>$selection, 'market_estimate'=>$estimate,'drive_mode'=>$audioDriven?'audio':'text'],
                 'status' => 'running',
                 'progress' => $audioDriven ? 45 : 5,
                 'error' => '',

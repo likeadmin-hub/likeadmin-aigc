@@ -26,7 +26,8 @@ final class MicroVideoCatalog
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
             if((int)($model['status']??1)!==1||(int)($model['max_reference_images']??0)<1)continue;
             $modes=(array)($model['generation_modes']??$model['input_modes']??[]);$method='';
-            foreach(['image_reference','omni_reference','image_to_video'] as $m)if(in_array($m,$modes,true)){$method=$m;break;}
+            if (!empty($model['material_modes'])) $method=\app\common\service\power\MarketGenerationMaterials::singleImageMethod($model);
+            else foreach(['image_reference','omni_reference','image_to_video'] as $m)if(in_array($m,$modes,true)){$method=$m;break;}
             if($method===''){if($legacy)$method='image_reference';else continue;}
             $hasFrames=!empty($model['supports_first_last_frame'])&&in_array('start_end',$modes,true);if(!$legacy&&$mode!=='reference'&&!$hasFrames)continue;
             $specs=[];$frameSpecs=[];$validatedPairs=[];
