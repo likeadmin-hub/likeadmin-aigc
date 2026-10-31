@@ -25,5 +25,12 @@ final class MicroVideoFrameCatalog
     }
     public static function model(int $tenant,string $id): array{foreach(self::models($tenant) as $m)if($m['id']===$id)return $m;throw new InvalidArgumentException('首尾帧图片模型暂不可用');}
     public static function selection(array $model,string $quality,string $ratio): array{foreach($model['specs'] as $s)if($s['quality']===$quality&&$s['ratio']===$ratio)return ['model_id'=>$model['id'],'market_sku_id'=>$s['market_sku_id'],'quality'=>$quality,'ratio'=>$ratio];throw new InvalidArgumentException('图片模型不支持当前画质或视频比例');}
-    public static function quote(int $tenant,array $selection): array{$q=R::quote($tenant,$selection,1);if(($q['settlement_mode']??'reserved')!=='reserved')throw new InvalidArgumentException('图片规格不支持预报价');return ['selection'=>$selection,'market_sku_id'=>(int)$selection['market_sku_id'],'tenant_cost_points'=>(float)$q['tenant_cost_points'],'user_charge_points'=>(float)$q['user_charge_points']];}
+    public static function quote(int $tenant,array $selection): array
+    {
+        // The actual boundary prompt is assembled by the frame worker. This
+        // read-only placeholder must never enter its frozen executable selection.
+        $q=R::quote($tenant,$selection+['prompt'=>'Image boundary pricing'],1);
+        if(($q['settlement_mode']??'reserved')!=='reserved')throw new InvalidArgumentException('图片规格不支持预报价');
+        return ['selection'=>$selection,'market_sku_id'=>(int)$selection['market_sku_id'],'tenant_cost_points'=>(float)$q['tenant_cost_points'],'user_charge_points'=>(float)$q['user_charge_points']];
+    }
 }
