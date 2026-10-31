@@ -203,4 +203,12 @@ class GenerationTaskResultTest extends TestCase
         self::assertSame(['task_id'=>7,'status'=>'success'],Results::withoutView($response));
     }
 
+    public function testSharedTaskReferenceDoesNotChangeShortDramaGenerationInputFence(): void
+    {
+        $method=new \ReflectionMethod(\app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService::class,'nodeInputSignature');$method->setAccessible(true);
+        $node=['id'=>'1','type'=>'video','title'=>'Fixture','metadata'=>['prompt'=>'original','quality'=>'4k']];
+        $before=$method->invoke(null,$node);$node['metadata']['generationTaskRef']='app_task:42';
+        self::assertSame($before,$method->invoke(null,$node));$node['metadata']['prompt']='new prompt';self::assertNotSame($before,$method->invoke(null,$node));
+    }
+
 }
