@@ -138,3 +138,10 @@ version2／version3继续使用既定的ceil或ceil_2，未增加计量格式。
 ```
 
 上限预占和实际计量复用共享版本2，财务缺回执保持pending_usage、超上限保持settlement_failed供核对，明确失败退款。单价和计量在受理快照中冻结，不按后续SKU重算。既有按次／秒及旧冻结语义保留；原生提示词投影补齐，不改变请求正文。实际没有启用或发布此类合同，测试与未实测边界见[批次47](market-acceptance/batch-47-20261031.md)。
+
+
+## 第48批：Nano像素与普通图片模型Token
+
+Nano应用复用version3像素核验与结算。因原生张数映射未确认，预占使用SKU正式`maximum_images`全局上限，`requested_image_quantity`另存UI数量；不得从UI张数猜造原生字段。固定应用零售价按实际成功槽数，市场成本按服务端实测像素。按次／旧Nano冻结保持。普通图片模型复用version2 Token预占与指定路径实际结算，UI张数与`billing_quantity`分离；固定售价覆盖拒绝。计量图片返回实际落库的价格快照。
+
+缺计量、超上限或受理状态不明保留预占，明确失败退款；先存回执及就绪图片，无任务ID可继续本地恢复。上述均为共享格式就绪；当前活动version2／version3仍均为0，Nano实际张数映射、有效转存和供应商回执未实测。Nano Token、原生图片／应用Token和像素透传继续保留独立门槛。无法确认的合同保留待用户核对；见[批次48](market-acceptance/batch-48-20261031.md)。
