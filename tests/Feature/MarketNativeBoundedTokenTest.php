@@ -27,6 +27,14 @@ class MarketNativeBoundedTokenTest extends TestCase
     {
         return ['kind'=>'video','market_snapshot'=>['billing_meter'=>Meter::tokenContract(self::sku()),'usage_unit'=>'token','usage_unit_size'=>1000]+$extra];
     }
+    public function testRawPromptIsVisibleToAdmissionWithoutRewritingTheWire(): void
+    {
+        $raw=['model'=>'offline-native-token','prompt'=>'  Synthetic prompt  '];$wire=Store::encode($raw);
+        self::assertSame($raw['prompt'],Native::bind(self::product(),$raw,991702,self::sku())['selection']['prompt']);self::assertSame($wire,Store::encode($raw));
+        self::assertSame('',Native::bind(self::product(),['prompt'=>''],991702,self::sku())['selection']['prompt']);
+        $raw['parameters']=['prompt'=>'Conflicting prompt'];
+        $this->expectException(OpenException::class);Native::bind(self::product(),$raw,991702,self::sku());
+    }
     public function testCompilerBindsTheVerifiedUpperBoundWithoutActivatingAnything(): void
     {
         $p=self::product();$s=self::sku();$plan=Compiler::compileProduct($p+['skus'=>[$s]]);

@@ -21,6 +21,11 @@ final class OpenNativeMarketPricing
         if (!self::supports($product) || $skuId <= 0) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
         $isImage = ($product['model_type'] ?? '') === 'image' && $product['resource_type'] === 'model';
         $selection = ['market_product_id' => (int)$product['id'], 'market_sku_id' => $skuId, 'resource_type' => $product['resource_type']];
+        $prompt=self::alias($raw,['prompt'],false,true);
+        if($prompt!==null){
+            if(!is_string($prompt))throw new OpenException('invalid_request','提示词必须为字符串');
+            $selection['prompt']=$prompt;
+        }
         $locked = self::object($sku['locked_params'] ?? []);
         foreach (['model' => 'upstream_model_code', 'channel' => 'upstream_channel_code'] as $name => $column) {
             $value = self::alias($raw, [$name]);
