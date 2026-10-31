@@ -491,7 +491,11 @@ class AigcBackgroundRemovalService
                         'delete_time' => 0,
                         'create_time' => time(),
                     ]);
-                } catch (\Throwable) {
+                } catch (\Throwable $error) {
+                    \think\facade\Log::error('Background removal result storage failed: ' . json_encode([
+                        'tenant_id' => $tenantId, 'task_id' => (int)$task['id'],
+                        'image_result_id' => $imageResultId, 'error' => $error->getMessage(),
+                    ], JSON_UNESCAPED_UNICODE));
                     $refundError = self::refundImageBillings($task, self::TRANSPARENT_RESULT_ERROR);
                     $task->save([
                         'status' => 'failed',
