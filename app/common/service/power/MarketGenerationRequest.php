@@ -90,6 +90,7 @@ final class MarketGenerationRequest
             $params[$key] = $value;
         }
         $native = (string)($mode['native_mode'] ?? '');
+        $params = MarketGenerationCreatorMaterials::complete($metadata,$mode??[],$params);
         $originalSchema = $schema;
         $schema = MarketGenerationSchema::branch($schema, $params);
         $params = MarketGenerationSchema::normalize($schema, $params, $native);
