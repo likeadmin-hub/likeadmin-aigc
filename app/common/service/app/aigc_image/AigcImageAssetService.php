@@ -10,14 +10,14 @@ use Exception;
 
 class AigcImageAssetService
 {
-    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, bool $safeDownload = false, int $maximumPixels = 0, ?array $storageConfig = null): array
+    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, bool $safeDownload = false, int $maximumPixels = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         $safeDownload=$safeDownload||$maximumPixels>0;
         if (str_starts_with($url, 'data:image/')) {
-            return self::persistDataUri($url, $tenantId, $userId, $safeDownload,$maximumPixels,$storageConfig);
+            return self::persistDataUri($url, $tenantId, $userId, $safeDownload,$maximumPixels,$storageConfig,$resultAssetId);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId, $safeDownload,$maximumPixels,$storageConfig);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $safeDownload,$maximumPixels,$storageConfig,$resultAssetId);
         }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
@@ -34,7 +34,7 @@ class AigcImageAssetService
         return ['width'=>(int)$info[0],'height'=>(int)$info[1]];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload, int $maximumPixels = 0, ?array $storageConfig = null): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, bool $safeDownload, int $maximumPixels = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         $context = stream_context_create([
             'http' => [
@@ -49,10 +49,10 @@ class AigcImageAssetService
         if ($content === false || $content === '') {
             throw new Exception('生成图片下载失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $safeDownload,$maximumPixels,$storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $safeDownload,$maximumPixels,$storageConfig,$resultAssetId);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         if (!preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成图片格式错误');
@@ -62,10 +62,10 @@ class AigcImageAssetService
             throw new Exception('生成图片解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput,$maximumPixels,$storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput,$maximumPixels,$storageConfig,$resultAssetId);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         $verifiedSize=$verifyOutput?self::verifiedImageInfo($content,$maximumPixels):null;
         if($verifiedSize!==null)$ext=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp','image/gif'=>'gif'][$verifiedSize['mime']];
@@ -79,11 +79,13 @@ class AigcImageAssetService
         file_put_contents($tmpPath, $content);
         $size = $verifiedSize ?? (@getimagesize($tmpPath) ?: []);
         try {
-            $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId,$storageConfig);
+            $stored = $resultAssetId > 0
+                ? \app\common\service\ai\AiTaskManagedFileService::persist($tmpPath, $resultAssetId, $tenantId, $userId, $storageConfig ?? StorageConfigService::getEffectiveConfig($tenantId), ['width' => (int)($size[0] ?? 0), 'height' => (int)($size[1] ?? 0)])
+                : self::uploadLocalFile($tmpPath, $tenantId, $userId,$storageConfig);
         } finally {
             @unlink($tmpPath);
         }
-        return [
+        return array_intersect_key($stored, array_flip(['checksum', 'file_size', 'file_id'])) + [
             'uri' => $stored['uri'],
             'width' => (int)($size[0] ?? 0),
             'height' => (int)($size[1] ?? 0),

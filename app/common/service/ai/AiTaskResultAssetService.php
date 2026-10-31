@@ -85,12 +85,12 @@ class AiTaskResultAssetService
         }
         $tenantId = (int)$asset['tenant_id'];
         $userId = (int)$asset['user_id'];
-        $storageConfig = self::shortDramaStorageConfig($asset, $tenantId);
+        $storageConfig = self::shortDramaStorageConfig($asset, $tenantId) ?? \app\common\service\storage\StorageConfigService::getEffectiveConfig($tenantId);
         try {
-            $stored = match ((string)$asset['asset_type']) {
-                'image' => AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId, true,0,$storageConfig),
-                'video' => AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId, $storageConfig),
-                'audio' => AigcMusicAssetService::persistGeneratedAudio($url, $tenantId, $userId, $storageConfig),
+            $stored = AiTaskManagedFileService::recover($asset, $storageConfig) ?? match ((string)$asset['asset_type']) {
+                'image' => AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId, true,0,$storageConfig,$assetId),
+                'video' => AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId, $storageConfig, $assetId),
+                'audio' => AigcMusicAssetService::persistGeneratedAudio($url, $tenantId, $userId, $storageConfig, $assetId),
                 default => throw new Exception('不支持的结果资源类型'),
             };
             if(empty($stored['stored'])||trim((string)($stored['uri']??''))==='')throw new Exception('结果资源尚未完成有效转存');

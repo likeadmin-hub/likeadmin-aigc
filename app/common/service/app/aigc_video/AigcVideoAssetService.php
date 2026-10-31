@@ -36,20 +36,20 @@ class AigcVideoAssetService
         ];
     }
 
-    public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
+    public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         if (str_starts_with($url, 'data:video/')) {
-            return self::persistDataUri($url, $tenantId, $userId, $storageConfig);
+            return self::persistDataUri($url, $tenantId, $userId, $storageConfig, $resultAssetId);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             try {
-                return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
+                return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig, $resultAssetId);
             } catch (\Throwable $first) {
                 $publicUrl = self::publicObjectUrl($url);
                 if ($publicUrl === '') {
                     throw $first;
                 }
-                return self::persistRemoteUrl($publicUrl, $tenantId, $userId, $storageConfig);
+                return self::persistRemoteUrl($publicUrl, $tenantId, $userId, $storageConfig, $resultAssetId);
             }
         }
         if (!self::isAllowedLocalVideoUri($url)) {
@@ -78,7 +78,7 @@ class AigcVideoAssetService
             . (string)$parts['path'];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
     {
         $context = stream_context_create([
             'http' => [
@@ -102,10 +102,10 @@ class AigcVideoAssetService
         if (self::isTextResponse($contentType, $content)) {
             throw new Exception('生成视频下载失败，远程地址返回的不是视频文件');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType), $storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType), $storageConfig, $resultAssetId);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
     {
         if (!preg_match('/^data:video\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成视频格式错误');
@@ -115,10 +115,10 @@ class AigcVideoAssetService
             throw new Exception('生成视频解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $storageConfig, $resultAssetId);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, ?array $storageConfig): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, ?array $storageConfig, int $resultAssetId = 0): array
     {
         $detectedExt = self::detectVideoExtension($content);
         if ($detectedExt === '') {
@@ -134,6 +134,7 @@ class AigcVideoAssetService
         file_put_contents($tmpPath, $content);
         try {
             $config = $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId);
+            if ($resultAssetId > 0) return \app\common\service\ai\AiTaskManagedFileService::persist($tmpPath, $resultAssetId, $tenantId, $userId, $config, ['width' => 0, 'height' => 0]);
             $uri = self::uploadLocalFile($tmpPath, $tenantId, $userId, $config);
         } finally {
             @unlink($tmpPath);
