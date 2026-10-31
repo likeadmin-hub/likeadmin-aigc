@@ -168,9 +168,7 @@ final class MarketGenerationMeter
         }
         $amount = bcdiv($amount, $divisor, 12);
         if ($meter['round_up']) {
-            // New Token contracts explicitly round at the account precision
-            // or to whole points. Never reserve a sub-cent amount that the
-            // two-decimal point account would round down to zero.
+            // Historical version1 rounding remains unchanged.
             $scale=$meter['rounding_scale'] ?? 0;
             $integer = bcadd($amount, '0', $scale);
             return (float)(bccomp($amount, $integer, 12) > 0 ? bcadd($integer, $scale===2?'0.01':'1', $scale) : $integer);
