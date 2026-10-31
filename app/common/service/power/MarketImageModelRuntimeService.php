@@ -459,15 +459,15 @@ class MarketImageModelRuntimeService
                     self::retainMeterReceipt($consumptionId,$e->receipt(),self::taskId($e->receipt()),self::requestId($e->receipt()));
                 }
                 // A timeout/invalid response proves neither rejection nor acceptance.
-                if(self::requiresMeterReceipt($price))MarketBoundedImageSubmission::holdUnknown($consumptionId);
+                $held=true;
+                if(self::requiresMeterReceipt($price))$held=MarketBoundedImageSubmission::holdUnknown($consumptionId);
                 else AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
                     'run_status' => 'pending_confirmation', 'error_code' => 'pending_confirmation',
                     'error_message' => '图片服务受理状态待核对，禁止自动重试', 'finish_time' => 0, 'update_time' => time(),
                 ]);
-                self::event($consumptionId, 'submit_unknown', 'pending_confirmation', []);
-                return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+                if($held){self::event($consumptionId, 'submit_unknown', 'pending_confirmation', []);return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());}
             }
-            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('图片模型提交失败');
         }
@@ -746,6 +746,7 @@ class MarketImageModelRuntimeService
             $ctx = self::context($consumptionId, true); if ($ctx === null) return;
             $c = $ctx['consumption']; $task = $ctx['app_task'];
             if (in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
+            if($code==='request_invalid'&&self::requiresMeterReceipt((array)$c['price_snapshot'])&&(string)$c['run_status']!=='reserved')return;
             if ((float)$c['reserved_tenant_cost'] > 0 || (float)$c['reserved_user_price'] > 0) PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], self::reservationReleaseSn($c), '短剧图片模型失败退回', self::extra($task, $c, 'refunded'));
             $now = time(); $c->save(['run_status' => 'failed', 'billing_status' => 'refunded', 'error_code' => $code, 'error_message' => mb_substr($message, 0, 1000), 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'failed', 'progress' => 100, 'result_summary' => ['error' => mb_substr($message, 0, 500)], 'finish_time' => $now, 'update_time' => $now]);

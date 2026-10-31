@@ -47,7 +47,8 @@ class MarketBoundedImageSubmissionTest extends TestCase
             if($scenario==='legacy'){$s=$snapshot;unset($s['billing_meter']);$c->save(['price_snapshot'=>$s]);self::assertTrue(Guard::begin($id));self::assertSame('reserved',AiConsumptionLog::find($id)['run_status']);self::assertFalse(Guard::holdUnknown($id));return;}
             self::assertTrue(Guard::begin($id));self::assertSame('submitting',AiConsumptionLog::find($id)['run_status']);self::assertFalse(Guard::begin($id));
             self::assertSame('running',$runtime::submit($id,[])['status']);self::assertSame($held,$this->balances($user));
-            if($scenario==='cancel_after'){
+            if($scenario==='stale_invalid'){$runtime::fail($id,'Synthetic stale preflight','request_invalid');self::assertSame('submitting',AiConsumptionLog::find($id)['run_status']);self::assertSame($held,$this->balances($user));
+            }elseif($scenario==='cancel_after'){
                 try{$runtime::cancel($id);self::fail('An occupied submission cannot cancel');}catch(\Exception $e){self::assertStringContainsString('无法取消',$e->getMessage());}self::assertSame($held,$this->balances($user));
             }elseif($scenario==='terminal'){
                 $images=[['image_uri'=>'stored-synthetic.png','width'=>500,'height'=>500]];$receipt=['data'=>['usage'=>['total_tokens'=>250]]];
@@ -62,6 +63,6 @@ class MarketBoundedImageSubmissionTest extends TestCase
             }
         });
     }
-    public static function scenarios(): array{$r=[];foreach(['nano_token','nano_pixel','image_token','image_pixel']as$k)foreach(['unknown','receipt','restart','terminal','cancel_before','cancel_after','legacy']as$s)$r[]=[$k,$s];return $r;}
+    public static function scenarios(): array{$r=[];foreach(['nano_token','nano_pixel','image_token','image_pixel']as$k)foreach(['unknown','receipt','restart','terminal','cancel_before','cancel_after','stale_invalid','legacy']as$s)$r[]=[$k,$s];return $r;}
     private function balances(int $user): array{return ['tenant'=>(float)Db::name('tenant')->where('id',1)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money')];}
 }
