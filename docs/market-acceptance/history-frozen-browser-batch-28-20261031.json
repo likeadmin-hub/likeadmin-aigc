@@ -1,0 +1,78 @@
+{
+  "batch": 28,
+  "date": "2026-10-31",
+  "source_web_commit": "74212409d06cd9d600d327cf91d72d02d003723b",
+  "source_server_commit": "b9118c486d03947ca4d884baf4cbbdb65d3dcecd",
+  "scope": "Actual normally authenticated PC history re-edit plus separate synthetic frozen-contract tests. No normal history wire capture or user project/task writes.",
+  "observations": [
+    {
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "normal_history_open_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "mode": "fast",
+        "resolution": "480P",
+        "duration": 6,
+        "ratio": "2:3",
+        "effect_restored": true,
+        "image_references": 1
+      },
+      "quote_points": 148.83,
+      "scope": "Actual history list re-edit action on an existing authorized task; task text, task ID and media omitted. Model, effect, ratio/duration/reference restored. No generate/rerun pressed; no wire SKU inferred from price."
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "final_clean_isolated_component",
+      "status": "observed_pass",
+      "controls": {
+        "mode": "standard",
+        "resolution": "720p",
+        "duration": 5,
+        "ratio": "1:1",
+        "image_references": 2
+      },
+      "quote_points": 76.7,
+      "scope": "Fresh final page after registering normal global close component; error/warning logs empty. Initial fixture failures/warnings explicitly excluded."
+    }
+  ],
+  "frozen_cases": [
+    {
+      "scenario": "old_audio_false_seed_zero",
+      "status": "unit_contract_pass",
+      "old_defaults": {
+        "generate_audio": false,
+        "seed": 0
+      },
+      "new_defaults": {
+        "generate_audio": true,
+        "seed": 19
+      },
+      "result": "Old frozen JSON replay keeps false/0 and two independent uses of the same image; new snapshot applies true/19."
+    },
+    {
+      "scenario": "old_audio_true_seed_zero",
+      "status": "unit_contract_pass",
+      "old_defaults": {
+        "generate_audio": true,
+        "seed": 0
+      },
+      "new_defaults": {
+        "generate_audio": false,
+        "seed": 19
+      },
+      "result": "Old replay keeps true/0; explicit request false/0 overrides a new true/19 declaration; missing second required frame rejects."
+    }
+  ],
+  "excluded_initial_attempts": [
+    "Fixture catalogue array/object shape corrected before final sampling.",
+    "Fixture missing externalReferences prop, current connectionRules/reconcile dependency and global PcCloseButton were corrected; initial partial/error observations excluded.",
+    "Historical resolution test first lacked public qualities and had an incorrect expectation for unavailable model identity; corrected and rerun.",
+    "Q4 restore fixture lacked shared readiness/variant dependencies; corrected and rerun."
+  ],
+  "paid_generation": false,
+  "provider_asset_calls": false,
+  "user_project_writes": false,
+  "task_writes": false
+}

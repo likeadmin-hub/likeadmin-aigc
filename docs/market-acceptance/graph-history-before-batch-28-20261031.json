@@ -1,0 +1,44 @@
+{
+  "batch": 28,
+  "date": "2026-10-31",
+  "scope": "Historical reproductions only. Two source-extracted fixtures and an isolated browser resolution observation. No current unresolved-failure claim.",
+  "cases": [
+    {
+      "status": "reproduced_failure",
+      "scenario": "two_connected_nodes_same_file",
+      "reference_count": 1,
+      "roles": [
+        "reference_image"
+      ],
+      "method": "omni_reference",
+      "entry": "canvas",
+      "channel": "market_video_app:grok_video:108",
+      "source_web_commit": "6234b454"
+    },
+    {
+      "scenario": "video_history_reedit_standard",
+      "status": "reproduced_failure",
+      "saved_tier": "standard",
+      "mapped_tier": null,
+      "restored_fallback": "Pro",
+      "scope": "Production mapper with display-only dependencies stubbed; missing tier then factory option defaults",
+      "entry": "pc_create",
+      "channel": "market_video_app:grok_video:108",
+      "source_web_commit": "d345dd34"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "saved_lowercase_720p_falls_to_480P",
+      "status": "reproduced_failure",
+      "sku_id": 140,
+      "requested_parameters": {
+        "resolution": "720p",
+        "generation_method": "omni_reference"
+      },
+      "observed_resolution": "480P",
+      "scope": "Initial isolated component run: source constructor normalized 720p to the first 480P option and quoted SKU140. Captured UI observation, not a full historical project acceptance.",
+      "source_web_commit": "d99bd071"
+    }
+  ]
+}
