@@ -11,6 +11,7 @@ if(($argv[1]??'')==='--worker'){
     exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
 }
 $entry=$argv[1]??'';$kind=$argv[2]??'';MarketWorkerFixture::check(in_array($entry,['canvas','short_drama'],true)&&in_array($kind,['image','video','audio'],true),'Pass canvas/short_drama and image/video/audio');
+$cloud=($argv[3]??'')==='aliyun'?app\common\service\storage\StorageConfigService::getConfiguredStorageConfig(1,'aliyun'):null;$cloudObject='';
 $names=['ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','tenant_file','tenant','user','config','tenant_config','app','tenant_app_config','aigc_image_task','aigc_image_result','aigc_image_billing','aigc_image_quota','aigc_short_drama_config','power_market_product','power_market_sku','tenant_power_market_sku_price','power_market_price_rule','aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config','aigc_video_task','aigc_video_result','aigc_video_billing','aigc_video_quota','aigc_video_config','aigc_product_promo_video_task','aigc_music_task','aigc_music_result','aigc_music_billing','aigc_music_quota'];
 
 
@@ -18,6 +19,7 @@ foreach(Db::query('SHOW TABLES')as$row)foreach($row as$table)foreach(['aigc_canv
 $fixture=null;$report=['entry'=>$entry,'kind'=>$kind,'scope'=>'Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.','provider_ai_calls'=>0,'actual_wallet_mutations'=>0];
 try{
     $fixture=new MarketWorkerFixture($original,array_unique($names));$tenant=$fixture->tenant;$user=$fixture->user;$prefix=$fixture->prefix;$dir=$fixture->dir;
+    if($cloud)foreach(['enable'=>1,'default'=>'aliyun','aliyun'=>$cloud['engine']['aliyun']]as$name=>$value)Db::name('tenant_config')->insert(['tenant_id'=>$tenant,'type'=>'storage','name'=>$name,'value'=>json_encode($value,JSON_THROW_ON_ERROR)]);
     $ext=['image'=>'png','video'=>'mp4','audio'=>'wav'][$kind];
     if($kind==='image')$media=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=');
     else{$path=getenv('AIGC_WORKER_MEDIA_DIR').'/synthetic.'.$ext;MarketWorkerFixture::check(is_file($path),'Generate private media first');$media=file_get_contents($path);}
@@ -46,6 +48,7 @@ try{
     }
     $price=AiConsumptionLog::find($c['id'])['price_snapshot'];$request=Db::name($runTable)->where('id',$run)->value($entry==='canvas'?'params_json':'request_json');$graphBefore=Db::name($documentTable)->where('id',$doc)->find();
     $assets=Assets::recordConsumptionAssets((int)$c['id'],true);MarketWorkerFixture::check(count($assets)===1,'No owned output asset');$assetId=(int)$assets[0]['id'];
+    if($cloud)$cloudObject='uploads/ai_result/'.$tenant.'/'.$user.'/asset-'.$assetId.'-'.hash('sha256',$media).'.'.$ext;
     $fixture->start(__FILE__,$entry==='canvas'?'aigc_canvas':'');
     MarketWorkerFixture::wait(fn()=>AiTaskResultAsset::find($assetId)['transfer_status']==='stored','Managed result not stored');
     MarketWorkerFixture::wait(function()use($documentTable,$doc){$nodes=json_decode(Db::name($documentTable)->where('id',$doc)->value('nodes_json'),true);return ($nodes[0]['metadata']['status']??'')==='success'&&!empty($nodes[0]['metadata']['url']);},'Worker did not persist generated result into project node',$entry==='canvas'?12:75);
@@ -56,9 +59,12 @@ try{
     $stable=[$graph,$history,AiTaskResultAsset::find($assetId)->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray()];$fixture->start(__FILE__,$entry==='canvas'?'aigc_canvas':'','repeat');usleep(1200000);$fixture->stop('repeat');
     $report['worker_restart_preserved_rows']=$stable===[Db::name($documentTable)->where('id',$doc)->find(),Db::name($runTable)->where('id',$run)->find(),AiTaskResultAsset::find($assetId)->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray()];
     MarketWorkerFixture::check($report['worker_restart_preserved_rows'],'Worker restart changed completed projection');
-    $report+=['node_projected'=>true,'run_success'=>true,'node_result_uri_matches_asset'=>true,'stored_checksum_valid'=>hash_file('sha256',$dir.'/public/'.$asset['local_uri'])===hash('sha256',$media),
+    if($cloud){$cfg=$cloud['engine']['aliyun'];$oss=new OSS\OssClient($cfg['access_key'],$cfg['secret_key'],$cfg['domain'],true);$bytes=$oss->getObject($cfg['bucket'],$cloudObject);MarketWorkerFixture::check($asset['storage_engine']==='aliyun'&&$asset['local_uri']===$cloudObject,'Not the owned cloud object');}
+    else $bytes=file_get_contents($dir.'/public/'.$asset['local_uri']);
+    MarketWorkerFixture::check(hash('sha256',$bytes)===hash('sha256',$media),'Stored bytes changed');
+    $report+=['node_projected'=>true,'run_success'=>true,'node_result_uri_matches_asset'=>true,'stored_checksum_valid'=>true,'storage_engine'=>$asset['storage_engine'],
         'file_records'=>(int)Db::name('tenant_file')->count(),'result_assets'=>(int)Db::name('ai_task_result_asset')->count(),'frozen_input_and_price_preserved'=>true,'edges_unchanged'=>$graphBefore['edges_json']===$graph['edges_json'],'viewport_unchanged'=>$graphBefore['viewport_json']===$graph['viewport_json'],
         'wallets_unchanged'=>(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===100.&&(float)Db::name('user')->where('id',$user)->value('user_money')===100.];
 }catch(Throwable $error){$failure=$error;$report+=['failure_class'=>get_class($error),'failure'=>$error->getMessage()];if($fixture){$fixture->stop();if(isset($run)){$report['run_at_failure']=Db::name($runTable)->where('id',$run)->find();$report['nodes_at_failure']=json_decode(Db::name($documentTable)->where('id',$doc)->value('nodes_json'),true);if($entry==='short_drama'){try{$method=new ReflectionMethod(app\common\service\app\aigc_short_drama\ShortDramaCanvasService::class,'refreshRun');$method->setAccessible(true);$method->invoke(null,Db::name($runTable)->where('id',$run)->find(),true);}catch(Throwable $diagnostic){$report['local_reconcile_error']=$diagnostic->getMessage();}}}foreach(glob($fixture->dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).":\n".substr(file_get_contents($log),-3000)."\n");}}
-finally{if($fixture)$fixture->cleanup();}
+finally{if($fixture){$fixture->stop();if($cloudObject!==''){MarketWorkerFixture::check(str_starts_with($cloudObject,'uploads/ai_result/'.$fixture->tenant.'/'.$fixture->user.'/asset-'),'Unowned cleanup object');$driver=new app\common\service\storage\Driver($cloud);MarketWorkerFixture::check($driver->delete($cloudObject),'Owned object cleanup failed');$report['owned_cloud_objects_deleted']=1;}$fixture->cleanup();}}
 echo json_encode($report,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE)."\n";if(isset($failure))exit(1);
