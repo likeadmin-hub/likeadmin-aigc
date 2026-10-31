@@ -4,6 +4,7 @@ namespace Tests\Feature;
 use app\common\service\power\{MarketGenerationMeter as Meter,MarketImageModelRuntimeService as Images,MarketVideoRuntimeService as Videos};
 use app\common\service\power\MarketPricePolicy;
 use app\common\service\power\PowerMarketService;
+use app\common\service\power\MarketPriceRuleService;
 use app\common\model\power\{PowerMarketProduct,PowerMarketSku};
 use app\common\model\ai\AiConsumptionLog;
 use PHPUnit\Framework\TestCase;
@@ -85,6 +86,10 @@ class MarketBoundedMeterRoundingTest extends TestCase
             $s=PowerMarketSku::where('product_id',$p['id'])->where('sku_key',$key)->find();
             self::assertSame(MarketPricePolicy::amount($price),Db::name('power_market_sku')->where('id',$s['id'])->value('upstream_price'));
             self::assertSame(number_format($unit,6,'.',''),Db::name('power_market_sku')->where('id',$s['id'])->value('usage_unit_size'));
+            foreach([0,1]as$owner){
+                MarketPriceRuleService::manual($owner,(int)$p['id'],(int)$s['id'],$price);
+                self::assertSame(MarketPricePolicy::amount($price),Db::name('power_market_price_rule')->where(['owner_id'=>$owner,'scope_type'=>'sku','scope_id'=>$s['id']])->value('value'));
+            }
             $request=['resource_type'=>'model','model_id'=>'market_'.$type.'_model:'.$p['id'],'market_sku_id'=>$s['id'],'prompt'=>'Synthetic rounding fixture','generation_method'=>$method,'quantity'=>1];
             if($video)$request+=['duration'=>4,'quality'=>'720P','ratio'=>'1:1'];
             $quote=$video?Videos::quote(1,$request):Images::quote(1,$request,1);self::assertSame($reserve,$quote['user_charge_points']);self::assertSame($reserve,$quote['tenant_cost_points']);
