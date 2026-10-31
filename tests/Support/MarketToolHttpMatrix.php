@@ -84,6 +84,11 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         MarketWorkerFixture::check($parent['status']==='success',$code.' parent not completed in worker: '.json_encode(['status'=>$parent['status'],'error'=>$parent['error'],'children'=>$children]));
         $detail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$accepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($detail['status']??'')==='success'&&count($detail['results']??[])===1&&($detail['generation_tasks'][0]['status']??'')==='success',$code.' result writeback failed');
+        if($code==='background_removal') {
+            $native=\think\facade\Db::name('aigc_background_removal_result')->where(['tenant_id'=>$tenant,'user_id'=>$user,'task_id'=>$accepted['task_id']])->find();
+            $file=\think\facade\Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'uri'=>$native['image_uri']??''])->find();
+            MarketWorkerFixture::check($native && $file && (int)$native['has_alpha']===1 && is_file($fixture->dir.'/public/'.$file['uri']),'Background worker did not persist the owned transparent file');
+        }
         $after=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
         MarketWorkerFixture::check(abs(($before-$after)-(float)$estimate['user_charge_points'])<0.001,$code.' estimate/charge mismatch');
         $lists=dataHttp($api,$path.'.task/lists'.$suffix.'&light=1',[],$token,'GET');
