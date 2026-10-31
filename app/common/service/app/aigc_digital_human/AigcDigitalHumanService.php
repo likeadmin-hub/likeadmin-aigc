@@ -983,13 +983,13 @@ class AigcDigitalHumanService
         if ($provider instanceof XhadminAigcDigitalHumanProvider) {
             self::advanceRunningTaskSafely($task, $request, $selection, $estimate, $provider);
             $latest = AigcDigitalHumanTask::where(['tenant_id' => $tenantId, 'id' => (int)$task['id']])->findOrEmpty();
-            return [
+            return \app\common\service\ai\GenerationTaskResultService::carry([
                 'task_id' => (int)$task['id'],
                 'status' => (string)($latest['status'] ?? $task['status']),
                 'provider_stage' => (string)($latest['provider_stage'] ?? $task['provider_stage'] ?? ''),
                 'results' => [],
                 'error' => (string)($latest['error'] ?? $task['error'] ?? ''),
-            ];
+            ],\app\common\service\ai\GenerationTaskResultService::appendWorkflowList([['id'=>(int)$task['id'],'tenant_id'=>$tenantId,'user_id'=>$userId]],'aigc_digital_human_task')[0]);
         }
 
         $result = $provider->generate($request);
