@@ -433,7 +433,7 @@
     {
       "channel": "market_video_model:235",
       "sku_id": 321,
-      "entry": "canvas",
+      "entry": "persisted_task_readonly",
       "requested_method": "",
       "material_mode": "",
       "scenario": "persisted_old_video_business_request_reconstruction",
@@ -454,12 +454,13 @@
       "task_unchanged": true,
       "snapshot_has_metadata": false,
       "duration_source": "persisted_consumption_request_summary",
-      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "entry_scope": "Original invoking frontend not established from stored task; remains unbound by entry."
     },
     {
       "channel": "market_video_model:97",
       "sku_id": 113,
-      "entry": "canvas",
+      "entry": "persisted_task_readonly",
       "requested_method": "image_reference",
       "material_mode": "image_reference",
       "scenario": "persisted_old_video_business_request_reconstruction",
@@ -479,12 +480,13 @@
       "task_unchanged": true,
       "snapshot_has_metadata": false,
       "duration_source": "persisted_consumption_request_summary",
-      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "entry_scope": "Original invoking frontend not established from stored task; remains unbound by entry."
     },
     {
       "channel": "market_video_app:full_video:103",
       "sku_id": 128,
-      "entry": "canvas",
+      "entry": "persisted_task_readonly",
       "requested_method": "image_to_video",
       "material_mode": "image_to_video",
       "scenario": "persisted_old_video_business_request_reconstruction",
@@ -505,12 +507,13 @@
       "task_unchanged": true,
       "snapshot_has_metadata": false,
       "duration_source": "persisted_consumption_request_summary",
-      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "entry_scope": "Original invoking frontend not established from stored task; remains unbound by entry."
     },
     {
       "channel": "market_video_app:grok_video:108",
       "sku_id": 137,
-      "entry": "canvas",
+      "entry": "persisted_task_readonly",
       "requested_method": "image_to_video",
       "material_mode": "image_to_video",
       "scenario": "persisted_old_video_business_request_reconstruction",
@@ -531,12 +534,13 @@
       "task_unchanged": true,
       "snapshot_has_metadata": false,
       "duration_source": "persisted_consumption_request_summary",
-      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "entry_scope": "Original invoking frontend not established from stored task; remains unbound by entry."
     },
     {
       "channel": "market_video_model:357",
       "sku_id": 808,
-      "entry": "canvas",
+      "entry": "persisted_task_readonly",
       "requested_method": "image_to_video",
       "material_mode": "image_to_video",
       "scenario": "persisted_old_video_business_request_reconstruction",
@@ -558,7 +562,8 @@
       "task_unchanged": true,
       "snapshot_has_metadata": true,
       "duration_source": "persisted_consumption_request_summary",
-      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution."
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "entry_scope": "Original invoking frontend not established from stored task; remains unbound by entry."
     },
     {
       "entry": "canvas",
