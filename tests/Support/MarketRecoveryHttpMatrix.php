@@ -14,7 +14,7 @@ function runMarketFrameRecoveryHttp($f,$api,$suffix,$token,$id,$detail,$product,
     };
     $p=['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision'],'frame_id'=>$old[1]['id'],'prompt'=>'同一彩色色块在中央，替换这一锚图。','reference_indices'=>[0]];
     $edited=$post('frame/save',$p);$check($edited['frames'][0]['id']===$old[0]['id']&&$edited['frames'][1]['version']===$old[1]['version']+1&&$edited['frames'][2]['version']===$old[2]['version']+1,'Frame replacement invalidated wrong boundaries');
-    $stale=callHttp($api,'/api/app.aigc_micro_video.frame/estimate'.$suffix,['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision']],$token);$check($stale['code']!==1,'Stale frame revision quoted');
+    $stale=callHttp($api,'/api/app.aigc_micro_video.frame/generate'.$suffix,['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision'],'quote_token'=>'expired-frame-quote','idempotency_key'=>'recovery-stale-frame'],$token);$check($stale['code']!==1,'Stale frame revision generated');
     $middle=$generate($edited,[$edited['frames'][1]['id']],'recovery-middle-frame');
     $check($middle['frames'][2]['status']==='stale','Dependent tail accepted without regeneration');
     $ready=$generate($middle,[$middle['frames'][2]['id']],'recovery-tail-frame');
@@ -59,13 +59,32 @@ function runMarketRecoveryHttpMatrix($f,$api,$suffix,$token,$supplier,array &$re
     app\common\service\open_platform\OpenStore::table('contract')->insert($contract+['version'=>1,'status'=>'published']+app\common\service\open_platform\OpenStore::timestamp());
     $curl=curl_init($api.$path);curl_setopt_array($curl,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$key['key'],'Content-Type: application/json','Idempotency-Key: private-style-recovery'],CURLOPT_TIMEOUT=>20,CURLOPT_POSTFIELDS=>json_encode(['prompt'=>'Synthetic ambient'])]);$raw=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);$r=json_decode($raw,true);$check($status===200&&($r['data']['status']??'')==='success','Style bearer HTTP failed: '.($r['error']['message']??'unknown'));$report['music_text']['style']=['existing_bearer_gateway'=>true,'native_task_and_settlement'=>true];
 
+    $download=function(string $op)use($t,$u,$api,$suffix,$token,$check):void{
+        $export=think\facade\Db::name('aigc_music_export')->where(['tenant_id'=>$t,'user_id'=>$u,'export_type'=>$op])->order('id','desc')->find();
+        $check($export!==null,'Recovered export row missing');$meta=json_decode($export['result_json'],true);
+        $curl=curl_init($api.'/api/app.aigc_music.export/download'.$suffix.'&export_id='.$export['id']);
+        curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_HTTPHEADER=>['token: '.$token,'Host: private-media.example.test']]);
+        $bytes=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);
+        $check($status===200&&hash('sha256',$bytes)===$meta['sha256'],'Recovered export HTTP checksum differs');
+    };
     $report['phase']='export_recovery';$source=(int)think\facade\Db::name('aigc_music_result')->where(['tenant_id'=>$t,'user_id'=>$u])->value('id');
     foreach(['wav','mp4']as$op){file_put_contents($f->dir.'/export-fail-'.$op,'1');$r=$post('aigc_music.export/'.$op,['result_id'=>$source]);$id=(int)$r['task_id'];
         $f->start($file,'aigc_music');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('consumption_id',think\facade\Db::name('aigc_music_task')->where('id',$id)->value('consumption_id'))->where('last_error','<>','')->count()>0,'Export did not retain failed storage receipt',25);$f->stop();
         $cid=(int)think\facade\Db::name('aigc_music_task')->where('id',$id)->value('consumption_id');$bill=think\facade\Db::name('ai_consumption_log')->where('id',$cid)->find();$check($bill['billing_status']==='reserved','Temporary export failure released or settled reservation');
-        unlink($f->dir.'/export-fail-'.$op);think\facade\Db::name('ai_task_job')->where('consumption_id',$cid)->update(['next_run_time'=>time()]);$f->start($file,'aigc_music');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('aigc_music_task')->where('id',$id)->value('status')==='success','Export recovery did not finish original task',25);$f->stop();$report['export_recovery'][$op]=['held_reserve_then_original_task_storage_recovery'=>true];
+        unlink($f->dir.'/export-fail-'.$op);think\facade\Db::name('ai_task_job')->where('consumption_id',$cid)->update(['next_run_time'=>time()]);$f->start($file,'aigc_music');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('aigc_music_task')->where('id',$id)->value('status')==='success','Export recovery did not finish original task',25);$f->stop();$download($op);$report['export_recovery'][$op]=['held_reserve_then_original_task_storage_recovery'=>true,'owned_download_checksum'=>true];
     }
     file_put_contents($f->dir.'/export-terminal-fail-midi','1');$r=$post('aigc_music.export/midi',['result_id'=>$source]);$id=(int)$r['task_id'];$f->start($file,'aigc_music');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('aigc_music_task')->where('id',$id)->value('billing_status')==='refunded','Known export rejection not refunded',25);$f->stop();unlink($f->dir.'/export-terminal-fail-midi');
-    $r=$post('aigc_music.export/midi',['result_id'=>$source]);$check((int)$r['task_id']!==$id,'Explicit retry reused failed export');$f->start($file,'aigc_music');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Recovery jobs not drained',25);$f->stop();$report['export_recovery']['midi']=['known_failure_refund_and_new_explicit_attempt'=>true];
+    $r=$post('aigc_music.export/midi',['result_id'=>$source]);$check((int)$r['task_id']!==$id,'Explicit retry reused failed export');$f->start($file,'aigc_music');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Recovery jobs not drained',25);$f->stop();$download('midi');$report['export_recovery']['midi']=['known_failure_refund_and_new_explicit_attempt'=>true,'owned_download_checksum'=>true];
+    $bills=think\facade\Db::name('ai_consumption_log')->select()->toArray();
+    $statuses=array_count_values(array_column($bills,'billing_status'));
+    $check(($statuses['refunded']??0)===1&&($statuses['settled']??0)===count($bills)-1,'Recovery billing not terminal');
+    $clips=think\facade\Db::name('smart_clip_billing')->select()->toArray();
+    $check(count($clips)===3&&array_column($clips,'billing_status')===['deducted','deducted','deducted'],'Native clip billing missing or duplicated');
+    $userCost=array_sum(array_column($bills,'actual_user_price'))+array_sum(array_column($clips,'user_charge_points'));
+    $tenantCost=array_sum(array_column($bills,'actual_tenant_cost'))+array_sum(array_column($clips,'tenant_cost_points'));
+    $check(abs(100-(float)think\facade\Db::name('user')->where('id',$u)->value('user_money')-$userCost)<0.000001,'Recovery user ledger mismatch');
+    $check(abs(100-(float)think\facade\Db::name('tenant')->where('id',$t)->value('point_balance')-$tenantCost)<0.000001,'Recovery tenant ledger mismatch');
+    $report['final_accounting']=['consumptions'=>count($bills),'billing_statuses'=>$statuses,'native_clip_bills'=>count($clips),'actual_user'=>round($userCost,6),'actual_tenant'=>round($tenantCost,6),'native_clip_tasks'=>(int)think\facade\Db::name('smart_clip_task')->count(),'native_clip_results'=>(int)think\facade\Db::name('smart_clip_result')->count()];
+    $calls=array_map(fn($line)=>json_decode($line,true),file($f->dir.'/deep-calls.jsonl'));$report['supplier_call_counts']=array_count_values(array_column($calls,'kind'));
     $report['phase']='complete';
 }
