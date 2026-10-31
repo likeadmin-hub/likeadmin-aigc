@@ -2,7 +2,8 @@
 /** Private HTTP fixture: real login/routes/runtime/billing/worker, loopback supplier only. No production task writes or external generation. */
 if(PHP_SAPI==='cli-server'){$_SERVER['SCRIPT_FILENAME']=dirname(__DIR__).'/public/index.php';$_SERVER['SCRIPT_NAME']='/index.php';$_SERVER['PHP_SELF']='/index.php';$_SERVER['PATH_INFO']=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);}
 require dirname(__DIR__).'/vendor/autoload.php';
-(new think\App(dirname(__DIR__)))->initialize();
+class IsolatedGenerationHttpApp extends think\App { public function getBasePath(): string { return dirname(__DIR__).'/app/'; } }
+(new IsolatedGenerationHttpApp(dirname(__DIR__)))->initialize();
 require __DIR__.'/Support/MarketWorkerFixture.php';
 use think\facade\Db;
 use app\common\service\ai\GenerationTaskResultService as View;
@@ -10,7 +11,7 @@ $original=config('database');
 if(PHP_SAPI==='cli-server') {
     $prefix=(string)getenv('AIGC_HTTP_FIXTURE_PREFIX');$dir=(string)getenv('AIGC_HTTP_FIXTURE_DIR');
     MarketWorkerFixture::check(in_array($_SERVER['REMOTE_ADDR']??'', ['127.0.0.1','::1'],true),'Loopback only');
-    MarketWorkerFixture::activate($original,$prefix,$dir);
+    MarketWorkerFixture::activate($original,$prefix,$dir);app()->setRuntimePath($dir.'/runtime/');
     if(getenv('AIGC_HTTP_FIXTURE_ROLE')==='supplier') {
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);header('Content-Type: application/json');
         if($path==='/health'){echo '{}';return;}
@@ -39,7 +40,7 @@ function callHttp(string $base,string $path,array $data=[],string $token='',stri
     $curl=curl_init($base.$path);curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>$headers]);
     if($method==='POST'){curl_setopt($curl,CURLOPT_POST,true);curl_setopt($curl,CURLOPT_POSTFIELDS,json_encode($data));}
     $raw=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);$response=json_decode((string)$raw,true);
-    if(!is_array($response))throw new RuntimeException('Non-JSON fixture response '.$path.' HTTP'.$status.': '.substr(strip_tags((string)$raw),0,600));
+    if(!is_array($response)){preg_match('/<h1>(.*?)<\/h1>/s',(string)$raw,$message);throw new RuntimeException('Non-JSON fixture response '.$path.' HTTP'.$status.': '.substr(strip_tags($message[1]??(string)$raw),0,600));}
     return $response;
 }
 function dataHttp(string $base,string $path,array $data=[],string $token='',string $method='POST'): array {
