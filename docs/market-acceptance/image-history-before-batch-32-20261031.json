@@ -1,0 +1,59 @@
+{
+  "batch": 32,
+  "date": "2026-10-31",
+  "source_web_commit": "0d4316ea4b0372f60fdc9e88cd06668abfb03a7e",
+  "source_server_commit": "46c3a959a61658c4f41454f1bf892cc004b390ce",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "direct_task_writes": false,
+  "scope": "Historical reproductions only: a normal page image ratio reset, a production shared-panel synthetic fixture, and an old Nano request reconstruction rejected by read-only preparation. None are current faults.",
+  "cases": [
+    {
+      "channel": "market_image_model:169",
+      "sku_id": 252,
+      "entry": "pc_create",
+      "requested_method": "image_reference",
+      "scenario": "cross_model_image_reedit_resets_saved_ratio",
+      "status": "reproduced_failure",
+      "before_web_commit": "bde7402a",
+      "fixed_web_commit": "c0e10b59",
+      "saved_ratio": "3:4",
+      "observed_page_ratio": "adaptive",
+      "references": 2,
+      "scope": "SKU belongs to the saved history subject. No browser quote SKU captured."
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+      "sku_id": 144,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "legacy_image_app_routing_fields_misplaced_as_provider_controls",
+      "status": "reproduced_failure",
+      "before_web_commit": "f9245872",
+      "fixed_web_commit": "0d4316ea",
+      "provider_keys_before": [
+        "variant",
+        "market_sku_id"
+      ],
+      "native_preparation_error": "图片参数未声明或不可编辑",
+      "scope": "Actual pre-fix historyGenerationRequest rebuild confirmed the same provider keys as the rejected frozen reconstruction. No rerun API was invoked."
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "editing_group_steals_other_field_same_uri_use",
+      "status": "reproduced_failure",
+      "before_web_commit": "c0e10b59",
+      "fixed_web_commit": "5444404d",
+      "before_fields": [
+        "left",
+        "right"
+      ],
+      "after_fields": [
+        "left",
+        "left"
+      ],
+      "scope": "Actual shared GenerationMaterialPanel with a synthetic two-field fixture; no real model identity or SKU certification."
+    }
+  ]
+}
