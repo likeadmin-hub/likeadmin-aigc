@@ -18,7 +18,7 @@ class AiTaskBusinessResultService
         'aigc_image_task'=>'image','aigc_video_task'=>'video','aigc_short_drama_script_task'=>'script',
         'aigc_short_drama_generation_task'=>'short_drama','aigc_canvas_run'=>'canvas',
         'decorate_agent_image_slot'=>'decoration_worker','aigc_music_task'=>'music','aigc_pic_lipsync_task'=>'pic_lipsync',
-        'aigc_digital_human_task'=>'digital_human','aigc_watermark_removal_task'=>'watermark',
+        'aigc_music_cover_task'=>'music_cover','aigc_digital_human_task'=>'digital_human','aigc_watermark_removal_task'=>'watermark',
         'aigc_micro_video_segment'=>'micro_segment','aigc_micro_video_frame'=>'micro_frame',
     ];
 
@@ -87,6 +87,7 @@ class AiTaskBusinessResultService
             'decoration_worker' => null,
             'music' => self::syncMusicTask($consumption, $businessId),
             'pic_lipsync' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
+            'music_cover' => \app\common\service\app\aigc_music_cover\AigcMusicCoverService::syncConsumption($businessId,(int)$consumption['user_id']),
             'digital_human' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
             'watermark' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             'micro_segment' => self::wakeMicroVideo($consumption,$businessId,'segment'),
