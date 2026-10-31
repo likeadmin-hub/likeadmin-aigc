@@ -142,7 +142,7 @@ try {
     $imageProduct=app\common\model\power\PowerMarketProduct::create(['product_code'=>$prefix.'image','name'=>'Private synthetic image','resource_type'=>'model','model_type'=>'image','source_code'=>'isolated-fixture','upstream_resource_key'=>$prefix.'image','upstream_model_code'=>'synthetic-image','upstream_channel_code'=>'fixture','source_payload'=>['market_metadata'=>$imageMeta],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
     $imageSku=app\common\model\power\PowerMarketSku::create(['product_id'=>$imageProduct['id'],'sku_key'=>$prefix.'image-sku','title'=>'Private image fixture','locked_params'=>['image_size'=>'1K','aspect_ratio'=>'1:1'],'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>['version'=>1,'basis'=>'call','rounding'=>'ceil']],'create_time'=>time(),'update_time'=>time()]);
     $channel='market_image_model:'.$imageProduct['id'];
-    $nativeImage=dataHttp($api,'/api/app.aigc_image.generate/submit'.$suffix,['channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','quantity'=>1,'prompt'=>'Synthetic block'], $token);
+    $nativeImage=dataHttp($api,'/api/app.aigc_image.generate/index'.$suffix,['channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','quantity'=>1,'prompt'=>'Synthetic block'], $token);
     MarketWorkerFixture::check(($nativeImage['generation_task']['schema_version']??0)===1,'Native image accepted task lacks canonical view');
     $fixture->start(__FILE__,'aigc_image');
     MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$nativeImage['task_id'])->value('status')==='success','Native image worker did not finish',30);$fixture->stop();
@@ -150,7 +150,7 @@ try {
     MarketWorkerFixture::check($imageView['status']==='success'&&count($imageView['results'])===1&&hash_file('sha256',$dir.'/public/'.$imageView['results'][0]['uri'])===hash_file('sha256',$dir.'/synthetic.png'),'Native image managed result mismatch');
     $imageUri=$imageView['results'][0]['uri'];
     app\common\service\app\aigc_product_image\AigcProductImageService::saveConfig($tenant,['status'=>1,'config_json'=>['channel'=>$channel,'quality'=>'1k','unit_price'=>3]]);
-    $single=dataHttp($api,'/api/app.aigc_product_image.generate/submit'.$suffix,['product_image'=>$imageUri,'custom_scene_image'=>$imageUri,'scene_mode'=>'custom','channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','size_key'=>'1:1','prompt'=>'Synthetic product'], $token);
+    $single=dataHttp($api,'/api/app.aigc_product_image.generate/index'.$suffix,['product_image'=>$imageUri,'custom_scene_image'=>$imageUri,'scene_mode'=>'custom','channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','size_key'=>'1:1','prompt'=>'Synthetic product'], $token);
     MarketWorkerFixture::check(count($single['generation_tasks']??[])===1,'Single application did not expose its owned generation child');
     $fixture->start(__FILE__,'aigc_image');
     $singleNative=(int)$single['image_task_id'];MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$singleNative)->value('status')==='success','Single image application child did not complete',30);$fixture->stop();
@@ -158,7 +158,7 @@ try {
     MarketWorkerFixture::check($singleFinal['status']==='success'&&count($singleFinal['results'])===1&&$singleFinal['generation_tasks'][0]['status']==='success','Single app business result not reconciled');
     app\common\service\app\aigc_product_suite\AigcProductSuiteService::saveConfig($tenant,['status'=>1,'default_channel'=>$channel,'default_quality'=>'1k','default_ratio'=>'1:1','unit_price'=>3]);
     file_put_contents($dir.'/hold-from-index',(string)(count(file($dir.'/submissions.jsonl'))+2));
-    $suite=dataHttp($api,'/api/app.aigc_product_suite.generate/submit'.$suffix,['product_images'=>[$imageUri],'channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','module_codes'=>['hero','detail'],'prompt'=>'Synthetic product'], $token);
+    $suite=dataHttp($api,'/api/app.aigc_product_suite.generate/index'.$suffix,['product_images'=>[$imageUri],'channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','module_codes'=>['hero','detail'],'prompt'=>'Synthetic product'], $token);
     MarketWorkerFixture::check(count($suite['image_task_ids']??[])===2&&count($suite['generation_tasks']??[])===2,'Suite did not keep two ordered generation children');
     $firstChild=(int)$suite['image_task_ids'][0];$secondChild=(int)$suite['image_task_ids'][1];$fixture->start(__FILE__,'aigc_image');
     MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$firstChild)->value('status')==='success','First suite child not completed',30);
