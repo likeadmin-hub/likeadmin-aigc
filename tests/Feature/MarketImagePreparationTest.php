@@ -87,7 +87,10 @@ class MarketImagePreparationTest extends TestCase
     {
         $request=$this->request();
         $request['reference_images']=['https://fixture.invalid/same.png','https://fixture.invalid/same.png'];
-        $prepared=Images::prepareRequest($this->snapshot(),$request);
+        $market=$this->market();$market['sku']['source_payload']=self::imageMeters()[1][0];
+        $quoted=(new ReflectionMethod(Images::class,'meterMarket'))->invoke(null,$market,$request);
+        $snapshot=(new ReflectionMethod(Images::class,'snapshot'))->invoke(null,$quoted);
+        $prepared=Images::prepareRequest($snapshot,$request);
         self::assertSame($request['reference_images'],$prepared->nativeInput['image_urls']);
         self::assertSame(2,$prepared->meterContext['reference_images']);
         self::assertCount(2,$request['reference_images']);
