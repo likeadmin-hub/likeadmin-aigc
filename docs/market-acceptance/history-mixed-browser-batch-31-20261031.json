@@ -1,0 +1,141 @@
+{
+  "batch": 31,
+  "date": "2026-10-31",
+  "source_web_commit": "bde7402a",
+  "source_server_commit": "bab28ccfa",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "task_writes": false,
+  "scope": "Normal authenticated localhost PC history re-edit and synthetic local uploads, plus a separately labelled isolated page using real shared SFCs and restore/payload helpers. No raw browser DTO capture; page estimates never infer a SKU from price.",
+  "normal_page_cases": [
+    {
+      "entry": "pc_create",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "scenario": "old_terminal_history_reedit_two_frames_and_effect",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "768P",
+        "ratio": "9:16",
+        "duration": 5,
+        "frames": 2,
+        "effect_restored": true
+      },
+      "page_quote_points": 250,
+      "scope": "Read existing history and restore local composer only; no original task save, retry or generation."
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_model:94",
+      "requested_method": "omni_reference",
+      "scenario": "old_terminal_history_reedit_mixed_media",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "480P",
+        "ratio": "adaptive",
+        "duration": 5,
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "page_quote_points": 120,
+      "scope": "Current catalogue page quote is separate from old frozen reconstruction."
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_model:357",
+      "requested_method": "image_to_video",
+      "scenario": "old_terminal_history_reedit_declared_audio_default",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "480P",
+        "ratio": "adaptive",
+        "duration": 3,
+        "images": 1,
+        "audio_display": "default_on"
+      },
+      "page_quote_points": 96,
+      "scope": "The saved task omitted an audio override. Re-edit shows the current declaration default; its old frozen audio default is tested separately."
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "scenario": "same_synthetic_local_file_uploaded_for_independent_first_and_last_frames",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "768P",
+        "ratio": "adaptive",
+        "duration": 4,
+        "frames": 2
+      },
+      "page_quote_points": 200,
+      "scope": "Normal SaaS uploads of the same non-private red PNG to two independent frame controls; these are two uploads, not proof of a single stored URI."
+    },
+    {
+      "entry": "pc_create",
+      "channel": "market_video_model:98",
+      "requested_method": "start_end",
+      "scenario": "remove_first_frame_retains_tail_and_blocks_incomplete_pair",
+      "status": "expected_local_rejection",
+      "controls": {
+        "first_frame_present": false,
+        "last_frame_present": true,
+        "generate_disabled": true
+      },
+      "scope": "Restoring the red first frame restores two controls and the 200 point estimate."
+    }
+  ],
+  "isolated_shared_page_cases": [
+    {
+      "entry": "pc_create",
+      "fixture_identity": "synthetic-only",
+      "scenario": "nested_controls_subject_and_independent_same_uri_uses_json_reopen",
+      "status": "observed_pass",
+      "controls": {
+        "audio": false,
+        "seed": 0,
+        "material_mode": "mixed",
+        "subject_rows": 1,
+        "same_image_uses": 2,
+        "same_video_distinct_fields": [
+          "source_videos",
+          "style_videos"
+        ],
+        "presentation_ids_unique": true
+      },
+      "scope": "Actual production GenerationMaterialPanel / GenerationParameterPanel with historyComposerInputs and generationParameterPayload; fixture shell, synthetic declaration, no login emulation or normal backend API."
+    },
+    {
+      "entry": "pc_create",
+      "fixture_identity": "synthetic-only",
+      "scenario": "edit_one_video_assignment_remove_audio_then_reopen_json",
+      "status": "observed_pass",
+      "scope": "Changing one video purpose does not change the other record; removing audio clears only the declared subject audio URL; JSON reopen restores original roles/fields and false/zero."
+    }
+  ],
+  "backend_synthetic_contract_cases": [
+    {
+      "scenario": "independent_image_video_audio_source_and_style_fields",
+      "status": "unit_contract_pass",
+      "scope": "Each of six fields retains its declared same-URI use on frozen JSON replay; false/zero preserved; missing one required field and overfilling one field reject. No real resource/SKU certification."
+    }
+  ],
+  "final_pc_tests": 544,
+  "final_phpunit_tests": 229,
+  "final_phpunit_assertions": 986,
+  "sfc_compiles": 2,
+  "typescript_modules": 2,
+  "excluded_attempts": [
+    "The first file chooser attempt was started after clearing an effect had reset the composer to text mode; timed-out attempt was corrected by explicitly choosing start/end and normal uploads.",
+    "The isolated Vite fixture initially used the macOS /tmp alias; corrected to its real /private/tmp path before observations.",
+    "One default-sensitivity fixture added an invalid properties wrapper to a legacy flat schema; discarded and rerun with only default_params.audio changed."
+  ],
+  "remaining": [
+    "All old history shapes and image history not fully verified.",
+    "Normal browser network DTO and provider submission not captured.",
+    "Source/style mixed fields use synthetic declarations only; not proof that every current market resource supports them.",
+    "18 incomplete legacy contracts / 14 opaque structures / 13 application coverage gaps and 2 pixel / 6 Token SKU blockers remain."
+  ]
+}
