@@ -59,9 +59,19 @@ class AigcCanvasService
         $byUri = array_column($stored, null, 'local_uri');
         if ($status === 'success') {
             if (empty($result['results'])) return;
-            foreach ($result['results'] as $item) {
-                if (!isset($byUri[(string)($item[$kind . '_uri'] ?? '')])) return;
+            foreach ($result['results'] as &$item) {
+                $asset = $byUri[(string)($item[$kind . '_uri'] ?? '')] ?? null;
+                if (!$asset) return;
+                // Summaries may retain an expired url alias alongside the hydrated URI.
+                // Delivery identity and domain always come from the owned storage receipt.
+                foreach (['storage_scope', 'storage_engine', 'storage_domain'] as $key) $item[$key] = (string)$asset[$key];
+                $url = FileService::getFileUrlByStorage($asset['local_uri'], $item['storage_scope'], $item['storage_engine'], $item['storage_domain']);
+                $item['url'] = $item[$kind . '_url'] = $url;
+                if ($kind !== 'image') $item['file_url'] = $url;
             }
+            unset($item);
+            $result[match ($kind) {'image' => 'images', 'video' => 'videos', 'audio' => 'items'}] = $result['results'];
+            if ($kind === 'audio') $result['audios'] = $result['results'];
         }
         $result = self::sanitizeRunPayload($result);
         Db::transaction(function () use ($identity, $owner, $run, $consumption, $result, $status, $kind): void {
@@ -83,6 +93,13 @@ class AigcCanvasService
                     || !in_array($metadata['status'] ?? '', ['running', 'queued', 'pending'], true)) return;
                 if ($status === 'success') {
                     $collection = is_array($metadata['mediaItems'] ?? null) ? $metadata['mediaItems'] : [];
+                    if (!isset($metadata['mediaItems'])) {
+                        $previous = (string)($metadata['url'] ?? $metadata[$kind . '_url'] ?? ($kind === 'image' ? ($metadata['image'] ?? '') : ''));
+                        if ($previous !== '' && !preg_match('~^(?:blob|data|javascript|file):~i', $previous)) {
+                            $collection[] = ['id' => 'legacy-' . $kind, 'type' => $kind, 'url' => $previous,
+                                'assetUri' => (string)($metadata['uri'] ?? $previous), 'mediaSource' => 'generated'];
+                        }
+                    }
                     foreach ($result['results'] as $item) {
                         $uri = (string)$item[$kind . '_uri'];
                         $media = ['id' => 'result-' . $kind . '-' . substr(hash('sha256', $item['url']), 0, 12),
@@ -90,6 +107,8 @@ class AigcCanvasService
                         foreach (['storage_scope', 'storage_engine', 'storage_domain', 'width', 'height', 'duration'] as $key) {
                             if (isset($item[$key])) $media[$key] = $item[$key];
                         }
+                        if (!empty($item['mime_type'])) $media['mimeType'] = $item['mime_type'];
+                        if (!empty($item['file_size'])) $media['fileSize'] = (int)$item['file_size'];
                         $found = false;
                         foreach ($collection as &$old) {
                             if (($old['url'] ?? '') !== $media['url']) continue;
@@ -102,6 +121,10 @@ class AigcCanvasService
                     $metadata = array_replace($metadata, ['mediaItems' => $collection, 'activeMediaId' => $active['id'],
                         'url' => $active['url'], $kind . '_url' => $active['url'], 'uri' => $active['assetUri'],
                         'assetUri' => $active['assetUri'], 'mediaSource' => 'generated', 'generatedAt' => $finish * 1000,
+                        'fileId' => '', 'file_id' => '', 'fileName' => '', 'filename' => '',
+                        'mimeType' => $active['mimeType'] ?? '', 'mime_type' => $active['mimeType'] ?? '',
+                        'fileSize' => $active['fileSize'] ?? 0, 'file_size' => $active['fileSize'] ?? 0,
+                        'poster' => '', 'poster_url' => '', 'cover_url' => '', 'thumbnail' => '',
                         'storage_scope' => $active['storage_scope'] ?? '', 'storage_engine' => $active['storage_engine'] ?? '',
                         'storage_domain' => $active['storage_domain'] ?? '', 'mediaWidth' => $active['width'] ?? 0,
                         'mediaHeight' => $active['height'] ?? 0, 'mediaDuration' => $active['duration'] ?? 0]);
