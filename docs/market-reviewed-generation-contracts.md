@@ -128,3 +128,13 @@ version2只允许Token单位及有效单位大小、1至10^12的整数上限、�
 version2／version3继续使用既定的ceil或ceil_2，未增加计量格式。计算改为按账户单位整数除法后检查余数，避免先除到固定12位小数导致正费用消失或漏掉分位／整点以上的余数。极小正费用仍按声明向上取整，精确边界不额外增加，免费价格保持0；未计量和version1旧冻结算法保留。
 
 市场价格对浮点输入明确按六位归一化，并对SKU单位／成本／售价及市场价格规则值采用显式字符串数据库绑定，避免默认浮点转串及ORM二次浮点转换丢失声明小数。不重算旧账，不从修复算例推断真实型号已提供上限；当前没有启用version2／version3 SKU。回滚测试和实际未完成项见[批次46台账](market-acceptance/batch-46-20261031.md)。
+
+## 第47批：原生视频模型的Token发布绑定
+
+仅普通video模型资源获得此就绪能力，应用API、图片Token及像素透传不因此放开。可信SKU须先有正式version2合同，再审核发布匹配的原生计费规则；草稿编译不执行发布。新增`billing[].native_meter`绑定单位、单位大小、最大Token、回执路径和舍入，max_units及usage_path也须一致。缺失或过期绑定拒绝，不从请求正文读取计费授权。以下数字均为合成示例：
+
+```json
+{"basis":"usage","max_units":1000,"usage_path":"data.usage.total_tokens","native_meter":{"version":2,"maximum_quantity":1000,"usage_path":"data.usage.total_tokens","rounding_scale":2,"usage_unit":"token","usage_unit_size":"1000.000000"}}
+```
+
+上限预占和实际计量复用共享版本2，财务缺回执保持pending_usage、超上限保持settlement_failed供核对，明确失败退款。单价和计量在受理快照中冻结，不按后续SKU重算。既有按次／秒及旧冻结语义保留；原生提示词投影补齐，不改变请求正文。实际没有启用或发布此类合同，测试与未实测边界见[批次47](market-acceptance/batch-47-20261031.md)。
