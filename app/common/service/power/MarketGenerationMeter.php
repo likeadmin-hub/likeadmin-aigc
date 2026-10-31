@@ -67,6 +67,17 @@ final class MarketGenerationMeter
     private static function structured($value, string $summary, string $unit): array
     {
         $invalid = static fn() => new InvalidArgumentException('模型结构化计费规则无效或尚未适配，请同步并核验模型价格');
+        // Version 2 is a trusted SKU-wide hard bound, not a browser budget or
+        // an estimate inferred from resolution, seconds or a model name.
+        if (is_array($value) && ($value['version'] ?? null) === 2) {
+            if (array_diff(array_keys($value), ['version','basis','rounding','maximum_quantity','usage_path']) !== []
+                || ($value['basis'] ?? null) !== 'token' || !str_contains($unit, 'token')
+                || !in_array($value['rounding'] ?? null, ['ceil','half_up_6'], true)
+                || !is_int($value['maximum_quantity'] ?? null) || $value['maximum_quantity'] < 1 || $value['maximum_quantity'] > 1000000000000
+                || !in_array($value['usage_path'] ?? null, ['usage.total_tokens','data.usage.total_tokens','result.usage.total_tokens','data.result.usage.total_tokens'], true)) throw $invalid();
+            return ['version'=>2,'source'=>'structured','summary'=>$summary,'unit'=>$unit,'basis'=>'token',
+                'round_up'=>$value['rounding']==='ceil','maximum_quantity'=>$value['maximum_quantity'],'usage_path'=>$value['usage_path']];
+        }
         if (!is_array($value) || array_diff(array_keys($value), ['version','basis','rounding','reference_images']) !== []
             || ($value['version'] ?? null) !== 1
             || !in_array($value['basis'] ?? null, ['call','image','output','input','output_plus_video','output_plus_max_video','megapixel'], true)
@@ -85,6 +96,22 @@ final class MarketGenerationMeter
             $contract += ['free_images'=>$term['free'], 'image_numerator'=>$term['numerator'], 'image_denominator'=>$term['denominator']];
         }
         return $contract;
+    }
+
+    public static function tokenContract(array $sku): array
+    {
+        if (!self::hasDeclaration($sku)) throw new InvalidArgumentException('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
+        $contract=self::contract($sku);
+        $size=$sku['usage_unit_size'] ?? null;
+        if (!self::boundedToken($contract) || !is_numeric($size) || !is_finite((float)$size) || (float)$size<1)
+            throw new InvalidArgumentException('该模型缺少有效的 Token 费用上限或计费单位，暂不能报价或提交');
+        return $contract;
+    }
+
+    public static function boundedToken(array $contract): bool
+    {
+        return ($contract['version'] ?? null)===2 && ($contract['basis'] ?? null)==='token'
+            && is_int($contract['maximum_quantity'] ?? null) && $contract['maximum_quantity']>0;
     }
 
     public static function context(array $contract, array $native, ?callable $measure = null, ?callable $visualProbe = null, array $declaredKinds = []): array
@@ -107,6 +134,8 @@ final class MarketGenerationMeter
     public static function price(float $price, float $quantity, array $snapshot): float
     {
         $meter = $snapshot['billing_meter'] ?? null;
+        if ($meter && self::boundedToken($meter) && (!is_finite($quantity) || $quantity<1 || floor($quantity)!==$quantity || $quantity>$meter['maximum_quantity']))
+            throw new InvalidArgumentException('Token 计费数量超过合同上限或无效');
         $size = max(1, (float)($snapshot['usage_unit_size'] ?? 1));
         if (!$meter) return round($price * $quantity / $size, 6); // Historical snapshot semantics stay immutable.
         $context = (array)($snapshot['meter_context'] ?? []);

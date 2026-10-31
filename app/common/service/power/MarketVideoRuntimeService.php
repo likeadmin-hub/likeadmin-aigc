@@ -454,7 +454,7 @@ class MarketVideoRuntimeService
         $prepared = self::prepareMarketRequest($market, $billingRequest);
         $quantity = self::quantity($market, $billingRequest, $prepared);
         $quote = self::applyBillingOverride(self::quoteMarket($market, $quantity), $billingOverride);
-        $deferredUsage = self::isDeferredUsageSku($market['sku']);
+        $deferredUsage = self::isTokenSku($market['sku']) && !MarketGenerationMeter::boundedToken((array)($market['billing_meter'] ?? []));
         if ($deferredUsage && $billingOverride !== []) {
             throw new Exception('按应用售价结算暂不支持按实际用量计费的视频 SKU');
         }
@@ -658,7 +658,7 @@ class MarketVideoRuntimeService
                 if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $videos];
             }
-            if (((string)$c['billing_status'] === 'pending_usage' && self::isTokenSnapshot($snapshot)) || !empty($snapshot['requires_actual_duration'])) {
+            if (self::isTokenSnapshot($snapshot) || !empty($snapshot['requires_actual_duration'])) {
                 $usage = self::usage($response, (float)($snapshot['quantity']??0), $snapshot);
                 if ((float)($usage['actual_quantity'] ?? 0) > 0) {
                     $stored = self::arrayValue($c['response_summary'] ?? []);
@@ -725,20 +725,21 @@ class MarketVideoRuntimeService
             $submittedQuantity = max(1, (float)($snapshot['quantity'] ?? $c['quantity']));
             $usage = self::usage($response, $submittedQuantity, $snapshot);
             if (self::isTokenSnapshot($snapshot)) {
-                $usage['actual_quantity'] = MarketUsageSettlementService::tokenUsage($response);
+                $usage['actual_quantity'] = self::tokenUsage($snapshot, $response);
             }
             if ((self::isTokenSnapshot($snapshot) || !empty($snapshot['requires_actual_duration'])) && (float)($usage['actual_quantity'] ?? 0) <= 0) {
                 $now = time();
                 $usage['settlement_basis'] = 'awaiting_actual_usage';
+                $bounded=MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []));
                 $c->save(self::clearRefreshDiagnostics([
-                    'run_status' => 'success', 'billing_status' => !empty($snapshot['requires_actual_duration']) ? 'reserved' : 'pending_usage',
+                    'run_status' => 'success', 'billing_status' => $bounded || !empty($snapshot['requires_actual_duration']) ? 'reserved' : 'pending_usage',
                     'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'],
                     'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'],
                     'usage_snapshot' => $usage,
                     'response_summary' => ['video_count' => count($videos), 'videos' => $videos],
                     'update_time' => $now,
                 ]));
-                $task->save(['status' => 'success', 'progress' => 100, 'finish_time' => $now, 'update_time' => $now]);
+                $task->save(['status' => $bounded ? 'running' : 'success', 'progress' => $bounded ? 95 : 100, 'finish_time' => $bounded ? 0 : $now, 'update_time' => $now]);
                 self::event((int)$c['id'], 'await_usage', 'pending', ['video_count' => count($videos)]);
                 return;
             }
@@ -991,14 +992,15 @@ class MarketVideoRuntimeService
 
     private static function quoteMarket(array $market, float $quantity): array
     {
-        $quantity = max(1, $quantity); $sku = $market['sku']; $snapshot = self::snapshot($market, $quantity); $deferred = self::isTokenSnapshot($snapshot);
+        $quantity = max(1, $quantity); $sku = $market['sku']; $snapshot = self::snapshot($market, $quantity);
+        $deferred = self::isTokenSnapshot($snapshot) && !MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []));
         return [
             'billing_unit' => self::billingUnit((array)$market['product'], (array)$sku), 'billing_unit_size' => (float)($snapshot['usage_unit_size'] ?? 1),
             'quantity' => $deferred ? 0 : $quantity,
             'tenant_unit_points' => self::points((float)$sku['sale_points']), 'user_unit_points' => self::points((float)$market['tenant_price']),
             'tenant_cost_points' => $deferred ? 0 : self::priceForQuantity((float)$sku['sale_points'], $quantity, $snapshot),
             'user_charge_points' => $deferred ? 0 : self::priceForQuantity((float)$market['tenant_price'], $quantity, $snapshot),
-            'settlement_mode' => $deferred ? 'actual_usage' : 'reserved', 'price_source' => 'power_market_video',
+            'settlement_mode' => self::isTokenSnapshot($snapshot) ? 'actual_usage' : 'reserved', 'price_source' => 'power_market_video',
             'market_product_id' => (int)$market['product']['id'], 'market_sku_id' => (int)$sku['id'], 'market_snapshot' => $snapshot,
         ];
     }
@@ -1060,8 +1062,7 @@ class MarketVideoRuntimeService
 
     private static function prepareMarketRequest(array &$market, array $request): PreparedMarketGeneration
     {
-        if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
-        $meter = MarketGenerationMeter::contract($market['sku']);
+        $meter = self::isTokenSku($market['sku']) ? MarketGenerationMeter::tokenContract($market['sku']) : MarketGenerationMeter::contract($market['sku']);
         if (in_array($meter['basis'], ['image','megapixel'], true)) throw new Exception('该视频模型计费数量规则尚未适配');
         if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
         $prepared = self::prepareRequest(self::snapshot($market, 1), $request);
@@ -3010,8 +3011,8 @@ class MarketVideoRuntimeService
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
-        if (self::isTokenSku($market['sku'])) throw new Exception('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
-        $meter = MarketGenerationMeter::contract($market['sku']);
+        $meter = self::isTokenSku($market['sku']) ? MarketGenerationMeter::tokenContract($market['sku']) : MarketGenerationMeter::contract($market['sku']);
+        if (MarketGenerationMeter::boundedToken($meter)) return (float)$meter['maximum_quantity'];
         if (MarketGenerationMeter::isExplicit($meter)) {
             $market['billing_meter'] = $meter;
             $native = $prepared?->nativeInput ?? (MarketGenerationMaterials::modes(self::metadata($market['product'])) !== []
@@ -3468,9 +3469,16 @@ class MarketVideoRuntimeService
         $result = self::arrayValue($root['result'] ?? $root['Result'] ?? []);
         $usage = self::arrayValue($root['usage'] ?? $response['usage'] ?? $result['usage'] ?? $result['Usage'] ?? []);
         $actual = self::isTokenSnapshot($snapshot)
-            ? MarketUsageSettlementService::tokenUsage($response)
+            ? self::tokenUsage($snapshot, $response)
             : (self::openPlatformSettlementQuantity($snapshot,$response) ?? 0.0);
         return ['actual_quantity' => $actual, 'submitted_quantity' => $quantity, 'upstream_usage' => $usage];
+    }
+    private static function tokenUsage(array $snapshot, array $response): float
+    {
+        $meter=(array)($snapshot['billing_meter'] ?? []);
+        return MarketGenerationMeter::boundedToken($meter)
+            ? MarketUsageSettlementService::boundedTokenUsage($response,$meter)
+            : MarketUsageSettlementService::tokenUsage($response);
     }
     private static function settlementQuantity(array $snapshot, float $submitted, array $usage): float
     {
@@ -3489,7 +3497,7 @@ class MarketVideoRuntimeService
         $unit = strtolower((string)($snapshot['usage_unit'] ?? ''));
         if ($unit === 'per_call') return 1.;
         if (self::isTokenSnapshot($snapshot)) {
-            $tokens = MarketUsageSettlementService::tokenUsage($response);
+            $tokens = self::tokenUsage($snapshot, $response);
             return $tokens > 0 ? $tokens : null;
         }
         if (isset($snapshot['billing_meter'])) {
