@@ -75,6 +75,11 @@ try {
     wait54(fn()=>Db::name($businessTable)->where('id',$business)->value('status')==='success','Replacement worker did not finish business result',30);
     $winner=AiTaskResultAsset::find($id)->toArray();$result=Db::name($resultTable)->where('task_id',$business)->find();$winnerJob=Db::name('ai_task_job')->where('id',$job['id'])->find();
     check54($winner['transfer_status']==='stored'&&$winnerJob['status']==='success'&&(int)$winnerJob['attempts']===2,'Takeover did not own second lease');
+    // Business rows become terminal just before the worker records its own completion.
+    // Drain that owned process before counting events from the late executor.
+    $processJob=Db::name('ai_task_job')->where(['consumption_id'=>$c['id'],'job_type'=>'process_result'])->find();
+    wait54(fn()=>str_contains(file_get_contents($dir.'/winner.log'),'[job:'.$processJob['id'].'] success'),'Winner completion not recorded');
+    $stop('winner');
     $eventsBefore=(int)Db::name('ai_consumption_event')->where('consumption_id',$c['id'])->whereIn('event_type',['job_success','job_retry','job_waiting'])->count();
     file_put_contents($dir.'/release-download','1');wait54(fn()=>is_file($dir.'/download-released'),'Late response not released');
     wait54(fn()=>preg_match('/\[job:'.(int)$job['id'].'\] (success|[^\n]*转存)/u',file_get_contents($dir.'/late.log'))===1,'Late worker did not finish',15);
