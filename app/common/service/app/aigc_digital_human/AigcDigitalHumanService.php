@@ -2085,15 +2085,17 @@ class AigcDigitalHumanService
             if (!$consumptionId) {
                 $seconds = self::detectAudioDurationFromUri((string)$task['tts_audio_uri'], (int)$task['tenant_id']);
                 if ($seconds <= 0) throw new Exception('无法确认驱动音频时长，请重新上传音频');
-                $reserve = $runtime::reserve((int)$task['tenant_id'],(int)$task['user_id'],'generate',(string)$task['id'],
-                    $selection['channel'],$payload,$seconds,self::APP_CODE,'aigc_digital_human_task');
+                $shared=\app\common\service\power\MarketGenerationRuntime::selection('application',$selection['channel']);
+                $reserve=$shared->reserve((int)$task['tenant_id'],(int)$task['user_id'],self::APP_CODE,'generate','aigc_digital_human_task',(string)$task['id'],$payload,$seconds);
                 $consumptionId = (int)$reserve['consumption_id'];
-                $runtime::linkBusinessTask((int)$reserve['app_task_id'],(int)$task['id']);
+                $shared->bind((int)$reserve['app_task_id'],(int)$task['id'],(int)$task['tenant_id'],(int)$task['user_id']);
                 $task->save(['provider_stage'=>'market_lipsync','duration'=>$seconds,
                     'provider_payload_json'=>self::mergeProviderPayload($task,['market_consumption_id'=>$consumptionId,'market_reservation'=>$reserve]),'update_time'=>time()]);
             }
             $consumption = \app\common\model\ai\AiConsumptionLog::findOrEmpty($consumptionId);
-            $result = (string)$consumption['run_status'] === 'reserved' ? $runtime::submit($consumptionId,$payload) : $runtime::refresh($consumptionId);
+            $shared=\app\common\service\power\MarketGenerationRuntime::consumption($consumptionId,(int)$task['tenant_id'],(int)$task['user_id']);
+            $result = (string)$consumption['run_status'] === 'reserved' ? $shared->submit($consumptionId,$payload,(int)$task['tenant_id'],(int)$task['user_id']) : $shared->refresh($consumptionId,(int)$task['tenant_id'],(int)$task['user_id']);
+            $result=\app\common\service\ai\GenerationTaskResultService::withoutView($result);
             $task->save(['provider_task_id'=>(string)($result['provider_task_id'] ?? $task['provider_task_id']),'update_time'=>time()]);
             if (in_array($result['status'] ?? '', ['failed','canceled','cancelled'],true)) {
                 self::failTask($task,'lipsync_failed',(string)($result['error'] ?? '视频合成失败')); return;

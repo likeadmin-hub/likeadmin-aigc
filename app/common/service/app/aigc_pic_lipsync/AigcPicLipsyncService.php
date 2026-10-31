@@ -75,7 +75,7 @@ class AigcPicLipsyncService
         if ($requestKey !== '' && !preg_match('/^[A-Za-z0-9_-]{8,64}$/D', $requestKey)) throw new Exception('提交标识无效');
         if ($requestKey !== '') {
             $existing = AigcPicLipsyncTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'request_key' => $requestKey])->findOrEmpty();
-            if (!$existing->isEmpty()) return self::formatTask($existing->toArray(), $tenantId);
+            if (!$existing->isEmpty()) return \app\common\service\ai\GenerationTaskResultService::appendBusiness(self::formatTask($existing->toArray(),$tenantId),(int)$existing['app_task_id'],$tenantId,(int)$existing['user_id']);
         }
         $prepared = self::prepare($tenantId, $params, true, $userId);
         $quote = MarketPicLipsyncAppRuntimeService::quote($tenantId, $prepared['selection'], $prepared['duration']);
@@ -83,15 +83,16 @@ class AigcPicLipsyncService
         } catch (\Throwable $e) {
             if ($requestKey !== '') {
                 $existing = AigcPicLipsyncTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'request_key' => $requestKey])->findOrEmpty();
-                if (!$existing->isEmpty()) return self::formatTask($existing->toArray(), $tenantId);
+                if (!$existing->isEmpty()) return \app\common\service\ai\GenerationTaskResultService::appendBusiness(self::formatTask($existing->toArray(),$tenantId),(int)$existing['app_task_id'],$tenantId,(int)$existing['user_id']);
             }
             throw $e;
         }
         try {
-            $reserve = MarketPicLipsyncAppRuntimeService::reserve($tenantId, $userId, self::UPSTREAM_API_CODE, (string)$task['id'], $prepared['selection'], $prepared['request'], $prepared['duration'], self::APP_CODE, 'aigc_pic_lipsync_task');
+            $sharedRuntime = \app\common\service\power\MarketGenerationRuntime::selection('application',$prepared['selection']);
+            $reserve = $sharedRuntime->reserve($tenantId,$userId,self::APP_CODE,self::UPSTREAM_API_CODE,'aigc_pic_lipsync_task',(string)$task['id'],$prepared['request'],$prepared['duration']);
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'consumption_id' => (int)$reserve['consumption_id'], 'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? $quote['market_product_id']), 'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? $quote['market_sku_id']), 'pricing_snapshot' => $reserve['market_snapshot'], 'status' => 'running', 'update_time' => time()]);
-            MarketPicLipsyncAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = MarketPicLipsyncAppRuntimeService::submit((int)$reserve['consumption_id'], $prepared['request']);
+            $sharedRuntime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $sharedRuntime->submit((int)$reserve['consumption_id'],$prepared['request'],$tenantId,$userId);
             $task->save(['provider_task_id' => (string)($result['provider_task_id'] ?? ''), 'status' => (string)($result['status'] ?? 'running'), 'update_time' => time()]);
             self::syncConsumption((int)$task['id']);
             return self::response($task, $quote);

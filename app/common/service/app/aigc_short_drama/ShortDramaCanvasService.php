@@ -566,7 +566,7 @@ class ShortDramaCanvasService
         if (!empty(self::decode((string)$run['request_json'])['__canvas_intent_version'])) {
             GenerationIntentService::projectStatus($tenantId,$userId,$runId);
         }
-        return self::formatRun($run);
+        return \app\common\service\ai\GenerationTaskResultService::appendNative(self::formatRun($run),(string)$run['node_type'],(int)$run['provider_task_id'],$tenantId,$userId);
     }
 
     /** Fair, bounded local reconciliation; safe when no browser is open. */

@@ -3103,6 +3103,7 @@ class AigcCanvasService
 
     private static function sanitizeRunPayload(array $payload): array
     {
+        $payload=GenerationTaskResultService::withoutView($payload);
         $result = self::truncateRunPayload($payload);
         foreach (['reference_images', 'image_urls'] as $key) {
             if (isset($payload[$key]) && is_array($payload[$key])) {

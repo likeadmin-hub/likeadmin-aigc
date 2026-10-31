@@ -308,7 +308,7 @@ class AigcMusicService
         }
         $data = $task->toArray();
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
-        return $data;
+        return \app\common\service\ai\GenerationTaskResultService::appendBusiness($data,(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function platformTaskLists(array $params = []): array

@@ -60,10 +60,11 @@ class AigcWatermarkRemovalService
         $quote = MarketApplicationApiRuntimeService::quote($tenantId, $prepared['selection'], 1);
         $task = AigcWatermarkRemovalTask::create(['tenant_id' => $tenantId, 'user_id' => $userId, 'app_task_id' => 0, 'consumption_id' => 0, 'provider_task_id' => '', 'market_product_id' => (int)$quote['market_product_id'], 'market_sku_id' => (int)$quote['market_sku_id'], 'pricing_snapshot' => $quote['market_snapshot'], 'source_url' => $prepared['url'], 'request_snapshot' => $prepared['request'], 'status' => 'pending', 'error' => '', 'tenant_cost_points' => (float)$quote['tenant_cost_points'], 'user_charge_points' => (float)$quote['user_charge_points'], 'create_time' => time(), 'update_time' => time(), 'finish_time' => 0, 'delete_time' => 0]);
         try {
-            $reserve = MarketGenericImageAppRuntimeService::reserve($tenantId, $userId, self::UPSTREAM_API_CODE, (string)$task['id'], $prepared['selection'], $prepared['request'], 1, self::APP_CODE, 'aigc_watermark_removal_task');
+            $sharedRuntime = \app\common\service\power\MarketGenerationRuntime::selection('application',$prepared['selection']);
+            $reserve = $sharedRuntime->reserve($tenantId,$userId,self::APP_CODE,self::UPSTREAM_API_CODE,'aigc_watermark_removal_task',(string)$task['id'],$prepared['request'],1);
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'consumption_id' => (int)$reserve['consumption_id'], 'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? $quote['market_product_id']), 'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? $quote['market_sku_id']), 'pricing_snapshot' => $reserve['market_snapshot'], 'status' => 'running', 'update_time' => time()]);
-            MarketGenericImageAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = MarketGenericImageAppRuntimeService::submit((int)$reserve['consumption_id'], $prepared['request']);
+            $sharedRuntime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $sharedRuntime->submit((int)$reserve['consumption_id'],$prepared['request'],$tenantId,$userId);
             $task->save(['provider_task_id' => (string)($result['provider_task_id'] ?? ''), 'status' => (string)($result['status'] ?? 'running'), 'update_time' => time()]);
             self::syncConsumption((int)$task['id']);
             return self::response($task, $quote);
