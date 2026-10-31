@@ -50,6 +50,10 @@ class AiTaskManagedFileService
                 'metadata' => array_intersect_key($metadata, array_flip(['width', 'height', 'duration', 'mime_type'])),
             ];
             $planned = json_decode(json_encode($planned, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+            // A download may outlive its queue lease. Never plan another object after a peer completed it.
+            if ((string)$asset['transfer_status'] === 'stored') {
+                return ['completed_receipt' => self::storedReceipt($asset, $planned)];
+            }
             if (isset($meta['transfer_checkpoint'])) {
                 foreach (array_diff_key($planned, ['metadata' => true]) as $key => $value) {
                     if (($meta['transfer_checkpoint'][$key] ?? null) !== $value) throw new \RuntimeException('转存来源或存储配置已变化，请核对');
@@ -60,6 +64,7 @@ class AiTaskManagedFileService
             $asset->save(['storage_meta' => $meta, 'update_time' => time()]);
             return $planned;
         });
+        if (isset($checkpoint['completed_receipt'])) return $checkpoint['completed_receipt'];
         $asset = AiTaskResultAsset::find($assetId);
         $recovered = self::recover($asset, $config);
         if ($recovered !== null) return $recovered;
@@ -100,7 +105,13 @@ class AiTaskManagedFileService
         return Db::transaction(function () use ($assetId, $tenantId, $userId, $checkpoint) {
             $asset = self::owned($assetId, $tenantId, $userId);
             $meta = (array)$asset['storage_meta'];
-            if (($meta['transfer_checkpoint'] ?? null) !== $checkpoint) throw new \RuntimeException('转存检查点已变化');
+            if ((string)$asset['transfer_status'] === 'stored') return self::storedReceipt($asset, $checkpoint);
+            $current = $meta['transfer_checkpoint'] ?? null;
+            if (!is_array($current) || array_diff_key($current, ['receipt' => true]) !== array_diff_key($checkpoint, ['receipt' => true])) {
+                throw new \RuntimeException('转存检查点已变化');
+            }
+            // A peer may have registered this exact upload while this writer was finishing I/O.
+            $checkpoint = $current;
             $type = match ($asset['asset_type']) {'image' => FileEnum::IMAGE_TYPE, 'video' => FileEnum::VIDEO_TYPE, default => FileEnum::FILE_TYPE};
             $file = TenantFile::where(['tenant_id' => $tenantId, 'uri' => $checkpoint['uri']])->findOrEmpty();
             if ($file->isEmpty()) {
@@ -126,6 +137,30 @@ class AiTaskManagedFileService
             }
             return $receipt;
         });
+    }
+
+    private static function storedReceipt(AiTaskResultAsset $asset, array $expected): array
+    {
+        $receipt = (array)$asset['storage_meta'];
+        if (($receipt['stored'] ?? null) !== true || (int)($receipt['file_id'] ?? 0) < 1
+            || (string)$asset['local_uri'] !== ($expected['uri'] ?? null)) {
+            throw new \RuntimeException('已完成转存回执不匹配');
+        }
+        foreach (['uri', 'checksum', 'file_size', 'storage_scope', 'storage_engine', 'storage_domain'] as $key) {
+            if (($receipt[$key] ?? null) !== ($expected[$key] ?? null)) throw new \RuntimeException('已完成转存内容或存储配置不匹配');
+        }
+        foreach (['storage_scope', 'storage_engine', 'storage_domain'] as $key) {
+            if ((string)$asset[$key] !== $receipt[$key]) throw new \RuntimeException('已完成转存资产存储信息不匹配');
+        }
+        $file = TenantFile::findOrEmpty((int)$receipt['file_id']);
+        $type = match ($asset['asset_type']) {'image' => FileEnum::IMAGE_TYPE, 'video' => FileEnum::VIDEO_TYPE, default => FileEnum::FILE_TYPE};
+        foreach (['tenant_id' => (int)$asset['tenant_id'], 'source_id' => (int)$asset['user_id'], 'source' => FileEnum::SOURCE_USER, 'type' => $type] as $key => $value) {
+            if ($file->isEmpty() || (int)$file[$key] !== $value) throw new \RuntimeException('已完成转存文件归属不匹配');
+        }
+        foreach (['uri', 'storage_scope', 'storage_engine', 'storage_domain'] as $key) {
+            if ((string)$file[$key] !== $receipt[$key]) throw new \RuntimeException('已完成转存文件回执不匹配');
+        }
+        return $receipt;
     }
 
     private static function owned(int $assetId, int $tenantId, int $userId): AiTaskResultAsset
