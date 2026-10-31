@@ -1175,6 +1175,7 @@ class AigcDigitalHumanService
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
         }
+        $rows=\app\common\service\ai\GenerationTaskResultService::appendWorkflowList($rows,'aigc_digital_human_task');
         if ($usePage) {
             return [
                 'lists' => $rows,
@@ -1236,7 +1237,7 @@ class AigcDigitalHumanService
         $data = $task->toArray();
         $data['duration'] = self::displayDurationForTask($data);
         $data['results'] = self::taskResults($tenantId, $userId, $taskId);
-        return $data;
+        return \app\common\service\ai\GenerationTaskResultService::appendWorkflowList([$data],'aigc_digital_human_task')[0];
     }
 
     public static function platformTaskLogDetail(int $taskId): array

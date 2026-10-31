@@ -174,4 +174,26 @@ class GenerationTaskResultTest extends TestCase
         });
     }
 
+    public function testStageChildrenPreserveParentStatePriceAndOwnerBoundaries(): void
+    {
+        $this->fixture(function($t,$c,$a,$owner){
+            $parent=['id'=>987,'status'=>'awaiting_confirmation','estimate'=>['user_charge_points'=>9],'result_url'=>'/composed'];
+            $view=Results::appendConsumptionIds($parent,[(int)$c['id'],(int)$c['id'],0,999999999],$owner['tenant_id'],$owner['user_id']);
+            self::assertSame($parent,array_diff_key($view,array_flip(['generation_tasks','generation_task_refs'])));
+            self::assertCount(1,$view['generation_tasks']);self::assertSame(['app_task:'.$t['id']],$view['generation_task_refs']);
+            self::assertSame([],Results::appendConsumptionIds($parent,[(int)$c['id']],$owner['tenant_id'],$owner['user_id']+1)['generation_tasks']);
+        });
+    }
+
+    public function testWorkflowListMatchesBothOwnerAndParentWithoutReplacingBusinessResults(): void
+    {
+        $this->fixture(function($t,$c,$a,$owner){
+            $t->save(['business_table'=>'aigc_digital_human_task','business_id'=>987]);
+            $row=$owner+['id'=>987,'status'=>'running','results'=>[['video_url'=>'/business-composition']]];
+            $rows=Results::appendWorkflowList([$row,array_replace($row,['id'=>988]),array_replace($row,['user_id'=>$owner['user_id']+1])],'aigc_digital_human_task');
+            self::assertSame('running',$rows[0]['status']);self::assertSame($row['results'],$rows[0]['results']);
+            self::assertSame(['app_task:'.$t['id']],$rows[0]['generation_task_refs']);self::assertSame([],$rows[1]['generation_tasks']);self::assertSame([],$rows[2]['generation_tasks']);
+        });
+    }
+
 }

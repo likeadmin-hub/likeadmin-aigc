@@ -284,7 +284,7 @@ class AigcMusicService
         } else {
             $query->limit(100);
         }
-        $rows = self::attachTaskResults($tenantId, $query->select()->toArray(), $userId);
+        $rows = \app\common\service\ai\GenerationTaskResultService::appendNativeList(self::attachTaskResults($tenantId, $query->select()->toArray(), $userId));
         return $usePage ? ['lists' => $rows, 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize] : $rows;
     }
 

@@ -216,4 +216,38 @@ final class GenerationTaskResultService
         return $rows;
     }
 
+    /** Stage-based tools expose children separately; their parent state and composed result remain authoritative. */
+    public static function appendConsumptionIds(array $response, array $ids, int $tenantId, int $userId): array
+    {
+        $ids=array_values(array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0)));
+        if(!$ids)return $response+['generation_tasks'=>[],'generation_task_refs'=>[]];
+        try{
+            $taskIds=AiConsumptionLog::where(['tenant_id'=>$tenantId,'user_id'=>$userId])->whereIn('id',$ids)->order('id','asc')->column('app_task_id');
+            $response['generation_tasks']=array_values(self::readMany($taskIds,$tenantId,$userId));
+            $response['generation_task_refs']=array_column($response['generation_tasks'],'task_ref');
+        }catch(\Throwable){$response['generation_tasks_pending']=true;}
+        return $response;
+    }
+
+    public static function appendWorkflowList(array $rows, string $businessTable): array
+    {
+        if(!in_array($businessTable,['aigc_digital_human_task'],true))throw new InvalidArgumentException('该业务的生成步骤尚未声明');
+        $groups=[];
+        foreach($rows as$index=>$row){
+            $tenant=(int)($row['tenant_id']??0);$user=(int)($row['user_id']??0);$id=(int)($row['id']??0);
+            if($tenant<=0||$user<=0||$id<=0)continue;
+            $key=$tenant.':'.$user;$groups[$key]['owner']=[$tenant,$user];$groups[$key]['rows'][$index]=$id;
+        }
+        foreach($groups as$group){
+            [$tenant,$user]=$group['owner'];
+            try{
+                $tasks=AiAppTask::where(['tenant_id'=>$tenant,'user_id'=>$user,'business_table'=>$businessTable])->whereIn('business_id',array_values($group['rows']))->field('id,business_id')->order('id','asc')->select()->toArray();
+                $views=self::readMany(array_column($tasks,'id'),$tenant,$user);$byBusiness=[];
+                foreach($tasks as$task)if(isset($views[$task['id']]))$byBusiness[(int)$task['business_id']][]=$views[$task['id']];
+                foreach($group['rows']as$index=>$id){$rows[$index]['generation_tasks']=$byBusiness[$id]??[];$rows[$index]['generation_task_refs']=array_column($rows[$index]['generation_tasks'],'task_ref');}
+            }catch(\Throwable){foreach($group['rows']as$index=>$id)$rows[$index]['generation_tasks_pending']=true;}
+        }
+        return $rows;
+    }
+
 }
