@@ -72,11 +72,14 @@ try {
     $bills = Db::name('aigc_digital_human_billing')->where('task_id', $success['taskId'])->select()->toArray();
     check(count($bills) === 1 && json_decode($bills[0]['extra_json'], true)['market_consumption_id'] === $success['consumptionId'], 'Native bill missing market trace');
     $saved = task($success);
+    $projectedBill = Db::name('ai_consumption_log')->where('id', $success['consumptionId'])->find();
+    // Managed-result hydration may update its response receipt, never the admitted billing facts.
+    check(array_diff(array_keys(array_diff_assoc($projectedBill, $billBefore)), ['response_summary','update_time']) === [], 'Result projection changed admitted settlement');
     check(Worker::syncTerminalByConsumptionId($success['consumptionId']), 'Duplicate sync rejected');
     check(task($success) === $saved && Db::name('aigc_digital_human_result')->where('task_id', $success['taskId'])->count() === 1
         && Db::name('aigc_digital_human_billing')->where('task_id', $success['taskId'])->count() === 1, 'Duplicate sync mutated terminal task or duplicated rows');
     check((int)Db::name('aigc_digital_human_quota')->where(['tenant_id'=>1, 'user_id'=>2147483000])->value('used_quota') === 1, 'Duplicate sync consumed quota twice');
-    check(Db::name('ai_consumption_log')->where('id', $success['consumptionId'])->find() === $billBefore && $wallets() === $before, 'Sync changed settlement or wallets');
+    check(Db::name('ai_consumption_log')->where('id', $success['consumptionId'])->find() === $projectedBill && $wallets() === $before, 'Repeated projection changed receipt or wallets');
 
     foreach (['failed'=>'failed', 'canceled'=>'canceled', 'cancelled'=>'canceled'] as $remote=>$native) {
         $failed = fixture($remote, 'refunded');
