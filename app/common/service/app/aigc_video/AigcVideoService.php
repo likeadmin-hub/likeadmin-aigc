@@ -219,10 +219,11 @@ class AigcVideoService
         if ($onTaskCreated) $onTaskCreated($task);
         try {
             $idempotencyKey = trim((string)($params['idempotency_key'] ?? ''));
-            $businessTaskId = $idempotencyKey !== '' ? $idempotencyKey : (string)$task['id'];
+            $businessTaskId = $idempotencyKey !== '' ? \app\common\service\power\MarketVideoRuntimeService::userRequestBusinessId($tenantId,$userId,$marketAppCode,'video_generate','aigc_video_task',$idempotencyKey) : (string)$task['id'];
             $sharedRuntime = MarketGenerationRuntime::selection('video',$selection);
             $reserve = $sharedRuntime->reserve($tenantId,$userId,$marketAppCode,'video_generate','aigc_video_task',$businessTaskId,$params,1,$billingOverride);
             $existingTask = AigcVideoTask::where('app_task_id', (int)$reserve['app_task_id'])
+                ->where(['tenant_id'=>$tenantId,'user_id'=>$userId])
                 ->where('id', '<>', (int)$task['id'])
                 ->where('delete_time', 0)
                 ->order('id', 'asc')
