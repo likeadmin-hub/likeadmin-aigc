@@ -58,6 +58,7 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
             throw new RuntimeException($code.': '.$error->getMessage().' prepared references: '.json_encode($prepared['image_payload']['reference_images']??[]),0,$error);
         }
         $before=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
+        $tenantBefore=(float)\think\facade\Db::name('tenant')->where('id',$tenant)->value('point_balance');
         $accepted=dataHttp($api,$path.'.generate/index'.$suffix,$input,$token);
         MarketWorkerFixture::check(count($accepted['generation_tasks']??[])===1,$code.' did not return one owned canonical child');
         if($code==='product_promo_video') {
@@ -91,9 +92,12 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         $fixture->stop();
         $redetail=dataHttp($api,$path.'.task/detail'.$suffix.'&id='.$reaccepted['task_id'],[],$token,'GET');
         MarketWorkerFixture::check(($redetail['status']??'')==='success'&&count($redetail['results']??[])===1,$code.' reused result failed');
+        $replayUser=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
+        $replayTenant=(float)\think\facade\Db::name('tenant')->where('id',$tenant)->value('point_balance');
+        MarketWorkerFixture::check(abs($before-$replayUser-2*(float)$estimate['user_charge_points'])<0.001 && abs($tenantBefore-$replayTenant-2*(float)$estimate['tenant_cost_points'])<0.001,$code.' attempts did not each settle their quoted amounts once');
         foreach(['source_image','source_images','product_image','product_images','custom_scene_image','model_image','model_images','wear_image','clothes_images','garment_images','mask_image','restore_type','source_language','target_language','module_codes','view_codes','option_codes','ratio','quality','channel']as$key)
             if(array_key_exists($key,$detail))MarketWorkerFixture::check($detail[$key]===($redetail[$key]??null),$code.' reused field changed: '.$key);
-        $report[$code]=['normal_http_estimate_submit'=>true,'managed_result_and_business_writeback'=>true,'list_detail_same_owned_children'=>true,'history_rebuilt_new_attempt'=>true,'history_parameters_and_results_preserved'=>true,'user_price'=>(float)$estimate['user_charge_points']];
+        $report[$code]=['normal_http_estimate_submit'=>true,'managed_result_and_business_writeback'=>true,'list_detail_same_owned_children'=>true,'history_rebuilt_new_attempt'=>true,'history_parameters_and_results_preserved'=>true,'both_attempts_settled_quoted_amount_once'=>true,'user_price'=>(float)$estimate['user_charge_points']];
         if($code==='product_promo_video')$report[$code]['explicit_new_intent_key_and_same_key_replay']=true;
     }
     return $report;
