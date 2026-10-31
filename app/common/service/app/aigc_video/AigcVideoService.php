@@ -195,7 +195,7 @@ class AigcVideoService
         }
         if (\app\common\service\power\Q4VideoContract::matches((array)$quote['market_snapshot'])) $selection['q4_options'] = \app\common\service\power\Q4VideoContract::options($params);
         $selection['generation_parameters_signature'] = \app\common\service\power\MarketGenerationRequest::parameterSignature($params);
-        $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params, $appCode);
+        $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params, $marketAppCode);
         if ($duplicate !== null) {
             return self::marketDuplicateResponse($duplicate, $tenantId, $userId);
         }
