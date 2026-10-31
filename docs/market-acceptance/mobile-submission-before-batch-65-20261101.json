@@ -1,0 +1,14 @@
+{
+  "batch": 65,
+  "scope": "In-memory actual pre-fix mobile HTTP implementation, no network/provider/wallet",
+  "source_web_commit": "2e3f84f463456beafde7c38f00bb2b26efb1c67f",
+  "observations": [
+    {
+      "scenario": "different_generation_intentions_same_url",
+      "status": "reproduced_failure",
+      "first_request_aborted": true,
+      "first_request_has_submission_key": false,
+      "requests": 2
+    }
+  ]
+}
