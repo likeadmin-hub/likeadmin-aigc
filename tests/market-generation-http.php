@@ -21,8 +21,11 @@ if(PHP_SAPI==='cli-server') {
             echo json_encode(['code'=>1,'data'=>['id'=>'fixture-task-'.count(file($dir.'/submissions.jsonl')),'status'=>'running']]);return;
         }
         if(str_starts_with((string)$path,'/api/v1/tasks/')) {
-            $url='data:video/mp4;base64,'.base64_encode(file_get_contents($dir.'/synthetic.mp4'));
-            echo json_encode(['code'=>1,'data'=>['id'=>basename($path),'status'=>'success','videos'=>[['url'=>$url,'duration'=>1,'width'=>32,'height'=>32]]]]);return;
+            $index=(int)substr(basename($path),strlen('fixture-task-'));
+            if(is_file($dir.'/hold-from-index')&&$index>=(int)file_get_contents($dir.'/hold-from-index')) {echo json_encode(['code'=>1,'data'=>['id'=>basename($path),'status'=>'running']]);return;}
+            $input=json_decode(file($dir.'/submissions.jsonl')[$index-1],true);$image=($input['model']??'')==='synthetic-image';
+            $url=$image?'data:image/png;base64,'.base64_encode(file_get_contents($dir.'/synthetic.png')):'data:video/mp4;base64,'.base64_encode(file_get_contents($dir.'/synthetic.mp4'));
+            echo json_encode(['code'=>1,'data'=>['id'=>basename($path),'status'=>'success',($image?'images':'videos')=>[['url'=>$url,'duration'=>1,'width'=>32,'height'=>32]]]]);return;
         }
         http_response_code(404);echo json_encode(['error'=>'Unexpected fixture supplier path']);return;
     }
@@ -57,7 +60,7 @@ try {
     copy('/tmp/market-batch52-media/synthetic.mp4',$dir.'/synthetic.mp4');
     Db::name('user')->where('id',$user)->update(['password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification'))]);
     Db::name('config')->insert(['type'=>'login','name'=>'login_way','value'=>'[1]']);
-    foreach(['aigc_canvas','aigc_video','aigc_short_drama']as$code) {
+    foreach(['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite']as$code) {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);
         Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled','create_time'=>time(),'update_time'=>time()]);
     }
@@ -99,6 +102,7 @@ try {
     $report+=['authenticated_submission'=>true,'worker_completed_without_browser_poll'=>true,'managed_result_checksum'=>true,'stale_autosave_preserved_result_and_user_edit'=>true,'logout_login_reopen'=>true,'local_supplier_submissions'=>count(file($dir.'/submissions.jsonl')),'tasks'=>(int)Db::name('ai_app_task')->count(),'consumptions'=>(int)Db::name('ai_consumption_log')->count(),'result_assets'=>(int)Db::name('ai_task_result_asset')->count(),'billing_events'=>Db::name('ai_consumption_event')->column('event_type'),'fixture_user_balance'=>(float)Db::name('user')->where('id',$user)->value('user_money'),'fixture_tenant_balance'=>(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')];
     $query=dataHttp($api,'/api/app.aigc_canvas.generate/videoQuery'.$suffix.'&task_id='.$consumption,[],$token,'GET');
     MarketWorkerFixture::check(($query['generation_task']['task_ref']??'')===$report['accepted_task_ref']&&$query['generation_task']['status']==='success'&&(int)$query['task_id']===$consumption,'Canvas HTTP query lost canonical results');
+    if(getenv('AIGC_HTTP_FIXTURE_SKIP_DRAMA')!=='1') {
     Db::name('aigc_short_drama_config')->insert(['tenant_id'=>$tenant,'status'=>1,'config_json'=>'{}','create_time'=>time(),'update_time'=>time()]);
     $drama=dataHttp($api,'/api/app.aigc_short_drama.canvas/create'.$suffix,['title'=>'Private HTTP drama'], $token);
     $dramaId=(int)$drama['id'];$dramaNode=['id'=>'1','type'=>'video','title'=>'Synthetic video','position'=>['x'=>0,'y'=>0],'metadata'=>['prompt'=>'Synthetic colored block','channel'=>$request['channel'],'status'=>'idle','quality'=>'720P','duration'=>1,'ratio'=>'1:1']];
@@ -131,6 +135,42 @@ try {
     MarketWorkerFixture::check((float)Db::name('user')->where('id',$user)->value('user_money')===98.&&(float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===98.,'Fixture points do not match frozen 1-point requests');
     $report['short_drama']=['http_quote_confirm_submit'=>true,'same_key_replay_no_second_submit_or_charge'=>true,'frozen_catalogue_change_survived'=>true,'worker_result_and_normal_login_reopen'=>true,'task_ref'=>$accepted['generation_task']['task_ref']];
     $report['http_foreign_owner_reads_rejected']=3;$report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];$report['total_fixture_user_balance']=98;$report['total_fixture_tenant_balance']=98;
+    }
+    $userBefore=(float)Db::name('user')->where('id',$user)->value('user_money');$tenantBefore=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
+    file_put_contents($dir.'/synthetic.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII='));
+    $imageMeta=['max_reference_images'=>3,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'image_size'=>['type'=>'string','enum'=>['1K']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>3]]];
+    $imageProduct=app\common\model\power\PowerMarketProduct::create(['product_code'=>$prefix.'image','name'=>'Private synthetic image','resource_type'=>'model','model_type'=>'image','source_code'=>'isolated-fixture','upstream_resource_key'=>$prefix.'image','upstream_model_code'=>'synthetic-image','upstream_channel_code'=>'fixture','source_payload'=>['market_metadata'=>$imageMeta],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
+    $imageSku=app\common\model\power\PowerMarketSku::create(['product_id'=>$imageProduct['id'],'sku_key'=>$prefix.'image-sku','title'=>'Private image fixture','locked_params'=>['image_size'=>'1K','aspect_ratio'=>'1:1'],'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>['version'=>1,'basis'=>'call','rounding'=>'ceil']],'create_time'=>time(),'update_time'=>time()]);
+    $channel='market_image_model:'.$imageProduct['id'];
+    $nativeImage=dataHttp($api,'/api/app.aigc_image.generate/submit'.$suffix,['channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','quantity'=>1,'prompt'=>'Synthetic block'], $token);
+    MarketWorkerFixture::check(($nativeImage['generation_task']['schema_version']??0)===1,'Native image accepted task lacks canonical view');
+    $fixture->start(__FILE__,'aigc_image');
+    MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$nativeImage['task_id'])->value('status')==='success','Native image worker did not finish',30);$fixture->stop();
+    $imageView=View::read((int)$nativeImage['generation_task']['app_task_id'],$tenant,$user);
+    MarketWorkerFixture::check($imageView['status']==='success'&&count($imageView['results'])===1&&hash_file('sha256',$dir.'/public/'.$imageView['results'][0]['uri'])===hash_file('sha256',$dir.'/synthetic.png'),'Native image managed result mismatch');
+    $imageUri=$imageView['results'][0]['uri'];
+    app\common\service\app\aigc_product_image\AigcProductImageService::saveConfig($tenant,['status'=>1,'config_json'=>['channel'=>$channel,'quality'=>'1k','unit_price'=>3]]);
+    $single=dataHttp($api,'/api/app.aigc_product_image.generate/submit'.$suffix,['product_image'=>$imageUri,'custom_scene_image'=>$imageUri,'scene_mode'=>'custom','channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','size_key'=>'1:1','prompt'=>'Synthetic product'], $token);
+    MarketWorkerFixture::check(count($single['generation_tasks']??[])===1,'Single application did not expose its owned generation child');
+    $fixture->start(__FILE__,'aigc_image');
+    $singleNative=(int)$single['image_task_id'];MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$singleNative)->value('status')==='success','Single image application child did not complete',30);$fixture->stop();
+    $singleFinal=dataHttp($api,'/api/app.aigc_product_image.task/detail'.$suffix.'&id='.$single['task_id'],[],$token,'GET');
+    MarketWorkerFixture::check($singleFinal['status']==='success'&&count($singleFinal['results'])===1&&$singleFinal['generation_tasks'][0]['status']==='success','Single app business result not reconciled');
+    app\common\service\app\aigc_product_suite\AigcProductSuiteService::saveConfig($tenant,['status'=>1,'default_channel'=>$channel,'default_quality'=>'1k','default_ratio'=>'1:1','unit_price'=>3]);
+    file_put_contents($dir.'/hold-from-index',(string)(count(file($dir.'/submissions.jsonl'))+2));
+    $suite=dataHttp($api,'/api/app.aigc_product_suite.generate/submit'.$suffix,['product_images'=>[$imageUri],'channel'=>$channel,'quality'=>'1k','ratio'=>'1:1','module_codes'=>['hero','detail'],'prompt'=>'Synthetic product'], $token);
+    MarketWorkerFixture::check(count($suite['image_task_ids']??[])===2&&count($suite['generation_tasks']??[])===2,'Suite did not keep two ordered generation children');
+    $firstChild=(int)$suite['image_task_ids'][0];$secondChild=(int)$suite['image_task_ids'][1];$fixture->start(__FILE__,'aigc_image');
+    MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$firstChild)->value('status')==='success','First suite child not completed',30);
+    $partial=dataHttp($api,'/api/app.aigc_product_suite.task/detail'.$suffix.'&id='.$suite['task_id'],[],$token,'GET');
+    MarketWorkerFixture::check($partial['status']==='running'&&$partial['generation_tasks'][0]['status']==='success'&&$partial['generation_tasks'][1]['status']==='running','First child incorrectly completed its parent');
+    unlink($dir.'/hold-from-index');MarketWorkerFixture::wait(fn()=>Db::name('aigc_image_task')->where('id',$secondChild)->value('status')==='success','Second suite child did not finish',30);$fixture->stop();
+    $suiteFinal=dataHttp($api,'/api/app.aigc_product_suite.task/detail'.$suffix.'&id='.$suite['task_id'],[],$token,'GET');
+    MarketWorkerFixture::check($suiteFinal['status']==='success'&&count($suiteFinal['results'])===2&&array_column($suiteFinal['generation_tasks'],'status')===['success','success'],'Completed suite lost business or typed child results');
+    $userAfter=(float)Db::name('user')->where('id',$user)->value('user_money');$tenantAfter=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
+    MarketWorkerFixture::check($userBefore-$userAfter===10.&&$tenantBefore-$tenantAfter===4.,'Native/application retail overrides charged incorrect fixture amounts');
+    $report['image_http']=['native_managed_result_checksum'=>true,'single_application_parent_and_child_success'=>true,'suite_first_child_does_not_finish_parent'=>true,'suite_two_children_two_results'=>true,'native_price'=>1,'application_retail_price_per_child'=>3,'fixture_user_delta'=>10,'fixture_tenant_delta'=>4];
+    $report['total_local_supplier_submissions']=count(file($dir.'/submissions.jsonl'));$report['total_fixture_user_balance']=$userAfter;$report['total_fixture_tenant_balance']=$tenantAfter;
 } catch(Throwable $e) {
     $failure=$e;$report['failure']=$e->getMessage();$report['fixture_line']=array_values(array_map(static fn($frame)=>$frame['line']??0,array_filter($e->getTrace(),static fn($frame)=>($frame['file']??'')===__FILE__))); 
     if($fixture&&isset($runId)) {
