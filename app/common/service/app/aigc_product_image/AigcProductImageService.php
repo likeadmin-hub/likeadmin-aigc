@@ -341,7 +341,7 @@ class AigcProductImageService
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::appendTaskResults($tenantId, $userId, $rows);
         return [
-            'lists' => array_map([self::class, 'formatTaskRow'], $rows),
+            'lists' => \app\common\service\ai\GenerationTaskResultService::appendRelatedList(array_map([self::class, 'formatTaskRow'], $rows),'image'),
             'count' => $count,
             'page_no' => $pageNo,
             'page_size' => $pageSize,

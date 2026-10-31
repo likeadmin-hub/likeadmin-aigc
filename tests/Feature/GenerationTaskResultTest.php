@@ -38,7 +38,7 @@ class GenerationTaskResultTest extends TestCase
             $r=Results::read((int)$t['id'],$owner['tenant_id'],$owner['user_id']);
             self::assertSame(1,$r['schema_version']);self::assertSame('app_task:'.$t['id'],$r['task_ref']);self::assertSame($status,$r['status']);self::assertSame($stage,$r['stage']);
             self::assertGreaterThan(time()-60,$r['created_at']);self::assertGreaterThan(time()-60,$r['finished_at']);
-            self::assertSame($storage==='stored'?1:0,count($r['results']));
+            self::assertSame($storage==='stored' && $execution==='success' && $billing==='settled'?1:0,count($r['results']));
             if($r['results']){self::assertSame((int)$a['id'],$r['results'][0]['result_asset_id']);self::assertSame('uploads/unify-owned.mp4',$r['results'][0]['uri']);self::assertStringNotContainsString('example.invalid',$r['results'][0]['url']);}
             self::assertArrayNotHasKey('price_snapshot',$r);self::assertStringNotContainsString('never-return-this',json_encode($r));
             self::assertSame($before,[$t->refresh()->toArray(),$c->refresh()->toArray(),$a->refresh()->toArray()]);self::assertSame($jobs,(int)Db::name('ai_task_job')->where('consumption_id',$c['id'])->count());
@@ -109,6 +109,48 @@ class GenerationTaskResultTest extends TestCase
             self::assertSame(['app_task:'.$t['id'],'app_task:'.$second['id']],$view['generation_task_refs']);self::assertArrayNotHasKey('generation_task',$view);
             self::assertSame(987,Results::carry($parent,$view)['task_id']);self::assertCount(2,Results::carry($parent,$view)['generation_tasks']);
             self::assertSame(['app_task:'.$t['id']],array_column(Results::readMany([$t['id'],2147483000],...array_values($owner)),'task_ref'));
+            $list=Results::appendRelatedList([$parent+$owner+['image_task_ids'=>array_reverse($children)]],'image');
+            self::assertSame(['app_task:'.$second['id'],'app_task:'.$t['id']],$list[0]['generation_task_refs']);
+            self::assertSame($parent['estimate'],$list[0]['estimate']);self::assertSame('running',$list[0]['status']);
+            $native=Results::appendNativeList([$owner+['app_task_id'=>$t['id'],'status'=>'success'],['tenant_id'=>$owner['tenant_id'],'user_id'=>$owner['user_id']+1,'app_task_id'=>$t['id']]]);
+            self::assertSame('app_task:'.$t['id'],$native[0]['generation_task']['task_ref']);self::assertArrayNotHasKey('generation_task',$native[1]);
         });
+    }
+
+    /** @dataProvider handoffs */
+    public function testMicroVideoHandoffWakesOnlyItsOwnedEligibleWorkflow(string $kind,string $state,bool $bound,bool $wake): void
+    {
+        $this->fixture(function($t,$c,$a,$owner)use($kind,$state,$bound,$wake){
+            $parent=$this->schemaRow('aigc_micro_video_task',$owner+['idempotency_key'=>'unify-micro-'.bin2hex(random_bytes(6)),
+                'status'=>$state,'frame_status'=>'generating','next_run_at'=>time()+600,'delete_time'=>0]);
+            $source=$this->schemaRow('aigc_micro_video_'.$kind,$owner+['task_id'=>$parent,'sort'=>1,'boundary_index'=>0,'version'=>1]);
+            if($bound)$this->schemaRow('aigc_micro_video_attempt',$owner+['task_id'=>$parent,$kind.'_id'=>$source,
+                'kind'=>$kind==='frame'?'frame':'video','attempt_no'=>1,'status'=>'running','consumption_id'=>$c['id'],'app_task_id'=>$t['id']]);
+            $t->save(['app_code'=>'aigc_micro_video','business_table'=>'aigc_micro_video_'.$kind,'business_id'=>$source]);$c->save(['app_code'=>'aigc_micro_video']);
+            $before=Db::name('aigc_micro_video_task')->where('id',$parent)->find();
+            self::assertSame($bound,\app\common\service\ai\AiTaskBusinessResultService::syncTerminalByConsumptionId((int)$c['id']));
+            $after=Db::name('aigc_micro_video_task')->where('id',$parent)->find();self::assertSame($state,$after['status']);
+            if($wake)self::assertLessThanOrEqual(time(),(int)$after['next_run_at']);else self::assertSame($before,$after);
+            \app\common\service\ai\AiTaskBusinessResultService::syncTerminalByConsumptionId((int)$c['id']);
+            self::assertSame($after,Db::name('aigc_micro_video_task')->where('id',$parent)->find());
+        });
+    }
+    public static function handoffs(): array{return [['segment','running',true,true],['segment','waiting_continue',true,false],
+        ['segment','success',true,false],['segment','running',false,false],['frame','awaiting_confirmation',true,true],['frame','success',true,false]];}
+
+    private function schemaRow(string $table,array $values): int
+    {
+        $prefix=(string)Db::connect()->getConfig('prefix');$known=[];
+        foreach(Db::query('SHOW COLUMNS FROM `'.$prefix.$table.'`')as$field){$key=$field['Field'];$known[$key]=true;
+            if(!array_key_exists($key,$values)&&$field['Null']==='NO'&&$field['Default']===null&&!str_contains($field['Extra'],'auto_increment'))
+                $values[$key]=preg_match('/int|decimal|float|double/',$field['Type'])?0:'{}';}
+        return (int)Db::name($table)->insertGetId(array_intersect_key($values,$known));
+    }
+
+    public function testDeliveryViewsAreExcludedFromFrozenProviderReceipts(): void
+    {
+        $payload=['task_id'=>123,'results'=>[['url'=>'uploads/owned.png']],'audio'=>false,'quality'=>'high','generation_task'=>Results::pending(42),
+            'generation_tasks'=>[Results::pending(43)],'generation_task_refs'=>['app_task:43']];
+        self::assertSame(['task_id'=>123,'results'=>[['url'=>'uploads/owned.png']],'audio'=>false,'quality'=>'high'],Results::withoutView($payload));
     }
 }

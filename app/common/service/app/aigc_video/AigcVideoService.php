@@ -722,7 +722,7 @@ class AigcVideoService
         self::appendRequestDurations($rows);
         if ($usePage) {
             return [
-                'lists' => $rows,
+                'lists' => GenerationTaskResultService::appendNativeList($rows),
                 'count' => $count,
                 'page_no' => $pageNo,
                 'page_size' => $pageSize,

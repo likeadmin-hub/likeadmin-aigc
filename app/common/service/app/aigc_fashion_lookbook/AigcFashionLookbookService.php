@@ -311,7 +311,7 @@ class AigcFashionLookbookService
         $count = (int)(clone $query)->count();
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::appendTaskResults($tenantId, $userId, $rows);
-        return ['lists' => array_map([self::class, 'formatTaskRow'], $rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
+        return ['lists' => \app\common\service\ai\GenerationTaskResultService::appendRelatedList(array_map([self::class, 'formatTaskRow'], $rows),'image'), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
