@@ -59,7 +59,7 @@ def atomic_json(path, value):
 
 
 class OwnedRun:
-    def __init__(self, full_matrix):
+    def __init__(self, full_matrix, source_integrity_only=False):
         os.umask(0o077)
         self.owner = secrets.token_hex(12)
         self.root = Path(tempfile.mkdtemp(prefix='b81-c03-' + self.owner + '-', dir='/tmp'))
@@ -86,7 +86,7 @@ class OwnedRun:
         self.feature_sha = None
         self.head_sha = None
         self.report = {
-            'owner': self.owner, 'full_matrix_requested': full_matrix, 'cases': [],
+            'owner': self.owner, 'full_matrix_requested': full_matrix, 'source_integrity_only': source_integrity_only, 'cases': [],
             'scope': 'One-host isolated MySQL process recovery and owned HTTP wall-clock expiry only',
             'real_provider_calls': 0, 'original_database_connections': 0,
             'unowned_container_execs': 0, 'host_network_faults': 0,
@@ -423,7 +423,13 @@ class OwnedRun:
                 'Owned case failed; stop before expanding matrix: ' + name)
         self.progress('case_pass', family=family, kind=kind, mode=mode)
 
-    def run_cases(self, full_matrix):
+    def run_cases(self, full_matrix, source_integrity_only=False):
+        if source_integrity_only:
+            for kind in ['video', 'audio']:
+                self.case('source', kind, 'truncate-then-expire-then-renew')
+            self.execution_gate()
+            self.report['passed'] = True
+            return
         smoke = [('db', 'image', 'before-receipt-commit'), ('source', 'image', 'lease-expired-then-renew')]
         for family, kind, mode in smoke:
             self.case(family, kind, mode, smoke=True)
@@ -527,10 +533,12 @@ def interrupted(signum, frame):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--full-matrix', action='store_true')
+    cases = parser.add_mutually_exclusive_group()
+    cases.add_argument('--full-matrix', action='store_true')
+    cases.add_argument('--source-integrity-only', action='store_true', help='Only the two video/audio short-body recovery cases; no DB fault injection')
     args = parser.parse_args()
     signal.signal(signal.SIGTERM, interrupted)
-    owned = OwnedRun(args.full_matrix)
+    owned = OwnedRun(args.full_matrix, args.source_integrity_only)
     try:
         owned.execution_gate()
         owned.local_docker_gate()
@@ -538,7 +546,7 @@ def main():
         owned.build_image()
         owned.start_resources()
         owned.preflight()
-        owned.run_cases(args.full_matrix)
+        owned.run_cases(args.full_matrix, args.source_integrity_only)
     except BaseException as error:
         owned.report['passed'] = False
         owned.report['failure'] = {'class': type(error).__name__, 'message': owned.redact(str(error))}
