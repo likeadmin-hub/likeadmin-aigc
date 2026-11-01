@@ -92,6 +92,33 @@ class UpstreamPricingService
         ]);
     }
 
+    /** Published documentation only; an ID is never an instruction to execute a model/application. */
+    public static function queryDeveloperDocDetailByModelId($modelId): array
+    {
+        return self::request('GET', '/api/user_center/developerDocDetail', [
+            'model_id' => self::documentId($modelId),
+            'terminal' => 4,
+        ]);
+    }
+
+    public static function queryDeveloperDocDetailByAppApiId($appApiId): array
+    {
+        return self::request('GET', '/api/user_center/developerDocDetail', [
+            'app_api_id' => self::documentId($appApiId),
+            'terminal' => 4,
+        ]);
+    }
+
+    private static function documentId($value): int
+    {
+        // Do not let PHP's scalar coercion turn true, decimals or suffixed IDs into another resource.
+        if ((!is_int($value) && (!is_string($value) || !preg_match('/^[1-9][0-9]*$/D', $value)))
+            || ($id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) === false) {
+            throw new \InvalidArgumentException('平台文档资源 ID 必须为正整数');
+        }
+        return $id;
+    }
+
     public static function queryDeveloperDocTree(): array
     {
         $response = self::request('GET', '/api/user_center/developerDocTree', [
