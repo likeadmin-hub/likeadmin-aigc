@@ -51,6 +51,10 @@ function runMarketAgentSpecialHttp($f,string $api,string $peer,string $suffix,st
         $art=$get('artifacts',['session_id'=>$plan['session_id']]);$check(count($art)===1&&$art[0]['kind']==='audio'&&!empty($art[0]['file_id']),'Speech audio artifact not collected');
         $asset=$db::name('open_platform_file')->where(['tenant_id'=>$t,'user_id'=>$u,'file_id'=>$art[0]['file_id']])->find();
         $check($asset&&$asset['mime']==='audio/mpeg'&&is_file($f->dir.'/public/'.$asset['uri']),'Speech managed MP3 bytes/storage missing');
+        $native=$db::name('aigc_llm_agent_step')->where('run_id',$plan['id'])->value('task_id');
+        $view=app\common\service\ai\GenerationTaskResultService::read((int)$native,$t,$u);
+        $report['tts_'.$length.'_unified_result_metadata']=$view['status']==='success'&&count($view['results'])===1&&$view['results'][0]['mime_type']==='audio/mpeg'&&$view['results'][0]['file_size']===(int)$asset['size'];
+        $check($report['tts_'.$length.'_unified_result_metadata'],'Speech unified result lost MIME or byte size');
         $before=$count('agent_text');$check($post('submit',$p)['id']===$plan['id']&&$count($length==='long'?'agent_tts_async':'agent_tts')===1&&$count('agent_text')===$before,'Speech completed replay resubmitted');
         $report['tts_'.$length.'_default_voice_confirm_mp3_history_once']=true;
     }
