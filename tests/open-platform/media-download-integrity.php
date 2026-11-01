@@ -4,6 +4,7 @@ declare(strict_types=1);
 /** Owned HTTP only. The legacy video publication boundary is replaced before autoload; no DB or storage is used. */
 if (PHP_SAPI !== 'cli') exit(2);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
 final class OwnedMediaBoundaryReached extends RuntimeException {}
 final class OwnedMediaStorageBoundary
