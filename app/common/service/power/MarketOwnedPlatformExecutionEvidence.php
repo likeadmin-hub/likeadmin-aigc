@@ -8,7 +8,7 @@ final class MarketOwnedPlatformExecutionEvidence
 {
     public static function parse(?string $bytes,?string $publicBytes=null,?string $routeBytes=null): array
     {
-        if($bytes===null)return [];
+        if($bytes===null){if($publicBytes!==null||$routeBytes!==null)throw new InvalidArgumentException('当前公开上下文需要配套当前执行配置');return [];}
         $value=json_decode($bytes,true,128,JSON_THROW_ON_ERROR);
         if(($value['version']??null)!==1||!is_array($value['models']??null)||!array_is_list($value['models'])
             ||!is_array($value['channels']??null)||!array_is_list($value['channels']))throw new InvalidArgumentException('当前执行配置证据格式不正确');
@@ -74,8 +74,12 @@ final class MarketOwnedPlatformExecutionEvidence
             return ['missing'=>['conflicting_current_model_api_configuration']];
         $config=array_replace_recursive(self::object($channel['extra_config']??[]),$modelConfig?:$nested);
         $group=$profile['generation_type']==='image'?'draw':'video';$driver=strtolower(trim((string)($config[$group]['driver']??'')));
-        $matches=$profile['profile']==='q4_video_v1'?$driver==='vidu_q4':($group==='draw'
-            ?!in_array($driver,['official','dashscope_qwen_image'],true):!in_array($driver,['official','vidu_q4'],true));
+        $matches=$profile['profile']==='q4_video_v1'?$driver==='vidu_q4':($profile['profile']==='qwen_image_v1'?$driver==='dashscope_qwen_image':($group==='draw'
+            ?!in_array($driver,['official','dashscope_qwen_image'],true):!in_array($driver,['official','vidu_q4'],true)));
+        if($profile['profile']!=='q4_video_v1'&&$profile['profile']!=='qwen_image_v1'){
+            if($profile['profile']==='h3_content_v1'&&($config['video']['content_validation']??'')!=='minimax_h3')$matches=false;
+            if($profile['profile']==='wan_video_media_v1'&&($config['video']['request_shape']??'')!=='dashscope_task')$matches=false;
+        }
         if(!$matches)return ['missing'=>['current_driver_differs_from_reviewed_direct_profile']];
         if(!isset($config[$group])||!is_array($config[$group]))return ['missing'=>['current_effective_driver_configuration_required']];
         $limits=[];

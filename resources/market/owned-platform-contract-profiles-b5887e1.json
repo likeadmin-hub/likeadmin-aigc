@@ -292,27 +292,25 @@
       "generation_type": "video",
       "model_code": "veo3.1-fast",
       "channel_code": "xAIQ",
-      "profile": null,
+      "profile": "flat_video_v1",
       "sources": [
         "api-doc/model-api/model-72-veo3.1-fast.md",
-        "server/app/common/command/VeoVideoMigrate.php"
+        "server/app/common/command/VeoVideoMigrate.php",
+        "server/app/common/service/ai/driver/VideoTaskDriver.php"
       ],
-      "missing_constraints": [
-        "text_mode_with_image_semantics_not_explicitly_defined"
-      ]
+      "missing_constraints": []
     },
     {
       "generation_type": "video",
       "model_code": "veo3.1-pro",
       "channel_code": "xAIQ",
-      "profile": null,
+      "profile": "flat_video_v1",
       "sources": [
         "api-doc/model-api/model-73-veo3.1-pro.md",
-        "server/app/common/command/VeoVideoMigrate.php"
+        "server/app/common/command/VeoVideoMigrate.php",
+        "server/app/common/service/ai/driver/VideoTaskDriver.php"
       ],
-      "missing_constraints": [
-        "text_mode_with_image_semantics_not_explicitly_defined"
-      ]
+      "missing_constraints": []
     },
     {
       "generation_type": "video",

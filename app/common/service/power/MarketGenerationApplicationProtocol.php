@@ -11,6 +11,65 @@ final class MarketGenerationApplicationProtocol
         'seedance-2-fast-text-2-video', 'seedance-2-fast-video-2-video',
     ];
 
+    /** Called only while constructing a new trusted price snapshot, never while reading/retrying one. */
+    public static function bindNewSnapshot(array $snapshot): array
+    {
+        if (array_key_exists('application_contract', $snapshot)) {
+            self::snapshotContractProfile($snapshot);
+            return $snapshot;
+        }
+        $profile = self::reviewedApplicationProfile($snapshot);
+        if ($profile !== null) $snapshot['application_contract'] = ['version'=>1, 'profile'=>$profile,
+            'binding_digest'=>self::applicationBindingDigest($snapshot, $profile)];
+        return $snapshot;
+    }
+
+    public static function assertSnapshotContract(array $snapshot): void
+    {
+        self::snapshotContractProfile($snapshot);
+    }
+
+    private static function snapshotContractProfile(array $snapshot): ?string
+    {
+        // Absence is an immutable legacy contract, including an old snapshot with today's exact schema fingerprint.
+        if (!array_key_exists('application_contract', $snapshot)) return null;
+        $contract = $snapshot['application_contract'];
+        $profile = self::reviewedApplicationProfile($snapshot);
+        if (!is_array($contract) || count($contract) !== 3 || array_diff(array_keys($contract), ['version','profile','binding_digest']) !== []
+            || ($contract['version'] ?? null) !== 1 || $profile === null || ($contract['profile'] ?? null) !== $profile
+            || !is_string($contract['binding_digest'] ?? null)
+            || !hash_equals(self::applicationBindingDigest($snapshot, $profile), $contract['binding_digest'])) {
+            throw new Exception('应用冻结合同的版本、身份或声明绑定不一致');
+        }
+        return $profile;
+    }
+
+    private static function applicationBindingDigest(array $snapshot, string $profile): string
+    {
+        $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+        return MarketGenerationReviewedContract::digest(['profile'=>$profile, 'resource_type'=>$snapshot['resource_type'] ?? '',
+            'app_code'=>$snapshot['app_code'] ?? '', 'api_code'=>$snapshot['api_code'] ?? '',
+            'sku_id'=>$snapshot['sku_id'] ?? null, 'locked_params'=>$snapshot['locked_params'] ?? [],
+            'params_schema'=>$metadata['params_schema'] ?? [], 'default_params'=>$metadata['default_params'] ?? [],
+            'upstream_app_metadata'=>$metadata['upstream_app_metadata'] ?? [], 'upstream_api_metadata'=>$metadata['upstream_api_metadata'] ?? []]);
+    }
+
+    private static function reviewedApplicationProfile(array $snapshot): ?string
+    {
+        if (self::hasBoundHappyHorseDashScopeRoute($snapshot)) return 'happy_horse_submit_dashscope_20261101';
+        if (self::hasCapturedFullVideoDeclaration($snapshot)) return 'full_video_submit_20261101';
+        if (($snapshot['resource_type'] ?? '') !== 'app_api' || ($snapshot['app_code'] ?? '') !== 'seedance'
+            || ($snapshot['api_code'] ?? '') !== 'create') return null;
+        $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+        if (($metadata['upstream_app_metadata']['id'] ?? null) !== 11 || ($metadata['upstream_app_metadata']['code'] ?? null) !== 'seedance'
+            || ($metadata['upstream_api_metadata']['id'] ?? null) !== 27 || ($metadata['upstream_api_metadata']['code'] ?? null) !== 'create'
+            || ($metadata['call_type'] ?? null) !== 2
+            || MarketGenerationReviewedContract::digest(['value'=>$metadata['params_schema'] ?? []]) !== '9168759ee8e0400a8fd5549c8e80e6c6e01ff42b6294cb0e9065f5c11b572905'
+            || MarketGenerationReviewedContract::digest(self::arrayValue($metadata['default_params'] ?? []))
+                !== MarketGenerationReviewedContract::digest(['ratio'=>'adaptive','duration'=>'5','watermark'=>'','resolution'=>'720p','generate_audio'=>'1'])) return null;
+        return 'seedance_create_20261101';
+    }
+
     /** b5887e1c driver default plus the 2026-11-01 exact saved/public submit declaration. */
     private static function hasBoundHappyHorseDashScopeRoute(array $snapshot): bool
     {
@@ -29,7 +88,7 @@ final class MarketGenerationApplicationProtocol
 
     private static function happyHorseChannel(array $snapshot, array $locked)
     {
-        if (!self::hasBoundHappyHorseDashScopeRoute($snapshot)) return $locked['channel'] ?? null;
+        if (self::snapshotContractProfile($snapshot) !== 'happy_horse_submit_dashscope_20261101') return $locked['channel'] ?? null;
         if (array_key_exists('channel', $locked) && !in_array($locked['channel'], ['', 'dashscope'], true)) {
             throw new Exception('Happy Horse 渠道与冻结的 submit 声明不一致');
         }
@@ -84,6 +143,9 @@ final class MarketGenerationApplicationProtocol
     private static function seedanceModel(array $snapshot, array $request, bool $hasVideo): string
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
+        if (self::snapshotContractProfile($snapshot) !== 'seedance_create_20261101') {
+            return (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video'));
+        }
         $provider = self::arrayValue($request['provider_params'] ?? []);
         $variant = $locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? null;
         if (in_array($variant, ['with_video', 'without_video'], true) && $hasVideo !== ($variant === 'with_video')) {
@@ -106,21 +168,21 @@ final class MarketGenerationApplicationProtocol
     /** Source driver constraints apply to the final encoded request, before reservation or asset uploads. */
     public static function assertPreparedVideo(array $snapshot, array $payload): void
     {
-        if (self::hasBoundHappyHorseDashScopeRoute($snapshot)) {
+        $profile = self::snapshotContractProfile($snapshot);
+        if ($profile === null) return;
+        if ($profile === 'happy_horse_submit_dashscope_20261101') {
             if (($payload['channel'] ?? null) !== 'dashscope') throw new Exception('Happy Horse 渠道与冻结的 submit 声明不一致');
             $images = array_filter((array)($payload['media'] ?? []), static fn($item): bool => is_array($item) && ($item['type'] ?? '') === 'image');
             if (($payload['model'] ?? '') === 'happyhorse-1.1-r2v' && count($images) < 2) {
                 throw new Exception('Happy Horse DashScope 多参考图生成至少需要两张图片');
             }
         }
-        if (($snapshot['app_code'] ?? '') !== 'full_video') return;
-        if (self::hasCapturedFullVideoDeclaration($snapshot)) {
-            $references = array_filter((array)($payload['content'] ?? []), static fn($item): bool => is_array($item)
-                && ($item['type'] ?? '') === 'image_url' && ($item['role'] ?? '') === 'reference_image');
-            // Admission cap from the 2026-11-01 normal admin read, not a generic price/default.
-            // No dynamic surcharge contract is activated by this source-declaration binding.
-            if (count($references) > 5) throw new Exception('full_video 超额参考图片附加计费尚待核验，请减少参考图片');
-        }
+        if ($profile !== 'full_video_submit_20261101') return;
+        $references = array_filter((array)($payload['content'] ?? []), static fn($item): bool => is_array($item)
+            && ($item['type'] ?? '') === 'image_url' && ($item['role'] ?? '') === 'reference_image');
+        // Admission cap from the 2026-11-01 normal admin read, not a generic price/default.
+        // No dynamic surcharge contract is activated by this source-declaration binding.
+        if (count($references) > 5) throw new Exception('full_video 超额参考图片附加计费尚待核验，请减少参考图片');
         $resolution = strtoupper((string)($payload['resolution'] ?? '480P'));
         $remote = in_array($resolution, ['768P', '1080P', '2K'], true);
         if ($remote && ($payload['aigc_watermark'] ?? false) !== false) {

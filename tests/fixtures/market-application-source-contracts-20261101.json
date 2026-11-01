@@ -3346,7 +3346,9 @@
         "query_path": "/v1/tasks/{task_id}",
         "api_fallback_configured": false
       }
-    ]
+    ],
+    "final_six_application_document_sha256": "2ca9bfeb349f9d4907f89a70a2a972d0a9694dfb0b5490e0fa2ad9927b3b9847",
+    "initial_two_application_document_preserved_as": "/tmp/b80-current-app-ui-initial2.json"
   },
   "inactive_application_billing_candidates": {
     "full_video_submit": {
@@ -3369,7 +3371,69 @@
       },
       "first_last_frames_counted": false,
       "formula": "request duration × frozen SKU rate + max(0, reference_image slots - frozen free count) × frozen surcharge points",
-      "remaining": "Needs separate upstream/user surcharge policy, immutable config/amount snapshots and complete quote/reserve/settle support. No active price binding is added by this fixture."
+      "remaining": "Missing explicit API point conversion and both local fee-layer decisions; Runtime/native admission, reservation and settlement integration plus isolated lifecycle verification remain. Current fees stay inactive.",
+      "software_fee_contract": {
+        "version": 1,
+        "status": "inactive",
+        "binding": {
+          "app_code": "full_video",
+          "api_code": "submit",
+          "upstream_app_id": 24,
+          "upstream_api_id": 73,
+          "schema_digest": "d342216664eb8b43c85706fb5c712a493afdbb2c55366278b64d6464161bd188",
+          "defaults_digest": "ebff0bc56eaa9918e20933a4cfe4262628967be80251056713f4d85ef234af33",
+          "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+          "config_digest": "1c7da7bfa511a58a009fe99acf691d9f05a1a0c304c0d6240333ccfa1384314d"
+        },
+        "source_config": {
+          "reference_image_free_count": 5,
+          "reference_image_overage_cost_points": 20,
+          "reference_image_overage_sale_points": 20
+        },
+        "meter": {
+          "basis": "request_duration",
+          "free_reference_images": 5,
+          "maximum_reference_images": 9,
+          "slot_type": "image_url",
+          "slot_role": "reference_image"
+        },
+        "layers": {
+          "api_to_aigc": {
+            "api_points_per_image": "20.000000",
+            "conversion": {
+              "numerator": null,
+              "denominator": null
+            }
+          },
+          "platform_to_tenant": {
+            "points_per_image": null
+          },
+          "tenant_to_user": {
+            "points_per_image": null
+          }
+        },
+        "rounding": "half_up_6",
+        "terms_digest": "e0788b4eadf5f8c561ba8b929398c4aee65cd47b950531a9cf08f36194acb412"
+      },
+      "maximum_reference_images_source": {
+        "captured_declaration": "content_schema.limits.reference_image=9",
+        "upstream_source_path": "server/app/common/service/ai/app/ElasticGpuAppDriver.php::prepareFullVideoParams",
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6"
+      },
+      "trusted_boundary": "Only fromTrustedMarketConfiguration creates the typed fee capability. Native fee-contract fields are rejected. No runtime integration or active metadata update exists in this slice."
     }
+  },
+  "snapshot_compatibility": {
+    "marker": "price_snapshot.application_contract",
+    "version": 1,
+    "created_only_at": "MarketVideoRuntimeService::snapshot via bindNewSnapshot",
+    "legacy_absence": "No marker means original codec and validation, even when its declaration fingerprint equals the current capture. prepareRequest never upgrades a saved snapshot.",
+    "binding": "Exact reviewed app/API declaration, defaults, upstream identity and frozen SKU locks. Malformed or changed marked contracts reject instead of falling back.",
+    "new_profiles": [
+      "seedance_create_20261101",
+      "happy_horse_submit_dashscope_20261101",
+      "full_video_submit_20261101"
+    ],
+    "billing_activation": false
   }
 }

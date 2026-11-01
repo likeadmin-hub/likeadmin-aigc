@@ -13,7 +13,8 @@ final class MarketOwnedPlatformFlatSourceRules
             'OpenAIYI|gpt-image-2.5'=>'dakka_plain',
             'OpenAIYI|gpt-image-2.5-flare','OpenAIYI|gpt-image-2.5-sunburst'=>'dakka_pixels',
             'OpenAIYI|gpt-image-2'=>'yi_gpt', 'OpenaiM|gpt-image-2'=>'m_gpt',
-            'openaiD|gpt-image-2-fast'=>'fast_pixels','xAIQ|grok-video'=>'grok',default=>null,
+            'openaiD|gpt-image-2-fast'=>'fast_pixels','xAIQ|grok-video'=>'grok',
+            'xAIQ|veo3.1-fast','xAIQ|veo3.1-pro'=>'veo',default=>null,
         };
     }
 
@@ -21,8 +22,8 @@ final class MarketOwnedPlatformFlatSourceRules
     {
         $family=self::family((string)($rule['model_code']??''),(string)($rule['channel_code']??''));
         return $family!==null&&($rule['family']??null)===$family&&($rule['source_revision']??null)===MarketOwnedPlatformContractRules::REVISION
-            &&in_array($rule['mode']??'', $family==='grok'?['text_to_video','reference_to_video']:['text_to_image','image_to_image'],true)
-            &&($rule['profile']??'')===($family==='grok'?'flat_video_v1':'flat_image_v1')
+            &&in_array($rule['mode']??'', $family==='veo'?['TEXT','FIRST&LAST','REFERENCE']:($family==='grok'?['text_to_video','reference_to_video']:['text_to_image','image_to_image']),true)
+            &&($rule['profile']??'')===(in_array($family,['grok','veo'],true)?'flat_video_v1':'flat_image_v1')
             &&($protocol===null||$protocol===$rule['profile'])
             &&is_int($rule['maximum_images']??null)&&$rule['maximum_images']>=0&&$rule['maximum_images']<=100
             &&is_string($rule['configuration_fingerprint']??null)&&preg_match('/^[a-f0-9]{64}$/D',$rule['configuration_fingerprint'])===1;
@@ -39,10 +40,15 @@ final class MarketOwnedPlatformFlatSourceRules
             if(!preg_match('~^https?://~i',$url)&&!($family==='m_gpt'&&preg_match('~^data:image/[a-z0-9.+-]+;base64,[a-z0-9+/=\r\n]+$~i',$url)))return false;
         }
         $reference=in_array($rule['mode'],['image_to_image','reference_to_video'],true);
-        if($reference&&$urls===[]||!$reference&&$urls!==[])return false;
+        if($family!=='veo'&&($reference&&$urls===[]||!$reference&&$urls!==[]))return false;
         if($family!=='google_nano'&&(!is_string($body['prompt']??null)||trim($body['prompt'])===''))return false;
         if($family==='google_nano')return !isset($body['prompt'])||is_string($body['prompt']);
         if($family==='grok')return in_array($body['duration']??null,[6,10,15,20,25,30],true)&&($body['quality']??'720p')==='720p';
+        if($family==='veo')return ($body['generation_type']??'TEXT')===$rule['mode']&&($body['duration']??8)===8
+            &&in_array($body['quality']??'720p',['720p','1080p','4k'],true)
+            &&in_array($body['aspect_ratio']??'16:9',['16:9','9:16'],true)
+            &&match($rule['mode']){'TEXT'=>count($urls)<=3,'FIRST&LAST'=>count($urls)>=1&&count($urls)<=2,
+                'REFERENCE'=>count($urls)>=1&&count($urls)<=3&&($body['aspect_ratio']??'16:9')==='16:9',default=>false};
         if(in_array($family,['dakka_pixels','fast_pixels'],true)){
             if(isset($body['aspect_ratio'])&&!is_string($body['aspect_ratio']))return false;
             $size=trim(str_replace(['×','X'],'x',(string)($body['aspect_ratio']??'auto')));
@@ -70,6 +76,7 @@ final class MarketOwnedPlatformFlatSourceRules
     public static function payload(array $snapshot,array $request,bool $deferMissingPrompt=false): array
     {
         if(!self::applies($snapshot))throw new InvalidArgumentException('当前请求没有精确直接执行合同');
+        $request=self::normalizeRequest($snapshot,$request);
         MarketOwnedPlatformContractRules::assertEnvelope($snapshot,$request);
         // Fast's native field accepts a scalar or list. The existing generic
         // business serializer has one concrete representation per field; supply
@@ -90,8 +97,6 @@ final class MarketOwnedPlatformFlatSourceRules
         foreach(['duration','seconds','video_duration']as$key)if(array_key_exists($key,$request))self::assertWhole($request[$key]);
         foreach(['duration','n']as$key)if(array_key_exists($key,(array)($request['provider_params']??[])))self::assertWhole($request['provider_params'][$key]);
         $payload=MarketGenerationRequest::payload($adapted,$request,$deferMissingPrompt);
-        if(isset($request['quantity'])&&(int)$request['quantity']!==1&&!isset(MarketGenerationSchema::properties($schema)['n']))
-            throw new InvalidArgumentException('当前已审核的单任务请求不支持此数量参数');
         foreach((array)($request['provider_params']??[])as$key=>$raw){
             if(in_array($key,['material_mode','generation_type'],true)||!array_key_exists($key,MarketGenerationSchema::properties($schema)))continue;
             $normalized=MarketGenerationSchema::normalize([$key=>MarketGenerationSchema::properties($schema)[$key]],[$key=>$raw],'',false);
@@ -101,11 +106,106 @@ final class MarketOwnedPlatformFlatSourceRules
         return $payload;
     }
 
+    /** A transient copy shared by classification, SKU negotiation and actual preparation. */
+    public static function normalizeMetadataRequest(array $metadata,array $request): array
+    {
+        $contract=MarketGenerationReviewedContract::selected($metadata);
+        if($contract===null)return $request;
+        return self::normalizeRequest(['resource_type'=>'model','model_code'=>$contract['model_code'],
+            'channel_code'=>$contract['channel_code'],'market_metadata'=>$metadata],$request);
+    }
+
+    public static function normalizeRequest(array $snapshot,array $request): array
+    {
+        if(!self::applies($snapshot))return $request;
+        foreach([$request,(array)($request['params']??[])]as$values)
+            if(array_key_exists('quantity',$values))self::assertSingleQuantity($values['quantity']);
+        if(array_key_exists('provider_params',$request)&&!is_array($request['provider_params']))
+            throw new InvalidArgumentException('原生参数必须为对象');
+        $provider=$request['provider_params']??[];
+        if(array_key_exists('n',$provider))self::assertSingleQuantity($provider['n']);
+        $family=self::family($snapshot['model_code'],$snapshot['channel_code']);
+        if($family==='veo'){
+            foreach(['duration'=>['duration','seconds','video_duration'],'quality'=>['quality','resolution'],'aspect_ratio'=>['aspect_ratio','ratio','size']]as$field=>$aliases){
+                if(!array_key_exists($field,$provider))continue;$value=$provider[$field];
+                if($field==='duration')self::assertWhole($value);
+                elseif(!is_string($value))throw new InvalidArgumentException('Veo 原生规格类型不正确');
+                if($field==='quality')$value=strtolower($value);
+                foreach([$request,(array)($request['params']??[])]as$values)foreach($aliases as$alias)
+                    if(array_key_exists($alias,$values)&&$values[$alias]!==''){
+                        $same=$field==='quality'?is_string($values[$alias])&&strtolower($values[$alias])===$value:(string)$values[$alias]===(string)$value;
+                        if(!$same)throw new InvalidArgumentException('Veo 业务规格与原生规格冲突');
+                    }
+                $request[$field==='aspect_ratio'?'ratio':$field]=$field==='duration'?(int)$value:$value;
+            }
+            return $request;
+        }
+        if($family!=='fast_pixels')return $request;
+        MarketOwnedPlatformContractRules::assertEnvelope($snapshot,$request);
+        $canonical=[];$sources=[];
+        $accept=static function(string $field,$value,string $source)use(&$canonical,&$sources):void{
+            $value=self::fastValue($field,$value);
+            $compare=static fn($v)=>$field==='image_urls'&&is_string($v)?($v===''?[]:[$v]):$v;
+            if(array_key_exists($field,$canonical)&&$compare($canonical[$field])!==$compare($value))
+                throw new InvalidArgumentException('Fast 的兼容别名与显式业务或原生参数冲突');
+            if(!array_key_exists($field,$canonical))$canonical[$field]=$value;
+            $sources[$source]=$field;
+        };
+        foreach(['image_urls'=>'image_urls','image'=>'image_urls','image_size'=>'image_size','resolution'=>'image_size',
+            'aspect_ratio'=>'aspect_ratio','size'=>'aspect_ratio']as$key=>$field)
+            if(array_key_exists($key,$provider)){$accept($field,$provider[$key],'provider_params.'.$key);unset($provider[$key]);}
+        foreach(['request'=>$request,'params'=>(array)($request['params']??[])]as$location=>$values){
+            foreach(['image_urls'=>'image_urls','image'=>'image_urls','image_size'=>'image_size','resolution'=>'image_size',
+                'aspect_ratio'=>'aspect_ratio','ratio'=>'aspect_ratio','size'=>'aspect_ratio']as$key=>$field)
+                if(array_key_exists($key,$values)&&$values[$key]!=='')$accept($field,$values[$key],$location.'.'.$key);
+            if(isset($values['quality'])&&is_string($values['quality'])&&preg_match('/^[124]k$/iD',$values['quality']))
+                $accept('image_size',$values['quality'],$location.'.quality');
+        }
+        foreach($canonical as$field=>$value){
+            if($field==='image_urls'&&($value===[]||$value===''))continue;
+            $provider[$field]=$value;
+        }
+        if(isset($canonical['image_size']))$request['resolution']=$canonical['image_size'];
+        if(isset($canonical['aspect_ratio']))$request['ratio']=$canonical['aspect_ratio'];
+        // Generic preparation also accepts schema-named business fields. Keep
+        // them canonical so they cannot overwrite a validated provider copy.
+        foreach(['image_size','aspect_ratio','image_urls']as$field)
+            if(array_key_exists($field,$request)&&array_key_exists($field,$canonical))$request[$field]=$canonical[$field];
+        if($provider!==[]||array_key_exists('provider_params',$request))$request['provider_params']=$provider;
+        if($sources!==[]){ksort($sources);$request['_owned_flat_normalization']=['source_revision'=>MarketOwnedPlatformContractRules::REVISION,'fields'=>$sources];}
+        return $request;
+    }
+
+    private static function assertSingleQuantity($value): void
+    {
+        if(!is_int($value)&&(!is_string($value)||preg_match('/^[1-9][0-9]*$/D',$value)!==1)
+            ||filter_var($value,FILTER_VALIDATE_INT)!==1)
+            throw new InvalidArgumentException('当前已审核的单任务请求数量必须为整数 1');
+    }
+
+    private static function fastValue(string $field,$value)
+    {
+        if($field==='image_urls'){
+            if(is_string($value))return $value;
+            if(!is_array($value)||!array_is_list($value))throw new InvalidArgumentException('Fast 参考图必须为地址或地址列表');
+            foreach($value as$url)if(!is_string($url))throw new InvalidArgumentException('Fast 参考图地址类型不正确');
+            return $value;
+        }
+        if($field==='image_size'){
+            if(!is_string($value)&&!is_int($value))throw new InvalidArgumentException('Fast 分辨率类型不正确');
+            $value=strtolower(trim((string)$value));if(in_array($value,['1','2','4'],true))$value.='k';
+            if(!in_array($value,['1k','2k','4k'],true))throw new InvalidArgumentException('Fast 分辨率不符合已审核合同');
+            return $value;
+        }
+        if(!is_string($value))throw new InvalidArgumentException('Fast 尺寸类型不正确');
+        return str_replace(' ','',trim(str_replace(['×','X'],'x',$value)))?:'auto';
+    }
+
     /** Existing market dimension aliases remain authoritative without modifying the frozen source record. */
     private static function canonicalLocks(array $snapshot,array $schema): array
     {
         $original=MarketGenerationSchema::array($snapshot['locked_params']??[]);$result=$original;$assigned=[];$props=MarketGenerationSchema::properties($schema);
-        $dimension=isset($props['resolution'])?'resolution':(isset($props['image_size']['enum'])?'image_size':(isset($props['quality']['enum'])&&($snapshot['model_code']??'')==='grok-video'?'quality':null));
+        $dimension=isset($props['resolution'])?'resolution':(isset($props['image_size']['enum'])?'image_size':(isset($props['quality']['enum'])&&in_array(self::family((string)($snapshot['model_code']??''),(string)($snapshot['channel_code']??'')),['grok','veo'],true)?'quality':null));
         foreach($original as$key=>$value){
             $target=$key;
             if($dimension!==null&&in_array($key,['resolution','image_size','quality'],true)&&is_string($value)

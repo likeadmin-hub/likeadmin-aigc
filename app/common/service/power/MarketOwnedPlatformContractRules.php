@@ -79,6 +79,7 @@ final class MarketOwnedPlatformContractRules
 
     public static function normalizeVideoBusinessSelection(array $metadata,array $selection,array $locked=[]): array
     {
+        $selection=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$selection);
         $selection=self::normalizeH3BusinessSelection($metadata,$selection);
         $contract=MarketGenerationReviewedContract::selected($metadata);
         if($contract===null||!self::applies(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code'],
