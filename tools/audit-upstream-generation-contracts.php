@@ -43,8 +43,7 @@ try {
     $report=['tenant_id'=>(int)$tenant,'observed_at'=>date(DATE_ATOM),
         'scope'=>'Platform GET detail versus saved machine metadata for missing/changed local native contracts; no sync, task, quote, upload or point writes',
         'source'=>$catalogue ? 'configured market GET /api/v1/models?type=image|video&detail=1; exact model/channel identity'
-            : ($known ? 'configured market developerDocTree/developerDocDetail GET APIs with prior verified slugs; exact response identity required'
-                : 'configured market developerDocTree/developerDocDetail GET APIs; same resolver as production synchronization'),
+            : 'configured market developerDocDetail GET by exact saved upstream model/API ID first, then legacy tree/slug; exact response identity required',
         'known_document_fallback'=>$known?'previously verified published slugs; identity rechecked on every response':'disabled',
         'catalogue_reads'=>[],'models'=>[],'applications'=>[]];
     $remoteByIdentity=[];
@@ -78,20 +77,26 @@ try {
         }
         $upstream=(array)($metadata['upstream_metadata'] ?? []);
         // Reuse exact model-ID/document binding and its bounded, credential-safe GET transport.
-        $detail=(new ReflectionMethod(Market::class,'developerDocDetailForModel'))->invoke(null,$upstream);
-        $lookup='document_tree';
+        $lookup=null;
+        $detail=(new ReflectionMethod(Market::class,'developerDocDetailForModel'))->invokeArgs(null,[$upstream,&$lookup]);
         $knownSlug=$knownModels[$type.'|'.$identity['model_code'].'|'.$identity['channel_code']]??'';
-        if($detail===[]&&$knownSlug!=='')try{$detail=Upstream::queryDeveloperDocDetail($knownSlug);$lookup='verified_prior_slug';}catch(\Throwable){$lookup='known_slug_unavailable';}
+        if($detail===[]&&$knownSlug!==''&&Identity::hasConsistentModelIdentity($upstream))try{
+            $candidate=Upstream::queryDeveloperDocDetail($knownSlug);
+            if(Identity::matchesDetail($upstream,$candidate)){$detail=$candidate;$lookup='verified_prior_slug';}
+            else $lookup='known_slug_identity_mismatch';
+        }catch(\Throwable){$lookup='known_slug_unavailable';}
         $pricing=(array)($detail['model_pricing'] ?? []);
         $modelId=Identity::modelId($upstream);
         $returnedCode=(string)($pricing['model_code'] ?? '');
         $bound=$returnedCode === $identity['model_code'] && Identity::matchesDetail($upstream,$detail);
-        $row=$identity+['local_native_snapshot'=>'missing_or_changed','platform_identity_verified'=>$bound,'lookup_strategy'=>$lookup];
+        $row=$identity+['local_native_snapshot'=>'missing_or_changed','platform_identity_verified'=>$bound,'lookup_strategy'=>$lookup,
+            'upstream_model_id'=>$modelId ?: null,'document_id_source'=>$modelId>0?'saved_upstream_model_metadata':'unavailable'];
         $row+=Review::platformData($metadata,$bound ? $detail : []);
         $slug=(string)($detail['doc']['slug'] ?? '');
         if ($slug !== '') $row['published_doc_slug']=$slug;
         if ($modelId===0) $row['read_state']='missing_model_document_binding';
-        elseif ($detail === []) $row['read_state']='unavailable_or_unpublished';
+        elseif ($lookup==='conflicting_model_document_binding') $row['read_state']='conflicting_model_document_binding';
+        elseif ($detail === []) $row['read_state']=str_contains((string)$lookup,'identity_mismatch')?'identity_mismatch':'unavailable_or_unpublished';
         elseif (!$bound) $row['read_state']='identity_mismatch';
         else $row['read_state']='read';
         $report['models'][]=$row;
@@ -103,12 +108,27 @@ try {
         $identity=['app_code'=>$product['upstream_app_code'],'api_code'=>$product['upstream_api_code']];
         $key=$identity['app_code'].'|'.$identity['api_code'];if(isset($seen[$key]))continue;$seen[$key]=true;
         $metadata=(new ReflectionMethod($type==='image'?Images::class:Videos::class,'metadata'))->invoke(null,$product);
-        $detail=(new ReflectionMethod(Market::class,'developerDocDetailForAppApi'))->invoke(null,$identity['app_code'],$identity['api_code'],0);
-        $lookup='document_tree_or_api_slug';
-        if($detail===[]&&isset($knownApplications[$key]))try{$detail=Upstream::queryDeveloperDocDetail($knownApplications[$key]);$lookup='verified_prior_slug';}catch(\Throwable){$lookup='known_slug_unavailable';}
+        // Only a saved upstream API row inside the same saved app/code context can supply an API ID.
+        $savedApp=(array)($metadata['upstream_app_metadata']??[]);$savedApi=(array)($metadata['upstream_api_metadata']??[]);
+        $apiId=Identity::savedAppApiId($metadata,$identity['app_code'],$identity['api_code']);
+        $hasSavedId=isset($savedApi['ai_app_api_id'])||isset($savedApi['api_id'])||isset($savedApi['id']);
+        $conflict=Identity::hasConflictingSavedAppApiContext($metadata,$identity['app_code'],$identity['api_code'])
+            ||(($savedApp['code']??null)===$identity['app_code']&&($savedApi['code']??null)===$identity['api_code']&&$hasSavedId&&$apiId===0);
+        $lookup='conflicting_saved_api_identity';$detail=[];
+        if(!$conflict){
+            if($apiId>0)$identity['api_id']=$apiId;
+            $detail=(new ReflectionMethod(Market::class,'developerDocDetailForAppApi'))->invokeArgs(null,[$identity['app_code'],$identity['api_code'],$apiId,&$lookup]);
+            if($detail===[]&&isset($knownApplications[$key]))try{
+                $candidate=Upstream::queryDeveloperDocDetail($knownApplications[$key]);
+                if(Identity::matchesApplicationDetail($identity,$candidate)){$detail=$candidate;$lookup='verified_prior_slug';}
+                else $lookup='known_slug_identity_mismatch';
+            }catch(\Throwable){$lookup='known_slug_unavailable';}
+        }
         $bound=Identity::matchesApplicationDetail($identity,$detail);
         $report['applications'][]=$identity+['resource_type'=>'app_api','generation_type'=>$type,'platform_identity_verified'=>$bound,
-            'lookup_strategy'=>$lookup,'read_state'=>$bound?'read':'unavailable_or_identity_mismatch']+Review::applicationData($metadata,$bound?$detail:[]);
+            'lookup_strategy'=>$lookup,'upstream_api_id'=>$apiId ?: null,
+            'document_id_source'=>$apiId>0?'exact_saved_application_api_metadata':'unavailable',
+            'read_state'=>$bound?'read':($conflict?'conflicting_saved_api_identity':'unavailable_or_identity_mismatch')]+Review::applicationData($metadata,$bound?$detail:[]);
         fwrite(STDERR,'Reviewed '.count($report['applications']).' application API declarations'.PHP_EOL);
     }}
     echo json_encode($report,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),PHP_EOL;

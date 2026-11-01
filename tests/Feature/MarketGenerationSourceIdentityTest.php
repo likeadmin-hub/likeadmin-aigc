@@ -106,4 +106,82 @@ class MarketGenerationSourceIdentityTest extends TestCase
         self::assertFalse(Identity::matchesApplicationDetail(array_replace($identity,['api_id'=>'37suffix']),$detail));
         unset($identity['api_id']);self::assertTrue(Identity::matchesApplicationDetail($identity,$detail));
     }
+
+    public function testSavedApplicationIdsRequireTheirExactSnapshotContext(): void
+    {
+        $metadata=['upstream_app_metadata'=>['code'=>'fixture_app'],
+            'upstream_api_metadata'=>['code'=>'create','id'=>'37']];
+        self::assertSame(37,Identity::savedAppApiId($metadata,'fixture_app','create'));
+        self::assertSame(0,Identity::savedAppApiId($metadata,'other_app','create'));
+        self::assertSame(0,Identity::savedAppApiId($metadata,'fixture_app','query'));
+        $missing=$metadata;unset($missing['upstream_app_metadata']);
+        self::assertSame(0,Identity::savedAppApiId($missing,'fixture_app','create'));
+        $missing=$metadata;unset($missing['upstream_api_metadata']['id']);$missing['id']=37;$missing['product_id']=37;
+        self::assertSame(0,Identity::savedAppApiId($missing,'fixture_app','create'));
+        $conflict=$metadata;$conflict['upstream_api_metadata']['api_id']=38;
+        self::assertSame(0,Identity::savedAppApiId($conflict,'fixture_app','create'));
+        $conflict=$metadata;$conflict['upstream_api_metadata']['app_code']='other_app';
+        self::assertSame(0,Identity::savedAppApiId($conflict,'fixture_app','create'));
+        $linked=$metadata;$linked['upstream_app_metadata']['id']=74;$linked['upstream_api_metadata']['app_id']='74';
+        $linked['upstream_api_metadata']['app_code']='fixture_app';
+        self::assertSame(37,Identity::savedAppApiId($linked,'fixture_app','create'));
+        $linked['upstream_api_metadata']['app_id']=75;
+        self::assertSame(0,Identity::savedAppApiId($linked,'fixture_app','create'));
+    }
+
+    public function testApiIdExtractionRejectsCoercionAndConflictingAliases(): void
+    {
+        self::assertSame(37,Identity::appApiId(['id'=>37,'api_id'=>'37']));
+        foreach ([0,'',true,'37suffix',37.5,'999999999999999999999999'] as $bad)
+            self::assertSame(0,Identity::appApiId(['id'=>$bad]));
+        self::assertSame(0,Identity::appApiId(['id'=>37,'api_id'=>38]));
+        self::assertSame(0,Identity::appApiId(['product_id'=>37]));
+    }
+
+    public function testExplicitForeignApplicationContextCannotBecomeLegacyFallbackWhenApiIdIsMissing(): void
+    {
+        $metadata=['upstream_app_metadata'=>['code'=>'fixture_app','id'=>10],
+            'upstream_api_metadata'=>['code'=>'create']];
+        self::assertFalse(Identity::hasConflictingSavedAppApiContext($metadata,'fixture_app','create'));
+        self::assertFalse(Identity::hasConflictingSavedAppApiContext([],'fixture_app','create'));
+        $foreign=$metadata;$foreign['upstream_api_metadata']['app_code']='other_app';
+        self::assertTrue(Identity::hasConflictingSavedAppApiContext($foreign,'fixture_app','create'));
+        $foreign=$metadata;$foreign['upstream_api_metadata']['app_id']=11;
+        self::assertTrue(Identity::hasConflictingSavedAppApiContext($foreign,'fixture_app','create'));
+        $metadata['upstream_api_metadata']['app_id']='10';
+        self::assertFalse(Identity::hasConflictingSavedAppApiContext($metadata,'fixture_app','create'));
+        self::assertSame(0,Identity::savedAppApiId($metadata,'fixture_app','create'));
+    }
+
+    public function testDocumentOwnershipAndInternalPricingConflictsCannotOverrideThePrimaryId(): void
+    {
+        $model=['model_id'=>99,'model_code'=>'fixture','channel_code'=>'channel'];
+        $detail=['model_pricing'=>['model_id'=>99,'model_code'=>'fixture','channel_code'=>'channel',
+            'pricing_v2'=>['resource_type'=>'model','resource_id'=>99]],'doc'=>['ai_model_id'=>99]];
+        self::assertTrue(Identity::matchesDetail($model,$detail));
+        $bad=$detail;$bad['model_pricing']['channel_code']='another';self::assertFalse(Identity::matchesDetail($model,$bad));
+        $bad=$detail;$bad['model_pricing']['pricing_v2']['resource_id']=100;self::assertFalse(Identity::matchesDetail($model,$bad));
+        $bad=$detail;$bad['doc']['ai_app_api_id']=37;self::assertFalse(Identity::matchesDetail($model,$bad));
+        $bad=$model;$bad['ai_model_id']=100;self::assertFalse(Identity::matchesDetail($bad,$detail));
+        $api=['app_code'=>'fixture_app','api_code'=>'create','api_id'=>37];
+        $detail=['api_pricing'=>['app_code'=>'fixture_app','code'=>'create','id'=>37,
+            'pricing_v2'=>['resource_type'=>'app_api','resource_id'=>37]],'doc'=>['ai_app_api_id'=>37]];
+        self::assertTrue(Identity::matchesApplicationDetail($api,$detail));
+        foreach ([['resource_type'=>'model','resource_id'=>37],['resource_type'=>'app_api','resource_id'=>38]] as $pricing) {
+            $bad=$detail;$bad['api_pricing']['pricing_v2']=$pricing;
+            self::assertFalse(Identity::matchesApplicationDetail($api,$bad));
+        }
+        $bad=$detail;$bad['api_pricing']['api_id']=38;
+        self::assertFalse(Identity::matchesApplicationDetail($api,$bad));
+        unset($api['api_id']);self::assertFalse(Identity::matchesApplicationDetail($api,$bad));
+    }
+
+    public function testLegacyApplicationBindingDoesNotGuessAnUndocumentedBindTypeEnum(): void
+    {
+        $identity=['app_code'=>'fixture_app','api_code'=>'create'];
+        $detail=['api_pricing'=>['app_code'=>'fixture_app','code'=>'create','bind_type'=>'legacy-api-kind']];
+        self::assertTrue(Identity::matchesApplicationDetail($identity,$detail));
+        $detail['api_pricing']['bind_type']='model';
+        self::assertFalse(Identity::matchesApplicationDetail($identity,$detail));
+    }
 }

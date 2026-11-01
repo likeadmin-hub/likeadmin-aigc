@@ -612,9 +612,12 @@ class PowerMarketService
         if ($appCode === '' || $apiCode === '') {
             return $api;
         }
-        $detail = self::developerDocDetailForAppApi($appCode, $apiCode, (int)($api['id'] ?? $api['api_id'] ?? 0));
+        $apiId=MarketGenerationSourceIdentity::appApiId($api);
+        $hasId=isset($api['id']) || isset($api['api_id']) || isset($api['ai_app_api_id']);
+        if ($hasId && $apiId===0) return $api;
+        $detail = self::developerDocDetailForAppApi($appCode, $apiCode, $apiId);
         $identity=['app_code'=>$appCode,'api_code'=>$apiCode];
-        if (isset($api['id']) || isset($api['api_id'])) $identity['api_id']=$api['id'] ?? $api['api_id'];
+        if ($hasId) $identity['api_id']=$apiId;
         if (!MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail)) return $api;
         $pricing = self::arrayValue($detail['api_pricing'] ?? []);
         $doc = self::arrayValue($detail['doc'] ?? []);
@@ -676,43 +679,83 @@ class PowerMarketService
         return $model;
     }
 
-    private static function developerDocDetailForAppApi(string $appCode, string $apiCode, int $apiId = 0): array
+    private static function developerDocDetailForAppApi(string $appCode, string $apiCode, $apiId = 0, ?string &$lookupStrategy = null): array
     {
         static $cache = [];
-        $slug = $apiId > 0 ? (self::developerDocSlugMaps()['app_api'][$apiId] ?? '') : '';
-        if ($slug === '') {
-            $slug = str_replace('_', '-', strtolower($appCode)) . '-' . str_replace('_', '-', strtolower($apiCode));
+        $id=MarketGenerationSourceIdentity::appApiId(['id'=>$apiId]);
+        $lookupStrategy='missing_application_document_binding';
+        if ($appCode==='' || $apiCode==='') return [];
+        if ($apiId!==0 && $id===0) { $lookupStrategy='invalid_app_api_id';return []; }
+        $identity=['app_code'=>$appCode,'api_code'=>$apiCode];
+        if ($id>0) $identity['api_id']=$id;
+        $key=json_encode(['app_api',$appCode,$apiCode,$id],JSON_THROW_ON_ERROR);
+        if (array_key_exists($key,$cache)) {
+            $lookupStrategy=$cache[$key]['strategy'];
+            $detail=$cache[$key]['detail'];
+            return MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail) ? $detail : [];
         }
-        if (array_key_exists($slug, $cache)) {
-            return $cache[$slug];
+        $mismatch=false;
+        if ($id>0) {
+            try { $detail=UpstreamPricingService::queryDeveloperDocDetailByAppApiId($id); }
+            catch (\Throwable) { $detail=[]; }
+            if (MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail)) {
+                $lookupStrategy='app_api_id';$cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
+            }
+            $mismatch=$detail!==[];
         }
-        try {
-            $detail = UpstreamPricingService::queryDeveloperDocDetail($slug);
-            $cache[$slug] = is_array($detail) ? $detail : [];
-        } catch (\Throwable) {
-            $cache[$slug] = [];
+        $slug=$id>0 ? (self::developerDocSlugMaps()['app_api'][$id] ?? '') : '';
+        $strategy='document_tree';
+        if ($slug==='') {
+            $slug=str_replace('_','-',strtolower($appCode)).'-'.str_replace('_','-',strtolower($apiCode));
+            $strategy='api_slug';
         }
-        return $cache[$slug];
+        try { $detail=UpstreamPricingService::queryDeveloperDocDetail($slug); }
+        catch (\Throwable) { $detail=[]; }
+        if (MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail)) {
+            $lookupStrategy=$strategy.($id>0?'_after_app_api_id':'');
+            $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
+        }
+        $lookupStrategy=($mismatch || $detail!==[]) ? 'application_identity_mismatch' : 'application_document_unavailable';
+        $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>[]];
+        return [];
     }
 
-    private static function developerDocDetailForModel(array $model): array
+    private static function developerDocDetailForModel(array $model, ?string &$lookupStrategy = null): array
     {
         static $cache = [];
         $modelId = MarketGenerationSourceIdentity::modelId($model);
-        $slug = $modelId > 0 ? (self::developerDocSlugMaps()['model'][$modelId] ?? '') : '';
-        if ($slug === '') {
-            return [];
+        $code=(string)($model['model_code'] ?? $model['code'] ?? '');
+        $lookupStrategy='missing_model_document_binding';
+        // A local product's id or a guessed slug must never supply the upstream ID.
+        if ($modelId<=0 || $code==='') return [];
+        if (!MarketGenerationSourceIdentity::hasConsistentModelIdentity($model)) {
+            $lookupStrategy='conflicting_model_document_binding';return [];
         }
-        if (array_key_exists($slug, $cache)) {
-            return $cache[$slug];
+        $key=json_encode(['model',$modelId,$code,(string)($model['channel_code']??'')],JSON_THROW_ON_ERROR);
+        if (array_key_exists($key,$cache)) {
+            $lookupStrategy=$cache[$key]['strategy'];
+            $detail=$cache[$key]['detail'];
+            return MarketGenerationSourceIdentity::matchesDetail($model,$detail) ? $detail : [];
         }
-        try {
-            $detail = UpstreamPricingService::queryDeveloperDocDetail($slug);
-            $cache[$slug] = is_array($detail) ? $detail : [];
-        } catch (\Throwable) {
-            $cache[$slug] = [];
+        try { $detail=UpstreamPricingService::queryDeveloperDocDetailByModelId($modelId); }
+        catch (\Throwable) { $detail=[]; }
+        if (MarketGenerationSourceIdentity::matchesDetail($model,$detail)) {
+            $lookupStrategy='model_id';$cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
         }
-        return $cache[$slug];
+        $mismatch=$detail!==[];
+        $slug=self::developerDocSlugMaps()['model'][$modelId] ?? '';
+        if ($slug!=='') {
+            try { $detail=UpstreamPricingService::queryDeveloperDocDetail($slug); }
+            catch (\Throwable) { $detail=[]; }
+            if (MarketGenerationSourceIdentity::matchesDetail($model,$detail)) {
+                $lookupStrategy='document_tree_after_model_id';
+                $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
+            }
+            $mismatch=$mismatch || $detail!==[];
+        }
+        $lookupStrategy=$mismatch ? 'model_identity_mismatch' : 'model_document_unavailable';
+        $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>[]];
+        return [];
     }
 
     private static function developerDocSlugMaps(): array
