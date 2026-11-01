@@ -17,7 +17,7 @@
       "depends_on": [],
       "output": "Three existing PC failures repaired without restoring hardcoded model identities or weakening CSS fallback validation",
       "acceptance": "Original failing tests and affected video controls pass; current identifiers, input immutability and legacy cover aliases preserved",
-      "feature_commit": "1927b683",
+      "feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
       "evidence": {
         "focused_tests": 22,
         "pc_files": 331,
@@ -27,27 +27,48 @@
         "skipped": 0,
         "logs": [
           "/tmp/b76-pc-focused.log",
-          "/tmp/b76-pc-all.log"
+          "/tmp/b76-pc-final.log"
         ]
-      }
+      },
+      "runtime_develop_commit": "25ec992789519acdc417ea79c8f7134adc4d0619",
+      "evidence_file": "docs/market-acceptance/coordinated-frontend-closure-batch-76-20261101.json"
     },
     {
       "id": "A02",
       "owner": "mobile_acceptance",
-      "status": "in_progress",
+      "status": "verified",
       "depends_on": [
         "A01"
       ],
       "output": "Seven mobile failures individually classified and minimally repaired; existing lifecycle/menu/navigation contracts preserved",
-      "acceptance": "Original failures and affected H5/MP lifecycle, tenant and navigation checks pass; no new tools"
+      "acceptance": "Original failures and affected H5/MP lifecycle, tenant and navigation checks pass; no new tools",
+      "feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+      "runtime_develop_commit": "25ec992789519acdc417ea79c8f7134adc4d0619",
+      "evidence_file": "docs/market-acceptance/coordinated-frontend-closure-batch-76-20261101.json",
+      "evidence": {
+        "focused_passed": 70,
+        "final_mobile_passed": 397,
+        "failed": 0,
+        "skipped": 0,
+        "h5_mp_builds": true
+      }
     },
     {
-      "id": "A03",
+      "id": "A03-source",
       "owner": "mobile_acceptance",
-      "status": "investigating",
+      "status": "verified",
       "depends_on": [],
       "output": "Exact H5 source/build fingerprint, paging/resize reproduction and current-source fix or precise deployment-retest dependency",
-      "acceptance": "Reproducible current-source failures fixed with scoped regressions; old-only logs retained until matching deployed retest"
+      "acceptance": "Actual current-source Promise rejection/retry tests pass; no global error masking/vendor patch. Unattributed old-only logs handed off with exact scope; not declared fixed.",
+      "completion_scope": "Only current-source reproducible repair and explicit old-build handoff. Old deployed-video/resize observations remain A03-deployed-retest.",
+      "feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+      "evidence_file": "docs/market-acceptance/coordinated-frontend-closure-batch-76-20261101.json",
+      "pre_fix_evidence": "docs/market-acceptance/paging-network-errors-before-batch-76-20261101.json",
+      "evidence": {
+        "current_passed": 9,
+        "old_sfc_expected_failures": 3,
+        "old_deployed_video_and_resize_not_declared_fixed": true
+      }
     },
     {
       "id": "A04",
@@ -56,7 +77,7 @@
       "depends_on": [
         "A01",
         "A02",
-        "A03"
+        "A03-source"
       ],
       "output": "Integrated source-only commits, appropriate regressions/builds, immutable evidence and feature pushes",
       "acceptance": "Actual results and residual failures recorded; no generated output or local proxy changes delivered; owned fixtures removed"
@@ -89,10 +110,89 @@
       "owner": "contracts_recovery + /root",
       "status": "waiting_external",
       "depends_on": [
-        "B01-input"
+        "B01"
       ],
       "output": "Offline verified Qwen pixel, Seedance token and Nano/H3 input contracts and necessary shared-layer adaptations",
-      "acceptance": "SKU380/383 and210-215 precheck/reserve/usage/boundaries/old-freeze tests pass; missing evidence stays blocked; no live configuration auto-enable"
+      "acceptance": "SKU380/383 and210-215 precheck/reserve/usage/boundaries/old-freeze tests pass; missing evidence stays blocked; no live configuration auto-enable",
+      "resource_gate": "Evaluate each exact resource independently; do not wait for all 18 model/6 API inputs. All applicable subitems must eventually pass for B02 itself to complete.",
+      "meter_gates": [
+        {
+          "register_id": "meter_sku:275:380",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:277:383",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:210",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:211",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:212",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:213",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:214",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:215",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        }
+      ],
+      "special_input_gates": [
+        "Nano model/app nested/quantity/bare_b64/asset-ID: only the corresponding exact model/channel or app/API contract.",
+        "H3 native content merge: only model:video:minimax:h3-video exact rules."
+      ]
     },
     {
       "id": "B03",
@@ -111,7 +211,7 @@
         "health_review_run_count": 1,
         "health_stt_consumption_count": 1,
         "stt_reserved_points": 40,
-        "run_to_stt_link": "pending_ownership_join",
+        "run_to_stt_link": "verified_same_owned_parent_run; count as one STT business case, not two faults",
         "real_mutations": 0
       }
     },
@@ -125,6 +225,16 @@
       "output": "Uniquely correlated authoritative provider receipt/bill for each actual unknown task",
       "acceptance": "Every settled classification has explicit evidence; unknown cases remain needs_review; real ledger edits separately reviewed",
       "applicability": "Only actual unknown records in the scoped read-only audit; zero records may be marked not_applicable with audit evidence, not inferred."
+    },
+    {
+      "id": "B03-stt-evidence",
+      "owner": "owner/upstream-provider",
+      "status": "waiting_external",
+      "depends_on": [
+        "B03"
+      ],
+      "output": "Authoritative original receipt for the existing owned STT needs_review consumption and its same parent run",
+      "acceptance": "Ownership-checked consumption→app_task→step→run link already verified; retain reserved 40 points, no retranscription/refund/requeue without explicitly reviewed real execution. This is a per_call STT case, separate from 43 text usage/settlement records."
     },
     {
       "id": "C01",
@@ -195,6 +305,16 @@
       "acceptance": "Deployed source/static/worker versions verified; migration and rollback reviewed; assistants do not publish packages or restart permanent daemon"
     },
     {
+      "id": "A03-deployed-retest",
+      "owner": "/root + owner",
+      "status": "waiting_owner_execution",
+      "depends_on": [
+        "C04"
+      ],
+      "output": "Matching deployed/source resource and legacy video/resize trigger verification",
+      "acceptance": "Record deployed source/static/worker versions and actual trigger/error/failed-load-retry observations. Generic current paging repair does not establish old-video attribution; unreproduced triggers retain uncertainty and explicit owner acceptance."
+    },
+    {
       "id": "FINAL",
       "owner": "/root",
       "status": "planned",
@@ -205,7 +325,10 @@
         "C01",
         "C02",
         "C03",
-        "C04"
+        "C04",
+        "B03-stt-evidence",
+        "B01-input",
+        "A03-deployed-retest"
       ],
       "output": "Full plan completion report or exact outstanding dependencies with evidence and owners",
       "acceptance": "No external wait, skipped case, synthetic result or source-only delivery mislabeled as full real-world completion"

@@ -393,8 +393,32 @@
           "severity": "warning"
         }
       ],
-      "note": "review_runs counts run rows; STT review counts consumptions. Do not add without an ownership-checked join."
-    }
+      "note": "Subsequent scoped ownership join verifies that the one STT consumption has the same needs_review parent; do not double-count the parent as a second STT fault. Text token cases remain a distinct billing category."
+    },
+    "stt_parent_ownership_join": {
+      "scope": "Read-only tenant1/user1 STT reserved-consumption ownership join; IDs/content omitted",
+      "stt_consumptions": 1,
+      "cases": [
+        {
+          "all_owners_match": true,
+          "application_step_link_matches": true,
+          "same_parent_needs_review": true,
+          "consumption_run_status": "needs_review",
+          "billing_status": "reserved",
+          "reserved_user_points": 40,
+          "actual_user_points": 0,
+          "task_status": "needs_review",
+          "step_status": "needs_review",
+          "parent_status": "needs_review",
+          "parent_canceled": false,
+          "parent_active_lease": false
+        }
+      ],
+      "text_and_stt_are_distinct_billing_categories": true,
+      "real_mutations": 0
+    },
+    "stt_parent_join_source_server_commit": "641e00d66",
+    "stt_parent_join_runtime_develop_commit": "f860781c3f8f46a41c1c6a81ebb8ce57a3e94317"
   },
   "audit": {
     "tasks_before": {
