@@ -70,7 +70,21 @@ final class AgentExecutionService
             $answer=AigcLlmMessage::create($base+['role'=>'assistant','content'=>'','status'=>'streaming','seq'=>$seq+2,'parent_user_message_id'=>$message['id']]);
             $session->save(['status'=>'streaming','last_message_at'=>time(),'update_time'=>time(),'model_code'=>$preferences['models']['text'],'message_count'=>(int)$session['message_count']+2]);
             return AgentStore::table('run')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'message_id'=>$answer['id'],'request_id'=>$requestId,'payload_hash'=>$hash,'content'=>$content,'preferences'=>AgentStore::encode($preferences),'attachments'=>AgentStore::encode($assets),'status'=>'queued','phase'=>'chat','reply'=>'','create_time'=>time(),'update_time'=>time()]);
-        });}catch(\Throwable $e){$existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();if(!$existing||$existing['payload_hash']!==$hash)throw $e;self::assertSubmission($existing,$submissionHash);$id=(int)$existing['id'];}
+        });}catch(\Throwable $e){
+            $driver=$e instanceof \think\db\exception\PDOException?(int)($e->getData()['PDO Error Info']['Driver Error Code']??0):0;
+            $deadline=microtime(true)+(in_array($driver,[1062,1205,1213],true)?0.5:0);
+            do {
+                // A losing transaction may roll back before the winner commits.
+                // Read only the original owned receipt; never repeat admission
+                // writes or provider work. A current read also avoids an older
+                // snapshot when a canvas-entry transaction surrounds this call.
+                $existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->lock(true)->find();
+                if($existing||microtime(true)>=$deadline)break;
+                usleep(20000);
+            }while(true);
+            if(!$existing||$existing['payload_hash']!==$hash)throw $e;
+            self::assertSubmission($existing,$submissionHash);$id=(int)$existing['id'];
+        }
         return self::detail($tenant,$user,(int)$id);
     }
     private static function assertSubmission(array $run,string $hash): void
