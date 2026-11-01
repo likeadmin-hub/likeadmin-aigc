@@ -1,7 +1,7 @@
 {
   "date": "2026-11-01",
   "branch": "feature/short-drama-next-optimization",
-  "scope": "Full agreed model/tool adaptation completion; statuses are execution states, not model/SKU certification.",
+  "scope": "Active scope: necessary core model adaptation only; Q4 current tool first, other models by evidenced differences. Enhanced/full historical acceptance is deferred by user.",
   "coordinator": "/root",
   "agents": {
     "pc_acceptance": "Local application codecs, immutable snapshot versioning and Full Video fee binding design",
@@ -19,15 +19,15 @@
     "full_real_matrix_not_representative_smoke_only": true
   },
   "latest_continuation": {
-    "batch": 80,
-    "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json",
-    "summary": "Local business source passes 1180 backend tests; PC143/mobile423 and H5/MP pass. Nine offline model candidates ready, nine forced-route candidates blocked. API platform unchanged. Isolated recovery worker-boundary fails; cleaned and not accepted. Original hashes and balance unchanged.",
-    "full_plan_complete": false,
-    "scope_expansion_stopped_for_safety_checkpoint": true,
-    "api_platform_read_only": true,
-    "server_business_commit": "99d9ad7fcb6215cd90a8f70ae5a69c89740bc592",
-    "server_checkpoint_commit": "96f4c6f33efc0c2f89015c89d3ce6f6eaa4a5ab2",
-    "web_commit": "4a18a1ebb64e13e55dcf4f20aa684845254da9b3"
+    "batch": 82,
+    "evidence_file": "docs/market-core-adaptation-progress-20261101.md",
+    "summary": "Q4 current local quote and prepare pass with no reviewed pin. Four actual PC request restoration/defaulting regressions reproduced and fixed in Q4 scope; 97 focused tests pass. Identical real-SFC estimate/generate intents pass actual local estimate/prepare/frozen replay; no dispatch. Live source preview ready at 350 points, user owns later manual generation. H3/Wan missing original-path baselines both pass local quote/prepare; reuse other existing evidence. Enhanced acceptance deferred, no full-tool rerun.",
+    "server_application_commit": "980c887221714a6530ec58e7d6925ba5b02e618c",
+    "web_commit": "6c7def507017da9d1b5e23ce62e6d5e0d9a84dd6",
+    "provider_calls": 0,
+    "actual_task_writes": 0,
+    "original_rows_unchanged": true,
+    "provider_result_verified": false
   },
   "tasks": [
     {
@@ -272,7 +272,9 @@
         "stt_reserved_points": 40,
         "run_to_stt_link": "verified_same_owned_parent_run; count as one STT business case, not two faults",
         "real_mutations": 0
-      }
+      },
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
     },
     {
       "id": "B03-evidence",
@@ -284,7 +286,9 @@
       "output": "Uniquely correlated authoritative provider receipt/bill for each actual unknown task",
       "acceptance": "Every settled classification has explicit evidence; unknown cases remain needs_review; real ledger edits separately reviewed",
       "applicability": "Only actual unknown records in the scoped read-only audit; zero records may be marked not_applicable with audit evidence, not inferred.",
-      "latest_observation": "43 original response IDs: 41 chat completion and2 response; actual platform routes not proven. Normal safe UI cannot exact-filter these IDs; raw authoritative receipt still missing."
+      "latest_observation": "43 original response IDs: 41 chat completion and2 response; actual platform routes not proven. Normal safe UI cannot exact-filter these IDs; raw authoritative receipt still missing.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
     },
     {
       "id": "B03-stt-evidence",
@@ -295,12 +299,14 @@
       ],
       "output": "Authoritative original receipt for the existing owned STT needs_review consumption and its same parent run",
       "acceptance": "Ownership-checked consumption→app_task→step→run link already verified; retain reserved 40 points, no retranscription/refund/requeue without explicitly reviewed real execution. This is a per_call STT case, separate from 43 text usage/settlement records.",
-      "latest_observation": "Original request sends no unique consumption/step correlation and both response IDs are empty; requires existing uniquely associated gateway exchange evidence. Do not match by time/material."
+      "latest_observation": "Original request sends no unique consumption/step correlation and both response IDs are empty; requires existing uniquely associated gateway exchange evidence. Do not match by time/material.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
     },
     {
       "id": "C01",
       "owner": "pc_acceptance + /root + owner",
-      "status": "not_permitted_api_read_only",
+      "status": "owner_manual_test",
       "depends_on": [
         "A04",
         "B01"
@@ -309,7 +315,7 @@
       "acceptance": "Every applicable frozen-matrix row evidenced or explicitly withdrawn by user; exact operations/resource/version/SKU, per-call and total budget, private inputs and stop/cleanup rules explicitly authorized before execution. No representative-only full completion.",
       "resource_gate": "Each chosen resource needs its own reviewed request contract; special metering resources additionally depend on B02. Do not globally block already reviewed protocol families on unrelated missing contracts.",
       "execution_permitted": false,
-      "current_boundary_note": "User expressly limits API platform to reading information. Keep real supplier generation/query/assets inactive; no renewed permission inferred or requested."
+      "current_boundary_note": "User will test real generation manually later. Agent does not submit/query/retry/cancel provider tasks or request renewed paid approval."
     },
     {
       "id": "C02",
@@ -320,7 +326,9 @@
       ],
       "output": "Physical WeChat/native App and independent-device normal-login/lifecycle/history evidence",
       "acceptance": "Real device/build/session/tenant provenance recorded; paid actions subject to C01; no token injection or new cross-device draft feature",
-      "local_read_only_observation": "Platform WeChat config, tenant0/1 authorizers/versions/artifact/template records absent; tenant1 key-mode credential row has no keys. 8 managed directories self-consistent, official public/mp-weixin lacks metadata; no proven experience build. Not a physical-device pass."
+      "local_read_only_observation": "Platform WeChat config, tenant0/1 authorizers/versions/artifact/template records absent; tenant1 key-mode credential row has no keys. 8 managed directories self-consistent, official public/mp-weixin lacks metadata; no proven experience build. Not a physical-device pass.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
     },
     {
       "id": "C03-preparation",
@@ -332,7 +340,9 @@
       ],
       "output": "Per-mechanism owned-environment fault matrix with exact injection, recovery, invariants and cleanup",
       "acceptance": "OSS interruption/expired sources/multi-node/mixed-version/DB-host/persistence-retention distinguished; no production fault injection",
-      "completion_scope": "Per-mechanism environment/injection/recovery/cleanup plan prepared; actual dedicated environment execution remains C03."
+      "completion_scope": "Per-mechanism environment/injection/recovery/cleanup plan prepared; actual dedicated environment execution remains C03.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
     },
     {
       "id": "C03",
@@ -351,7 +361,9 @@
         "cleanup_verified": true,
         "original_data_preserved": true,
         "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json"
-      }
+      },
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
     },
     {
       "id": "C03-local",
@@ -364,7 +376,9 @@
       "feature_commit": "737e64baa30207bb42c91f7545f853ae000575c5",
       "runtime_develop_commit": "1231b800aebebea3b139c96e04c59d3b9cbf82da",
       "evidence_file": "docs/market-acceptance/coordinated-backend-preparation-batch-76-20261101.json",
-      "cases": 6
+      "cases": 6,
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
     },
     {
       "id": "C04",
@@ -403,7 +417,8 @@
         "A03-deployed-retest"
       ],
       "output": "Full plan completion report or exact outstanding dependencies with evidence and owners",
-      "acceptance": "No external wait, skipped case, synthetic result or source-only delivery mislabeled as full real-world completion"
+      "acceptance": "No external wait, skipped case, synthetic result or source-only delivery mislabeled as full real-world completion",
+      "scope_note": "Original full-plan completion sentinel retained as history. Active core progress is separate in active_scope/latest_continuation; enhanced dependencies do not block Q4 source repair."
     }
   ],
   "continuation_history": [
@@ -447,6 +462,17 @@
       ],
       "formal_admission_grants": 0,
       "scope_note": "18 historic complete-rule review items now have source evidence to review, not 18 models with no documents. Exact remaining conditions/DB mappings/deployment and independent 8 SKU meter guarantees stay explicit."
+    },
+    {
+      "batch": 80,
+      "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json",
+      "summary": "Local business source passes 1180 backend tests; PC143/mobile423 and H5/MP pass. Nine offline model candidates ready, nine forced-route candidates blocked. API platform unchanged. Isolated recovery worker-boundary fails; cleaned and not accepted. Original hashes and balance unchanged.",
+      "full_plan_complete": false,
+      "scope_expansion_stopped_for_safety_checkpoint": true,
+      "api_platform_read_only": true,
+      "server_business_commit": "99d9ad7fcb6215cd90a8f70ae5a69c89740bc592",
+      "server_checkpoint_commit": "96f4c6f33efc0c2f89015c89d3ce6f6eaa4a5ab2",
+      "web_commit": "4a18a1ebb64e13e55dcf4f20aa684845254da9b3"
     }
   ],
   "api_platform_boundary": {
@@ -461,5 +487,13 @@
     "platform_mutations_permitted": false,
     "real_supplier_operations_permitted": false,
     "reference": "docs/market-api-read-only-boundary-20261101.md"
+  },
+  "active_scope": {
+    "user_instruction": "只做必须的；先现有工具一条模型链，再按差异；增强验收先放一边；API平台只读；真实生成用户后续手动测试",
+    "entry": "docs/market-core-adaptation-progress-20261101.md",
+    "first_model": "q4-preview-video/q4_video product235",
+    "provider_execution_by_agent": false,
+    "manual_provider_test_owner": "user",
+    "all_tool_recheck_requested": false
   }
 }
