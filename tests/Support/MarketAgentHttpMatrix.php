@@ -9,7 +9,7 @@ function runMarketAgentHttp($f,$api,$peer,$suffix,&$token,$imageChannel,array &$
     app\common\service\app\aigc_llm\AigcLlmService::saveConfig($t,['status'=>1,'config_json'=>['agent_text_model'=>'market_text_'.$agent]]);
     if(getenv('AIGC_HTTP_AGENT_DEVICE_MATRIX')==='1') {
         require __DIR__.'/MarketAgentDeviceHttpMatrix.php';$report['devices']=[];
-        runMarketAgentDeviceHttp($f,$api,$peer,$suffix,$token,$agent,$report['devices']);
+        runMarketAgentDeviceHttp($f,$api,$peer,$suffix,$token,$imageChannel,$agent,$report['devices']);
         $report['text_reservations']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->count();
         $report['text_settlements']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->where('billing_status','settled')->count();return;
     }
