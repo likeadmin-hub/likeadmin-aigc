@@ -19,29 +19,15 @@
     "full_real_matrix_not_representative_smoke_only": true
   },
   "latest_continuation": {
-    "batch": 78,
-    "user_response": "Platform is user-maintained; supplied yc_open/platform-api-saas source repository. Agents extract technical material; no new paid/task/asset/ledger/deployment authorization.",
-    "source_repository": {
-      "url": "https://gitee.com/yc_open/platform-api-saas.git",
-      "develop": "b5887e1c153111edd4515beb0635e6b66d9978b6",
-      "master": "c57897b9d6e9555224dd298a4124f0c7da3673be",
-      "deployed_commit": "unverified",
-      "read_mode": "Git objects only, no checkout/worktree or execution of upstream code"
-    },
-    "documentation_lookup_fix": {
-      "feature_commit": "2d623735495e9318de3d52c37b270e9d0fd83f28",
-      "runtime_local_develop_commit": "a7b7203bb1928f0811098f6b342f1960071efe9e",
-      "tests_passed": 139,
-      "assertions": 814,
-      "native_catalogue_cli_passed": true,
-      "php_syntax_files": 7
-    },
-    "source_reviews": [
-      "docs/market-owned-platform-source-review-20261101.md",
-      "docs/market-owned-platform-meter-review-20261101.md"
-    ],
-    "formal_admission_grants": 0,
-    "scope_note": "18 historic complete-rule review items now have source evidence to review, not 18 models with no documents. Exact remaining conditions/DB mappings/deployment and independent 8 SKU meter guarantees stay explicit."
+    "batch": 80,
+    "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json",
+    "summary": "Local business source passes 1180 backend tests; PC143/mobile423 and H5/MP pass. Nine offline model candidates ready, nine forced-route candidates blocked. API platform unchanged. Isolated recovery worker-boundary fails; cleaned and not accepted. Original hashes and balance unchanged.",
+    "full_plan_complete": false,
+    "scope_expansion_stopped_for_safety_checkpoint": true,
+    "api_platform_read_only": true,
+    "server_business_commit": "99d9ad7fcb6215cd90a8f70ae5a69c89740bc592",
+    "server_checkpoint_commit": "96f4c6f33efc0c2f89015c89d3ce6f6eaa4a5ab2",
+    "web_commit": "4a18a1ebb64e13e55dcf4f20aa684845254da9b3"
   },
   "tasks": [
     {
@@ -162,8 +148,8 @@
       ],
       "output": "Versioned authoritative schemas, conditions, SKU bounds and receipts for missing resources",
       "acceptance": "Each resource binds exact identity/channel/API/version/SKU and complete conditional rules; source provenance retained",
-      "source_received": "user-supplied source repository at fixed develop/master revisions; per-identity extraction documented, no reviewed bundle compiled/activated",
-      "remaining": "Exact current saved configuration and deployed version binding; resolve documented missing conditional limits and document/code conflicts; compile/review/test each complete source-backed candidate.",
+      "source_received": "Fixed source plus read-only 18 models, 9 channels, 6 apps and forced-route flags; nine offline candidates compiled and replayed, none activated.",
+      "remaining": "Published strategy1/version2 graph and full fallback/AceData closure for 9 forced-route models; deployed source version remains unverified. Exact model states in batch80.",
       "current_read_only_inputs": {
         "models": 18,
         "channels": 9,
@@ -174,7 +160,8 @@
         "configuration_writes": 0,
         "provider_calls": 0,
         "forced_smart_route_models": 9
-      }
+      },
+      "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json"
     },
     {
       "id": "B02",
@@ -296,7 +283,8 @@
       ],
       "output": "Uniquely correlated authoritative provider receipt/bill for each actual unknown task",
       "acceptance": "Every settled classification has explicit evidence; unknown cases remain needs_review; real ledger edits separately reviewed",
-      "applicability": "Only actual unknown records in the scoped read-only audit; zero records may be marked not_applicable with audit evidence, not inferred."
+      "applicability": "Only actual unknown records in the scoped read-only audit; zero records may be marked not_applicable with audit evidence, not inferred.",
+      "latest_observation": "43 original response IDs: 41 chat completion and2 response; actual platform routes not proven. Normal safe UI cannot exact-filter these IDs; raw authoritative receipt still missing."
     },
     {
       "id": "B03-stt-evidence",
@@ -306,7 +294,8 @@
         "B03"
       ],
       "output": "Authoritative original receipt for the existing owned STT needs_review consumption and its same parent run",
-      "acceptance": "Ownership-checked consumption→app_task→step→run link already verified; retain reserved 40 points, no retranscription/refund/requeue without explicitly reviewed real execution. This is a per_call STT case, separate from 43 text usage/settlement records."
+      "acceptance": "Ownership-checked consumption→app_task→step→run link already verified; retain reserved 40 points, no retranscription/refund/requeue without explicitly reviewed real execution. This is a per_call STT case, separate from 43 text usage/settlement records.",
+      "latest_observation": "Original request sends no unique consumption/step correlation and both response IDs are empty; requires existing uniquely associated gateway exchange evidence. Do not match by time/material."
     },
     {
       "id": "C01",
@@ -354,7 +343,15 @@
         "A04"
       ],
       "output": "Missing deep recovery scenarios executed only in a dedicated owned environment",
-      "acceptance": "One current managed/business result, immutable billing/frozen identity, terminal safety and complete owned cleanup; each scenario separately evidenced"
+      "acceptance": "One current managed/business result, immutable billing/frozen identity, terminal safety and complete owned cleanup; each scenario separately evidenced",
+      "local_isolated_attempt": {
+        "batch": 80,
+        "status": "failed_not_accepted",
+        "stage": "worker_boundary",
+        "cleanup_verified": true,
+        "original_data_preserved": true,
+        "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json"
+      }
     },
     {
       "id": "C03-local",
@@ -425,6 +422,31 @@
         "evidence": "docs/market-acceptance/source-403-recovery-batch-77-20261101.json",
         "does_not_close_real_signature_network_or_dedicated_infra": true
       }
+    },
+    {
+      "batch": 78,
+      "user_response": "Platform is user-maintained; supplied yc_open/platform-api-saas source repository. Agents extract technical material; no new paid/task/asset/ledger/deployment authorization.",
+      "source_repository": {
+        "url": "https://gitee.com/yc_open/platform-api-saas.git",
+        "develop": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "master": "c57897b9d6e9555224dd298a4124f0c7da3673be",
+        "deployed_commit": "unverified",
+        "read_mode": "Git objects only, no checkout/worktree or execution of upstream code"
+      },
+      "documentation_lookup_fix": {
+        "feature_commit": "2d623735495e9318de3d52c37b270e9d0fd83f28",
+        "runtime_local_develop_commit": "a7b7203bb1928f0811098f6b342f1960071efe9e",
+        "tests_passed": 139,
+        "assertions": 814,
+        "native_catalogue_cli_passed": true,
+        "php_syntax_files": 7
+      },
+      "source_reviews": [
+        "docs/market-owned-platform-source-review-20261101.md",
+        "docs/market-owned-platform-meter-review-20261101.md"
+      ],
+      "formal_admission_grants": 0,
+      "scope_note": "18 historic complete-rule review items now have source evidence to review, not 18 models with no documents. Exact remaining conditions/DB mappings/deployment and independent 8 SKU meter guarantees stay explicit."
     }
   ],
   "api_platform_boundary": {
