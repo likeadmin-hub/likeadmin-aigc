@@ -5,6 +5,7 @@ function marketDramaWorkflowReply(string $dir): string
     $unit=think\facade\Db::name('aigc_short_drama_planning_unit')->where('status','running')->order('id','desc')->find();
     $key=(string)($unit['unit_key']??'intake');
     file_put_contents($dir.'/workflow-supplier.jsonl',json_encode(['unit'=>$key])."\n",FILE_APPEND|LOCK_EX);
+    $key=preg_replace('/^v3_(?:policy2_)?/','',$key);
     $base=['title'=>'Synthetic workflow 色块小剧','type_judgement'=>'生活短剧','core_theme'=>'有序完成动作',
         'story_outline'=>'小方在白色摄影棚走到标记，再向镜头挥手。','script_lines'=>['小方走到标记，站定后挥手。'],
         'subjects'=>[['id'=>'person','name'=>'小方','category'=>'character','description'=>'穿纯红色上衣的成年虚构人物，黑色短发。','role'=>'主角','arc'=>'从走动到站定']],
