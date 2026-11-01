@@ -15,7 +15,7 @@ final class MarketDbCommitBarrier extends think\db\connector\Mysql
             && is_file($dir.'/owner') && trim(file_get_contents($dir.'/owner'))===$prefix, 'Not an owned DB boundary fixture');
         self::$instance=$instance; self::$prefix=$prefix; self::$dir=$dir;
         $cfg=config('database'); $connection=$cfg['connections'][$cfg['default']];
-        $connection['type']=self::class;
+        $connection['type']='\\'.self::class;
         $name='c03_boundary_'.substr($instance->owner,0,12);
         $cfg['default']=$name; $cfg['connections'][$name]=$connection;
         app()->config->set($cfg,'database'); $config=new think\Config(); $config->set($cfg,'database'); think\facade\Db::setConfig($config);

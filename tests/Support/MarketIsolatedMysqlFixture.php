@@ -12,6 +12,7 @@ final class MarketIsolatedMysqlFixture
     private int $schemaShadowCreated = 0;
     private int $schemaShadowDropped = 0;
     private static array $schemaContext = [];
+    private array $workerExitCodes = [];
 
     public const TABLES = ['ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset',
         'tenant_file','tenant','user','config','tenant_config','app','tenant_app_config','aigc_image_task','aigc_image_result',
@@ -66,7 +67,55 @@ final class MarketIsolatedMysqlFixture
         if(preg_match('/fields not exists:\[([a-z][a-z0-9_]{0,63})\]/i',$error->getMessage(),$match)
             || preg_match('/Unknown column \'([a-z][a-z0-9_]{0,63})\' in /i',$error->getMessage(),$match))$result['unknown_field']=$match[1];
         if(self::$schemaContext!==[])$result['schema_context']=self::$schemaContext;
+        $file=str_replace('\\','/',$error->getFile());
+        if(str_starts_with($file,'/source/')&&preg_match('~^(?:app|tests|vendor)/[A-Za-z0-9_./-]+\.php$~D',substr($file,8))&&!str_contains(substr($file,8),'..')){
+            $result['failure_sourcefile']=substr($file,8);$result['failure_line']=$error->getLine();
+        }
         return $result;
+    }
+
+    /** Only owned process state and whitelisted diagnostic facts survive cleanup. */
+    public function workerDiagnostics(MarketWorkerFixture $fixture,string $receipt=''): array
+    {
+        $prefix=$fixture->prefix;$dir=$fixture->dir;
+        self::check(preg_match('/^b56_[a-f0-9]{12}_$/D',$prefix)===1&&$dir==='/tmp/'.$prefix.'fixture'
+            &&is_dir($dir)&&!is_link($dir)&&is_file($dir.'/owner')&&!is_link($dir.'/owner')&&trim(file_get_contents($dir.'/owner'))===$prefix,'Not an owned diagnostic fixture');
+        self::check(in_array($receipt,['','before_cleanup','after_stop'],true),'Invalid diagnostic receipt phase');
+        $receiptPath=$receipt===''?null:$this->root.'/worker-diagnostics-'.$prefix.$receipt.'.json';
+        if($receiptPath!==null)self::check(preg_match('~^/c03/run/worker-diagnostics-b56_[a-f0-9]{12}_(?:before_cleanup|after_stop)\.json$~D',$receiptPath)===1
+            &&is_dir($this->root)&&!is_link($this->root)&&!is_link($receiptPath)&&trim(file_get_contents($this->root.'/supervisor-owner'))===$this->owner,'Not an owned diagnostic receipt path');
+        $property=new ReflectionProperty(MarketWorkerFixture::class,'children');$property->setAccessible(true);$children=$property->getValue($fixture);$roles=[];
+        foreach(['worker','recovery','repeat']as$role){
+            $process=$children[$role]??null;$status=is_resource($process)?proc_get_status($process):null;$key=$prefix.$role;
+            if(is_array($status)&&$status['exitcode']>=0)$this->workerExitCodes[$key]=$status['exitcode'];
+            $facts=['running'=>(bool)($status['running']??false),'process_state'=>$status?($status['running']?'running':'exited'):'not_open',
+                'exit_code'=>$this->workerExitCodes[$key]??null,'signaled'=>$status['signaled']??null,'term_signal'=>$status['termsig']??null,
+                'started_line'=>false,'startup_failures'=>[]];
+            $path=$dir.'/'.$role.'.log';
+            if(is_file($path)){
+                self::check(!is_link($path)&&realpath(dirname($path))===realpath($dir),'Diagnostic log escaped owned fixture');
+                $bytes=file_get_contents($path,false,null,0,65536);self::check(is_string($bytes),'Cannot read owned diagnostic log');
+                $facts['log_prefix_sha256']=hash('sha256',$bytes);$facts['log_bytes']=filesize($path);$facts['log_prefix_truncated']=$facts['log_bytes']>strlen($bytes);
+                foreach(explode("\n",$bytes)as$line){
+                    if(str_starts_with($line,'AI result worker started: '))$facts['started_line']=true;
+                    $json=json_decode($line,true);
+                    if(!is_array($json)||!preg_match('/^[a-f0-9]{64}$/D',(string)($json['failure_fingerprint']??''))
+                        ||!preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]{0,200}$/D',(string)($json['failure_class']??'')))continue;
+                    $safe=['failure_class'=>$json['failure_class'],'failure_fingerprint'=>$json['failure_fingerprint']];
+                    if(preg_match('/^[a-z][a-z0-9_]{0,63}$/D',(string)($json['failure_stage']??'')))$safe['failure_stage']=$json['failure_stage'];
+                    if(preg_match('~^(?:app|tests|vendor)/[A-Za-z0-9_./-]+\.php$~D',(string)($json['failure_sourcefile']??''))&&!str_contains($json['failure_sourcefile'],'..'))$safe['failure_sourcefile']=$json['failure_sourcefile'];
+                    if(is_int($json['failure_line']??null)&&$json['failure_line']>0)$safe['failure_line']=$json['failure_line'];
+                    if(count($facts['startup_failures'])<8)$facts['startup_failures'][]=$safe;
+                }
+            }
+            $roles[$role]=$facts;
+        }
+        $result=['roles'=>$roles];
+        if($receiptPath!==null){
+            self::atomic($receiptPath,json_encode(['owner'=>$this->owner,'fixture_prefix'=>$prefix]+$result,JSON_THROW_ON_ERROR));
+            $result['receipt_sha256']=hash_file('sha256',$receiptPath);
+        }
+        return$result;
     }
     public static function atomic(string $path, string $bytes): void
     {

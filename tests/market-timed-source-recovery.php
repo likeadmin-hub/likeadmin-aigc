@@ -95,7 +95,10 @@ try{
         }
         $entries=glob($f->dir.'/worker-entry-*')?:[];$f->start(__FILE__,$s['app'],'repeat');
         MarketWorkerFixture::wait(fn()=>count(array_diff(glob($f->dir.'/worker-entry-*')?:[],$entries))===1,'Repeat worker did not enter',5);
-        usleep(1200000);$f->stop('repeat');
+        MarketWorkerFixture::wait(function()use($f,$isolated){$role=$isolated->workerDiagnostics($f)['roles']['repeat'];
+            MarketIsolatedMysqlFixture::check($role['running']&&$role['startup_failures']===[],'Repeat worker failed before its real loop');return$role['started_line'];},'Repeat worker did not enter its real loop',5);
+        usleep(1200000);$repeat=$isolated->workerDiagnostics($f)['roles']['repeat'];
+        MarketIsolatedMysqlFixture::check($repeat['running']&&$repeat['started_line']&&$repeat['startup_failures']===[],'Repeat worker did not remain in its real loop');$f->stop('repeat');
         clearstatcache(true,$path);$afterStat=stat($path);
         MarketIsolatedMysqlFixture::check($stable===$snapshot()&&count($source->requests())===$count&&$stat['ino']===$afterStat['ino']&&$stat['mtime']===$afterStat['mtime'],'Terminal replay refetched the source or rewrote managed data');
         $report+=['terminal_history_and_replay_do_not_fetch_original_source'=>true,'managed_inode_and_mtime_retained'=>true,'passed'=>true];
@@ -106,7 +109,9 @@ try{
 }catch(Throwable $error){$failure=$error;$report+=['passed'=>false]+MarketIsolatedMysqlFixture::diagnostic($error,
     in_array($stage??'',['schema_source','fixture_create'],true)?$isolated->stage:($stage??'owned_fixture'));}
 finally{
+    if($s)try{$report['worker_diagnostics_before_cleanup']=$isolated->workerDiagnostics($s['f'],'before_cleanup');}catch(Throwable$error){$failure=$error;$report['diagnostic_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'diagnostic_capture');}
     $stopped=true;if($s)foreach(['worker','repeat']as$role)try{$s['f']->stop($role);}catch(Throwable $error){$failure=$error;$stopped=false;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup_stop');}
+    if($s)try{$report['worker_diagnostics_after_stop']=$isolated->workerDiagnostics($s['f'],'after_stop');}catch(Throwable$error){$failure=$error;$report['diagnostic_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'diagnostic_capture');}
     if($source&&$stopped)try{$source->close();$report['source_root_removed']=!is_dir($source->dir);}catch(Throwable $error){$failure=$error;$stopped=false;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup_source');}
     if($s&&$stopped){
         try{$s['f']->cleanup();$report['fixture_root_removed']=!is_dir($s['f']->dir);
