@@ -2,6 +2,11 @@
 /** Native long-reading, confirmed STT and default-voice TTS with private receipts only. */
 function runMarketAgentSpecialHttp($f,string $api,string $peer,string $suffix,string $token,int $text,array &$report): void
 {
+    if (getenv('AIGC_HTTP_AGENT_MEDIA_BOUNDARY_MATRIX') === '1') {
+        require __DIR__.'/MarketAgentMediaBoundaryHttpMatrix.php';
+        runMarketAgentMediaBoundaryHttp($f,$api,$peer,$suffix,$token,$text,$report);
+        return;
+    }
     $db=think\facade\Db::class;$script=dirname(__DIR__).'/market-generation-http.php';$t=$f->tenant;$u=$f->user;
     $check=fn($ok,$why)=>MarketWorkerFixture::check((bool)$ok,$why);
     $post=fn($action,$p)=>dataHttp($api,'/api/app.aigc_llm.agent/'.$action.$suffix,$p,$token);

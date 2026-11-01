@@ -19,12 +19,25 @@ function marketDeepSupplier(string $path,string $dir): bool
     $input=json_decode(file_get_contents('php://input'),true)?:[];
     $record=function(string $kind)use($dir,$input){file_put_contents($dir.'/deep-calls.jsonl',json_encode(['kind'=>$kind,'input'=>$input])."\n",FILE_APPEND|LOCK_EX);};
     if(getenv('AIGC_HTTP_AGENT_SPECIAL_MATRIX')==='1') {
-        if($path==='/api/v1/apps/voice_tts/stt'){$record('agent_stt');echo json_encode(['code'=>1,'data'=>['text'=>'隔离音频转写正文。','language'=>'zh','duration'=>1]],JSON_UNESCAPED_UNICODE);return true;}
+        if($path==='/api/v1/apps/voice_tts/stt'){
+            if(getenv('AIGC_HTTP_AGENT_MEDIA_BOUNDARY_MATRIX')==='1'){
+                $file=$_FILES['audio']['tmp_name']??'';
+                if(!is_uploaded_file($file))throw new RuntimeException('Private STT did not receive real multipart audio');
+                $wire=['sha256'=>hash_file('sha256',$file),'mime'=>(new finfo(FILEINFO_MIME_TYPE))->file($file),'probe'=>app\common\service\app\aigc_llm\agent\AgentMediaReader::probe($file)];
+                file_put_contents($dir.'/agent-stt-wire.json',json_encode($wire));
+            }
+            $record('agent_stt');echo json_encode(['code'=>1,'data'=>['text'=>'隔离音频转写正文。','language'=>'zh','duration'=>1]],JSON_UNESCAPED_UNICODE);return true;
+        }
         if(in_array($path,['/api/v1/apps/voice_tts/tts','/api/v1/apps/voice_tts/tts_async'],true)) {
             $async=str_ends_with($path,'tts_async');$record($async?'agent_tts_async':'agent_tts');
-            echo json_encode(['code'=>1,'data'=>$async?['task_id'=>'agent-tts-async-1','status'=>'pending']:['result'=>['audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]]);return true;
+            $id='agent-tts-async-1';
+            if($async&&getenv('AIGC_HTTP_AGENT_MEDIA_BOUNDARY_MATRIX')==='1'){
+                $calls=array_map(fn($line)=>json_decode($line,true),file($dir.'/deep-calls.jsonl'));
+                $id='agent-tts-async-'.count(array_filter($calls,fn($row)=>$row['kind']==='agent_tts_async'));
+            }
+            echo json_encode(['code'=>1,'data'=>$async?['task_id'=>$id,'status'=>'pending']:['result'=>['audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]]);return true;
         }
-        if($path==='/api/v1/tasks/agent-tts-async-1'){echo json_encode(['code'=>1,'data'=>['task_id'=>'agent-tts-async-1','status'=>'success','result'=>['audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]]);return true;}
+        if(preg_match('~^/api/v1/tasks/(agent-tts-async-[1-9][0-9]*)$~',$path,$match)){echo json_encode(['code'=>1,'data'=>['task_id'=>$match[1],'status'=>'success','result'=>['audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]]);return true;}
     }
     if($path==='/api/v1/apps/voice_tts/tts_live') {
         $record('tts');echo json_encode(['code'=>1,'data'=>['task_id'=>'deep-tts-1','status'=>'running']]);return true;
