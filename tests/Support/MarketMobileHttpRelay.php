@@ -10,6 +10,14 @@ if(in_array($action,['read','write'],true)) {
     else echo is_file($dir.'/'.$name)?file_get_contents($dir.'/'.$name):'null';
     exit;
 }
+if($action==='download') {
+    $url=(string)($input['url']??'');$path=parse_url($url,PHP_URL_PATH);
+    if(parse_url($url,PHP_URL_HOST)!=='private-media.example.test'||!is_string($path)||!str_starts_with($path,'/uploads/'))exit(10);
+    $file=realpath($dir.'/public'.$path);$root=realpath($dir.'/public/uploads');
+    if(!$file||!$root||!str_starts_with($file,$root.'/')||strtolower(pathinfo($file,PATHINFO_EXTENSION))!=='docx')exit(11);
+    $curl=curl_init(trim(file_get_contents($dir.'/supplier-url')).$path);curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);$bytes=curl_exec($curl);$status=curl_getinfo($curl,CURLINFO_HTTP_CODE);if(curl_errno($curl))exit(12);curl_close($curl);
+    echo json_encode(['statusCode'=>$status,'bytes'=>base64_encode($bytes)],JSON_THROW_ON_ERROR);exit;
+}
 if(!in_array($action,['http','upload'],true)||!is_file($dir.'/mobile-input.json'))exit(4);
 $fixture=json_decode(file_get_contents($dir.'/mobile-input.json'),true);$url=$input['url']??'';$allowed=false;
 foreach([$fixture['api'],$fixture['api_peer']]as$base)if(str_starts_with($url,$base.'/api/app.')||(!empty($fixture['ui'])&&parse_url($url,PHP_URL_PATH)==='/api/login/account'&&($input['method']??'')==='POST'&&str_starts_with($url,$base.'/api/')))$allowed=true;
