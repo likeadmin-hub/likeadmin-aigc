@@ -3,6 +3,8 @@
 /** Runs only inside the private authenticated HTTP fixture, never against real tenant tables or suppliers. */
 function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, string $suffix, string $token, string $channel, string $uri, array &$report): array
 {
+    global $marketMobileTools;
+    if(getenv('AIGC_HTTP_TOOL_MOBILE_MATRIX')==='1'){require_once __DIR__.'/MarketMobileToolsHttpBridge.php';marketMobileToolsStart($fixture,$api,$suffix,$token);}
     $tenant=$fixture->tenant;$user=$fixture->user;
     $videoMeta=['category_code'=>'video','supported_durations'=>[1],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1'],
         'params_schema'=>['properties'=>['prompt'=>['type'=>'string'],'duration'=>['type'=>'integer','enum'=>[1]],'resolution'=>['type'=>'string','enum'=>['720P']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'minItems'=>1,'maxItems'=>1]],'required'=>['prompt','image_urls']],
@@ -52,6 +54,9 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
         if($packages)$input['price_package_code']=$packages[0]['code'];
         if($code==='outpaint')$input['spec_code']=$input['price_package_code'];
         $path='/api/app.aigc_'.$code;
+        if(getenv('AIGC_HTTP_TOOL_MOBILE_MATRIX')==='1'){
+            $input=marketMobileToolsCommand(['action'=>'prepare','app'=>'aigc_'.$code,'data'=>$input]);$marketMobileTools['active']=true;
+        }
         try {$estimate=dataHttp($api,$path.'.generate/estimate'.$suffix,$input,$token);}
         catch(\Throwable $error) {
             $prepare=new ReflectionMethod($class,'prepareGeneratePayload');$prepare->setAccessible(true);
@@ -119,6 +124,11 @@ function runMarketToolHttpMatrix(MarketWorkerFixture $fixture, string $api, stri
             $report[$code]['explicit_new_intent_key_and_same_key_replay']=true;
             $report[$code]['cross_application_duplicate_scope_preserved']=true;
         }
+    }
+    if(getenv('AIGC_HTTP_TOOL_MOBILE_MATRIX')==='1'){
+        $marketMobileTools['active']=false;
+        $report['mobile_tools']=marketMobileToolsCommand(['action'=>'finish']);
+        $marketMobileTools=[];
     }
     return $report;
 }
