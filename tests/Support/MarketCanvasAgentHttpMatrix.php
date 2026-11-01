@@ -53,6 +53,7 @@ function runMarketCanvasAgentHttp($f,string $api,string $peer,string $suffix,str
 
     // No workflow execution is needed for the legacy text boundary; Neuron is exercised separately below.
     $cfg=['default_text_model_id'=>'market_text_'.$text,'canvas_agent'=>['enabled'=>true,'execution_enabled'=>true,'dialogue_engine'=>'legacy','workflow'=>['enabled'=>false]]];
+    if(!$db::name('aigc_short_drama_config')->where('tenant_id',$t)->count())$db::name('aigc_short_drama_config')->insert(['tenant_id'=>$t,'status'=>1,'config_json'=>'{}','create_time'=>time(),'update_time'=>time()]);
     $db::name('aigc_short_drama_config')->where('tenant_id',$t)->update(['config_json'=>json_encode($cfg)]);
     $canvas=$post('aigc_short_drama.canvas/create',['title'=>'Private Agent dialogue']);
     $canvas=$post('aigc_short_drama.canvas/save',['id'=>$canvas['id'],'expected_revision'=>$canvas['graph_revision'],'nodes'=>[['id'=>'1','type'=>'text','title'=>'Source','position'=>['x'=>0,'y'=>0],'metadata'=>['content'=>'原始文字','prompt'=>'原始提示词','content_revision'=>1]]],'edges'=>[],'viewport'=>[]]);
