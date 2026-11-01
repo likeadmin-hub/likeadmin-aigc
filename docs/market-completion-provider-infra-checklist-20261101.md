@@ -34,9 +34,9 @@
 
 用户随后给出单次、批次、硬累计算力上限及供应商各币种硬上限。点数与供应商货币分别约束，不擅自换算或将退款预期提前计入可用预算。每次动作前，剩余额度必须覆盖该行全部已承诺最大费用；到期、余额不足或累计未知费用达到上限即停止扩大发送。
 
-## C01一次授权模板（当前全部待填写）
+## C01执行草案与一次权限确认
 
-以下为空白请求，未填写、未明确确认即没有新的真实执行授权；旧268点授权不复用。
+以下草案的源码／静态／worker版本、目录／合同／矩阵／报价SHA、合成输入manifest和精确清理键均由协调者准备，不要求用户填写技术摘要或制作素材。owner只确认具体真实操作、资源范围、硬预算、窗口及保留策略；未明确确认即没有新的真实执行授权，旧268点授权不复用。
 
 ```yaml
 request_id: null
@@ -73,7 +73,7 @@ approved_quote_table_sha_and_expiry: null
 synthetic_input_manifest_sha_and_ownership: null
 provider_asset_retention_and_exact_cleanup_keys: null
 unknown_acceptance_stop_and_allowed_read_reconciliation: null
-failure_refund_or_ledger_handling: null # 默认只读核对，真实修账另审具体预案
+failure_refund_or_ledger_handling: null # 新任务按原冻结正常自动结算/退款并验证；人工干预不默认授权，B03历史43文字+1STT另做权威核对，实际处置另审逐笔预案
 original_record_retention_and_failure_evidence: null
 user_explicit_confirmation: null
 ```
@@ -95,7 +95,7 @@ owner／协调者一次提供以下元数据，已有的可由root只读盘点�
 - 独立测试DB实例、存储卷／bucket精确前缀、故障磁盘／VM恢复点；真实数据的bind mount必须不存在。共用本机Docker VM的两个容器不构成宿主机断电隔离。
 - 各实体启动／停止／断网／延迟／重启的操作范围与责任人、最长中断、恢复顺序和清理计划。没有隔离证明时，该机制保持`waiting_environment`。
 
-可由root先只读获取Docker容器名／镜像ID／状态／端口／网络、已有镜像revision标签和mount目的路径、既有独立VM工具是否存在；不pull、不run/stop/create、不输出凭据，不因此推断实际隔离已满足。当前子智能体不执行inventory命令。
+盘点阶段由root只读获取Docker容器名／镜像ID／状态／端口／网络、已有镜像revision标签和mount目的路径、既有独立VM工具是否存在；该盘点不pull、不run/stop/create、不输出凭据，不因此推断实际隔离已满足。后续自有可丢弃环境准备由协调者另安排运行窗口，不将盘点限制误当成所有测试环境都要用户外包提供。当前子智能体不执行inventory命令。
 
 root已完成上述只读inventory：当前仅baota运行，bridge且挂载真实项目／DB；有arm64 mysql:8.0、node:20-bookworm-slim、btpanel/baota:lnmp三个本地工具镜像，没有worker源码revision标签，未证明第二节点／旧新应用运行实体。独立可丢弃DB可由协调者在专用窗口用现有mysql镜像准备，不要求用户重新安装MySQL；宿主故障／多机的独立故障域与明确允许对象仍需提供。仅有镜像不表示应用故障场景已跑过。
 
@@ -111,7 +111,7 @@ root已完成上述只读inventory：当前仅baota运行，bridge且挂载真�
 
 ### I02 真实结果源签名到期
 
-- **最小环境**：owner明确拥有、能设置短有效期且策略已知的合成source对象；原下载路径能够访问，凭据只保留服务端。另有自有目标存储和私有任务／消费，不使用用户供应商历史URL。
+- **最小环境**：root按已有授权制作和登记自有合成source／target对象，先核对现有桶策略、过期语义和读取范围，不改ACL／凭据；仅缺可用私有源、签名权限或专用环境时由owner补充。原下载路径能够访问，凭据只保留服务端；另有私有任务／消费，不使用用户供应商历史URL。
 - **前置／操作**：先核对bucket公开策略、签名算法／时钟／过期语义、是否有同源公开URL回退，以及原协议是否正式支持刷新URL。可生成／读取的签名和源对象范围单独明确；当前先不执行真实签名。
 - **注入点**：源在首次下载前到期；允许时再做下载未完成即到期；另做已经受管后原源到期。自然到期、人工403与供应商刷新属于三份不同证据。
 - **恢复验证**：到期后保留原任务与账务、无半文件；只有正式原协议支持且该操作获准才刷新**原任务**URL，不能重新生成。已受管结果历史继续读受管URI且不请求原源。同源公开回退若原本支持，应按实际策略判定，不强行要求403。
