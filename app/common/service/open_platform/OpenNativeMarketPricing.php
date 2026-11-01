@@ -1,7 +1,7 @@
 <?php
 namespace app\common\service\open_platform;
 
-use app\common\service\power\{MarketImageModelRuntimeService as Images, MarketVideoRuntimeService as Videos, MarketUsageSettlementService as Usage, MarketGenerationMeter as Meter, MarketGenerationPixelMeter as Pixel, MarketNanoBananaAppRuntimeService as Nano};
+use app\common\service\power\{MarketImageModelRuntimeService as Images, MarketVideoRuntimeService as Videos, MarketUsageSettlementService as Usage, MarketGenerationMeter as Meter, MarketGenerationPixelMeter as Pixel, MarketNanoBananaAppRuntimeService as Nano, MarketFullVideoBilling as Full, MarketGenerationApplicationProtocol as AppProtocol, MarketGenerationSchema};
 
 /** Pricing-only projection. Never returns a replacement transport payload. */
 final class OpenNativeMarketPricing
@@ -24,6 +24,17 @@ final class OpenNativeMarketPricing
     public static function bind(array $product, array $raw, int $skuId, array $sku = []): array
     {
         if (!self::supports($product) || $skuId <= 0) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
+        if(self::isFull($product)){
+            $source=MarketGenerationSchema::array($product['source_payload']??[]);
+            $snapshot=AppProtocol::bindNewSnapshot(['resource_type'=>'app_api','app_code'=>'full_video','api_code'=>'submit',
+                'sku_id'=>$skuId,'locked_params'=>self::object($sku['locked_params']??[]),'usage_unit'=>$sku['usage_unit']??'',
+                'usage_unit_size'=>$sku['usage_unit_size']??null,
+                'market_metadata'=>MarketGenerationSchema::array($source['market_metadata']??[])]);
+            if(isset($raw['channel'])&&$raw['channel']!=='')throw new OpenException('invalid_sku','Full Video 原生请求不能覆盖路由渠道');
+            try{$projection=Full::inspectNativeForAdmission($snapshot,$raw);}catch(\Exception $error){throw new OpenException('invalid_request',$error->getMessage());}
+            return ['kind'=>'video','selection'=>['market_product_id'=>(int)$product['id'],'market_sku_id'=>$skuId,
+                'resource_type'=>'app_api','quality'=>$projection['context']['resolution'],'duration'=>$projection['context']['request_duration'],'quantity'=>1]];
+        }
         $isImage = ($product['model_type'] ?? '') === 'image';
         $selection = ['market_product_id' => (int)$product['id'], 'market_sku_id' => $skuId, 'resource_type' => $product['resource_type']];
         $prompt=self::alias($raw,['prompt'],false,true);
@@ -131,7 +142,7 @@ final class OpenNativeMarketPricing
         try {
             $captured = $bound['kind'] === 'image'
                 ? (self::isNano($product)?Nano::openPlatformAdmissionQuote($tenantId,$bound['selection'],$bound['selection']['quantity']):Images::openPlatformAdmissionQuote($tenantId, $bound['selection'], $bound['selection']['quantity']))
-                : Videos::openPlatformAdmissionQuote($tenantId, $bound['selection']);
+                : (self::isFull($product)?Videos::openPlatformFullVideoAdmissionQuote($tenantId,$bound['selection'],$raw):Videos::openPlatformAdmissionQuote($tenantId, $bound['selection']));
         } catch (OpenException $e) { throw $e; }
         catch (\Exception $e) { throw new OpenException('invalid_sku', $e->getMessage()); }
         if ((int)$captured['market']['product']['id'] !== (int)$product['id'] || (int)$captured['market']['sku']['id'] !== $skuId) throw new OpenException('invalid_sku', '参数不能改选契约绑定的 SKU');
@@ -202,6 +213,16 @@ final class OpenNativeMarketPricing
     {
         if ($failed) return 0.;
         return \app\common\service\power\MarketGenerationMeter::price($unitPrice, $units, (array)$native['market_snapshot']);
+    }
+
+    private static function isFull(array $product): bool
+    {
+        return ($product['resource_type']??'')==='app_api'&&($product['upstream_app_code']??'')==='full_video'&&($product['upstream_api_code']??'')==='submit';
+    }
+
+    public static function assertPreparedTransport(array $snapshot,array $raw): void
+    {
+        Full::assertNativeProjection((array)($snapshot['native_media']['market_snapshot']??[]),$raw);
     }
 
     /** Successful URL slots plus null markers for confirmed unavailable/non-image slots. */

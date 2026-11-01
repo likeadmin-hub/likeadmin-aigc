@@ -37,6 +37,7 @@ class MarketOwnedPlatformFlatSourcePreparationTest extends TestCase
         $metadata=$binding+$limits+['upstream_metadata'=>['model_code'=>$model,'channel_code'=>$channel,'model_id'=>501],Reviewed::PIN=>$contract];
         $snapshot=['resource_type'=>'model','model_code'=>$model,'channel_code'=>$channel,'params_schema'=>$binding['params_schema'],
             'market_metadata'=>$metadata,'locked_params'=>[]];
+        if($family==='veo')$snapshot['generation_protocol']='veo_video_v1';
         // This deliberate fixture mutation selects the runtime branch. It does not authenticate any real source/configuration.
         $contract['source']['reference']='https://gitee.com/yc_open/platform-api-saas/tree/'.Owned::REVISION;
         $contract['source']['artifact_sha256']=Builder::ARTIFACT_SHA256;$contract['contract_digest']=Reviewed::contractDigest($contract);
@@ -46,7 +47,7 @@ class MarketOwnedPlatformFlatSourcePreparationTest extends TestCase
 
     public static function exactModels(): array
     {
-        $out=[];foreach(Builder::profiles()as$p)if(in_array($p['profile'],['flat_image_v1','flat_video_v1'],true))$out[]=[$p['model_code'],$p['channel_code']];return $out;
+        $out=[];foreach(Builder::profiles()as$p)if(in_array($p['profile'],['flat_image_v1','flat_video_v1','veo_video_v1'],true))$out[]=[$p['model_code'],$p['channel_code']];return $out;
     }
 
     private static function prepare(string $model,array $snapshot,array $request): array
@@ -160,10 +161,82 @@ class MarketOwnedPlatformFlatSourcePreparationTest extends TestCase
 
     public static function veoModels(): array {return [['veo3.1-fast'],['veo3.1-pro']];}
 
+    public function testExactNewGrokNativePromptIsNotMaskedByAnInventedEmptyBusinessPrompt(): void
+    {
+        [$snapshot]=self::fixture('grok-video','xAIQ');$before=$snapshot;
+        $request=['provider_params'=>['prompt'=>'Native Grok prompt','quality'=>'720p','duration'=>10,'aspect_ratio'=>'16:9']];$original=$request;
+        $a=Videos::prepareRequest($snapshot,$request)->nativeInput;$b=Videos::prepareRequest($snapshot,$request)->nativeInput;
+        self::assertSame('Native Grok prompt',$a['prompt']);self::assertSame(10,$a['duration']);self::assertSame('xAIQ',$a['channel']);
+        self::assertSame($a,$b);self::assertSame($original,$request);self::assertSame($before,$snapshot);
+        $old=$snapshot;$record=$old['market_metadata'][Reviewed::PIN];$record['source']['artifact_sha256']=hash('sha256',self::ARTIFACT);
+        $record['contract_digest']=Reviewed::contractDigest($record);$old['market_metadata'][Reviewed::PIN]=$record;
+        $legacy=self::request('grok-video','xAIQ');self::assertSame($legacy,Flat::normalizeMetadataRequest($old['market_metadata'],$legacy));
+        $this->expectException(\InvalidArgumentException::class);Videos::prepareRequest($old,$request);
+    }
+
+    public function testExactNewGrokStillRejectsExplicitEmptyOrConflictingBusinessPrompts(): void
+    {
+        [$snapshot]=self::fixture('grok-video','xAIQ');
+        foreach(['','Different business prompt']as$prompt){
+            $request=['prompt'=>$prompt,'provider_params'=>['prompt'=>'Native Grok prompt','quality'=>'720p','duration'=>6]];
+            try{Videos::prepareRequest($snapshot,$request);self::fail('Explicit Grok prompt conflict was ignored');}
+            catch(\InvalidArgumentException $error){self::assertNotSame('',$error->getMessage());}
+        }
+    }
+
+    public static function nativeFlatVideos(): array {return [['grok-video'],['veo3.1-fast'],['veo3.1-pro']];}
+
+    /** Synthetic two-SKU catalogue, public quote/reserve only, no provider submission. @dataProvider nativeFlatVideos */
+    public function testPublicVideoQuoteAndReservationUseNativeControlsBeforeChoosingAndFreezingTheSku(string $model): void
+    {
+        if(getenv('AIGC_OWNED_PLATFORM_DB_TESTS')!=='1')self::markTestSkipped('Explicit local rollback fixture only');
+        (new \think\App())->initialize();$db=\think\facade\Db::connect();
+        self::assertContains($db->getConfig('hostname'),['127.0.0.1','localhost']);self::assertContains($db->getConfig('database'),['x_cn','z_cn']);
+        $user=(int)\think\facade\Db::name('user')->where('tenant_id',1)->where('user_money','>',100)->order('user_money','desc')->value('id');
+        if(!$user)self::markTestSkipped('Funded local rollback fixture unavailable');
+        [$frozen]=self::fixture($model,'xAIQ');$metadata=$frozen['market_metadata'];$contract=$metadata[Reviewed::PIN];unset($metadata[Reviewed::PIN]);
+        $catalogue=tempnam(sys_get_temp_dir(),'owned-video-test-');file_put_contents($catalogue,json_encode(['version'=>2,'contracts'=>[$contract]],JSON_THROW_ON_ERROR));
+        $previous=getenv('MARKET_REVIEWED_GENERATION_CONTRACTS_PATH');putenv('MARKET_REVIEWED_GENERATION_CONTRACTS_PATH='.$catalogue);
+        $key='owned-video-'.bin2hex(random_bytes(8));$consumptionId=0;$veo=$model!=='grok-video';$duration=$veo?8:10;$quality=$veo?'1080p':'720p';
+        \think\facade\Db::startTrans();
+        try{
+            \think\facade\Db::name('tenant')->where('id',1)->lock(true)->find();\think\facade\Db::name('user')->where('id',$user)->lock(true)->find();
+            $balance=(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money');
+            $product=\app\common\model\power\PowerMarketProduct::create(['product_code'=>$key,'name'=>'Offline native flat-video fixture',
+                'resource_type'=>'model','model_type'=>'video','source_code'=>'offline-fixture','upstream_resource_key'=>$key,
+                'upstream_model_code'=>$model,'upstream_channel_code'=>'xAIQ','source_payload'=>['market_metadata'=>$metadata],
+                'status'=>1,'create_time'=>time(),'update_time'=>time()]);
+            $base=['product_id'=>$product['id'],'title'=>'Offline native flat-video fixture','usage_unit'=>'per_call','usage_unit_size'=>1,
+                'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>['version'=>1,'basis'=>'call','rounding'=>'ceil']],
+                'create_time'=>time(),'update_time'=>time()];
+            \app\common\model\power\PowerMarketSku::create($base+['sku_key'=>$key.'-default','locked_params'=>['duration'=>$veo?8:6,'quality'=>'720p']]);
+            $sku=\app\common\model\power\PowerMarketSku::create($base+['sku_key'=>$key.'-requested','locked_params'=>['duration'=>$duration,'quality'=>$quality]]);
+            $provider=['prompt'=>'Native video controls','duration'=>$duration,'quality'=>$quality,'aspect_ratio'=>'16:9',
+                'image_urls'=>['https://fixtures.invalid/one','https://fixtures.invalid/one']];if($veo)$provider['generation_type']='TEXT';
+            $selection=['model_id'=>'market_video_model:'.$product['id'],'resource_type'=>'model','provider_params'=>$provider];$original=$selection;
+            $quote=Videos::quote(1,$selection);self::assertSame((int)$sku['id'],(int)$quote['market_sku_id']);
+            $normalized=Videos::normalizeDurationSelection(1,$selection,0);self::assertSame($duration,$normalized['duration']);
+            self::assertSame((int)$sku['id'],$normalized['market_sku_id']);
+            $reserved=Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key,$selection,$selection);$consumptionId=$reserved['consumption_id'];
+            $log=\app\common\model\ai\AiConsumptionLog::find($consumptionId);self::assertSame('',(string)$log['upstream_task_id']);
+            self::assertSame('reserved',(string)$log['billing_status']);self::assertSame((int)$sku['id'],(int)$log['sku_id']);
+            $body=Videos::prepareRequest($reserved['market_snapshot'],$selection)->nativeInput;
+            foreach($provider as$field=>$value)self::assertSame($value,$body[$field]);self::assertSame($original,$selection);
+            self::assertEqualsWithDelta($balance-(float)$log['reserved_user_price'],(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money'),0.00001);
+        }finally{
+            \think\facade\Db::rollback();putenv($previous===false?'MARKET_REVIEWED_GENERATION_CONTRACTS_PATH':'MARKET_REVIEWED_GENERATION_CONTRACTS_PATH='.$previous);unlink($catalogue);
+        }
+        self::assertSame(0,(int)\think\facade\Db::name('power_market_product')->where('product_code',$key)->count());
+        self::assertSame(0,(int)\think\facade\Db::name('ai_consumption_log')->where('id',$consumptionId)->count());
+    }
+
     /** @dataProvider veoModels */
     public function testEachExactVeoKeepsTextImagesAndEveryDocumentedModeWithoutChangingGenerationType(string $model): void
     {
         [$snapshot]=self::fixture($model,'xAIQ');$before=$snapshot;
+        self::assertSame('veo_video_v1',$snapshot['generation_protocol']);
+        self::assertSame('veo_video_v1',$snapshot['market_metadata'][Reviewed::PIN]['generation_protocol']);
+        self::assertSame('veo_video_v1',\app\common\service\power\MarketGenerationAdapterRegistry::modelProtocol('video',$snapshot));
         foreach(['TEXT'=>[0,1,3],'FIRST&LAST'=>[1,2],'REFERENCE'=>[1,3]]as$mode=>$counts)foreach($counts as$count){
             $urls=array_fill(0,$count,'https://fixtures.invalid/veo-repeat');
             $request=['provider_params'=>['prompt'=>'Documented Veo transport','quality'=>'1080p','duration'=>8,
@@ -177,6 +250,11 @@ class MarketOwnedPlatformFlatSourcePreparationTest extends TestCase
         $request=['provider_params'=>['prompt'=>'Default TEXT retains images','image_urls'=>['https://fixtures.invalid/veo-text']]];
         $body=Videos::prepareRequest($snapshot,$request)->nativeInput;self::assertSame('TEXT',$body['generation_type']);
         self::assertSame($request['provider_params']['image_urls'],$body['image_urls']);
+        $request=['provider_params'=>['prompt'=>'Native prompt with business image'],
+            'reference_assets'=>[['type'=>'image','role'=>'reference_image','url'=>'https://fixtures.invalid/veo-business']]];
+        $body=Videos::prepareRequest($snapshot,$request)->nativeInput;
+        self::assertSame('Native prompt with business image',$body['prompt']);self::assertSame('TEXT',$body['generation_type']);
+        self::assertSame(['https://fixtures.invalid/veo-business'],$body['image_urls']);self::assertArrayNotHasKey('prompt',$request);
         $locked=$snapshot;$locked['locked_params']=['resolution'=>'1080P','seconds'=>8];
         $body=Videos::prepareRequest($locked,['material_mode'=>'text','prompt'=>'Frozen dimension aliases'])->nativeInput;
         self::assertSame('1080p',$body['quality']);self::assertSame(8,$body['duration']);
@@ -189,7 +267,8 @@ class MarketOwnedPlatformFlatSourcePreparationTest extends TestCase
     public static function veoBoundaries(): array
     {
         $out=[];foreach(['veo3.1-fast','veo3.1-pro']as$model)foreach(['text_overflow','frame_empty','frame_overflow','reference_empty','reference_overflow',
-            'reference_portrait','unknown_mode','unknown_field','duration','conflict','wrong_identity']as$case)$out[]=[$model,$case];return $out;
+            'reference_portrait','unknown_mode','unknown_field','duration','conflict','wrong_identity','wrong_protocol',
+            'empty_business_prompt','different_business_prompt','missing_prompt']as$case)$out[]=[$model,$case];return $out;
     }
 
     /** @dataProvider veoBoundaries */
@@ -208,8 +287,12 @@ class MarketOwnedPlatformFlatSourcePreparationTest extends TestCase
             case 'unknown_field':$provider['unknown_native']=false;break;
             case 'duration':$provider['duration']=8.5;break;
             case 'wrong_identity':$provider['model']=$model==='veo3.1-fast'?'veo3.1-pro':'veo3.1-fast';break;
+            case 'wrong_protocol':$snapshot['generation_protocol']='flat_video_v1';break;
+            case 'missing_prompt':unset($provider['prompt']);break;
         }
         $request=['provider_params'=>$provider];if($case==='conflict')$request['quality']='4k';
+        if($case==='empty_business_prompt')$request['prompt']='';
+        if($case==='different_business_prompt')$request['prompt']='Different business prompt';
         $this->expectException(\InvalidArgumentException::class);Videos::prepareRequest($snapshot,$request);
     }
 

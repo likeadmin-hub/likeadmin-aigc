@@ -3435,5 +3435,14 @@
       "full_video_submit_20261101"
     ],
     "billing_activation": false
+  },
+  "native_full_admission_protection": {
+    "version": 1,
+    "scope": "Only new reviewed Full snapshots. No native surcharge integration or activation.",
+    "snapshot_marker": "full_video_native_projection",
+    "preserved": "Original content text items and repeated URL slots remain in the unchanged transport payload. Only a separate source-default pricing copy is inspected.",
+    "without_reviewed_fee_terms": "More than five reference_image slots reject before quote; first/last frames do not count.",
+    "settlement_units": "Only this new projection fixes units to the original request duration; response usage cannot increase it. Existing price calculation is unchanged.",
+    "legacy": "No native projection marker means no new dispatch or units rule is applied."
   }
 }

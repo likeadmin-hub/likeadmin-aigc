@@ -292,7 +292,7 @@
       "generation_type": "video",
       "model_code": "veo3.1-fast",
       "channel_code": "xAIQ",
-      "profile": "flat_video_v1",
+      "profile": "veo_video_v1",
       "sources": [
         "api-doc/model-api/model-72-veo3.1-fast.md",
         "server/app/common/command/VeoVideoMigrate.php",
@@ -304,7 +304,7 @@
       "generation_type": "video",
       "model_code": "veo3.1-pro",
       "channel_code": "xAIQ",
-      "profile": "flat_video_v1",
+      "profile": "veo_video_v1",
       "sources": [
         "api-doc/model-api/model-73-veo3.1-pro.md",
         "server/app/common/command/VeoVideoMigrate.php",
