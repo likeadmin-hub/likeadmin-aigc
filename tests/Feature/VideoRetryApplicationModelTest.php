@@ -112,7 +112,7 @@ class VideoRetryApplicationModelTest extends TestCase
             $data+=['provider'=>'power_market','model'=>$data['channel'],'provider_task_id'=>'','status'=>'failed','error'=>'Owned fixture','app_task_id'=>0,'consumption_id'=>0,
                 'tenant_cost_points'=>0,'user_charge_points'=>0,'create_time'=>time(),'update_time'=>time(),'finish_time'=>time(),'delete_time'=>0];
             if(!AigcVideoTask::hasDurationColumn())unset($data['duration']);
-            $task=AigcVideoTask::create($data);$before=$task->toArray();$counts=[AigcVideoTask::count(),AiAppTask::count(),AiConsumptionLog::count(),Db::name('user_account_log')->count(),Db::name('tenant_point_log')->count()];
+            $task=AigcVideoTask::create($data);$before=AigcVideoTask::find($task['id'])->toArray();$counts=[AigcVideoTask::count(),AiAppTask::count(),AiConsumptionLog::count(),Db::name('user_account_log')->count(),Db::name('tenant_point_log')->count()];
             $balances=[(float)Db::name('tenant')->where('id',1)->value('point_balance'),(float)Db::name('user')->where('id',1)->value('user_money')];
             try{Service::retryTask(1,(int)$task['id']);self::fail('A business retry must not invent the Token upper bound');}
             catch(\Exception$error){self::assertStringContainsString('Token 费用上限',$error->getMessage());}
