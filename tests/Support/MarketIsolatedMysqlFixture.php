@@ -9,6 +9,7 @@ final class MarketIsolatedMysqlFixture
     public array $manifest;
     private string $uuid;
     public string $stage = 'namespace_preflight';
+    public array $faultProgress = [];
     private int $schemaShadowCreated = 0;
     private int $schemaShadowDropped = 0;
     private static array $schemaContext = [];
@@ -359,17 +360,26 @@ final class MarketIsolatedMysqlFixture
         $before = $this->pdo(); self::check($before->query('SELECT @@server_uuid')->fetchColumn() === $this->uuid, 'Wrong DB before interruption');
         $started = microtime(true);
         self::check(posix_kill($pid, SIGKILL), 'Cannot interrupt the owned mysqld');
-        MarketWorkerFixture::wait(fn()=>!is_dir('/proc/'.$pid), 'Owned mysqld did not exit', 10);
+        $this->faultProgress['mysqld_process_sigkill']=true;
+        MarketWorkerFixture::wait(function()use($pid){
+            $path='/proc/'.$pid;clearstatcache(true,$path);return!is_dir($path);
+        }, 'Owned mysqld did not exit', 10);
+        $this->faultProgress['mysqld_process_exit_observed']=true;
         $unavailable = false;
         try { $this->pdo()->query('SELECT 1'); } catch (Throwable) { $unavailable = true; }
         self::check($unavailable, 'The intended database was not interrupted');
+        $this->faultProgress['database_unavailable_observed']=true;
         $fixture->stop('worker', true);
+        $this->faultProgress['owned_worker_stopped']=true;
         self::atomic($this->root.'/restart.request', $this->owner);
+        $this->faultProgress['owned_restart_requested']=true;
         MarketWorkerFixture::wait(function () {
             try { return $this->pdo()->query('SELECT @@server_uuid')->fetchColumn() === $this->uuid; }
             catch (Throwable) { return false; }
         }, 'The same owned MySQL volume did not recover', 60);
+        $this->faultProgress['same_server_uuid_after_restart']=true;
         $this->reconnect($fixture);
+        $this->faultProgress['fixture_reconnected']=true;
         return ['mysqld_process_sigkill'=>true,'database_unavailable_observed'=>true,'same_server_uuid_after_restart'=>true,
             'elapsed_ms'=>(int)((microtime(true)-$started)*1000),'container_restarted'=>false,'host_power_loss_tested'=>false];
     }
