@@ -7,6 +7,12 @@ function runMarketAgentHttp($f,$api,$peer,$suffix,&$token,$imageChannel,array &$
     $product=function($code)use($f){$p=app\common\model\power\PowerMarketProduct::create(['product_code'=>$f->prefix.$code,'name'=>'Private '.$code,'resource_type'=>'model','model_type'=>'text','source_code'=>'isolated-fixture','upstream_resource_key'=>$f->prefix.$code,'upstream_model_code'=>$code,'upstream_channel_code'=>'fixture','source_payload'=>['category_code'=>'text','market_metadata'=>['protocol'=>'openai_chat','max_output_tokens'=>8000,'context_window'=>128000]],'status'=>1]);app\common\model\power\PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$f->prefix.$code,'title'=>'Private text','locked_params'=>[],'usage_unit'=>'token','usage_unit_size'=>1000,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1]);return (int)$p['id'];};
     $text=$product('synthetic-stream-text');$agent=$product('synthetic-agent-text');
     app\common\service\app\aigc_llm\AigcLlmService::saveConfig($t,['status'=>1,'config_json'=>['agent_text_model'=>'market_text_'.$agent]]);
+    if(getenv('AIGC_HTTP_AGENT_MOBILE_COMPLETION_MATRIX')==='1') {
+        require __DIR__.'/MarketAgentMobileCompletionHttpMatrix.php';$report['mobile_completion']=[];
+        runMarketAgentMobileCompletionHttp($f,$api,$peer,$suffix,$token,$imageChannel,$agent,$report['mobile_completion']);
+        $report['text_reservations']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->count();
+        $report['text_settlements']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->where('billing_status','settled')->count();return;
+    }
     if(getenv('AIGC_HTTP_AGENT_MOBILE_ACTIONS_MATRIX')==='1') {
         require __DIR__.'/MarketAgentMobileActionsHttpMatrix.php';$report['mobile_actions']=[];
         runMarketAgentMobileActionsHttp($f,$api,$peer,$suffix,$token,$imageChannel,$agent,$report['mobile_actions']);
