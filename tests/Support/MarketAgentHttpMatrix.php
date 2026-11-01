@@ -12,6 +12,12 @@ function runMarketAgentHttp($f,$api,$peer,$suffix,$token,$imageChannel,array &$r
         runMarketAgentAdmissionProbe($f,$api,$peer,$suffix,$token,$report);
         $report['text_reservations']=0;$report['text_settlements']=0;return;
     }
+    if(getenv('AIGC_HTTP_AGENT_SPECIAL_ONLY')==='1') {
+        require __DIR__.'/MarketAgentSpecialHttpMatrix.php';$report['special']=[];
+        runMarketAgentSpecialHttp($f,$api,$peer,$suffix,$token,$agent,$report['special']);
+        $report['text_reservations']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->count();
+        $report['text_settlements']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->where('billing_status','settled')->count();return;
+    }
     $events=function($raw){$out=[];foreach(preg_split('/\r?\n\r?\n/',trim($raw))as$block){if(preg_match('/event: ([^\r\n]+).*?data: ([^\r\n]+)/s',$block,$m))$out[]=['event'=>$m[1],'data'=>json_decode($m[2],true)];}return $out;};
     $stream=function($base,$path,$p,$auth=null)use($token,$events){$curl=curl_init($base.'/api/app.'.$path);curl_setopt_array($curl,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($p),CURLOPT_HTTPHEADER=>['Content-Type: application/json','token: '.($auth??$token)],CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>14]);$raw=curl_exec($curl);$error=curl_error($curl);curl_close($curl);if($error)throw new RuntimeException($error);return $events((string)$raw);};
     $pair=function($params)use($api,$peer,$suffix,$token,$events){$multi=curl_multi_init();$handles=[];foreach([$api,$peer]as$i=>$base){$c=curl_init($base.'/api/app.aigc_llm.chat/stream'.$suffix);curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($params[$i]),CURLOPT_HTTPHEADER=>['Content-Type: application/json','token: '.$token],CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>14]);curl_multi_add_handle($multi,$c);$handles[]=$c;}do{curl_multi_exec($multi,$active);if($active)curl_multi_select($multi,.01);}while($active);$out=[];foreach($handles as$c){$out[]=$events((string)curl_multi_getcontent($c));curl_multi_remove_handle($multi,$c);curl_close($c);}curl_multi_close($multi);return $out;};

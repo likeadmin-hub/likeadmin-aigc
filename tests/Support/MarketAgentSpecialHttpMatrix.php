@@ -28,7 +28,7 @@ function runMarketAgentSpecialHttp($f,string $api,string $peer,string $suffix,st
 
     $products=[];
     foreach(['stt','tts','tts_async']as$code) {
-        $product=app\common\model\power\PowerMarketProduct::create(['product_code'=>$f->prefix.'agent-'.$code,'name'=>'Private '.$code,'resource_type'=>'app_api','model_type'=>'audio','source_code'=>'isolated-fixture','upstream_app_code'=>'voice_tts','upstream_api_code'=>$code,'status'=>1,'source_payload'=>['market_metadata'=>[]]]);
+        $product=app\common\model\power\PowerMarketProduct::create(['product_code'=>$f->prefix.'agent-'.$code,'name'=>'Private '.$code,'resource_type'=>'app_api','model_type'=>'audio','source_code'=>'isolated-fixture','upstream_resource_key'=>$f->prefix.'agent-'.$code,'upstream_app_code'=>'voice_tts','upstream_api_code'=>$code,'status'=>1,'source_payload'=>['market_metadata'=>[]]]);
         app\common\model\power\PowerMarketSku::create(['product_id'=>$product['id'],'sku_key'=>$f->prefix.'agent-'.$code,'title'=>'Private '.$code,'usage_unit'=>$code==='stt'?'per_call':'character','usage_unit_size'=>$code==='stt'?1:1000,'upstream_price'=>1,'sale_points'=>1,'locked_params'=>[],'selectable_params'=>[],'sale_status'=>1,'status'=>1]);$products[]=(int)$product['id'];
     }
     $audio=$upload($f->dir.'/synthetic.wav','private-synthetic.wav','audio/wav');
