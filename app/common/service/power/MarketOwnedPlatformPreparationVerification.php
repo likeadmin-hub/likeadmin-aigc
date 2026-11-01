@@ -43,7 +43,10 @@ final class MarketOwnedPlatformPreparationVerification
                     $caseResult+=['status'=>'prepared_and_replayed','native_sha256'=>MarketGenerationReviewedContract::digest($a)];
                     if($case['expectation']==='reject')$result['success']=false;
                 }catch(\Throwable $error){
-                    $invariantFailure=$error instanceof \LogicException;
+                    // InvalidArgumentException inherits LogicException. Only
+                    // known parameter refusals may satisfy an expected reject;
+                    // internal LogicException/TypeError/Error must fail the run.
+                    $invariantFailure=!($error instanceof InvalidArgumentException||get_class($error)===\Exception::class);
                     $caseResult+=['status'=>$invariantFailure?'invariant_failed':'rejected','error_class'=>get_class($error)];
                     // Never return exception messages: these may contain private declarations/materials.
                     if($invariantFailure||$case['expectation']==='prepare')$result['success']=false;

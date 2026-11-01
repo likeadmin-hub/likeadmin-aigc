@@ -1063,7 +1063,10 @@ class MarketImageModelRuntimeService
         foreach (['aspect_ratio', 'ratio', 'quality', 'resolution', 'image_size', 'size'] as $key) {
             unset($params[$key]);
         }
-        $params = self::providerParamsForFlatPayload($params, $schema);
+        // The reviewed structured declaration owns these fields. An incomplete
+        // original flat declaration must not delete its entire parameters object.
+        if(!MarketOwnedPlatformContractRules::applies($snapshot,'qwen_image_v1'))
+            $params = self::providerParamsForFlatPayload($params, $schema);
         // URL aliases can represent separate input slots. Resolve each slot without collapsing multiplicity.
         $referenceImages = ($snapshot['image_reference_slot_revision'] ?? 0) === 1
             ? MarketImageReferenceUrlService::normalizeRequest(['reference_images' => (array)($request['reference_images'] ?? [])], $tenantId)['reference_images']

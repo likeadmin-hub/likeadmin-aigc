@@ -68,6 +68,18 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
 
     public static function qwenModels(): array {return [['qwen-image-3.0'],['qwen-image-3.0-pro']];}
 
+    /** @dataProvider qwenModels */
+    public function testQwenBusinessPromptRetainsExplicitNestedFalseAndZeroEvenWhenOriginalDeclarationWasOpaque(string $model): void
+    {
+        $snapshot=self::snapshot($model);$before=Reviewed::digest($snapshot);
+        $request=['material_mode'=>'text','prompt'=>'Business prompt with native controls','provider_params'=>[
+            'parameters'=>['n'=>1,'size'=>'1024*1024','seed'=>0,'watermark'=>false,'prompt_extend'=>false]]];
+        $original=$request;$a=Images::prepareRequest($snapshot,$request)->nativeInput;$b=Images::prepareRequest($snapshot,$request)->nativeInput;
+        self::assertSame($request['provider_params']['parameters'],$a['parameters']);
+        self::assertSame([['role'=>'user','content'=>[['text'=>$request['prompt']]]]],$a['input']['messages']);
+        self::assertSame($a,$b);self::assertSame($original,$request);self::assertSame($before,Reviewed::digest($snapshot));
+    }
+
     /** @dataProvider badQwenNative */
     public function testQwenActualPrepareRejectsRatherThanRebuildingInvalidOrConflictingNativeInput(string $case): void
     {
