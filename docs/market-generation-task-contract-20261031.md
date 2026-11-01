@@ -97,3 +97,5 @@ PC与移动端共用web/shared的提交和任务纯合同，原PC路径作为兼
 ## 批次66专用Agent／文字流
 
 Agent保留request_id／run／step／artifact和只读run.snapshot协议；新run私有preferences含完整提交指纹，旧无指纹记录保持原合同。原文字流的可选request_id（或既有受理头）在业务内共享回执表，原生消息先于供应商调用建立；仅首个受理者生成，重试只跟随本人本地消息。新增receipt绑定session／assistant身份、snapshot替换回复内容、pending表示仍在生成／待核对；error.terminal=false不结束待核对意图。原session／message／delta／done／error及业务ID保持。客户端保留原提交session直到终态，避免首次session事件后改变重试正文。缺上游usage／最终回执不自动结算、回退或重发。部署需已应用批次64核心表迁移；本批无新增API或权限。[范围与证据](market-acceptance/batch-66-20261101.md)。
+
+文字客户端的新会话意图使用可选client_conversation_id作不透明关联，原生request_id仍按每次消息意图独立。重放恢复保存的会话意图及原session，用户明确新对话不会误用旧未确认会话。仅收到usage而无正文的错误也保留费用证据，不自动回退重试。
