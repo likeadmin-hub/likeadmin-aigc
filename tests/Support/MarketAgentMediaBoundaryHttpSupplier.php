@@ -11,11 +11,11 @@ function marketAgentMediaBoundaryReply(array $input): array
     $name='';$params=[];$content='隔离步骤已保存。';
     if(str_contains($run['content'],'Synthetic long read')){
         $jobs=json_decode($run['preferences'],true)['_long_reads']??[];
-        if(!$jobs){$files=json_decode($run['attachments'],true);$name='read_long_asset';$params=['file_id'=>$files[0]];}
+        if(!$jobs){$files=json_decode($run['attachments'],true);$name='read_long_asset';$params=['file_id'=>$files[0]['file_id']];}
         $content=$jobs?'分段进度已保存。':'正在安排分段读取。';
     }elseif(str_contains($run['content'],'Synthetic transcription')){
         $steps=$db::name('aigc_llm_agent_step')->where('run_id',$run['id'])->select()->toArray();
-        if(!$steps){$files=json_decode($run['attachments'],true);$name='plan_creation';$params=['tool_code'=>'audio_transcription','title'=>'Synthetic video audio transcription','parameters'=>['file_id'=>$files[0]]];}
+        if(!$steps){$files=json_decode($run['attachments'],true);$name='plan_creation';$params=['tool_code'=>'audio_transcription','title'=>'Synthetic video audio transcription','parameters'=>['file_id'=>$files[0]['file_id']]];}
         else $content='隔离转写结果已保留，可据此分析。';
     }elseif(str_contains($run['content'],'Synthetic speech')){
         if(!$db::name('aigc_llm_agent_step')->where('run_id',$run['id'])->count()){
