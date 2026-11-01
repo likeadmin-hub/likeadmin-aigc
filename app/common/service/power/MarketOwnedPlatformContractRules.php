@@ -6,6 +6,116 @@ final class MarketOwnedPlatformContractRules
 {
     public const REVISION='b5887e1c153111edd4515beb0635e6b66d9978b6';
 
+    /** New, exact source pin only. Existing frozen contracts retain their original encoders. */
+    public static function applies(array $snapshot,string $profile): bool
+    {
+        $contract=MarketGenerationReviewedContract::selected(MarketGenerationRequest::metadata($snapshot));
+        if($contract===null||($contract['generation_protocol']??'')!==$profile
+            ||($contract['revision']??'')!=='owned-platform-b5887e1-'.$profile.'-v1'
+            ||($contract['source']['revision']??'')!==self::REVISION
+            ||($contract['source']['reference']??'')!=='https://gitee.com/yc_open/platform-api-saas/tree/'.self::REVISION
+            ||($contract['source']['artifact_sha256']??'')!==MarketOwnedPlatformContractBuilder::ARTIFACT_SHA256)return false;
+        $identities=match($profile){
+            'qwen_image_v1'=>[['qwen-image-3.0','dashscope_compatible'],['qwen-image-3.0-pro','dashscope_compatible']],
+            'h3_content_v1'=>[['h3-video','minimax']], 'wan_video_media_v1'=>[['wan3.0-video','dashscope_compatible']],
+            'q4_video_v1'=>[['q4-preview-video','q4_video']],default=>[],
+        };
+        return in_array([$snapshot['model_code']??null,$snapshot['channel_code']??null],$identities,true)
+            &&$contract['model_code']===($snapshot['model_code']??null)&&$contract['channel_code']===($snapshot['channel_code']??null);
+    }
+
+    public static function assertEnvelope(array $snapshot,array $request): void
+    {
+        $provider=(array)($request['provider_params']??[]);
+        foreach(['model'=>'model_code','channel'=>'channel_code']as$field=>$key)
+            if(array_key_exists($field,$provider)&&$provider[$field]!==($snapshot[$key]??null))
+                throw new \InvalidArgumentException('原生请求型号或渠道与冻结合同不一致');
+        foreach([$request,$provider]as$values)if(array_key_exists('callback_url',$values)&&!is_string($values['callback_url']))
+            throw new \InvalidArgumentException('回调地址格式不正确');
+        if(!empty($request['callback_url'])&&!empty($provider['callback_url'])&&$request['callback_url']!==$provider['callback_url'])
+            throw new \InvalidArgumentException('请勿同时提供不同的回调地址');
+    }
+
+    public static function normalizeH3Request(array $snapshot,array $request): array
+    {
+        if(!self::applies($snapshot,'h3_content_v1'))return $request;
+        self::assertEnvelope($snapshot,$request);
+        if(is_array($request['provider_params']['content']??null))foreach($request['provider_params']['content']as&$item){
+            if(is_array($item)&&($item['type']??'')==='image_url'&&(!array_key_exists('role',$item)||$item['role']===''))$item['role']='first_frame';
+        }unset($item);
+        return $request;
+    }
+
+    /** Classification/billing use the same transient representation before a frozen runtime snapshot exists. */
+    public static function normalizeH3MetadataRequest(array $metadata,array $request): array
+    {
+        $contract=MarketGenerationReviewedContract::selected($metadata);
+        if($contract===null||($contract['generation_protocol']??'')!=='h3_content_v1')return $request;
+        return self::normalizeH3Request(['resource_type'=>'model','model_code'=>$contract['model_code'],
+            'channel_code'=>$contract['channel_code'],'market_metadata'=>$metadata],$request);
+    }
+
+    /** Bridge explicit native controls before SKU/duration negotiation, without adopting example/default values. */
+    public static function normalizeH3BusinessSelection(array $metadata,array $selection): array
+    {
+        $contract=MarketGenerationReviewedContract::selected($metadata);
+        if($contract===null||!self::applies(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code'],
+            'market_metadata'=>$metadata],'h3_content_v1'))return $selection;
+        $selection=self::normalizeH3MetadataRequest($metadata,$selection);
+        $provider=(array)($selection['provider_params']??[]);$nested=(array)($selection['params']??[]);
+        foreach(['duration'=>['duration','seconds','video_duration'],'resolution'=>['resolution','quality'],'ratio'=>['ratio','aspect_ratio']]as$key=>$aliases){
+            if(!array_key_exists($key,$provider))continue;$value=$provider[$key];
+            if(!is_string($value)&&!is_int($value))throw new \InvalidArgumentException('原生视频参数类型不正确');
+            if($key==='duration'&&!self::integer($value,4,15))throw new \InvalidArgumentException('原生视频时长不符合审核合同');
+            foreach([$selection,$nested]as$values)foreach($aliases as$alias)if(array_key_exists($alias,$values)&&$values[$alias]!==''){
+                if(!is_string($values[$alias])&&!is_int($values[$alias]))throw new \InvalidArgumentException('业务视频参数类型不正确');
+                $same=$key==='resolution'?strcasecmp((string)$values[$alias],(string)$value)===0:(string)$values[$alias]===(string)$value;
+                if(!$same)throw new \InvalidArgumentException('请勿同时提供不同的业务与原生参数');
+            }
+            $selection[$aliases[0]]=$key==='duration'?(int)$value:$value;
+        }
+        return $selection;
+    }
+
+    public static function normalizeVideoBusinessSelection(array $metadata,array $selection,array $locked=[]): array
+    {
+        $selection=self::normalizeH3BusinessSelection($metadata,$selection);
+        $contract=MarketGenerationReviewedContract::selected($metadata);
+        if($contract===null||!self::applies(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code'],
+            'market_metadata'=>$metadata],'wan_video_media_v1'))return $selection;
+        self::assertEnvelope(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code']],$selection);
+        foreach(['input','parameters']as$field)if(array_key_exists($field,(array)($selection['provider_params']??[]))
+            &&!is_array($selection['provider_params'][$field]))throw new \InvalidArgumentException('原生视频 input 和 parameters 必须为对象');
+        $native=(array)($selection['provider_params']['parameters']??[]);$nested=(array)($selection['params']??[]);
+        foreach(['duration'=>['duration','seconds','video_duration'],'resolution'=>['resolution','quality'],'ratio'=>['ratio','aspect_ratio']]as$key=>$aliases){
+            if(!array_key_exists($key,$native))continue;$value=$native[$key];
+            if(!is_string($value)&&!is_int($value))throw new \InvalidArgumentException('原生视频参数类型不正确');
+            if($key==='duration'&&(!self::integer($value,-1,30)||(int)$value===0))throw new \InvalidArgumentException('原生视频时长不符合审核合同');
+            foreach([$selection,$nested]as$values)foreach($aliases as$alias)if(array_key_exists($alias,$values)&&$values[$alias]!==''){
+                if(!is_scalar($values[$alias]))throw new \InvalidArgumentException('业务视频参数类型不正确');
+                $same=$key==='resolution'?strcasecmp((string)$values[$alias],(string)$value)===0:(string)$values[$alias]===(string)$value;
+                if(!$same)throw new \InvalidArgumentException('请勿同时提供不同的业务与原生参数');
+            }
+            foreach([$locked,(array)($locked['parameters']??[])]as$values)foreach($aliases as$alias)if(array_key_exists($alias,$values)&&$values[$alias]!==''&&$values[$alias]!==null){
+                if($key==='duration'&&(int)$values[$alias]===0)continue;
+                if(!is_scalar($values[$alias]))throw new \InvalidArgumentException('冻结视频参数类型不正确');
+                $same=$key==='resolution'?strcasecmp((string)$values[$alias],(string)$value)===0:(string)$values[$alias]===(string)$value;
+                if(!$same)throw new \InvalidArgumentException('原生视频参数与冻结 SKU 不一致');
+            }
+            $selection[$aliases[0]]=$key==='duration'?(int)$value:$value;
+        }
+        return $selection;
+    }
+
+    /** Pinned VideoTaskDriver default, only after the caller has verified the exact new Wan pin. */
+    public static function wanDefaultDuration(array $request): int
+    {
+        foreach((array)($request['provider_params']['input']['media']??[])as$item)
+            if(is_array($item)&&($item['type']??'')==='reference_video')return 1;
+        foreach(MarketGenerationMaterials::assets($request)as$asset)if(($asset['type']??'')==='video')return 1;
+        return empty($request['video_urls'])?2:1;
+    }
+
     public static function supported(array $rule,?string $protocol=null): bool
     {
         $profile=$rule['profile']??'';

@@ -1150,7 +1150,24 @@ class MarketImageModelRuntimeService
         string $imageSize,
         string $idempotencyKey
     ): array {
-        $structuredInput = self::isQwenImage($snapshot) ? [] : self::arrayValue($params['input'] ?? []);
+        $owned=MarketOwnedPlatformContractRules::applies($snapshot,'qwen_image_v1');
+        $provider=(array)($request['provider_params']??[]);
+        $nativeInput=$owned&&array_key_exists('input',$provider);
+        if($owned){
+            MarketOwnedPlatformContractRules::assertEnvelope($snapshot,$request);
+            if(array_key_exists('n',(array)($provider['parameters']??[]))&&$provider['parameters']['n']!==1&&$provider['parameters']['n']!=='1')
+                throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');
+        }
+        if($nativeInput){
+            if(!is_array($provider['input'])||!MarketOwnedPlatformContractRules::valid([
+                'profile'=>'qwen_image_v1','source_revision'=>MarketOwnedPlatformContractRules::REVISION],
+                ['input'=>$provider['input'],'parameters'=>$provider['parameters']??null]))
+                throw new Exception('原生图片请求不符合已审核的消息与参数合同');
+            if($referenceImages!==[]||MarketGenerationMaterials::assets($request)!==[])throw new Exception('请勿同时使用业务素材和原生参数提供同一请求的素材');
+            $nativeText='';foreach($provider['input']['messages'][0]['content']as$item)if(array_key_exists('text',$item))$nativeText=$item['text'];
+            if(trim((string)($request['prompt']??''))!==''&&trim((string)$request['prompt'])!==trim($nativeText))throw new Exception('请勿同时提供不同的文本来源');
+        }
+        $structuredInput = $nativeInput ? $provider['input'] : (self::isQwenImage($snapshot) ? [] : self::arrayValue($params['input'] ?? []));
         $structuredParameters = self::arrayValue($params['parameters'] ?? []);
         if (self::isQwenImage($snapshot)) {
             $structuredParameters = self::qwenDocumentedParameters($structuredParameters);
@@ -1158,7 +1175,7 @@ class MarketImageModelRuntimeService
         unset($params['input'], $params['parameters']);
         $params = self::providerParamsForStructuredPayload($params, $snapshot);
 
-        $input = array_replace_recursive([
+        $input = $nativeInput ? $structuredInput : array_replace_recursive([
             'messages' => MarketGenerationMaterialEncoding::imageMessages((string)($request['prompt'] ?? ''), $referenceImages)['messages'],
         ], $structuredInput);
 
@@ -1195,7 +1212,7 @@ class MarketImageModelRuntimeService
         if ($channel !== '') {
             $payload['channel'] = $channel;
         }
-        $callback = trim((string)($request['callback_url'] ?? ''));
+        $callback = trim((string)($request['callback_url'] ?? ($owned?($provider['callback_url']??''):'')));
         if ($callback !== '') {
             $payload['callback_url'] = $callback;
         }

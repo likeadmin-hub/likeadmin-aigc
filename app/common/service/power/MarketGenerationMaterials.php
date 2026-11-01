@@ -97,6 +97,7 @@ final class MarketGenerationMaterials
 
     public static function select(array $metadata, array $request): ?array
     {
+        $request=MarketOwnedPlatformContractRules::normalizeH3MetadataRequest($metadata,$request);
         $modes = self::modes($metadata);
         if ($modes === []) return null;
         $method = (string)($request['generation_method'] ?? '');
@@ -263,6 +264,7 @@ final class MarketGenerationMaterials
 
     public static function billingInputs(array $metadata, array $request): array
     {
+        $request=MarketOwnedPlatformContractRules::normalizeH3MetadataRequest($metadata,$request);
         $reviewed=MarketGenerationReviewedContract::selected($metadata);
         if($reviewed!==null&&$reviewed['generation_protocol']!=='native_v1'){
             self::assertSingleMaterialSource($metadata,$request);
@@ -306,7 +308,7 @@ final class MarketGenerationMaterials
                 foreach (MarketGenerationMaterialPath::values($payload,(string)$field['field'],(array)($field['item_match'] ?? [])) as $value) {
                     foreach (is_array($value) ? $value : [$value] as $url) {
                         if (!is_string($url)) throw new InvalidArgumentException('参考文件或链接地址格式不正确');
-                        MarketGenerationMaterialEncoding::assertDocumentUrl($url);
+                        self::assertDocumentUrlForRequest($metadata,$request,$field,$url);
                     }
                 }
             }
@@ -317,7 +319,7 @@ final class MarketGenerationMaterials
                 throw new InvalidArgumentException('当前协议无法完整保留此原生素材参数，请使用统一素材输入');
             if(in_array($field['kind']??'',['file','link'],true)&&MarketGenerationReviewedContract::selected($metadata)!==null){
                 foreach(MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[]))as$value)
-                    foreach(is_array($value)?$value:[$value]as$url)MarketGenerationMaterialEncoding::assertDocumentUrl((string)$url);
+                    foreach(is_array($value)?$value:[$value]as$url)self::assertDocumentUrlForRequest($metadata,$request,$field,(string)$url);
             }
             $minimum = !empty($field['required']) ? max(1, (int)($field['minimum'] ?? 0)) : 0;
             $maximum = $field['maximum'] ?? null;
@@ -362,6 +364,21 @@ final class MarketGenerationMaterials
             return $value===($asset['url']??$asset['uri']??'')&&($kind===($asset['type']??'image')||($kind==='visual'&&in_array($asset['type']??'image',['image','video'],true)));
         }
         return false;
+    }
+
+    /** Only native URLs declared by the exact new Wan source contract can use its documented OSS scheme. */
+    private static function assertDocumentUrlForRequest(array $metadata,array $request,array $field,string $url): void
+    {
+        if(preg_match('~^oss://~i',$url)&&($field['field']??'')==='input.media.*.url'
+            &&in_array($field['kind']??'',['file','link'],true)&&($field['item_match']['type']??null)===$field['kind']){
+            $contract=MarketGenerationReviewedContract::selected($metadata);
+            if($contract!==null&&MarketOwnedPlatformContractRules::applies(['model_code'=>$contract['model_code'],
+                'channel_code'=>$contract['channel_code'],'market_metadata'=>$metadata],'wan_video_media_v1')){
+                foreach((array)($request['provider_params']['input']['media']??[])as$item)
+                    if(is_array($item)&&($item['type']??null)===$field['kind']&&($item['url']??null)===$url)return;
+            }
+        }
+        MarketGenerationMaterialEncoding::assertDocumentUrl($url);
     }
 
     private static function assertSingleMaterialSource(array $metadata,array $request): void
