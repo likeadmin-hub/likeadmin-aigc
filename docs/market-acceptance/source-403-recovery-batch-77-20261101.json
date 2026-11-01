@@ -1,0 +1,249 @@
+{
+  "batch": 77,
+  "scope": "Owned controlled source 403 and managed-result independence; local catalogue/quote planning; simpler owner-input assistance. Not real provider generation/signature expiry/multi-node or deployment.",
+  "source_server_commit": "21c3e0a2ef0aa81416bcb2f32066a584575bc5a5",
+  "runtime_local_develop_server_commit": "9a13987421d328d9e7da949082334eca1e71c0a1",
+  "observations": [
+    {
+      "status": "scoped_original_worker_source_403_passed",
+      "entry": "owned_original_result_worker",
+      "scenario": "image_blocked-then-recover",
+      "result": {
+        "kind": "image",
+        "mode": "blocked-then-recover",
+        "scope": "Owned loopback controlled 403; not real signature expiry or provider URL refresh",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "blocked_source_retained_original_retry": true,
+        "no_partial_file_or_success_before_recovery": true,
+        "repeat_worker_observed_running": true,
+        "nonzero_frozen_cost_and_nonempty_usage_retained": true,
+        "actual_worker_command": true,
+        "original_transfer_attempts": 2,
+        "source_requests": 2,
+        "source_statuses": [
+          403,
+          200
+        ],
+        "frozen_request_billing_and_owner_retained": true,
+        "history_and_replay_no_source_fetch": true,
+        "terminal_rows_and_managed_bytes_unchanged": true,
+        "one_task_consumption_asset_file_business_result": true,
+        "receipt_mime": "image/png",
+        "stored_bytes": 68,
+        "stored_sha256": "5e3d382db4dd83d59aa5742793ad6b7903409e865c83bcbc54835049f043bc15",
+        "wallets_unchanged": true,
+        "cleanup_complete": true
+      }
+    },
+    {
+      "status": "scoped_original_worker_source_403_passed",
+      "entry": "owned_original_result_worker",
+      "scenario": "image_stored-source-expired",
+      "result": {
+        "kind": "image",
+        "mode": "stored-source-expired",
+        "scope": "Owned loopback controlled 403; not real signature expiry or provider URL refresh",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "exact_source_403_probed_after_storage": true,
+        "repeat_worker_observed_running": true,
+        "nonzero_frozen_cost_and_nonempty_usage_retained": true,
+        "actual_worker_command": true,
+        "original_transfer_attempts": 1,
+        "source_requests": 1,
+        "source_statuses": [
+          200
+        ],
+        "frozen_request_billing_and_owner_retained": true,
+        "history_and_replay_no_source_fetch": true,
+        "terminal_rows_and_managed_bytes_unchanged": true,
+        "one_task_consumption_asset_file_business_result": true,
+        "receipt_mime": "image/png",
+        "stored_bytes": 68,
+        "stored_sha256": "5e3d382db4dd83d59aa5742793ad6b7903409e865c83bcbc54835049f043bc15",
+        "wallets_unchanged": true,
+        "cleanup_complete": true
+      }
+    },
+    {
+      "status": "scoped_original_worker_source_403_passed",
+      "entry": "owned_original_result_worker",
+      "scenario": "video_blocked-then-recover",
+      "result": {
+        "kind": "video",
+        "mode": "blocked-then-recover",
+        "scope": "Owned loopback controlled 403; not real signature expiry or provider URL refresh",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "blocked_source_retained_original_retry": true,
+        "no_partial_file_or_success_before_recovery": true,
+        "repeat_worker_observed_running": true,
+        "nonzero_frozen_cost_and_nonempty_usage_retained": true,
+        "actual_worker_command": true,
+        "original_transfer_attempts": 2,
+        "source_requests": 2,
+        "source_statuses": [
+          403,
+          200
+        ],
+        "frozen_request_billing_and_owner_retained": true,
+        "history_and_replay_no_source_fetch": true,
+        "terminal_rows_and_managed_bytes_unchanged": true,
+        "one_task_consumption_asset_file_business_result": true,
+        "receipt_mime": "video/mp4",
+        "stored_bytes": 1838,
+        "stored_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "wallets_unchanged": true,
+        "cleanup_complete": true
+      }
+    },
+    {
+      "status": "scoped_original_worker_source_403_passed",
+      "entry": "owned_original_result_worker",
+      "scenario": "video_stored-source-expired",
+      "result": {
+        "kind": "video",
+        "mode": "stored-source-expired",
+        "scope": "Owned loopback controlled 403; not real signature expiry or provider URL refresh",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "exact_source_403_probed_after_storage": true,
+        "repeat_worker_observed_running": true,
+        "nonzero_frozen_cost_and_nonempty_usage_retained": true,
+        "actual_worker_command": true,
+        "original_transfer_attempts": 1,
+        "source_requests": 1,
+        "source_statuses": [
+          200
+        ],
+        "frozen_request_billing_and_owner_retained": true,
+        "history_and_replay_no_source_fetch": true,
+        "terminal_rows_and_managed_bytes_unchanged": true,
+        "one_task_consumption_asset_file_business_result": true,
+        "receipt_mime": "video/mp4",
+        "stored_bytes": 1838,
+        "stored_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "wallets_unchanged": true,
+        "cleanup_complete": true
+      }
+    },
+    {
+      "status": "scoped_original_worker_source_403_passed",
+      "entry": "owned_original_result_worker",
+      "scenario": "audio_blocked-then-recover",
+      "result": {
+        "kind": "audio",
+        "mode": "blocked-then-recover",
+        "scope": "Owned loopback controlled 403; not real signature expiry or provider URL refresh",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "blocked_source_retained_original_retry": true,
+        "no_partial_file_or_success_before_recovery": true,
+        "repeat_worker_observed_running": true,
+        "nonzero_frozen_cost_and_nonempty_usage_retained": true,
+        "actual_worker_command": true,
+        "original_transfer_attempts": 2,
+        "source_requests": 2,
+        "source_statuses": [
+          403,
+          200
+        ],
+        "frozen_request_billing_and_owner_retained": true,
+        "history_and_replay_no_source_fetch": true,
+        "terminal_rows_and_managed_bytes_unchanged": true,
+        "one_task_consumption_asset_file_business_result": true,
+        "receipt_mime": "audio/wav",
+        "stored_bytes": 16078,
+        "stored_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "wallets_unchanged": true,
+        "cleanup_complete": true
+      }
+    },
+    {
+      "status": "scoped_original_worker_source_403_passed",
+      "entry": "owned_original_result_worker",
+      "scenario": "audio_stored-source-expired",
+      "result": {
+        "kind": "audio",
+        "mode": "stored-source-expired",
+        "scope": "Owned loopback controlled 403; not real signature expiry or provider URL refresh",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "exact_source_403_probed_after_storage": true,
+        "repeat_worker_observed_running": true,
+        "nonzero_frozen_cost_and_nonempty_usage_retained": true,
+        "actual_worker_command": true,
+        "original_transfer_attempts": 1,
+        "source_requests": 1,
+        "source_statuses": [
+          200
+        ],
+        "frozen_request_billing_and_owner_retained": true,
+        "history_and_replay_no_source_fetch": true,
+        "terminal_rows_and_managed_bytes_unchanged": true,
+        "one_task_consumption_asset_file_business_result": true,
+        "receipt_mime": "audio/wav",
+        "stored_bytes": 16078,
+        "stored_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "wallets_unchanged": true,
+        "cleanup_complete": true
+      }
+    }
+  ],
+  "local_read_only_planning": {
+    "local_observed_at": "2026-11-01T14:30:58+08:00",
+    "visible_catalogue_options": 107,
+    "visible_unique_skus": 542,
+    "image_first_dimension_quote_only": {
+      "observations": 193,
+      "statuses": {
+        "quoted": 180,
+        "requires_special_material_recipe": 11,
+        "rejected": 2
+      },
+      "changed_sku": 0
+    },
+    "full_matrix_real_acceptance": false,
+    "notes": "107 local options and 542 SKU are not the upstream current complete catalogue. Historical missing14 resources/25 SKU retained for scope review; no auto exclusion."
+  },
+  "data_integrity": {
+    "original_tasks": 143,
+    "original_llm_agent_rows": 4080,
+    "balance": 4332.54,
+    "before_after_hashes_equal": true,
+    "cleanup": {
+      "owned_table_count": 0,
+      "owned_root_count": 0,
+      "permanent_daemon_1667_alive": true
+    }
+  },
+  "fixture_review": {
+    "nonzero_frozen_costs_and_nonempty_usage": true,
+    "repeat_worker_liveness": true,
+    "initial_fixture_guard_rejection": "Synthetic nonexistent live market_sku_id correctly rejected during insertion; marker moved to explicitly synthetic receipt metadata. First failure retained; no production bypass.",
+    "initial_zero_cost_first_pass_not_final_evidence": true
+  },
+  "public_document_review": {
+    "url": "https://api.likeadmin.cn/user_center/docs?slug=model-qwen-image-edit",
+    "method": "Normal browser visible-document read only, no playground/draft-generation/task query",
+    "finding": "Describes output pixel billing and named image_size values, but no complete numeric dimension-to-pixel mapping or guaranteed per-image upper bound; does not close exact SKU380 authority gate. Page pricing/identity not imported as active local contract."
+  },
+  "log_and_report_sha256": {
+    "b77-image-blocked-then-recover.json": "528501c8f258a29a413d4dc150e236ffb1a440f59f7bca55bcb3475271f34b15",
+    "b77-image-stored-source-expired.json": "826c0a46d558ab03af2d633a07a5c2babdfbf019f76ae6cc3bbf52487907d808",
+    "b77-video-blocked-then-recover.json": "7c8beee319231cb57c9bd78909a87a6cf813581667eb900507cd25f403155cd2",
+    "b77-video-stored-source-expired.json": "5977ca091053430ab20b788c33963a509a877d3d8a775640b6158fd791044595",
+    "b77-audio-blocked-then-recover.json": "7d756779c6bdd2be4d0677449fc493a751cd568b859c4fb9eda9278455ecafce",
+    "b77-audio-stored-source-expired.json": "0a3e8e7fab899fe9a1e1a0941a766c2f8c93abbc389c65ab974fd21b3997423b",
+    "b77-local-catalogue-readonly.json": "033ccc5f298ccdcf4af6dc5940edc7145060910b5d45da93b905a1d960ab72c2",
+    "b77-local-image-quotes-readonly.json": "a85ce0579b4a237933e2e515137f92d6bd4963bf95739ea32f86226d0dba26de",
+    "b77-before-tasks.json": "85f3222bcb03a93cb5eeb69b802630380d26ebd190cfcbaa4a50b140b3baf3b9",
+    "b77-after-tasks.json": "85f3222bcb03a93cb5eeb69b802630380d26ebd190cfcbaa4a50b140b3baf3b9",
+    "b77-before-llm.json": "929b9e5015aa2ca6059e4762c9bfb5fcd2aa04d3040724e755ffb896ec4271b8",
+    "b77-after-llm.json": "929b9e5015aa2ca6059e4762c9bfb5fcd2aa04d3040724e755ffb896ec4271b8",
+    "b77-cleanup.json": "d47aab9be1f25858ade271d8af45d9223e0f166a25b8195200ee4653ba4af9dd",
+    "b77-initial-fixture-guard-rejection.json": "c5d7d673cb8d70a34cd261ea48d5707e2c03e3983707ef1a8fb92aadabeec196"
+  },
+  "remaining_real_permissions": "unchanged; user does not know technical inputs, no new paid or ledger authorization received"
+}
