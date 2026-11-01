@@ -139,6 +139,56 @@ owner提供既有供应商账单／原回执／正式网关追踪导出，注明
 
 停止条件：权威来源不可验证、存在多个候选、归属／冻结模型冲突、usage不完整、已有终态／账务冲突，或者需要新的真实provider查询／付费／账务授权。当前代码将失联未确认执行置为`needs_review`而不自动重发；无权威依据时继续等待是正确状态，不能用代码推导供应商是否实际完成。
 
+### 4. 本次实际观察到的STT待核对项与计数分层
+
+2026-11-01批次76由协调者在local develop执行的只读观察：Agent范围文字消费检查215条，其中41条`text_usage_pending`、2条`settlement_failed`；43条均未找到可由`AgentTextReceipt::read`恢复的本地回执，但都有非空upstream reference字段。**非空ID不是权威关联或实际用量证明，43条也不能笼统写成43个生成失败。**
+
+同次`home-agent:health`为`healthy=true/attention_required=true`：队列`review_runs=1`，STT `needs_review/reserved`消费1条、预占40点，speech待核对0条。ready／running／过期租约均0。健康表示没有critical故障，不表示所有账务已结案；旧的失效心跳记录本身也不要求重启正常worker。
+
+这里有三种口径，不能直接相加：
+
+- **文字消费**以`consumption_id`计，所查关联为`business_table=aigc_llm_agent_run`；41＋2是43条待核对消费，未必43个不同run。
+- **STT消费**以`app_code=aigc_llm/action_code=agent_transcribe`的消费计，冻结按次费用；它关联`aigc_llm_agent_step`，不是另一个Token用量异常。40点是现有预占，不应描述为本轮新增最终消费，也不能与用户已确认的40.42点手动对话混为一笔。
+- **review_runs**是`run.status=needs_review`的父运行数量。1条STT消费可能就是该1个run的子步骤，也可能不属于它；只凭两个计数都是1不能决定。若关联相同，应记录为同一业务案例的父／子状态，而非两个故障；不同则各保留准确关联。
+
+由协调者只读核对下面关联，逐表匹配`tenant_id/user_id`，不能用业务ID碰巧相同猜测：
+
+```text
+STT consumption c.app_task_id = application task t.id
+t.business_table = aigc_llm_agent_step
+t.business_id = Agent step s.id
+s.task_id = t.id
+s.tool_code = audio_transcription
+s.run_id = Agent run r.id
+c、t、s、r 的 tenant_id/user_id 全部一致
+```
+
+只输出`consumption_id/app_task_id/step_id/run_id`、归属、业务表／tool、各层状态、预占／实际费用、是否取消／存在活动租约、upstream ID有无／摘要以及回执是否可分类等元数据。原始识别文字、输入文件内容、密钥和完整回执正文不进入共享报告。以`(tenant_id,user_id,consumption_id)`去重账务记录，以`(tenant_id,user_id,run_id)`去重业务案例，保留一个run下多个真实消费；两种计数分别报告，health汇总不是又一组待加项。
+
+### 5. STT专用只读入口与恢复禁线
+
+现有命令不带`--apply/--evidence`时只执行`AgentTranscriptionRecovery::audit`，不调用provider或结算，也不调用会创建journal目录的恢复路径。协调者可先收集不含正文的候选，之后按已核实的tenant／统一应用task ID限定唯一任务：
+
+```sh
+# server/ local develop；默认最多100条reserved消费，返回的集合仍需按needs_review及归属核对。
+docker exec -w /www/wwwroot/likeadmin-aigc/server baota \
+  /www/server/php/82/bin/php think home-agent:stt-reconcile \
+  > /tmp/market-stt-readonly-candidates.json
+```
+
+命令的`--task`指统一应用task ID（`AiAppTask.id`），不是消费ID或run ID。全局health、某tenant的候选和user限定的文字审计范围不同，不能据相同条数认为集合一致；100条上限也不能冒充无限全量。
+
+STT成功判断来自原完整明确回执，不依赖估算Token：既有分类器核对完整性、HTTP状态、JSON成功／明确拒绝及原识别结果结构；HTTP5xx、截断、未知格式不能当明确失败退款。若读取已有journal，协调者只能检查已经存在、标识合法且归属匹配的文件，在内存校验后输出布尔摘要；不要为“只读检查”调用`prepareJournal/path/reconcile/scan`或导入路径，因为这些路径可能创建目录、持久化回执、写事件／时间或改变任务。
+
+真正恢复或人工导入均不在本轮只读授权内：
+
+1. `reconcile`虽然不调用provider，但可能结算／退款、更新任务、删除本地回执、更新refresh时间，并唤醒原run继续执行；被唤醒的worker可能继续后续收费分析。因此“不请求provider”不等于“没有真实业务副作用”，当前不得执行`--apply`来消除attention。
+2. 人工导入需明确tenant和单个原task、原`task_no`匹配、操作人、依据说明及完整明确回执。已有完整本地／持久回执不可覆盖；已结算／退款不可覆盖，正在进行且未超过保护窗口的请求不得介入。`--evidence`即使不带apply也走凭据校验路径，不作为严格无文件系统副作用的常规只读入口。
+3. 没有完整可信回执时保留40点预占及`needs_review`，不重发转写、不猜成功、不直接取消退款、不将原run强设queued/running。权威资料仍按B03唯一关联；真正处置须审阅包含原账务、父子任务和后续worker唤醒影响的具体预案，再取得对应真实执行权限。
+4. 未来获准恢复后，需同时验证一次结算／释放、原step／run正确恢复、取消／活动租约保护、终态不回退、同回执重复执行不增账，以及没有意外新提交；仅看到health计数下降不算通过。
+
+本次只读观察尚未证明该STT消费与唯一review_run的具体关联，也未在本手册中声称找到STT权威回执或完成处置。协调者的后续脱敏关联结果应单独记录，准备流程完成与真实待人工事项继续分开。
+
 ## C01：真实供应商有限验证（原环境分项E01）
 
 前置输入：对应B01/B02离线通过；owner明确精确资源／合同版本／SKU／模式、允许的生成／query／retry／资产操作、单次及累计预算、正常测试账号、无隐私合成素材、执行窗口和清理范围。旧268算力授权已经结束，本手册不产生新收费授权。
