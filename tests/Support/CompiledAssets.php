@@ -11,6 +11,12 @@ final class CompiledAssets
 
     public static function root(): string { return dirname(__DIR__, 2); }
 
+    private static function publicRoot(string $scope = 'pc'): string
+    {
+        $isolated = getenv('TEST_PC_PUBLIC_DIR');
+        return $scope === 'pc' && $isolated !== false ? rtrim($isolated, '/') : self::root() . '/public';
+    }
+
     public static function source(string $relative): string
     {
         foreach ([dirname(self::root()) . '/web', '/'] as $base) {
@@ -22,7 +28,7 @@ final class CompiledAssets
 
     public static function entry(string $scope = 'pc'): string
     {
-        $html = self::root() . '/public/' . $scope . '/index.html';
+        $html = self::publicRoot($scope) . (($scope === 'pc' && getenv('TEST_PC_PUBLIC_DIR') !== false) ? '/index.html' : '/' . $scope . '/index.html');
         Assert::assertFileExists($html);
         $source = (string)file_get_contents($html);
         Assert::assertSame(1, preg_match('~<script[^>]*type="module"[^>]*src="([^"?]+\.js)"~', $source, $matches), $html);
@@ -37,7 +43,7 @@ final class CompiledAssets
         while ($queue) {
             $relative = array_pop($queue);
             if (isset($visited[$relative])) continue;
-            $path = self::root() . '/public/' . $relative;
+            $path = self::publicRoot($scope) . '/' . $relative;
             Assert::assertFileExists($path, 'Missing dependency of ' . $scope . ' entry: ' . $relative);
             $visited[$relative] = true;
             if (!in_array(pathinfo($path, PATHINFO_EXTENSION), ['js', 'css'], true)) continue;
@@ -55,9 +61,9 @@ final class CompiledAssets
                 $next = implode('/', $segments);
                 // Only build dependencies: textual URLs in application data are not imports.
                 if (str_starts_with($dependency, './') && preg_match('~[.-][A-Za-z0-9_-]{8}\.(js|css)$~', $dependency)) {
-                    Assert::assertFileExists(self::root() . '/public/' . $next, 'Broken built dependency: ' . $relative . ' -> ' . $dependency);
+                    Assert::assertFileExists(self::publicRoot($scope) . '/' . $next, 'Broken built dependency: ' . $relative . ' -> ' . $dependency);
                 }
-                if (is_file(self::root() . '/public/' . $next)) $queue[] = $next;
+                if (is_file(self::publicRoot($scope) . '/' . $next)) $queue[] = $next;
             }
         }
         return self::$reachable[$scope] = array_keys($visited);
@@ -69,7 +75,7 @@ final class CompiledAssets
         $matches = [];
         foreach (self::reachable($scope) as $relative) {
             if (dirname($relative) !== $directory || !preg_match('~^' . preg_quote($stem, '~') . '[.-][^.]+\.' . preg_quote($extension, '~') . '$~', basename($relative))) continue;
-            $text = (string)file_get_contents(self::root() . '/public/' . $relative);
+            $text = (string)file_get_contents(self::publicRoot($scope) . '/' . $relative);
             foreach ($markers as $marker) if (!str_contains($text, $marker)) continue 2;
             $matches[] = $relative;
         }
@@ -79,7 +85,7 @@ final class CompiledAssets
 
     public static function read(string $scope, string $stem, string $extension = 'js', array $markers = []): string
     {
-        return (string)file_get_contents(self::root() . '/public/' . self::path($scope, $stem, $extension, $markers));
+        return (string)file_get_contents(self::publicRoot($scope) . '/' . self::path($scope, $stem, $extension, $markers));
     }
 
     public static function containing(string $scope, string $marker): string
@@ -87,7 +93,7 @@ final class CompiledAssets
         $matches = [];
         foreach (self::reachable($scope) as $relative) {
             if (pathinfo($relative, PATHINFO_EXTENSION) !== 'js') continue;
-            $text = (string)file_get_contents(self::root() . '/public/' . $relative);
+            $text = (string)file_get_contents(self::publicRoot($scope) . '/' . $relative);
             if (str_contains($text, $marker)) $matches[] = $text;
         }
         Assert::assertCount(1, $matches, 'Expected one reachable module containing ' . $marker);
@@ -97,20 +103,20 @@ final class CompiledAssets
     public static function vitePage(string $scope, string $page): string
     {
         $key = '/src/views/' . $page . '.vue';
-        $entry = (string)file_get_contents(self::root() . '/public/' . self::entry($scope));
+        $entry = (string)file_get_contents(self::publicRoot($scope) . '/' . self::entry($scope));
         $pattern = '~' . preg_quote('"' . $key . '":', '~') . '[^;]{0,80}?import\("\./([^"?]+\.js)"\)~';
         Assert::assertSame(1, preg_match($pattern, $entry, $matches), 'Route missing from packaged ' . $scope . ' entry: ' . $key);
         $relative = $scope . '/assets/' . $matches[1];
         Assert::assertContains($relative, self::reachable($scope));
-        return self::module($relative);
+        return self::module($relative, $scope);
     }
 
-    private static function module(string $relative): string
+    private static function module(string $relative, string $scope): string
     {
-        $text = (string)file_get_contents(self::root() . '/public/' . $relative);
+        $text = (string)file_get_contents(self::publicRoot($scope) . '/' . $relative);
         // Vite may extract a page setup script and emit a small re-export wrapper.
         preg_match_all('~from[\"\']\./([^\"\']+\.vue_vue_type_script[^\"\']+\.js)[\"\']~', $text, $matches);
-        foreach ($matches[1] as $file) $text .= "\n" . (string)file_get_contents(self::root() . '/public/' . dirname($relative) . '/' . $file);
+        foreach ($matches[1] as $file) $text .= "\n" . (string)file_get_contents(self::publicRoot($scope) . '/' . dirname($relative) . '/' . $file);
         return $text;
     }
 
@@ -150,7 +156,7 @@ final class CompiledAssets
             Assert::assertArrayHasKey($key, $entries);
             $relative = '_nuxt/' . $entries[$key]['file'];
             Assert::assertContains($relative, self::reachable(), 'Manifest route must be reachable from the packaged PC entry');
-            return (string)file_get_contents(self::root() . '/public/' . $relative);
+            return (string)file_get_contents(self::publicRoot('pc') . '/' . $relative);
         }
         Assert::fail('Nuxt client build manifest is required for route resolution');
     }

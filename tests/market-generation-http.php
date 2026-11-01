@@ -87,6 +87,7 @@ function callHttp(string $base,string $path,array $data=[],string $token='',stri
     return $response;
 }
 function dataHttp(string $base,string $path,array $data=[],string $token='',string $method='POST'): array {
+    if(function_exists('marketMobileToolHttp')&&($mobile=marketMobileToolHttp($path,$data,$method))!==null)return $mobile;
     if(getenv('AIGC_HTTP_CONCURRENT_MATRIX')==='1'&&$method==='POST'&&preg_match('~/(app\.[^/]+)/([^?]+)~',$path,$m)&&\app\common\service\ai\GenerationSubmission::operation($m[1],$m[2])!=='')return marketConcurrentDataHttp($base,$path,$data,$token);
     $r=callHttp($base,$path,$data,$token,$method);if(($r['code']??0)!==1)throw new RuntimeException('HTTP '.$path.': '.($r['msg']??json_encode($r)));return $r['data']??[];
 }
