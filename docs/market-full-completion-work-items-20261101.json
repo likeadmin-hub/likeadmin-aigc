@@ -101,7 +101,19 @@
       "depends_on": [],
       "output": "Read-only authoritative reconciliation runbook and evidence requirements for unknown synchronous text acceptance",
       "acceptance": "Complete trusted receipts recover through existing path; no-receipt/no-usage/no-ID tasks never resent, guessed or automatically refunded",
-      "completion_scope": "Preparation only: read-only audit and authoritative reconciliation runbook; actual unresolved records remain B03-evidence."
+      "completion_scope": "Preparation only: read-only audit and authoritative reconciliation runbook; actual unresolved records remain B03-evidence.",
+      "current_read_only_observation": {
+        "text_checked": 215,
+        "text_pending_usage": 41,
+        "text_settlement_failed": 2,
+        "local_receipts_missing": 43,
+        "nonempty_upstream_reference_field": 43,
+        "health_review_run_count": 1,
+        "health_stt_consumption_count": 1,
+        "stt_reserved_points": 40,
+        "run_to_stt_link": "pending_ownership_join",
+        "real_mutations": 0
+      }
     },
     {
       "id": "B03-evidence",
@@ -162,11 +174,15 @@
     {
       "id": "C03-local",
       "owner": "/root",
-      "status": "in_progress",
+      "status": "verified",
       "depends_on": [],
       "output": "Three media kinds x not-sent/lost-success-response OSS transport boundaries using owned objects and original workers",
       "acceptance": "Deterministic test-only curl boundary; cloud presence before retry matches injection, original retry recovers stable key, SHA and one result/file row match, billing/request frozen and owned objects deleted",
-      "scope_note": "Does not certify an actual network outage, distributed node, mixed binary, database/host/power loss."
+      "scope_note": "Does not certify an actual network outage, distributed node, mixed binary, database/host/power loss.",
+      "feature_commit": "737e64baa30207bb42c91f7545f853ae000575c5",
+      "runtime_develop_commit": "1231b800aebebea3b139c96e04c59d3b9cbf82da",
+      "evidence_file": "docs/market-acceptance/coordinated-backend-preparation-batch-76-20261101.json",
+      "cases": 6
     },
     {
       "id": "C04",
