@@ -96,12 +96,18 @@ class VideoRetryApplicationModelTest extends TestCase
         (new \think\App())->initialize();self::assertContains(Db::connect()->getConfig('hostname'),['127.0.0.1','localhost']);self::assertContains(Db::connect()->getConfig('database'),['x_cn','z_cn']);
         $entry=self::entry();$tag='retry-model-'.bin2hex(random_bytes(8));Db::startTrans();
         try{
-            $product=PowerMarketProduct::create(['product_code'=>$tag,'name'=>'Owned retry source','resource_type'=>'app_api','model_type'=>'video',
+            $product=PowerMarketProduct::create(['product_code'=>$tag,'name'=>'Owned retry source','resource_type'=>'app_api','model_type'=>'',
                 'source_code'=>'owned-fixture','upstream_resource_key'=>$tag,'upstream_model_code'=>'','upstream_channel_code'=>'','upstream_app_code'=>'seedance','upstream_api_code'=>'create',
-                'source_payload'=>['market_metadata'=>$entry['metadata']],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
+                'source_payload'=>['resource'=>['category_code'=>'video','category_name'=>'视频生成'],'market_metadata'=>$entry['metadata']],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
+            PowerMarketProduct::create(['product_code'=>$tag.'-query','name'=>'Owned retry query dependency','resource_type'=>'app_api','model_type'=>'',
+                'source_code'=>'owned-fixture','upstream_resource_key'=>$tag.'-query','upstream_model_code'=>'','upstream_channel_code'=>'',
+                'upstream_app_code'=>'seedance','upstream_api_code'=>'query','source_payload'=>['resource'=>['category_code'=>'video','category_name'=>'视频生成']],
+                'status'=>1,'create_time'=>time(),'update_time'=>time()]);
             $sku=PowerMarketSku::create(['product_id'=>$product['id'],'sku_key'=>$tag,'title'=>'Owned unbounded Token SKU','locked_params'=>$entry['skus'][1]['locked_params'],
                 'usage_unit'=>'token','usage_unit_size'=>1000000,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,'source_payload'=>[],'create_time'=>time(),'update_time'=>time()]);
             $data=self::task();$data['tenant_id']=1;$data['channel']='market_video_app:seedance:'.$product['id'];$data['market_product_id']=$product['id'];$data['market_sku_id']=$sku['id'];
+            self::assertSame('video',\app\common\service\power\PowerMarketService::appCategory($product->toArray())['category_code']);
+            self::assertTrue(Videos::isSupportedAppProduct($product->toArray()));
             $data['model_json']['model_id']=$data['channel'];$data['model_json']['advanced_params']=['model'=>'seedance-2-fast-text-2-video'];
             $data+=['provider'=>'power_market','model'=>$data['channel'],'provider_task_id'=>'','status'=>'failed','error'=>'Owned fixture','app_task_id'=>0,'consumption_id'=>0,
                 'tenant_cost_points'=>0,'user_charge_points'=>0,'create_time'=>time(),'update_time'=>time(),'finish_time'=>time(),'delete_time'=>0];
@@ -114,6 +120,6 @@ class VideoRetryApplicationModelTest extends TestCase
             self::assertSame($balances,[(float)Db::name('tenant')->where('id',1)->value('point_balance'),(float)Db::name('user')->where('id',1)->value('user_money')]);
             self::assertSame($before,AigcVideoTask::find($task['id'])->toArray());
         }finally{Db::rollback();}
-        self::assertSame(0,PowerMarketProduct::where('product_code',$tag)->count());
+        self::assertSame(0,PowerMarketProduct::whereIn('product_code',[$tag,$tag.'-query'])->count());
     }
 }

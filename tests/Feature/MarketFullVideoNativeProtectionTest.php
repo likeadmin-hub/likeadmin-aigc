@@ -41,7 +41,7 @@ class MarketFullVideoNativeProtectionTest extends TestCase
     {
         $e=self::entry();$raw=self::raw(9);$before=OpenStore::encode((object)$raw);
         $schema=OpenSchemaNormalizer::normalize($e['metadata']['params_schema'])['schema'];OpenSchema::validateRequest($raw,$schema,true);
-        $this->expectException(OpenException::class);
+        $this->expectException(OpenException::class);$this->expectExceptionMessage('附加计费尚待核验');
         try{Native::bind($e['product']+['source_payload'=>['market_metadata'=>$e['metadata']]],$raw,$e['skus'][0]['id'],$e['skus'][0]);}
         finally{self::assertSame($before,OpenStore::encode((object)$raw));}
     }
