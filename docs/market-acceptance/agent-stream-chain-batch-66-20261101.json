@@ -2,9 +2,9 @@
   "batch": 66,
   "date": "2026-11-01",
   "scope": "Dedicated Agent/native text-stream chains using private normal-login HTTP, cloned SQL, synthetic loopback suppliers and owned production workers. No real provider generation/query, wallet or task writes.",
-  "source_server_commit": "867c71c851a65bfe5758329e5c01ff8bcb9543df",
-  "http_source_server_commit": "b5ff18d9d",
-  "source_web_commit": "ebb7bb64459aa57ca0fb48740752077c7e4c21f7",
+  "source_server_commit": "4c873d7f2",
+  "http_source_server_commit": "4c873d7f2",
+  "source_web_commit": "b8b4461cf8a0ac0d2ba1d084d595f2c17dea76b2",
   "http_run": {
     "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
     "external_generation_calls": 0,
@@ -128,7 +128,7 @@
     "private_tables_and_files_removed": true
   },
   "validation": {
-    "frontend_tests": 657,
+    "frontend_tests": 659,
     "frontend_skipped": 0,
     "phpunit_tests": 1166,
     "phpunit_assertions": 8541,
@@ -143,7 +143,7 @@
     "mp_themed_hosts": 109,
     "mp_widgets": 7,
     "pure_agent_contracts": true,
-    "partial_protocol_checks": 3,
+    "partial_protocol_checks": 4,
     "compiled_exclusions": "Six excluded: one prior passing output check not rerun and five old compiled entry failures retained."
   },
   "original_task_audit_before": {
@@ -508,9 +508,9 @@
       "real_sku_certification": false
     },
     {
-      "scenario": "frontend_657",
+      "scenario": "frontend_659",
       "status": "isolated_agent_stream_chain_checked",
-      "scope": "657 frontend tests, zero failure/skip, including actual PC/H5/MP text API wrappers and existing Agent conversations",
+      "scope": "659 frontend tests, zero failure/skip, including actual PC/H5/MP text API wrappers and existing Agent conversations",
       "real_sku_certification": false
     },
     {
@@ -522,7 +522,7 @@
     {
       "scenario": "pure_agent_and_partial_protocol",
       "status": "isolated_agent_stream_chain_checked",
-      "scope": "Existing pure Agent/Neuron contracts and partial OpenAI output/tool safety checks passed",
+      "scope": "Existing pure Agent/Neuron contracts and partial OpenAI output/tool safety checks passed; usage-only failure evidence is retained without retry.",
       "real_sku_certification": false
     },
     {
@@ -570,7 +570,8 @@
     "OpenAI-compatible partial output now prevents fallback/resubmission and preserves pending usage. No missing usage or final receipt is invented; incomplete tools are never executed.",
     "Original 17 task tables/143 rows match the whole batch start/end. The separate 4052-row/8-table LLM comparison covers the final browser reload window, not a fabricated batch-start LLM snapshot.",
     "No new API paths, permissions, menu, migration or app version. The existing api_schema is an access registry; the optional request_id and receipt/snapshot/pending events are documented in the task contract.",
-    "H5/MP outputs are private validation artifacts under /tmp. The real worker PID1667, local proxy values and skip-worktree markings are preserved. No real deployment, package or release."
+    "H5/MP outputs are private validation artifacts under /tmp. The real worker PID1667, local proxy values and skip-worktree markings are preserved. No real deployment, package or release.",
+    "An explicit new-chat context distinguishes a new conversation from a previous unconfirmed zero-session intent; replay restores that context and original session after reload. Unbound session zero is not an alias for an existing positive session."
   ],
   "fixture_corrections_not_product_findings": [
     "Artifact reads use existing session_id, not an invented run_id filter.",
@@ -587,5 +588,8 @@
   ],
   "browser_screenshots": [
     "agent-stream-chain/history-reopen.png"
-  ]
+  ],
+  "prior_regression_source_server_commit": "867c71c851a65bfe5758329e5c01ff8bcb9543df",
+  "regression_source_server_commit": "6f4078a3db30e620440b781a854c60e6d85aeb9e",
+  "prior_source_web_commit": "ebb7bb64459aa57ca0fb48740752077c7e4c21f7"
 }
