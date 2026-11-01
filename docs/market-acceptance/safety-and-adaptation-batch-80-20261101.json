@@ -1,0 +1,326 @@
+{
+  "version": 1,
+  "date": "2026-11-01",
+  "scope": "Local AIGC source and safety checkpoint. API platform and its source read-only; not full-plan or live-provider certification.",
+  "branch": "feature/short-drama-next-optimization",
+  "server_business_source_commit": "99d9ad7fcb6215cd90a8f70ae5a69c89740bc592",
+  "server_business_validation_develop_commit": "96d8312a8ccd934e70bf69d625f53e032cbedf5a",
+  "server_checkpoint_feature_commit": "96f4c6f33efc0c2f89015c89d3ce6f6eaa4a5ab2",
+  "server_checkpoint_develop_commit": "4802cfe3dc77a354bab9a3e5e2cd624c3916b855",
+  "web_commit": "4a18a1ebb64e13e55dcf4f20aa684845254da9b3",
+  "web_develop_commit": "ba11fa3961974e5df506cc5d5376e92c7467bfea",
+  "source_repository_commit": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+  "source_deployed_commit": "unverified",
+  "api_boundary": {
+    "configuration_writes": 0,
+    "platform_source_writes": 0,
+    "real_generations": 0,
+    "provider_task_queries": 0,
+    "real_ledger_repairs": 0,
+    "activation_writes": 0
+  },
+  "model_candidate_counts": {
+    "models": 18,
+    "candidate_ready": 9,
+    "waiting": 9,
+    "active_contracts_written": 0,
+    "live_generations": 0
+  },
+  "model_states": [
+    {
+      "generation_type": "image",
+      "model_code": "nano-banana-2.1",
+      "channel_code": "Google",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "nano-banana-2",
+      "channel_code": "Google",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "nano-banana-pro",
+      "channel_code": "Google",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2.5",
+      "channel_code": "OpenAIYI",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "configured_api_key_forces_smart_route_target_closure_required"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2.5-flare",
+      "channel_code": "OpenAIYI",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "configured_api_key_forces_smart_route_target_closure_required"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2.5-sunburst",
+      "channel_code": "OpenAIYI",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "configured_api_key_forces_smart_route_target_closure_required"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2",
+      "channel_code": "OpenaiM",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "current_fallback_chain_enabled_or_unverified"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2",
+      "channel_code": "OpenAIYI",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "configured_api_key_forces_smart_route_target_closure_required"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2-fast",
+      "channel_code": "openaiD",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "configured_api_key_forces_smart_route_target_closure_required"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2-pro",
+      "channel_code": "OpenaiM",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "current_acedata_channel_mapping_and_smart_route_target_contracts",
+        "mask_and_reference_preservation_across_actual_target_routes"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "qwen-image-3.0",
+      "channel_code": "dashscope_compatible",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "configured_api_key_forces_smart_route_target_closure_required"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "image",
+      "model_code": "qwen-image-3.0-pro",
+      "channel_code": "dashscope_compatible",
+      "candidate_ready": false,
+      "missing_constraints": [
+        "configured_api_key_forces_smart_route_target_closure_required"
+      ],
+      "status": "waiting_authoritative_constraints"
+    },
+    {
+      "generation_type": "video",
+      "model_code": "q4-preview-video",
+      "channel_code": "q4_video",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "video",
+      "model_code": "h3-video",
+      "channel_code": "minimax",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "video",
+      "model_code": "grok-video",
+      "channel_code": "xAIQ",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "video",
+      "model_code": "veo3.1-fast",
+      "channel_code": "xAIQ",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "video",
+      "model_code": "veo3.1-pro",
+      "channel_code": "xAIQ",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    },
+    {
+      "generation_type": "video",
+      "model_code": "wan3.0-video",
+      "channel_code": "dashscope_compatible",
+      "candidate_ready": true,
+      "missing_constraints": [],
+      "status": "source_candidate_ready_not_activated"
+    }
+  ],
+  "model_activation": "offline_only_not_activated",
+  "backend": {
+    "suites": 59,
+    "tests": 1180,
+    "assertions": 7637,
+    "passed": true,
+    "source_unchanged_after_business_validation": true,
+    "subsequent_changes": "Only isolated/native CLI test fixtures; no application source changes"
+  },
+  "frontend": {
+    "pc_related_tests": 143,
+    "mobile_tests": 423,
+    "skipped": 0,
+    "h5_build": true,
+    "mp_build": true,
+    "compiled_storage_tests": 2
+  },
+  "native_cli": {
+    "passed": true,
+    "log": "/tmp/b80-native-market-cli-final.log",
+    "initial_false_success_detected_and_fixed": true
+  },
+  "original_data_after_isolated_attempt": {
+    "tasks_count": 143,
+    "tasks_rows_hash_equal": true,
+    "llm_agent_count": 4080,
+    "llm_agent_rows_hash_equal": true,
+    "balance_before": 4332.54,
+    "balance_after": 4332.54,
+    "balance_equal": true
+  },
+  "permanent_worker": {
+    "pid": 1667,
+    "started": "2026-10-30 19:17:15",
+    "alive": true,
+    "restarted_by_team": false,
+    "baota_restart_count": 0
+  },
+  "isolated_recovery": {
+    "passed": false,
+    "completed_matrix_cases": 0,
+    "attempted_case": "db-image-before-receipt-commit",
+    "failure_stage": "worker_boundary",
+    "failure_class": "RuntimeException",
+    "full_matrix_started": false,
+    "cleanup": {
+      "exact_owned_containers_absent": true,
+      "exact_owned_volume_absent": true,
+      "unowned_containers_state_unchanged": true,
+      "unowned_before_sha256": "5b29effd7c7bbfeddba6c1b0ad9b106d8f468fa7d8e1baf75aaa2ee744329784",
+      "unowned_after_sha256": "5b29effd7c7bbfeddba6c1b0ad9b106d8f468fa7d8e1baf75aaa2ee744329784",
+      "source_still_develop_and_unchanged": true,
+      "private_host_root_removed": true,
+      "complete": true
+    },
+    "real_provider_calls": 0,
+    "original_database_connections": 0,
+    "daemon1667_targeted": false,
+    "note": "Standalone schema validation passed on fifth attempt; worker-boundary failure remains under read-only diagnosis. Earlier four preflight/schema failures retained. No recovery pass claimed.",
+    "mysql_fault_injected": false,
+    "all_five_attempts_before_fault_injection": true,
+    "failure_detail": "Timed out waiting 30 seconds for the original private worker DB checkpoint. Failure fingerprint matches the exact template; interruptAndRestart was not reached.",
+    "read_only_diagnosis": "Fixture connection type uses an unqualified global class; ThinkORM prefixes it as a connector namespace. This is a source-confirmed fixture defect, not yet proven as the child-process runtime cause because its private log was cleaned. No business-source fix inferred."
+  },
+  "remaining": [
+    "9 forced-route models: published strategy 1/version 2 graph, mapping and exact final billing targets; draft canvas is not authority. Pro additionally needs AceData/fallback closure.",
+    "SKU380/383 and210-215: formal hard billable bounds and complete usage evidence; request dimension labels and reserve estimates are insufficient.",
+    "Full Video >5 ordinary reference-image fee: tenant/user rates and conversion missing; helper inactive, admission remains gated.",
+    "43 original text cases and one STT: unique original raw receipt/usage correlation; no real financial edits.",
+    "C03 isolated worker-boundary diagnosis and matrix not passed; independent nodes/mixed versions/host power loss not verified.",
+    "Physical WeChat/native devices and owner-controlled AIGC deployment/retest remain open.",
+    "Real provider operations not permitted under current API read-only boundary."
+  ],
+  "delivery_at_checkpoint": {
+    "server_remote_feature": "538a1a6ab9a5ec35df11df57e414666a77cbfd47",
+    "server_current_slice_pushed": false,
+    "web_remote_feature": "4a18a1ebb64e13e55dcf4f20aa684845254da9b3",
+    "develop_pushed": false,
+    "deployment_performed": false,
+    "generated_frontend_overwritten": false
+  },
+  "evidence": {
+    "b80-backend-final-results.json": {
+      "path": "/tmp/b80-backend-final-results.json",
+      "sha256": "6f26679250137e3ee32e77395c029f576af517311e7dcb142dfff42732307345"
+    },
+    "b80-backend-complete.log": {
+      "path": "/tmp/b80-backend-complete.log",
+      "sha256": "877b1fd2ce0bee436f46e778274b0370f0b6b85cee6c505e792aad190a8ee258"
+    },
+    "b80-owned-contract-bundle-latest.json": {
+      "path": "/tmp/b80-owned-contract-bundle-latest.json",
+      "sha256": "262365c3259af2db300782eaab4114f5fb350b166fb8db0730945ed7857fe564"
+    },
+    "b80-native-market-cli-final.log": {
+      "path": "/tmp/b80-native-market-cli-final.log",
+      "sha256": "ac5946c73e7b7bcfe13773482f1c2168c9054a83b1b433418ad16283f75b9f71"
+    },
+    "b80-pc-related.log": {
+      "path": "/tmp/b80-pc-related.log",
+      "sha256": "7b5027aae690539fe945a67dab76ca03eca7e83496554171639417c9a1bd5505"
+    },
+    "b80-mobile-all-compiled.log": {
+      "path": "/tmp/b80-mobile-all-compiled.log",
+      "sha256": "3b30cad56646eda5a3c231005a3c193408ec78b5f0f3ee930fbf2eeb594bdaea"
+    },
+    "b80-h5-build.log": {
+      "path": "/tmp/b80-h5-build.log",
+      "sha256": "f59d5b163ac5ad008503b3e2bd4e4af256d0f8389ad02446b046bccd96326cd3"
+    },
+    "b80-mp-build.log": {
+      "path": "/tmp/b80-mp-build.log",
+      "sha256": "e1167cc478bf0276d12d9db6b22642f4342c254f5ff94e3b086e34a8b9b7e9e7"
+    },
+    "b80-h5-compiled-storage.log": {
+      "path": "/tmp/b80-h5-compiled-storage.log",
+      "sha256": "657e0641f0074d57ef8ddcdf886f8f448c19b061c8eb74248d06eac8eb7a4c01"
+    },
+    "b80-checkpoint-original-audit.json": {
+      "path": "/tmp/b80-checkpoint-original-audit.json",
+      "sha256": "c55f91ccda167c37057d952c862c8099964a929cb3838091c471caf52c0aca4b"
+    },
+    "b80-checkpoint-after-isolated-audit.json": {
+      "path": "/tmp/b80-checkpoint-after-isolated-audit.json",
+      "sha256": "c55f91ccda167c37057d952c862c8099964a929cb3838091c471caf52c0aca4b"
+    },
+    "b80-c03-778d3e0bc3059f0bfb9a83c4-report.json": {
+      "path": "/tmp/b80-c03-778d3e0bc3059f0bfb9a83c4-report.json",
+      "sha256": "dc1d8db4728ad2017db7efdd9f0e0954143cf8a2bb2bdf62df493ad4a7116ebb"
+    }
+  },
+  "full_plan_complete": false
+}
