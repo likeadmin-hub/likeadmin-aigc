@@ -1,0 +1,14 @@
+{
+  "batch": 68,
+  "date": "2026-11-01",
+  "scope": "Private authenticated HTTP reproduction; no real SKU certification",
+  "observations": [
+    {
+      "scenario": "removed_canvas_page_keeps_unconfirmed_agent_plan_active",
+      "status": "reproduced_failure",
+      "source_server_commit": "27853572a",
+      "detail": "正常保存删除页面后，确认接口正确拒绝，但未受理方案在原Agent worker运行40秒后仍为awaiting_confirmation；任务不会被worker选中。",
+      "real_sku_certification": false
+    }
+  ]
+}
