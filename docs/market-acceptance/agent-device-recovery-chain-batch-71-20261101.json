@@ -1,0 +1,661 @@
+{
+  "batch": 71,
+  "date": "2026-11-01",
+  "scope": "Owner-isolated normal-login PC/H5/MP approval recovery, concurrent confirmation, durable mobile Agent history reuse and actual compiled H5 UI chain; loopback suppliers only.",
+  "source_server_commit": "3aa44252de5a0a9a8b4e81103827bc7d55bbd8ad",
+  "runtime_local_develop_server_commit": "c8e3aa6489e9da62e76fd59443f3d73cb6ec530f",
+  "source_web_commit": "0ad79cc1c8c5054c642a67493406add086d657d9",
+  "regression_source_web_commit": "d4c17e55e53a1d83d47ba8b2e07f0cecec5ebdbd",
+  "runtime_local_develop_web_commit": "517ff5a8b1f0a1abbd2c9822812693cb246f89a6",
+  "production_server_source_changed": false,
+  "production_web_source_changed": true,
+  "api_migration_billing_contract_changes": false,
+  "http_run": {
+    "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+    "external_generation_calls": 0,
+    "production_wallet_writes": 0,
+    "normal_password_login": true,
+    "concurrent_admission": {
+      "operations": {
+        "app.aigc_canvas.generate/video": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_image.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_product_image.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_product_suite.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      },
+      "lost_response_replayed": true
+    },
+    "accepted_task_ref": "app_task:1",
+    "authenticated_submission": true,
+    "worker_completed_without_browser_poll": true,
+    "managed_result_checksum": true,
+    "stale_autosave_preserved_result_and_user_edit": true,
+    "logout_login_reopen": true,
+    "local_supplier_submissions": 1,
+    "tasks": 1,
+    "consumptions": 1,
+    "result_assets": 1,
+    "billing_events": [
+      "reserve",
+      "submit",
+      "job_enqueued",
+      "settle",
+      "worker_claim",
+      "job_run",
+      "query_start",
+      "job_enqueued",
+      "job_woken",
+      "query_finish",
+      "job_enqueued",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_woken",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_success"
+    ],
+    "fixture_user_balance": 99,
+    "fixture_tenant_balance": 99,
+    "image_http": {
+      "native_managed_result_checksum": true,
+      "single_application_parent_and_child_success": true,
+      "suite_first_child_does_not_finish_parent": true,
+      "suite_two_children_two_results": true,
+      "native_price": 1,
+      "application_retail_price_per_child": 3,
+      "fixture_user_delta": 10,
+      "fixture_tenant_delta": 4
+    },
+    "total_local_supplier_submissions": 8,
+    "total_fixture_user_balance": 85.55,
+    "total_fixture_tenant_balance": 91.55,
+    "agent_matrix": {
+      "devices": {
+        "actual_mobile_api_and_shared_controller": true,
+        "h5_mp_pending_plan_restore": true,
+        "concurrent_three_terminal_confirm_single_generation": true,
+        "lost_confirm_response_recovers_original_run": true,
+        "unshelved_model_history_reopen_without_generation": true,
+        "history_explicit_new_request_concurrent_once": true,
+        "old_run_and_artifact_unchanged": true,
+        "account_switch_fenced_before_network": true,
+        "requests": 35,
+        "normal_terminal_logins": [
+          4,
+          3,
+          1
+        ],
+        "same_request_across_devices_once": true,
+        "pending_reads_never_dispatch": true,
+        "stale_approval_after_pc_edit_rejected": true,
+        "fresh_h5_mp_login_revision_preserved": true,
+        "mobile_history_new_intent_old_step_and_frozen_consumption_unchanged": true,
+        "canceled_plan_reconfirmation_refused": true,
+        "scope": "Normal login HTTP on isolated tables and loopback suppliers; actual UniApp wrappers/controller on host, no physical device certification"
+      },
+      "text_reservations": 9,
+      "text_settlements": 9
+    },
+    "unfinished_jobs_completed_on_restart": 0,
+    "worker_restart_preserved_completed_rows": true,
+    "total_reserve_events": 17,
+    "total_settle_events": 17,
+    "total_tasks": 17,
+    "total_result_assets": 8,
+    "total_consumptions": 17,
+    "total_consumption_billing_statuses": {
+      "settled": 17
+    },
+    "private_tables_and_files_removed": true
+  },
+  "actual_page_review": {
+    "compiled_h5": {
+      "normal_original_login": true,
+      "viewport_css": [
+        390,
+        844
+      ],
+      "bootstrap_site_theme_profile_membership": "synthetic isolated shell only; login and all Agent business routes use original authenticated PHP APIs",
+      "pending_pc_revision_specs_points_visible": true,
+      "reuse_only_fills_draft_before_send": true,
+      "draft_uses_agent_submission_not_legacy_text_stream": true,
+      "explicit_send_then_approval_then_worker_result_new_history": true,
+      "original_pending_plan_preserved": true,
+      "final_page_errors": 0,
+      "physical_device": false,
+      "supplier": "loopback replacement; no real generation"
+    },
+    "real_pc": {
+      "route": "/app/aigc_llm?tenant_id=1",
+      "old_works": 13,
+      "errors": 0,
+      "wallet": 4372.96,
+      "read_only": true
+    }
+  },
+  "regression": {
+    "frontend_tests": 84,
+    "frontend_failures": 0,
+    "native_cli_suites": [
+      "HomeAgentPlanManagementTest.php",
+      "HomeAgentBillingRecoveryTest.php"
+    ],
+    "php_syntax_files": 3,
+    "h5_build": true,
+    "mp_build": true,
+    "mp_package_imports": {
+      "modules": 446,
+      "subpackages": 30
+    },
+    "mp_render_output": {
+      "templates": 307,
+      "themed_page_hosts": 109,
+      "decoration_widgets": 7
+    }
+  },
+  "original_tasks_before": {
+    "scope": "Read-only original user task rows and wallet; hashes only",
+    "tables": {
+      "aigc_image_task": {
+        "count": 85,
+        "sha256": "052d964094d42e6457857eed3be12fe49b304e60b770b7be9ad954599b8f80ad",
+        "statuses": {
+          "success": 76,
+          "failed": 9
+        }
+      },
+      "aigc_video_task": {
+        "count": 44,
+        "sha256": "697275539f3f9d91d6eb2cc6d8ea09436981491c3819b97f5e2370da3140cf80",
+        "statuses": {
+          "failed": 9,
+          "success": 35
+        }
+      },
+      "aigc_music_task": {
+        "count": 2,
+        "sha256": "e733e34690e86be136d0aee91f1bffaaf636f31129beef1a4e810d3f01cc636e",
+        "statuses": {
+          "failed": 1,
+          "success": 1
+        }
+      },
+      "aigc_product_image_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_product_suite_task": {
+        "count": 1,
+        "sha256": "5c7b86649505cfe8f8fc118f2db2b93f532155703a6626cebb5239f0fc07ac64",
+        "statuses": {
+          "success": 1
+        }
+      },
+      "aigc_style_transfer_task": {
+        "count": 2,
+        "sha256": "6f92d119942d545c4a82d4db765d0599c42dafe6117491ada6d370215de93782",
+        "statuses": {
+          "failed": 1,
+          "success": 1
+        }
+      },
+      "aigc_photo_restore_task": {
+        "count": 1,
+        "sha256": "35cd6ad71e5de214507cb302c5791b6cd750fc61eb0ad957096de34d8c9e9c3d",
+        "statuses": {
+          "success": 1
+        }
+      },
+      "aigc_model_wear_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_background_removal_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_image_translate_task": {
+        "count": 1,
+        "sha256": "4463e7d48af54a66a9e34b83b7ea2a286a22554f4bdc22bb7a6f4ef6c8eb2001",
+        "statuses": {
+          "success": 1
+        }
+      },
+      "aigc_one_click_cleanup_task": {
+        "count": 2,
+        "sha256": "138938b0c27b6caa6652f921b2eb1f2ba0eb600d59d819b7356ec3d7cd93b1c0",
+        "statuses": {
+          "failed": 1,
+          "success": 1
+        }
+      },
+      "aigc_product_multi_angle_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_fashion_lookbook_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_outpaint_task": {
+        "count": 3,
+        "sha256": "abd9a37f7004a87f538329d7f16eab2653926e8d69750e534c8b4247f482b6e5",
+        "statuses": {
+          "failed": 1,
+          "success": 2
+        }
+      },
+      "aigc_local_redraw_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_fitting_task": {
+        "count": 2,
+        "sha256": "8e66136e78f4a6a9f0c73d32b5de3a68510b412c2b62586442a13d0e5eabd60b",
+        "statuses": {
+          "success": 2
+        }
+      },
+      "aigc_product_promo_video_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      }
+    },
+    "balance": 4372.96
+  },
+  "original_tasks_after": {
+    "scope": "Read-only original user task rows and wallet; hashes only",
+    "tables": {
+      "aigc_image_task": {
+        "count": 85,
+        "sha256": "052d964094d42e6457857eed3be12fe49b304e60b770b7be9ad954599b8f80ad",
+        "statuses": {
+          "success": 76,
+          "failed": 9
+        }
+      },
+      "aigc_video_task": {
+        "count": 44,
+        "sha256": "697275539f3f9d91d6eb2cc6d8ea09436981491c3819b97f5e2370da3140cf80",
+        "statuses": {
+          "failed": 9,
+          "success": 35
+        }
+      },
+      "aigc_music_task": {
+        "count": 2,
+        "sha256": "e733e34690e86be136d0aee91f1bffaaf636f31129beef1a4e810d3f01cc636e",
+        "statuses": {
+          "failed": 1,
+          "success": 1
+        }
+      },
+      "aigc_product_image_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_product_suite_task": {
+        "count": 1,
+        "sha256": "5c7b86649505cfe8f8fc118f2db2b93f532155703a6626cebb5239f0fc07ac64",
+        "statuses": {
+          "success": 1
+        }
+      },
+      "aigc_style_transfer_task": {
+        "count": 2,
+        "sha256": "6f92d119942d545c4a82d4db765d0599c42dafe6117491ada6d370215de93782",
+        "statuses": {
+          "failed": 1,
+          "success": 1
+        }
+      },
+      "aigc_photo_restore_task": {
+        "count": 1,
+        "sha256": "35cd6ad71e5de214507cb302c5791b6cd750fc61eb0ad957096de34d8c9e9c3d",
+        "statuses": {
+          "success": 1
+        }
+      },
+      "aigc_model_wear_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_background_removal_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_image_translate_task": {
+        "count": 1,
+        "sha256": "4463e7d48af54a66a9e34b83b7ea2a286a22554f4bdc22bb7a6f4ef6c8eb2001",
+        "statuses": {
+          "success": 1
+        }
+      },
+      "aigc_one_click_cleanup_task": {
+        "count": 2,
+        "sha256": "138938b0c27b6caa6652f921b2eb1f2ba0eb600d59d819b7356ec3d7cd93b1c0",
+        "statuses": {
+          "failed": 1,
+          "success": 1
+        }
+      },
+      "aigc_product_multi_angle_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_fashion_lookbook_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_outpaint_task": {
+        "count": 3,
+        "sha256": "abd9a37f7004a87f538329d7f16eab2653926e8d69750e534c8b4247f482b6e5",
+        "statuses": {
+          "failed": 1,
+          "success": 2
+        }
+      },
+      "aigc_local_redraw_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      },
+      "aigc_fitting_task": {
+        "count": 2,
+        "sha256": "8e66136e78f4a6a9f0c73d32b5de3a68510b412c2b62586442a13d0e5eabd60b",
+        "statuses": {
+          "success": 2
+        }
+      },
+      "aigc_product_promo_video_task": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "statuses": []
+      }
+    },
+    "balance": 4372.96
+  },
+  "original_llm_before": {
+    "scope": "Read-only original owner LLM/Agent rows; hashes only",
+    "tables": {
+      "aigc_llm_session": {
+        "count": 46,
+        "sha256": "1cee17556f1f33fcbc5a78cb4a0c0cd5a3db553e4358016584bbc3af70ccf4fe"
+      },
+      "aigc_llm_message": {
+        "count": 212,
+        "sha256": "e5799d2f60214f77449c2734ad4626a89732363fdad0e7bffb21ff60b5d1753e"
+      },
+      "aigc_llm_usage": {
+        "count": 4,
+        "sha256": "36c09c08eec37931534381c97e6d29fc7d894be71b527a040d6377b6e3cbb933"
+      },
+      "aigc_llm_agent_run": {
+        "count": 100,
+        "sha256": "808da5208e08d94d43f5d39a7895b4b60ed4102cce1cc8c6e58eaee5258a2795"
+      },
+      "aigc_llm_agent_step": {
+        "count": 25,
+        "sha256": "278505db13d1d73b6cb00f673fff3c156d672868ac52aa8d8ecb240f7819301c"
+      },
+      "aigc_llm_agent_event": {
+        "count": 3600,
+        "sha256": "418f210d1e6c53ccc4b972bf033fd82a3f1330b41878956cb18cf27689ea7ce5"
+      },
+      "aigc_llm_agent_artifact": {
+        "count": 16,
+        "sha256": "7e0835da4057fbf9f69f00be94c2bd50ddf9f48fc10aea75bbd1b3d4531fa5ac"
+      },
+      "aigc_llm_agent_preference": {
+        "count": 50,
+        "sha256": "54662204532ad54d640b2d9da3561790ec868cc959e21a69cfcd3b428fbf9a34"
+      }
+    }
+  },
+  "original_llm_after": {
+    "scope": "Read-only original owner LLM/Agent rows; hashes only",
+    "tables": {
+      "aigc_llm_session": {
+        "count": 46,
+        "sha256": "1cee17556f1f33fcbc5a78cb4a0c0cd5a3db553e4358016584bbc3af70ccf4fe"
+      },
+      "aigc_llm_message": {
+        "count": 212,
+        "sha256": "e5799d2f60214f77449c2734ad4626a89732363fdad0e7bffb21ff60b5d1753e"
+      },
+      "aigc_llm_usage": {
+        "count": 4,
+        "sha256": "36c09c08eec37931534381c97e6d29fc7d894be71b527a040d6377b6e3cbb933"
+      },
+      "aigc_llm_agent_run": {
+        "count": 100,
+        "sha256": "808da5208e08d94d43f5d39a7895b4b60ed4102cce1cc8c6e58eaee5258a2795"
+      },
+      "aigc_llm_agent_step": {
+        "count": 25,
+        "sha256": "278505db13d1d73b6cb00f673fff3c156d672868ac52aa8d8ecb240f7819301c"
+      },
+      "aigc_llm_agent_event": {
+        "count": 3600,
+        "sha256": "418f210d1e6c53ccc4b972bf033fd82a3f1330b41878956cb18cf27689ea7ce5"
+      },
+      "aigc_llm_agent_artifact": {
+        "count": 16,
+        "sha256": "7e0835da4057fbf9f69f00be94c2bd50ddf9f48fc10aea75bbd1b3d4531fa5ac"
+      },
+      "aigc_llm_agent_preference": {
+        "count": 50,
+        "sha256": "54662204532ad54d640b2d9da3561790ec868cc959e21a69cfcd3b428fbf9a34"
+      }
+    }
+  },
+  "cleanup": {
+    "owned_private_tables": 0,
+    "owned_private_roots": 0,
+    "original_daemon_1667_alive": true
+  },
+  "observations": [
+    {
+      "scenario": "normal_pc_h5_mp_login_pending_revision_restore",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "same_request_across_terminal_sessions_one_run",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "stale_approval_after_other_device_edit_refused",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "three_terminal_parallel_confirmation_one_media_task",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "lost_confirmation_response_reads_original_receipt",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "fresh_h5_mp_sessions_keep_approval_and_frozen_params",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "unshelved_model_old_history_opens_without_dispatch",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "explicit_history_new_key_old_step_and_consumption_preserved",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "canceled_plan_late_confirmation_refused",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "actual_mobile_api_shared_controller_35_requests",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "account_switch_before_request_fenced",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "account_switch_late_response_fenced",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "pending_proposals_poll_other_device_changes",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "confirmation_blocks_window_and_session_switch",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "hide_pauses_show_resumes_original_record",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "durable_storage_failure_prevents_dispatch",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "lost_receipt_cleanup_keeps_request_identity",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "draft_reload_reuses_request_and_frozen_preferences",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "compiled_h5_normal_login_pending_restore",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "h5_history_reuse_agent_submit_confirm_result",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "pc_shared_controller_page_13_old_works",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "h5_mp_build_and_package_template_checks",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "original_task_wallet_and_agent_hashes_preserved",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "owned_fixture_cleanup_real_daemon_unchanged",
+      "status": "isolated_agent_device_recovery_checked",
+      "scope": "Bounded private HTTP, actual H5 shell, regression or read-only PC observation; no real SKU certification",
+      "real_sku_certification": false
+    }
+  ],
+  "not_verified": [
+    "18完整合同、14模型17不透明路径、13应用选项；Qwen275/277像素SKU380/383、Seedance140 Token SKU210–215、Nano嵌套输入/张数/裸b64_json/供应商资产ID继续待正式依据。最后正式上游观察为批次50，本批不刷新或解锁。",
+    "无完整回执、usage或供应商ID的同步文字强杀后的权威完成及费用核对；不自动重发或猜Token。",
+    "物理多设备、微信真机/原生App、正式租户完整H5装修会员登录外壳；本批手机尺寸浏览器使用真实编译H5和原业务接口，外壳配置为合成。",
+    "其它工具草稿逐项跨设备恢复；移动Agent的新素材上传、主体/项目引用编辑、方案编辑/步骤重试/文件下载等PC完整交互不在本批完成范围。历史复用明确仅文字，发送后当前生成偏好冻结并强制ask，原方案及素材不改写。",
+    "真实供应商收费、全型号/模式/SKU、云端/多机故障和既有两条H5 resize、五项编译入口失败及剪辑/微视频警告；本批不宣称关闭。"
+  ],
+  "fixture_corrections_not_product_findings": [
+    "Private image plans explicitly bind the owned image catalogue; initial missing binding is not a production failure.",
+    "Shared-source test loaders now read moved files; already-submitted steps retain their faster polling interval.",
+    "Preview bootstrap theme/membership config completed; original normal login uses page inputs, no token injection.",
+    "Final report preservation of optional UI evidence is a reporting-only correction after the recorded successful run."
+  ],
+  "browser_screenshots": [
+    "batch71-mobile-pending.png",
+    "batch71-mobile-reuse-draft.png",
+    "batch71-mobile-agent-result.png",
+    "batch71-pc-agent.png"
+  ],
+  "delivery_boundary": {
+    "branch": "feature/short-drama-next-optimization",
+    "remote_develop_merge": "previous explicit deferral retained; refs fetched, local runtime merges only",
+    "server_skip_worktree": 3971,
+    "web_skip_worktree": 3,
+    "external_generation_calls": 0,
+    "real_wallet_writes": 0,
+    "publish_or_deploy": false,
+    "real_daemon_restart": false
+  }
+}
