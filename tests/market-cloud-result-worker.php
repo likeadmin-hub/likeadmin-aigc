@@ -72,7 +72,11 @@ try{
     MarketWorkerFixture::check((float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===100.&&(float)Db::name('user')->where('id',$user)->value('user_money')===100.,'Fixture wallets changed');
     $afterConsumption=AiConsumptionLog::find($c['id'])->toArray();
     $report['consumption_changed_fields']=array_values(array_filter(array_keys($frozen),static fn($field)=>($frozen[$field]??null)!==($afterConsumption[$field]??null)));
-    MarketWorkerFixture::check($frozen===$afterConsumption,'Cloud recovery changed consumption or frozen pricing');
+    // Successful transfer deliberately hydrates response_summary with the
+    // managed URI. Every identity, request and billing field stays frozen.
+    $projectionFields=['response_summary'=>true,'update_time'=>true];
+    MarketWorkerFixture::check(array_diff_key($frozen,$projectionFields)===array_diff_key($afterConsumption,$projectionFields),'Cloud recovery changed frozen billing or request fields');
+    MarketWorkerFixture::check(($afterConsumption['response_summary'][$key][0][$uriKey]??null)===$expected,'Cloud consumption did not project its managed result');
     $attempts=(int)Db::name('ai_task_job')->where('id',$job['id'])->value('attempts');
     if($mode==='crash-after-upload')MarketWorkerFixture::check($attempts>=2,'Cloud recovery did not reclaim the naturally expired lease');
     foreach(['tenant_file','ai_task_result_asset']as$table)MarketWorkerFixture::check((int)Db::name($table)->count()===1,'Duplicate cloud result registration');
@@ -80,7 +84,7 @@ try{
     $report+=['storage_scope'=>$asset['storage_scope'],'storage_engine'=>$asset['storage_engine'],'storage_domain_sha256'=>hash('sha256',$asset['storage_domain']),
         'object_uri_sha256'=>hash('sha256',$expected),'readback_sha256'=>hash('sha256',$bytes),'readback_bytes'=>strlen($bytes),'file_records'=>(int)Db::name('tenant_file')->count(),
         'result_assets'=>(int)Db::name('ai_task_result_asset')->count(),'business_results'=>(int)Db::name($resultTable)->where('task_id',$business)->count(),'receipt_mime'=>$receipt['mime_type']??'',
-        'ownership_and_storage_match'=>true,'terminal_replay_unchanged'=>true,'wallets_unchanged'=>true,'frozen_consumption_unchanged'=>true,'transfer_attempts'=>$attempts,
+        'ownership_and_storage_match'=>true,'terminal_replay_unchanged'=>true,'wallets_unchanged'=>true,'frozen_billing_and_request_unchanged'=>true,'managed_consumption_projection'=>true,'transfer_attempts'=>$attempts,
         'natural_lease_expiry_recovered'=>$mode==='crash-after-upload'];
 }catch(Throwable $error){$failure=$error;$message=$error->getMessage();foreach($cloud['engine']['aliyun']as$value)if(is_string($value)&&$value!=='')$message=str_replace($value,'[redacted]',$message);$report['failure_class']=get_class($error);$report['failure_reason']=mb_substr($message,0,200);$report['failure_fingerprint']=hash('sha256',$error->getMessage());$report['stage_failed']=true;
     if($fixture)foreach(glob($fixture->dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).': '.mb_substr(preg_replace('~https?://[^\s]+~','[storage-url]',file_get_contents($log)),-2000)."\n");
