@@ -3,6 +3,7 @@
 function marketDeepSupplier(string $path,string $dir): bool
 {
     if(getenv('AIGC_HTTP_AGENT_SPECIAL_MATRIX')==='1'&&$path==='/fixture/agent-speech.mp3'){header('Content-Type: audio/mpeg');readfile($dir.'/agent-speech.mp3');return true;}
+    if(getenv('AIGC_HTTP_AGENT_MOBILE_COMPLETION_MATRIX')==='1'&&$path==='/resource/b73-subject.png'){header('Content-Type: image/png');readfile($dir.'/public/resource/b73-subject.png');return true;}
     if(str_starts_with($path,'/uploads/')) {
         $file=realpath($dir.'/public'.$path);$root=realpath($dir.'/public/uploads');
         if(!$file||!$root||!str_starts_with($file,$root.'/')){http_response_code(404);return true;}
