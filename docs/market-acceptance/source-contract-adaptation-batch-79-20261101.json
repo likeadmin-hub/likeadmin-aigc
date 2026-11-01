@@ -1,0 +1,4149 @@
+{
+  "version": 1,
+  "date": "2026-11-01",
+  "batch": 79,
+  "scope": "18 exact source identities and 8 meter SKUs: source-bound offline adaptation, existing PC/H5 repairs and scoped validation. No full paid/provider/deployment certification.",
+  "branch": "feature/short-drama-next-optimization",
+  "server_feature_commit": "f777cb3339b7b46c62bb856b7f127a1d3838fe25",
+  "server_runtime_develop_commit": "3ee3c450207b23a430b952968398eaa87bcb5c15",
+  "web_feature_commit": "ece817e928b153ab1e58b5569e4367b6063e9cca",
+  "web_runtime_develop_commit": "daa77b3f485b4158c65a7fc54154d2bca88c5be1",
+  "source": {
+    "repository": "https://gitee.com/yc_open/platform-api-saas.git",
+    "revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+    "artifact_sha256": "807c75616b0fb7b7225c2814645360b8f9ea8e6e7371d1267540aefe373870db",
+    "files": 44,
+    "bytes": 701995,
+    "deterministic_rebuild_byte_identical": true,
+    "upstream_code_executed": false,
+    "checkout_created": false,
+    "deployed_revision_verified": false
+  },
+  "counts": {
+    "models": 18,
+    "candidate_ready": 4,
+    "waiting": 14,
+    "active_contracts_written": 0,
+    "live_generations": 0
+  },
+  "preparation_verification": {
+    "success": true,
+    "models": 18,
+    "observations": 195,
+    "source_candidate_models": 4,
+    "source_constraints_pending_models": 14,
+    "original_snapshot_unchanged": true,
+    "all_20_local_declaration_fingerprints_unchanged": true,
+    "candidate_cli_passed": true,
+    "reviewed_cli_passed": true,
+    "compiled_catalogue_version": 2,
+    "compiled_contracts": 4,
+    "default_catalogue_written": false
+  },
+  "model_rows": [
+    {
+      "identity": {
+        "id": "market_image_model:234",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "nano-banana-2.1",
+        "channel_code": "Google",
+        "product_id": 234
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "d33ccdf89cd1cc9ba719e3dc369f82924933f8117111550d9649150eb084c1f0",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/nano-banana-2.1.md",
+          "git_blob": "a0ecc95a514c613742fecfced0f362d7abd1cfbc",
+          "sha256": "aec87478af31960ff9c784c0dbe8b775d669153f65e146328566b165d60d002d"
+        },
+        {
+          "path": "server/public/install/db/ai_platform_migration_nano_banana_21.sql",
+          "git_blob": "53701602465ee80f43d7c87b82ebc9358463e371",
+          "sha256": "0061190210cd4ecff47267cd15d11cf6390eebc1f12202f549566cc72ff81195"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "d33ccdf89cd1cc9ba719e3dc369f82924933f8117111550d9649150eb084c1f0",
+        "parameters": {
+          "urls": {
+            "type": "array",
+            "children": {
+              "item": {
+                "type": "string"
+              }
+            }
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "image_size": {
+            "type": "string",
+            "default": "1K",
+            "display_options": [
+              "1K",
+              "2K",
+              "4K"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "auto",
+            "display_options": [
+              "auto",
+              "1:1",
+              "16:9",
+              "9:16",
+              "4:3",
+              "3:4",
+              "3:2",
+              "2:3",
+              "5:4",
+              "4:5",
+              "21:9"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 10,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "documented_resolutions": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "documented_ratios": [
+            "auto",
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "5:4",
+            "4:5",
+            "21:9"
+          ],
+          "reference_parameter": "urls",
+          "empty_prompt_conditions": "not_fully_specified"
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "documented_resolutions": "published_document_not_measured",
+          "documented_ratios": "published_document_not_measured",
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "empty_prompt_conditions": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "current_inherited_source_declaration_and_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "empty_prompt_mode_conditions"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:93",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "nano-banana-2",
+        "channel_code": "Google",
+        "product_id": 93
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "1964ca4167e8882117d326b96212974509b747b5b980d75f2157f6939e3510b3",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-63-nano-banana-2.md",
+          "git_blob": "30c5f21bb399737e356ed07f3ddf7575df1dc63a",
+          "sha256": "28a55c2020619465b891e2d838dccf4f86cf72e3c9dbbb05f41c54d128fd0d48"
+        },
+        {
+          "path": "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php",
+          "git_blob": "e2976e36e8360159204d0feecf83e250a0949474",
+          "sha256": "90b702e8b16da83e824fbbda900be88aea0ccad655d03ad55867a6f9e260fefa"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "1964ca4167e8882117d326b96212974509b747b5b980d75f2157f6939e3510b3",
+        "parameters": {
+          "urls": {
+            "type": "array"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "image_size": {
+            "type": "string",
+            "display_options": [
+              "1K",
+              "2K",
+              "4K"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "display_options": [
+              "auto",
+              "1:1",
+              "16:9",
+              "9:16",
+              "4:3",
+              "3:4",
+              "3:2",
+              "2:3",
+              "5:4",
+              "4:5",
+              "21:9"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "documented_resolutions": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "documented_ratios": [
+            "auto",
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "5:4",
+            "4:5",
+            "21:9"
+          ],
+          "reference_parameter": "urls",
+          "empty_prompt_conditions": "not_fully_specified"
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "documented_resolutions": "published_document_not_measured",
+          "documented_ratios": "published_document_not_measured",
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "empty_prompt_conditions": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "exact_google_execution_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "complete_mode_conditions"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:92",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "nano-banana-pro",
+        "channel_code": "Google",
+        "product_id": 92
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "1964ca4167e8882117d326b96212974509b747b5b980d75f2157f6939e3510b3",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-66-nano-banana-pro.md",
+          "git_blob": "319342f6dc11ddb0caf247225035a3148a36dd3a",
+          "sha256": "5c1451508c84f448c769f3681f12bb01d8ce70c495a728062edaed6193dbb0f2"
+        },
+        {
+          "path": "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php",
+          "git_blob": "e2976e36e8360159204d0feecf83e250a0949474",
+          "sha256": "90b702e8b16da83e824fbbda900be88aea0ccad655d03ad55867a6f9e260fefa"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "1964ca4167e8882117d326b96212974509b747b5b980d75f2157f6939e3510b3",
+        "parameters": {
+          "urls": {
+            "type": "array"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "image_size": {
+            "type": "string",
+            "display_options": [
+              "1K",
+              "2K",
+              "4K"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "display_options": [
+              "auto",
+              "1:1",
+              "16:9",
+              "9:16",
+              "4:3",
+              "3:4",
+              "3:2",
+              "2:3",
+              "5:4",
+              "4:5",
+              "21:9"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "documented_resolutions": [
+            "1K",
+            "2K",
+            "4K"
+          ],
+          "documented_ratios": [
+            "auto",
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "5:4",
+            "4:5",
+            "21:9"
+          ],
+          "reference_parameter": "urls",
+          "empty_prompt_conditions": "not_fully_specified"
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "documented_resolutions": "published_document_not_measured",
+          "documented_ratios": "published_document_not_measured",
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "empty_prompt_conditions": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "exact_google_pro_execution_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "complete_mode_conditions"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:169",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5",
+        "channel_code": "OpenAIYI",
+        "product_id": 169
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "18744433c2a60ce273472db1b1a8a5baac0ba6015c85328834f64c03150f7b54",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "server/app/common/command/DakkaGptImage25Migrate.php",
+          "git_blob": "43ee7abd9f64d856356f45a626dec971a9496b7c",
+          "sha256": "c2b3a555b27b4a805fdd20d4eb588034870d128310210348537c6f327ee4260d"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/DrawDriver.php",
+          "git_blob": "23a794eafdecc77ec6f5b86c568b1707bcf0d1c8",
+          "sha256": "c1e0d366674b65ebf48363dfcb99a280a3fbb62ed9f88c06ed5f4e8696cd984e"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "18744433c2a60ce273472db1b1a8a5baac0ba6015c85328834f64c03150f7b54",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "declared_enum": [
+              "auto"
+            ],
+            "display_options": [
+              "\"auto\""
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "1k",
+            "display_options": [
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "auto",
+            "display_options": [
+              "auto",
+              "1:1",
+              "3:2",
+              "2:3",
+              "4:3",
+              "3:4",
+              "5:4",
+              "4:5",
+              "16:9",
+              "9:16",
+              "2:1",
+              "1:2",
+              "3:1",
+              "1:3",
+              "21:9",
+              "9:21"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "reference_parameter": "image_urls",
+          "resolution_options": [
+            "1k",
+            "2k",
+            "4k"
+          ],
+          "quality_options": [
+            "auto"
+          ]
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "resolution_options": "pinned_migration_declaration_not_live_gateway_enum",
+          "quality_options": "pinned_migration_declaration_not_live_gateway_enum"
+        }
+      },
+      "missing_constraints": [
+        "current_inherited_openaiyi_configuration",
+        "file_limits_and_complete_mode_conditions",
+        "native_quantity_mapping"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:168",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-flare",
+        "channel_code": "OpenAIYI",
+        "product_id": 168
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "cddf2e8712873802f19c6f7554e1a61c7712fc046480e69aa0b4dee1a44fd9b0",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "server/app/common/command/DakkaGptImage25Migrate.php",
+          "git_blob": "43ee7abd9f64d856356f45a626dec971a9496b7c",
+          "sha256": "c2b3a555b27b4a805fdd20d4eb588034870d128310210348537c6f327ee4260d"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/DrawDriver.php",
+          "git_blob": "23a794eafdecc77ec6f5b86c568b1707bcf0d1c8",
+          "sha256": "c1e0d366674b65ebf48363dfcb99a280a3fbb62ed9f88c06ed5f4e8696cd984e"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "cddf2e8712873802f19c6f7554e1a61c7712fc046480e69aa0b4dee1a44fd9b0",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "declared_enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "display_options": [
+              "\"low\", \"medium\", \"high\""
+            ]
+          },
+          "background": {
+            "type": "string",
+            "declared_enum": [
+              "transparent"
+            ],
+            "display_options": [
+              "transparent"
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "1k",
+            "display_options": [
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "1:1",
+            "display_options": [
+              "auto",
+              "1:1",
+              "3:2",
+              "2:3",
+              "4:3",
+              "3:4",
+              "5:4",
+              "4:5",
+              "16:9",
+              "9:16",
+              "2:1",
+              "1:2",
+              "3:1",
+              "1:3",
+              "21:9",
+              "9:21"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "reference_parameter": "image_urls",
+          "resolution_options": [
+            "1k",
+            "2k",
+            "4k"
+          ],
+          "quality_options": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "background_transparent_supported": true,
+          "pixel_matrix": {
+            "1:1": {
+              "1k": "1024x1024",
+              "2k": "2048x2048",
+              "4k": "2880x2880"
+            },
+            "16:9": {
+              "1k": "1280x720",
+              "2k": "2048x1152",
+              "4k": "3840x2160"
+            },
+            "9:16": {
+              "1k": "720x1280",
+              "2k": "1152x2048",
+              "4k": "2160x3840"
+            },
+            "4:3": {
+              "1k": "1152x864",
+              "2k": "2304x1728",
+              "4k": "3264x2448"
+            },
+            "3:4": {
+              "1k": "864x1152",
+              "2k": "1728x2304",
+              "4k": "2448x3264"
+            },
+            "3:2": {
+              "1k": "1536x1024",
+              "2k": "2048x1360",
+              "4k": "3504x2336"
+            },
+            "2:3": {
+              "1k": "1024x1536",
+              "2k": "1360x2048",
+              "4k": "2336x3504"
+            },
+            "5:4": {
+              "1k": "1120x896",
+              "2k": "2240x1792",
+              "4k": "3200x2560"
+            },
+            "4:5": {
+              "1k": "896x1120",
+              "2k": "1792x2240",
+              "4k": "2560x3200"
+            },
+            "21:9": {
+              "1k": "1456x624",
+              "2k": "2912x1248",
+              "4k": "3840x1648"
+            },
+            "9:21": {
+              "1k": "624x1456",
+              "2k": "1248x2912",
+              "4k": "1648x3840"
+            },
+            "1:3": {
+              "1k": "688x2048",
+              "2k": "1280x3840"
+            },
+            "3:1": {
+              "1k": "2048x688",
+              "2k": "3840x1280"
+            },
+            "2:1": {
+              "1k": "1536x768",
+              "2k": "3072x1536",
+              "4k": "3840x1920"
+            },
+            "1:2": {
+              "1k": "768x1536",
+              "2k": "1536x3072",
+              "4k": "1920x3840"
+            }
+          },
+          "pixel_matrix_function": "DrawDriver::dakkaGptImageSize",
+          "explicit_pixel_size_bypass_in_driver": true
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "resolution_options": "pinned_migration_declaration_not_live_gateway_enum",
+          "quality_options": "pinned_migration_declaration_not_live_gateway_enum",
+          "background_transparent_supported": "pinned_migration_declaration_not_live_gateway_enum",
+          "pixel_matrix": "pinned_source_requires_deployment_binding",
+          "pixel_matrix_function": "pinned_source_requires_deployment_binding",
+          "explicit_pixel_size_bypass_in_driver": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "current_inherited_openaiyi_configuration",
+        "file_limits_and_complete_mode_conditions",
+        "exact_sku_and_parameter_binding"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 46,
+        "expectations": {
+          "prepare": 1,
+          "observe": 45
+        },
+        "outcomes": {
+          "prepared_and_replayed": 45,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:167",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-sunburst",
+        "channel_code": "OpenAIYI",
+        "product_id": 167
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "a17848e115b9ae3e4089f358e8819e025f4ca7f0e72e1857f20e1c0d5387342f",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "server/app/common/command/DakkaGptImage25Migrate.php",
+          "git_blob": "43ee7abd9f64d856356f45a626dec971a9496b7c",
+          "sha256": "c2b3a555b27b4a805fdd20d4eb588034870d128310210348537c6f327ee4260d"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/DrawDriver.php",
+          "git_blob": "23a794eafdecc77ec6f5b86c568b1707bcf0d1c8",
+          "sha256": "c1e0d366674b65ebf48363dfcb99a280a3fbb62ed9f88c06ed5f4e8696cd984e"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "a17848e115b9ae3e4089f358e8819e025f4ca7f0e72e1857f20e1c0d5387342f",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "declared_enum": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max"
+            ],
+            "display_options": [
+              "\"low\", \"medium\", \"high\", \"xhigh\", \"max\""
+            ]
+          },
+          "background": {
+            "type": "string",
+            "declared_enum": [
+              "transparent"
+            ],
+            "display_options": [
+              "transparent"
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "1k",
+            "display_options": [
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "1:1",
+            "display_options": [
+              "auto",
+              "1:1",
+              "3:2",
+              "2:3",
+              "4:3",
+              "3:4",
+              "5:4",
+              "4:5",
+              "16:9",
+              "9:16",
+              "2:1",
+              "1:2",
+              "3:1",
+              "1:3",
+              "21:9",
+              "9:21"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "reference_parameter": "image_urls",
+          "resolution_options": [
+            "1k",
+            "2k",
+            "4k"
+          ],
+          "quality_options": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "background_transparent_supported": true,
+          "pixel_matrix": {
+            "1:1": {
+              "1k": "1024x1024",
+              "2k": "2048x2048",
+              "4k": "2880x2880"
+            },
+            "16:9": {
+              "1k": "1280x720",
+              "2k": "2048x1152",
+              "4k": "3840x2160"
+            },
+            "9:16": {
+              "1k": "720x1280",
+              "2k": "1152x2048",
+              "4k": "2160x3840"
+            },
+            "4:3": {
+              "1k": "1152x864",
+              "2k": "2304x1728",
+              "4k": "3264x2448"
+            },
+            "3:4": {
+              "1k": "864x1152",
+              "2k": "1728x2304",
+              "4k": "2448x3264"
+            },
+            "3:2": {
+              "1k": "1536x1024",
+              "2k": "2048x1360",
+              "4k": "3504x2336"
+            },
+            "2:3": {
+              "1k": "1024x1536",
+              "2k": "1360x2048",
+              "4k": "2336x3504"
+            },
+            "5:4": {
+              "1k": "1120x896",
+              "2k": "2240x1792",
+              "4k": "3200x2560"
+            },
+            "4:5": {
+              "1k": "896x1120",
+              "2k": "1792x2240",
+              "4k": "2560x3200"
+            },
+            "21:9": {
+              "1k": "1456x624",
+              "2k": "2912x1248",
+              "4k": "3840x1648"
+            },
+            "9:21": {
+              "1k": "624x1456",
+              "2k": "1248x2912",
+              "4k": "1648x3840"
+            },
+            "1:3": {
+              "1k": "688x2048",
+              "2k": "1280x3840"
+            },
+            "3:1": {
+              "1k": "2048x688",
+              "2k": "3840x1280"
+            },
+            "2:1": {
+              "1k": "1536x768",
+              "2k": "3072x1536",
+              "4k": "3840x1920"
+            },
+            "1:2": {
+              "1k": "768x1536",
+              "2k": "1536x3072",
+              "4k": "1920x3840"
+            }
+          },
+          "pixel_matrix_function": "DrawDriver::dakkaGptImageSize",
+          "explicit_pixel_size_bypass_in_driver": true
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "resolution_options": "pinned_migration_declaration_not_live_gateway_enum",
+          "quality_options": "pinned_migration_declaration_not_live_gateway_enum",
+          "background_transparent_supported": "pinned_migration_declaration_not_live_gateway_enum",
+          "pixel_matrix": "pinned_source_requires_deployment_binding",
+          "pixel_matrix_function": "pinned_source_requires_deployment_binding",
+          "explicit_pixel_size_bypass_in_driver": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "current_inherited_openaiyi_configuration",
+        "file_limits_and_complete_mode_conditions",
+        "exact_sku_and_parameter_binding"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 46,
+        "expectations": {
+          "prepare": 1,
+          "observe": 45
+        },
+        "outcomes": {
+          "prepared_and_replayed": 45,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:91",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenaiM",
+        "product_id": 91
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "3a93e6342ee3ca9aaf154094edfccf0543dd88d8138b285ff75a0a67748ef33b",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-94-gpt-image-2.md",
+          "git_blob": "67aad4c583bfcb48f191ebe002c0dbff39482581",
+          "sha256": "bbb2def702a4cb406c1155527c073167a86f5b16357fa0746a8f743a012fae09"
+        },
+        {
+          "path": "server/app/common/command/GptImage2OpenaiMModelParamsMigrate.php",
+          "git_blob": "d76e4c4af7e12c1efa46b3e3647a6d318f9406ba",
+          "sha256": "e012e5d88a9a3f2e1162984db5062ebf1267eafa121413fc1e1f885b321e2c38"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "3a93e6342ee3ca9aaf154094edfccf0543dd88d8138b285ff75a0a67748ef33b",
+        "parameters": {
+          "n": {
+            "type": "integer",
+            "default": "1"
+          },
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "image_size": {
+            "type": "string"
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "1k",
+            "display_options": [
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "auto",
+            "display_options": [
+              "auto",
+              "1:1",
+              "3:2",
+              "2:3",
+              "4:3",
+              "3:4",
+              "5:4",
+              "4:5",
+              "16:9",
+              "9:16",
+              "2:1",
+              "1:2",
+              "3:1",
+              "1:3",
+              "21:9",
+              "9:21"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "reference_parameter": "image_urls",
+          "documented_output_count": 1,
+          "documented_reference_images": 16
+        },
+        "conflicts": [
+          {
+            "kind": "reference_count",
+            "saved": 12,
+            "document": 16,
+            "resolution": "keep_saved_cap_do_not_expand_from_document"
+          }
+        ],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "documented_output_count": "published_document_not_measured",
+          "documented_reference_images": "published_document_not_measured"
+        }
+      },
+      "missing_constraints": [
+        "current_recursive_execution_mapping",
+        "complete_4k_ratio_combinations"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:90",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI",
+        "product_id": 90
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "18744433c2a60ce273472db1b1a8a5baac0ba6015c85328834f64c03150f7b54",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-96-gpt-image-2.md",
+          "git_blob": "f44dd10b04284c23e0267b1b15c64a02ca2a785b",
+          "sha256": "5612d90ffa37ace9804c80b152bda2273c9dd3714f0ce23bfa1caa3c78d6db75"
+        },
+        {
+          "path": "server/app/common/command/OpenAIYIGptImage2Migrate.php",
+          "git_blob": "abca6bb79ac59fdbd000105a3823e301f8f701be",
+          "sha256": "f343c19a57bc1aa24488049c1ca9fb42018a20fef3b626fe1c528d3d2c667e15"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "18744433c2a60ce273472db1b1a8a5baac0ba6015c85328834f64c03150f7b54",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "declared_enum": [
+              "auto"
+            ],
+            "display_options": [
+              "\"auto\""
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "resolution": {
+            "type": "string",
+            "default": "1k",
+            "display_options": [
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "auto",
+            "display_options": [
+              "auto",
+              "1:1",
+              "3:2",
+              "2:3",
+              "4:3",
+              "3:4",
+              "5:4",
+              "4:5",
+              "16:9",
+              "9:16",
+              "2:1",
+              "1:2",
+              "3:1",
+              "1:3",
+              "21:9",
+              "9:21"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "reference_parameter": "image_urls",
+          "resolution_options": [
+            "1k",
+            "2k",
+            "4k"
+          ],
+          "quality_options": [
+            "auto"
+          ]
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "resolution_options": "pinned_migration_declaration_not_live_gateway_enum",
+          "quality_options": "pinned_migration_declaration_not_live_gateway_enum"
+        }
+      },
+      "missing_constraints": [
+        "current_recursive_execution_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "complete_resolution_ratio_conditions"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:89",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2-fast",
+        "channel_code": "openaiD",
+        "product_id": 89
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "63978535c53f00db3657ad24d23c342681ec146f0b88b65d5a8ad50328073748",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-gpt-image-2-fast.md",
+          "git_blob": "2a4f80b502083f2666577a17d0d2cff48db835ed",
+          "sha256": "67e4ac8d5dfafae1519a9a9ecf23b1167c440839b750d77a21f94f2da808737f"
+        },
+        {
+          "path": "server/app/common/command/OpenaiDGptImage2FastMigrate.php",
+          "git_blob": "5ac874d44679228f169f64557ba8f0f795788de9",
+          "sha256": "e2bd935fe71b4e289e89add98ec10f486d3a0c319374e7e628cb08118461de63"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/DrawDriver.php",
+          "git_blob": "23a794eafdecc77ec6f5b86c568b1707bcf0d1c8",
+          "sha256": "c1e0d366674b65ebf48363dfcb99a280a3fbb62ed9f88c06ed5f4e8696cd984e"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "63978535c53f00db3657ad24d23c342681ec146f0b88b65d5a8ad50328073748",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "display_options": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "image_size": {
+            "type": "string",
+            "default": "1k",
+            "display_options": [
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "image_urls": {
+            "type": "array|string"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "auto",
+            "display_options": [
+              "auto",
+              "1:1",
+              "3:2",
+              "2:3",
+              "4:3",
+              "3:4",
+              "5:4",
+              "4:5",
+              "16:9",
+              "9:16",
+              "2:1",
+              "1:2",
+              "3:1",
+              "1:3",
+              "21:9",
+              "9:21"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "reference_parameter": "image_urls",
+          "quality_options": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "documented_prompt_max_characters": 5000,
+          "prompt_limit_enforced_by_generic_driver": false,
+          "pixel_matrix": {
+            "1:1": {
+              "1k": "1024x1024",
+              "2k": "2048x2048",
+              "4k": "2880x2880"
+            },
+            "3:2": {
+              "1k": "1536x1024",
+              "2k": "2048x1360",
+              "4k": "3520x2336"
+            },
+            "2:3": {
+              "1k": "1024x1536",
+              "2k": "1360x2048",
+              "4k": "2336x3520"
+            },
+            "4:3": {
+              "1k": "1024x768",
+              "2k": "2048x1536",
+              "4k": "3312x2480"
+            },
+            "3:4": {
+              "1k": "768x1024",
+              "2k": "1536x2048",
+              "4k": "2480x3312"
+            },
+            "5:4": {
+              "1k": "1280x1024",
+              "2k": "2560x2048",
+              "4k": "3216x2576"
+            },
+            "4:5": {
+              "1k": "1024x1280",
+              "2k": "2048x2560",
+              "4k": "2576x3216"
+            },
+            "16:9": {
+              "1k": "1536x864",
+              "2k": "2048x1152",
+              "4k": "3840x2160"
+            },
+            "9:16": {
+              "1k": "864x1536",
+              "2k": "1152x2048",
+              "4k": "2160x3840"
+            },
+            "2:1": {
+              "1k": "2048x1024",
+              "2k": "2688x1344",
+              "4k": "3840x1920"
+            },
+            "1:2": {
+              "1k": "1024x2048",
+              "2k": "1344x2688",
+              "4k": "1920x3840"
+            },
+            "3:1": {
+              "1k": "2016x672",
+              "2k": "3072x1024",
+              "4k": "3840x1280"
+            },
+            "1:3": {
+              "1k": "672x2016",
+              "2k": "1024x3072",
+              "4k": "1280x3840"
+            },
+            "21:9": {
+              "1k": "2016x864",
+              "2k": "2688x1152",
+              "4k": "3840x1648"
+            },
+            "9:21": {
+              "1k": "864x2016",
+              "2k": "1152x2688",
+              "4k": "1648x3840"
+            }
+          },
+          "pixel_matrix_function": "DrawDriver::gptImage2FastSize",
+          "explicit_pixel_size_bypass_in_driver": true
+        },
+        "conflicts": [
+          {
+            "kind": "document_code_matrix",
+            "resolution": "1k",
+            "ratio": "3:1",
+            "document": "1881x836",
+            "driver": "2016x672"
+          },
+          {
+            "kind": "document_code_matrix",
+            "resolution": "1k",
+            "ratio": "1:3",
+            "document": "887x1774",
+            "driver": "672x2016"
+          }
+        ],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "quality_options": "pinned_migration_declaration_not_live_gateway_enum",
+          "documented_prompt_max_characters": "published_document_not_measured",
+          "prompt_limit_enforced_by_generic_driver": "pinned_source_requires_deployment_binding",
+          "pixel_matrix": "pinned_source_requires_deployment_binding",
+          "pixel_matrix_function": "pinned_source_requires_deployment_binding",
+          "explicit_pixel_size_bypass_in_driver": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "document_code_1k_matrix_conflict_recorded",
+        "file_limits_and_complete_mode_conditions",
+        "documented_prompt_limit_not_enforced_by_generic_driver"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 48,
+        "expectations": {
+          "prepare": 1,
+          "observe": 47
+        },
+        "outcomes": {
+          "prepared_and_replayed": 47,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:88",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2-pro",
+        "channel_code": "OpenaiM",
+        "product_id": 88
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "edc2f4c06058e3175c1b9e3b2ae5d74ec73506f7034c924d64b2aeb2a6b621fd",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-gpt-image-2-pro.md",
+          "git_blob": "c3b07e7e3338f0f4655fdd32e50d1b4d9686d3f0",
+          "sha256": "c78fbd0591ae5a6bf2977c186ba21d349c4095e8a92e20e57107ef228eac2dd8"
+        },
+        {
+          "path": "server/app/common/command/OpenaiMGptImage2ProMigrate.php",
+          "git_blob": "7e18ae4b24bb24f33a7c5f4e5d006c496e40e3ce",
+          "sha256": "47b5136af959d3fe063a513c3db6e0164154c064c11fedc7b7ffa54649946062"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "edc2f4c06058e3175c1b9e3b2ae5d74ec73506f7034c924d64b2aeb2a6b621fd",
+        "parameters": {
+          "n": {
+            "type": "integer",
+            "default": "1"
+          },
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "mask_url": {
+            "type": "string"
+          },
+          "image_size": {
+            "type": "string",
+            "default": "1k",
+            "display_options": [
+              "1k",
+              "2k",
+              "4k"
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "auto",
+            "display_options": [
+              "auto",
+              "1:1",
+              "3:2",
+              "2:3",
+              "4:3",
+              "3:4",
+              "5:4",
+              "4:5",
+              "16:9",
+              "9:16",
+              "2:1",
+              "1:2",
+              "3:1",
+              "1:3",
+              "21:9",
+              "9:21"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 12,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "reference_parameter": "image_urls",
+          "documented_output_count": 1,
+          "documented_reference_images": 16,
+          "mask_parameter": "mask_url"
+        },
+        "conflicts": [
+          {
+            "kind": "reference_count",
+            "saved": 12,
+            "document": 16,
+            "resolution": "keep_saved_cap_do_not_expand_from_document"
+          }
+        ],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "reference_parameter": "pinned_source_requires_deployment_binding",
+          "documented_output_count": "published_document_not_measured",
+          "documented_reference_images": "published_document_not_measured",
+          "mask_parameter": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "mask_reference_and_dimension_conditions",
+        "current_execution_mapping_and_sku_binding"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:86",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0",
+        "channel_code": "dashscope_compatible",
+        "product_id": 86
+      },
+      "status": "source_candidate_ready_not_activated",
+      "candidate_ready": true,
+      "declaration_fingerprint": "2ab8773978db5da1cd8b999c3d631a651b221fde3c7b050944142ba1fa10a095",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-qwen-image-3.0.md",
+          "git_blob": "6ea074d51e781fce6f90b4939adbdb2325a070cf",
+          "sha256": "82d81b65a9c1fc422cc3171be20f8c669b68bf556d043adc6e6a808fc6cda78d"
+        },
+        {
+          "path": "server/app/common/command/BailianWanQwenMigrate.php",
+          "git_blob": "ffe593947c421cb52703d1ae208170b2e33d01c2",
+          "sha256": "44cb5337cdc2044b25a85a7cc23410c12cd9beca8ae613060995bfbe5df2936a"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/DashScopeQwenImageDriver.php",
+          "git_blob": "ee33e5edbef44ed2eef3e639144a44c04d651613",
+          "sha256": "28e85a51886302493e973a7437ff2df91df7069e051ce8d216128b38c1a1f302"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "2ab8773978db5da1cd8b999c3d631a651b221fde3c7b050944142ba1fa10a095",
+        "parameters": {
+          "input": {
+            "type": "object",
+            "required": "1"
+          },
+          "parameters": {
+            "type": "object",
+            "required": "1"
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 3,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "gateway_profiles": [
+            "text_to_image",
+            "image_to_image"
+          ],
+          "output_count": 1,
+          "user_messages": 1,
+          "text_items": 1,
+          "maximum_images": 3,
+          "pixel_product": {
+            "minimum": 262144,
+            "maximum": 4194304
+          },
+          "aspect_ratio_range": [
+            0.125,
+            8
+          ],
+          "agent_with_images": false
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "gateway_profiles": "pinned_source_requires_deployment_binding",
+          "output_count": "pinned_source_requires_deployment_binding",
+          "user_messages": "pinned_source_requires_deployment_binding",
+          "text_items": "pinned_source_requires_deployment_binding",
+          "maximum_images": "pinned_source_requires_deployment_binding",
+          "pixel_product": "pinned_source_requires_deployment_binding",
+          "aspect_ratio_range": "pinned_source_requires_deployment_binding",
+          "agent_with_images": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [],
+      "external_verification": [
+        "deployed_revision_and_current_nested_or_flat_configuration",
+        "provider_media_facts"
+      ],
+      "offline_runtime_dependencies_verified": true,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 2,
+          "reject": 1
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_image_model:87",
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0-pro",
+        "channel_code": "dashscope_compatible",
+        "product_id": 87
+      },
+      "status": "source_candidate_ready_not_activated",
+      "candidate_ready": true,
+      "declaration_fingerprint": "2ab8773978db5da1cd8b999c3d631a651b221fde3c7b050944142ba1fa10a095",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-qwen-image-3.0-pro.md",
+          "git_blob": "96a273abca903a16859980b72e5c43180530b05d",
+          "sha256": "747ba1ce06fc00d85592e8c0daa7df863c4fb8d37e60c59f39ed3324fad3d48f"
+        },
+        {
+          "path": "server/app/common/command/BailianWanQwenMigrate.php",
+          "git_blob": "ffe593947c421cb52703d1ae208170b2e33d01c2",
+          "sha256": "44cb5337cdc2044b25a85a7cc23410c12cd9beca8ae613060995bfbe5df2936a"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/DashScopeQwenImageDriver.php",
+          "git_blob": "ee33e5edbef44ed2eef3e639144a44c04d651613",
+          "sha256": "28e85a51886302493e973a7437ff2df91df7069e051ce8d216128b38c1a1f302"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "2ab8773978db5da1cd8b999c3d631a651b221fde3c7b050944142ba1fa10a095",
+        "parameters": {
+          "input": {
+            "type": "object",
+            "required": "1"
+          },
+          "parameters": {
+            "type": "object",
+            "required": "1"
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 3,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "gateway_profiles": [
+            "text_to_image",
+            "image_to_image"
+          ],
+          "output_count": 1,
+          "user_messages": 1,
+          "text_items": 1,
+          "maximum_images": 3,
+          "pixel_product": {
+            "minimum": 262144,
+            "maximum": 4194304
+          },
+          "aspect_ratio_range": [
+            0.125,
+            8
+          ],
+          "agent_with_images": false
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "gateway_profiles": "pinned_source_requires_deployment_binding",
+          "output_count": "pinned_source_requires_deployment_binding",
+          "user_messages": "pinned_source_requires_deployment_binding",
+          "text_items": "pinned_source_requires_deployment_binding",
+          "maximum_images": "pinned_source_requires_deployment_binding",
+          "pixel_product": "pinned_source_requires_deployment_binding",
+          "aspect_ratio_range": "pinned_source_requires_deployment_binding",
+          "agent_with_images": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [],
+      "external_verification": [
+        "deployed_revision_and_current_nested_or_flat_configuration",
+        "provider_media_facts"
+      ],
+      "offline_runtime_dependencies_verified": true,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 2,
+          "reject": 1
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_video_model:235",
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "q4-preview-video",
+        "channel_code": "q4_video",
+        "product_id": 235
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "982ce630dfdac9864196810d0c17d9f832b1488652de53abb4e17a6ef164c86f",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-q4-preview-video.md",
+          "git_blob": "b9b3b340115c9c02019352ea2a732c57a04ac55a",
+          "sha256": "f680fa9cd390368012ed880547351f89468cb523453554ab8b4b56c39ae96d0f"
+        },
+        {
+          "path": "server/public/install/db/ai_platform_migration_vidu_q4.sql",
+          "git_blob": "898c908d1a8e8d58b4e0f2e4b8e71d0d93dbd8ba",
+          "sha256": "e06535bdbf25148338bae768b92ba0425ea49e15567814a023274ffc5c6aa9be"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/ViduQ4VideoDriver.php",
+          "git_blob": "623eb3ce8e9090e2087b02c1f389d1d559f0d69d",
+          "sha256": "ccf4cd3f27fe5d18c04fc6538b7dca89b06a1c6550e7fb44d2e34d15991a99de"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "982ce630dfdac9864196810d0c17d9f832b1488652de53abb4e17a6ef164c86f",
+        "parameters": {
+          "images": {
+            "type": "array",
+            "required": true,
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "duration": {
+            "type": "integer",
+            "default": 5,
+            "declared_enum": [
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "default": "720p",
+            "declared_enum": [
+              "540p",
+              "720p",
+              "1080p",
+              "2K",
+              "4K"
+            ]
+          },
+          "seed": {
+            "type": "integer",
+            "default": 0,
+            "minimum": 0
+          },
+          "audio": {
+            "type": "boolean",
+            "default": true
+          },
+          "model": {
+            "type": "string",
+            "required": true,
+            "declared_enum": [
+              "q4-preview-video"
+            ]
+          },
+          "is_rec": {
+            "type": "boolean",
+            "default": true
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "wm_url": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "string",
+            "maxLength": 1048576
+          },
+          "meta_data": {
+            "type": "string"
+          },
+          "watermark": {
+            "type": "boolean",
+            "default": true
+          },
+          "wm_position": {
+            "type": "integer",
+            "default": 3,
+            "declared_enum": [
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          "callback_url": {
+            "type": "string"
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 1,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "exact_images": 1,
+          "strict_integer_duration": {
+            "minimum": 3,
+            "maximum": 16,
+            "default": 5
+          },
+          "resolutions": [
+            "540p",
+            "720p",
+            "1080p",
+            "2K",
+            "4K"
+          ],
+          "strict_boolean_fields": [
+            "audio",
+            "is_rec",
+            "watermark"
+          ],
+          "request_body_bytes_exclusive_maximum": 20971520,
+          "requires_verified_current_upstream_model": true
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "exact_images": "pinned_source_requires_deployment_binding",
+          "strict_integer_duration": "pinned_source_requires_deployment_binding",
+          "resolutions": "pinned_source_requires_deployment_binding",
+          "strict_boolean_fields": "pinned_source_requires_deployment_binding",
+          "request_body_bytes_exclusive_maximum": "pinned_source_requires_deployment_binding",
+          "requires_verified_current_upstream_model": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "verified_current_upstream_model_required_for_json_body_limit"
+      ],
+      "external_verification": [
+        "deployed_driver_and_current_upstream_model",
+        "provider_image_facts"
+      ],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 2,
+          "rejected": 1
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_video_model:98",
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "product_id": 98
+      },
+      "status": "source_candidate_ready_not_activated",
+      "candidate_ready": true,
+      "declaration_fingerprint": "bb59d0da6bcc4155568002e53459b2dbff87e3920c0d34f937a25e25445ad0f5",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-h3-video.md",
+          "git_blob": "c24b3ee5af5307025bbb4cfe17c16da1c0b5f9e8",
+          "sha256": "7b572aeaea1007bcb262a37d6f0a0a8d680c56396407c832740484ff312256f8"
+        },
+        {
+          "path": "server/app/common/command/MinimaxH3Migrate.php",
+          "git_blob": "96c08af0f93a67e5b624cb145ecebc478eff35b5",
+          "sha256": "0ee4373ded0f8fa8e5ac864037c82651509ea5c2d934c1f8cef25fe84d13594d"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/VideoTaskDriver.php",
+          "git_blob": "8ddb619d3ae8568556ac7f7ea6ebd90542e54129",
+          "sha256": "6f67180f10c3fedd8464d8fbb1d05e66d27cedfaa74db575bd01ff9e3e2a52e3"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "bb59d0da6bcc4155568002e53459b2dbff87e3920c0d34f937a25e25445ad0f5",
+        "parameters": {
+          "model": {
+            "type": "string",
+            "required": "1",
+            "declared_enum": [
+              "h3-video"
+            ]
+          },
+          "ratio": {
+            "type": "string",
+            "required": "1",
+            "default": "16:9",
+            "declared_enum": [
+              "adaptive",
+              "21:9",
+              "16:9",
+              "4:3",
+              "1:1",
+              "3:4",
+              "9:16"
+            ]
+          },
+          "content": {
+            "type": "array",
+            "required": "1",
+            "items": {
+              "type": "object",
+              "properties": []
+            }
+          },
+          "duration": {
+            "type": "integer",
+            "required": "1",
+            "default": "4",
+            "declared_enum": [
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15"
+            ]
+          },
+          "resolution": {
+            "type": "string",
+            "required": "1",
+            "default": "2K",
+            "declared_enum": [
+              "768P",
+              "2K"
+            ]
+          },
+          "callback_url": {
+            "type": "string"
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 9,
+          "max_reference_videos": 3,
+          "max_reference_audios": 3
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "gateway_media_limits": {
+            "first_frame": 1,
+            "last_frame": 1,
+            "reference_image": 9,
+            "reference_video": 3,
+            "reference_audio": 3
+          },
+          "gateway_duration": {
+            "minimum": 4,
+            "maximum": 15
+          },
+          "published_resolution_intersection": [
+            "768P",
+            "2K"
+          ],
+          "implicit_image_role": "first_frame",
+          "tail_requires_first": true,
+          "frames_with_references": false,
+          "audio_requires_visual_reference": true,
+          "documented_media_duration_not_measured": true
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "gateway_media_limits": "pinned_source_requires_deployment_binding",
+          "gateway_duration": "pinned_source_requires_deployment_binding",
+          "published_resolution_intersection": "pinned_source_requires_deployment_binding",
+          "implicit_image_role": "pinned_source_requires_deployment_binding",
+          "tail_requires_first": "pinned_source_requires_deployment_binding",
+          "frames_with_references": "pinned_source_requires_deployment_binding",
+          "audio_requires_visual_reference": "pinned_source_requires_deployment_binding",
+          "documented_media_duration_not_measured": "published_document_not_measured"
+        }
+      },
+      "missing_constraints": [],
+      "external_verification": [
+        "deployed_content_validation_and_resolution_intersection",
+        "documented_reference_duration_requires_measured_media_facts",
+        "frame_ratio_normalization_not_in_gateway_validator"
+      ],
+      "offline_runtime_dependencies_verified": true,
+      "preparation": {
+        "cases": 7,
+        "expectations": {
+          "prepare": 4,
+          "reject": 3
+        },
+        "outcomes": {
+          "prepared_and_replayed": 4,
+          "rejected": 3
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_video_model:97",
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "grok-video",
+        "channel_code": "xAIQ",
+        "product_id": 97
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "53c493ac7c237090c236e85d4b4e4d145bce77ca31e0a37184f9bcdeb3c9a8bb",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-71-grok-video.md",
+          "git_blob": "d2294c8afe2a59463a41cfa5f2dcefd61a9d18ff",
+          "sha256": "3027292179c7d471fbb7946d4bad2139b9156b593e33cc556f1c30787fcddafa"
+        },
+        {
+          "path": "server/app/common/command/GrokVideoMigrate.php",
+          "git_blob": "11ef37cfa3bc26dceaf2c078516379713728651b",
+          "sha256": "5fbc79da0b9fd7c1c9eb140a91d140616c3c80b2316eb70023a7d0ae998ae657"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "53c493ac7c237090c236e85d4b4e4d145bce77ca31e0a37184f9bcdeb3c9a8bb",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "display_options": [
+              "720p"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "required": "1",
+            "default": "6",
+            "display_options": [
+              "6",
+              "10",
+              "15",
+              "20",
+              "25",
+              "30"
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "display_options": [
+              "2:3",
+              "3:2",
+              "1:1",
+              "9:16",
+              "16:9"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 7,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "documented_durations": [
+            6,
+            10,
+            15,
+            20,
+            25,
+            30
+          ],
+          "documented_resolutions": [
+            "720p"
+          ],
+          "documented_ratios": [
+            "2:3",
+            "3:2",
+            "1:1",
+            "9:16",
+            "16:9"
+          ],
+          "documented_reference_images": 7
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "documented_durations": "published_document_not_measured",
+          "documented_resolutions": "published_document_not_measured",
+          "documented_ratios": "published_document_not_measured",
+          "documented_reference_images": "published_document_not_measured"
+        }
+      },
+      "missing_constraints": [
+        "exact_xaiq_execution_mapping_not_xai_grok_video",
+        "complete_mode_and_reference_conditions"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 3
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_video_model:96",
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "veo3.1-fast",
+        "channel_code": "xAIQ",
+        "product_id": 96
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "288abf65a6c86ce7fd5c1b7f01ba8c50675e2cedfc87620121173ca90c7aca16",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-72-veo3.1-fast.md",
+          "git_blob": "5194b1688717b365b6a5aead5f64d695460e8956",
+          "sha256": "e3e6eab891edf555fd328ddea9b2dd0f5d8bc2c4dbf858f8807701eb62a0b1a5"
+        },
+        {
+          "path": "server/app/common/command/VeoVideoMigrate.php",
+          "git_blob": "5b1cd08bd7ace7245d2b751ae957d37db19cc10f",
+          "sha256": "259c0b9ad68cdeca7de89cd959ef214bc5d219efb13eeef785e827b87aa4d60b"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "288abf65a6c86ce7fd5c1b7f01ba8c50675e2cedfc87620121173ca90c7aca16",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "required": "1",
+            "default": "720p",
+            "display_options": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "default": "8",
+            "display_options": [
+              "8"
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "16:9",
+            "display_options": [
+              "16:9",
+              "9:16"
+            ]
+          },
+          "generation_type": {
+            "type": "string",
+            "default": "TEXT",
+            "display_options": [
+              "TEXT",
+              "FIRST&LAST",
+              "REFERENCE"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 3,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "documented_durations": [
+            8
+          ],
+          "documented_resolutions": [
+            "720p",
+            "1080p",
+            "4k"
+          ],
+          "documented_ratios": [
+            "16:9",
+            "9:16"
+          ],
+          "documented_modes": {
+            "TEXT": {
+              "image_conditions": "example_contains_images_condition_unresolved"
+            },
+            "FIRST&LAST": {
+              "minimum_images": 1,
+              "maximum_images": 2
+            },
+            "REFERENCE": {
+              "maximum_images": 3,
+              "ratios": [
+                "16:9"
+              ]
+            }
+          },
+          "sku_identity": "veo3.1-fast"
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "documented_durations": "published_document_not_measured",
+          "documented_resolutions": "published_document_not_measured",
+          "documented_ratios": "published_document_not_measured",
+          "documented_modes": "published_document_not_measured",
+          "sku_identity": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "exact_xaiq_execution_mapping",
+        "text_with_images_and_mode_exclusivity",
+        "exact_quality_sku_binding"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 3
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_video_model:95",
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "veo3.1-pro",
+        "channel_code": "xAIQ",
+        "product_id": 95
+      },
+      "status": "waiting_authoritative_constraints",
+      "candidate_ready": false,
+      "declaration_fingerprint": "288abf65a6c86ce7fd5c1b7f01ba8c50675e2cedfc87620121173ca90c7aca16",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-73-veo3.1-pro.md",
+          "git_blob": "3985bdf12eedc252a8816569c47357e6aaaf68b9",
+          "sha256": "40cc160370acef36cdb921bab996b43478c2f47ba8ddb24a2a518e1063d420dd"
+        },
+        {
+          "path": "server/app/common/command/VeoVideoMigrate.php",
+          "git_blob": "5b1cd08bd7ace7245d2b751ae957d37db19cc10f",
+          "sha256": "259c0b9ad68cdeca7de89cd959ef214bc5d219efb13eeef785e827b87aa4d60b"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "288abf65a6c86ce7fd5c1b7f01ba8c50675e2cedfc87620121173ca90c7aca16",
+        "parameters": {
+          "prompt": {
+            "type": "string",
+            "required": "1"
+          },
+          "quality": {
+            "type": "string",
+            "required": "1",
+            "default": "720p",
+            "display_options": [
+              "720p",
+              "1080p",
+              "4k"
+            ]
+          },
+          "duration": {
+            "type": "integer",
+            "default": "8",
+            "display_options": [
+              "8"
+            ]
+          },
+          "image_urls": {
+            "type": "array"
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "default": "16:9",
+            "display_options": [
+              "16:9",
+              "9:16"
+            ]
+          },
+          "generation_type": {
+            "type": "string",
+            "default": "TEXT",
+            "display_options": [
+              "TEXT",
+              "FIRST&LAST",
+              "REFERENCE"
+            ]
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 3,
+          "max_reference_videos": 0,
+          "max_reference_audios": 0
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "documented_durations": [
+            8
+          ],
+          "documented_resolutions": [
+            "720p",
+            "1080p",
+            "4k"
+          ],
+          "documented_ratios": [
+            "16:9",
+            "9:16"
+          ],
+          "documented_modes": {
+            "TEXT": {
+              "image_conditions": "example_contains_images_condition_unresolved"
+            },
+            "FIRST&LAST": {
+              "minimum_images": 1,
+              "maximum_images": 2
+            },
+            "REFERENCE": {
+              "maximum_images": 3,
+              "ratios": [
+                "16:9"
+              ]
+            }
+          },
+          "sku_identity": "veo3.1-pro"
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "documented_durations": "published_document_not_measured",
+          "documented_resolutions": "published_document_not_measured",
+          "documented_ratios": "published_document_not_measured",
+          "documented_modes": "published_document_not_measured",
+          "sku_identity": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [
+        "exact_xaiq_execution_mapping",
+        "text_with_images_and_mode_exclusivity",
+        "pro_quality_sku_binding_not_fast"
+      ],
+      "external_verification": [],
+      "offline_runtime_dependencies_verified": false,
+      "preparation": {
+        "cases": 3,
+        "expectations": {
+          "prepare": 1,
+          "observe": 2
+        },
+        "outcomes": {
+          "prepared_and_replayed": 3
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    },
+    {
+      "identity": {
+        "id": "market_video_model:94",
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "product_id": 94
+      },
+      "status": "source_candidate_ready_not_activated",
+      "candidate_ready": true,
+      "declaration_fingerprint": "ca72171d7c1c0ced67ed205a03b8bfc58176ae916246b03cc130ce9700b613d2",
+      "sources": [
+        {
+          "path": "server/app/api/controller/v1/TaskController.php",
+          "git_blob": "30164dd762c4708f18fb0b501423fb156080505d",
+          "sha256": "f8e506011deb35027b7149f6bcff5ff600e5ba5ccde4e42d645bf616bb61b280"
+        },
+        {
+          "path": "server/app/common/service/ai/ModelRouterService.php",
+          "git_blob": "06aafdcfb5fe8f930adec9c39b8d9f7c5a52d4a0",
+          "sha256": "0ff29d9a82510bbcd1a1c9b13be81ec32eea3c894f08f40b241f72d16166f447"
+        },
+        {
+          "path": "server/app/common/service/ai/ParamsSchemaValidateService.php",
+          "git_blob": "989d756986f9336c06b3f5bdb5b53cfa9c7c81a6",
+          "sha256": "88c5d93f115ebf81c2e341561fee263c6d30df7b281bd5dcd89783553e3aa243"
+        },
+        {
+          "path": "api-doc/model-api/model-wan3.0-video.md",
+          "git_blob": "01f66073f49df4b9d762f85ff66c72f8bec91d2c",
+          "sha256": "bcfc04625943d1c96b566ad4fd921520eb6ba2d634f6462c92261d9ba5aefd6f"
+        },
+        {
+          "path": "server/app/common/command/BailianWanQwenMigrate.php",
+          "git_blob": "ffe593947c421cb52703d1ae208170b2e33d01c2",
+          "sha256": "44cb5337cdc2044b25a85a7cc23410c12cd9beca8ae613060995bfbe5df2936a"
+        },
+        {
+          "path": "server/app/common/service/ai/driver/VideoTaskDriver.php",
+          "git_blob": "8ddb619d3ae8568556ac7f7ea6ebd90542e54129",
+          "sha256": "6f67180f10c3fedd8464d8fbb1d05e66d27cedfaa74db575bd01ff9e3e2a52e3"
+        }
+      ],
+      "facts": {
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "raw_declaration_fingerprint": "ca72171d7c1c0ced67ed205a03b8bfc58176ae916246b03cc130ce9700b613d2",
+        "parameters": {
+          "input": {
+            "type": "object",
+            "required": "1"
+          },
+          "parameters": {
+            "type": "object",
+            "required": "1"
+          }
+        },
+        "parameter_origin": "saved_public_declaration",
+        "options_policy": "display_options_are_not_gateway_enums",
+        "saved_public_capabilities": {
+          "max_reference_images": 10,
+          "max_reference_videos": 5,
+          "max_reference_audios": 5
+        },
+        "capability_origin": "saved_public_declaration_not_live_provider_measurement",
+        "source_constraints": {
+          "gateway_media_limits": {
+            "first_frame": 1,
+            "last_frame": 1,
+            "reference_image": 10,
+            "reference_video": 5,
+            "reference_audio": 5,
+            "file": 1,
+            "link": 1
+          },
+          "gateway_duration": {
+            "automatic": -1,
+            "minimum_with_reference_video": 1,
+            "minimum_without_reference_video": 2,
+            "maximum": 30
+          },
+          "file_with_link": false,
+          "frames_with_references": false,
+          "tail_only": true,
+          "documented_media_duration_not_measured": true,
+          "automatic_duration_settlement_upper_bound": null
+        },
+        "conflicts": [],
+        "deployment_verified": false,
+        "source_constraint_layers": {
+          "gateway_media_limits": "pinned_source_requires_deployment_binding",
+          "gateway_duration": "pinned_source_requires_deployment_binding",
+          "file_with_link": "pinned_source_requires_deployment_binding",
+          "frames_with_references": "pinned_source_requires_deployment_binding",
+          "tail_only": "pinned_source_requires_deployment_binding",
+          "documented_media_duration_not_measured": "published_document_not_measured",
+          "automatic_duration_settlement_upper_bound": "pinned_source_requires_deployment_binding"
+        }
+      },
+      "missing_constraints": [],
+      "external_verification": [
+        "deployed_dashscope_task_configuration",
+        "documented_reference_duration_requires_measured_media_facts",
+        "automatic_duration_settlement_bound"
+      ],
+      "offline_runtime_dependencies_verified": true,
+      "preparation": {
+        "cases": 9,
+        "expectations": {
+          "prepare": 5,
+          "reject": 4
+        },
+        "outcomes": {
+          "prepared_and_replayed": 5,
+          "rejected": 4
+        },
+        "same_snapshot_replay": true,
+        "frozen_unchanged": true,
+        "scope": "Candidate modes have explicit prepare/reject expectations. Other models only observe saved legacy envelopes; matrix observations do not execute upstream mappings or certify limits."
+      }
+    }
+  ],
+  "meter_skus": [
+    {
+      "id": "meter_sku:275:380",
+      "product_id": 275,
+      "sku_id": 380,
+      "resource_type": "model",
+      "model_code": "official-33-c0b38c6fcb29f739b0",
+      "channel_code": "official",
+      "source_model": "qwen/image-edit",
+      "material_mode": "image_to_image",
+      "meter_basis": "megapixel",
+      "request_count_field": "num_images",
+      "request_count_values": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "request_default_count": 1,
+      "maximum_request_pixels_per_image": 1048576,
+      "maximum_billable_pixels_per_image": null,
+      "maximum_billable_images": null,
+      "local_metadata_binding": "saved_declaration_verified_unactivated",
+      "status": "waiting_supplier_output_guarantee",
+      "activation_authorized": false,
+      "saved_binding": {
+        "captured_at": "2026-11-01T15:58:48+08:00",
+        "source": "coordinator local read-only snapshot v2; not an upstream deployment attestation",
+        "product": {
+          "id": 275,
+          "resource_type": "model",
+          "model_type": "image",
+          "upstream_model_code": "official-33-c0b38c6fcb29f739b0",
+          "upstream_channel_code": "official"
+        },
+        "effective_protocol": "native_v1",
+        "declaration_fingerprint": "aeaf0bb953f357c919dfc9461152ff0dba7e1bb07f09c43c8781810c5a8ceb72",
+        "original_saved_declaration_fingerprint": "aeaf0bb953f357c919dfc9461152ff0dba7e1bb07f09c43c8781810c5a8ceb72",
+        "native_mode_codes": [
+          ""
+        ],
+        "selected_native_mode": "",
+        "metadata": {
+          "params_schema": {
+            "seed": {
+              "type": "integer",
+              "required": false,
+              "description": "随机种子值。相同的种子值、提示词和模型版本，每次生成的图像结果完全一致。"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "把天空改成温暖的日落。",
+              "examples": [
+                "把天空改成温暖的日落。"
+              ],
+              "required": true,
+              "maxLength": 2000,
+              "description": "用于图像生成的文本提示词（最大长度：2000 字符）"
+            },
+            "image_url": {
+              "type": "string",
+              "example": "<UPLOADED_FILE_URL>",
+              "examples": [
+                "<UPLOADED_FILE_URL>"
+              ],
+              "required": true,
+              "description": "待编辑图像的 URL。（为上传后的文件 URL，非文件内容；支持的类型：image/jpeg、image/png、image/webp；最大文件大小：10.0MB）"
+            },
+            "image_size": {
+              "enum": [
+                "square",
+                "square_hd",
+                "portrait_4_3",
+                "portrait_16_9",
+                "landscape_4_3",
+                "landscape_16_9"
+              ],
+              "type": "string",
+              "default": "landscape_4_3",
+              "examples": [
+                "landscape_4_3"
+              ],
+              "required": false,
+              "description": "生成图像的尺寸规格。默认值：landscape_4_3"
+            },
+            "num_images": {
+              "enum": [
+                "1",
+                "2",
+                "3",
+                "4"
+              ],
+              "type": "string",
+              "required": false,
+              "description": "生成图像数量"
+            },
+            "acceleration": {
+              "enum": [
+                "none",
+                "regular",
+                "high"
+              ],
+              "type": "string",
+              "default": "none",
+              "examples": [
+                "none"
+              ],
+              "required": false,
+              "description": "图像生成的加速级别。可选值：'none'（无加速）、'regular'（常规加速）、'high'（高速加速）。加速级别越高，生成速度越快。'regular' 模式在速度与画质间取得平衡。默认值：\"none\""
+            },
+            "nsfw_checker": {
+              "type": "boolean",
+              "required": false,
+              "description": "默认 false。为 false 时不额外进行内容过滤，结果由模型直接返回。"
+            },
+            "output_format": {
+              "enum": [
+                "jpeg",
+                "png"
+              ],
+              "type": "string",
+              "default": "png",
+              "examples": [
+                "png"
+              ],
+              "required": false,
+              "description": "生成图像的输出格式。默认值：\"png\""
+            },
+            "guidance_scale": {
+              "type": "number",
+              "default": 4,
+              "maximum": 20,
+              "minimum": 0,
+              "examples": [
+                4
+              ],
+              "required": false,
+              "description": "CFG（无分类器引导）系数，用于控制模型生成图像时贴合提示词的程度。默认值：4（最小值：0，最大值：20，步长：0.1）"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "examples": [
+                "模糊、丑陋"
+              ],
+              "required": false,
+              "maxLength": 500,
+              "description": "反向提示词，用于规避生成指定内容。默认值：\" \"（最大长度：500 字符）"
+            },
+            "num_inference_steps": {
+              "type": "number",
+              "default": 25,
+              "maximum": 49,
+              "minimum": 2,
+              "examples": [
+                25
+              ],
+              "required": false,
+              "description": "推理步数。默认值：30（最小值：2，最大值：49，步长：1）"
+            },
+            "enable_safety_checker": {
+              "type": "boolean",
+              "examples": [
+                true
+              ],
+              "required": false,
+              "description": "安全校验开关。若设置为 true，将启用内容安全校验。默认值：true（布尔值：true/false）"
+            }
+          },
+          "default_params": [],
+          "capabilities": {
+            "supports_vision": true,
+            "supports_reasoning": false,
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0
+          },
+          "max_reference_images": 1,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0,
+          "upstream_metadata": {
+            "model_code": "qwen-image-edit",
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0,
+            "channel_code": "official",
+            "params_schema": {
+              "seed": {
+                "type": "integer",
+                "required": false,
+                "description": "随机种子值。相同的种子值、提示词和模型版本，每次生成的图像结果完全一致。"
+              },
+              "prompt": {
+                "type": "string",
+                "example": "把天空改成温暖的日落。",
+                "examples": [
+                  "把天空改成温暖的日落。"
+                ],
+                "required": true,
+                "maxLength": 2000,
+                "description": "用于图像生成的文本提示词（最大长度：2000 字符）"
+              },
+              "image_url": {
+                "type": "string",
+                "example": "<UPLOADED_FILE_URL>",
+                "examples": [
+                  "<UPLOADED_FILE_URL>"
+                ],
+                "required": true,
+                "description": "待编辑图像的 URL。（为上传后的文件 URL，非文件内容；支持的类型：image/jpeg、image/png、image/webp；最大文件大小：10.0MB）"
+              },
+              "image_size": {
+                "enum": [
+                  "square",
+                  "square_hd",
+                  "portrait_4_3",
+                  "portrait_16_9",
+                  "landscape_4_3",
+                  "landscape_16_9"
+                ],
+                "type": "string",
+                "default": "landscape_4_3",
+                "examples": [
+                  "landscape_4_3"
+                ],
+                "required": false,
+                "description": "生成图像的尺寸规格。默认值：landscape_4_3"
+              },
+              "num_images": {
+                "enum": [
+                  "1",
+                  "2",
+                  "3",
+                  "4"
+                ],
+                "type": "string",
+                "required": false,
+                "description": "生成图像数量"
+              },
+              "acceleration": {
+                "enum": [
+                  "none",
+                  "regular",
+                  "high"
+                ],
+                "type": "string",
+                "default": "none",
+                "examples": [
+                  "none"
+                ],
+                "required": false,
+                "description": "图像生成的加速级别。可选值：'none'（无加速）、'regular'（常规加速）、'high'（高速加速）。加速级别越高，生成速度越快。'regular' 模式在速度与画质间取得平衡。默认值：\"none\""
+              },
+              "nsfw_checker": {
+                "type": "boolean",
+                "required": false,
+                "description": "默认 false。为 false 时不额外进行内容过滤，结果由模型直接返回。"
+              },
+              "output_format": {
+                "enum": [
+                  "jpeg",
+                  "png"
+                ],
+                "type": "string",
+                "default": "png",
+                "examples": [
+                  "png"
+                ],
+                "required": false,
+                "description": "生成图像的输出格式。默认值：\"png\""
+              },
+              "guidance_scale": {
+                "type": "number",
+                "default": 4,
+                "maximum": 20,
+                "minimum": 0,
+                "examples": [
+                  4
+                ],
+                "required": false,
+                "description": "CFG（无分类器引导）系数，用于控制模型生成图像时贴合提示词的程度。默认值：4（最小值：0，最大值：20，步长：0.1）"
+              },
+              "negative_prompt": {
+                "type": "string",
+                "examples": [
+                  "模糊、丑陋"
+                ],
+                "required": false,
+                "maxLength": 500,
+                "description": "反向提示词，用于规避生成指定内容。默认值：\" \"（最大长度：500 字符）"
+              },
+              "num_inference_steps": {
+                "type": "number",
+                "default": 25,
+                "maximum": 49,
+                "minimum": 2,
+                "examples": [
+                  25
+                ],
+                "required": false,
+                "description": "推理步数。默认值：30（最小值：2，最大值：49，步长：1）"
+              },
+              "enable_safety_checker": {
+                "type": "boolean",
+                "examples": [
+                  true
+                ],
+                "required": false,
+                "description": "安全校验开关。若设置为 true，将启用内容安全校验。默认值：true（布尔值：true/false）"
+              }
+            },
+            "default_params": [],
+            "material_capabilities": {
+              "revision": "materials-2026-10-23-1",
+              "modes": [
+                {
+                  "code": "",
+                  "label": "图片生成／编辑",
+                  "first_frame": "不支持",
+                  "last_frame": "不支持",
+                  "first_last_frame": "不支持",
+                  "fields": [
+                    {
+                      "field": "image_url",
+                      "kind": "image",
+                      "required": true,
+                      "conditional_required": false,
+                      "minimum": 1,
+                      "maximum": 1,
+                      "scope": "本次请求",
+                      "role": "reference"
+                    }
+                  ],
+                  "rules": [],
+                  "images": "参考素材 1–1 张（`image_url`）",
+                  "videos": "不接受",
+                  "audios": "不接受",
+                  "other_materials": ""
+                }
+              ]
+            },
+            "capabilities": {
+              "supports_vision": true,
+              "supports_reasoning": false,
+              "max_reference_images": 1,
+              "max_reference_audios": 0,
+              "max_reference_videos": 0
+            },
+            "model_id": 405
+          }
+        }
+      },
+      "identity": {
+        "id": "market_image_model:275",
+        "resource_type": "model",
+        "product_id": 275
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    },
+    {
+      "id": "meter_sku:277:383",
+      "product_id": 277,
+      "sku_id": 383,
+      "resource_type": "model",
+      "model_code": "official-33-f3baf6c03742072d3a",
+      "channel_code": "official",
+      "source_model": "qwen/text-to-image",
+      "material_mode": "text_to_image",
+      "meter_basis": "megapixel",
+      "request_count_field": null,
+      "request_count_values": [],
+      "request_default_count": 1,
+      "maximum_request_pixels_per_image": 1048576,
+      "maximum_billable_pixels_per_image": null,
+      "maximum_billable_images": null,
+      "local_metadata_binding": "saved_declaration_verified_unactivated",
+      "status": "waiting_supplier_output_guarantee",
+      "activation_authorized": false,
+      "saved_binding": {
+        "captured_at": "2026-11-01T15:58:48+08:00",
+        "source": "coordinator local read-only snapshot v2; not an upstream deployment attestation",
+        "product": {
+          "id": 277,
+          "resource_type": "model",
+          "model_type": "image",
+          "upstream_model_code": "official-33-f3baf6c03742072d3a",
+          "upstream_channel_code": "official"
+        },
+        "effective_protocol": "native_v1",
+        "declaration_fingerprint": "aa1528759fcfe7d6fc015c29fde253af617e338220bc2f33b683f6c07b077e7f",
+        "original_saved_declaration_fingerprint": "aa1528759fcfe7d6fc015c29fde253af617e338220bc2f33b683f6c07b077e7f",
+        "native_mode_codes": [
+          "text_to_image",
+          "image_to_image"
+        ],
+        "selected_native_mode": "text_to_image",
+        "metadata": {
+          "params_schema": {
+            "seed": {
+              "type": "integer",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像\n适用生成方式 image_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "A red paper boat floating on a calm blue lake, soft morning light.",
+              "required": true,
+              "maxLength": 5000,
+              "description": "适用生成方式 text_to_image（必填）：用于生成图像的文本描述（最大长度：5000 字符）；最长长度：5000\n适用生成方式 image_to_image（必填）：用于图像生成的文本描述（最大长度：5000 字符）；最长长度：5000"
+            },
+            "strength": {
+              "type": "number",
+              "default": 0.8,
+              "maximum": 1,
+              "minimum": 0,
+              "required": false,
+              "description": "适用生成方式 image_to_image（可选；条件必填见说明）：去噪强度。1.0 = 完全重构图像；0.0 = 完全保留原图（最小值：0，最大值：1，步长：0.01）；最小值：0；最大值：1；默认值：0.8"
+            },
+            "image_url": {
+              "type": "string",
+              "required": false,
+              "description": "适用生成方式 image_to_image（必填）：用于引导图像生成的参考图 URL（为上传后的文件 URL，而非文件内容；支持类型：image/jpeg、image/png、image/webp；最大大小：10.0MB）"
+            },
+            "image_size": {
+              "enum": [
+                "square",
+                "square_hd",
+                "portrait_4_3",
+                "portrait_16_9",
+                "landscape_4_3",
+                "landscape_16_9"
+              ],
+              "type": "string",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的尺寸规格。请显式传入。"
+            },
+            "acceleration": {
+              "enum": [
+                "none",
+                "regular",
+                "high"
+              ],
+              "type": "string",
+              "default": "none",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\"\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\""
+            },
+            "nsfw_checker": {
+              "type": "boolean",
+              "default": false,
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false\n适用生成方式 image_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false"
+            },
+            "output_format": {
+              "enum": [
+                "png",
+                "jpeg"
+              ],
+              "type": "string",
+              "default": "png",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\"\n适用生成方式 image_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\""
+            },
+            "guidance_scale": {
+              "type": "number",
+              "default": 2.5,
+              "maximum": 20,
+              "minimum": 0,
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5\n适用生成方式 image_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5"
+            },
+            "generation_type": {
+              "enum": [
+                "text_to_image",
+                "image_to_image"
+              ],
+              "type": "string",
+              "required": false,
+              "description": "选择生成方式；传入单个字符串，例如 \"text_to_image\"，不是数组。省略时仅在素材及组合约束可以唯一确定方式时自动选择；存在歧义必须显式传入。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "required": false,
+              "maxLength": 500,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500"
+            },
+            "num_inference_steps": {
+              "type": "number",
+              "default": 30,
+              "maximum": 250,
+              "minimum": 2,
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30\n适用生成方式 image_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30"
+            },
+            "enable_safety_checker": {
+              "type": "boolean",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））\n适用生成方式 image_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））"
+            }
+          },
+          "default_params": [],
+          "capabilities": {
+            "supports_vision": true,
+            "supports_reasoning": false,
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0
+          },
+          "max_reference_images": 1,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0,
+          "upstream_metadata": {
+            "model_code": "qwen-image",
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0,
+            "channel_code": "official",
+            "params_schema": {
+              "seed": {
+                "type": "integer",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像\n适用生成方式 image_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像"
+              },
+              "prompt": {
+                "type": "string",
+                "example": "A red paper boat floating on a calm blue lake, soft morning light.",
+                "required": true,
+                "maxLength": 5000,
+                "description": "适用生成方式 text_to_image（必填）：用于生成图像的文本描述（最大长度：5000 字符）；最长长度：5000\n适用生成方式 image_to_image（必填）：用于图像生成的文本描述（最大长度：5000 字符）；最长长度：5000"
+              },
+              "strength": {
+                "type": "number",
+                "default": 0.8,
+                "maximum": 1,
+                "minimum": 0,
+                "required": false,
+                "description": "适用生成方式 image_to_image（可选；条件必填见说明）：去噪强度。1.0 = 完全重构图像；0.0 = 完全保留原图（最小值：0，最大值：1，步长：0.01）；最小值：0；最大值：1；默认值：0.8"
+              },
+              "image_url": {
+                "type": "string",
+                "required": false,
+                "description": "适用生成方式 image_to_image（必填）：用于引导图像生成的参考图 URL（为上传后的文件 URL，而非文件内容；支持类型：image/jpeg、image/png、image/webp；最大大小：10.0MB）"
+              },
+              "image_size": {
+                "enum": [
+                  "square",
+                  "square_hd",
+                  "portrait_4_3",
+                  "portrait_16_9",
+                  "landscape_4_3",
+                  "landscape_16_9"
+                ],
+                "type": "string",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的尺寸规格。请显式传入。"
+              },
+              "acceleration": {
+                "enum": [
+                  "none",
+                  "regular",
+                  "high"
+                ],
+                "type": "string",
+                "default": "none",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\"\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\""
+              },
+              "nsfw_checker": {
+                "type": "boolean",
+                "default": false,
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false\n适用生成方式 image_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false"
+              },
+              "output_format": {
+                "enum": [
+                  "png",
+                  "jpeg"
+                ],
+                "type": "string",
+                "default": "png",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\"\n适用生成方式 image_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\""
+              },
+              "guidance_scale": {
+                "type": "number",
+                "default": 2.5,
+                "maximum": 20,
+                "minimum": 0,
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5\n适用生成方式 image_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5"
+              },
+              "generation_type": {
+                "enum": [
+                  "text_to_image",
+                  "image_to_image"
+                ],
+                "type": "string",
+                "required": false,
+                "description": "选择生成方式；传入单个字符串，例如 \"text_to_image\"，不是数组。省略时仅在素材及组合约束可以唯一确定方式时自动选择；存在歧义必须显式传入。"
+              },
+              "negative_prompt": {
+                "type": "string",
+                "required": false,
+                "maxLength": 500,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500"
+              },
+              "num_inference_steps": {
+                "type": "number",
+                "default": 30,
+                "maximum": 250,
+                "minimum": 2,
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30\n适用生成方式 image_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30"
+              },
+              "enable_safety_checker": {
+                "type": "boolean",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））\n适用生成方式 image_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））"
+              }
+            },
+            "default_params": [],
+            "material_capabilities": {
+              "revision": "materials-2026-10-23-1",
+              "modes": [
+                {
+                  "code": "text_to_image",
+                  "label": "文生图",
+                  "first_frame": "不支持",
+                  "last_frame": "不支持",
+                  "first_last_frame": "不支持",
+                  "fields": [],
+                  "rules": [],
+                  "images": "不接受",
+                  "videos": "不接受",
+                  "audios": "不接受",
+                  "other_materials": ""
+                },
+                {
+                  "code": "image_to_image",
+                  "label": "图生图",
+                  "first_frame": "不支持",
+                  "last_frame": "不支持",
+                  "first_last_frame": "不支持",
+                  "fields": [
+                    {
+                      "field": "image_url",
+                      "kind": "image",
+                      "required": true,
+                      "conditional_required": false,
+                      "minimum": 1,
+                      "maximum": 1,
+                      "scope": "本次请求",
+                      "role": "reference"
+                    }
+                  ],
+                  "rules": [],
+                  "images": "参考素材 1–1 张（`image_url`）",
+                  "videos": "不接受",
+                  "audios": "不接受",
+                  "other_materials": ""
+                }
+              ]
+            },
+            "capabilities": {
+              "supports_vision": true,
+              "supports_reasoning": false,
+              "max_reference_images": 1,
+              "max_reference_audios": 0,
+              "max_reference_videos": 0
+            }
+          }
+        }
+      },
+      "identity": {
+        "id": "market_image_model:277",
+        "resource_type": "model",
+        "product_id": 277
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    },
+    {
+      "id": "meter_sku:140:210",
+      "product_id": 140,
+      "sku_id": 210,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "with_video",
+      "resolution": "480p",
+      "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "identity": {
+        "id": "market_video_app:seedance:140",
+        "resource_type": "app_api",
+        "product_id": 140
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    },
+    {
+      "id": "meter_sku:140:211",
+      "product_id": 140,
+      "sku_id": 211,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "without_video",
+      "resolution": "480p",
+      "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "identity": {
+        "id": "market_video_app:seedance:140",
+        "resource_type": "app_api",
+        "product_id": 140
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    },
+    {
+      "id": "meter_sku:140:212",
+      "product_id": 140,
+      "sku_id": 212,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "with_video",
+      "resolution": "720p",
+      "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "identity": {
+        "id": "market_video_app:seedance:140",
+        "resource_type": "app_api",
+        "product_id": 140
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    },
+    {
+      "id": "meter_sku:140:213",
+      "product_id": 140,
+      "sku_id": 213,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "without_video",
+      "resolution": "720p",
+      "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "identity": {
+        "id": "market_video_app:seedance:140",
+        "resource_type": "app_api",
+        "product_id": 140
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    },
+    {
+      "id": "meter_sku:140:214",
+      "product_id": 140,
+      "sku_id": 214,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "with_video",
+      "resolution": "1080p",
+      "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "identity": {
+        "id": "market_video_app:seedance:140",
+        "resource_type": "app_api",
+        "product_id": 140
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    },
+    {
+      "id": "meter_sku:140:215",
+      "product_id": 140,
+      "sku_id": 215,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "without_video",
+      "resolution": "1080p",
+      "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "identity": {
+        "id": "market_video_app:seedance:140",
+        "resource_type": "app_api",
+        "product_id": 140
+      },
+      "scope": "Offline real declaration binding, synthetic meter and rollback guards verified; no real output guarantee or SKU activation."
+    }
+  ],
+  "validation": {
+    "backend": {
+      "version": 1,
+      "feature_commit": "f777cb3339b7b46c62bb856b7f127a1d3838fe25",
+      "develop_commit": "3ee3c450207b23a430b952968398eaa87bcb5c15",
+      "suites": [
+        {
+          "suite": "MarketOwnedPlatformContractBuilderTest",
+          "exit_code": 0,
+          "tests": 32,
+          "assertions": 139,
+          "log": "/tmp/b79-final-MarketOwnedPlatformContractBuilderTest.log"
+        },
+        {
+          "suite": "MarketOwnedPlatformNativePreparationTest",
+          "exit_code": 0,
+          "tests": 64,
+          "assertions": 201,
+          "log": "/tmp/b79-final-MarketOwnedPlatformNativePreparationTest.log"
+        },
+        {
+          "suite": "MarketOwnedPlatformPartialFactsTest",
+          "exit_code": 0,
+          "tests": 23,
+          "assertions": 183,
+          "log": "/tmp/b79-final-MarketOwnedPlatformPartialFactsTest.log"
+        },
+        {
+          "suite": "MarketSourceMeterCandidateTest",
+          "exit_code": 0,
+          "tests": 52,
+          "assertions": 549,
+          "log": "/tmp/b79-final-MarketSourceMeterCandidateTest.log"
+        },
+        {
+          "suite": "MarketGenerationContractReviewTest",
+          "exit_code": 0,
+          "tests": 35,
+          "assertions": 335,
+          "log": "/tmp/b79-final-MarketGenerationContractReviewTest.log"
+        },
+        {
+          "suite": "MarketGenerationReviewedContractTest",
+          "exit_code": 0,
+          "tests": 27,
+          "assertions": 59,
+          "log": "/tmp/b79-final-MarketGenerationReviewedContractTest.log"
+        },
+        {
+          "suite": "MarketGenerationDeclarationSchemaTest",
+          "exit_code": 0,
+          "tests": 5,
+          "assertions": 40,
+          "log": "/tmp/b79-final-MarketGenerationDeclarationSchemaTest.log"
+        },
+        {
+          "suite": "MarketGenerationAdapterRegistryTest",
+          "exit_code": 0,
+          "tests": 12,
+          "assertions": 44,
+          "log": "/tmp/b79-final-MarketGenerationAdapterRegistryTest.log"
+        },
+        {
+          "suite": "MarketGenerationProtocolDeclarationTest",
+          "exit_code": 0,
+          "tests": 20,
+          "assertions": 65,
+          "log": "/tmp/b79-final-MarketGenerationProtocolDeclarationTest.log"
+        },
+        {
+          "suite": "MarketGenerationSourceIdentityTest",
+          "exit_code": 0,
+          "tests": 18,
+          "assertions": 117,
+          "log": "/tmp/b79-final-MarketGenerationSourceIdentityTest.log"
+        },
+        {
+          "suite": "MarketGenerationNumericRangeTest",
+          "exit_code": 0,
+          "tests": 11,
+          "assertions": 27,
+          "log": "/tmp/b79-final-MarketGenerationNumericRangeTest.log"
+        },
+        {
+          "suite": "MarketDeclaredChildrenValidationTest",
+          "exit_code": 0,
+          "tests": 12,
+          "assertions": 20,
+          "log": "/tmp/b79-final-MarketDeclaredChildrenValidationTest.log"
+        },
+        {
+          "suite": "MarketNativeDocumentParametersTest",
+          "exit_code": 0,
+          "tests": 10,
+          "assertions": 16,
+          "log": "/tmp/b79-final-MarketNativeDocumentParametersTest.log"
+        },
+        {
+          "suite": "MarketNestedImageMaterialsTest",
+          "exit_code": 0,
+          "tests": 12,
+          "assertions": 19,
+          "log": "/tmp/b79-final-MarketNestedImageMaterialsTest.log"
+        },
+        {
+          "suite": "MarketMixedMaterialSelectorsTest",
+          "exit_code": 0,
+          "tests": 16,
+          "assertions": 26,
+          "log": "/tmp/b79-final-MarketMixedMaterialSelectorsTest.log"
+        },
+        {
+          "suite": "MarketH3MixedMaterialsTest",
+          "exit_code": 0,
+          "tests": 4,
+          "assertions": 14,
+          "log": "/tmp/b79-final-MarketH3MixedMaterialsTest.log"
+        },
+        {
+          "suite": "MarketWanDocumentMaterialsTest",
+          "exit_code": 0,
+          "tests": 13,
+          "assertions": 18,
+          "log": "/tmp/b79-final-MarketWanDocumentMaterialsTest.log"
+        },
+        {
+          "suite": "MarketGenerationMaterialPreservationTest",
+          "exit_code": 0,
+          "tests": 9,
+          "assertions": 15,
+          "log": "/tmp/b79-final-MarketGenerationMaterialPreservationTest.log"
+        },
+        {
+          "suite": "MarketStructuredUploadedMaterialsTest",
+          "exit_code": 0,
+          "tests": 11,
+          "assertions": 23,
+          "log": "/tmp/b79-final-MarketStructuredUploadedMaterialsTest.log"
+        },
+        {
+          "suite": "MarketGroupedMaterialRemovalTest",
+          "exit_code": 0,
+          "tests": 8,
+          "assertions": 30,
+          "log": "/tmp/b79-final-MarketGroupedMaterialRemovalTest.log"
+        },
+        {
+          "suite": "MarketHistoryMixedFieldReplayTest",
+          "exit_code": 0,
+          "tests": 3,
+          "assertions": 13,
+          "log": "/tmp/b79-final-MarketHistoryMixedFieldReplayTest.log"
+        },
+        {
+          "suite": "MarketFrozenDefaultsReuseTest",
+          "exit_code": 0,
+          "tests": 2,
+          "assertions": 24,
+          "log": "/tmp/b79-final-MarketFrozenDefaultsReuseTest.log"
+        },
+        {
+          "suite": "MarketImagePreparationTest",
+          "exit_code": 0,
+          "tests": 14,
+          "assertions": 42,
+          "log": "/tmp/b79-final-MarketImagePreparationTest.log"
+        },
+        {
+          "suite": "MarketImageModelPayloadContractTest",
+          "exit_code": 0,
+          "tests": 10,
+          "assertions": 54,
+          "log": "/tmp/b79-final-MarketImageModelPayloadContractTest.log"
+        },
+        {
+          "suite": "MarketImageRatioDimensionsTest",
+          "exit_code": 0,
+          "tests": 12,
+          "assertions": 28,
+          "log": "/tmp/b79-final-MarketImageRatioDimensionsTest.log"
+        },
+        {
+          "suite": "QwenImageDimensionsTest",
+          "exit_code": 0,
+          "tests": 7,
+          "assertions": 203,
+          "log": "/tmp/b79-final-QwenImageDimensionsTest.log"
+        },
+        {
+          "suite": "Q4VideoContractTest",
+          "exit_code": 0,
+          "tests": 17,
+          "assertions": 185,
+          "log": "/tmp/b79-final-Q4VideoContractTest.log"
+        },
+        {
+          "suite": "MarketVideoPreparationTest",
+          "exit_code": 0,
+          "tests": 16,
+          "assertions": 42,
+          "log": "/tmp/b79-final-MarketVideoPreparationTest.log"
+        },
+        {
+          "suite": "MarketVideoModelPayloadContractTest",
+          "exit_code": 0,
+          "tests": 20,
+          "assertions": 89,
+          "log": "/tmp/b79-final-MarketVideoModelPayloadContractTest.log"
+        },
+        {
+          "suite": "MarketQuotePromptContractTest",
+          "exit_code": 0,
+          "tests": 9,
+          "assertions": 15,
+          "log": "/tmp/b79-final-MarketQuotePromptContractTest.log"
+        },
+        {
+          "suite": "MarketVideoReferenceCapacityTest",
+          "exit_code": 0,
+          "tests": 10,
+          "assertions": 21,
+          "log": "/tmp/b79-final-MarketVideoReferenceCapacityTest.log"
+        },
+        {
+          "suite": "MarketVideoReferencePromptTest",
+          "exit_code": 0,
+          "tests": 11,
+          "assertions": 21,
+          "log": "/tmp/b79-final-MarketVideoReferencePromptTest.log"
+        },
+        {
+          "suite": "MarketGenerationMeterContractTest",
+          "exit_code": 0,
+          "tests": 24,
+          "assertions": 54,
+          "log": "/tmp/b79-final-MarketGenerationMeterContractTest.log"
+        },
+        {
+          "suite": "MarketBoundedMeterRoundingTest",
+          "exit_code": 0,
+          "tests": 41,
+          "assertions": 262,
+          "log": "/tmp/b79-final-MarketBoundedMeterRoundingTest.log"
+        },
+        {
+          "suite": "MarketBoundedTokenBillingTest",
+          "exit_code": 0,
+          "tests": 43,
+          "assertions": 389,
+          "log": "/tmp/b79-final-MarketBoundedTokenBillingTest.log"
+        },
+        {
+          "suite": "MarketNativeBoundedTokenTest",
+          "exit_code": 0,
+          "tests": 31,
+          "assertions": 160,
+          "log": "/tmp/b79-final-MarketNativeBoundedTokenTest.log"
+        },
+        {
+          "suite": "MarketNativeMeterExpansionTest",
+          "exit_code": 0,
+          "tests": 39,
+          "assertions": 554,
+          "log": "/tmp/b79-final-MarketNativeMeterExpansionTest.log"
+        },
+        {
+          "suite": "MarketPixelBillingTest",
+          "exit_code": 0,
+          "tests": 35,
+          "assertions": 178,
+          "log": "/tmp/b79-final-MarketPixelBillingTest.log"
+        },
+        {
+          "suite": "MarketImageTokenBillingTest",
+          "exit_code": 0,
+          "tests": 19,
+          "assertions": 396,
+          "log": "/tmp/b79-final-MarketImageTokenBillingTest.log"
+        },
+        {
+          "suite": "MarketNanoTokenBillingTest",
+          "exit_code": 0,
+          "tests": 20,
+          "assertions": 433,
+          "log": "/tmp/b79-final-MarketNanoTokenBillingTest.log"
+        },
+        {
+          "suite": "MarketNanoPixelBillingTest",
+          "exit_code": 0,
+          "tests": 21,
+          "assertions": 345,
+          "log": "/tmp/b79-final-MarketNanoPixelBillingTest.log"
+        },
+        {
+          "suite": "MarketMixedVideoLifecycleTest",
+          "exit_code": 0,
+          "tests": 4,
+          "assertions": 88,
+          "log": "/tmp/b79-final-MarketMixedVideoLifecycleTest.log"
+        },
+        {
+          "suite": "MarketVideoPreparationLifecycleTest",
+          "exit_code": 0,
+          "tests": 9,
+          "assertions": 98,
+          "log": "/tmp/b79-final-MarketVideoPreparationLifecycleTest.log"
+        },
+        {
+          "suite": "MarketImagePreparationRefundTest",
+          "exit_code": 0,
+          "tests": 1,
+          "assertions": 9,
+          "log": "/tmp/b79-final-MarketImagePreparationRefundTest.log"
+        },
+        {
+          "suite": "MarketNanoBananaLifecycleTest",
+          "exit_code": 0,
+          "tests": 16,
+          "assertions": 240,
+          "log": "/tmp/b79-final-MarketNanoBananaLifecycleTest.log"
+        },
+        {
+          "suite": "MarketCanvasPersistenceReuseTest",
+          "exit_code": 0,
+          "tests": 2,
+          "assertions": 30,
+          "log": "/tmp/b79-final-MarketCanvasPersistenceReuseTest.log"
+        }
+      ],
+      "passed": true,
+      "tests": 830,
+      "assertions": 5913,
+      "flags": [
+        "AIGC_VIDEO_PREPARATION_DB_TESTS",
+        "AIGC_NATIVE_PREPARATION_DB_TESTS",
+        "AIGC_PREPARATION_DB_TESTS",
+        "AIGC_NANO_PREPARATION_DB_TESTS",
+        "AIGC_NANO_TOKEN_DB_TESTS",
+        "AIGC_NANO_PIXEL_DB_TESTS",
+        "AIGC_IMAGE_TOKEN_DB_TESTS",
+        "AIGC_OWNED_PLATFORM_DB_TESTS"
+      ],
+      "no_provider_transport": true,
+      "local_rollback_only": true
+    },
+    "php_syntax": {
+      "files": 19,
+      "passed": true
+    },
+    "pc_consumers": {
+      "files": 8,
+      "tests": 127,
+      "passed": 127,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/b79-pc-consumers-corrected.log"
+    },
+    "mobile": {
+      "files": 43,
+      "tests": 412,
+      "passed": 412,
+      "failed": 0,
+      "skipped": 0,
+      "log": "/tmp/b79-mobile-all-compiled.log"
+    },
+    "new_sfc_before": {
+      "tests": 15,
+      "expected_failures": 15,
+      "source_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+      "scope": "Read-only old three SFC source strings loaded by the new actual-handler tests; no old checkout or current source mutation.",
+      "log": "/tmp/b79-mobile-before.log"
+    },
+    "new_sfc_after": {
+      "tests": 15,
+      "passed": 15,
+      "focused_total_passed": 38,
+      "log": "/tmp/b79-mobile-focused.log"
+    },
+    "builds": {
+      "h5": true,
+      "mp_weixin": true,
+      "mp_modules": 457,
+      "mp_subpackages": 30,
+      "mp_templates": 314,
+      "mp_theme_hosts": 114,
+      "mp_decoration_widgets": 7,
+      "output_roots": [
+        "/tmp/b79-h5-build",
+        "/tmp/b79-mp-build"
+      ],
+      "published": false
+    }
+  },
+  "original_data_audit": {
+    "tasks_counts_and_hashes_equal": true,
+    "balance_equal": true,
+    "balance": 4332.54,
+    "original_tasks": 143,
+    "llm_agent_equal": true,
+    "llm_agent_rows": 4080,
+    "permanent_daemon_1667_alive": true,
+    "daemon_restarted": false,
+    "comparison_note": "New audit also reports statuses; compare identical original table count/hash fields, not additional presentation fields."
+  },
+  "platform_access": {
+    "admin_origin": "https://platform.xhadmin.cn",
+    "api_origin": "https://api.likeadmin.cn",
+    "same_platform_confirmed_by_user": true,
+    "admin_session_seen_in_chrome": true,
+    "full_current_config_export_completed": false,
+    "in_app_tab": "7",
+    "state": "user_login_completed_read_only_current_config_capture_in_progress",
+    "no_task_query_or_generation_or_config_save": true,
+    "note": "Native control had inconsistent AX/image and transient capture/window errors; incomplete or empty UI observations do not establish model absence. User subsequently completed normal login in IAB. Q4 108/q4_video/viduq4-preview is confirmed; current configuration is captured separately for the next slice, without changing this batch candidate count."
+  },
+  "non_final_gates": [
+    "14 request candidates still have exact source/configuration gaps",
+    "8 real billing upper bounds unverified; request labels and source reserve estimates are not guarantees",
+    "Current deployed source/configuration and SKU mapping not fully exported",
+    "43 text consumptions and one STT authoritative reconciliation still pending",
+    "Paid full applicable provider matrix, physical terminals, dedicated fault environment and owner deployment remain separate stages"
+  ],
+  "exclusions": {
+    "paid_generations": 0,
+    "provider_task_queries": 0,
+    "supplier_asset_operations": 0,
+    "real_price_or_model_syncs": 0,
+    "real_configuration_activations": 0,
+    "real_ledger_repairs": 0,
+    "deployments": 0,
+    "permanent_worker_restarts": 0
+  }
+}
