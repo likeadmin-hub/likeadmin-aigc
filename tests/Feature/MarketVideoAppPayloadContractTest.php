@@ -117,13 +117,13 @@ class MarketVideoAppPayloadContractTest extends TestCase
         ]);
     }
 
-    public function testHappyHorseDistinguishesOneImageReferenceFromFirstFrame(): void
+    public function testHappyHorseDistinguishesReferenceImagesFromFirstFrame(): void
     {
         $snapshot = ['app_code' => 'happy_horse', 'locked_params' => ['resolution' => '720p']];
         $image = ['type' => 'image', 'url' => 'https://fixtures.invalid/person.png'];
         $reference = $this->invoke('appPayload', $snapshot, [
             'prompt' => 'Keep the character', 'generation_method' => 'image_reference',
-            'ratio' => '9:16', 'reference_assets' => [$image],
+            'ratio' => '9:16', 'reference_assets' => [$image, array_replace($image, ['url'=>'https://fixtures.invalid/scene.png'])],
         ], 'happy-reference');
         $firstFrame = $this->invoke('appPayload', $snapshot, [
             'prompt' => 'Animate the first frame', 'generation_method' => 'image_to_video',
@@ -131,7 +131,7 @@ class MarketVideoAppPayloadContractTest extends TestCase
         ], 'happy-first-frame');
         $omniReference = $this->invoke('appPayload', $snapshot, [
             'prompt' => 'Keep the character', 'generation_method' => 'omni_reference',
-            'reference_assets' => [$image],
+            'reference_assets' => [$image, array_replace($image, ['url'=>'https://fixtures.invalid/scene.png'])],
         ], 'happy-omni-reference');
 
         self::assertSame('happyhorse-1.1-r2v', $reference['model']);

@@ -7,135 +7,177 @@
       "generation_type": "image",
       "model_code": "nano-banana-2.1",
       "channel_code": "Google",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "api-doc/model-api/nano-banana-2.1.md",
-        "server/public/install/db/ai_platform_migration_nano_banana_21.sql"
+        "server/public/install/db/ai_platform_migration_nano_banana_21.sql",
+        "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "current_inherited_source_declaration_and_mapping",
-        "file_limits_and_complete_mode_conditions",
-        "empty_prompt_mode_conditions"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "nano-banana-2",
       "channel_code": "Google",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "api-doc/model-api/model-63-nano-banana-2.md",
-        "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php"
+        "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "exact_google_execution_mapping",
-        "file_limits_and_complete_mode_conditions",
-        "complete_mode_conditions"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "nano-banana-pro",
       "channel_code": "Google",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "api-doc/model-api/model-66-nano-banana-pro.md",
-        "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php"
+        "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "exact_google_pro_execution_mapping",
-        "file_limits_and_complete_mode_conditions",
-        "complete_mode_conditions"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "gpt-image-2.5",
       "channel_code": "OpenAIYI",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "server/app/common/command/DakkaGptImage25Migrate.php",
         "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "current_inherited_openaiyi_configuration",
-        "file_limits_and_complete_mode_conditions",
-        "native_quantity_mapping"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "gpt-image-2.5-flare",
       "channel_code": "OpenAIYI",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "server/app/common/command/DakkaGptImage25Migrate.php",
         "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "current_inherited_openaiyi_configuration",
-        "file_limits_and_complete_mode_conditions",
-        "exact_sku_and_parameter_binding"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "gpt-image-2.5-sunburst",
       "channel_code": "OpenAIYI",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "server/app/common/command/DakkaGptImage25Migrate.php",
         "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "current_inherited_openaiyi_configuration",
-        "file_limits_and_complete_mode_conditions",
-        "exact_sku_and_parameter_binding"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "gpt-image-2",
       "channel_code": "OpenaiM",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "api-doc/model-api/model-94-gpt-image-2.md",
-        "server/app/common/command/GptImage2OpenaiMModelParamsMigrate.php"
+        "server/app/common/command/GptImage2OpenaiMModelParamsMigrate.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "current_recursive_execution_mapping",
-        "complete_4k_ratio_combinations"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "gpt-image-2",
       "channel_code": "OpenAIYI",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "api-doc/model-api/model-96-gpt-image-2.md",
-        "server/app/common/command/OpenAIYIGptImage2Migrate.php"
+        "server/app/common/command/OpenAIYIGptImage2Migrate.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "current_recursive_execution_mapping",
-        "file_limits_and_complete_mode_conditions",
-        "complete_resolution_ratio_conditions"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
       "generation_type": "image",
       "model_code": "gpt-image-2-fast",
       "channel_code": "openaiD",
-      "profile": null,
+      "profile": "flat_image_v1",
       "sources": [
         "api-doc/model-api/model-gpt-image-2-fast.md",
         "server/app/common/command/OpenaiDGptImage2FastMigrate.php",
         "server/app/common/service/ai/driver/DrawDriver.php"
       ],
-      "missing_constraints": [
-        "document_code_1k_matrix_conflict_recorded",
-        "file_limits_and_complete_mode_conditions",
-        "documented_prompt_limit_not_enforced_by_generic_driver"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
@@ -148,8 +190,8 @@
         "server/app/common/command/OpenaiMGptImage2ProMigrate.php"
       ],
       "missing_constraints": [
-        "mask_reference_and_dimension_conditions",
-        "current_execution_mapping_and_sku_binding"
+        "current_acedata_channel_mapping_and_smart_route_target_contracts",
+        "mask_and_reference_preservation_across_actual_target_routes"
       ]
     },
     {
@@ -230,14 +272,20 @@
       "generation_type": "video",
       "model_code": "grok-video",
       "channel_code": "xAIQ",
-      "profile": null,
+      "profile": "flat_video_v1",
       "sources": [
         "api-doc/model-api/model-71-grok-video.md",
-        "server/app/common/command/GrokVideoMigrate.php"
+        "server/app/common/command/GrokVideoMigrate.php",
+        "server/app/common/service/ai/driver/VideoTaskDriver.php"
       ],
-      "missing_constraints": [
-        "exact_xaiq_execution_mapping_not_xai_grok_video",
-        "complete_mode_and_reference_conditions"
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "exact_current_execution_binding_and_frozen_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_route_context",
+        "provider_media_facts",
+        "sku_pricing_and_live_generation"
       ]
     },
     {
@@ -250,9 +298,7 @@
         "server/app/common/command/VeoVideoMigrate.php"
       ],
       "missing_constraints": [
-        "exact_xaiq_execution_mapping",
-        "text_with_images_and_mode_exclusivity",
-        "exact_quality_sku_binding"
+        "text_mode_with_image_semantics_not_explicitly_defined"
       ]
     },
     {
@@ -265,9 +311,7 @@
         "server/app/common/command/VeoVideoMigrate.php"
       ],
       "missing_constraints": [
-        "exact_xaiq_execution_mapping",
-        "text_with_images_and_mode_exclusivity",
-        "pro_quality_sku_binding_not_fast"
+        "text_mode_with_image_semantics_not_explicitly_defined"
       ]
     },
     {

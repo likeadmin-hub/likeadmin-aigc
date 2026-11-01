@@ -24,7 +24,7 @@ final class MarketOwnedPlatformContractBuilder
         return $data['models'];
     }
 
-    public static function build(array $snapshot,string $sourceArtifact): array
+    public static function build(array $snapshot,string $sourceArtifact,?string $currentExecutionArtifact=null,?string $currentPublicArtifact=null,?string $smartRouteContextArtifact=null): array
     {
         if(!hash_equals(self::ARTIFACT_SHA256,hash('sha256',$sourceArtifact)))throw new InvalidArgumentException('原始平台源码证据指纹不匹配');
         $source=json_decode($sourceArtifact,true,64,JSON_THROW_ON_ERROR);
@@ -42,6 +42,7 @@ final class MarketOwnedPlatformContractBuilder
         if(($snapshot['version']??null)!==1||!is_array($snapshot['entries']??null)||!array_is_list($snapshot['entries'])
             ||!is_string($snapshot['captured_at']??null)||strtotime($snapshot['captured_at'])===false)
             throw new InvalidArgumentException('原始声明快照格式不正确');
+        $current=MarketOwnedPlatformExecutionEvidence::parse($currentExecutionArtifact,$currentPublicArtifact,$smartRouteContextArtifact);
         $rows=[];$profiles=self::profiles();$allowed=array_fill_keys(array_map([self::class,'key'],$profiles),true);
         foreach($snapshot['entries']as$row){
             $product=$row['product']??[];
@@ -90,6 +91,15 @@ final class MarketOwnedPlatformContractBuilder
             if($binding['params_schema']===[]){$state['missing_constraints'][]='original_parameter_declaration_required';$bundle['model_states'][]=$state;continue;}
             $execution=MarketGenerationSchema::array($row['execution_metadata']??[]);
             if(array_key_exists('effective_upstream_model',$row))$execution['upstream_model']=$row['effective_upstream_model'];
+            if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true)||$profile['profile']==='q4_video_v1'&&$current!==[]){
+                $resolved=MarketOwnedPlatformExecutionEvidence::resolve($current,$profile,$metadata);
+                if($resolved['missing']!==[]){$state['missing_constraints']=array_merge($state['missing_constraints'],$resolved['missing']);$bundle['model_states'][]=$state;continue;}
+                $execution=$resolved;$state['current_execution_binding']=$resolved['binding'];
+                if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true)){
+                    $problem=self::flatMappingProblems($profile,$resolved,$sourceTexts);
+                    if($problem!==[]){$state['missing_constraints']=array_merge($state['missing_constraints'],$problem);$bundle['model_states'][]=$state;continue;}
+                }
+            }
             if($profile['profile']==='q4_video_v1'&&(!is_string($execution['upstream_model']??null)||$execution['upstream_model']==='')){
                 $state['missing_constraints'][]='verified_current_upstream_model_required_for_json_body_limit';$bundle['model_states'][]=$state;continue;
             }
@@ -133,6 +143,7 @@ final class MarketOwnedPlatformContractBuilder
     /** Curated translation of the pinned source; called only after evidence and raw-declaration binding. */
     private static function entry(array $profile,array $binding,array $execution=[]): array
     {
+        if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true))return self::flatEntry($profile,$binding,$execution);
         $protocol=$profile['profile'];$schema=self::schema($protocol);$modes=self::modes($protocol);$contracts=[];
         $schema['properties']['model']=['type'=>'string','const'=>$profile['model_code']];
         $schema['properties']['channel']=['type'=>'string','const'=>$profile['channel_code']];
@@ -143,9 +154,109 @@ final class MarketOwnedPlatformContractBuilder
             if($protocol==='q4_video_v1')$rule['upstream_model']=$execution['upstream_model'];
             $contracts[$mode['code']]=['schema'=>$schema,'rules'=>[$rule]];
         }
-        return array_intersect_key($profile,array_flip(['generation_type','model_code','channel_code']))+[
+        $entry=array_intersect_key($profile,array_flip(['generation_type','model_code','channel_code']))+[
             'public_model_code'=>$profile['model_code'],'generation_protocol'=>$protocol,'revision'=>'owned-platform-b5887e1-'.$protocol.'-v1',
             'binding_declaration'=>$binding,'declaration'=>['params_schema'=>$schema,'material_capabilities'=>['modes'=>$modes]],'modes'=>$contracts];
+        if(isset($execution['binding']))$entry['execution_binding']=$execution['binding'];
+        return $entry;
+    }
+
+    private static function flatMappingProblems(array $profile,array $execution,array $texts): array
+    {
+        $family=MarketOwnedPlatformFlatSourceRules::family($profile['model_code'],$profile['channel_code']);
+        $maximum=$execution['binding']['material_limits']['max_reference_images'];
+        if($maximum<1||$maximum>100||$family==='grok'&&$maximum>7||$family==='m_gpt'&&$maximum>16)
+            return ['current_material_capability_conflicts_with_finite_source_contract'];
+        $image=$profile['generation_type']==='image';$config=$execution['config'][$image?'draw':'video'];
+        $configs=[$config];
+        if($image){$variant=$config['when_reference']??$config['reference_config']??[];if(is_array($variant)&&$variant!==[])$configs[]=array_replace($config,$variant);}
+        foreach($configs as$cfg){
+            $mapping=$cfg['request_params']??($image?['model'=>'model','prompt'=>'prompt','aspectRatio'=>'aspect_ratio','imageSize'=>'image_size','image_urls'=>'image_urls']:['prompt'=>'prompt','image_url'=>'image_url']);
+            if(!is_array($mapping))return ['current_request_mapping_is_not_an_object'];
+            $pixel=[];$reference=false;
+            foreach($mapping as$target=>$spec){
+                if(is_string($target)&&str_starts_with($target,'__draft_'))continue;
+                if(is_array($spec)&&in_array($spec[1]??'', ['dakka_gpt_image_size','gpt_image_2_fast_size'],true))$pixel[]=$spec;
+                if($spec==='image_urls')$reference=true;
+            }
+            $expected=$family==='dakka_pixels'?'dakka_gpt_image_size':($family==='fast_pixels'?'gpt_image_2_fast_size':null);
+            if($expected!==null&&$pixel!==[['aspect_ratio',$expected]])return ['current_pixel_transform_differs_from_exact_source_profile'];
+            if($expected===null&&$pixel!==[])return ['unexpected_current_pixel_transform_requires_separate_profile'];
+            if($family!=='google_nano'&&!$reference)return ['current_reference_mapping_not_proven_lossless'];
+            if(!$image&&!empty($cfg['minimal_create']))return ['current_video_minimal_create_drops_declared_fields'];
+        }
+        if(in_array($family,['dakka_pixels','fast_pixels'],true)){
+            $function=$family==='dakka_pixels'?'dakkaGptImageSize':'gptImage2FastSize';
+            $matrix=MarketOwnedPlatformPartialFacts::matrix($texts['server/app/common/service/ai/driver/DrawDriver.php']??'',$function);
+            if(MarketGenerationReviewedContract::digest($matrix)!==MarketGenerationReviewedContract::digest(MarketOwnedPlatformFlatSourceRules::matrix($family)))
+                throw new InvalidArgumentException('有限尺寸规则与固定原始源码不一致');
+        }
+        return [];
+    }
+
+    private static function flatEntry(array $profile,array $binding,array $execution): array
+    {
+        if(!isset($execution['binding'],$execution['config']))throw new InvalidArgumentException('直接执行候选缺少当前配置绑定');
+        $family=MarketOwnedPlatformFlatSourceRules::family($profile['model_code'],$profile['channel_code']);
+        if($family===null)throw new InvalidArgumentException('未审核的直接执行型号');
+        $image=$profile['generation_type']==='image';$field=$family==='google_nano'?'urls':'image_urls';
+        $maximum=$execution['binding']['material_limits']['max_reference_images'];$schemas=[];$modes=[];
+        foreach([false,true]as$reference){
+            $code=$image?($reference?'image_to_image':'text_to_image'):($reference?'reference_to_video':'text_to_video');
+            $mode=['code'=>$code,'view_key'=>$reference?'reference':'text','method'=>$image?($reference?'image_reference':'text_to_image'):($reference?'image_reference':'text_to_video'),
+                'fields'=>$reference?[['field'=>$field,'kind'=>'image','role'=>'reference','required'=>true,'maximum'=>$maximum]]:[]];
+            $schema=self::flatSchema($profile,$execution,$reference);
+            $rule=['kind'=>'owned_platform','profile'=>$profile['profile'],'family'=>$family,'model_code'=>$profile['model_code'],
+                'channel_code'=>$profile['channel_code'],'source_revision'=>self::REVISION,'mode'=>$code,'maximum_images'=>$maximum,
+                'configuration_fingerprint'=>$execution['binding']['configuration_fingerprint'],'message'=>'请求不符合该型号已绑定的直接执行合同'];
+            $modes[]=$mode;$schemas[$code]=['schema'=>$schema,'rules'=>[$rule]];
+        }
+        $general=self::flatSchema($profile,$execution,true);$general['properties'][$field]=$family==='fast_pixels'
+            ?['anyOf'=>[['type'=>'string'],['type'=>'array','maxItems'=>$maximum,'items'=>['type'=>'string']]]]
+            :['type'=>'array','maxItems'=>$maximum,'items'=>['type'=>'string']];
+        $general['required']=array_values(array_diff($general['required'],[$field]));
+        return array_intersect_key($profile,array_flip(['generation_type','model_code','channel_code']))+[
+            'public_model_code'=>$profile['model_code'],'generation_protocol'=>$profile['profile'],'revision'=>'owned-platform-b5887e1-flat-source-v1',
+            'binding_declaration'=>$binding,'execution_binding'=>$execution['binding'],
+            'declaration'=>['params_schema'=>$general,'material_capabilities'=>['modes'=>$modes]],'modes'=>$schemas];
+    }
+
+    private static function flatSchema(array $profile,array $execution,bool $reference): array
+    {
+        $family=MarketOwnedPlatformFlatSourceRules::family($profile['model_code'],$profile['channel_code']);$image=$profile['generation_type']==='image';
+        $string=['type'=>'string'];$props=['model'=>$string+['const'=>$profile['model_code']],'channel'=>$string+['const'=>$profile['channel_code']],
+            'callback_url'=>$string,'prompt'=>$string];$required=$family==='google_nano'?[]:['prompt'];
+        if($family!=='google_nano')$props['prompt']['minLength']=1;
+        $field=$family==='google_nano'?'urls':'image_urls';$maximum=$execution['binding']['material_limits']['max_reference_images'];
+        $list=['type'=>'array','maxItems'=>$reference?$maximum:0,'items'=>['type'=>'string','minLength'=>1]];
+        if($reference){$list['minItems']=1;$required[]=$field;}
+        $props[$field]=$family==='fast_pixels'?['anyOf'=>[$reference?['type'=>'string','minLength'=>1]:['type'=>'string','const'=>''],$list]]:$list;
+        $ratios=['auto','1:1','3:2','2:3','4:3','3:4','5:4','4:5','16:9','9:16','2:1','1:2','3:1','1:3','21:9','9:21'];
+        if(!$image){
+            $props['quality']=$string+['enum'=>['720p'],'default'=>'720p'];$props['duration']=['type'=>'integer','enum'=>[6,10,15,20,25,30],'default'=>6];
+            $props['aspect_ratio']=$string+['enum'=>['2:3','3:2','1:1','9:16','16:9']];
+        }elseif($family==='google_nano'){
+            $props['image_size']=$string+['enum'=>['1K','2K','4K'],'default'=>'1K'];
+            $props['aspect_ratio']=$string+['enum'=>['auto','1:1','16:9','9:16','4:3','3:4','3:2','2:3','5:4','4:5','21:9'],'default'=>'auto'];
+        }else{
+            $resolution=$family==='fast_pixels'?'image_size':'resolution';$props[$resolution]=$string+['enum'=>['1k','2k','4k'],'default'=>'1k'];
+            $props['aspect_ratio']=$string+['enum'=>$ratios,'default'=>'auto'];
+            if(in_array($family,['dakka_pixels','fast_pixels'],true))$props['aspect_ratio']=$string+[
+                'pattern'=>'^(?:'.($family==='dakka_pixels'?'[aA][uU][tT][oO]':'auto').'|[0-9]+[xX×][0-9]+|[0-9]+[ ]*:[ ]*[0-9]+)$','default'=>'auto'];
+            if(in_array($family,['dakka_plain','dakka_pixels','m_gpt'],true))$props['n']=['type'=>'integer','const'=>1,'default'=>1];
+            if(in_array($family,['dakka_plain','dakka_pixels','yi_gpt'],true)){
+                $quality=match($profile['model_code']){'gpt-image-2.5-flare'=>['low','medium','high'],'gpt-image-2.5-sunburst'=>['low','medium','high','xhigh','max'],default=>['auto']};
+                $props['quality']=$string+['enum'=>$quality];
+                if($family==='dakka_pixels')$props['background']=$string+['const'=>'transparent'];
+            }
+            if($family==='fast_pixels'){$props['quality']=$string+['enum'=>['low','medium','high']];$props['prompt']['maxLength']=5000;}
+            if($family==='m_gpt')$props['image_size']=$string;
+        }
+        $config=$execution['config'][$image?'draw':'video'];
+        if($image&&$reference){$variant=$config['when_reference']??$config['reference_config']??[];if(is_array($variant))$config=array_replace($config,$variant);}
+        $defaults=array_merge($image?(array)($config['merge_defaults']??[]):[],(array)($execution['public_defaults']??[]));
+        foreach($defaults as$key=>$value)if(isset($props[$key])&&!in_array($key,[$field,'prompt','model','channel'],true))$props[$key]['default']=$value;
+        return self::object($props,$required);
     }
 
     private static function object(array $properties,array $required=[]): array

@@ -58,7 +58,7 @@ class MarketOwnedPlatformContractBuilderTest extends TestCase
         $keys=array_map(static fn($p)=>$p['generation_type'].'|'.$p['model_code'].'|'.$p['channel_code'],$profiles);
         self::assertCount(18,array_unique($keys));
         self::assertContains('image|gpt-image-2|OpenaiM',$keys);self::assertContains('image|gpt-image-2|OpenAIYI',$keys);
-        self::assertCount(5,array_filter($profiles,static fn($p)=>$p['profile']!==null));
+        self::assertCount(15,array_filter($profiles,static fn($p)=>$p['profile']!==null));
         foreach($profiles as$p)if($p['profile']===null)self::assertNotEmpty($p['missing_constraints']);
     }
 

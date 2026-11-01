@@ -125,7 +125,10 @@ final class MarketOwnedPlatformPreparationVerification
         }
         foreach($state['facts']['source_constraints']['pixel_matrix']??[]as$ratio=>$cells)foreach($cells as$resolution=>$pixels){
             $request=$base;$request['ratio']=$ratio;$request['quality']=$resolution;
-            $add('source_matrix_'.$resolution.'_'.$ratio,$request,'observe','source_mapping_cell_runtime_envelope_only');
+            $add('source_matrix_'.$resolution.'_'.$ratio,$request,$contract===null?'observe':'prepare','source_mapping_cell_runtime_envelope_only');
+        }
+        if($contract!==null&&MarketOwnedPlatformFlatSourceRules::family($model,$state['channel_code'])==='dakka_pixels')foreach(['3:1','1:3']as$ratio){
+            $request=$base;$request['ratio']=$ratio;$request['quality']='4k';$add('source_matrix_missing_4k_'.$ratio,$request,'reject');
         }
         return $cases;
     }

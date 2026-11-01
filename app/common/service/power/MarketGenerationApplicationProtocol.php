@@ -6,6 +6,133 @@ use Exception;
 /** Registered application codecs. Transport, media uploads, quotes and wallets stay with the runtime. */
 final class MarketGenerationApplicationProtocol
 {
+    private const SEEDANCE_MODELS = [
+        'seedance-2-text-2-video', 'seedance-2-video-2-video',
+        'seedance-2-fast-text-2-video', 'seedance-2-fast-video-2-video',
+    ];
+
+    /** b5887e1c driver default plus the 2026-11-01 exact saved/public submit declaration. */
+    private static function hasBoundHappyHorseDashScopeRoute(array $snapshot): bool
+    {
+        if (($snapshot['resource_type'] ?? '') !== 'app_api' || ($snapshot['app_code'] ?? '') !== 'happy_horse'
+            || ($snapshot['api_code'] ?? '') !== 'submit') return false;
+        $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+        return ($metadata['upstream_app_metadata']['id'] ?? null) === 12
+            && ($metadata['upstream_app_metadata']['code'] ?? null) === 'happy_horse'
+            && ($metadata['upstream_api_metadata']['id'] ?? null) === 34
+            && ($metadata['upstream_api_metadata']['code'] ?? null) === 'submit'
+            && ($metadata['call_type'] ?? null) === 2
+            && MarketGenerationReviewedContract::digest(['value'=>$metadata['params_schema'] ?? []]) === '2ca6f7110869e67b6425ab6a99ac874503c12708fd912d891d6f754ea6a9b20e'
+            && MarketGenerationReviewedContract::digest(self::arrayValue($metadata['default_params'] ?? []))
+                === MarketGenerationReviewedContract::digest(['duration'=>5,'resolution'=>'720P']);
+    }
+
+    private static function happyHorseChannel(array $snapshot, array $locked)
+    {
+        if (!self::hasBoundHappyHorseDashScopeRoute($snapshot)) return $locked['channel'] ?? null;
+        if (array_key_exists('channel', $locked) && !in_array($locked['channel'], ['', 'dashscope'], true)) {
+            throw new Exception('Happy Horse 渠道与冻结的 submit 声明不一致');
+        }
+        return 'dashscope';
+    }
+
+    private static function hasCapturedFullVideoDeclaration(array $snapshot): bool
+    {
+        if (($snapshot['resource_type'] ?? '') !== 'app_api' || ($snapshot['app_code'] ?? '') !== 'full_video'
+            || ($snapshot['api_code'] ?? '') !== 'submit') return false;
+        $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+        return ($metadata['upstream_app_metadata']['id'] ?? null) === 24
+            && ($metadata['upstream_app_metadata']['code'] ?? null) === 'full_video'
+            && ($metadata['upstream_api_metadata']['id'] ?? null) === 73
+            && ($metadata['upstream_api_metadata']['code'] ?? null) === 'submit'
+            && ($metadata['call_type'] ?? null) === 2
+            && MarketGenerationReviewedContract::digest(['value'=>$metadata['params_schema'] ?? []]) === 'd342216664eb8b43c85706fb5c712a493afdbb2c55366278b64d6464161bd188'
+            && MarketGenerationReviewedContract::digest(self::arrayValue($metadata['default_params'] ?? []))
+                === MarketGenerationReviewedContract::digest(['model'=>'full-video','ratio'=>'16:9','duration'=>4,'resolution'=>'480P','aigc_watermark'=>false]);
+    }
+
+    /** Only this registered application exposes its declared model as an editable business choice. */
+    public static function seedanceModelControl(array $option): ?array
+    {
+        if (($option['resource_type'] ?? '') !== 'app_api'
+            || ($option['app_code'] ?? $option['upstream_app_code'] ?? '') !== 'seedance'
+            || ($option['api_code'] ?? $option['upstream_api_code'] ?? '') !== 'create') return null;
+        foreach (['app_code'=>'seedance','upstream_app_code'=>'seedance','api_code'=>'create','upstream_api_code'=>'create'] as $key=>$expected) {
+            if (array_key_exists($key, $option) && $option[$key] !== $expected) return null;
+        }
+        $metadata = self::arrayValue($option['market_metadata'] ?? $option);
+        $definition = MarketGenerationSchema::properties(self::arrayValue($metadata['params_schema'] ?? []))['model'] ?? [];
+        if (($definition['type'] ?? '') !== 'string') return null;
+        $choices = array_values(array_intersect(MarketGenerationSchema::choices($definition), self::SEEDANCE_MODELS));
+        $locked = self::arrayValue($option['locked_params'] ?? []);
+        $variant = $locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? null;
+        if (in_array($variant, ['with_video', 'without_video'], true)) {
+            $choices = array_values(array_filter($choices, static fn(string $model): bool =>
+                str_ends_with($model, 'video-2-video') === ($variant === 'with_video')));
+        }
+        if (array_key_exists('model', $locked)) {
+            if (!is_string($locked['model']) || !in_array($locked['model'], $choices, true)) return null;
+            $choices = [$locked['model']];
+        }
+        if ($choices === []) return null;
+        $field = ['key'=>'model', 'label'=>'生成型号', 'type'=>'string', 'options'=>$choices,
+            'schema'=>['type'=>'string','enum'=>$choices], 'description'=>(string)($definition['description'] ?? ''), 'required'=>false];
+        if (isset($locked['model'])) $field += ['locked'=>true, 'default'=>$locked['model']];
+        return $field;
+    }
+
+    private static function seedanceModel(array $snapshot, array $request, bool $hasVideo): string
+    {
+        $locked = self::arrayValue($snapshot['locked_params'] ?? []);
+        $provider = self::arrayValue($request['provider_params'] ?? []);
+        $variant = $locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? null;
+        if (in_array($variant, ['with_video', 'without_video'], true) && $hasVideo !== ($variant === 'with_video')) {
+            throw new Exception('Seedance 视频输入与计费规格不匹配');
+        }
+        if (array_key_exists('model', $provider)) {
+            $control = self::seedanceModelControl($snapshot);
+            if ($control === null || !is_string($provider['model']) || !in_array($provider['model'], $control['options'], true)) {
+                throw new Exception('当前 Seedance API 或规格未声明所选生成型号');
+            }
+        }
+        $model = $locked['model'] ?? $provider['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video');
+        if (!is_string($model) || !in_array($model, self::SEEDANCE_MODELS, true)
+            || str_ends_with($model, 'video-2-video') !== $hasVideo) {
+            throw new Exception('Seedance 生成型号与视频输入不匹配');
+        }
+        return $model;
+    }
+
+    /** Source driver constraints apply to the final encoded request, before reservation or asset uploads. */
+    public static function assertPreparedVideo(array $snapshot, array $payload): void
+    {
+        if (self::hasBoundHappyHorseDashScopeRoute($snapshot)) {
+            if (($payload['channel'] ?? null) !== 'dashscope') throw new Exception('Happy Horse 渠道与冻结的 submit 声明不一致');
+            $images = array_filter((array)($payload['media'] ?? []), static fn($item): bool => is_array($item) && ($item['type'] ?? '') === 'image');
+            if (($payload['model'] ?? '') === 'happyhorse-1.1-r2v' && count($images) < 2) {
+                throw new Exception('Happy Horse DashScope 多参考图生成至少需要两张图片');
+            }
+        }
+        if (($snapshot['app_code'] ?? '') !== 'full_video') return;
+        if (self::hasCapturedFullVideoDeclaration($snapshot)) {
+            $references = array_filter((array)($payload['content'] ?? []), static fn($item): bool => is_array($item)
+                && ($item['type'] ?? '') === 'image_url' && ($item['role'] ?? '') === 'reference_image');
+            // Admission cap from the 2026-11-01 normal admin read, not a generic price/default.
+            // No dynamic surcharge contract is activated by this source-declaration binding.
+            if (count($references) > 5) throw new Exception('full_video 超额参考图片附加计费尚待核验，请减少参考图片');
+        }
+        $resolution = strtoupper((string)($payload['resolution'] ?? '480P'));
+        $remote = in_array($resolution, ['768P', '1080P', '2K'], true);
+        if ($remote && ($payload['aigc_watermark'] ?? false) !== false) {
+            throw new Exception('所选 full_video 分辨率不支持生成标识');
+        }
+        $length = 0;
+        foreach ((array)($payload['content'] ?? []) as $item) {
+            if (is_array($item) && ($item['type'] ?? '') === 'text') $length += mb_strlen(trim((string)($item['text'] ?? '')), 'UTF-8');
+        }
+        if ($length > ($remote ? 5000 : 7000)) throw new Exception('所选 full_video 分辨率的文本超过长度限制');
+    }
+
     public static function nano(array $snapshot, array $request, string $idempotency, array $references, array $context, string $resolution): array
     {
         MarketGenerationAdapterRegistry::applicationProtocol('nano_banana', $snapshot);
@@ -58,7 +185,7 @@ final class MarketGenerationApplicationProtocol
                 array_map(static fn(string $url): array => ['url' => $url, 'type' => 'video'], $assets['video']),
                 array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image'])
             );
-            return array_filter(array_merge($locked, $context, self::appRequestOptions($request, ['seed', 'watermark', 'audio_setting', 'callback_url']), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => in_array($model, ['happyhorse-1.1-i2v', 'happyhorse-1.0-video-edit'], true) ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, $context, self::appRequestOptions($request, ['seed', 'watermark', 'audio_setting', 'callback_url']), ['model' => $model, 'channel'=>self::happyHorseChannel($snapshot, $locked), 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => in_array($model, ['happyhorse-1.1-i2v', 'happyhorse-1.0-video-edit'], true) ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
             if (!empty($request['tools']) && array_filter($assets)) throw new Exception('联网搜索仅支持文生视频');
@@ -67,7 +194,7 @@ final class MarketGenerationApplicationProtocol
             foreach (['image_urls', 'video_urls', 'audio_urls', 'content'] as $key) {
                 unset($locked[$key]);
             }
-            return array_filter(array_merge($locked, $context, self::appRequestOptions($request, ['seed', 'draft', 'frames', 'watermark', 'camera_fixed', 'service_tier', 'tools', 'callback_url']), ['model' => (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video')), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, $context, self::appRequestOptions($request, ['seed', 'draft', 'frames', 'watermark', 'camera_fixed', 'service_tier', 'tools', 'callback_url']), ['model' => self::seedanceModel($snapshot, $request, $hasVideo), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'grok_video') {
             if ($assets['video'] !== [] || $assets['audio'] !== []) throw new Exception('当前 Grok 视频接口仅支持参考图片，请移除视频或音频素材');
