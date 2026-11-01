@@ -2,6 +2,7 @@
 /** Only the explicit owner-marked mobile actions fixture chooses this reply. */
 function marketAgentMobileActionsReply(array $input): array
 {
+    if(getenv('AIGC_HTTP_AGENT_MOBILE_MEDIA_MATRIX')==='1'){require_once __DIR__.'/MarketAgentMediaBoundaryHttpSupplier.php';return marketAgentMediaBoundaryReply($input);}
     if(empty($input['tools']))return [false,'{"action":"new","topic_id":0}'];
     $db=think\facade\Db::class;$run=$db::name('aigc_llm_agent_run')->where('status','running')->order('id','desc')->find();
     if(!$run)throw new RuntimeException('Mobile supplier has no active owned run');

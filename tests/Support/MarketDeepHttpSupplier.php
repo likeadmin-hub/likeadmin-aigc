@@ -20,11 +20,12 @@ function marketDeepSupplier(string $path,string $dir): bool
     $record=function(string $kind)use($dir,$input){file_put_contents($dir.'/deep-calls.jsonl',json_encode(['kind'=>$kind,'input'=>$input])."\n",FILE_APPEND|LOCK_EX);};
     if(getenv('AIGC_HTTP_AGENT_SPECIAL_MATRIX')==='1') {
         if($path==='/api/v1/apps/voice_tts/stt'){
-            if(getenv('AIGC_HTTP_AGENT_MEDIA_BOUNDARY_MATRIX')==='1'){
+            if(getenv('AIGC_HTTP_AGENT_MEDIA_BOUNDARY_MATRIX')==='1'||getenv('AIGC_HTTP_AGENT_MOBILE_MEDIA_MATRIX')==='1'){
                 $file=$_FILES['audio']['tmp_name']??'';
                 if(!is_uploaded_file($file))throw new RuntimeException('Private STT did not receive real multipart audio');
                 $wire=['sha256'=>hash_file('sha256',$file),'mime'=>(new finfo(FILEINFO_MIME_TYPE))->file($file),'probe'=>app\common\service\app\aigc_llm\agent\AgentMediaReader::probe($file)];
                 file_put_contents($dir.'/agent-stt-wire.json',json_encode($wire));
+                if(getenv('AIGC_HTTP_AGENT_MOBILE_MEDIA_MATRIX')==='1')file_put_contents($dir.'/mobile-stt-wires.jsonl',json_encode($wire).chr(10),FILE_APPEND|LOCK_EX);
             }
             $record('agent_stt');echo json_encode(['code'=>1,'data'=>['text'=>'隔离音频转写正文。','language'=>'zh','duration'=>1]],JSON_UNESCAPED_UNICODE);return true;
         }
