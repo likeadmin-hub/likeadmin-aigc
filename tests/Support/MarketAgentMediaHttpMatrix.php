@@ -13,7 +13,7 @@ function runMarketAgentMediaHttp($f,string $api,string $peer,string $suffix,stri
     };
     $runRows=fn($ids)=>$db::name('aigc_llm_agent_run')->whereIn('id',$ids)->field('id,status,phase,error')->select()->toArray();
     $agentUntil=function($ids,$states=['success'])use($f,$script,$db,$runRows){
-        $f->start($script,'fixture_agent_runner','agent');try{MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->whereIn('id',$ids)->whereNotIn('status',$states)->count()===0,'Canvas media Agent did not reach '.implode('/',$states),40);}catch(Throwable $e){throw new RuntimeException($e->getMessage().' '.json_encode($runRows($ids),JSON_UNESCAPED_UNICODE));}finally{$f->stop('agent');}
+        $f->start($script,'fixture_agent_runner','agent');try{MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->whereIn('id',$ids)->whereNotIn('status',$states)->count()===0,'Canvas media Agent did not reach '.implode('/',$states),40);}catch(Throwable $e){$tools=[];foreach(file($f->dir.'/deep-calls.jsonl')?:[] as $line)foreach(json_decode($line,true)['input']['messages']??[] as $message)if(($message['role']??'')==='tool')$tools[]=$message['content'];throw new RuntimeException($e->getMessage().' '.json_encode([$runRows($ids),array_slice($tools,-8)],JSON_UNESCAPED_UNICODE));}finally{$f->stop('agent');}
     };
     $supplierCalls=fn()=>count(file($f->dir.'/submissions.jsonl')?:[])+count(file($f->dir.'/deep-calls.jsonl')?:[]);
     $videoRow=$db::name('power_market_product')->where(['resource_type'=>'model','model_type'=>'video'])->find();$video='market_video_model:'.$videoRow['id'];$videoSku=(int)$db::name('power_market_sku')->where('product_id',$videoRow['id'])->value('id');
