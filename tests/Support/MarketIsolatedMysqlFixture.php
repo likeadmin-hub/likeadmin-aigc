@@ -8,6 +8,9 @@ final class MarketIsolatedMysqlFixture
     public array $database;
     public array $manifest;
     private string $uuid;
+    public string $stage = 'namespace_preflight';
+    private int $schemaTemporaryCreated = 0;
+    private int $schemaTemporaryDropped = 0;
 
     public const TABLES = ['ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset',
         'tenant_file','tenant','user','config','tenant_config','app','tenant_app_config','aigc_image_task','aigc_image_result',
@@ -55,6 +58,14 @@ final class MarketIsolatedMysqlFixture
     }
 
     public static function check(bool $ok, string $message): void { if (!$ok) throw new RuntimeException($message); }
+    public static function diagnostic(Throwable $error, string $stage): array
+    {
+        $result=['failure_class'=>get_class($error),'failure_fingerprint'=>hash('sha256',$error->getMessage()),
+            'failure_stage'=>preg_match('/^[a-z][a-z0-9_]{0,63}$/D',$stage)?$stage:'owned_fixture'];
+        if(preg_match('/fields not exists:\[([a-z][a-z0-9_]{0,63})\]/i',$error->getMessage(),$match)
+            || preg_match('/Unknown column \'([a-z][a-z0-9_]{0,63})\' in /i',$error->getMessage(),$match))$result['unknown_field']=$match[1];
+        return $result;
+    }
     public static function atomic(string $path, string $bytes): void
     {
         $tmp = $path.'.'.bin2hex(random_bytes(4)).'.tmp';
@@ -71,23 +82,148 @@ final class MarketIsolatedMysqlFixture
 
     public function seedEmptySchema(): array
     {
+        $this->stage='schema_source';
         $sqlFile = (string)getenv('C03_INSTALL_SQL');
         self::check($sqlFile === '/source/schema/like.sql' && is_file($sqlFile) && !is_link($sqlFile), 'Mount only the source installer SQL');
-        $sql = file_get_contents($sqlFile); $pdo = $this->pdo(); $created = [];
+        $sql = file_get_contents($sqlFile); $pdo = $this->pdo(); $created = []; $createSources=[];
+        self::check(hash('sha256',$sql)==='b12bacb3f2039f371ac10f8347f65d897da0069f71fec3bd5b768299ba121660','Review changed installer before deriving isolated DDL');
         $existing=$pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
         foreach($existing as$table)self::check(str_starts_with($table,'la_')&&in_array(substr($table,3),self::TABLES,true),'Unclean or unknown standalone DB tables');
         foreach (self::TABLES as $name) {
-            // Only complete CREATE TABLE statements for fixed, allowlisted names. No INSERT/ALTER/installer execution.
+            // Only complete CREATE TABLE statements for fixed, allowlisted names.
             $pattern = '~^CREATE TABLE(?: IF NOT EXISTS)? `la_'.preg_quote($name, '~').'`\s*\(.*?^\)\s*ENGINE\s*=\s*InnoDB\b[^;]*;~msi';
             if (preg_match($pattern, $sql, $match) !== 1) continue;
             self::check(!preg_match('/\b(?:DEFINER|TABLESPACE|TRIGGER)\b/i', $match[0]), 'Unexpected schema side effect');
-            if(!in_array('la_'.$name,$existing,true))$pdo->exec($match[0]); $created[] = $name;
+            if(!in_array('la_'.$name,$existing,true))$pdo->exec($match[0]); $created[] = $name; $createSources[$name]=hash('sha256',$match[0]);
         }
         foreach (['tenant','user','tenant_config','tenant_file','ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset',
             'aigc_image_task','aigc_image_result','aigc_video_task','aigc_video_result','aigc_music_task','aigc_music_result'] as $name)
             self::check(in_array($name, $created, true), 'Installer is missing a required empty fixture table: '.$name);
         foreach ($created as $name) self::check((int)$pdo->query('SELECT COUNT(*) FROM `la_'.$name.'`')->fetchColumn() === 0, 'Unexpected imported rows');
-        return ['schema_sha256'=>hash('sha256', $sql), 'empty_base_tables'=>count($created), 'source_database_connections'=>0, 'imported_original_rows'=>0];
+        self::check(count($created)===35,'Pinned installer base table count differs');
+        $before=$this->schemaFacts($pdo,$created);$added=0;$consistent=0;$conditionalSkipped=0;$sources=[];
+        foreach(self::supplementalDdl($sql) as $entry){
+            $table='la_'.$entry['table'];$clause=$entry['clause'];$name=$entry['name'];$kind=$entry['kind'];$already=false;
+            $this->stage=$kind==='column'?'schema_add_column':'schema_add_index';
+            if($kind==='column'){
+                $columns=$this->columnFacts($pdo,$table);
+                $expected=$this->expectedColumn($pdo,$table,$clause,$name);
+                if(isset($columns[$name])){self::check($columns[$name]===$expected,'Existing isolated column differs from source');$consistent++;$already=true;}
+                else{$pdo->exec('ALTER TABLE `'.$table.'` '.$clause);self::check(($this->columnFacts($pdo,$table)[$name]??null)===$expected,'Added column differs from source');$added++;}
+            }else{
+                $indexes=$this->indexFacts($pdo,$table);$expected=$entry['index'];
+                if(isset($indexes[$name])){self::check($indexes[$name]===$expected,'Existing isolated index differs from source');$consistent++;$already=true;}
+                else{$pdo->exec('ALTER TABLE `'.$table.'` '.$clause);self::check(($this->indexFacts($pdo,$table)[$name]??null)===$expected,'Added index differs from source');$added++;}
+            }
+            if($already&&$entry['conditional'])$conditionalSkipped++;
+            $sources[]=['table'=>$entry['table'],'kind'=>$kind,'name'=>$name,'source_line'=>$entry['line'],
+                'source_sha256'=>$entry['source_sha256'],'clause_sha256'=>hash('sha256',$clause),'base_create_sha256'=>$createSources[$entry['table']],
+                'conditional_source'=>$entry['conditional'],'already_consistent'=>$already];
+        }
+        $this->stage='schema_verify';
+        foreach($created as$name)self::check((int)$pdo->query('SELECT COUNT(*) FROM `la_'.$name.'`')->fetchColumn()===0,'DDL imported unexpected rows');
+        self::check(count($pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN))===35,'Supplemental DDL changed persistent table set');
+        self::check($this->schemaTemporaryCreated===$this->schemaTemporaryDropped,'Temporary expected-schema cleanup incomplete');
+        return ['schema_sha256'=>hash('sha256', $sql), 'empty_base_tables'=>count($created),'source_database_connections'=>0,'imported_original_rows'=>0,
+            'schema_before_sha256'=>hash('sha256',json_encode($before,JSON_THROW_ON_ERROR)),
+            'schema_after_sha256'=>hash('sha256',json_encode($this->schemaFacts($pdo,$created),JSON_THROW_ON_ERROR)),
+            'source_add_columns'=>22,'source_add_indexes'=>4,'source_add_applied'=>$added,'source_add_already_consistent'=>$consistent,
+            'conditional_source_already_consistent'=>$conditionalSkipped,'source_add_provenance'=>$sources,
+            'temporary_expected_tables_created'=>$this->schemaTemporaryCreated,'temporary_expected_tables_dropped'=>$this->schemaTemporaryDropped,'temporary_expected_tables_remaining'=>0];
+    }
+
+    private static function supplementalDdl(string $sql): array
+    {
+        $allowed=[
+            'aigc_image_task'=>['column'=>['channel','quality','reference_images','tenant_cost_points','user_charge_points','provider','model','provider_task_id','provider_params_json','app_task_id'],'index'=>['idx_app_task']],
+            'aigc_image_result'=>['column'=>['channel','quality','ratio','tenant_cost_points','user_charge_points','provider_task_id']],
+            'aigc_image_billing'=>['column'=>['consumption_id'],'index'=>['idx_consumption']],
+            'aigc_video_task'=>['column'=>['reference_assets','duration']],
+            'aigc_video_channel_spec'=>['column'=>['upstream_unit_cost']],
+            'tenant'=>['column'=>['oem_sales_enabled','oem_flow_enabled']],
+            'ai_app_task'=>['index'=>['idx_virtual_refund_user']],
+            'ai_consumption_log'=>['index'=>['idx_virtual_refund_billing']],
+        ];
+        $statements=[];
+        preg_match_all('~^ALTER TABLE `la_([a-z][a-z0-9_]+)`\s+([^;]+);~m',$sql,$matches,PREG_SET_ORDER|PREG_OFFSET_CAPTURE);
+        foreach($matches as$match){if(isset($allowed[$match[1][0]]))$statements[]=['table'=>$match[1][0],'body'=>trim($match[2][0]),'offset'=>$match[0][1],'source'=>$match[0][0],'conditional'=>false];}
+        // Decode exactly four reviewed static literals; never run their SET/IF,
+        // PREPARE/EXECUTE wrappers or any installer data/migration program.
+        $wrapped=[5058=>'225cc6edf723a4741c93a635cf29b444f9d2b8b97e60547d3f36ae221f27658a',
+            5073=>'8d0873028f447154054141494f683d6229901a8ca6643270678671d8b4d6d5d5',
+            5267=>'d274cd2c39fbf13e9b360ce61786e0eb362198e6e95829e07366af4c65d2e30e',
+            7317=>'2e8aef42db79a6c900626184c8ed2b6ba83f5848e08e236378801a4f66309b1a'];
+        $lines=explode("\n",$sql);
+        foreach($wrapped as$number=>$sha){
+            $line=$lines[$number-1]??'';self::check(hash('sha256',$line."\n")===$sha,'Wrapped ADD source changed');
+            self::check(preg_match("~'(ALTER TABLE (?:[^']|'')*)'~",$line,$literal)===1,'Missing reviewed static ADD literal');
+            $decoded=str_replace("''","'",$literal[1]);
+            self::check(preg_match('~^ALTER TABLE `la_([a-z][a-z0-9_]+)` (ADD COLUMN .+)$~D',$decoded,$parts)===1,'Wrapped literal is not a static ADD COLUMN');
+            $statements[]=['table'=>$parts[1],'body'=>$parts[2],'offset'=>strlen(implode("\n",array_slice($lines,0,$number-1)))+1,'source'=>$line."\n",'conditional'=>true];
+        }
+        usort($statements,static fn($a,$b)=>$a['offset']<=>$b['offset']);$result=[];$seen=[];
+        foreach($statements as$statement)foreach(self::splitAddClauses($statement['body'])as$clause){
+            $table=$statement['table'];self::check(in_array($table,self::TABLES,true),'Supplemental table is not allowlisted');
+            if(preg_match('~^ADD COLUMN `([a-z][a-z0-9_]+)`\s+.+$~sD',$clause,$match)){$kind='column';$name=$match[1];$index=null;}
+            elseif(preg_match('~^ADD (UNIQUE )?(?:KEY|INDEX) `([a-z][a-z0-9_]+)`\s*\((`[a-z][a-z0-9_]+`(?:\s*,\s*`[a-z][a-z0-9_]+`)*)\)$~D',$clause,$match)){
+                $kind='index';$name=$match[2];preg_match_all('/`([a-z][a-z0-9_]+)`/',$match[3],$columns);
+                $index=['columns'=>$columns[1],'non_unique'=>empty($match[1])?1:0,'type'=>'BTREE','sub_parts'=>array_fill(0,count($columns[1]),null)];
+            }else throw new RuntimeException('Only finite ADD COLUMN/INDEX clauses are permitted');
+            self::check(in_array($name,$allowed[$table][$kind]??[],true),'Supplemental identifier is not allowlisted');
+            self::check(!preg_match('/\b(?:DEFINER|TABLESPACE|TRIGGER|GENERATED|REFERENCES|SELECT|INSERT|UPDATE|DELETE|DROP|MODIFY|CHANGE|RENAME|PREPARE|EXECUTE)\b|;|--|\/\*/i',$clause),'Unsafe supplemental ADD clause');
+            $key=$table.'.'.$kind.'.'.$name;self::check(!isset($seen[$key]),'Duplicate source ADD identifier');$seen[$key]=true;
+            $result[]=['table'=>$table,'kind'=>$kind,'name'=>$name,'clause'=>$clause,'index'=>$index,'conditional'=>$statement['conditional'],
+                'line'=>substr_count(substr($sql,0,$statement['offset']),"\n")+1,'source_sha256'=>hash('sha256',$statement['source'])];
+        }
+        $expected=0;foreach($allowed as$table=>$kinds)foreach($kinds as$kind=>$names)foreach($names as$name){$expected++;self::check(isset($seen[$table.'.'.$kind.'.'.$name]),'Missing finite source ADD identifier');}
+        self::check($expected===26&&count($result)===26,'Source ADD manifest count differs');return$result;
+    }
+
+    private static function splitAddClauses(string $body): array
+    {
+        $result=[];$start=0;$depth=0;$quote='';$length=strlen($body);
+        for($i=0;$i<$length;$i++){
+            $char=$body[$i];
+            if($quote!==''){if($char===$quote){if(($body[$i+1]??'')===$quote)$i++;else$quote='';}continue;}
+            if($char==="'"||$char==='`'){$quote=$char;continue;}
+            if($char==='(')$depth++;elseif($char===')')$depth--;elseif($char===','&&$depth===0){$result[]=trim(substr($body,$start,$i-$start));$start=$i+1;}
+            self::check($depth>=0,'Unbalanced source ADD definition');
+        }
+        self::check($quote===''&&$depth===0,'Unclosed source ADD definition');$result[]=trim(substr($body,$start));return$result;
+    }
+
+    private function columnFacts(PDO $pdo,string $table): array
+    {
+        $result=[];foreach($pdo->query('SHOW FULL COLUMNS FROM `'.$table.'`')->fetchAll(PDO::FETCH_ASSOC)as$row){
+            $result[$row['Field']]=array_intersect_key($row,array_flip(['Field','Type','Collation','Null','Default','Extra','Comment']));
+        }return$result;
+    }
+
+    private function indexFacts(PDO $pdo,string $table): array
+    {
+        $groups=[];foreach($pdo->query('SHOW INDEX FROM `'.$table.'`')->fetchAll(PDO::FETCH_ASSOC)as$row)$groups[$row['Key_name']][(int)$row['Seq_in_index']]=$row;
+        $result=[];foreach($groups as$name=>$rows){ksort($rows);$rows=array_values($rows);$result[$name]=['columns'=>array_column($rows,'Column_name'),
+            'non_unique'=>(int)$rows[0]['Non_unique'],'type'=>$rows[0]['Index_type'],'sub_parts'=>array_column($rows,'Sub_part')];}ksort($result);return$result;
+    }
+
+    private function schemaFacts(PDO $pdo,array $tables): array
+    {
+        $result=[];foreach($tables as$table)$result[$table]=['columns'=>$this->columnFacts($pdo,'la_'.$table),'indexes'=>$this->indexFacts($pdo,'la_'.$table)];return$result;
+    }
+
+    private function expectedColumn(PDO $pdo,string $table,string $clause,string $name): array
+    {
+        $temporary='c03_schema_'.$this->owner.'_'.bin2hex(random_bytes(4));
+        $query=$pdo->prepare('SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');$query->execute([$table]);$collation=$query->fetchColumn();
+        self::check(is_string($collation)&&preg_match('/^utf8mb4_[a-z0-9_]+$/D',$collation),'Unexpected private table collation');
+        $definition=preg_replace('/\s+(?:AFTER `[a-z][a-z0-9_]+`|FIRST)\s*$/D','',substr($clause,strlen('ADD COLUMN ')));
+        $pdo->exec('CREATE TEMPORARY TABLE `'.$temporary.'` ('.$definition.') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE='.$collation);$this->schemaTemporaryCreated++;
+        try{$expected=$this->columnFacts($pdo,$temporary)[$name]??null;self::check(is_array($expected),'Cannot parse the reviewed source column');return$expected;}
+        finally{
+            $pdo->exec('DROP TEMPORARY TABLE `'.$temporary.'`');$gone=false;
+            try{$pdo->query('SHOW FULL COLUMNS FROM `'.$temporary.'`');}catch(PDOException $error){if((int)($error->errorInfo[1]??0)!==1146)throw$error;$gone=true;}
+            self::check($gone,'Temporary source-schema table remains');$this->schemaTemporaryDropped++;
+        }
     }
 
     public function activateWorker(string $prefix, string $dir, bool $barrier = false): void
@@ -134,6 +270,7 @@ final class MarketIsolatedMysqlFixture
 
     public function fixture(string $kind, ?string $source = null): array
     {
+        $this->stage='fixture_create';
         $f = new MarketWorkerFixture($this->database, self::TABLES);
         foreach (['enable'=>1,'default'=>'local'] as $key=>$value) think\facade\Db::name('tenant_config')->insert([
             'tenant_id'=>$f->tenant,'type'=>'storage','name'=>$key,'value'=>json_encode($value, JSON_THROW_ON_ERROR)]);
