@@ -23,13 +23,14 @@ function runMarketAgentMobileMediaHttp($f,string $api,string $peer,string $suffi
     $f->start(dirname(__DIR__).'/market-generation-http.php','fixture_agent_runner','agent');
     try{
         $uiRows=[];
-        if($input['ui']){fwrite(STDERR,'MOBILE_AGENT_MEDIA_UI_READY '.$f->dir.chr(10));$report['actual_h5_existing_upload_read_transcribe_history']=$wait('mobile-ui-done.json',600);$uiRows=$snapshot();}
+        if($input['ui']){fwrite(STDERR,'MOBILE_AGENT_MEDIA_UI_READY '.$f->dir.chr(10));$report['actual_h5_existing_upload_read_transcribe_history']=$wait('mobile-ui-done.json',600);$uiRows=$snapshot();$check(count($uiRows['aigc_llm_agent_run'])===6,'UI must complete five workflows and one explicit history reuse');}
         $input['tokens']['h5']=$login(3);$input['tokens']['mp']=$login(1);$input['ui']=false;
         file_put_contents($f->dir.'/mobile-input.json',json_encode($input,JSON_THROW_ON_ERROR));fwrite(STDERR,'MOBILE_AGENT_MEDIA_READY '.$f->dir.chr(10));
         $host=$wait('mobile-done.json',300);$rows=$snapshot();
         foreach($uiRows as$table=>$old)foreach($old as$row)$check(in_array($row,$rows[$table],true),'Host stage rewrote UI history '.$table);
-        $expectedRuns=$input['ui']?0:10; // Host always creates two intentions for each of five source workflows.
         $check(count($host['run_ids'])===10,'Host did not complete all five history pairs');
+        $check(count($rows['aigc_llm_agent_run'])===count($uiRows['aigc_llm_agent_run']??[])+10,'Unexpected mobile intention count');
+        $check(count($rows['open_platform_file'])===(empty($uiRows)?4:8),'Managed input history reuploaded original files');
         $validated=[];
         foreach($db::name('aigc_llm_agent_run')->order('id')->select()->toArray()as$run){
             $check($run['status']==='success','Mobile source workflow not successful');
@@ -52,6 +53,8 @@ function runMarketAgentMobileMediaHttp($f,string $api,string $peer,string $suffi
         }
         $wires=array_map(fn($l)=>json_decode($l,true),file($f->dir.'/mobile-stt-wires.jsonl')?:[]);$check(count($wires)===$db::name('aigc_llm_agent_step')->count(),'STT transport submitted more than once per native step');
         foreach($wires as$wire)$check($wire['probe']['has_audio']&&!$wire['probe']['has_video']&&str_starts_with($wire['mime'],'audio/'),'STT did not receive real decoded audio bytes');
+        $videoTranscriptions=count(array_filter($validated,fn($r)=>$r['source']==='video_audio'));
+        $check(count(array_filter($wires,fn($w)=>$w['probe']['duration']>64))===$videoTranscriptions,'Video STT lost full audio duration');
         $calls=array_map(fn($l)=>json_decode($l,true),file($f->dir.'/deep-calls.jsonl')?:[]);$visual=[];
         foreach($calls as$call)if($call['kind']==='agent_text'&&str_contains(json_encode($call['input']['messages'],JSON_UNESCAPED_UNICODE),'你负责阅读用户资料')){
             $walk=function($v)use(&$walk){if(!is_array($v))return 0;$n=($v['type']??'')==='image_url'?1:0;foreach($v as$x)if(is_array($x))$n+=$walk($x);return $n;};$n=$walk($call['input']['messages']);if($n){$check(str_contains(json_encode($call['input']['messages'],JSON_UNESCAPED_SLASHES),'data:image/jpeg;base64,'),'Mobile visual bytes lost');$visual[]=$n;}
