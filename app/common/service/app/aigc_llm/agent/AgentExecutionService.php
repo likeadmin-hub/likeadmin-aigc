@@ -23,6 +23,7 @@ final class AgentExecutionService
         $preferences=isset($params['preferences'])?AgentStore::validatePreferences((array)$params['preferences']):AgentStore::preferences($tenant,$user);
 
         $preferences['_workspace']=AgentWorkspaceScope::current();
+        $preferences['_request_origin']=AgentRequestOrigin::normalize(request()->domain(true));
         $attachments=array_values(array_unique(array_map('strval',(array)($params['attachments']??[]))));
         if(count($attachments)>8)throw new \InvalidArgumentException('最多引用8个素材');
         $subjectIds=array_values(array_unique(array_map('intval',(array)($params['subject_ids']??[]))));
@@ -239,7 +240,7 @@ final class AgentExecutionService
         if(!$run)return 0;
         return AgentWorkspaceScope::within(AgentWorkspaceScope::fromRun($run),static function()use($run){
         $original=app()->request;$request=new \app\Request();
-        $request->withServer($original->server());$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
+        $request->withServer(AgentRequestOrigin::server($original->server(),AgentRequestOrigin::fromRun($run)));$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
         app()->instance('request',$request);
         try{
             if(!AgentWorkspaceScope::activeRunWorkspace($run)){
