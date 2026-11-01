@@ -73,14 +73,38 @@
     {
       "id": "A04",
       "owner": "/root",
-      "status": "planned",
+      "status": "verified",
       "depends_on": [
         "A01",
         "A02",
         "A03-source"
       ],
       "output": "Integrated source-only commits, appropriate regressions/builds, immutable evidence and feature pushes",
-      "acceptance": "Actual results and residual failures recorded; no generated output or local proxy changes delivered; owned fixtures removed"
+      "acceptance": "Actual results and residual failures recorded; no generated output or local proxy changes delivered; owned fixtures removed",
+      "delivered_payload": {
+        "server_feature_commit": "670781245cc80cb68840a79a4d0e4278b86b637f",
+        "web_feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+        "remote": "configured origin Gitee in each repository; exact feature refs read back after successful pushes",
+        "note": "These are delivered source/evidence payload heads. Later documentation-only status commits may extend server feature without changing runtime-tested source."
+      },
+      "verification": {
+        "pc_passed": 2433,
+        "mobile_passed": 397,
+        "h5_mp_builds_passed": true,
+        "cloud_transport_cases_passed": 6,
+        "index_boundary_tests_passed": 2,
+        "index_byte_reproducible": true,
+        "prior_132_sources_and_all_observations_preserved": true,
+        "source_only_files_server": 14,
+        "source_only_files_web": 36,
+        "skip_worktree_preserved_server": 3971,
+        "skip_worktree_preserved_web": 3,
+        "original_task_llm_and_balance_audit_equal": true,
+        "owned_fixture_cleanup_complete": true,
+        "permanent_daemon_1667_restarted": false,
+        "remote_develop_unchanged_server": "feedc6778b5bd2227db4dc75929d46a8545b1f77",
+        "remote_develop_unchanged_web": "0b0233cb8584faab2cf3385c88c1b8e3bb0e3d02"
+      }
     },
     {
       "id": "B01",
