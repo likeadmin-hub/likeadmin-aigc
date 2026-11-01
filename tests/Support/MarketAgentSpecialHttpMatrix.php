@@ -7,8 +7,10 @@ function runMarketAgentSpecialHttp($f,string $api,string $peer,string $suffix,st
     $post=fn($action,$p)=>dataHttp($api,'/api/app.aigc_llm.agent/'.$action.$suffix,$p,$token);
     $get=fn($action,$p)=>dataHttp($peer,'/api/app.aigc_llm.agent/'.$action.$suffix.'&'.http_build_query($p),[],$token,'GET');
     $count=fn($kind)=>count(array_filter(array_map(fn($l)=>json_decode($l,true),file($f->dir.'/deep-calls.jsonl')?:[]),fn($r)=>$r['kind']===$kind));
-    $upload=function(string $path,string $name,string $mime)use($api,$suffix,$token,$check):array {
-        $c=curl_init($api.'/api/app.aigc_llm.agent/upload'.$suffix);curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>['file'=>new CURLFile($path,$mime,$name)],CURLOPT_HTTPHEADER=>['token: '.$token],CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);$r=json_decode((string)curl_exec($c),true);curl_close($c);$check(($r['code']??0)===1,'Agent HTTP asset upload failed: '.json_encode($r));return $r['data'];
+    $upload=function(string $path,string $name,string $mime)use($api,$suffix,$token,$check,$db,$t,$u):array {
+        $c=curl_init($api.'/api/app.aigc_llm.agent/upload'.$suffix);curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>['file'=>new CURLFile($path,$mime,$name)],CURLOPT_HTTPHEADER=>['token: '.$token],CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20]);$r=json_decode((string)curl_exec($c),true);curl_close($c);$check(($r['code']??0)===1,'Agent HTTP asset upload failed: '.json_encode($r));
+        $row=$db::name('open_platform_file')->where(['tenant_id'=>$t,'user_id'=>$u,'file_id'=>$r['data']['file_id']])->find();
+        $check($row&&(int)$row['size']===filesize($path)&&$row['mime']===(new finfo(FILEINFO_MIME_TYPE))->file($path)&&$row['storage_scope']!==''&&$row['storage_engine']==='local','Moved upload lost MIME/size/owner/storage facts');return $r['data'];
     };
     $finish=function(int $id,string $status='success')use($f,$script,$db):void {
         $f->start($script,'fixture_agent_runner','agent');MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->where('id',$id)->value('status')===$status,'Dedicated Agent run did not reach '.$status,45);$f->stop('agent');

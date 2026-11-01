@@ -8,9 +8,12 @@ final class OpenAssets
 {
     public static function upload(int $tenantId,int $userId,string $type): array
     {
+        // Local storage moves the PHP upload. Read its facts while the
+        // temporary file still exists, before delegating to the native uploader.
+        $file=request()->file('file');$mime=$file?$file->getMime():'';$size=$file?$file->getSize():0;
         $data=match($type){'image'=>UploadService::image(0,$userId,FileEnum::SOURCE_USER),'video'=>UploadService::video(0,$userId,FileEnum::SOURCE_USER),'file','audio'=>UploadService::file(0,$userId,FileEnum::SOURCE_USER),default=>throw new OpenException('invalid_asset_type','素材类型无效')};
         $native=TenantFile::where(['tenant_id'=>$tenantId,'source_id'=>$userId,'id'=>$data['id']])->findOrEmpty();if($native->isEmpty())throw new OpenException('asset_unavailable','上传归属信息无效',502);
-        $file=request()->file('file');$id='of_'.bin2hex(random_bytes(16));$row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$native['uri'],'name'=>$native['name'],'mime'=>$file?$file->getMime():'','size'=>$file?$file->getSize():0,'storage_scope'=>$native['storage_scope']??'','storage_engine'=>$native['storage_engine']??'','storage_domain'=>$native['storage_domain']??'']+OpenStore::timestamp();OpenStore::table('file')->insert($row);return self::detail($tenantId,$userId,$id);
+        $id='of_'.bin2hex(random_bytes(16));$row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$native['uri'],'name'=>$native['name'],'mime'=>$mime,'size'=>$size,'storage_scope'=>$native['storage_scope']??'','storage_engine'=>$native['storage_engine']??'','storage_domain'=>$native['storage_domain']??'']+OpenStore::timestamp();OpenStore::table('file')->insert($row);return self::detail($tenantId,$userId,$id);
     }
     /** Materialize owned, already stored native outputs for subsequent tool API calls. */
     public static function registerResult(int $tenantId,int $userId,string $app,array $result): ?string
