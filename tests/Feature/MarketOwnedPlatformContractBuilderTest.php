@@ -88,6 +88,26 @@ class MarketOwnedPlatformContractBuilderTest extends TestCase
         Builder::build(['version'=>1,'captured_at'=>'2026-11-01T00:00:00+08:00','entries'=>[]],$fake);
     }
 
+    public function testActualVerificationClassifiesExpectedOverflowAsParameterRejectionWhileKeepingFullScopeGate(): void
+    {
+        $bundle=self::bundle('qwen-image-3.0');$entry=$bundle['entries'][0];
+        $identity=array_intersect_key($entry,array_flip(['generation_type','model_code','channel_code']));
+        $bundle['model_states']=[$identity+['status'=>'source_candidate_ready_not_activated','facts'=>['parameters'=>[]]]];
+        $metadata=$entry['binding_declaration']+['upstream_metadata'=>[
+            'model_code'=>$entry['model_code'],'channel_code'=>$entry['channel_code']]];
+        $snapshot=['entries'=>[['generation_type'=>'image','metadata'=>$metadata,
+            'product'=>['upstream_model_code'=>$entry['model_code'],'upstream_channel_code'=>$entry['channel_code']]]]];
+        $before=Reviewed::digest($snapshot);
+        $result=\app\common\service\power\MarketOwnedPlatformPreparationVerification::verify($bundle,$snapshot,self::ARTIFACT);
+        $cases=array_column($result['models'][0]['cases'],null,'case');
+        self::assertSame('prepared_and_replayed',$cases['image_to_image_maximum']['status']);
+        self::assertSame('rejected',$cases['image_to_image_overflow']['status']);
+        self::assertSame(\InvalidArgumentException::class,$cases['image_to_image_overflow']['error_class']);
+        self::assertTrue($result['models'][0]['frozen_unchanged']);self::assertTrue($result['original_snapshot_unchanged']);
+        self::assertSame($before,Reviewed::digest($snapshot));
+        self::assertFalse($result['success'],'A single synthetic identity cannot satisfy the unchanged 18-model success gate');
+    }
+
     public function testSchemaAndRulesRetainZeroFalseAndRawDeclarationSeparation(): void
     {
         $entry=self::entry('qwen-image-3.0');$body=self::qwen();
