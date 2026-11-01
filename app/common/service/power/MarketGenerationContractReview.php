@@ -232,7 +232,9 @@ final class MarketGenerationContractReview
                     || !isset($mode['schema']['properties']) || self::incomplete($mode['schema']) !== []) throw new InvalidArgumentException('模式参数合同不完整');
                 self::assertSupportedSchema($mode['schema']);
                 foreach ((array)($mode['rules'] ?? []) as $rule) {
-                    if (!in_array($rule['kind'] ?? '',['requires','exclusive','exactly_one','at_least_one','max','range','equals','forbid_value','sum','clip_range','loop_frame','keyframes','kling3_shots','kling4','oct24_urls','subjects','subject_quota'],true)) throw new InvalidArgumentException('模式规则尚未实现');
+                    if (!in_array($rule['kind'] ?? '',['requires','exclusive','exactly_one','at_least_one','max','range','equals','forbid_value','sum','clip_range','loop_frame','keyframes','kling3_shots','kling4','owned_platform','oct24_urls','subjects','subject_quota'],true)) throw new InvalidArgumentException('模式规则尚未实现');
+                    if (($rule['kind']??'')==='owned_platform' && !MarketOwnedPlatformContractRules::supported($rule,$entry['generation_protocol']))
+                        throw new InvalidArgumentException('自有平台合同规则版本或结构未审核');
                 }
             }
             $sort = static function ($v) use (&$sort) { if (!is_array($v)) return $v;foreach ($v as &$child) $child=$sort($child);unset($child);if(!array_is_list($v))ksort($v);return $v; };

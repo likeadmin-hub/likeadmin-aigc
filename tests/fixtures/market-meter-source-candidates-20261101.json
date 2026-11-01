@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "scope": "Read-only source observations and offline test candidates. No supplier output guarantee, trusted meter, live configuration or current price is granted.",
+  "source_commit": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+  "source_paths": {
+    "official_catalogue": "server/resources/official/catalog.json",
+    "official_identity": "server/app/common/service/ai/official/OfficialCatalogService.php",
+    "official_request_and_measurement": "server/app/common/service/ai/official/OfficialMediaService.php",
+    "official_result": "server/app/common/service/ai/driver/OfficialTaskDriver.php",
+    "seedance_receipt": "server/app/common/service/ai/app/SeedanceDriver.php",
+    "seedance_estimate": "server/app/common/service/ai/BillingSkuService.php",
+    "seedance_legacy_estimate": "server/app/common/service/ai/PointsService.php"
+  },
+  "official_image_size_request_mapping": {
+    "square": [512, 512],
+    "square_hd": [1024, 1024],
+    "portrait_4_3": [768, 1024],
+    "portrait_16_9": [576, 1024],
+    "landscape_4_3": [1024, 768],
+    "landscape_16_9": [1024, 576]
+  },
+  "rows": [
+    {
+      "id": "meter_sku:275:380",
+      "product_id": 275,
+      "sku_id": 380,
+      "resource_type": "model",
+      "model_code": "official-33-c0b38c6fcb29f739b0",
+      "channel_code": "official",
+      "source_model": "qwen/image-edit",
+      "material_mode": "image_to_image",
+      "meter_basis": "megapixel",
+      "request_count_field": "num_images",
+      "request_count_values": ["1", "2", "3", "4"],
+      "request_default_count": 1,
+      "maximum_request_pixels_per_image": 1048576,
+      "maximum_billable_pixels_per_image": null,
+      "maximum_billable_images": null,
+      "local_metadata_binding": "pending_snapshot",
+      "status": "waiting_supplier_output_guarantee",
+      "activation_authorized": false
+    },
+    {
+      "id": "meter_sku:277:383",
+      "product_id": 277,
+      "sku_id": 383,
+      "resource_type": "model",
+      "model_code": "official-33-f3baf6c03742072d3a",
+      "channel_code": "official",
+      "source_model": "qwen/text-to-image",
+      "material_mode": "text_to_image",
+      "meter_basis": "megapixel",
+      "request_count_field": null,
+      "request_count_values": [],
+      "request_default_count": 1,
+      "maximum_request_pixels_per_image": 1048576,
+      "maximum_billable_pixels_per_image": null,
+      "maximum_billable_images": null,
+      "local_metadata_binding": "pending_snapshot",
+      "status": "waiting_supplier_output_guarantee",
+      "activation_authorized": false
+    },
+    {
+      "id": "meter_sku:140:210", "product_id": 140, "sku_id": 210,
+      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
+      "material_mode": "with_video", "resolution": "480p", "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+    },
+    {
+      "id": "meter_sku:140:211", "product_id": 140, "sku_id": 211,
+      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
+      "material_mode": "without_video", "resolution": "480p", "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+    },
+    {
+      "id": "meter_sku:140:212", "product_id": 140, "sku_id": 212,
+      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
+      "material_mode": "with_video", "resolution": "720p", "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+    },
+    {
+      "id": "meter_sku:140:213", "product_id": 140, "sku_id": 213,
+      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
+      "material_mode": "without_video", "resolution": "720p", "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+    },
+    {
+      "id": "meter_sku:140:214", "product_id": 140, "sku_id": 214,
+      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
+      "material_mode": "with_video", "resolution": "1080p", "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+    },
+    {
+      "id": "meter_sku:140:215", "product_id": 140, "sku_id": 215,
+      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
+      "material_mode": "without_video", "resolution": "1080p", "meter_basis": "token",
+      "observed_result_usage_path": "data.result.usage.total_tokens",
+      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+    }
+  ]
+}

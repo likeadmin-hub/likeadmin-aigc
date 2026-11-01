@@ -33,6 +33,51 @@ class MarketNativeMeterExpansionTest extends TestCase
         self::assertNull(Pixels::measure($native,['width'=>1,'height'=>1]));
         $this->expectException(OpenException::class);Pixels::measure($native,['data'=>['image_urls'=>['http://127.0.0.1/private.png']]]);
     }
+    /** @dataProvider officialSourceRows */
+    public function testOfficialCandidateResultSlotsAreMeasuredFromBytesWithAFrozenSyntheticBound(array $candidate): void
+    {
+        // These candidates do not grant a real output guarantee. Reuse the existing synthetic shared-meter bound.
+        self::assertFalse($candidate['activation_authorized']);self::assertNull($candidate['maximum_billable_pixels_per_image']);
+        $reserved=$candidate['request_count_field']===null?1:2;
+        $meter=array_replace(self::pixel(),['result_path'=>'data.result.results','result_item_url'=>'url']);
+        $native=['kind'=>'image','market_snapshot'=>['model_code'=>$candidate['model_code'],'channel_code'=>$candidate['channel_code'],
+            'billing_meter'=>Meter::contract(['usage_unit'=>'megapixel','source_payload'=>['meter_contract'=>$meter]]),'reserved_image_quantity'=>$reserved]];
+        $slot=['type'=>'image','url'=>self::image(),'width'=>99999,'height'=>99999,'transfer_status'=>'success'];
+        $result=['data'=>['result'=>['results'=>array_fill(0,$reserved,$slot)]],'usage'=>['output_megapixels'=>99999]];$wire=Store::encode($result);
+        self::assertNull(Native::settledUnits($native,$result,false));$evidence=Pixels::measure($native,$result);
+        self::assertCount($reserved,$evidence['images']);self::assertSame($reserved/1000000,Native::settledUnits($native,$result,false,$evidence));
+        self::assertSame($wire,Store::encode($result),'Byte measurement must not rewrite the supplier receipt');
+        self::assertSame(0.,Native::settledUnits($native,[],true));
+        $changed=$result;$changed['data']['result']['results'][0]['transfer_status']='failed';
+        try{Native::settledUnits($native,$changed,false,$evidence);self::fail('An old measurement cannot certify a changed partial receipt');}
+        catch(OpenException $error){self::assertSame('native_measurement_changed',$error->errorType);}
+        $changed=$native;$changed['market_snapshot']['billing_meter']['maximum_pixels_per_image']=2000000;
+        $this->expectException(OpenException::class);Native::settledUnits($changed,$result,false,$evidence);
+    }
+
+    /** @dataProvider officialSourceRows */
+    public function testOfficialCandidateMissingPendingAndExcessSlotsCannotReleaseTheBound(array $candidate): void
+    {
+        $meter=array_replace(self::pixel(),['result_path'=>'data.result.results','result_item_url'=>'url']);
+        $native=['kind'=>'image','market_snapshot'=>['model_code'=>$candidate['model_code'],'channel_code'=>$candidate['channel_code'],
+            'billing_meter'=>Meter::contract(['usage_unit'=>'megapixel','source_payload'=>['meter_contract'=>$meter]]),'reserved_image_quantity'=>1]];
+        foreach([[],['data'=>['result'=>['results'=>[]]]],['data'=>['result'=>['results'=>[['url'=>self::image(),'transfer_status'=>'pending']]]]]]as$missing){
+            self::assertNull(Pixels::measure($native,$missing));self::assertNull(Native::settledUnits($native,$missing,false));
+        }
+        // Count every declared output slot, even when both slots have the same URL; reject before fetching either.
+        $excess=['data'=>['result'=>['results'=>array_fill(0,2,['url'=>'http://127.0.0.1/never-fetch.png','type'=>'image','transfer_status'=>'success'])]]];
+        try{Pixels::measure($native,$excess);self::fail('Repeated slots above the frozen quantity must reject before transport');}
+        catch(OpenException $error){self::assertSame('usage_boundary_exceeded',$error->errorType);}
+        $oversized=['data'=>['result'=>['results'=>[['url'=>self::image(1001,1000),'type'=>'image','transfer_status'=>'success']]]]];
+        $this->expectException(\Exception::class);Pixels::measure($native,$oversized);
+    }
+
+    public static function officialSourceRows(): array
+    {
+        $source=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/market-meter-source-candidates-20261101.json'),true,512,JSON_THROW_ON_ERROR);
+        return array_map(static fn($row)=>[$row],array_values(array_filter($source['rows'],static fn($row)=>$row['resource_type']==='model')));
+    }
+
     public function testNanoRawModeAndNestedProjectionStayExplicit(): void
     {
         $p=['id'=>1,'resource_type'=>'app_api','model_type'=>'image','upstream_app_code'=>'nano_banana','upstream_api_code'=>'submit','source_payload'=>[]];$s=['locked_params'=>['model'=>'nano-banana-2']];
