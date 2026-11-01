@@ -1,2 +1,5 @@
 *.sh text eol=lf
 Dockerfile text eol=lf
+
+# README presentation media stays in Git, outside downloadable source archives.
+/.github/media export-ignore
