@@ -18,6 +18,22 @@
     "real_ledger_repair_is_optional_out_of_original_scope": true,
     "full_real_matrix_not_representative_smoke_only": true
   },
+  "latest_continuation": {
+    "batch": 77,
+    "user_response": "Does not know which technical inputs to provide; no new paid/real-task/ledger/deployment permissions granted.",
+    "intake_responsibility": "Agents prepare technical material, exact matrix, SHA, synthetic media and version evidence; owner only decides spending limits, device helper and deployment operator.",
+    "support_message": "docs/market-completion-support-message-20261101.md",
+    "planning_inventory": "docs/market-acceptance/execution-planning-inventory-batch-77-20261101.json",
+    "scope_preservation": "107 current local options / 542 SKU do not exclude the 14 historical resources / 25 SKU absent now; union121/567 retained, not certified as live active catalogue.",
+    "source_403_follow_up": {
+      "status": "verified_local_only",
+      "cases": 6,
+      "source_feature_commit": "21c3e0a2ef0aa81416bcb2f32066a584575bc5a5",
+      "runtime_local_develop_commit": "9a13987421d328d9e7da949082334eca1e71c0a1",
+      "evidence": "docs/market-acceptance/source-403-recovery-batch-77-20261101.json",
+      "does_not_close_real_signature_network_or_dedicated_infra": true
+    }
+  },
   "tasks": [
     {
       "id": "A01",
