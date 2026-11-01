@@ -19,12 +19,17 @@ function marketAgentTextSupplier(array $input,string $dir): bool
         } elseif(str_contains($all,'Synthetic speech')) {
             $name='plan_creation';$params=['tool_code'=>'speech_synthesis','title'=>'Synthetic speech','parameters'=>['text'=>str_contains($all,'Synthetic speech long')?str_repeat('字',501):'隔离配音正文。']];
         }
+        $users=array_values(array_filter($input['messages'],fn($m)=>$m['role']==='user'));$current=end($users);$current=is_string($current['content']??null)?$current['content']:json_encode($current['content']??[]);
+        if(preg_match('/Synthetic media (video|music)/',$current,$match)) {
+            $music=$match[1]==='music';$name='plan_creation';$params=['tool_code'=>$music?'aigc_music':'aigc_video','title'=>'Synthetic media '.$match[1],'parameters'=>$music?['prompt'=>'Synthetic instrumental blocks','title'=>'Synthetic instrumental','duration'=>5,'custom'=>false,'instrumental'=>true]:['prompt'=>'Synthetic video blocks','duration'=>1,'quality'=>'720P','ratio'=>'1:1']];
+        }
         $tool=['index'=>0,'id'=>'call-synthetic','type'=>'function','function'=>['name'=>$name,'arguments'=>json_encode(['payload'=>$params],JSON_UNESCAPED_UNICODE)]];
         if($name==='')$tool=false;
     }elseif($agent&&empty($input['tools']))$content='{"action":"new","topic_id":0}';
     elseif($agent)$content='隔离 Agent 已保存方案或文档。';
     if($reading)$content=json_encode(['summary'=>'隔离长资料累计摘要。','note'=>'隔离资料分段笔记。'],JSON_UNESCAPED_UNICODE);
     if(!$agent&&str_contains(json_encode($input['messages'],JSON_UNESCAPED_UNICODE),'统一对话决策'))$content=json_encode(['reply_markdown'=>'隔离短剧中文回复。','action'=>['name'=>'respond','arguments'=>new stdClass()],'remember'=>[]],JSON_UNESCAPED_UNICODE);
+    if(!$agent&&str_contains($all,'Synthetic drama media sequence'))$content='隔离媒体方案。<canvas-actions>'.json_encode(['nodes'=>[['type'=>'image','title'=>'Synthetic storyboard','prompt'=>'Synthetic storyboard blocks','key'=>'board'],['type'=>'video','title'=>'Synthetic shot','prompt'=>'Synthetic moving blocks','key'=>'shot','depends_on'=>['board']]]],JSON_UNESCAPED_UNICODE).'</canvas-actions>';
     header('Content-Type: text/event-stream');
     $id='agent-'.count(file($dir.'/deep-calls.jsonl'));
     foreach($tool?[['tool_calls'=>[$tool]]]:array_map(fn($text)=>['content'=>$text],mb_str_split($content,3))as$delta){echo 'data: '.json_encode(['id'=>$id,'choices'=>[['index'=>0,'delta'=>$delta,'finish_reason'=>null]]],JSON_UNESCAPED_UNICODE)."\n\n";@ob_flush();flush();usleep(60000);}
