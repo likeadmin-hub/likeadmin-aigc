@@ -1,6 +1,6 @@
 <?php
 /** Native stream and Agent APIs, private login/SQL/supplier only. */
-function runMarketAgentHttp($f,$api,$peer,$suffix,$token,$imageChannel,array &$report): void
+function runMarketAgentHttp($f,$api,$peer,$suffix,&$token,$imageChannel,array &$report): void
 {
     $db=think\facade\Db::class;$t=$f->tenant;$u=$f->user;$script=dirname(__DIR__).'/market-generation-http.php';
     $check=fn($ok,$why)=>MarketWorkerFixture::check((bool)$ok,$why);
