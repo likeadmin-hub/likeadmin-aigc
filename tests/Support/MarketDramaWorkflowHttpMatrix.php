@@ -37,7 +37,7 @@ function runMarketDramaWorkflowHttp($f,string $api,string $peer,string $suffix,s
         $v=$view();$v=$post('aigc_short_drama.canvas_agent/answerWorkflow',$scope+['expected_revision'=>$v['workflow']['state_revision'],'slot'=>'next_stage','value'=>'three_view']);$v=$stage('assets');$check($v['workflow']['image_plan']['node_count']===1,'Character view plan missing');$v=$post('aigc_short_drama.canvas_agent/confirmWorkflowPlan',$scope+['expected_revision'=>$v['workflow']['state_revision'],'plan_hash'=>$v['workflow']['plan_hash']]);
         MarketWorkerFixture::wait(fn()=>count(array_filter($nodes(),fn($n)=>($n['metadata']['workflow_artifact']??'')==='three_view'&&($n['metadata']['status']??'')==='success'))===1,'Three-view did not finish',80);$report['three_view_owned_subject_reference_and_background_result']=true;
         $v=$view();$v=$post('aigc_short_drama.canvas_agent/answerWorkflow',$scope+['expected_revision'=>$v['workflow']['state_revision'],'slot'=>'next_stage','value'=>'continue']);$v=$stage('video_plan');$check($v['workflow']['stage_state']['status']==='awaiting_stage_confirmation','Storyboard table not reviewable');$v=$post('aigc_short_drama.canvas_agent/confirmWorkflowStage',$scope+['expected_revision'=>$v['workflow']['state_revision']]);$v=$stage('storyboard');$boards=array_values(array_filter($nodes(),fn($n)=>($n['metadata']['workflow_artifact']??'')==='storyboard'));$check(count($boards)===2&&count(array_filter($boards,fn($n)=>($n['metadata']['status']??'idle')==='idle'))===2,'Storyboard images were automatically submitted');$report['confirmed_storyboard_table_two_manual_image_nodes']=true;
-        $manual=function($node,string $type,string $key)use($post,$pair,$image,$video,$videoRow,$sku,&$c,$nodes,$check){
+        $manual=function($node,string $type,string $key)use($post,$pair,$image,$video,$videoRow,$sku,&$c,$nodes,$check,$db,$meta,&$report){
             $p=['canvas_id'=>$c,'node_id'=>(string)$node['id'],'type'=>$type,'channel'=>$type==='image'?$image:$video,'model_id'=>$type==='image'?$image:$video,'prompt'=>$node['metadata']['prompt'],'ratio'=>'1:1','quality'=>$type==='image'?'1k':'720P','quantity'=>1,'request_key'=>$key];
             if($type==='video'){
                 $p+=['duration'=>5,'generation_method'=>'image_to_video','market_product_id'=>(int)$videoRow['id'],'market_sku_id'=>(int)$sku['id']];
@@ -46,7 +46,20 @@ function runMarketDramaWorkflowHttp($f,string $api,string $peer,string $suffix,s
                 foreach($nodes()as$source)if(($source['metadata']['workflow_artifact']??'')==='storyboard'&&($source['metadata']['workflow_key']??'')==='storyboard:'.substr($node['metadata']['workflow_key'],strpos($node['metadata']['workflow_key'],':')+1))$reference=[['asset_id'=>(int)$source['metadata']['asset_id'],'type'=>'image','role'=>'first_frame_image']];
                 $p['reference_assets']=$reference;
             }
-            if($type==='video'){$quote=$post('aigc_short_drama.canvas/quote',$p);$post('aigc_short_drama.canvas/confirmQuote',$p+['quote_token'=>$quote['quote_token']]);$p['quote_token']=$quote['quote_token'];}[$run,$same]=$pair('aigc_short_drama.canvas/run',$p);$check($run['id']===$same['id']&&($run['generation_task']['schema_version']??0)===1,'Manual media did not share native task identity');return [$run,$p];
+            if($type==='video'){
+                try {$quote=$post('aigc_short_drama.canvas/quote',$p);}
+                catch(Throwable $error){
+                    // Failure-only, owned fixture diagnostics. Preparation is read-only.
+                    $service=app\common\service\app\aigc_short_drama\ShortDramaCanvasService::class;
+                    $document=$db::name('aigc_short_drama_canvas')->where('id',$c)->find();
+                    $inputs=(new ReflectionMethod($service,'withGraphReferenceInputs'))->invoke(null,$document,(string)$node['id'],$p);
+                    $payload=(new ReflectionMethod($service,'generationPayload'))->invoke(null,$type,$inputs,$fTenant=(int)$document['tenant_id'],(int)$document['user_id'],$c);
+                    $snapshot=['resource_type'=>'model','model_code'=>$videoRow['upstream_model_code'],'channel_code'=>$videoRow['upstream_channel_code'],'market_metadata'=>$meta['market_metadata'],'params_schema'=>$meta['market_metadata']['params_schema'],'locked_params'=>$sku['locked_params']];
+                    $native=(new ReflectionMethod(app\common\service\power\MarketVideoRuntimeService::class,'modelPayload'))->invoke(null,$snapshot,$payload,'diagnostic-only');
+                    $report['failed_video_material_probe']=['references'=>array_map(fn($a)=>['asset_id'=>$a['asset_id']??0,'role'=>$a['role']??'','url'=>$a['url']??'','uri'=>$a['uri']??''],(array)$payload['reference_assets']),'native_images'=>$native['image_urls']??[]];
+                    throw $error;
+                }
+                $post('aigc_short_drama.canvas/confirmQuote',$p+['quote_token'=>$quote['quote_token']]);$p['quote_token']=$quote['quote_token'];}[$run,$same]=$pair('aigc_short_drama.canvas/run',$p);$check($run['id']===$same['id']&&($run['generation_task']['schema_version']??0)===1,'Manual media did not share native task identity');return [$run,$p];
         };
         $boardRuns=[];foreach($boards as$i=>$board)$boardRuns[]=$manual($board,'image','full-workflow-board-'.($i+1));
         MarketWorkerFixture::wait(fn()=>count(array_filter($nodes(),fn($n)=>($n['metadata']['workflow_artifact']??'')==='storyboard'&&($n['metadata']['status']??'')==='success'))===2,'Manual storyboard results not written without page polling',80);$report['manual_storyboards_shared_results_and_owned_references']=true;
