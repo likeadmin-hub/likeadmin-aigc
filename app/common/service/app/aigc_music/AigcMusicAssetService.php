@@ -216,48 +216,62 @@ class AigcMusicAssetService
         return self::persistBinary($content, $tenantId, $userId, strtolower($matches[1]), 'audio/' . strtolower($matches[1]), $storageConfig, $resultAssetId);
     }
 
-    private static function downloadRemoteContent(string $url): array
+    /** Validate declared response lengths and read failures while retaining the original worker transport policy. */
+    private static function downloadRemoteContent(string $url, int $timeout = 45, int $maxBytes = 104857600): array
     {
+        if ($timeout < 1 || $timeout > 45 || $maxBytes < 1 || $maxBytes > 104857600) throw new \InvalidArgumentException('下载限制无效');
         if (\app\common\service\open_platform\OpenCallContext::active()) {
-            $wire=\app\common\service\open_platform\OpenSafeHttp::get($url,self::MAX_REMOTE_AUDIO_BYTES,45);
-            $headers=[];foreach($wire['headers'] as $name=>$value)$headers[]=$name.': '.$value;
+            $wire=\app\common\service\open_platform\OpenSafeHttp::get($url,$maxBytes,$timeout);
+            $headers=['HTTP/1.1 '.$wire['status']];
+            foreach ($wire['headers'] as $name=>$value) $headers[]=$name.': '.$value;
             return [$wire['body'],$headers];
         }
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 45,
-                'follow_location' => 1,
-                'ignore_errors' => true,
-                'header' => "User-Agent: LikeAdminAigcMusic/1.0\r\n",
-            ],
-        ]);
-        $stream = @fopen($url, 'rb', false, $context);
-        if (!is_resource($stream)) {
-            throw new Exception('生成音乐下载失败');
-        }
-        $meta = stream_get_meta_data($stream);
-        $headers = is_array($meta['wrapper_data'] ?? null) ? $meta['wrapper_data'] : [];
-        $contentLength = self::contentLengthFromHeaders($headers);
-        if ($contentLength > self::MAX_REMOTE_AUDIO_BYTES) {
-            fclose($stream);
-            throw new Exception('生成音乐下载失败，音频文件过大');
-        }
-        $content = '';
+        $context=stream_context_create(['http'=>['timeout'=>$timeout,'follow_location'=>1,'ignore_errors'=>true,
+            'header'=>"User-Agent: LikeAdminAigcMusic/1.0\r\n"]]);
+        $stream=@fopen($url,'rb',false,$context);
+        if (!is_resource($stream)) throw new Exception('生成音乐下载失败');
         try {
-            while (!feof($stream)) {
-                $chunk = fread($stream, 8192);
-                if ($chunk === false) {
-                    break;
-                }
-                $content .= $chunk;
-                if (strlen($content) > self::MAX_REMOTE_AUDIO_BYTES) {
-                    throw new Exception('生成音乐下载失败，音频文件过大');
-                }
+            $meta=stream_get_meta_data($stream); $headers=[];
+            // PHP wrapper_data includes every redirect. Only the final response frames this body.
+            foreach (is_array($meta['wrapper_data']??null)?$meta['wrapper_data']:[] as $line) {
+                if (preg_match('~^HTTP/\S+\s+\d{3}~i',(string)$line)) $headers=[];
+                $headers[]=$line;
             }
-        } finally {
-            fclose($stream);
+            $expected=self::contentLengthFromHeaders($headers);
+            if ($expected !== null && $expected > $maxBytes) throw new Exception('生成音乐下载失败，文件过大');
+            $content='';
+            while (!feof($stream)) {
+                $chunk=@fread($stream,8192); $meta=stream_get_meta_data($stream);
+                if (!empty($meta['timed_out'])) throw new Exception('生成音乐下载超时');
+                if ($chunk === false || ($chunk === '' && !feof($stream))) throw new Exception('生成音乐下载读取失败');
+                if (strlen($content)+strlen($chunk)>$maxBytes) throw new Exception('生成音乐下载失败，文件过大');
+                $content.=$chunk;
+            }
+            if ($expected !== null && strlen($content)!==$expected) throw new Exception('生成音乐下载不完整');
+            return [$content,$headers];
+        } finally { fclose($stream); }
+    }
+
+    /** Null means HTTP framing does not supply a length, including decoded chunked bodies. */
+    private static function contentLengthFromHeaders(array $headers): ?int
+    {
+        $length=null; $chunked=false;
+        foreach ($headers as $header) {
+            if (stripos((string)$header,'Transfer-Encoding:')===0 && preg_match('/(?:^|,)\s*chunked\s*(?:,|$)/i',substr((string)$header,18))) $chunked=true;
+            if (stripos((string)$header,'Content-Length:')!==0) continue;
+            foreach (explode(',',substr((string)$header,15)) as $raw) {
+                $raw=trim($raw);
+                if (!preg_match('/^[0-9]+$/D',$raw)) throw new Exception('生成音乐下载响应长度无效');
+                $normalized=ltrim($raw,'0'); if ($normalized==='') $normalized='0';
+                $max=(string)PHP_INT_MAX;
+                if (strlen($normalized)>strlen($max) || (strlen($normalized)===strlen($max) && strcmp($normalized,$max)>0)) throw new Exception('生成音乐下载响应长度无效');
+                $value=(int)$normalized;
+                if ($length!==null && $length!==$value) throw new Exception('生成音乐下载响应长度冲突');
+                $length=$value;
+            }
         }
-        return [$content, $headers];
+        if ($chunked && $length!==null) throw new Exception('生成音乐下载响应长度冲突');
+        return $chunked?null:$length;
     }
 
     private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, string $mime = '', ?array $storageConfig = null, int $resultAssetId = 0): array
@@ -361,16 +375,6 @@ class AigcMusicAssetService
             }
         }
         return $contentType;
-    }
-
-    private static function contentLengthFromHeaders(array $headers): int
-    {
-        foreach ($headers as $header) {
-            if (stripos((string)$header, 'Content-Length:') === 0) {
-                return max(0, (int)trim(substr((string)$header, strlen('Content-Length:'))));
-            }
-        }
-        return 0;
     }
 
     private static function isTextResponse(string $contentType, string $content): bool
