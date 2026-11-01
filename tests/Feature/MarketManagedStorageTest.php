@@ -67,4 +67,29 @@ class MarketManagedStorageTest extends TestCase
             ['audio',['file_size'=>-1,'duration'=>INF],['file_size'=>8,'duration'=>2],['file_size'=>8,'duration'=>2]],
         ];
     }
+
+    /** @dataProvider nativeMetadata */
+    public function testNativeMetadataAliasesReachUnifiedStoredResultsWithoutChangingFrozenPrice(string $type,string $mime,array $overrides,int $expectedSize,string $expectedMime): void
+    {
+        $this->local(function()use($type,$mime,$overrides,$expectedSize,$expectedMime){
+            [$key,$uriKey]=match($type){'image'=>['images','image_uri'],'video'=>['videos','video_uri'],default=>['items','audio_uri']};
+            $item=$overrides+[$uriKey=>'uploads/native-result','mime'=>$mime,'size'=>1234,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>''];
+            $price=['frozen'=>['units'=>17]];
+            $c=AiConsumptionLog::create(['consume_no'=>'native-meta-'.bin2hex(random_bytes(8)),'tenant_id'=>199999953,'user_id'=>199999954,'app_code'=>'aigc_'.$type,'price_snapshot'=>$price,'response_summary'=>[$key=>[$item]],'run_status'=>'success','billing_status'=>'settled','create_time'=>time(),'update_time'=>time()]);
+            $assets=Results::recordConsumptionAssets((int)$c['id']);self::assertCount(1,$assets);
+            $view=\app\common\service\ai\GenerationTaskResultService::resultAsset($assets[0],true);
+            self::assertSame($expectedSize,$view['file_size']);self::assertSame($expectedMime,$view['mime_type']);
+            self::assertSame($assets,Results::recordConsumptionAssets((int)$c['id']));
+            self::assertSame($price,AiConsumptionLog::find($c['id'])['price_snapshot']);
+        });
+    }
+    public static function nativeMetadata(): array
+    {
+        return [
+            ['image','image/png',[],1234,'image/png'],
+            ['video','video/mp4',[],1234,'video/mp4'],
+            ['audio','audio/mpeg',[],1234,'audio/mpeg'],
+            ['audio','audio/mpeg',['file_size'=>77,'mime_type'=>'audio/wav'],77,'audio/wav'],
+        ];
+    }
 }
