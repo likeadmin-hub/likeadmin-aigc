@@ -42,6 +42,9 @@ if(PHP_SAPI==='cli-server') {
             $index=(int)substr(basename($path),strlen('fixture-task-'));
             if(is_file($dir.'/hold-from-index')&&$index>=(int)file_get_contents($dir.'/hold-from-index')) {echo json_encode(['code'=>1,'data'=>['id'=>basename($path),'status'=>'running']]);return;}
             $input=json_decode(file($dir.'/submissions.jsonl')[$index-1],true);$image=($input['model']??'')==='synthetic-image';
+            if(getenv('AIGC_HTTP_AGENT_MOBILE_ACTIONS_MATRIX')==='1'&&is_file($dir.'/mobile-fail-next')&&str_contains(json_encode($input),'mobile actions')) {
+                unlink($dir.'/mobile-fail-next');echo json_encode(['code'=>1,'data'=>['id'=>basename($path),'status'=>'failed','error'=>['message'=>'Synthetic explicit provider failure']]]);return;
+            }
             $url=$image?'data:image/png;base64,'.base64_encode(file_get_contents($dir.'/synthetic.png')):'data:video/mp4;base64,'.base64_encode(file_get_contents($dir.'/synthetic.mp4'));
             echo json_encode(['code'=>1,'data'=>['id'=>basename($path),'status'=>'success',($image?'images':'videos')=>[['url'=>$url,'duration'=>1,'width'=>32,'height'=>32]]]]);return;
         }
@@ -261,9 +264,12 @@ try {
     $report['total_local_supplier_submissions']=$acceptedCount;
     // Native Agent STT/TTS retain their own original reservation ledger; the special matrix checks those rows and frozen amounts separately.
     $agentMusic=(int)($report['agent_matrix']['media']['music_generation_submissions']??0);
-    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)+($report['agent_matrix']['text_reservations']??0)+$agentMusic&&($eventCounts['settle']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)+($report['agent_matrix']['text_settlements']??0)+$agentMusic,'Final accepted tasks did not each have exactly one reservation and settlement');
+    $agentRefunded=(int)($report['agent_matrix']['mobile_actions']['refunded_media_submissions']??0);
+    MarketWorkerFixture::check(($eventCounts['reserve']??0)===$acceptedCount+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)+($report['agent_matrix']['text_reservations']??0)+$agentMusic&&($eventCounts['settle']??0)===$acceptedCount-$agentRefunded+($report['deep_matrix']['text_settlements']??0)+($report['song_matrix']['generation_submissions']??0)+($report['agent_matrix']['text_settlements']??0)+$agentMusic,'Final accepted tasks did not each have exactly one reservation and settlement/refund');
+    if($agentRefunded)MarketWorkerFixture::check(($eventCounts['refund']??0)===$agentRefunded,'Mobile failed media did not refund exactly once');
     $report['total_fixture_user_balance']=(float)Db::name('user')->where('id',$user)->value('user_money');$report['total_fixture_tenant_balance']=(float)Db::name('tenant')->where('id',$tenant)->value('point_balance');
     $report['worker_restart_preserved_completed_rows']=true;$report['total_reserve_events']=$eventCounts['reserve'];$report['total_settle_events']=$eventCounts['settle'];
+    $report['total_refund_events']=$eventCounts['refund']??0;
     $report['total_tasks']=(int)Db::name('ai_app_task')->count();$report['total_result_assets']=(int)Db::name('ai_task_result_asset')->count();
     $report['total_consumptions']=(int)Db::name('ai_consumption_log')->count();$report['total_consumption_billing_statuses']=array_count_values(Db::name('ai_consumption_log')->column('billing_status'));
 
