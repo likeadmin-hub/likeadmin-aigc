@@ -1,4 +1,4 @@
-# 逻辑帧AIGC - 免费开源的 AI 应用聚合与运营平台
+# 逻辑帧AIGC - 商业级 AI 应用聚合与运营平台
 
 [![逻辑帧AIGC 产品介绍：免费开源，一键搭建自己的 AIGC 平台](./.github/media/logicframe-aigc-intro.gif)](./.github/media/logicframe-aigc-intro.mp4)
 
