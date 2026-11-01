@@ -1,0 +1,18 @@
+{
+  "batch": 74,
+  "date": "2026-11-01",
+  "scope": "Pre-fix synthetic mobile asset controller reproduction, not a real user/provider charge.",
+  "source_web_commit": "e9e39c41632962c1876ce86692dfd058659c3573",
+  "runtime_local_develop_web_commit": "aae5f10835c7bd9824c0856362ee29c9d650f7b9",
+  "observations": [
+    {
+      "entry": "existing_mobile_agent",
+      "scenario": "txt_above_native_document_10mb_limit_admitted_by_mobile",
+      "status": "reproduced_failure",
+      "expected_rows": 0,
+      "observed_rows": 1,
+      "message": "txt exceeded the server document limit",
+      "log_sha256": "0094b7aba12ae139560cd3d1f0179831399a3fc7309715e118a39cafa95e65d6"
+    }
+  ]
+}
