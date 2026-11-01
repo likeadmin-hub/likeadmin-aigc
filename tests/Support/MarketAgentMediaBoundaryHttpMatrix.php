@@ -33,7 +33,7 @@ function runMarketAgentMediaBoundaryHttp($f,string $api,string $peer,string $suf
     };
     $finish=function($id,$status='success')use($f,$script,$db){
         $f->start($script,'fixture_agent_runner','agent');
-        try{MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->where('id',$id)->value('status')===$status,'Boundary run did not reach '.$status,70);}
+        try{MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->where('id',$id)->value('status')===$status,'Boundary run did not reach '.$status,70);}catch(Throwable $e){fwrite(STDERR,'Boundary state: '.json_encode($db::name('aigc_llm_agent_run')->where('id',$id)->field('id,status,phase,error')->find(),JSON_UNESCAPED_UNICODE).chr(10));throw $e;}
         finally{$f->stop('agent');}
     };
     $detail=fn($id)=>$request('detail',['run_id'=>$id],'GET');
@@ -74,7 +74,7 @@ function runMarketAgentMediaBoundaryHttp($f,string $api,string $peer,string $suf
     }
     $visionCalls=array_filter($calls('agent_text'),fn($row)=>str_contains(json_encode($row['input']['messages'],JSON_UNESCAPED_UNICODE),'你负责阅读用户资料'));
     $check(count($visionCalls)===10,'PDF/video batch count changed');
-    foreach($visionCalls as$row){$encoded=json_encode($row['input']['messages']);$check(str_contains($encoded,'data:image/jpeg;base64,'),'A visual reading segment lost actual decoded page/frame bytes');}
+    foreach($visionCalls as$row){$encoded=json_encode($row['input']['messages'],JSON_UNESCAPED_SLASHES);$check(str_contains($encoded,'data:image/jpeg;base64,'),'A visual reading segment lost actual decoded page/frame bytes');}
     $report['pdf_rasters_and_video_frames_reach_declared_vision_model']=true;
 
     $p=$input+['request_id'=>'boundary-video-stt-0001','content'=>'Synthetic transcription video boundary','attachments'=>[$videoAsset['file_id']]];
