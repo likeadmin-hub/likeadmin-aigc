@@ -1,0 +1,21 @@
+{
+  "batch": 66,
+  "date": "2026-11-01",
+  "scope": "Historical private HTTP failures before fixes, no real generation/wallet writes",
+  "observations": [
+    {
+      "scenario": "agent_same_key_changed_execution_preferences",
+      "status": "reproduced_failure",
+      "source_server_commit": "b34bfde92",
+      "result": "Agent same request ID accepted changed execution preferences",
+      "changed_preferences_refused": false
+    },
+    {
+      "scenario": "openai_partial_output_receipt_preservation",
+      "status": "reproduced_failure",
+      "source_server_commit": "80f245440",
+      "result": "Incomplete text output/receipt was lost",
+      "note": "HTTP retention assertion failed; source review found OpenAI-compatible output omitted from partialResult classification."
+    }
+  ]
+}
