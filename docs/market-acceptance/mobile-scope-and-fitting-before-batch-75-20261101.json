@@ -1,0 +1,32 @@
+{
+  "batch": 75,
+  "date": "2026-11-01",
+  "scope": "Preserved pre-fix reproductions for two actual mobile software defects; no real supplier calls or source SKU binding.",
+  "source_server_commit": "0308d313f",
+  "source_web_commit_before_fitting_fix": "3582f02e",
+  "observations": [
+    {
+      "status": "reproduced_failure",
+      "entry": "mobile_request_wrapper",
+      "scenario": "late_invalid_login_response_logs_out_replacement_account",
+      "actual": "Replacement token cleared by stale invalid-login response",
+      "expected": "Reject old account/tenant response without logging out the replacement account",
+      "evidence_sha256": "2a177ba97f22675c6e3c9f5f71f2fc7ab9ab5327696fcdceec5ac3a3b8d05d0d",
+      "fixed_by": [
+        "49a98007",
+        "bfdced40"
+      ]
+    },
+    {
+      "status": "reproduced_failure",
+      "entry": "existing_mobile_fitting_creator",
+      "scenario": "restored_custom_mode_overwritten_by_default_single_mode",
+      "actual": "Actual creator DTO reaches normal backend and is rejected with 请选择1-4个单图模特",
+      "expected": "Preserve restored custom/group/single mode when applying configuration defaults",
+      "evidence_sha256": "850aa08987211892a7fa5caf290014c10e4f154e2ae7426d12f195da9937a39a",
+      "fixed_by": [
+        "843b7775"
+      ]
+    }
+  ]
+}
