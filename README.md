@@ -1,644 +1,116 @@
-![LikeAdmin AIGC SaaS 搭建示例](./public/readme/aigc-saas-preview-rounded.png)
+[![逻辑帧AIGC 产品介绍：免费开源，一键搭建自己的 AIGC 平台](./.github/media/logicframe-aigc-intro.gif)](./.github/media/logicframe-aigc-intro.mp4)
 
-# LikeAdmin AIGC SaaS
+# 逻辑帧AIGC
 
-面向 AI 时代的应用生产基础设施，把模型能力、应用市场、租户运营、点数计费、内容生成和持续更新整合到同一套系统。
+**免费开源，一键搭建自己的 AIGC 平台，开启 AI 创业之路。**
 
-**[api.likeadmin.cn 算力超市](https://api.likeadmin.cn)** · **[算力超市怎么做？](https://mp.weixin.qq.com/s/FNEqnnG6IWGotshb2ITgXQ)** · **[likeadmin.cn 免费开源框架](https://likeadmin.cn)**
+把模型、算力、工具应用与用户运营组织在同一套系统里。你可以从创作者工具站、电商内容服务、数字人生产或企业 AI 门户开始，搭建自己的平台，并围绕实际用户需求持续扩展。
 
-**AI 应用聚合平台** · **企业私有 AI 门户** · **数字人生产平台** · **内容商业化系统**
+[观看完整宣传片 · MP4 / 56秒 / 带配乐](./.github/media/logicframe-aigc-intro.mp4) · [在线体验](https://aigc.likeadmin.cn/ai?tenant_id=1) · [快速部署](#快速部署) · [部署与运维文档](./docs/deployment-and-operations.md)
 
----
+## 你可以用它做什么
 
-## 诚邀开源大佬加入
+| 场景 | 可以组织的服务 |
+| --- | --- |
+| 创作者工具站 | AI 对话、智能文案、图片、视频、音乐与创作工作流 |
+| 电商内容服务 | 商品图、商品套图、多角度展示、试衣、模特穿戴与产品宣传视频 |
+| 视频内容工作室 | 数字人、微视频、AI 短剧、分镜素材与智能剪辑 |
+| 企业 AI 门户 | 根据业务配置应用与模型，统一管理用户、权限和使用记录 |
+| 自有品牌平台 | 结合多租户、品牌配置、会员套餐、积分计费和开放 API 开展运营 |
 
-如果你执着于开源或者平常时间比较多，可以加入我们一起迭代这个产品，解决问题并提交代码，会有相应的报酬和奖励，也可以长期参与维护，报酬可谈。
+## 34 款应用，按场景组合
 
-但是我们有几个小小的前提条件，首先热爱开源，其次需要有成熟的开源项目经验，当然最重要的是要能够熟悉使用AI进行开发，我们提供不限量的GPT账号。
+当前应用市场包含 34 款应用，覆盖创作、加工、展示与内容制作。具体可用能力以版本、应用开通状态和租户配置为准。
 
-## 提交需求和反馈BUG
+| 能力方向 | 代表应用与功能 |
+| --- | --- |
+| 智能创作与工作流 | AIGC 对话、智能文案、无限画布、素材引用与节点编排 |
+| 图像创作与编辑 | AI 生图、局部重绘、无缝扩图、风格化、去背景、图片翻译、一键消除、换发型、老照片修复 |
+| 电商与商品展示 | 商品图、商品套图、商品多角度、AI 试衣、模特穿戴、服饰套图、产品宣传视频 |
+| 视频与数字人 | AI 视频、数字人视频、图片数字人、全驱数字人、动作迁移、动作替换、短视频去水印 |
+| 音乐与声音 | AI 音乐生成、歌词创作、参考音频、纯音乐与人声、音乐翻唱 |
+| 内容制作工作室 | 微视频、AI 短剧、智能剪辑，以及剧本、角色、场景和分镜素材组织 |
 
-我们的目标是打造一套市面上极具竞争力的AIGC系统，但是收集意见反馈的入口有限，如果你在使用过程中有任何问题，可以直接提交issue，我们会第一时间处理并更新版本。
+## 从创作能力到平台运营
 
-如果你发现市面上有一些不错的好的工具应用，也可以直接反馈，由开发者认领并完成后迭代更新。
+- **多租户与权限**：平台、租户、用户分层管理，支持租户授权、应用开通、菜单与权限配置。
+- **应用与模型**：通过应用中心组织服务范围，配置模型通道、前端入口和应用状态。
+- **会员与计费**：支持会员套餐、积分充值、消耗记录、账单与用量管理。
+- **开放 API**：提供开发者密钥、接口文档、在线调试、调用记录与异步任务管理。
+- **品牌与多端**：支持品牌配置，交付平台后台、租户后台、PC 前台、H5 与微信小程序。
+- **部署与更新**：支持本地化部署、系统更新、私有更新源、更新校验和长任务处理。
 
-## 关于LikeAdmin AIGC SaaS
+平台源码免费获取；服务器、第三方模型与算力服务的费用按实际接入和使用情况安排。
 
-- 目前名称还未定下来，先用这个名称 LikeAdmin AIGC SaaS 。
+## 快速部署
 
-LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新、可运营的 AI 商业底座。它适合用来搭建 AIGC 聚合平台、企业私有 AI 门户、行业模型应用市场、数字人生产平台、AI 内容商业化系统、会员制智能工具站，以及面向政企、教育、电商、传媒、本地生活等行业的专属智能服务平台。
-
-系统上游连接模型与算力，下游连接客户、场景、权益和收入，中间沉淀可复用的应用、数据、权限、账单和运营能力。下一代平台的价值不在于接入多少个模型，而在于能否把模型能力组织成可交付、可计费、可增长的生意。
-
-## 声明
-
-开源版本允许商业使用，但是请保留公司版权和logo。
-
-前端vue代码预计2.0放出来，是因为目前不太完善，所以没有直接放出，还请各位嘴下留情，如果想对第三方API也可以的，改接口适配就好了。
-
-我们在这个系统上的技术投入和时间都比较多，但是我们依然保持开源，就是为了让大家能够享受到技术普惠，我们面对的客户群体有创业者、也有终端客户，所以没办法做到大都满意，但是我们尽可能做到千人千面。
-
-关注公众号：`程序员在囧途` ，可以找到我。
-
-## 核心能力
-
-- 多租户 SaaS 架构，支持平台、租户、用户多角色协作。
-- 内置图片、视频、数字人、智能画布、LLM 等 AIGC 应用能力。
-- 支持应用中心、应用启停、租户授权、菜单权限和前端入口管理。
-- 支持点数计费、会员套餐、充值、消耗记录和业务闭环。
-- 支持平台后台、租户后台、PC 前台、H5 与微信小程序多端交付。
-- 支持云端系统更新、私有更新源、版本签名校验和长任务更新流程。
-- 支持本地化部署，便于企业掌控数据、密钥、模型通道和商业策略。
-
-
-
-## 运行环境
-
-- Linux / 宝塔 / Docker 均可部署，推荐 Nginx + PHP-FPM。
-- PHP 8.2，为当前部署与验收基线，也是 Composer 声明的最低版本。网站、任务守护进程和计划任务均须切换至 PHP 8.2。
-- 网站 PHP-FPM、任务 Worker、定时任务和 Composer CLI 均须使用匹配的 PHP 8.2 环境。共享宝塔服务器通过本项目的绝对 PHP 路径指定版本，保留其他项目使用的全局 PHP 配置。
-- 需启用 `curl`、`zip`、`fileinfo`、`openssl`、`mbstring`、`pdo_mysql`、`iconv`、`gd`、`bcmath`、`dom`、`xml`、`xmlreader`、`xmlwriter` 等依赖扩展；使用 Redis 缓存时还需 `redis`。CLI Worker 应支持 `pcntl` 信号处理，以便停止时等待当前处理流程。
-- MySQL >= 5.7 或 MariaDB >= 10.3，字符集建议 `utf8mb4`。
-- Composer 2.x（源码安装使用）；完整安装包已包含配套依赖，在线升级会自动部署依赖，无需在客户服务器运行 Composer。
-- 在线依赖升级需要网站允许 `proc_open`，并能启动本项目的 PHP 8.2 CLI。更新器会检查 CLI 扩展、写入权限与配套依赖，验证通过后再切换运行代码。
-- Web 目录指向 `server/public`。
-- 需要在线更新和解压更新包时，服务器需支持 `ZipArchive`，或安装 `unzip` / `7z` / `tar` 命令之一。
-
-### 短剧 Agent 运行依赖
-
-短剧画布 Agent 使用锁文件指定的 `neuron-core/neuron-ai` 4.1.9 PHP SDK，无需安装 Deep Agents、Python 解释器或 Python requirements。平台原有模型路由、内容审核、计费和任务状态流程继续由现有业务服务负责。
-
-代码、`composer.lock` 和匹配的 `vendor` 必须一起部署，不能通过 `--ignore-platform-reqs` 在 PHP 8.0 上启动。新接收的对话使用 `neuron_v1`；历史 `deepagents_v1` 快照由 PHP 兼容桥接处理，队列未排空时不能移除该兼容代码或依赖。
-
-启用短剧画布前，先完成应用安装和对应升级迁移，确认 `aigc_short_drama_canvas_page`、`aigc_short_drama_canvas_production` 两张表存在；缺少时依次应用 `upgrade_20261009_canvas_pages.sql`、`upgrade_20261009_canvas_production.sql`。自定义表前缀需同步调整 SQL。
-
-已安装 1.0.390 的站点可直接在线升级至完整 1.0.391。升级前先切换本项目网站至 PHP 8.2，停用对应任务守护和计划任务的自动拉起，等待在途任务完成并停止旧进程；升级成功后，用 PHP 8.2 重新启动本项目任务进程。更新器自动交付锁定的依赖，其他站点与全局 PHP 配置保持原样。详细步骤见 [1.0.391 更新说明](docs/releases/1.0.391.md)。
-
-运行时与兼容说明见 [Neuron 运行时文档](docs/short-drama-neuron-runtime.md)；当前本地网站、守护入口和迁移状态见 [PHP 8.2 本地运行记录](docs/php82-local-runtime.md)。
-
-
-
-## 目录说明
-
-```text
-server/
-├── app/                    # 后端业务代码，含 platformapi、tenantapi、api 和内置应用
-├── config/                 # ThinkPHP 配置
-├── extend/                 # 扩展类库
-├── public/                 # Web 入口和前端构建产物
-│   ├── admin/              # 租户后台
-│   ├── platform/           # 平台后台
-│   ├── pc/                 # PC 前台
-│   ├── mobile/             # H5
-│   ├── mp-weixin/          # 微信小程序
-│   └── install/            # Web 安装器
-├── route/                  # 路由配置
-├── runtime/                # 缓存、日志、临时文件，需可写
-├── upgrade/                # 老版本更新包临时目录，需可写
-├── vendor/                 # Composer 依赖
-├── .example.env            # 环境变量模板
-├── composer.json
-└── think                   # 命令行入口
-```
-
-
-
-## 全新安装
-
-1. 上传或拉取代码到服务器，例如 `/www/wwwroot/likeadmin_aigc_saas/server`。
-2. 将站点运行目录设置为 `server/public`，不要直接暴露 `server` 根目录。
-3. 安装依赖：
-
-```bash
-cd /www/wwwroot/likeadmin_aigc_saas/server
-composer install --no-dev --optimize-autoloader
-composer check-platform-reqs --no-dev
-```
-
-上述命令要求 Composer 的 CLI PHP 已为 8.2。共享宝塔的全局 `php` 仍为旧版本时，使用本项目的 PHP 8.2 执行 Composer PHAR（将 `/path/to/composer.phar` 替换为实际路径），不要为了本项目修改其他项目依赖的全局 PHP：
-
-```bash
-/www/server/php/82/bin/php /path/to/composer.phar install --no-dev --optimize-autoloader
-/www/server/php/82/bin/php /path/to/composer.phar check-platform-reqs --no-dev
-```
-
-1. 配置目录权限：
-
-```bash
-chmod -R 755 .
-chmod -R 777 runtime public/uploads upgrade
-```
-
-1. 复制环境文件并按实际情况修改数据库、域名等配置：
-
-```bash
-cp .example.env .env
-```
-
-关键配置示例：
-
-```ini
-[DATABASE]
-HOSTNAME = 127.0.0.1
-DATABASE = likeadmin_aigc_saas
-USERNAME = root
-PASSWORD =
-HOSTPORT = 3306
-PREFIX = la_
-
-[PROJECT]
-HTTP_HOST = your-domain.com
-UNIQUE_IDENTIFICATION = likeadmin_aigc_saas
-DEFAULT_PASSWORD = 123456
-```
-
-1. 导入数据库。可通过浏览器访问安装器，也可手动导入：
-
-```bash
-mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/install/db/like.sql
-```
-
-当前安装 SQL 已包含随仓库交付的应用表结构和核心菜单权限；全新安装无需重放全部 `public/upgrade/*.sql`。应用的配置、菜单、版本和迁移记录仍通过“应用中心”安装或同步。历史升级脚本面向指定旧版本，不能把整个目录当作新装必执行清单。
-
-已使用旧安装 SQL 完成安装的站点，请先备份数据库，再执行本次缺漏修复（可重复执行，默认表前缀为 `la_`）：
-
-```bash
-mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/upgrade/20261001_install_schema_parity.sql
-```
-
-若结果守护进程启动时报短剧画布任务表不存在（例如 `aigc_short_drama_canvas_poster_job`），先备份数据库，再补齐短剧任务结构。无需重装、删除任务或重放全部历史升级脚本：
-
-```bash
-mysql --default-character-set=utf8mb4 -uroot -p likeadmin_aigc_saas < public/upgrade/20261011_short_drama_worker_schema.sql
-```
-
-该修复可重复执行，保留现有任务、租约、租户配置和应用状态；旧站点先执行前面的基础结构修复，再执行此短剧修复，完成后重启本项目对应守护进程。自定义表前缀需同时替换脚本中的反引号表名和单引号元数据表名里的 `la_`。全新安装的 `like.sql` 已包含这些结构，新租户共用带 `tenant_id` 的应用表，无需重复创建。
-
-该脚本补齐表结构和核心操作权限，不会开通应用或覆盖租户自定义菜单。应用专属升级仍应先通过应用中心安装对应应用，再按目标版本发布说明执行依赖它的 SQL；自定义数据库表前缀需先替换脚本中的 `la_`。
-
-1. 配置伪静态。Nginx 示例：
-
-```nginx
-location / {
-    if (!-e $request_filename) {
-        rewrite ^(.*)$ /index.php?s=$1 last;
-        break;
-    }
-}
-
-location ~ \.php$ {
-    fastcgi_pass 127.0.0.1:9000;
-    fastcgi_index index.php;
-    include fastcgi_params;
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-}
-```
-
-1. 访问入口：
-
-- 平台后台：`https://your-domain.com/platform/`
-- 租户后台：`https://your-domain.com/admin/`
-- PC 前台：`https://your-domain.com/pc/`
-- H5：`https://your-domain.com/mobile/`
-
-
-
-## Docker Compose 部署
-
-仓库已经提供生产可用的 `Dockerfile` 和 `docker-compose.yml`。Docker 部署只使用当前开源仓库，镜像内包含已编译的管理后台、PC 和 H5 资源，不需要获取前端源码仓库，也不需要在服务器安装 Node.js。
-
-### 运行要求
-
-- Docker Engine 24 或更高版本。
-- Docker Compose 2.20 或更高版本，需支持 `service_completed_successfully`。
-- 建议至少 2 核 CPU、4 GB 内存和 10 GB 可用磁盘。
-- 域名部署需提前解析主域名；多租户子域名模式还需配置泛域名解析。
-
-
-
-### 1. 拉取开源代码
-
-在准备部署的服务器上执行：
+### 1. 获取代码
 
 ```bash
 git clone --branch master --single-branch https://gitee.com/likeadmin/likeadmin-aigc.git
 cd likeadmin-aigc
 ```
 
-后面的命令都必须在 `likeadmin-aigc` 仓库根目录执行，也就是能看到 `Dockerfile`、`docker-compose.yml` 和 `.env.docker.example` 的目录。
+也可以使用 [GitHub 镜像](https://github.com/likeadmin-hub/likeadmin-aigc)。开源仓库已经包含管理后台、PC 与 H5 的编译产物，Docker 部署不需要额外获取前端源码或安装 Node.js。
 
-Docker 镜像只使用这个开源仓库的内容。仓库已经包含平台后台、租户后台、PC 和 H5 的编译产物，不需要拉取非开源前端仓库，也不需要安装 Node.js。
+### 2. 准备配置
 
-### 2. 检查 Docker 环境
-
-```bash
-docker --version
-docker compose version
-```
-
-两个命令都应正常显示版本。请使用 `docker compose`（中间有空格）的 Compose V2，不要使用已经停止维护的 `docker-compose` V1。尚未安装 Docker 时，请先按 [Docker Engine 官方安装文档](https://docs.docker.com/engine/install/) 完成安装，并确保当前用户有权限执行 Docker 命令。
-
-### 3. 创建部署配置
-
-在仓库根目录执行：
+先安装 Docker Engine 24+ 与 Docker Compose 2.20+，再创建配置文件：
 
 ```bash
 cp .env.docker.example .env.docker
 chmod 600 .env.docker
 ```
 
-使用 `nano .env.docker`、`vim .env.docker` 或其他文本编辑器打开配置文件。所有以 `CHANGE_ME` 开头的值都必须替换，不能直接使用模板值。
+编辑 `.env.docker`，替换所有 `CHANGE_ME` 占位值，填写实际域名、数据库密码、系统密钥与初始管理员信息。配置含义、密钥生成和域名示例见 [Docker 部署指南](./docs/deployment-and-operations.md#docker-compose-部署)。
 
-可以执行下面的命令生成一组不含特殊符号的随机值：
-
-```bash
-printf 'MYSQL_PASSWORD='; openssl rand -hex 24
-printf 'MYSQL_ROOT_PASSWORD='; openssl rand -hex 24
-printf 'PROJECT_UNIQUE_IDENTIFICATION='; openssl rand -hex 32
-printf 'PROJECT_DEFAULT_PASSWORD='; openssl rand -hex 12
-printf 'PLATFORM_ADMIN_PASSWORD='; openssl rand -hex 12
-```
-
-命令会输出 5 行可直接使用的配置。将每行等号后面的随机字符串填入 `.env.docker` 对应位置，并把这些值保存在密码管理器中。`MYSQL_PASSWORD` 和 `MYSQL_ROOT_PASSWORD` 应使用不同的值。
-
-关键配置：
-
-
-| 配置项                             | 说明                                             |
-| ------------------------------- | ---------------------------------------------- |
-| `HTTP_PORT`                     | 映射到服务器的 HTTP 端口，默认 `8080`；端口被占用时可改为其他未占用端口     |
-| `MYSQL_DATABASE`                | 应用数据库名，通常保持默认的 `likeadmin_aigc_saas`           |
-| `MYSQL_USER`                    | 应用连接数据库使用的普通账号，通常保持默认的 `likeadmin`             |
-| `MYSQL_PASSWORD`                | `MYSQL_USER` 对应的数据库密码，仅供容器内部连接数据库，不是后台登录密码     |
-| `MYSQL_ROOT_PASSWORD`           | MySQL Root 管理密码，仅用于数据库维护和备份，不是后台登录密码           |
-| `PROJECT_UNIQUE_IDENTIFICATION` | 系统密码哈希密钥，不是登录密码；首次安装后必须永久保持不变                  |
-| `PROJECT_HTTP_HOST`             | 实际访问系统的域名或服务器 IP，不要填写 `http://`、`https://` 或路径 |
-| `PROJECT_DEFAULT_PASSWORD`      | 平台以后新建租户管理员时使用的默认登录密码，请勿与平台管理员密码相同             |
-| `PLATFORM_ADMIN_USER`           | 首次安装时自动创建的平台管理员账号，例如 `admin`                   |
-| `PLATFORM_ADMIN_PASSWORD`       | 首次安装时自动创建的平台管理员登录密码，至少 12 位                    |
-
-
-
-
-#### `PROJECT_UNIQUE_IDENTIFICATION` 是什么
-
-它可以理解为“本套系统专用的永久随机密钥”，不是任何人的登录密码。系统不会直接保存用户输入的明文密码，而是把用户密码和这个随机密钥一起计算后保存。因此，即使两套系统使用了相同的登录密码，数据库中保存的结果也不同。
-
-需要特别注意：
-
-1. 首次安装前随机生成一次即可，建议使用上面的 `openssl rand -hex 32`。
-2. 安装完成后不能修改。修改后，平台管理员、租户管理员和用户原有密码都会校验失败。
-3. 它不能用于登录，也不需要提供给普通用户。
-4. 备份数据库时必须同时安全备份 `.env.docker`。只备份数据库、不保存这个值，恢复后原有账号密码将无法正常验证。
-
-
-
-#### `PROJECT_HTTP_HOST` 怎么填写
-
-- 使用正式域名访问：填写域名，例如 `aigc.example.com`。
-- 暂时使用服务器 IP 访问：填写服务器 IP，例如 `203.0.113.10`。
-- 只在服务器本机浏览器测试：可以填写 `localhost`。
-- 需要允许多个平台域名时可用英文逗号分隔，例如 `aigc.example.com,203.0.113.10`。
-
-如果你在自己电脑上通过服务器 IP 访问，就不能保留模板中的 `localhost`。配置错误时，静态页面可能可以打开，但登录或 API 会提示域名错误。
-
-一个需要手动确认的配置结构如下，等号右侧应替换为你自己的真实值：
-
-```dotenv
-COMPOSE_PROJECT_NAME=likeadmin-aigc
-HTTP_PORT=8080
-TZ=Asia/Shanghai
-
-MYSQL_DATABASE=likeadmin_aigc_saas
-MYSQL_USER=likeadmin
-MYSQL_PASSWORD=替换为随机生成的数据库密码
-MYSQL_ROOT_PASSWORD=替换为另一个随机数据库密码
-
-PROJECT_UNIQUE_IDENTIFICATION=替换为随机生成的永久密钥
-PROJECT_HTTP_HOST=替换为实际域名或服务器IP
-PROJECT_DEFAULT_PASSWORD=替换为租户管理员默认密码
-
-PLATFORM_ADMIN_USER=admin
-PLATFORM_ADMIN_PASSWORD=替换为平台管理员密码
-```
-
-`.env.docker` 已加入 Git 忽略规则，不要将真实密码提交到仓库。
-
-### 4. 校验配置
+### 3. 校验并启动
 
 ```bash
-# 只校验配置，不输出密码
 docker compose --env-file .env.docker config --quiet
-```
-
-命令没有任何输出并返回命令提示符，表示 Compose 配置格式正确。不要把 `--quiet` 去掉后将完整输出发到公开场合，因为完整配置中可能包含数据库密码。
-
-### 5. 构建并启动
-
-```bash
 docker compose --env-file .env.docker up -d --build
-```
-
-首次启动需要下载 MySQL、Redis、Nginx、PHP 基础镜像，并安装 PHP 扩展、Composer 依赖和 FFmpeg，耗时取决于服务器网络和性能。命令执行结束且没有报错后，查看全部容器状态：
-
-```bash
 docker compose --env-file .env.docker ps -a
 ```
 
-首次启动会自动完成以下操作：
+默认端口为 `8080`。首次启动会准备数据库和管理员；登录平台后台后，再按业务创建租户、配置应用与模型。
 
-1. 创建 MySQL、Redis、运行目录、上传目录和本地存储数据卷。
-2. 仅在 MySQL 数据卷为空时导入当前完整的 `public/install/db/like.sql`，无需重放全部历史升级 SQL。
-3. 运行一次性 `initialize` 服务，按配置创建平台管理员。
-4. 数据库和初始化检查通过后，再启动 PHP-FPM、Nginx、AI Worker 和定时任务。
+| 入口 | 默认地址 |
+| --- | --- |
+| 平台后台 | `http://服务器IP:8080/platform/` |
+| 租户后台 | `http://服务器IP:8080/admin/` |
+| PC 前台 | `http://服务器IP:8080/pc/` |
+| H5 | `http://服务器IP:8080/mobile/` |
 
-正常情况下，`mysql`、`redis`、`app`、`web`、`ai-worker`、`canvas-worker`、`scheduler` 会显示 `Up` 或 `healthy`；一次性服务 `initialize` 显示 `Exited (0)` 是正常状态。
+平台后台使用 `.env.docker` 中配置的管理员账号。已有数据卷不会因为修改配置文件而自动重置管理员密码。
 
-`initialize` 在已有管理员时不会重置账号或密码。数据库卷创建完成后，再修改 `.env.docker` 中的 `PLATFORM_ADMIN_USER` 或 `PLATFORM_ADMIN_PASSWORD`，不会修改数据库里的现有管理员。
+使用宝塔或 Nginx + PHP-FPM 部署时，网站、Worker 与计划任务均需使用 **PHP 8.2**。完整环境要求、源码安装与伪静态配置见下方文档。
 
-### 6. 启动失败时查看日志
+## 文档导航
 
-某个容器没有正常启动时，先查看全部状态，再查看对应日志：
+| 文档 | 内容 |
+| --- | --- |
+| [部署与运维指南](./docs/deployment-and-operations.md) | 运行环境、全新安装、Docker Compose、域名与 HTTPS、宝塔配置 |
+| [任务 Worker 与计划任务](./docs/deployment-and-operations.md#ai-任务结果-worker-守护) | 启动入口、守护配置、日志与补偿任务 |
+| [更新与发布](./docs/deployment-and-operations.md#更新与发布) | 更新前准备、备份和更新流程 |
+| [系统发布检查清单](./docs/system-release-checklist.md) | 开发者打包、校验与发布要求 |
+| [画布兼容与升级说明](./docs/canvas-upgrade-compatibility.md) | 历史会话、项目隔离与旧版本兼容 |
+| [开发测试要求](./docs/deployment-and-operations.md#开发测试要求) | 测试环境、受控 Provider 与真实验收边界 |
 
-```bash
-docker compose --env-file .env.docker ps -a
-docker compose --env-file .env.docker logs --tail=200 mysql initialize app web ai-worker canvas-worker scheduler
-```
+## 开源说明
 
-常见问题：
+开源版本允许商业使用，请保留公司版权和 Logo，并遵循 [LICENSE.txt](./LICENSE.txt) 及仓库声明。
 
-- 提示端口已被占用：修改 `.env.docker` 中的 `HTTP_PORT` 后重新启动。
-- 镜像或软件包下载超时：检查服务器访问 Docker Hub、Debian 和 Composer 软件源的网络。
-- `initialize` 退出码不是 `0`：重点检查数据库密码是否填写完整，以及所有 `CHANGE_ME` 是否已替换。
-- 页面能打开但登录提示域名错误：检查 `PROJECT_HTTP_HOST` 是否与浏览器使用的域名或 IP 一致。
-- 外网无法访问：检查云服务器安全组和系统防火墙是否放行 `HTTP_PORT`。
+当前开源仓库交付后端代码及已编译的前端资源；完整 Vue 前端源码计划在 2.0 版本开放，目前尚未包含在开源交付中。
 
-修改配置后可执行下面的命令重新创建服务：
+项目沿用 LikeAdmin 技术生态。相关资源：[算力超市](https://api.likeadmin.cn) · [免费开源框架](https://likeadmin.cn) · [算力超市介绍](https://mp.weixin.qq.com/s/FNEqnnG6IWGotshb2ITgXQ)。
 
-```bash
-docker compose --env-file .env.docker up -d --force-recreate
-```
+## 参与贡献与交流
 
+欢迎提交 Issue 反馈问题、提出需求，或推荐希望接入的工具应用。报告问题时，请附上版本、运行环境、复现步骤及已去除敏感信息的日志。
 
+欢迎有成熟开源项目经验、熟悉 AI 辅助开发的开发者参与应用接入、问题修复与长期维护。合作报酬、奖励和维护方式可联系沟通，并为参与合作的开发者提供不限量 GPT 账号支持。
 
-### 7. 访问系统和首次登录
+我们提供部署、二次开发、应用接入、私有更新源、商业授权与运营支持。
 
-默认端口为 `8080`：
-
-- 平台后台：`http://服务器IP:8080/platform/`
-- 租户后台：`http://服务器IP:8080/admin/`
-- PC 前台：`http://服务器IP:8080/pc/`
-- H5：`http://服务器IP:8080/mobile/`
-
-如果 `HTTP_PORT=80`，访问地址中可以省略 `:80`。使用域名时，把“服务器IP”换成 `PROJECT_HTTP_HOST` 中配置的域名。
-
-首次登录平台后台使用 `.env.docker` 中的 `PLATFORM_ADMIN_USER` 和 `PLATFORM_ADMIN_PASSWORD`。这是平台总后台账号，不是 MySQL 账号。租户后台账号需要登录平台后台后创建租户时生成。
-
-### 容器说明
-
-
-| 服务              | 作用                        |
-| --------------- | ------------------------- |
-| `web`           | Nginx、静态资源、SPA 路由和 PHP 转发 |
-| `app`           | ThinkPHP PHP-FPM API      |
-| `mysql`         | MySQL 8.0 数据库             |
-| `redis`         | 共享缓存                      |
-| `ai-worker`     | 异步查询 AI 任务结果、资源转存、结算和退款   |
-| `canvas-worker` | 处理画布 Agent 子任务            |
-| `scheduler`     | 每分钟触发一次系统统一定时调度           |
-| `initialize`    | 首次数据库初始化，成功后退出            |
-
-
-PHP 镜像基于 PHP 8.2，已经包含项目依赖的扩展、Composer 生产依赖和 FFmpeg。`runtime`、`public/uploads`、`public/storage`、`public/qrcode`、MySQL 和 Redis 数据均使用具名卷持久化。
-
-镜像构建时会准备应用静态资源和后台、PC 的脚本入口，PHP 与 Nginx 使用同一份资源。Compose 设置 `LIKEADMIN_IMMUTABLE_ASSETS=1`：应用中心安装已有应用时复用镜像内资源；若缺少资源或脚本入口，会提示更新代码并重建镜像。新增应用包、应用前端升级和系统更新都需要重建镜像，不能在只读容器中动态替换代码。宝塔等可写部署仍按应用包更新资源。
-
-Windows 克隆时，仓库的 `.gitattributes` 会将 Shell 脚本及 Dockerfile 固定为 LF。旧工作目录如仍含 CRLF，可重新克隆后构建；已有数据卷应保留。
-
-### 常用运维命令
-
-```bash
-# 查看运行状态
-docker compose --env-file .env.docker ps -a
-
-# 查看应用与后台任务日志
-docker compose --env-file .env.docker logs -f app web ai-worker canvas-worker scheduler
-
-# 重启应用服务
-docker compose --env-file .env.docker restart app web ai-worker canvas-worker scheduler
-
-# 停止服务但保留所有数据卷
-docker compose --env-file .env.docker down
-```
-
-不要执行 `docker compose down -v`，该命令会删除数据库、上传文件和其他持久化数据。
-
-数据库备份示例：
-
-```bash
-docker compose --env-file .env.docker exec -T mysql \
-  sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' \
-  > likeadmin-backup.sql
-```
-
-
-
-### 域名、HTTPS 与反向代理
-
-容器默认提供 HTTP 服务。生产环境建议在宿主机或负载均衡器终止 HTTPS，再代理到 `HTTP_PORT`。反向代理必须保留原始 `Host`，并传递 `X-Forwarded-Proto: https`，否则租户域名识别和部分回调地址可能不正确。
-
-使用域名后同步修改 `.env.docker` 中的 `PROJECT_HTTP_HOST` 并重新创建应用容器：
-
-```bash
-docker compose --env-file .env.docker up -d --force-recreate app ai-worker canvas-worker scheduler web
-```
-
-
-
-### Docker 版本升级
-
-Docker 镜像按不可变方式运行，代码目录为只读。不要在平台后台执行“在线更新”：该功能会直接替换 PHP 和前端文件，无法同步到 Nginx、Worker 等多个容器，也会在容器重建后丢失。
-
-升级前必须备份数据库和持久化文件，并根据目标版本发布说明执行对应的升级 SQL 或更新包；确认数据库升级成功后再拉取代码并重建：
-
-```bash
-git pull
-docker compose --env-file .env.docker build --pull
-docker compose --env-file .env.docker up -d
-docker compose --env-file .env.docker ps -a
-```
-
-不要把全新安装用的 `public/install/db/like.sql` 导入已有数据库，该文件包含删表和完整初始化语句。
-
-### 宝塔部署提示
-
-- 本站 PHP 版本选择 8.2，并启用项目所需扩展；对应 Worker 和计划任务也要使用 `/www/server/php/82/bin/php`，仅切换网站版本不会改变 CLI 进程。
-- Web 根目录必须指向 `server/public`，不能暴露服务端根目录。
-- 平台和租户后台使用 history 路由；已有宝塔站点需单独加载 `public/nginx.htaccess` 中对应的 server 级回退规则，前端更新不会自动修改站点配置。租户后台刷新 404 的处理与验证见 [部署说明](docs/admin-refresh-routing.md)。
-- 生产环境保持 `APP_DEBUG = false`。
-- 使用后台在线更新时，PHP 进程必须能够写入 `server`、`runtime`、`upgrade` 和前端构建目录。
-
-
-
-## 系统更新与 AI 装修
-
-AI 智能装修默认可用，无需添加环境开关；历史 `[DECORATION_AGENT] ENABLED=false` 配置不再影响入口。需要有效模型、已安装依赖和装修数据表，生成候选后仍需用户主动应用到草稿。装修队列由下面的统一 Worker 脚本托管，不另建宝塔守护项。
-
-系统包预检比较已签名包与当前运行时的实际文件摘要，返回 `process_impact.requires_stop` 和具体原因。纯前端资源、后台 HTTP 控制器、版本号变化以及未变化的重复文件不要求停止 Worker；任务代码、共享业务代码、可被任务工具调用的公共 API、依赖、启动脚本、删除任务文件或数据库迁移有变化时，应用前要求排空并停止本站 Worker/cron，更新后恢复。未知内容保守处理；首次从旧版本安装运行时隔离机制仍必须停机。
-
-判定由服务端在应用时重新执行，不接受浏览器传入的“不需停机”标志；有影响的更新在 SQL 执行前、文件复制前和版本激活前检查。纯前端更新保留旧进程的冻结代码，版本激活后它完成已领取任务，再由原守护机制重启。不要为升级重复启动第二套队列。
-
-无需停机路径不运行无关的应用迁移、套餐字段补齐或全租户默认配置同步，只提交更新任务、版本标记和已核验文件。SQL 执行前若重新检查发现任务进程仍在运行，日志保留未执行状态，停止后可安全重试；真正结果未知的 SQL 继续禁止自动重放。装修数据表缺失时，仅装修 worker 等待并每 30 秒复查，真实数据库连接故障仍退出交给守护恢复。
-
-## AI 任务结果 Worker 守护
-
-图片、视频、音频等异步生成任务由后台结果 Worker 查询上游状态、保存结果、按租户配置转存资源，并完成结算或退款。短剧分集、规划、短剧画布 Agent 对话、画布子 Agent 和 AI 装修任务也由同一启动入口托管。用户提交任务后会立即返回本地任务号，前端只读取本地任务状态；不要将结果查询依赖于用户停留在页面上。
-
-首次启用前，请先完成当前系统版本的升级 SQL，再配置 Worker。Worker 命令为：
-
-```bash
-/www/server/php/82/bin/php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20
-```
-
-生产环境建议使用项目自带启动脚本，而不是直接在宝塔中填写上述 PHP 命令：
-
-```bash
-/www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
-```
-
-脚本每次启动都会停止同一项目遗留的 Worker，再统一启动结果、短剧分集、规划、短剧画布 Agent、画布子 Agent 和装修 Agent 队列。宝塔中只配置这一条守护命令，不要为任一子 Worker 再建额外守护项。默认 PHP 路径为 `/www/server/php/82/bin/php`；安装路径不同时，通过 `PHP_BIN` 指向已通过平台检查的 PHP 8.2，例如：
-
-```bash
-PHP_BIN=/www/server/php/82/bin/php /bin/sh /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
-```
-
-上述入口会启用六类队列。已有运行实例升级时，应先核对原 Worker 的应用过滤参数、运行中任务与租约，保留原领取范围，避免意外处理历史待执行任务。当前本地实例已使用独立 Supervisor 和 `scripts/start-project-supervisor.sh`，应按 [本地运行记录](docs/php82-local-runtime.md) 管理，不能同时启动另一套统一队列入口。
-
-
-
-### 宝塔进程守护配置
-
-在宝塔面板的“进程守护管理器”中新建守护进程，并按以下配置填写：
-
-
-| 配置项    | 建议值                                                                       |
-| ------ | ------------------------------------------------------------------------- |
-| 名称     | `ai-task-worker`                                                          |
-| 启动命令   | `/www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh` |
-| 工作目录   | `/www/wwwroot/likeadmin_aigc_saas/server`                                 |
-| 启动用户   | 与站点 PHP-FPM 一致的用户，例如 `www`                                                |
-| 进程数量   | `1`                                                                       |
-| 开机启动   | 开启                                                                        |
-| 异常自动重启 | 开启                                                                        |
-| 重启等待   | `1` 秒                                                                     |
-
-
-实际安装目录或 PHP 版本不同时，替换为服务器上的绝对路径。不要同时创建多个相同的守护进程，也不要用多个计划任务重复启动该 Worker。
-
-### 日志与排查
-
-Worker 的 PID 与日志均在 `runtime` 目录：
-
-```text
-runtime/ai_task_worker.pid
-runtime/log/ai_task_worker.log
-runtime/log/ai_task_worker_start.log
-```
-
-常用排查命令：
-
-```bash
-cd /www/wwwroot/likeadmin_aigc_saas/server
-
-# 确认 Worker 进程
-ps -ef | grep '[a]i:task-worker'
-
-# 实时查看 Worker 运行日志
-tail -f runtime/log/ai_task_worker.log
-
-# 查看启动失败原因、PHP 路径或权限错误
-tail -n 100 runtime/log/ai_task_worker_start.log
-
-# 手动停止当前 Worker；宝塔守护会按配置自动拉起新进程
-kill -TERM "$(cat runtime/ai_task_worker.pid)"
-```
-
-如果任务长期没有结果，依次检查：升级 SQL 是否已执行、守护进程是否为运行状态、`runtime` 是否可写、Worker 日志是否出现上游或存储错误。Worker 异常退出后，未完成任务会在租约到期后由新的 Worker 接管，不需要重新提交用户任务。
-
-### 补偿计划任务
-
-结果 Worker 是常驻进程；`ai:usage_reconcile` 仅用于账务和历史任务的补偿扫描，建议保留宝塔计划任务每 5 分钟执行一次：
-
-```bash
-*/5 * * * * /www/server/php/82/bin/php /www/wwwroot/likeadmin_aigc_saas/server/think ai:usage_reconcile >> /www/wwwroot/likeadmin_aigc_saas/server/runtime/log/ai_usage_reconcile.log 2>&1
-```
-
-不要用该计划任务替代常驻结果 Worker。
-
-系统定时任务的 `think crontab` 同样须使用 PHP 8.2。需要常驻循环时可由守护进程启动 `scripts/start-project-cron.sh`，默认使用本项目的 PHP 8.2，每轮完成后等待 60 秒。已有系统 cron 或 Docker scheduler 时，保留一个调度入口，避免重复运行。
-
-## 开发测试要求
-
-- 自动化 PHPUnit 测试使用 PHP 8.2 和包含测试依赖的开发环境。涉及数据库、缓存或任务写入时，优先使用独立的 MySQL/Redis 副本；不得把测试连接指向生产库或共享业务缓存。
-- 使用现有本地服务的短剧验收脚本，须遵循 [短剧 Agent 验收说明](app/apps/aigc_short_drama/tests/agent/README.md)，显式启用受限夹具并验证清理，不得重启或故障注入业务 Worker。
-- 默认使用受控 Provider；真实模型调用、素材、计费及取消退款验收需明确授权范围。模拟通过不代表真实 Provider 端到端通过。
-- 失败、跳过和未执行项必须如实记录，并与相同环境的替换前基线逐项比较；没有新增失败不代表全量通过。当前切换的已验证范围及剩余失败见运行记录，不得写成全部功能已验收。
-
-## 更新与发布
-
-平台后台提供系统更新能力，更新包会经过下载、预检、签名校验、SQL 执行和文件替换流程。大版本更新前请先完成：
-
-- 备份数据库。
-- 备份 `server/.env`、`server/public/uploads`、`server/runtime` 等运行数据。
-- 确认磁盘剩余空间不小于更新包体积的 3 倍。
-- 确认 `ZipArchive` 或 `unzip` / `7z` / `tar` 可用。
-
-本项目的系统更新请求和服务端执行超时已按长任务处理，默认允许 10 分钟完成下载、预检和写入。
-
-## 常用命令
-
-```bash
-# 清理缓存
-/www/server/php/82/bin/php think clear
-
-# 发现服务
-/www/server/php/82/bin/php think service:discover
-
-# 重新发布扩展资源
-/www/server/php/82/bin/php think vendor:publish
-
-# 检查 PHP 语法
-/www/server/php/82/bin/php -l app/common/service/update/SystemPackageUpdateService.php
-```
-
-
-
-## 安全建议
-
-- 不要提交或分发 `.env`、`config/install.lock`、`runtime/`、`public/uploads/` 中的运行数据。
-- 管理员默认密码仅用于初始化，首次登录后请立即修改。
-- 生产环境建议开启 HTTPS，并限制平台后台访问来源。
-- 第三方 AI 通道、短信、支付、对象存储等密钥请通过后台配置或安全环境变量保存。
-
-
-
-## 联系我们
-
-我们提供部署、二开、AIGC 应用接入、私有化更新源、商业授权与运营陪跑服务。如果你要做的不只是一个工具站，而是一个能够持续生长的 AI 平台，可以直接联系。
-
-联系电话：18786709420
-
-### Canvas project Agent isolation
-
-Canvas conversation sessions remain page-bound; generation preferences use the owned project key `canvas:{project_id}` (shared only by pages in that project). The additive source migration snapshots legacy user-wide defaults once for each existing project. Runtime initialization covers projects created later without rewriting submitted run snapshots.
-
-Conflicting query/body identifiers are rejected before scope selection. Project deletion cancels remaining Agent work; admission and result collection lock the owned project before run records. Already admitted native jobs retain their task identity and continue result polling, while deleted pages reject graph writeback. Removing a node or media reference only changes the canvas graph; deleting an original asset in the user library affects all references and has a separate confirmation.
-
-
-### Canvas retirement upgrade audit
-
-- Deploy the shared backend and matching PC/tenant frontend sources together. An app-only package copies `app/apps/aigc_canvas` and cannot carry the shared controllers, migration executor, or Agent engine. This change requires a system/source update; publishing remains the repository owner's responsibility.
-- Include deleted legacy PHP/frontend source files in the updater deletion set. Overlay copying alone preserves obsolete controllers; the database API/menu cleanup alone is not a route authorization guard. API and tenant middleware also reject retired canvas routes when obsolete files remain, while keeping native asset registration compatible. Drain the old canvas worker before replacing code and start only the current configured workers afterward.
-- `zz_20261017_00_conversation_preferences.sql` prepares older preference schemas before project-specific snapshots, even when canvas updates before the conversation app. The reviewed `CanvasConversationSchema` bridge recognizes only the exact historical scope migration bytes, so immutable migrations remain unchanged and other dynamic SQL remains forbidden by the runtime updater.
-- History conversion is tenant/user/project scoped and lazy on first authorized project access. Original graph snapshots and legacy conversation tables remain for recovery and idempotent import; do not remove them as unused runtime code. History import never resubmits generation or recharges a task.
-- Rollback: preserve additive columns, indexes, backups and imported records. Do not restore the old two-column preference unique index after multiple project rows exist. Returning to the old application requires a coordinated code/database backup restore, not a destructive down migration.
+- 公众号：**程序员在囧途**
+- 联系电话：**18786709420**
