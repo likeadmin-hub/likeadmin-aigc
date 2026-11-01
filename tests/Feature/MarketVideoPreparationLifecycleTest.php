@@ -13,6 +13,47 @@ use think\facade\Db;
 /** Synthetic market rows; reserve/fail only, never calls submit or a supplier. */
 class MarketVideoPreparationLifecycleTest extends TestCase
 {
+    /** @dataProvider genericDurationDeclarations */
+    public function testGenericMaterialDurationUsesPublicSchema(bool $declared, bool $locked, int $requested, int $expected): void
+    {
+        if (getenv('AIGC_VIDEO_PREPARATION_DB_TESTS') !== '1') self::markTestSkipped('Explicit local rollback fixture only');
+        (new \think\App())->initialize();
+        self::assertContains(Db::connect()->getConfig('hostname'), ['127.0.0.1', 'localhost']);
+        self::assertContains(Db::connect()->getConfig('database'), ['x_cn', 'z_cn']);
+        $key = 'generic-duration-' . bin2hex(random_bytes(8));
+        Db::startTrans();
+        try {
+            $metadata = ['params_schema' => ['properties' => ['prompt' => ['type' => 'string']]],
+                'material_capabilities' => ['modes' => [['code' => 'text_to_video', 'method' => 'text_to_video', 'fields' => []]]]];
+            if ($declared) {
+                $metadata['params_schema']['properties']['duration'] = ['type' => 'integer', 'enum' => [4, 8]];
+                $metadata['supported_durations'] = [4, 8];
+            }
+            $product = PowerMarketProduct::create(['product_code' => $key, 'name' => 'Offline generic duration fixture',
+                'resource_type' => 'model', 'model_type' => 'video', 'source_code' => 'offline-fixture',
+                'upstream_resource_key' => $key, 'upstream_model_code' => $key, 'upstream_channel_code' => 'offline',
+                'source_payload' => ['market_metadata' => $metadata], 'status' => 1, 'create_time' => time(), 'update_time' => time()]);
+            $sku = PowerMarketSku::create(['product_id' => $product['id'], 'sku_key' => $key, 'title' => 'Offline fixture',
+                'locked_params' => $locked ? ['duration' => 4] : [], 'usage_unit' => 'per_call', 'usage_unit_size' => 1,
+                'upstream_price' => 1, 'sale_points' => 1, 'sale_status' => 1, 'status' => 1,
+                'source_payload' => ['meter_contract' => ['version' => 1, 'basis' => 'call', 'rounding' => 'ceil']],
+                'create_time' => time(), 'update_time' => time()]);
+            $selection = ['model_id' => 'market_video_model:' . $product['id'], 'market_sku_id' => $sku['id'],
+                'generation_method' => 'text_to_video', 'prompt' => 'Offline fixture'];
+            $normalized = Videos::normalizeDurationSelection(1, $selection, $requested);
+            self::assertSame($expected, $normalized['duration']);
+            self::assertSame((int)$sku['id'], $normalized['market_sku_id']);
+        } finally {
+            Db::rollback();
+        }
+        self::assertSame(0, (int)Db::name('power_market_product')->where('product_code', $key)->count());
+    }
+
+    public static function genericDurationDeclarations(): array
+    {
+        return [[true, true, 5, 4], [true, false, 5, 8], [true, false, 4, 4], [false, false, 5, 0]];
+    }
+
     /** @dataProvider resources */
     public function testPreparedQuotesReservationsAndRefundsAreConsistent(string $resource, array $meter, int $referenceCount = 0): void
     {
