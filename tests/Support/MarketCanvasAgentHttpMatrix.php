@@ -92,5 +92,10 @@ function runMarketCanvasAgentHttp($f,string $api,string $peer,string $suffix,str
     foreach(['aigc_canvas.conversation/detail'.$suffix.'&'.http_build_query($scope+['run_id'=>$entry['run_id']]),'aigc_short_drama.canvas_agent/messages'.$suffix.'&canvas_id='.$c.'&thread_id='.$thread['id']]as$path)$check((callHttp($peer,'/api/app.'.$path,[],$foreign,'GET')['code']??1)!==1,'Foreign Agent history leaked');
     $report['both_agents_authenticated_owner_isolation']=true;
     $beforeRows=$db::name('aigc_short_drama_canvas_agent_run')->order('id')->select()->toArray();$f->start($script,'fixture_drama_agent_runner','drama');usleep(300000);$f->stop('drama');$check($beforeRows===$db::name('aigc_short_drama_canvas_agent_run')->order('id')->select()->toArray(),'Idle drama restart rewrote completed turns');$report['drama_idle_restart_preserves_terminal']=true;
+    $legacyIdentity=['thread'=>$thread['id'],'content'=>$body['content'],'nodes'=>['1'],'revision'=>$body['base_revision'],'selection'=>['preferences'=>['generation_mode'=>'manual'],'skill_id'=>0,'skill_version'=>0]];
+    $legacyHash=hash('sha256',json_encode($legacyIdentity,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
+    $db::name('aigc_short_drama_canvas_agent_run')->where('id',$ack['run_id'])->update(['request_hash'=>$legacyHash]);
+    $before=$calls();$check($post('aigc_short_drama.canvas_agent/send',$body)===$ack&&$calls()===$before,'Pre-upgrade short drama request hash could not replay');
+    $db::name('aigc_short_drama_canvas_agent_run')->where('id',$ack['run_id'])->update(['request_hash'=>$run['request_hash']]);$report['drama_legacy_request_identity_replay']=true;
     $check($report['drama_changed_auto_intent_refused'],'Short drama same key accepted a different workflow_auto intent');
 }

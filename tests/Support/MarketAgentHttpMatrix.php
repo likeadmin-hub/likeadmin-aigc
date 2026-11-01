@@ -60,6 +60,10 @@ function runMarketAgentHttp($f,$api,$peer,$suffix,$token,$imageChannel,array &$r
         require __DIR__.'/MarketCanvasAgentHttpMatrix.php';
         $report['canvas_agents']=[];
         runMarketCanvasAgentHttp($f,$api,$peer,$suffix,$token,$imageChannel,$text,$agent,$report['canvas_agents']);
+        if(getenv('AIGC_HTTP_AGENT_SPECIAL_MATRIX')==='1') {
+            require __DIR__.'/MarketAgentSpecialHttpMatrix.php';$report['special']=[];
+            runMarketAgentSpecialHttp($f,$api,$peer,$suffix,$token,$agent,$report['special']);
+        }
         $report['text_reservations']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->count();
         $report['text_settlements']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->where('billing_status','settled')->count();
     }

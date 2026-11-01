@@ -2,6 +2,7 @@
 /** Loopback supplier receipts only; deterministic synthetic output, never real model inference. */
 function marketDeepSupplier(string $path,string $dir): bool
 {
+    if(getenv('AIGC_HTTP_AGENT_SPECIAL_MATRIX')==='1'&&$path==='/fixture/agent-speech.mp3'){header('Content-Type: audio/mpeg');readfile($dir.'/agent-speech.mp3');return true;}
     if(str_starts_with($path,'/uploads/')) {
         $file=realpath($dir.'/public'.$path);$root=realpath($dir.'/public/uploads');
         if(!$file||!$root||!str_starts_with($file,$root.'/')){http_response_code(404);return true;}
@@ -17,6 +18,14 @@ function marketDeepSupplier(string $path,string $dir): bool
     if(($_SERVER['HTTP_AUTHORIZATION']??'')!=='Bearer fixture-no-real-key')return false;
     $input=json_decode(file_get_contents('php://input'),true)?:[];
     $record=function(string $kind)use($dir,$input){file_put_contents($dir.'/deep-calls.jsonl',json_encode(['kind'=>$kind,'input'=>$input])."\n",FILE_APPEND|LOCK_EX);};
+    if(getenv('AIGC_HTTP_AGENT_SPECIAL_MATRIX')==='1') {
+        if($path==='/api/v1/apps/voice_tts/stt'){$record('agent_stt');echo json_encode(['code'=>1,'data'=>['text'=>'隔离音频转写正文。','language'=>'zh','duration'=>1]],JSON_UNESCAPED_UNICODE);return true;}
+        if(in_array($path,['/api/v1/apps/voice_tts/tts','/api/v1/apps/voice_tts/tts_async'],true)) {
+            $async=str_ends_with($path,'tts_async');$record($async?'agent_tts_async':'agent_tts');
+            echo json_encode(['code'=>1,'data'=>$async?['task_id'=>'agent-tts-async-1','status'=>'pending']:['result'=>['audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]]);return true;
+        }
+        if($path==='/api/v1/tasks/agent-tts-async-1'){echo json_encode(['code'=>1,'data'=>['task_id'=>'agent-tts-async-1','status'=>'success','audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]);return true;}
+    }
     if($path==='/api/v1/apps/voice_tts/tts_live') {
         $record('tts');echo json_encode(['code'=>1,'data'=>['task_id'=>'deep-tts-1','status'=>'running']]);return true;
     }
