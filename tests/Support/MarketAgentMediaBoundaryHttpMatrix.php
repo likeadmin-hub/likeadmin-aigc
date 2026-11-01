@@ -107,6 +107,11 @@ function runMarketAgentMediaBoundaryHttp($f,string $api,string $peer,string $suf
     $check($detail($canceled['id'])['status']==='canceled'&&$counts()===$before,'Unconfirmed speech stop submitted');$report['unconfirmed_speech_stop_no_native_charge']=true;
     $login();$before=$counts();$check($request('submit',$speechInput)['id']===$speech['id']&&$counts()===$before,'New-login speech replay generated');
     $check(count($request('messages',['session_id'=>$speech['session_id']],'GET'))>=4,'New-login speech history missing');
+    $other=$u+1;$check((int)$db::name('user')->where('id',$other)->count()===0,'Foreign fixture owner already exists');
+    $db::name('user')->insert(['id'=>$other,'tenant_id'=>$t,'sn'=>$other,'account'=>$f->prefix.'other','nickname'=>'Private second owner','password'=>create_password('Private-fixture-pass-2026',config('project.unique_identification')),'user_money'=>100,'create_time'=>time(),'update_time'=>time()]);
+    $otherToken=dataHttp($peer,'/api/login/account'.$suffix,['account'=>$f->prefix.'other','password'=>'Private-fixture-pass-2026','scene'=>1,'terminal'=>4])['token'];$before=$counts();
+    $foreign=callHttp($peer,'/api/app.aigc_llm.agent/detail'.$suffix.'&run_id='.$speech['id'],[],$otherToken,'GET');
+    $check(($foreign['code']??1)!==1&&$counts()===$before,'Foreign owner read a private run or dispatched work');$report['foreign_normal_login_run_read_rejected']=true;
     $logs=$db::name('ai_consumption_log')->whereIn('product_id',$audioProducts)->select()->toArray();
     $check(count($logs)===3&&array_unique(array_column($logs,'billing_status'))===['settled'],'Original audio reservations did not each settle once');
     $report['audio_original_reservations']=count($logs);$report['audio_original_settlements']=3;$report['normal_login_history_and_native_result_reuse']=true;
