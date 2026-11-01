@@ -137,7 +137,7 @@ final class AgentSpeechTool
             $log=$reservation['log'];
             $url=$base.'/api/v1/apps/voice_tts/'.$api;
             try{self::record($log,self::request($url,$key,$prepared['speech_payload'],$source));self::reconcile((int)$log['id'],$tenant,true);}
-            catch(\Throwable $e){self::uncertain((int)$log['id']);\think\facade\Log::error('Home Agent speech '.$log['id'].': '.get_class($e));}
+            catch(\Throwable $e){self::uncertain((int)$log['id']);\think\facade\Log::error('Home Agent speech '.$log['id'].': '.get_class($e).' at='.basename($e->getFile()).':'.$e->getLine());}
         }
         return self::query($tenant,$user,$reservation['task_id']);
     }

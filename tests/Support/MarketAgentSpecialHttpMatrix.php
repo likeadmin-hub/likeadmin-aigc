@@ -13,7 +13,10 @@ function runMarketAgentSpecialHttp($f,string $api,string $peer,string $suffix,st
         $check($row&&(int)$row['size']===filesize($path)&&$row['mime']===(new finfo(FILEINFO_MIME_TYPE))->file($path)&&$row['storage_scope']!==''&&$row['storage_engine']==='local','Moved upload lost MIME/size/owner/storage facts');return $r['data'];
     };
     $finish=function(int $id,string $status='success')use($f,$script,$db):void {
-        $f->start($script,'fixture_agent_runner','agent');MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->where('id',$id)->value('status')===$status,'Dedicated Agent run did not reach '.$status,45);$f->stop('agent');
+        $f->start($script,'fixture_agent_runner','agent');
+        try{MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->where('id',$id)->value('status')===$status,'Dedicated Agent run did not reach '.$status,45);}
+        catch(Throwable $error){fwrite(STDERR,'Dedicated run state: '.json_encode($db::name('aigc_llm_agent_run')->where('id',$id)->field('id,status,phase,error')->find(),JSON_UNESCAPED_UNICODE)."\n");throw $error;}
+        finally{$f->stop('agent');}
     };
     $input=['session_id'=>0,'preferences'=>['mode'=>'ask','models'=>['text'=>'market_text_'.$text]]];
     file_put_contents($f->dir.'/long-source.txt',str_repeat('隔离资料事实。',2200));
