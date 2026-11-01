@@ -12,7 +12,7 @@ if(in_array($action,['read','write'],true)) {
 }
 if($action!=='http'||!is_file($dir.'/mobile-input.json'))exit(4);
 $fixture=json_decode(file_get_contents($dir.'/mobile-input.json'),true);$url=$input['url']??'';$allowed=false;
-foreach([$fixture['api'],$fixture['api_peer']]as$base)if(str_starts_with($url,$base.'/api/app.'))$allowed=true;
+foreach([$fixture['api'],$fixture['api_peer']]as$base)if(str_starts_with($url,$base.'/api/app.')||(!empty($fixture['ui'])&&parse_url($url,PHP_URL_PATH)==='/api/login/account'&&($input['method']??'')==='POST'&&str_starts_with($url,$base.'/api/')))$allowed=true;
 if(!$allowed||parse_url($url,PHP_URL_HOST)!=='127.0.0.1')exit(5);
 $headers=['Content-Type: application/json'];foreach($input['header']??[]as$key=>$value){if(!preg_match('/^[A-Za-z0-9_-]+$/D',$key)||strpbrk((string)$value,"\r\n")!==false)exit(6);$headers[]=$key.': '.$value;}
 $curl=curl_init($url);curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>$headers]);

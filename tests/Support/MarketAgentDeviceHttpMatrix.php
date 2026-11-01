@@ -34,6 +34,12 @@ function runMarketAgentDeviceHttp($f,string $api,string $peer,string $suffix,str
     $check($new['approval_hash']!==$old['approval_hash'],'Revised plan kept old approval');$before=$counts();
     $stale=callHttp($peer,'/api/app.aigc_llm.agent/confirm'.$suffix,['run_id'=>$id,'approval_hash'=>$old['approval_hash']],$tokens['h5']);
     $check(($stale['code']??1)!==1&&$counts()===$before,'Old-device approval dispatched generation');
+    if(getenv('AIGC_HTTP_AGENT_DEVICE_UI')==='1') {
+        file_put_contents($f->dir.'/mobile-input.json',json_encode(['api'=>$api,'api_peer'=>$peer,'ui'=>true,'tenant'=>$f->tenant,'account'=>$f->prefix,'session_id'=>$first['session_id'],'run_id'=>$id],JSON_THROW_ON_ERROR));
+        fwrite(STDERR,'MOBILE_AGENT_UI_READY '.$f->dir.chr(10));
+        MarketWorkerFixture::wait(fn()=>is_file($f->dir.'/mobile-ui-done.json'),'Private mobile UI observation not finished',600);
+        $check($counts()===$before,'Read-only mobile UI dispatched a task');
+    }
     $tokens['h5']=$login(3);$tokens['mp']=$login(1);
     foreach($tokens as$auth)$check($request('detail',['run_id'=>$id],$auth,'GET')['approval_hash']===$new['approval_hash'],'Fresh terminal login lost proposal revision');
     $read=function($name)use($f){if(is_file($f->dir.'/mobile-failed.json'))throw new RuntimeException(file_get_contents($f->dir.'/mobile-failed.json'));return is_file($f->dir.'/'.$name)?json_decode(file_get_contents($f->dir.'/'.$name),true):null;};
