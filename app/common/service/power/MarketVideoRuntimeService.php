@@ -373,6 +373,12 @@ class MarketVideoRuntimeService
         if (MarketGenerationMaterials::modes($metadata) !== []) {
             $mode=MarketGenerationMaterials::select($metadata,$selection);
             $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
+            // Generic material declarations use the public parameter schema.
+            // An absent native contract is not evidence of follow-source duration.
+            if ($schema === [] && MarketGenerationNativeContract::modes($metadata) === []
+                && MarketGenerationReviewedContract::selected($metadata) === null) {
+                $schema = MarketGenerationSchema::array($metadata['params_schema'] ?? []);
+            }
             $values=array_replace((array)($selection['provider_params']??[]),MarketGenerationMaterials::serialize($metadata,$selection,$schema));
             $properties=MarketGenerationSchema::properties(MarketGenerationSchema::branch($schema,$values));
             // Follow-source/frames-per-second models do not accept a synthetic duration.
