@@ -118,6 +118,7 @@ final class MarketOwnedPlatformContractRules
 
     public static function supported(array $rule,?string $protocol=null): bool
     {
+        if(in_array($rule['profile']??'', ['flat_image_v1','flat_video_v1'],true))return MarketOwnedPlatformFlatSourceRules::supported($rule,$protocol);
         $profile=$rule['profile']??'';
         $modes=match($profile){
             'qwen_image_v1'=>['text_to_image','image_to_image'],
@@ -135,6 +136,7 @@ final class MarketOwnedPlatformContractRules
     {
         if (!self::supported($rule)) return false;
         try {
+            if(in_array($rule['profile']??'', ['flat_image_v1','flat_video_v1'],true))return MarketOwnedPlatformFlatSourceRules::valid($rule,$input);
             return match($rule['profile']??'') {
                 'qwen_image_v1'=>self::qwen($input,(string)($rule['mode']??'')),
                 'h3_content_v1'=>self::h3($input,(string)($rule['mode']??'')),

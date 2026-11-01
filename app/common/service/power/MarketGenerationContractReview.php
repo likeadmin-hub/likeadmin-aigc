@@ -167,9 +167,13 @@ final class MarketGenerationContractReview
                 }
                 if ($candidate['generation_protocol']!=='native_v1') {
                     $definition=$entry['modes'][$mode['code']]['schema']['properties'][$field['field']] ?? [];
+                    $finiteFlatUnion=$candidate['generation_protocol']==='flat_image_v1'
+                        &&$candidate['model_code']==='gpt-image-2-fast'&&$candidate['channel_code']==='openaiD'
+                        &&($entry['execution_binding']['kind']??'')==='owned_platform_direct_execution'
+                        &&self::flatUrlUnion($definition);
                     if (!in_array($field['kind'] ?? '',['image','video','audio'],true)
                         || !(($definition['type'] ?? '')==='string'
-                            || (($definition['type'] ?? '')==='array' && ($definition['items']['type'] ?? '')==='string'))) {
+                            || (($definition['type'] ?? '')==='array' && ($definition['items']['type'] ?? '')==='string')||$finiteFlatUnion)) {
                         throw new InvalidArgumentException('该协议尚未实现复合素材的共享计数与角色校验');
                     }
                 }
@@ -180,12 +184,26 @@ final class MarketGenerationContractReview
             $contract['declaration_fingerprint']=MarketGenerationReviewedContract::digest([
                 $entry['binding_declaration']['params_schema'],$entry['binding_declaration']['material_capabilities']]);
             $contract['material_capabilities']=$entry['declaration']['material_capabilities'];
+            if(isset($entry['execution_binding']))$contract['execution_binding']=$entry['execution_binding'];
             $contract['sku_pricing']='unverified';$contract['live_generation']='unverified';
             $contract['contract_digest']=MarketGenerationReviewedContract::contractDigest($contract);
             MarketGenerationReviewedContract::assertRecord($contract);
             $contracts[]=$contract;
         }
         return ['version'=>2,'contracts'=>$contracts];
+    }
+
+    /** The documented Fast input has exactly two countable representations, not arbitrary unions or object material. */
+    private static function flatUrlUnion(array $definition): bool
+    {
+        if(isset($definition['type'])||isset($definition['oneOf'])||isset($definition['allOf'])||!is_array($definition['anyOf']??null)||count($definition['anyOf'])!==2)return false;
+        $types=[];foreach($definition['anyOf']as$branch){
+            if(!is_array($branch)||isset($branch['anyOf'])||isset($branch['oneOf'])||isset($branch['allOf']))return false;
+            if(($branch['type']??'')==='string')$types[]='string';
+            elseif(($branch['type']??'')==='array'&&($branch['items']['type']??'')==='string')$types[]='array';
+            else return false;
+        }
+        sort($types);return $types===['array','string'];
     }
 
     /** Produce review candidates, never the active generation-contracts catalogue. */

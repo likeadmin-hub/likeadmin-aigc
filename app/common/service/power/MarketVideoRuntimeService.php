@@ -1102,6 +1102,7 @@ class MarketVideoRuntimeService
                     'sku' => ['locked_params' => $snapshot['locked_params'] ?? []]], $request, $metadata);
             }
             $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, self::appPayload($snapshot, $request, $idempotency), $request);
+            MarketGenerationApplicationProtocol::assertPreparedVideo($snapshot, $payload);
             $prepared = PreparedMarketGeneration::application($payload, $meter, $request);
         }
         MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput, static fn($asset)=>
@@ -1177,10 +1178,12 @@ class MarketVideoRuntimeService
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
     {
         if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) !== []
-            && MarketGenerationAdapterRegistry::modelProtocol('video',$snapshot)==='native_v1') {
+            && (MarketGenerationAdapterRegistry::modelProtocol('video',$snapshot)==='native_v1'||MarketOwnedPlatformFlatSourceRules::applies($snapshot))) {
             $request['reference_assets'] = array_map(static function ($asset) { $asset['url'] = AigcVideoReferenceAssetService::publicUrl($asset); return $asset; }, AigcVideoReferenceAssetService::normalizeForMarket($request));
             unset($request['reference_images']);
-            return array_merge(self::marketContext($snapshot, 'power_market_video'), MarketGenerationRequest::payload($snapshot, $request), ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)$snapshot['channel_code'], 'idempotency_key'=>$idempotency]);
+            $body=MarketOwnedPlatformFlatSourceRules::applies($snapshot)?MarketOwnedPlatformFlatSourceRules::payload($snapshot,$request)
+                :MarketGenerationRequest::payload($snapshot, $request);
+            return array_merge(self::marketContext($snapshot, 'power_market_video'), $body, ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)$snapshot['channel_code'], 'idempotency_key'=>$idempotency]);
         }
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);

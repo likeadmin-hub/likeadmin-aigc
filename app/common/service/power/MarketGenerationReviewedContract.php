@@ -65,6 +65,15 @@ final class MarketGenerationReviewedContract
             || (isset($metadata['upstream_metadata']['channel_code']) && $metadata['upstream_metadata']['channel_code']!==$contract['channel_code'])) {
             throw new InvalidArgumentException('冻结请求的原始声明与审核合同不一致');
         }
+        if(isset($contract['execution_binding'])){
+            $binding=$contract['execution_binding'];$upstream=MarketGenerationSchema::array($metadata['upstream_metadata']??[]);
+            $id=MarketGenerationSourceIdentity::modelId($upstream);
+            if($id>0&&$id!==$binding['platform_model_id'])throw new InvalidArgumentException('冻结平台型号与执行证据不一致');
+            foreach($binding['material_limits']as$key=>$limit){
+                $saved=$metadata[$key]??$metadata['capabilities'][$key]??$upstream[$key]??null;
+                if($saved!==null&&(!is_numeric($saved)||(float)$saved!==(float)$limit))throw new InvalidArgumentException('冻结素材能力与执行证据不一致');
+            }
+        }
         return $contract;
     }
 
@@ -95,6 +104,37 @@ final class MarketGenerationReviewedContract
             MarketGenerationMaterialPath::assertNonOverlapping((array)($mode['fields']??[]));
             foreach((array)($mode['fields']??[])as$field)
                 if(str_contains((string)($field['field']??''),'.'))MarketGenerationMaterialPath::assertNestedField($contract,$contract['modes'][$mode['code']],$field);
+        }
+        if(isset($contract['execution_binding']))self::assertExecutionRecord($contract);
+    }
+
+    private static function assertExecutionRecord(array $contract): void
+    {
+        $binding=$contract['execution_binding'];
+        if(!is_array($binding)||($binding['version']??null)!==1||($binding['kind']??'')!=='owned_platform_direct_execution'
+            ||!is_int($binding['platform_model_id']??null)||$binding['platform_model_id']<1
+            ||($binding['model_code']??null)!==$contract['model_code']||($binding['channel_code']??null)!==$contract['channel_code']
+            ||($binding['channel_mapping_enabled']??null)!==false||($binding['fallback_configured']??null)!==false
+            ||!is_string($binding['upstream_model']??null)||trim($binding['upstream_model'])===''
+            ||!is_string($binding['observed_at']??null)||strtotime($binding['observed_at'])===false
+            ||($contract['source']['revision']??null)!==MarketOwnedPlatformContractRules::REVISION)
+            throw new InvalidArgumentException('直接执行证据身份或来源不完整');
+        foreach(['artifact_sha256','configuration_fingerprint']as$key)
+            if(!is_string($binding[$key]??null)||preg_match('/^[a-f0-9]{64}$/D',$binding[$key])!==1)throw new InvalidArgumentException('直接执行证据指纹缺失');
+        foreach(['max_reference_images','max_reference_videos','max_reference_audios']as$key)
+            if(!is_int($binding['material_limits'][$key]??null)||$binding['material_limits'][$key]<0)throw new InvalidArgumentException('直接执行素材限制缺失');
+        $route=$binding['smart_route_context']??[];
+        if(!is_array($route)||($route['request_control']??null)!=='omitted'||!is_bool($route['smart_route_supported']??null)
+            ||!is_bool($route['smart_route_tenant_force_enabled']??null)||!is_bool($route['smart_route_user_force_enabled']??null)
+            ||$route['smart_route_supported']&&($route['smart_route_tenant_force_enabled']||$route['smart_route_user_force_enabled']))
+            throw new InvalidArgumentException('直接执行合同未核验当前路由强制开关');
+        if($contract['revision']==='owned-platform-b5887e1-flat-source-v1')foreach($contract['modes']as$mode){
+            $found=false;foreach($mode['rules']??[]as$rule)if(($rule['kind']??'')==='owned_platform'
+                &&MarketOwnedPlatformFlatSourceRules::supported($rule,$contract['generation_protocol'])
+                &&$rule['model_code']===$contract['model_code']&&$rule['channel_code']===$contract['channel_code']
+                &&$rule['configuration_fingerprint']===$binding['configuration_fingerprint']
+                &&$rule['maximum_images']===$binding['material_limits']['max_reference_images'])$found=true;
+            if(!$found)throw new InvalidArgumentException('直接执行合同缺少绑定的有限规则');
         }
     }
 

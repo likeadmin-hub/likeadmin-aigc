@@ -1028,8 +1028,10 @@ class MarketImageModelRuntimeService
     {
         $request=MarketImageReferenceUrlService::normalizeRequest($request,$tenantId);
         if (MarketGenerationMaterials::modes(self::metadata($snapshot)) !== []
-            && MarketGenerationAdapterRegistry::modelProtocol('image',$snapshot)==='native_v1') {
-            return array_merge(self::marketContext($snapshot), MarketGenerationRequest::payload($snapshot, $request, $deferMissingPrompt), ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)($snapshot['channel_code'] ?? ''), 'idempotency_key'=>$idempotencyKey]);
+            && (MarketGenerationAdapterRegistry::modelProtocol('image',$snapshot)==='native_v1'||MarketOwnedPlatformFlatSourceRules::applies($snapshot))) {
+            $body=MarketOwnedPlatformFlatSourceRules::applies($snapshot)?MarketOwnedPlatformFlatSourceRules::payload($snapshot,$request,$deferMissingPrompt)
+                :MarketGenerationRequest::payload($snapshot, $request, $deferMissingPrompt);
+            return array_merge(self::marketContext($snapshot), $body, ['model'=>(string)$snapshot['model_code'], 'channel'=>(string)($snapshot['channel_code'] ?? ''), 'idempotency_key'=>$idempotencyKey]);
         }
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $providerParams = (array)($request['provider_params'] ?? []);

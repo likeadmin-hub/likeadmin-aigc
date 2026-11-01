@@ -37,7 +37,8 @@ final class MarketGenerationParameters
         $resourceType=$type;
         $schema = MarketGenerationSchema::array($model['params_schema'] ?? []);
         $modes = (array)($model['material_modes'] ?? []);
-        $result = [];
+        $appModel = $type === 'video' ? MarketGenerationApplicationProtocol::seedanceModelControl($model) : null;
+        $result = $appModel === null ? [] : [$appModel];
         foreach (MarketGenerationSchema::properties($schema) as $key=>$definition) {
             if (str_starts_with($key,'_') || in_array($key,self::OWNED,true)) continue;
             if ($modes===[] && in_array($key,['urls','image_urls','images','reference_images','video_urls','audio_urls','media','image_with_roles','action','image_size','size'],true)) continue;
