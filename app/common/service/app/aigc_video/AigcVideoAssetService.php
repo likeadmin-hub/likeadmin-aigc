@@ -80,20 +80,8 @@ class AigcVideoAssetService
 
     private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
     {
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 25,
-                'follow_location' => 1,
-                'ignore_errors' => true,
-                'header' => "User-Agent: LikeAdminAigcVideo/1.0\r\n",
-            ],
-        ]);
-        $openDownload=\app\common\service\open_platform\OpenCallContext::active()?\app\common\service\open_platform\OpenSafeHttp::get($url,268435456):null;
-        $content = $openDownload!==null?$openDownload['body']:@file_get_contents($url, false, $context);
-        if ($content === false || $content === '') {
-            throw new Exception('生成视频下载失败');
-        }
-        $headers = $openDownload!==null?array_merge(['HTTP/1.1 '.$openDownload['status']],array_map(fn($name,$value)=>$name.': '.$value,array_keys($openDownload['headers']),array_values($openDownload['headers']))):($http_response_header ?? []);
+        [$content, $headers] = self::downloadRemoteContent($url);
+        if ($content === '') throw new Exception('生成视频下载失败');
         $httpCode = self::lastHttpStatusCode($headers);
         if ($httpCode >= 400) {
             throw new Exception('生成视频下载失败，远程地址返回HTTP ' . $httpCode);
@@ -103,6 +91,64 @@ class AigcVideoAssetService
             throw new Exception('生成视频下载失败，远程地址返回的不是视频文件');
         }
         return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType), $storageConfig, $resultAssetId);
+    }
+
+    /** Validate declared response lengths and read failures while retaining the original worker transport policy. */
+    private static function downloadRemoteContent(string $url, int $timeout = 25, int $maxBytes = 268435456): array
+    {
+        if ($timeout < 1 || $timeout > 25 || $maxBytes < 1 || $maxBytes > 268435456) throw new \InvalidArgumentException('下载限制无效');
+        if (\app\common\service\open_platform\OpenCallContext::active()) {
+            $wire=\app\common\service\open_platform\OpenSafeHttp::get($url,$maxBytes,$timeout);
+            $headers=['HTTP/1.1 '.$wire['status']];
+            foreach ($wire['headers'] as $name=>$value) $headers[]=$name.': '.$value;
+            return [$wire['body'],$headers];
+        }
+        $context=stream_context_create(['http'=>['timeout'=>$timeout,'follow_location'=>1,'ignore_errors'=>true,
+            'header'=>"User-Agent: LikeAdminAigcVideo/1.0\r\n"]]);
+        $stream=@fopen($url,'rb',false,$context);
+        if (!is_resource($stream)) throw new Exception('生成视频下载失败');
+        try {
+            $meta=stream_get_meta_data($stream); $headers=[];
+            // PHP wrapper_data includes every redirect. Only the final response frames this body.
+            foreach (is_array($meta['wrapper_data']??null)?$meta['wrapper_data']:[] as $line) {
+                if (preg_match('~^HTTP/\S+\s+\d{3}~i',(string)$line)) $headers=[];
+                $headers[]=$line;
+            }
+            $expected=self::contentLengthFromHeaders($headers);
+            if ($expected !== null && $expected > $maxBytes) throw new Exception('生成视频下载失败，文件过大');
+            $content='';
+            while (!feof($stream)) {
+                $chunk=@fread($stream,8192); $meta=stream_get_meta_data($stream);
+                if (!empty($meta['timed_out'])) throw new Exception('生成视频下载超时');
+                if ($chunk === false || ($chunk === '' && !feof($stream))) throw new Exception('生成视频下载读取失败');
+                if (strlen($content)+strlen($chunk)>$maxBytes) throw new Exception('生成视频下载失败，文件过大');
+                $content.=$chunk;
+            }
+            if ($expected !== null && strlen($content)!==$expected) throw new Exception('生成视频下载不完整');
+            return [$content,$headers];
+        } finally { fclose($stream); }
+    }
+
+    /** Null means HTTP framing does not supply a length, including decoded chunked bodies. */
+    private static function contentLengthFromHeaders(array $headers): ?int
+    {
+        $length=null; $chunked=false;
+        foreach ($headers as $header) {
+            if (stripos((string)$header,'Transfer-Encoding:')===0 && preg_match('/(?:^|,)\s*chunked\s*(?:,|$)/i',substr((string)$header,18))) $chunked=true;
+            if (stripos((string)$header,'Content-Length:')!==0) continue;
+            foreach (explode(',',substr((string)$header,15)) as $raw) {
+                $raw=trim($raw);
+                if (!preg_match('/^[0-9]+$/D',$raw)) throw new Exception('生成视频下载响应长度无效');
+                $normalized=ltrim($raw,'0'); if ($normalized==='') $normalized='0';
+                $max=(string)PHP_INT_MAX;
+                if (strlen($normalized)>strlen($max) || (strlen($normalized)===strlen($max) && strcmp($normalized,$max)>0)) throw new Exception('生成视频下载响应长度无效');
+                $value=(int)$normalized;
+                if ($length!==null && $length!==$value) throw new Exception('生成视频下载响应长度冲突');
+                $length=$value;
+            }
+        }
+        if ($chunked && $length!==null) throw new Exception('生成视频下载响应长度冲突');
+        return $chunked?null:$length;
     }
 
     private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
