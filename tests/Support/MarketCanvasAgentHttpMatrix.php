@@ -95,7 +95,7 @@ function runMarketCanvasAgentHttp($f,string $api,string $peer,string $suffix,str
     $legacyIdentity=['thread'=>$thread['id'],'content'=>$body['content'],'nodes'=>['1'],'revision'=>$body['base_revision'],'selection'=>['preferences'=>['generation_mode'=>'manual'],'skill_id'=>0,'skill_version'=>0]];
     $legacyHash=hash('sha256',json_encode($legacyIdentity,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES));
     $db::name('aigc_short_drama_canvas_agent_run')->where('id',$ack['run_id'])->update(['request_hash'=>$legacyHash]);
-    $before=$calls();$check($post('aigc_short_drama.canvas_agent/send',$body)===$ack&&$calls()===$before,'Pre-upgrade short drama request hash could not replay');
+    $before=$calls();$check(dataHttp($peer,'/api/app.aigc_short_drama.canvas_agent/send'.$suffix,$body,$login['token'])===$ack&&$calls()===$before,'Pre-upgrade short drama request hash could not replay');
     $db::name('aigc_short_drama_canvas_agent_run')->where('id',$ack['run_id'])->update(['request_hash'=>$run['request_hash']]);$report['drama_legacy_request_identity_replay']=true;
     $check($report['drama_changed_auto_intent_refused'],'Short drama same key accepted a different workflow_auto intent');
 }
