@@ -70,7 +70,9 @@ try{
     Assets::transfer($id);Assets::transfer($id);$fixture->start(__FILE__,$appCode,'repeat');usleep(1200000);$fixture->stop('repeat');
     MarketWorkerFixture::check($snapshot===[AiTaskResultAsset::find($id)->toArray(),Db::name($resultTable)->where('task_id',$business)->select()->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray()],'Cloud replay changed terminal rows');
     MarketWorkerFixture::check((float)Db::name('tenant')->where('id',$tenant)->value('point_balance')===100.&&(float)Db::name('user')->where('id',$user)->value('user_money')===100.,'Fixture wallets changed');
-    MarketWorkerFixture::check($frozen===AiConsumptionLog::find($c['id'])->toArray(),'Cloud recovery changed consumption or frozen pricing');
+    $afterConsumption=AiConsumptionLog::find($c['id'])->toArray();
+    $report['consumption_changed_fields']=array_values(array_filter(array_keys($frozen),static fn($field)=>($frozen[$field]??null)!==($afterConsumption[$field]??null)));
+    MarketWorkerFixture::check($frozen===$afterConsumption,'Cloud recovery changed consumption or frozen pricing');
     $attempts=(int)Db::name('ai_task_job')->where('id',$job['id'])->value('attempts');
     if($mode==='crash-after-upload')MarketWorkerFixture::check($attempts>=2,'Cloud recovery did not reclaim the naturally expired lease');
     foreach(['tenant_file','ai_task_result_asset']as$table)MarketWorkerFixture::check((int)Db::name($table)->count()===1,'Duplicate cloud result registration');
