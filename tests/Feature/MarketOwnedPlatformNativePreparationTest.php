@@ -50,7 +50,11 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
         foreach($request['provider_params']as$key=>$value)self::assertSame($value,$a[$key]);
         self::assertSame('q4-preview-video',$a['model']);self::assertSame('q4_video',$a['channel']);self::assertSame($a,$b);
         self::assertSame($before,$snapshot);self::assertSame($original,$request);
-        $request['provider_params']['prompt']='';self::assertSame('',Videos::prepareRequest($snapshot,$request)->nativeInput['prompt']);
+        foreach(['prompt','payload','meta_data','wm_url','callback_url']as$field)$request['provider_params'][$field]='';
+        $emptyOriginal=$request;$emptyBody=Videos::prepareRequest($snapshot,$request)->nativeInput;
+        foreach(['prompt','payload','meta_data','wm_url','callback_url']as$field){self::assertArrayHasKey($field,$emptyBody);self::assertSame('',$emptyBody[$field]);}
+        self::assertSame($emptyBody,Videos::prepareRequest($snapshot,$request)->nativeInput);self::assertSame($emptyOriginal,$request);self::assertSame($before,$snapshot);
+        foreach(['audio','is_rec','watermark']as$field)self::assertFalse($emptyBody[$field]);self::assertSame(0,$emptyBody['seed']);
         $old=self::snapshot('q4-preview-video',false);self::assertSame($original,Owned::normalizeVideoBusinessSelection($old['market_metadata'],$original));
         $business=['prompt'=>'Legacy Q4 prompt','duration'=>5,'quality'=>'720p','reference_assets'=>[
             ['type'=>'image','role'=>'first_frame_image','url'=>'https://fixtures.invalid/old-q4']]];
@@ -58,7 +62,7 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
         $this->expectException(\Exception::class);Videos::prepareRequest($old,$original);
     }
 
-    public static function badQ4Raw(): array {return array_map(static fn($s)=>[$s],['empty_business_prompt','conflicting_prompt','duration','resolution','boolean','locked_duration','locked_boolean','unknown','two_images']);}
+    public static function badQ4Raw(): array {return array_map(static fn($s)=>[$s],['empty_business_prompt','conflicting_prompt','duration','resolution','boolean','locked_duration','locked_boolean','unknown','two_images','null_prompt','null_payload']);}
 
     /** @dataProvider badQ4Raw */
     public function testExactQ4NativeControlsCannotBeCoercedOverwrittenOrDetachedFromTheFrozenSku(string $case): void
@@ -74,6 +78,8 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
             case 'locked_boolean':$snapshot['locked_params']['audio']=true;break;
             case 'unknown':$request['provider_params']['unknown_native']=false;break;
             case 'two_images':$request['provider_params']['images'][]='https://fixtures.invalid/two';break;
+            case 'null_prompt':$request['provider_params']['prompt']=null;break;
+            case 'null_payload':$request['provider_params']['payload']=null;break;
         }
         $this->expectException(\Exception::class);Videos::prepareRequest($snapshot,$request);
     }
@@ -203,7 +209,7 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
     }
 
     /** Synthetic catalogue, explicit local transaction, quote/reserve only; never submit/query a provider. @dataProvider publicNativeModels */
-    public function testPublicQuoteAndReservationUseNativeInputAndRollbackEveryFixture(string $model): void
+    public function testPublicQuoteAndReservationUseNativeInputAndRollbackEveryFixture(string $model,bool $emptyStrings=false): void
     {
         if(getenv('AIGC_OWNED_PLATFORM_DB_TESTS')!=='1')self::markTestSkipped('Explicit local rollback fixture only');
         (new \think\App())->initialize();$db=\think\facade\Db::connect();
@@ -242,6 +248,7 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
             $selection=$image?self::qwen():($model==='h3-video'?self::h3():($model==='q4-preview-video'?self::q4():['provider_params'=>[
                 'input'=>['prompt'=>'Native OSS public rollback reference','media'=>[['type'=>'file','url'=>'oss://synthetic-fixture/document']]],
                 'parameters'=>['resolution'=>'720P','duration'=>5,'watermark'=>false,'seed'=>0]]]));unset($selection['material_mode']);
+            if($emptyStrings)foreach(['prompt','payload','meta_data','wm_url','callback_url']as$field)$selection['provider_params'][$field]='';
             $selection['model_id']=($image?'market_image_model:':'market_video_model:').$product['id'];
             $selection['resource_type']='model';$original=$selection;
             $quote=$image?Images::quote(1,$selection):Videos::quote(1,$selection);
@@ -279,7 +286,7 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
         self::assertSame(0,(int)\think\facade\Db::name('ai_consumption_log')->where('id',$consumptionId)->count());
     }
 
-    public static function publicNativeModels(): array {return [['h3-video'],['qwen-image-3.0'],['qwen-image-3.0-pro'],['wan3.0-video'],['q4-preview-video']];}
+    public static function publicNativeModels(): array {return [['h3-video'],['qwen-image-3.0'],['qwen-image-3.0-pro'],['wan3.0-video'],['q4-preview-video'],['q4-preview-video',true]];}
 
     public function testWanNativePromptSurvivesAndMatchingBusinessReferenceAliasesAreComparedAfterEncoding(): void
     {

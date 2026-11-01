@@ -23,8 +23,12 @@ final class OpenNativeMarketPricing
     /** Identity is supplied by the bound contract, never by a pricing override in the body. */
     public static function bind(array $product, array $raw, int $skuId, array $sku = []): array
     {
-        if (!self::supports($product) || $skuId <= 0) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
+        if ($skuId <= 0) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
+        // The pure Full binder verifies its exact reviewed source declaration.
+        // Live catalogue category/query availability remains enforced by the actual admission resolver below.
         if(self::isFull($product)){
+            if((isset($product['status'])&&(int)$product['status']!==1)
+                ||(isset($sku['id'])&&(int)$sku['id']!==$skuId))throw new OpenException('invalid_sku','Full Video 商品或规格身份不一致');
             $source=MarketGenerationSchema::array($product['source_payload']??[]);
             $snapshot=AppProtocol::bindNewSnapshot(['resource_type'=>'app_api','app_code'=>'full_video','api_code'=>'submit',
                 'sku_id'=>$skuId,'locked_params'=>self::object($sku['locked_params']??[]),'usage_unit'=>$sku['usage_unit']??'',
@@ -35,6 +39,7 @@ final class OpenNativeMarketPricing
             return ['kind'=>'video','selection'=>['market_product_id'=>(int)$product['id'],'market_sku_id'=>$skuId,
                 'resource_type'=>'app_api','quality'=>$projection['context']['resolution'],'duration'=>$projection['context']['request_duration'],'quantity'=>1]];
         }
+        if (!self::supports($product)) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
         $isImage = ($product['model_type'] ?? '') === 'image';
         $selection = ['market_product_id' => (int)$product['id'], 'market_sku_id' => $skuId, 'resource_type' => $product['resource_type']];
         $prompt=self::alias($raw,['prompt'],false,true);

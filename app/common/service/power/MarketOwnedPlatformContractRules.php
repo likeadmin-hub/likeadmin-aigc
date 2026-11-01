@@ -171,6 +171,13 @@ final class MarketOwnedPlatformContractRules
         $metadata=MarketGenerationRequest::metadata($snapshot);$locks=MarketGenerationSchema::array($snapshot['locked_params']??[]);
         $request=self::normalizeQ4BusinessSelection($metadata,$request,$locks);$copy=$snapshot;$copy['locked_params']=self::q4Locks($metadata,$locks);
         $body=MarketGenerationRequest::payload($copy,$request);
+        // The shared normalizer omits empty strings. Q4 explicitly permits
+        // these optional string values; preserve their presence on this exact
+        // source pin, then revalidate the complete body and byte bound.
+        foreach([(array)($request['provider_params']??[]),$request,$copy['locked_params']]as$values)
+            foreach(['prompt','payload','meta_data','wm_url','callback_url']as$field)
+                if(array_key_exists($field,$values)&&$values[$field]==='')$body[$field]='';
+        MarketGenerationReviewedContract::validatePayload($copy,$request,$body);
         foreach((array)($request['provider_params']??[])as$field=>$value){
             $props=MarketGenerationSchema::properties(MarketGenerationNativeContract::schema($metadata,'image_to_video'));
             if(!isset($props[$field]))continue;
