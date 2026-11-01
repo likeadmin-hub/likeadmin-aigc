@@ -37,7 +37,16 @@ class AgentController extends BaseApiController
         try{
             return $this->success('', $this->scoped($call));
         }catch(\InvalidArgumentException|OpenException $e){return $this->fail($e->getMessage());}
-        catch(\Throwable $e){\think\facade\Log::error('Home Agent API: '.get_class($e));return $this->fail('Agent 暂不可用，请检查服务部署后重试');}
+        catch(\Throwable $e){
+            $diagnostic='';
+            if($e instanceof \think\db\exception\PDOException) {
+                $info=$e->getData()['PDO Error Info']??[];
+                $diagnostic=' driver='.(int)($info['Driver Error Code']??0);
+                // Keep the failing application location, never SQL, arguments or credentials.
+                foreach($e->getTrace() as $frame)if(str_contains($frame['file']??'','/app/')){$diagnostic.=' at='.basename($frame['file']).':'.(int)($frame['line']??0);break;}
+            }
+            \think\facade\Log::error('Home Agent API: '.get_class($e).$diagnostic);return $this->fail('Agent 暂不可用，请检查服务部署后重试');
+        }
     }
     public function sessions(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\AigcLlmService::sessionLists($t,$u));}
     public function messages(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\AigcLlmService::messageLists($t,$u,(int)$this->request->get('session_id',0)));}
