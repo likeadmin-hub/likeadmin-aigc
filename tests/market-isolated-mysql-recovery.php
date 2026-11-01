@@ -36,7 +36,11 @@ try{
     MarketIsolatedMysqlFixture::atomic($f->dir.'/db-boundary.json',json_encode([
         'owner'=>$isolated->owner,'phase'=>$phase,'asset_id'=>$s['asset']],JSON_THROW_ON_ERROR));
     $f->start(__FILE__,$s['app']);
-    MarketWorkerFixture::wait(fn()=>is_file($f->dir.'/db-paused.json'),'Original worker did not reach the DB boundary',30);
+    MarketWorkerFixture::wait(function()use($f,$isolated){
+        $worker=$isolated->workerDiagnostics($f)['roles']['worker'];
+        MarketIsolatedMysqlFixture::check($worker['startup_failures']===[]&&$worker['running'],'Owned worker exited or failed before the DB boundary');
+        return is_file($f->dir.'/db-paused.json');
+    },'Original worker did not reach the DB boundary',30);
     $beforeAsset=AiTaskResultAsset::find($s['asset'])->toArray();
     $held=Db::name('ai_task_job')->where('id',$s['job']['id'])->find();
     MarketIsolatedMysqlFixture::check($held['status']==='running'&&$held['lease_token']!==''&&(int)$held['lease_expire_time']>time(),'No original committed worker lease');
@@ -67,7 +71,11 @@ try{
     MarketIsolatedMysqlFixture::check($stat['ino']===$afterStat['ino'] && $stat['mtime']===$afterStat['mtime'],'Recovery rewrote complete managed bytes');
     $stable=[AiTaskResultAsset::find($s['asset'])->toArray(),Db::name('tenant_file')->select()->toArray(),Db::name($s['results'])->select()->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray()];
     $stage='terminal_replay';
-    Assets::transfer($s['asset']); $f->start(__FILE__,$s['app'],'repeat');usleep(1200000);$f->stop('repeat');
+    Assets::transfer($s['asset']); $f->start(__FILE__,$s['app'],'repeat');
+    MarketWorkerFixture::wait(function()use($f,$isolated){$role=$isolated->workerDiagnostics($f)['roles']['repeat'];
+        MarketIsolatedMysqlFixture::check($role['running']&&$role['startup_failures']===[],'Repeat worker failed before its real loop');return$role['started_line'];},'Repeat worker did not enter its real loop',5);
+    usleep(1200000);$repeat=$isolated->workerDiagnostics($f)['roles']['repeat'];
+    MarketIsolatedMysqlFixture::check($repeat['running']&&$repeat['started_line']&&$repeat['startup_failures']===[],'Repeat worker did not remain in its real loop');$f->stop('repeat');
     MarketIsolatedMysqlFixture::check($stable===[AiTaskResultAsset::find($s['asset'])->toArray(),Db::name('tenant_file')->select()->toArray(),Db::name($s['results'])->select()->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray()],'Terminal replay changed rows');
     $report+=['committed_state_retained_uncommitted_receipt_rolled_back'=>true,'natural_original_lease_recovery'=>true,
         'complete_file_inode_and_mtime_preserved'=>true,'terminal_replay_unchanged'=>true,'passed'=>true];
@@ -75,7 +83,9 @@ try{
     in_array($stage??'',['schema_source','fixture_create'],true)?$isolated->stage:($stage??'owned_fixture'));}
 finally{
     if($s){
+        try{$report['worker_diagnostics_before_cleanup']=$isolated->workerDiagnostics($s['f'],'before_cleanup');}catch(Throwable$error){$failure=$error;$report['diagnostic_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'diagnostic_capture');}
         $stopped=true;foreach(['worker','recovery','repeat']as$role)try{$s['f']->stop($role);}catch(Throwable $error){$stopped=false;$failure=$error;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup_stop');}
+        try{$report['worker_diagnostics_after_stop']=$isolated->workerDiagnostics($s['f'],'after_stop');}catch(Throwable$error){$failure=$error;$report['diagnostic_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'diagnostic_capture');}
         if($stopped){
             try{$isolated->reconnect($s['f']);$s['f']->cleanup();$report['fixture_root_removed']=!is_dir($s['f']->dir);
                 $names=$isolated->pdo()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
@@ -84,7 +94,7 @@ finally{
             }catch(Throwable $error){$failure=$error;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup');$report['retained_fixture']=$s['f']->prefix;$report['cleanup_complete']=false;}
         }else $report['retained_fixture']=$s['f']->prefix;
     }
-    $report['cleanup_complete']=!isset($failure) && !empty($report['fixture_root_removed']) && ($report['fixture_tables_remaining']??-1)===0;
+    $report['cleanup_complete']=($stopped??false) && !empty($report['fixture_root_removed']) && ($report['fixture_tables_remaining']??-1)===0;
     $report['host_owner_must_remove_exact_containers_and_volume']=true;
 }
 if(isset($failure))$report['passed']=false;
