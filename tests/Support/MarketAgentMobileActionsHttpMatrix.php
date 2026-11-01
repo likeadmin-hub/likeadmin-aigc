@@ -2,6 +2,10 @@
 /** Original normal login, multipart, plan edit/retry, queue and managed result; owned private state only. */
 function runMarketAgentMobileActionsHttp($f,string $api,string $peer,string $suffix,string $token,string $imageChannel,int $text,array &$report): void
 {
+    if(getenv('AIGC_HTTP_AGENT_MOBILE_MEDIA_MATRIX')==='1'){
+        require __DIR__.'/MarketAgentMobileMediaHttpMatrix.php';
+        runMarketAgentMobileMediaHttp($f,$api,$peer,$suffix,$token,$text,$report);return;
+    }
     $db=think\facade\Db::class;$script=dirname(__DIR__).'/market-generation-http.php';
     $check=fn($ok,$why)=>MarketWorkerFixture::check((bool)$ok,$why);
     $get=fn($action,$p,$auth=null)=>dataHttp($peer,'/api/app.aigc_llm.agent/'.$action.$suffix.'&'.http_build_query($p),[],$auth??$token,'GET');
