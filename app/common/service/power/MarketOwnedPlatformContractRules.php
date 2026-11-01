@@ -82,6 +82,8 @@ final class MarketOwnedPlatformContractRules
         $selection=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$selection);
         $selection=self::normalizeH3BusinessSelection($metadata,$selection);
         $contract=MarketGenerationReviewedContract::selected($metadata);
+        if($contract!==null&&self::applies(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code'],
+            'market_metadata'=>$metadata],'q4_video_v1'))return self::normalizeQ4BusinessSelection($metadata,$selection,$locked);
         if($contract===null||!self::applies(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code'],
             'market_metadata'=>$metadata],'wan_video_media_v1'))return $selection;
         self::assertEnvelope(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code']],$selection);
@@ -108,6 +110,76 @@ final class MarketOwnedPlatformContractRules
         return $selection;
     }
 
+    private static function normalizeQ4BusinessSelection(array $metadata,array $request,array $locked): array
+    {
+        $contract=MarketGenerationReviewedContract::selected($metadata);
+        self::assertEnvelope(['model_code'=>$contract['model_code'],'channel_code'=>$contract['channel_code']],$request);
+        if(array_key_exists('provider_params',$request)&&!is_array($request['provider_params']))throw new \InvalidArgumentException('原生 Q4 参数必须为对象');
+        $provider=$request['provider_params']??[];$props=MarketGenerationSchema::properties(MarketGenerationNativeContract::schema($metadata,'image_to_video'));
+        $locks=self::q4Locks($metadata,$locked);
+        foreach($locks as$field=>$value){
+            $aliases=$field==='duration'?['duration','seconds','video_duration']:($field==='resolution'?['resolution','quality']:[$field]);
+            foreach([$request,(array)($request['params']??[])]as$values)foreach($aliases as$alias)if(array_key_exists($alias,$values)){
+                $other=$values[$alias];
+                if($field==='resolution')$same=is_string($other)&&strcasecmp((string)$value,$other)===0;
+                else $same=$value===(MarketGenerationSchema::normalize([$field=>$props[$field]],[$field=>$other],'',false)[$field]??$other);
+                if(!$same)throw new \InvalidArgumentException('Q4 业务参数与冻结 SKU 冲突');
+            }
+        }
+        foreach($provider as$field=>$value){
+            if(!isset($props[$field]))continue;
+            if(($props[$field]['type']??'')==='boolean'&&!is_bool($value))throw new \InvalidArgumentException('原生 Q4 开关必须为布尔值');
+            if($field==='resolution'&&!is_string($value))throw new \InvalidArgumentException('Q4 原生分辨率必须为字符串');
+            $aliases=$field==='duration'?['duration','seconds','video_duration']:($field==='resolution'?['resolution','quality']:[$field]);
+            foreach([$request,(array)($request['params']??[]),$locks]as$values)foreach($aliases as$alias)if(array_key_exists($alias,$values)){
+                $other=$values[$alias];
+                if($field==='resolution')$same=is_string($value)&&is_string($other)&&strcasecmp($value,$other)===0;
+                else{
+                    $left=MarketGenerationSchema::normalize([$field=>$props[$field]],[$field=>$value],'',false)[$field]??$value;
+                    $right=MarketGenerationSchema::normalize([$field=>$props[$field]],[$field=>$other],'',false)[$field]??$other;
+                    $same=$left===$right;
+                }
+                if(!$same)throw new \InvalidArgumentException('Q4 原生参数与业务或冻结 SKU 冲突');
+            }
+            if(in_array($field,['duration','resolution'],true)){
+                if($field==='duration'&&(!self::integer($value,3,16)||is_bool($value)))throw new \InvalidArgumentException('Q4 原生时长无效');
+                $request[$field]=$field==='duration'?(int)$value:$value;
+            }
+        }
+        return $request;
+    }
+
+    private static function q4Locks(array $metadata,array $locked): array
+    {
+        $props=MarketGenerationSchema::properties(MarketGenerationNativeContract::schema($metadata,'image_to_video'));$out=[];
+        foreach($locked as$field=>$value){
+            $target=in_array($field,['quality','image_size'],true)?'resolution':(in_array($field,['seconds','video_duration'],true)?'duration':$field);
+            if(!isset($props[$target]))continue;
+            if($target==='duration'&&(!self::integer($value,3,16)||is_bool($value)))throw new \InvalidArgumentException('Q4 冻结时长无效');
+            if($target==='resolution'&&is_string($value))foreach($props[$target]['enum']as$choice)if(strcasecmp($choice,$value)===0){$value=$choice;break;}
+            $value=MarketGenerationSchema::normalize([$target=>$props[$target]],[$target=>$value],'',false)[$target]??$value;
+            if(array_key_exists($target,$out)&&$out[$target]!==$value)throw new \InvalidArgumentException('Q4 冻结参数别名冲突');
+            $out[$target]=$value;
+        }
+        return $out;
+    }
+
+    /** Complete finite schema producer under the unchanged, exact new Q4 protocol pin. */
+    public static function q4Payload(array $snapshot,array $request): array
+    {
+        if(!self::applies($snapshot,'q4_video_v1'))throw new \InvalidArgumentException('当前 Q4 请求没有精确源码合同');
+        $metadata=MarketGenerationRequest::metadata($snapshot);$locks=MarketGenerationSchema::array($snapshot['locked_params']??[]);
+        $request=self::normalizeQ4BusinessSelection($metadata,$request,$locks);$copy=$snapshot;$copy['locked_params']=self::q4Locks($metadata,$locks);
+        $body=MarketGenerationRequest::payload($copy,$request);
+        foreach((array)($request['provider_params']??[])as$field=>$value){
+            $props=MarketGenerationSchema::properties(MarketGenerationNativeContract::schema($metadata,'image_to_video'));
+            if(!isset($props[$field]))continue;
+            $value=MarketGenerationSchema::normalize([$field=>$props[$field]],[$field=>$value],'',false)[$field]??$value;
+            if(!array_key_exists($field,$body)||$body[$field]!==$value)throw new \InvalidArgumentException('Q4 原生参数不能被准备过程丢弃或覆盖');
+        }
+        return $body;
+    }
+
     /** Pinned VideoTaskDriver default, only after the caller has verified the exact new Wan pin. */
     public static function wanDefaultDuration(array $request): int
     {
@@ -119,7 +191,7 @@ final class MarketOwnedPlatformContractRules
 
     public static function supported(array $rule,?string $protocol=null): bool
     {
-        if(in_array($rule['profile']??'', ['flat_image_v1','flat_video_v1'],true))return MarketOwnedPlatformFlatSourceRules::supported($rule,$protocol);
+        if(in_array($rule['profile']??'', ['flat_image_v1','flat_video_v1','veo_video_v1'],true))return MarketOwnedPlatformFlatSourceRules::supported($rule,$protocol);
         $profile=$rule['profile']??'';
         $modes=match($profile){
             'qwen_image_v1'=>['text_to_image','image_to_image'],
@@ -137,7 +209,7 @@ final class MarketOwnedPlatformContractRules
     {
         if (!self::supported($rule)) return false;
         try {
-            if(in_array($rule['profile']??'', ['flat_image_v1','flat_video_v1'],true))return MarketOwnedPlatformFlatSourceRules::valid($rule,$input);
+            if(in_array($rule['profile']??'', ['flat_image_v1','flat_video_v1','veo_video_v1'],true))return MarketOwnedPlatformFlatSourceRules::valid($rule,$input);
             return match($rule['profile']??'') {
                 'qwen_image_v1'=>self::qwen($input,(string)($rule['mode']??'')),
                 'h3_content_v1'=>self::h3($input,(string)($rule['mode']??'')),

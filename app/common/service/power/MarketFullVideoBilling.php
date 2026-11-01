@@ -8,6 +8,55 @@ final class MarketFullVideoBilling
 {
     private function __construct(private readonly array $terms) {}
 
+    /** Source-only admission projection. This never creates a fee capability or changes the transport payload. */
+    public static function inspectNativeForAdmission(array $snapshot,array $raw): array
+    {
+        self::assertSnapshot($snapshot);
+        if(!is_numeric($snapshot['usage_unit_size']??null)||(float)$snapshot['usage_unit_size']!==1.0)throw new InvalidArgumentException('Full Video 原生计费单位未经审核');
+        foreach(['reference_assets','reference_images','image_urls','video_urls','audio_urls','full_video_native_projection']as$key)
+            if(array_key_exists($key,$raw))throw new InvalidArgumentException('Full Video 原生素材只能使用 content 声明');
+        $convert=static function($value)use(&$convert){if($value instanceof \stdClass)$value=get_object_vars($value);if(is_array($value))foreach($value as&$item)$item=$convert($item);unset($item);return $value;};
+        $effective=array_replace($snapshot['market_metadata']['default_params'],$convert($raw));
+        if(($effective['model']??null)!=='full-video')throw new InvalidArgumentException('Full Video 原生型号与所选接口不一致');
+        $resolution=strtoupper((string)($effective['resolution']??''));$locked=$snapshot['locked_params']['resolution']??null;
+        if(!is_string($locked)||strcasecmp($locked,$resolution)!==0)throw new InvalidArgumentException('Full Video 原生分辨率与所选 SKU 不一致');
+        $context=self::context($effective,['free_reference_images'=>5,'maximum_reference_images'=>9]);
+        MarketGenerationApplicationProtocol::assertPreparedVideo($snapshot,$effective); // The current unbound surcharge still rejects >5.
+        $texts=array_filter($effective['content'],static fn($item)=>($item['type']??null)==='text');
+        $context+=['resolution'=>$resolution,'text_items'=>count($texts),'text_length'=>array_sum(array_map(static fn($item)=>mb_strlen(trim($item['text']),'UTF-8'),$texts))];
+        $projection=['version'=>1,'application_binding_digest'=>$snapshot['application_contract']['binding_digest'],
+            'payload_digest'=>hash('sha256',json_encode((object)$raw,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)),
+            'context'=>$context];
+        $projection['projection_digest']=MarketGenerationReviewedContract::digest($projection);return $projection;
+    }
+
+    public static function assertNativeProjection(array $snapshot,array $raw): void
+    {
+        if(!array_key_exists('full_video_native_projection',$snapshot))return; // An old frozen native request is never upgraded.
+        self::frozenNativeUnits($snapshot);
+        if(self::inspectNativeForAdmission($snapshot,$raw)!==$snapshot['full_video_native_projection'])throw new InvalidArgumentException('Full Video 原生提交与冻结报价不一致');
+    }
+
+    public static function frozenNativeUnits(array $snapshot): ?int
+    {
+        if(!array_key_exists('full_video_native_projection',$snapshot))return null;
+        self::assertSnapshot($snapshot);$projection=$snapshot['full_video_native_projection'];
+        if(!is_numeric($snapshot['usage_unit_size']??null)||(float)$snapshot['usage_unit_size']!==1.0)throw new InvalidArgumentException('Full Video 原生冻结计费单位不一致');
+        self::keys($projection,['version','application_binding_digest','payload_digest','context','projection_digest']);
+        $record=$projection;unset($record['projection_digest']);
+        if($projection['version']!==1||$projection['application_binding_digest']!==$snapshot['application_contract']['binding_digest']
+            ||!is_string($projection['payload_digest'])||!preg_match('/^[a-f0-9]{64}$/D',$projection['payload_digest'])
+            ||!is_string($projection['projection_digest'])||!hash_equals(MarketGenerationReviewedContract::digest($record),$projection['projection_digest']))throw new InvalidArgumentException('Full Video 原生冻结计量摘要不一致');
+        $c=$projection['context'];self::keys($c,['request_duration','reference_images','excess_reference_images','resolution','text_items','text_length']);
+        if(!is_int($c['request_duration'])||$c['request_duration']<4||$c['request_duration']>15
+            ||!is_numeric($snapshot['quantity']??null)||(float)$snapshot['quantity']!==(float)$c['request_duration']
+            ||!is_int($c['reference_images'])||$c['reference_images']<0||$c['reference_images']>5||$c['excess_reference_images']!==0
+            ||!is_string($c['resolution'])||strcasecmp($c['resolution'],(string)($snapshot['locked_params']['resolution']??''))!==0
+            ||!is_int($c['text_items'])||$c['text_items']<1||!is_int($c['text_length'])||$c['text_length']<1
+            ||$c['text_length']>(in_array($c['resolution'],['768P','1080P','2K'],true)?5000:7000))throw new InvalidArgumentException('Full Video 原生冻结计量边界不一致');
+        return $c['request_duration'];
+    }
+
     /** The caller must supply resolved server configuration, never a request/body field. */
     public static function fromTrustedMarketConfiguration(array $snapshot, array $terms): self
     {

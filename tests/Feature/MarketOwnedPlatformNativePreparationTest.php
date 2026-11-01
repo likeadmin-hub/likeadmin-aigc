@@ -17,7 +17,8 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
     {
         $profile=array_values(array_filter(Builder::profiles(),static fn($p)=>$p['model_code']===$model))[0];
         $binding=['params_schema'=>['synthetic_original_marker'=>['type'=>'string']],'material_capabilities'=>[]];
-        $entry=(new \ReflectionMethod(Builder::class,'entry'))->invoke(null,$profile,$binding,[]);
+        if($model==='q4-preview-video')$binding=\app\common\service\power\Q4VideoContract::metadata(['resource_type'=>'model','model_code'=>$model],$binding);
+        $entry=(new \ReflectionMethod(Builder::class,'entry'))->invoke(null,$profile,$binding,$model==='q4-preview-video'?['upstream_model'=>'synthetic-q4-upstream']:[]);
         $artifact='Synthetic native preparation evidence only';
         $source=['kind'=>'gateway_validator','reference'=>'synthetic/native','revision'=>Owned::REVISION,
             'reviewed_at'=>'2026-11-01T00:00:00+08:00','artifact_sha256'=>hash('sha256',$artifact)];
@@ -30,6 +31,51 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
         $metadata=$binding+['upstream_metadata'=>['model_code'=>$model,'channel_code'=>$profile['channel_code']],Reviewed::PIN=>$contract];
         return ['resource_type'=>'model','model_code'=>$model,'channel_code'=>$profile['channel_code'],'locked_params'=>[],
             'params_schema'=>$binding['params_schema'],'market_metadata'=>$metadata];
+    }
+
+    private static function q4(): array
+    {
+        return ['provider_params'=>['prompt'=>'Complete native Q4 prompt','images'=>['https://fixtures.invalid/q4-native'],
+            'duration'=>8,'resolution'=>'2K','audio'=>false,'is_rec'=>false,'watermark'=>false,'seed'=>0,
+            'payload'=>'native-association','meta_data'=>'{"test":true}']];
+    }
+
+    public function testExactQ4NativeControlsPromptAndImageSurvivePreparationAndFrozenReplay(): void
+    {
+        $snapshot=self::snapshot('q4-preview-video');$snapshot['generation_protocol']='q4_video_v1';$request=self::q4();$before=$snapshot;$original=$request;
+        $metadata=$snapshot['market_metadata'];self::assertSame('image_to_video',Materials::select($metadata,$request)['native_mode']);
+        self::assertTrue(Materials::billingInputs($metadata,$request)['_billing_image_input']);
+        $selection=Owned::normalizeVideoBusinessSelection($metadata,$request);self::assertSame(8,$selection['duration']);self::assertSame('2K',$selection['resolution']);
+        $a=Videos::prepareRequest($snapshot,$request)->nativeInput;$b=Videos::prepareRequest($snapshot,$request)->nativeInput;
+        foreach($request['provider_params']as$key=>$value)self::assertSame($value,$a[$key]);
+        self::assertSame('q4-preview-video',$a['model']);self::assertSame('q4_video',$a['channel']);self::assertSame($a,$b);
+        self::assertSame($before,$snapshot);self::assertSame($original,$request);
+        $request['provider_params']['prompt']='';self::assertSame('',Videos::prepareRequest($snapshot,$request)->nativeInput['prompt']);
+        $old=self::snapshot('q4-preview-video',false);self::assertSame($original,Owned::normalizeVideoBusinessSelection($old['market_metadata'],$original));
+        $business=['prompt'=>'Legacy Q4 prompt','duration'=>5,'quality'=>'720p','reference_assets'=>[
+            ['type'=>'image','role'=>'first_frame_image','url'=>'https://fixtures.invalid/old-q4']]];
+        $body=Videos::prepareRequest($old,$business)->nativeInput;self::assertSame('Legacy Q4 prompt',$body['prompt']);
+        $this->expectException(\Exception::class);Videos::prepareRequest($old,$original);
+    }
+
+    public static function badQ4Raw(): array {return array_map(static fn($s)=>[$s],['empty_business_prompt','conflicting_prompt','duration','resolution','boolean','locked_duration','locked_boolean','unknown','two_images']);}
+
+    /** @dataProvider badQ4Raw */
+    public function testExactQ4NativeControlsCannotBeCoercedOverwrittenOrDetachedFromTheFrozenSku(string $case): void
+    {
+        $snapshot=self::snapshot('q4-preview-video');$request=self::q4();
+        switch($case){
+            case 'empty_business_prompt':$request['prompt']='';break;
+            case 'conflicting_prompt':$request['prompt']='Different business prompt';break;
+            case 'duration':$request['duration']=5;break;
+            case 'resolution':$request['quality']='720p';break;
+            case 'boolean':$request['provider_params']['audio']='false';break;
+            case 'locked_duration':$snapshot['locked_params']['seconds']=5;break;
+            case 'locked_boolean':$snapshot['locked_params']['audio']=true;break;
+            case 'unknown':$request['provider_params']['unknown_native']=false;break;
+            case 'two_images':$request['provider_params']['images'][]='https://fixtures.invalid/two';break;
+        }
+        $this->expectException(\Exception::class);Videos::prepareRequest($snapshot,$request);
     }
 
     private static function qwen(): array
@@ -108,6 +154,8 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
         self::assertSame($expected,$a->nativeInput['content']);self::assertSame('minimax',$a->nativeInput['channel']);
         self::assertSame('h3-video',$a->nativeInput['model']);self::assertSame('5',$a->nativeInput['duration']);
         self::assertSame($a->nativeInput,$b->nativeInput);self::assertSame($original,$request);self::assertSame($before,Reviewed::digest($snapshot));
+        $empty=$request;$empty['prompt']='';
+        self::assertSame($a->nativeInput['content'],Videos::prepareRequest($snapshot,$empty)->nativeInput['content']);
     }
 
     public function testH3RolelessClassificationAndBillingAgreeBeforePrepareWithoutChangingTheOriginalRequest(): void
@@ -178,22 +226,39 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
                 'upstream_model_code'=>$model,'upstream_channel_code'=>$frozen['channel_code'],
                 'source_payload'=>['market_metadata'=>$metadata],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
             $skuFields=['product_id'=>$product['id'],'sku_key'=>$key,'title'=>'Offline owned-native fixture',
-                'locked_params'=>$image?[]:($model==='h3-video'?['duration'=>5,'resolution'=>'2K','_billing_image_input'=>true,'_billing_video_input'=>false]:['duration'=>5,'resolution'=>'720P']),
+                'locked_params'=>$image?[]:($model==='h3-video'?['duration'=>5,'resolution'=>'2K','_billing_image_input'=>true,'_billing_video_input'=>false]
+                    :($model==='q4-preview-video'?['duration'=>8,'resolution'=>'2K','_billing_image_input'=>true]:['duration'=>5,'resolution'=>'720P'])),
                 'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>1,'sale_status'=>1,'status'=>1,
                 'source_payload'=>['meter_contract'=>['version'=>1,'basis'=>'call','rounding'=>'ceil']], 'create_time'=>time(),'update_time'=>time()];
+            if($model==='q4-preview-video'){
+                $other=$skuFields;$other['sku_key']=$key.'-default';$other['locked_params']=['duration'=>5,'resolution'=>'720p','_billing_image_input'=>true];
+                \app\common\model\power\PowerMarketSku::create($other);
+            }
             $sku=\app\common\model\power\PowerMarketSku::create($skuFields);
             if($model==='h3-video'){
                 $other=$skuFields;$other['sku_key']=$key.'-text';$other['locked_params']=['duration'=>4,'resolution'=>'2K','_billing_image_input'=>false];
                 \app\common\model\power\PowerMarketSku::create($other);
             }
-            $selection=$image?self::qwen():($model==='h3-video'?self::h3():['provider_params'=>[
+            $selection=$image?self::qwen():($model==='h3-video'?self::h3():($model==='q4-preview-video'?self::q4():['provider_params'=>[
                 'input'=>['prompt'=>'Native OSS public rollback reference','media'=>[['type'=>'file','url'=>'oss://synthetic-fixture/document']]],
-                'parameters'=>['resolution'=>'720P','duration'=>5,'watermark'=>false,'seed'=>0]]]);unset($selection['material_mode']);
+                'parameters'=>['resolution'=>'720P','duration'=>5,'watermark'=>false,'seed'=>0]]]));unset($selection['material_mode']);
             $selection['model_id']=($image?'market_image_model:':'market_video_model:').$product['id'];
             $selection['resource_type']='model';$original=$selection;
             $quote=$image?Images::quote(1,$selection):Videos::quote(1,$selection);
             self::assertSame((int)$sku['id'],(int)$quote['market_sku_id']);
-            if(!$image){$normalized=Videos::normalizeDurationSelection(1,$selection,0);self::assertSame(5,$normalized['duration']);self::assertSame((int)$sku['id'],$normalized['market_sku_id']);}
+            if(!$image){$normalized=Videos::normalizeDurationSelection(1,$selection,0);self::assertSame($model==='q4-preview-video'?8:5,$normalized['duration']);self::assertSame((int)$sku['id'],$normalized['market_sku_id']);}
+            $logs=(int)\think\facade\Db::name('ai_consumption_log')->count();$tasks=(int)\think\facade\Db::name('ai_app_task')->count();
+            foreach(['quote','reserve']as$operation){
+                $invalid=$selection;$invalid['prompt']='Conflicting explicit business source';$rejected=false;
+                try{
+                    if($image){if($operation==='quote')Images::quote(1,$invalid);else Images::reserve(1,$user,'generate',$key,$invalid,$invalid,1,'aigc_image','aigc_image_task');}
+                    elseif($operation==='quote')Videos::quote(1,$invalid);
+                    else Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key,$invalid,$invalid);
+                }catch(\Exception $error){$rejected=true;}
+                self::assertTrue($rejected,'Explicit native/business prompt conflict reached '.$operation);
+                self::assertSame($logs,(int)\think\facade\Db::name('ai_consumption_log')->count());self::assertSame($tasks,(int)\think\facade\Db::name('ai_app_task')->count());
+                self::assertEqualsWithDelta($balance,(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money'),0.00001);
+            }
             $reserved=$image?Images::reserve(1,$user,'generate',$key,$selection,$selection,1,'aigc_image','aigc_image_task')
                 :Videos::reserve(1,$user,'aigc_video','generate','aigc_video_task',$key,$selection,$selection);
             $consumptionId=$reserved['consumption_id'];$log=\app\common\model\ai\AiConsumptionLog::find($consumptionId);
@@ -203,6 +268,7 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
             self::assertSame($model,$body['model']);self::assertSame($frozen['channel_code'],$body['channel']);
             if($image)self::assertSame($selection['provider_params']['input'],$body['input']);
             elseif($model==='h3-video'){self::assertSame('5',$body['duration']);self::assertSame('first_frame',$body['content'][1]['role']);}
+            elseif($model==='q4-preview-video')foreach($selection['provider_params']as$field=>$value)self::assertSame($value,$body[$field]);
             else{self::assertSame(5,$body['parameters']['duration']);self::assertSame($selection['provider_params']['input']['media'],$body['input']['media']);}
             self::assertEqualsWithDelta($balance-(float)$log['reserved_user_price'],(float)\think\facade\Db::name('user')->where('id',$user)->value('user_money'),0.00001);
         }finally{
@@ -213,7 +279,34 @@ class MarketOwnedPlatformNativePreparationTest extends TestCase
         self::assertSame(0,(int)\think\facade\Db::name('ai_consumption_log')->where('id',$consumptionId)->count());
     }
 
-    public static function publicNativeModels(): array {return [['h3-video'],['qwen-image-3.0'],['qwen-image-3.0-pro'],['wan3.0-video']];}
+    public static function publicNativeModels(): array {return [['h3-video'],['qwen-image-3.0'],['qwen-image-3.0-pro'],['wan3.0-video'],['q4-preview-video']];}
+
+    public function testWanNativePromptSurvivesAndMatchingBusinessReferenceAliasesAreComparedAfterEncoding(): void
+    {
+        $snapshot=self::snapshot('wan3.0-video');$request=['material_mode'=>'text','provider_params'=>[
+            'input'=>['prompt'=>'Complete native Wan prompt'],'parameters'=>['duration'=>5,'resolution'=>'720P','seed'=>0,'watermark'=>false]]];
+        $original=$request;$a=Videos::prepareRequest($snapshot,$request)->nativeInput;$b=Videos::prepareRequest($snapshot,$request)->nativeInput;
+        self::assertSame('Complete native Wan prompt',$a['input']['prompt']);self::assertSame(0,$a['parameters']['seed']);
+        self::assertFalse($a['parameters']['watermark']);self::assertSame($a,$b);self::assertSame($original,$request);
+        $request=['material_mode'=>'reference','prompt'=>'Use @图片1','provider_params'=>['input'=>['prompt'=>'Use 图1'],
+            'parameters'=>['duration'=>5,'resolution'=>'720P']],'reference_assets'=>[
+                ['type'=>'image','role'=>'reference_image','url'=>'https://fixtures.invalid/wan-prompt']]];
+        $body=Videos::prepareRequest($snapshot,$request)->nativeInput;self::assertSame('Use 图1',$body['input']['prompt']);
+        self::assertSame('https://fixtures.invalid/wan-prompt',$body['input']['media'][0]['url']);
+        $old=self::snapshot('wan3.0-video',false);$oldRequest=['material_mode'=>'text','prompt'=>'Legacy business wins',
+            'duration'=>5,'quality'=>'720P','ratio'=>'16:9','provider_params'=>['input'=>['prompt'=>'Legacy native text']]];
+        $body=Videos::prepareRequest($old,$oldRequest)->nativeInput;self::assertSame('Legacy business wins',$body['input']['prompt']);
+    }
+
+    public function testWanExplicitEmptyAndConflictingBusinessPromptCannotOverwriteNativeText(): void
+    {
+        foreach(['','Different business text']as$prompt){
+            $request=['material_mode'=>'text','prompt'=>$prompt,'provider_params'=>['input'=>['prompt'=>'Native Wan text'],
+                'parameters'=>['duration'=>5,'resolution'=>'720P']]];
+            try{Videos::prepareRequest(self::snapshot('wan3.0-video'),$request);self::fail('Wan native prompt was overwritten');}
+            catch(\InvalidArgumentException $error){self::assertStringContainsString('提示词',$error->getMessage());}
+        }
+    }
 
     /** @dataProvider badH3Native */
     public function testH3ActualPrepareRejectsInvalidOrConflictingNativeSources(string $case): void

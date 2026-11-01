@@ -23,7 +23,7 @@ final class MarketOwnedPlatformFlatSourceRules
         $family=self::family((string)($rule['model_code']??''),(string)($rule['channel_code']??''));
         return $family!==null&&($rule['family']??null)===$family&&($rule['source_revision']??null)===MarketOwnedPlatformContractRules::REVISION
             &&in_array($rule['mode']??'', $family==='veo'?['TEXT','FIRST&LAST','REFERENCE']:($family==='grok'?['text_to_video','reference_to_video']:['text_to_image','image_to_image']),true)
-            &&($rule['profile']??'')===(in_array($family,['grok','veo'],true)?'flat_video_v1':'flat_image_v1')
+            &&($rule['profile']??'')===($family==='veo'?'veo_video_v1':($family==='grok'?'flat_video_v1':'flat_image_v1'))
             &&($protocol===null||$protocol===$rule['profile'])
             &&is_int($rule['maximum_images']??null)&&$rule['maximum_images']>=0&&$rule['maximum_images']<=100
             &&is_string($rule['configuration_fingerprint']??null)&&preg_match('/^[a-f0-9]{64}$/D',$rule['configuration_fingerprint'])===1;
@@ -125,16 +125,16 @@ final class MarketOwnedPlatformFlatSourceRules
         $provider=$request['provider_params']??[];
         if(array_key_exists('n',$provider))self::assertSingleQuantity($provider['n']);
         $family=self::family($snapshot['model_code'],$snapshot['channel_code']);
-        if($family==='veo'){
+        if(in_array($family,['veo','grok'],true)){
             foreach(['duration'=>['duration','seconds','video_duration'],'quality'=>['quality','resolution'],'aspect_ratio'=>['aspect_ratio','ratio','size']]as$field=>$aliases){
                 if(!array_key_exists($field,$provider))continue;$value=$provider[$field];
                 if($field==='duration')self::assertWhole($value);
-                elseif(!is_string($value))throw new InvalidArgumentException('Veo 原生规格类型不正确');
+                elseif(!is_string($value))throw new InvalidArgumentException('原生视频规格类型不正确');
                 if($field==='quality')$value=strtolower($value);
                 foreach([$request,(array)($request['params']??[])]as$values)foreach($aliases as$alias)
                     if(array_key_exists($alias,$values)&&$values[$alias]!==''){
                         $same=$field==='quality'?is_string($values[$alias])&&strtolower($values[$alias])===$value:(string)$values[$alias]===(string)$value;
-                        if(!$same)throw new InvalidArgumentException('Veo 业务规格与原生规格冲突');
+                        if(!$same)throw new InvalidArgumentException('业务视频规格与原生规格冲突');
                     }
                 $request[$field==='aspect_ratio'?'ratio':$field]=$field==='duration'?(int)$value:$value;
             }

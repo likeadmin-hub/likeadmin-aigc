@@ -264,6 +264,15 @@ class MarketVideoRuntimeService
         return ['market'=>$market,'quote'=>self::quoteMarket($market,self::quantity($market,$selection,$prepared))];
     }
 
+    /** Full native bodies retain their own content slots and text items; the UI serializer must not replace them. */
+    public static function openPlatformFullVideoAdmissionQuote(int $tenantId,array $selection,array $raw): array
+    {
+        $market=self::resolve($tenantId,$selection);$snapshot=self::snapshot($market,1);
+        $projection=MarketFullVideoBilling::inspectNativeForAdmission($snapshot,$raw);
+        $market['full_video_native_projection']=$projection;
+        return ['market'=>$market,'quote'=>self::quoteMarket($market,(float)$projection['context']['request_duration'])];
+    }
+
     /**
      * Returns the supplier capabilities that are safe to expose to business
      * callers. These values describe implemented request adapters, not merely
@@ -1055,7 +1064,9 @@ class MarketVideoRuntimeService
     {
         $product = $market['product']; $sku = $market['sku']; $meta = self::metadata($product);
         $requiresConcreteRatio = self::requiresConcreteTextToVideoRatio($product, $meta);
-        return MarketGenerationApplicationProtocol::bindNewSnapshot(['billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'requires_actual_duration' => isset($market['billing_meter']) && in_array($market['billing_meter']['basis'], ['output','output_plus_video','output_plus_max_video'], true), 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')]);
+        $snapshot = MarketGenerationApplicationProtocol::bindNewSnapshot(['billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'requires_actual_duration' => isset($market['billing_meter']) && in_array($market['billing_meter']['basis'], ['output','output_plus_video','output_plus_max_video'], true), 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')]);
+        if (array_key_exists('full_video_native_projection',$market)) $snapshot['full_video_native_projection']=$market['full_video_native_projection'];
+        return $snapshot;
     }
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
@@ -1076,7 +1087,23 @@ class MarketVideoRuntimeService
     /** No supplier uploads or task/point writes: safe before quote/reservation. */
     public static function prepareRequest(array $snapshot, array $request, string $idempotency = ''): PreparedMarketGeneration
     {
-        $request = self::requestWithReferenceAliases($request);
+        $ownedFlatPrompt=($snapshot['resource_type']??'model')==='model'
+            &&in_array(MarketOwnedPlatformFlatSourceRules::family((string)($snapshot['model_code']??''),(string)($snapshot['channel_code']??'')),['veo','grok'],true)
+            &&MarketOwnedPlatformFlatSourceRules::applies($snapshot);
+        $ownedQ4=($snapshot['resource_type']??'model')==='model'&&MarketOwnedPlatformContractRules::applies($snapshot,'q4_video_v1');
+        $ownedWan=($snapshot['resource_type']??'model')==='model'&&MarketOwnedPlatformContractRules::applies($snapshot,'wan_video_media_v1');
+        $hadBusinessPrompt=array_key_exists('prompt',$request);
+        if(($ownedFlatPrompt||$ownedQ4||$ownedWan)&&$hadBusinessPrompt&&!is_string($request['prompt']))
+            throw new \InvalidArgumentException('业务视频提示词必须为字符串');
+        // A native prompt is already complete. The legacy business helper
+        // supplies an empty top-level prompt when absent, masking that input.
+        if((!$ownedFlatPrompt&&!$ownedQ4)||$hadBusinessPrompt)$request = self::requestWithReferenceAliases($request);
+        if($ownedWan&&$hadBusinessPrompt&&is_array($request['provider_params']['input']??null)
+            &&array_key_exists('prompt',$request['provider_params']['input'])){
+            $nativePrompt=$request['provider_params']['input']['prompt'];
+            if(!is_string($nativePrompt)||self::wanThreeReferencePrompt($request['prompt'])!==$nativePrompt)
+                throw new \InvalidArgumentException('Wan 原生提示词与业务提示词冲突');
+        }
         $request = MarketOwnedPlatformContractRules::normalizeH3Request($snapshot,$request);
         $request = MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection(MarketGenerationRequest::metadata($snapshot),
             $request,self::arrayValue($snapshot['locked_params']??[]));
@@ -1178,6 +1205,11 @@ class MarketVideoRuntimeService
 
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
     {
+        if(MarketOwnedPlatformContractRules::applies($snapshot,'q4_video_v1')){
+            $body=MarketOwnedPlatformContractRules::q4Payload($snapshot,$request);
+            return array_merge(self::marketContext($snapshot,'power_market_video'),$body,
+                ['model'=>(string)$snapshot['model_code'],'channel'=>(string)$snapshot['channel_code'],'idempotency_key'=>$idempotency]);
+        }
         if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) !== []
             && (MarketGenerationAdapterRegistry::modelProtocol('video',$snapshot)==='native_v1'||MarketOwnedPlatformFlatSourceRules::applies($snapshot))) {
             $request['reference_assets'] = array_map(static function ($asset) { $asset['url'] = AigcVideoReferenceAssetService::publicUrl($asset); return $asset; }, AigcVideoReferenceAssetService::normalizeForMarket($request));
@@ -3598,6 +3630,8 @@ class MarketVideoRuntimeService
     /** Pricing-only reuse for the raw protocol gateway, without changing its payload. */
     public static function openPlatformSettlementQuantity(array $snapshot, array $response): ?float
     {
+        $fullNative=MarketFullVideoBilling::frozenNativeUnits($snapshot);
+        if($fullNative!==null)return (float)$fullNative;
         $unit = strtolower((string)($snapshot['usage_unit'] ?? ''));
         if ($unit === 'per_call') return 1.;
         if (self::isTokenSnapshot($snapshot)) {

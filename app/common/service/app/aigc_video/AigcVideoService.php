@@ -773,24 +773,61 @@ class AigcVideoService
         if ($task->isEmpty()) {
             throw new Exception('任务不存在');
         }
-        return self::generate($tenantId, (int)$task['user_id'], [
-            ...array_intersect_key((array)($task['model_json']['q4_options'] ?? []), array_flip(\app\common\service\power\Q4VideoContract::OPTIONS)),
+        $params=self::retryRequest($task->toArray());
+        if(array_key_exists('model',(array)($params['advanced_params']??[]))){
+            // This is a new business request: revalidate the original explicit choice against today's owned catalogue.
+            // A real worker retry continues to use its original price_snapshot and never enters this path.
+            $params=\app\common\service\power\MarketCreationParameters::apply($tenantId,$params,'video');
+            $quote=self::marketQuote($tenantId,$params);$snapshot=(array)($quote['market_snapshot']??[]);
+            \app\common\service\power\MarketGenerationApplicationProtocol::assertSnapshotContract($snapshot);
+            if(($snapshot['application_contract']['profile']??null)!=='seedance_create_20261101'
+                ||((int)($params['market_sku_id']??0)>0&&(int)$quote['market_sku_id']!==(int)$params['market_sku_id'])
+                ||((int)($params['market_product_id']??0)>0&&(int)$quote['market_product_id']!==(int)$params['market_product_id'])){
+                throw new Exception('历史生成型号已不适用于当前声明或规格，请重新选择');
+            }
+            $native=\app\common\service\power\MarketVideoRuntimeService::prepareRequest($snapshot,$params)->nativeInput;
+            if(($native['model']??null)!==$params['advanced_params']['model'])throw new Exception('历史生成型号不能被替换，请重新选择');
+        }
+        return self::generate($tenantId, (int)$task['user_id'], $params);
+    }
+
+    private static function retryRequest(array $task): array
+    {
+        $model=\app\common\service\power\MarketGenerationSchema::array($task['model_json']??[]);
+        $frozen=\app\common\service\power\MarketGenerationSchema::array($task['pricing_snapshot']??[]);
+        $params=[
+            ...array_intersect_key((array)($model['q4_options'] ?? []), array_flip(\app\common\service\power\Q4VideoContract::OPTIONS)),
             'prompt' => $task['prompt'],
-            'effect_id' => (string)($task['model_json']['effect_snapshot']['id'] ?? ''),
-            ...(!empty($task['model_json']['effect_snapshot']['instruction']) ? ['effect_prompt'=>$task['model_json']['effect_snapshot']['instruction']] : []),
+            'effect_id' => (string)($model['effect_snapshot']['id'] ?? ''),
+            ...(!empty($model['effect_snapshot']['instruction']) ? ['effect_prompt'=>$model['effect_snapshot']['instruction']] : []),
             'negative_prompt' => $task['negative_prompt'],
             'reference_images' => $task['reference_images'] ?: [],
             'reference_assets' => $task['reference_assets'] ?: [],
             'style' => $task['style'],
-            'model_id' => (string)($task['model_json']['model_id'] ?? $task['channel']),
+            'model_id' => (string)($model['model_id'] ?? $task['channel']),
             'market_product_id' => (int)($task['market_product_id'] ?? 0),
             'market_sku_id' => (int)($task['market_sku_id'] ?? 0),
-            'resource_type' => (string)($task['model_json']['resource_type'] ?? ''),
+            'resource_type' => (string)($model['resource_type'] ?? ''),
             'quality' => $task['quality'],
             'ratio' => $task['ratio'],
             'duration' => (int)($task['duration'] ?? 0),
             'quantity' => $task['quantity'],
-        ]);
+        ];
+        $named=preg_match('/^market_video_app:seedance:\d+$/D',$params['model_id'])===1;
+        $owned=($frozen['resource_type']??'')==='app_api'&&($frozen['app_code']??'')==='seedance'&&($frozen['api_code']??'')==='create';
+        if(!$named&&!$owned)return $params;
+        $values=[];
+        foreach(['advanced_params','provider_params']as$key){
+            if(!array_key_exists($key,$model))continue;
+            if(!is_array($model[$key]))throw new Exception('历史生成型号参数格式不正确，请重新选择');
+            if(array_key_exists('model',$model[$key]))$values[]=$model[$key]['model'];
+        }
+        if($values===[])return $params; // An old record without an explicit choice retains its original automatic behaviour.
+        if(!is_string($values[0])||trim($values[0])===''||count($values)>1&&$values[0]!==$values[1])throw new Exception('历史生成型号缺失或冲突，请重新选择');
+        if(($named&&isset($frozen['app_code'])&&($frozen['app_code']!=='seedance'||($frozen['api_code']??'create')!=='create'))
+            ||($owned&&preg_match('/^market_video_app:(?!seedance:)/',$params['model_id'])))throw new Exception('历史生成型号与原任务资源身份不一致');
+        $params['advanced_params']=['model'=>$values[0]];
+        return $params;
     }
 
     public static function deleteTask(int $tenantId, int $taskId, int $userId = 0): void

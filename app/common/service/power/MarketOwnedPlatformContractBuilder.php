@@ -91,11 +91,11 @@ final class MarketOwnedPlatformContractBuilder
             if($binding['params_schema']===[]){$state['missing_constraints'][]='original_parameter_declaration_required';$bundle['model_states'][]=$state;continue;}
             $execution=MarketGenerationSchema::array($row['execution_metadata']??[]);
             if(array_key_exists('effective_upstream_model',$row))$execution['upstream_model']=$row['effective_upstream_model'];
-            if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true)||$current!==[]){
+            if(in_array($profile['profile'],['flat_image_v1','flat_video_v1','veo_video_v1'],true)||$current!==[]){
                 $resolved=MarketOwnedPlatformExecutionEvidence::resolve($current,$profile,$metadata);
                 if($resolved['missing']!==[]){$state['missing_constraints']=array_merge($state['missing_constraints'],$resolved['missing']);$bundle['model_states'][]=$state;continue;}
                 $execution=$resolved;$state['current_execution_binding']=$resolved['binding'];
-                if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true)){
+                if(in_array($profile['profile'],['flat_image_v1','flat_video_v1','veo_video_v1'],true)){
                     $problem=self::flatMappingProblems($profile,$resolved,$sourceTexts);
                     if($problem!==[]){$state['missing_constraints']=array_merge($state['missing_constraints'],$problem);$bundle['model_states'][]=$state;continue;}
                 }
@@ -143,7 +143,7 @@ final class MarketOwnedPlatformContractBuilder
     /** Curated translation of the pinned source; called only after evidence and raw-declaration binding. */
     private static function entry(array $profile,array $binding,array $execution=[]): array
     {
-        if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true))return self::flatEntry($profile,$binding,$execution);
+        if(in_array($profile['profile'],['flat_image_v1','flat_video_v1','veo_video_v1'],true))return self::flatEntry($profile,$binding,$execution);
         $protocol=$profile['profile'];$schema=self::schema($protocol);$modes=self::modes($protocol);$contracts=[];
         $schema['properties']['model']=['type'=>'string','const'=>$profile['model_code']];
         $schema['properties']['channel']=['type'=>'string','const'=>$profile['channel_code']];
