@@ -25,12 +25,12 @@ class MarketApplicationSourceContractTest extends TestCase
     private static function snapshot(array $entry,array $sku): array
     {
         $app=$entry['product']['upstream_app_code'];$metadata=$entry['metadata'];
-        return ['resource_type'=>'app_api','app_code'=>$app,'api_code'=>$entry['product']['upstream_api_code'],
+        return Protocol::bindNewSnapshot(['resource_type'=>'app_api','app_code'=>$app,'api_code'=>$entry['product']['upstream_api_code'],
             'product_id'=>$entry['product']['id'],'sku_id'=>$sku['id'],'sku_key'=>$sku['sku_key'],
             'model_code'=>$sku['locked_params']['model']??'','locked_params'=>$sku['locked_params'],
             'market_metadata'=>$metadata,'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>$sku['usage_unit_size'],
             'max_reference_images'=>$metadata['max_reference_images'],
-            'ratio_options'=>Schema::choices(Schema::properties($metadata['params_schema'])['aspect_ratio']??[])];
+            'ratio_options'=>Schema::choices(Schema::properties($metadata['params_schema'])['aspect_ratio']??[])]);
     }
 
     private static function request(array $entry,array $sku): array
@@ -100,6 +100,14 @@ class MarketApplicationSourceContractTest extends TestCase
             'params_schema'=>$entry['metadata']['params_schema'],'skus'=>[['market_sku_id'=>$sku['id'],'locked_params'=>$sku['locked_params']]]];
     }
 
+    private static function runtimeSnapshot(array $entry,array $sku): array
+    {
+        $market=['product'=>$entry['product']+['upstream_model_code'=>'','upstream_channel_code'=>'',
+            'source_payload'=>['market_metadata'=>$entry['metadata']]],
+            'sku'=>$sku+['upstream_price'=>1,'sale_points'=>1],'tenant_price'=>1];
+        return (new ReflectionMethod(Videos::class,'snapshot'))->invoke(null,$market,1);
+    }
+
     /** @dataProvider seedanceModels */
     public function testAllFourModelsAreReachableThroughExistingControlsAndThePreparedQuoteRequest(string $model,array $entry,array $sku): void
     {
@@ -109,7 +117,8 @@ class MarketApplicationSourceContractTest extends TestCase
         self::assertContains($model,array_column($described['generation_parameters'],null,'key')['model']['options']);
         self::assertContains($model,array_column(MarketGenerationParameters::definitions($option,'video'),null,'key')['model']['options']);
         $request=Controls::applyOptions($request,[$option],'video');self::assertSame($model,$request['provider_params']['model']);
-        $snapshot=self::snapshot($entry,$sku);$prepared=Videos::prepareRequest($snapshot,$request,'frozen-key');
+        $snapshot=self::runtimeSnapshot($entry,$sku);self::assertSame(1,$snapshot['application_contract']['version']);
+        $prepared=Videos::prepareRequest($snapshot,$request,'frozen-key');
         self::assertSame($model,$prepared->nativeInput['model']);self::assertSame($model,$prepared->requestInput['provider_params']['model']);
         self::assertSame($prepared->nativeInput,Videos::prepareRequest($snapshot,$prepared->requestInput,'frozen-key')->nativeInput);
 
@@ -146,6 +155,7 @@ class MarketApplicationSourceContractTest extends TestCase
         $snapshot=self::snapshot($entry,$sku);$request['provider_params']['model']='seedance-2-fast-text-2-video';
         try{Videos::prepareRequest($snapshot,$request);}catch(\Exception$error){$rejected++;}
         unset($snapshot['locked_params']['model']);$request['provider_params']['model']='seedance-2-video-2-video';
+        unset($snapshot['application_contract']);$snapshot=Protocol::bindNewSnapshot($snapshot);
         try{Videos::prepareRequest($snapshot,$request);}catch(\Exception$error){$rejected++;}
         self::assertSame(3,$rejected);
     }
@@ -163,12 +173,13 @@ class MarketApplicationSourceContractTest extends TestCase
         $request['reference_assets']=[['type'=>'video','role'=>'reference_video','url'=>'https://fixtures.invalid/input.mp4']];
         $request['generation_method']='video_edit';
         unset($snapshot['locked_params']['_pricing_variant']);
+        unset($snapshot['application_contract']);$snapshot=Protocol::bindNewSnapshot($snapshot);
         try{Videos::prepareRequest($snapshot,$request);self::fail('Text model must not consume a video input');}
         catch(\Exception$error){self::assertStringContainsString('视频输入',$error->getMessage());}
         unset($request['reference_assets'],$request['provider_params']);
         $request['generation_method']='text_to_video';
         $snapshot['market_metadata']['params_schema']['properties']['model']['options']='seedance-2-text-2-video';
-        $this->expectExceptionMessage('未声明');
+        $this->expectExceptionMessage('应用冻结合同');
         Videos::prepareRequest($snapshot,$request+['provider_params'=>['model'=>'seedance-2-fast-text-2-video']]);
     }
 
@@ -179,10 +190,73 @@ class MarketApplicationSourceContractTest extends TestCase
             $snapshot=self::snapshot($entry,$sku);$request=self::request($entry,$sku);$before=$request;
             $expected=$sku['locked_params']['_pricing_variant']==='with_video'?'seedance-2-video-2-video':'seedance-2-text-2-video';
             self::assertSame($expected,Videos::prepareRequest($snapshot,$request)->nativeInput['model']);
-            unset($snapshot['market_metadata'],$snapshot['api_code']);
+            unset($snapshot['market_metadata'],$snapshot['api_code'],$snapshot['application_contract']);
             self::assertSame($expected,Videos::prepareRequest($snapshot,$request)->nativeInput['model']);
             self::assertSame($before,$request);
         }
+    }
+
+    public static function oldFrozenApplications(): array
+    {
+        $cases=[];
+        foreach(['seedance','happy_horse','full_video'] as$app) foreach([false,true] as$unknown) $cases[$app.($unknown?'/unknown':'/same-fingerprint')]=[$app,$unknown];
+        return $cases;
+    }
+
+    /** @dataProvider oldFrozenApplications */
+    public function testUnmarkedOldSnapshotsKeepOriginalBehaviorEvenWithTodaysExactFingerprint(string $app,bool $unknown): void
+    {
+        $entry=self::entry($app);$sku=$entry['skus'][$app==='happy_horse'?0:1];$snapshot=self::snapshot($entry,$sku);
+        unset($snapshot['application_contract']);
+        if($unknown) {
+            $snapshot['market_metadata']['params_schema']['description']='A different old declaration';
+            $snapshot['market_metadata']['default_params']['legacy_route']='unchanged old defaults';
+        }
+        $request=self::request($entry,$sku);
+        if($app==='seedance') {
+            $snapshot['locked_params']['_pricing_variant']='with_video'; // The old codec did not reinterpret this local pricing field.
+            $request['provider_params']['model']='seedance-2-fast-text-2-video';
+        } elseif($app==='happy_horse') {
+            $request=self::happyHorseRequest(1);
+        } else {
+            $request['prompt']=str_repeat('字',5001);$request['aigc_watermark']=true;$request['generation_method']='image_reference';
+            for($i=0;$i<6;$i++)$request['reference_assets'][]=['type'=>'image','role'=>'reference_image','url'=>'https://fixtures.invalid/old-'.$i.'.png'];
+        }
+        $before=$snapshot;$native=Videos::prepareRequest($snapshot,$request)->nativeInput;
+        if($app==='seedance') self::assertSame('seedance-2-text-2-video',$native['model']);
+        elseif($app==='happy_horse') {self::assertSame('happyhorse-1.1-r2v',$native['model']);self::assertArrayNotHasKey('channel',$native);}
+        else {self::assertTrue($native['aigc_watermark']);self::assertCount(7,$native['content']);}
+        self::assertArrayNotHasKey('application_contract',$snapshot);self::assertArrayNotHasKey('application_contract',$native);
+        self::assertSame($before,$snapshot);
+    }
+
+    public function testUnmarkedLegacySeedanceLockedModelIsNotReplacedByANewAllowList(): void
+    {
+        $entry=self::entry('seedance');$sku=$entry['skus'][1];$snapshot=self::snapshot($entry,$sku);
+        unset($snapshot['application_contract'],$snapshot['market_metadata']['params_schema']['properties']['model']);
+        $snapshot['market_metadata']['params_schema']['required']=array_values(array_diff($snapshot['market_metadata']['params_schema']['required']??[],['model']));
+        $snapshot['locked_params']['model']='old-provider-model';$snapshot['market_metadata']['default_params']=[];
+        self::assertSame('old-provider-model',Videos::prepareRequest($snapshot,self::request($entry,$sku))->nativeInput['model']);
+    }
+
+    public static function damagedContracts(): array
+    {
+        $cases=[];
+        foreach(['seedance','happy_horse','full_video'] as$app) foreach(['version','profile','digest','schema','defaults','sku'] as$damage) $cases[$app.'/'.$damage]=[$app,$damage];
+        return $cases;
+    }
+
+    /** @dataProvider damagedContracts */
+    public function testMarkedSnapshotsCannotSilentlyFallBackWhenTheirContractChanges(string $app,string $damage): void
+    {
+        $entry=self::entry($app);$sku=$entry['skus'][0];$snapshot=self::snapshot($entry,$sku);
+        if($damage==='version')$snapshot['application_contract']['version']=999;
+        elseif($damage==='profile')$snapshot['application_contract']['profile']='another-application';
+        elseif($damage==='digest')$snapshot['application_contract']['binding_digest']=str_repeat('0',64);
+        elseif($damage==='schema')$snapshot['market_metadata']['params_schema']['description']='changed after freeze';
+        elseif($damage==='defaults')$snapshot['market_metadata']['default_params']['duration']=123;
+        else $snapshot['locked_params']['resolution']='different-after-freeze';
+        $this->expectExceptionMessage('应用冻结合同');Videos::prepareRequest($snapshot,self::request($entry,$sku));
     }
 
     private static function happyHorseRequest(int $images,string $method='image_reference'): array
@@ -213,6 +287,7 @@ class MarketApplicationSourceContractTest extends TestCase
     public function testBoundHappyHorseRouteRejectsExplicitConflictingChannel(): void
     {
         $entry=self::entry('happy_horse');$snapshot=self::snapshot($entry,$entry['skus'][0]);$snapshot['locked_params']['channel']='happyhorse';
+        unset($snapshot['application_contract']);$snapshot=Protocol::bindNewSnapshot($snapshot);
         $this->expectExceptionMessage('渠道与冻结');Videos::prepareRequest($snapshot,self::happyHorseRequest(2));
     }
 
@@ -221,6 +296,7 @@ class MarketApplicationSourceContractTest extends TestCase
         $entry=self::entry('happy_horse');$original=self::snapshot($entry,$entry['skus'][0]);
         $changed=$original;$changed['market_metadata']['params_schema']['media']['description'].=' Changed declaration';
         $create=$original;$create['api_code']='create';
+        unset($changed['application_contract'],$create['application_contract']);
         foreach([$changed,$create] as$snapshot) {
             $native=Videos::prepareRequest($snapshot,self::happyHorseRequest(1))->nativeInput;
             self::assertArrayNotHasKey('channel',$native);self::assertSame('happyhorse-1.1-r2v',$native['model']);
@@ -243,6 +319,7 @@ class MarketApplicationSourceContractTest extends TestCase
         try{Videos::prepareRequest($snapshot,$request);self::fail('A sixth reference must not produce an incomplete quoteable request');}
         catch(\Exception$error){self::assertStringContainsString('附加计费尚待核验',$error->getMessage());}
         $changed=$snapshot;$changed['market_metadata']['params_schema']['content']['description'].=' Changed declaration';
+        unset($changed['application_contract']);
         self::assertCount(7,Videos::prepareRequest($changed,$request)->nativeInput['content']);
         $candidate=self::fixture()['inactive_application_billing_candidates']['full_video_submit'];
         self::assertSame('inactive',$candidate['status']);self::assertSame(5,$candidate['current_config_evidence']['reference_image_free_count']);

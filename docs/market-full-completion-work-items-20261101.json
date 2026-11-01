@@ -4,9 +4,9 @@
   "scope": "Full agreed model/tool adaptation completion; statuses are execution states, not model/SKU certification.",
   "coordinator": "/root",
   "agents": {
-    "pc_acceptance": "PC closure delivered; reassigned remaining real-provider full applicable matrix and dedicated recovery environments, plus owned source-403 follow-up",
-    "mobile_acceptance": "Mobile source closure delivered; reassigned physical-device/deployment and old-video/resize matching-build verification",
-    "contracts_recovery": "Remaining exact formal input/meter receipt readiness and authoritative 43-text/one-STT case evidence"
+    "pc_acceptance": "Local application codecs, immutable snapshot versioning and Full Video fee binding design",
+    "mobile_acceptance": "Independent shared-contract review and owned standalone MySQL/source-expiry fixture tooling",
+    "contracts_recovery": "Local AIGC source-backed contracts, strict direct/routing evidence and Fast compatibility; API platform/source read only"
   },
   "write_policy": "Coordinator alone switches branches, stages, commits, integrates local develop and pushes feature. One exclusive web writer; server documentation may proceed independently. No worktrees or real-provider/deployment authorization inferred.",
   "remaining_execution_inputs": {
@@ -155,7 +155,7 @@
     },
     {
       "id": "B01-input",
-      "owner": "owner/upstream-provider",
+      "owner": "contracts_recovery + /root",
       "status": "in_progress",
       "depends_on": [
         "B01"
@@ -163,7 +163,18 @@
       "output": "Versioned authoritative schemas, conditions, SKU bounds and receipts for missing resources",
       "acceptance": "Each resource binds exact identity/channel/API/version/SKU and complete conditional rules; source provenance retained",
       "source_received": "user-supplied source repository at fixed develop/master revisions; per-identity extraction documented, no reviewed bundle compiled/activated",
-      "remaining": "Exact current saved configuration and deployed version binding; resolve documented missing conditional limits and document/code conflicts; compile/review/test each complete source-backed candidate."
+      "remaining": "Exact current saved configuration and deployed version binding; resolve documented missing conditional limits and document/code conflicts; compile/review/test each complete source-backed candidate.",
+      "current_read_only_inputs": {
+        "models": 18,
+        "channels": 9,
+        "applications": 6,
+        "local_application_skus": 37,
+        "historical_application_options": 13,
+        "configured_catalogue_gets": 10,
+        "configuration_writes": 0,
+        "provider_calls": 0,
+        "forced_smart_route_models": 9
+      }
     },
     {
       "id": "B02",
@@ -300,14 +311,16 @@
     {
       "id": "C01",
       "owner": "pc_acceptance + /root + owner",
-      "status": "waiting_authorization",
+      "status": "not_permitted_api_read_only",
       "depends_on": [
         "A04",
         "B01"
       ],
       "output": "Bounded real-provider task-to-result/ledger/history evidence for every applicable exact resource/SKU/mode in the reviewed frozen execution matrix; representative families are smoke checks only",
       "acceptance": "Every applicable frozen-matrix row evidenced or explicitly withdrawn by user; exact operations/resource/version/SKU, per-call and total budget, private inputs and stop/cleanup rules explicitly authorized before execution. No representative-only full completion.",
-      "resource_gate": "Each chosen resource needs its own reviewed request contract; special metering resources additionally depend on B02. Do not globally block already reviewed protocol families on unrelated missing contracts."
+      "resource_gate": "Each chosen resource needs its own reviewed request contract; special metering resources additionally depend on B02. Do not globally block already reviewed protocol families on unrelated missing contracts.",
+      "execution_permitted": false,
+      "current_boundary_note": "User expressly limits API platform to reading information. Keep real supplier generation/query/assets inactive; no renewed permission inferred or requested."
     },
     {
       "id": "C02",
@@ -413,5 +426,18 @@
         "does_not_close_real_signature_network_or_dedicated_infra": true
       }
     }
-  ]
+  ],
+  "api_platform_boundary": {
+    "user_instruction": "不能动api的任何东西，只能读取信息",
+    "state": "read_only",
+    "applies_to": [
+      "api.likeadmin.cn",
+      "platform.xhadmin.cn",
+      "yc_open/platform-api-saas"
+    ],
+    "local_aigc_source_and_isolated_fixtures_continue": true,
+    "platform_mutations_permitted": false,
+    "real_supplier_operations_permitted": false,
+    "reference": "docs/market-api-read-only-boundary-20261101.md"
+  }
 }

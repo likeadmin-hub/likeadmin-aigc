@@ -91,7 +91,7 @@ final class MarketOwnedPlatformContractBuilder
             if($binding['params_schema']===[]){$state['missing_constraints'][]='original_parameter_declaration_required';$bundle['model_states'][]=$state;continue;}
             $execution=MarketGenerationSchema::array($row['execution_metadata']??[]);
             if(array_key_exists('effective_upstream_model',$row))$execution['upstream_model']=$row['effective_upstream_model'];
-            if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true)||$profile['profile']==='q4_video_v1'&&$current!==[]){
+            if(in_array($profile['profile'],['flat_image_v1','flat_video_v1'],true)||$current!==[]){
                 $resolved=MarketOwnedPlatformExecutionEvidence::resolve($current,$profile,$metadata);
                 if($resolved['missing']!==[]){$state['missing_constraints']=array_merge($state['missing_constraints'],$resolved['missing']);$bundle['model_states'][]=$state;continue;}
                 $execution=$resolved;$state['current_execution_binding']=$resolved['binding'];
@@ -167,6 +167,7 @@ final class MarketOwnedPlatformContractBuilder
         $maximum=$execution['binding']['material_limits']['max_reference_images'];
         if($maximum<1||$maximum>100||$family==='grok'&&$maximum>7||$family==='m_gpt'&&$maximum>16)
             return ['current_material_capability_conflicts_with_finite_source_contract'];
+        if($family==='veo'&&$maximum!==3)return ['current_material_capability_conflicts_with_exact_veo_document'];
         $image=$profile['generation_type']==='image';$config=$execution['config'][$image?'draw':'video'];
         $configs=[$config];
         if($image){$variant=$config['when_reference']??$config['reference_config']??[];if(is_array($variant)&&$variant!==[])$configs[]=array_replace($config,$variant);}
@@ -183,6 +184,8 @@ final class MarketOwnedPlatformContractBuilder
             if($expected!==null&&$pixel!==[['aspect_ratio',$expected]])return ['current_pixel_transform_differs_from_exact_source_profile'];
             if($expected===null&&$pixel!==[])return ['unexpected_current_pixel_transform_requires_separate_profile'];
             if($family!=='google_nano'&&!$reference)return ['current_reference_mapping_not_proven_lossless'];
+            if($family==='veo')foreach(['generation_type','image_urls','duration','quality','aspect_ratio','prompt']as$field)
+                if(($mapping[$field]??null)!==$field)return ['current_veo_mapping_drops_or_transforms_documented_field'];
             if(!$image&&!empty($cfg['minimal_create']))return ['current_video_minimal_create_drops_declared_fields'];
         }
         if(in_array($family,['dakka_pixels','fast_pixels'],true)){
@@ -201,11 +204,14 @@ final class MarketOwnedPlatformContractBuilder
         if($family===null)throw new InvalidArgumentException('未审核的直接执行型号');
         $image=$profile['generation_type']==='image';$field=$family==='google_nano'?'urls':'image_urls';
         $maximum=$execution['binding']['material_limits']['max_reference_images'];$schemas=[];$modes=[];
-        foreach([false,true]as$reference){
-            $code=$image?($reference?'image_to_image':'text_to_image'):($reference?'reference_to_video':'text_to_video');
-            $mode=['code'=>$code,'view_key'=>$reference?'reference':'text','method'=>$image?($reference?'image_reference':'text_to_image'):($reference?'image_reference':'text_to_video'),
+        $codes=$family==='veo'?['TEXT','FIRST&LAST','REFERENCE']:[false,true];
+        foreach($codes as$choice){
+            $reference=$family==='veo'?$choice!=='TEXT':$choice;
+            $code=$family==='veo'?$choice:($image?($reference?'image_to_image':'text_to_image'):($reference?'reference_to_video':'text_to_video'));
+            $mode=['code'=>$code,'view_key'=>$code==='FIRST&LAST'?'start_end':($reference?'reference':'text'),'method'=>$code==='FIRST&LAST'?'start_end':($image?($reference?'image_reference':'text_to_image'):($reference?'image_reference':'text_to_video')),
                 'fields'=>$reference?[['field'=>$field,'kind'=>'image','role'=>'reference','required'=>true,'maximum'=>$maximum]]:[]];
-            $schema=self::flatSchema($profile,$execution,$reference);
+            if($family==='veo')$mode['fields']=[['field'=>$field,'kind'=>'image','role'=>'reference','required'=>$reference,'maximum'=>$code==='FIRST&LAST'?2:3]];
+            $schema=self::flatSchema($profile,$execution,$reference,$family==='veo'?$code:null);
             $rule=['kind'=>'owned_platform','profile'=>$profile['profile'],'family'=>$family,'model_code'=>$profile['model_code'],
                 'channel_code'=>$profile['channel_code'],'source_revision'=>self::REVISION,'mode'=>$code,'maximum_images'=>$maximum,
                 'configuration_fingerprint'=>$execution['binding']['configuration_fingerprint'],'message'=>'请求不符合该型号已绑定的直接执行合同'];
@@ -214,6 +220,7 @@ final class MarketOwnedPlatformContractBuilder
         $general=self::flatSchema($profile,$execution,true);$general['properties'][$field]=$family==='fast_pixels'
             ?['anyOf'=>[['type'=>'string'],['type'=>'array','maxItems'=>$maximum,'items'=>['type'=>'string']]]]
             :['type'=>'array','maxItems'=>$maximum,'items'=>['type'=>'string']];
+        if($family==='veo')$general['properties']['generation_type']=['type'=>'string','enum'=>['TEXT','FIRST&LAST','REFERENCE'],'default'=>'TEXT'];
         $general['required']=array_values(array_diff($general['required'],[$field]));
         return array_intersect_key($profile,array_flip(['generation_type','model_code','channel_code']))+[
             'public_model_code'=>$profile['model_code'],'generation_protocol'=>$profile['profile'],'revision'=>'owned-platform-b5887e1-flat-source-v1',
@@ -221,7 +228,7 @@ final class MarketOwnedPlatformContractBuilder
             'declaration'=>['params_schema'=>$general,'material_capabilities'=>['modes'=>$modes]],'modes'=>$schemas];
     }
 
-    private static function flatSchema(array $profile,array $execution,bool $reference): array
+    private static function flatSchema(array $profile,array $execution,bool $reference,?string $mode=null): array
     {
         $family=MarketOwnedPlatformFlatSourceRules::family($profile['model_code'],$profile['channel_code']);$image=$profile['generation_type']==='image';
         $string=['type'=>'string'];$props=['model'=>$string+['const'=>$profile['model_code']],'channel'=>$string+['const'=>$profile['channel_code']],
@@ -231,8 +238,18 @@ final class MarketOwnedPlatformContractBuilder
         $list=['type'=>'array','maxItems'=>$reference?$maximum:0,'items'=>['type'=>'string','minLength'=>1]];
         if($reference){$list['minItems']=1;$required[]=$field;}
         $props[$field]=$family==='fast_pixels'?['anyOf'=>[$reference?['type'=>'string','minLength'=>1]:['type'=>'string','const'=>''],$list]]:$list;
+        if($family==='veo'){
+            $props[$field]['maxItems']=$mode==='FIRST&LAST'?2:3;
+            $props['generation_type']=$string+['const'=>$mode??'TEXT','default'=>$mode??'TEXT'];
+        }
         $ratios=['auto','1:1','3:2','2:3','4:3','3:4','5:4','4:5','16:9','9:16','2:1','1:2','3:1','1:3','21:9','9:21'];
-        if(!$image){
+        if($family==='veo'){
+            // Enumerations and conditional bounds are from each exact model's
+            // formal document; raw catalogue options remain display metadata.
+            $props['quality']=$string+['enum'=>['720p','1080p','4k'],'default'=>'720p'];
+            $props['duration']=['type'=>'integer','const'=>8,'default'=>8];
+            $props['aspect_ratio']=$string+['enum'=>$mode==='REFERENCE'?['16:9']:['16:9','9:16'],'default'=>'16:9'];
+        }elseif(!$image){
             $props['quality']=$string+['enum'=>['720p'],'default'=>'720p'];$props['duration']=['type'=>'integer','enum'=>[6,10,15,20,25,30],'default'=>6];
             $props['aspect_ratio']=$string+['enum'=>['2:3','3:2','1:1','9:16','16:9']];
         }elseif($family==='google_nano'){

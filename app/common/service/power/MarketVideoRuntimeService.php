@@ -1055,7 +1055,7 @@ class MarketVideoRuntimeService
     {
         $product = $market['product']; $sku = $market['sku']; $meta = self::metadata($product);
         $requiresConcreteRatio = self::requiresConcreteTextToVideoRatio($product, $meta);
-        return ['billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'requires_actual_duration' => isset($market['billing_meter']) && in_array($market['billing_meter']['basis'], ['output','output_plus_video','output_plus_max_video'], true), 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
+        return MarketGenerationApplicationProtocol::bindNewSnapshot(['billing_meter' => $market['billing_meter'] ?? null, 'meter_context' => $market['meter_context'] ?? [], 'requires_actual_duration' => isset($market['billing_meter']) && in_array($market['billing_meter']['basis'], ['output','output_plus_video','output_plus_max_video'], true), 'product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'market_metadata' => $meta, 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')]);
     }
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
@@ -1090,6 +1090,7 @@ class MarketVideoRuntimeService
         } else {
             // Validate registration before allowing a legacy default adapter to
             // interpret an unknown app as a Wan request.
+            MarketGenerationApplicationProtocol::assertSnapshotContract($snapshot);
             MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
             $metadata = MarketGenerationRequest::metadata($snapshot);
             if (!empty($metadata['params_schema']) || !empty($metadata['content_schema'])
@@ -2041,7 +2042,8 @@ class MarketVideoRuntimeService
     private static function assertSkuMatchesSelection(array $market, array $selection): void
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
-        $selection=MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection(self::metadata($market['product']),$selection,$locked);
+        if(($market['product']['resource_type']??'')===PowerMarketService::TYPE_MODEL)
+            $selection=MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection(self::metadata($market['product']),$selection,$locked);
         if (!self::skuMatchesGenerationMode($market['product'], $locked, $selection)) {
             throw new Exception('所选市场 SKU 不支持当前生成档位');
         }

@@ -98,6 +98,7 @@ final class MarketGenerationMaterials
     public static function select(array $metadata, array $request): ?array
     {
         $request=MarketOwnedPlatformContractRules::normalizeH3MetadataRequest($metadata,$request);
+        $request=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$request);
         $modes = self::modes($metadata);
         if ($modes === []) return null;
         $method = (string)($request['generation_method'] ?? '');
@@ -265,6 +266,7 @@ final class MarketGenerationMaterials
     public static function billingInputs(array $metadata, array $request): array
     {
         $request=MarketOwnedPlatformContractRules::normalizeH3MetadataRequest($metadata,$request);
+        $request=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$request);
         $reviewed=MarketGenerationReviewedContract::selected($metadata);
         if($reviewed!==null&&$reviewed['generation_protocol']!=='native_v1'){
             self::assertSingleMaterialSource($metadata,$request);
@@ -286,6 +288,7 @@ final class MarketGenerationMaterials
 
     public static function validate(array $metadata, array $request, array $payload): void
     {
+        $request=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$request);
         self::assertSingleMaterialSource($metadata,$request);
         $mode = self::select($metadata, $request);
         if ($mode === null) return;

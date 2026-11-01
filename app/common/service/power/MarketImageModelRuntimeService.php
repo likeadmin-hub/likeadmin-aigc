@@ -246,6 +246,7 @@ class MarketImageModelRuntimeService
     /** Shared compilation for estimates, reservation and outbound submission. No task or point writes. */
     public static function prepareRequest(array $snapshot, array $request, int $tenantId = 0, bool $deferMissingPrompt = false): PreparedMarketGeneration
     {
+        $request=MarketOwnedPlatformFlatSourceRules::normalizeRequest($snapshot,$request);
         $request=MarketImageReferenceUrlService::normalizeRequest($request,$tenantId);
         MarketGenerationAdapterRegistry::modelProtocol('image', $snapshot);
         if (self::isQwenImage($snapshot) && (int)($request['quantity'] ?? 1) > 1) throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');
@@ -943,6 +944,7 @@ class MarketImageModelRuntimeService
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
     private static function resolveProduct(int $tenantId, array $product, array $selection): array
     {
+        $selection=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest(self::metadata($product),$selection);
         $quality = self::selectionQuality($selection);
         $ratio = self::normalizedRatio(self::firstValue($selection, ['ratio', 'aspect_ratio', 'size']));
         $matches = [];
@@ -997,6 +999,7 @@ class MarketImageModelRuntimeService
     /** @param array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} $market */
     private static function assertSkuMatchesSelection(array $market, array $selection): void
     {
+        $selection=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest(self::metadata($market['product']),$selection);
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
         $requestedQuality = self::selectionQuality($selection);
         $lockedQuality = self::skuQuality($market['sku'], $locked, self::metadata($market['product']));
