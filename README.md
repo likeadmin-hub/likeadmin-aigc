@@ -6,7 +6,7 @@
 
 把模型、算力、工具应用与用户运营组织在同一套系统里。你可以从创作者工具站、电商内容服务、数字人生产或企业 AI 门户开始，搭建自己的平台，并围绕实际用户需求持续扩展。
 
-[观看完整宣传片 · MP4 / 56秒 / 带配乐](./.github/media/logicframe-aigc-intro.mp4) · [在线体验](https://aigc.likeadmin.cn/ai?tenant_id=1) · [快速部署](#快速部署) · [部署与运维文档](./docs/deployment-and-operations.md)
+[观看完整宣传片 · MP4 / 56秒 / 带配乐](./.github/media/logicframe-aigc-intro.mp4) · [在线体验](https://aigc.likeadmin.cn/ai?tenant_id=1) · [商业授权与工具应用中心](https://api.likeadmin.cn/user_center/aigc_services) · [快速部署](#快速部署) · [部署与运维文档](./docs/deployment-and-operations.md)
 
 ## 你可以用它做什么
 
@@ -113,6 +113,8 @@ docker compose --env-file .env.docker ps -a
 - **专属技术支持**：提供专属沟通渠道与技术支持。
 
 具体服务范围、支持方式与年度费用，欢迎联系我们了解。
+
+如需获取商业授权或查看全部 AIGC 工具应用，请前往 [商业授权与 AIGC 工具应用中心](https://api.likeadmin.cn/user_center/aigc_services)。
 
 此外，我们也提供部署、二次开发、应用接入、私有更新源、商业授权与运营支持。
 
