@@ -48,7 +48,7 @@ function safe(relative){
     if(!relative||relative.startsWith('/')||relative.includes('\\')||relative.split('/').some(p=>p==='..'||p==='.')||relative.includes('\0'))fail(`Unsafe release path: ${relative}`)
     return relative
 }
-function ignored(p){return /^(tests|docs|runtime)(\/|$)/.test(p)||/(^|\/)\.DS_Store$|\.log$/.test(p)||/^\.env(?:\.|$)|^config\/install\.lock$|^(?:public\/)?upgrade\/version\.json$|^public\/(uploads|storage|qrcode)(\/|$)/.test(p)||p==='AGENTS.md'||p==='.gitignore'}
+function ignored(p){return /^(tests|docs|runtime)(\/|$)/.test(p)||/^\.github\/media(?:\/|$)/.test(p)||/(^|\/)\.DS_Store$|\.log$/.test(p)||/^\.env(?:\.|$)|^config\/install\.lock$|^(?:public\/)?upgrade\/version\.json$|^public\/(uploads|storage|qrcode)(\/|$)/.test(p)||p==='AGENTS.md'||p==='.gitignore'}
 function dependency(p){return p==='composer.json'||p==='composer.lock'||p.startsWith('vendor/')}
 function copy(relative,destination){
     safe(relative)
