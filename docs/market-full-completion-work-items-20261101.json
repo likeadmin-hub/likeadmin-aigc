@@ -1,0 +1,198 @@
+{
+  "date": "2026-11-01",
+  "branch": "feature/short-drama-next-optimization",
+  "scope": "Full agreed model/tool adaptation completion; statuses are execution states, not model/SKU certification.",
+  "coordinator": "/root",
+  "agents": {
+    "pc_acceptance": "PC failures and focused current-production-source regressions",
+    "mobile_acceptance": "Existing mobile failures, H5 log reproduction and device acceptance preparation",
+    "contracts_recovery": "Formal contracts, metering, authoritative text reconciliation and environment recovery preparation"
+  },
+  "write_policy": "Coordinator alone switches branches, stages, commits, integrates local develop and pushes feature. One exclusive web writer; server documentation may proceed independently. No worktrees or real-provider/deployment authorization inferred.",
+  "tasks": [
+    {
+      "id": "A01",
+      "owner": "pc_acceptance",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Three existing PC failures repaired without restoring hardcoded model identities or weakening CSS fallback validation",
+      "acceptance": "Original failing tests and affected video controls pass; current identifiers, input immutability and legacy cover aliases preserved",
+      "feature_commit": "1927b683",
+      "evidence": {
+        "focused_tests": 22,
+        "pc_files": 331,
+        "pc_tests": 2433,
+        "passed": 2433,
+        "failed": 0,
+        "skipped": 0,
+        "logs": [
+          "/tmp/b76-pc-focused.log",
+          "/tmp/b76-pc-all.log"
+        ]
+      }
+    },
+    {
+      "id": "A02",
+      "owner": "mobile_acceptance",
+      "status": "in_progress",
+      "depends_on": [
+        "A01"
+      ],
+      "output": "Seven mobile failures individually classified and minimally repaired; existing lifecycle/menu/navigation contracts preserved",
+      "acceptance": "Original failures and affected H5/MP lifecycle, tenant and navigation checks pass; no new tools"
+    },
+    {
+      "id": "A03",
+      "owner": "mobile_acceptance",
+      "status": "investigating",
+      "depends_on": [],
+      "output": "Exact H5 source/build fingerprint, paging/resize reproduction and current-source fix or precise deployment-retest dependency",
+      "acceptance": "Reproducible current-source failures fixed with scoped regressions; old-only logs retained until matching deployed retest"
+    },
+    {
+      "id": "A04",
+      "owner": "/root",
+      "status": "planned",
+      "depends_on": [
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "output": "Integrated source-only commits, appropriate regressions/builds, immutable evidence and feature pushes",
+      "acceptance": "Actual results and residual failures recorded; no generated output or local proxy changes delivered; owned fixtures removed"
+    },
+    {
+      "id": "B01",
+      "owner": "contracts_recovery",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Deduplicated formal contract/gateway/mode/receipt input register and existing import/audit commands",
+      "acceptance": "18 precise model contracts, 14/17 subset and 13 options/6 APIs correctly distinguished; no invented authority",
+      "completion_scope": "Preparation only: deduplicated register and executable review/import steps; real authoritative contracts remain waiting_external in B01-input.",
+      "evidence_files": [
+        "docs/market-completion-contract-register-20261101.json",
+        "docs/market-completion-authoritative-review-runbook-20261101.md"
+      ]
+    },
+    {
+      "id": "B01-input",
+      "owner": "owner/upstream-provider",
+      "status": "waiting_external",
+      "depends_on": [
+        "B01"
+      ],
+      "output": "Versioned authoritative schemas, conditions, SKU bounds and receipts for missing resources",
+      "acceptance": "Each resource binds exact identity/channel/API/version/SKU and complete conditional rules; source provenance retained"
+    },
+    {
+      "id": "B02",
+      "owner": "contracts_recovery + /root",
+      "status": "waiting_external",
+      "depends_on": [
+        "B01-input"
+      ],
+      "output": "Offline verified Qwen pixel, Seedance token and Nano/H3 input contracts and necessary shared-layer adaptations",
+      "acceptance": "SKU380/383 and210-215 precheck/reserve/usage/boundaries/old-freeze tests pass; missing evidence stays blocked; no live configuration auto-enable"
+    },
+    {
+      "id": "B03",
+      "owner": "contracts_recovery",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Read-only authoritative reconciliation runbook and evidence requirements for unknown synchronous text acceptance",
+      "acceptance": "Complete trusted receipts recover through existing path; no-receipt/no-usage/no-ID tasks never resent, guessed or automatically refunded",
+      "completion_scope": "Preparation only: read-only audit and authoritative reconciliation runbook; actual unresolved records remain B03-evidence."
+    },
+    {
+      "id": "B03-evidence",
+      "owner": "owner/upstream-provider",
+      "status": "waiting_external",
+      "depends_on": [
+        "B03"
+      ],
+      "output": "Uniquely correlated authoritative provider receipt/bill for each actual unknown task",
+      "acceptance": "Every settled classification has explicit evidence; unknown cases remain needs_review; real ledger edits separately reviewed",
+      "applicability": "Only actual unknown records in the scoped read-only audit; zero records may be marked not_applicable with audit evidence, not inferred."
+    },
+    {
+      "id": "C01",
+      "owner": "/root + owner",
+      "status": "waiting_authorization",
+      "depends_on": [
+        "A04",
+        "B01"
+      ],
+      "output": "Bounded real-provider task-to-result/ledger/history evidence for supported protocol/meter families",
+      "acceptance": "Exact operations/resource/version/SKU, per-call and total budget, private inputs and stop/cleanup rules explicitly authorized before execution",
+      "resource_gate": "Each chosen resource needs its own reviewed request contract; special metering resources additionally depend on B02. Do not globally block already reviewed protocol families on unrelated missing contracts."
+    },
+    {
+      "id": "C02",
+      "owner": "mobile_acceptance + owner",
+      "status": "waiting_environment",
+      "depends_on": [
+        "A04"
+      ],
+      "output": "Physical WeChat/native App and independent-device normal-login/lifecycle/history evidence",
+      "acceptance": "Real device/build/session/tenant provenance recorded; paid actions subject to C01; no token injection or new cross-device draft feature"
+    },
+    {
+      "id": "C03-preparation",
+      "owner": "contracts_recovery",
+      "status": "verified",
+      "depends_on": [
+        "B01",
+        "B03"
+      ],
+      "output": "Per-mechanism owned-environment fault matrix with exact injection, recovery, invariants and cleanup",
+      "acceptance": "OSS interruption/expired sources/multi-node/mixed-version/DB-host/persistence-retention distinguished; no production fault injection",
+      "completion_scope": "Per-mechanism environment/injection/recovery/cleanup plan prepared; actual dedicated environment execution remains C03."
+    },
+    {
+      "id": "C03",
+      "owner": "/root + owner",
+      "status": "waiting_environment",
+      "depends_on": [
+        "C03-preparation",
+        "A04"
+      ],
+      "output": "Missing deep recovery scenarios executed only in a dedicated owned environment",
+      "acceptance": "One current managed/business result, immutable billing/frozen identity, terminal safety and complete owned cleanup; each scenario separately evidenced"
+    },
+    {
+      "id": "C03-local",
+      "owner": "/root",
+      "status": "in_progress",
+      "depends_on": [],
+      "output": "Three media kinds x not-sent/lost-success-response OSS transport boundaries using owned objects and original workers",
+      "acceptance": "Deterministic test-only curl boundary; cloud presence before retry matches injection, original retry recovers stable key, SHA and one result/file row match, billing/request frozen and owned objects deleted",
+      "scope_note": "Does not certify an actual network outage, distributed node, mixed binary, database/host/power loss."
+    },
+    {
+      "id": "C04",
+      "owner": "owner",
+      "status": "waiting_owner_execution",
+      "depends_on": [
+        "A04"
+      ],
+      "output": "Owner-controlled source deployment/version loading followed by applicable acceptance",
+      "acceptance": "Deployed source/static/worker versions verified; migration and rollback reviewed; assistants do not publish packages or restart permanent daemon"
+    },
+    {
+      "id": "FINAL",
+      "owner": "/root",
+      "status": "planned",
+      "depends_on": [
+        "A04",
+        "B02",
+        "B03-evidence",
+        "C01",
+        "C02",
+        "C03",
+        "C04"
+      ],
+      "output": "Full plan completion report or exact outstanding dependencies with evidence and owners",
+      "acceptance": "No external wait, skipped case, synthetic result or source-only delivery mislabeled as full real-world completion"
+    }
+  ]
+}
