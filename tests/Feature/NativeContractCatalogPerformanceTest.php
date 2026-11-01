@@ -7,7 +7,10 @@ use PHPUnit\Framework\TestCase;
 
 final class NativeContractCatalogPerformanceTest extends TestCase
 {
-    /** @runInSeparateProcess */
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testRepeatedContractVerificationIsReusedOnlyWithinTheReadScope(): void
     {
         (new \think\App(dirname(__DIR__,2).'/'))->initialize();
