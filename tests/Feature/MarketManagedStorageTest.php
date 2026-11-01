@@ -79,7 +79,8 @@ class MarketManagedStorageTest extends TestCase
             $assets=Results::recordConsumptionAssets((int)$c['id']);self::assertCount(1,$assets);
             $view=\app\common\service\ai\GenerationTaskResultService::resultAsset($assets[0],true);
             self::assertSame($expectedSize,$view['file_size']);self::assertSame($expectedMime,$view['mime_type']);
-            self::assertSame($assets,Results::recordConsumptionAssets((int)$c['id']));
+            $again=Results::recordConsumptionAssets((int)$c['id']);self::assertCount(1,$again);
+            self::assertSame($view,\app\common\service\ai\GenerationTaskResultService::resultAsset($again[0],true));
             self::assertSame($price,AiConsumptionLog::find($c['id'])['price_snapshot']);
         });
     }
