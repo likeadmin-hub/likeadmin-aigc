@@ -518,7 +518,7 @@ class AigcLlmService
             ]);
         } catch (Throwable $e) {
             $pending = $e instanceof \app\common\service\power\TextSettlementPending;
-            if ($pending) $result = $e->result + ['consumption_id'=>$e->consumptionId, 'usage'=>$e->usage, 'billing'=>['billing_status'=>'settlement_failed']];
+            if ($pending) $result = array_replace($e->result, ['consumption_id'=>$e->consumptionId, 'usage'=>$e->usage, 'billing'=>['billing_status'=>'settlement_failed']]);
             if (isset($result['content'])) $output = (string)$result['content'];
             $receiptUsage = (array)($result['usage'] ?? []);
             $receiptUsage += ['billing'=>(array)($result['billing'] ?? ['billing_status'=>'none']), 'provider'=>'power_market', 'consumption_id'=>(int)($result['consumption_id'] ?? 0), 'app_task_id'=>(int)($result['app_task_id'] ?? 0), 'error'=>$e->getMessage()];
