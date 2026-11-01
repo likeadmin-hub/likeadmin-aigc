@@ -9,8 +9,8 @@ final class MarketIsolatedMysqlFixture
     public array $manifest;
     private string $uuid;
     public string $stage = 'namespace_preflight';
-    private int $schemaTemporaryCreated = 0;
-    private int $schemaTemporaryDropped = 0;
+    private int $schemaShadowCreated = 0;
+    private int $schemaShadowDropped = 0;
     private static array $schemaContext = [];
 
     public const TABLES = ['ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset',
@@ -111,7 +111,7 @@ final class MarketIsolatedMysqlFixture
                 'source_sha256'=>$entry['source_sha256'],'clause_sha256'=>hash('sha256',$clause),
                 'base_create_sha256'=>$createSources[$entry['table']],'conditional_source'=>$entry['conditional']];
             self::$schemaContext[$kind]=$name;
-            $this->recordTemporarySchemaCounts();
+            $this->recordSchemaShadowCounts();
             if($kind==='column'){
                 $columns=$this->columnFacts($pdo,$table);
                 $expected=$this->expectedColumn($pdo,$table,$clause,$name);
@@ -136,14 +136,14 @@ final class MarketIsolatedMysqlFixture
         $this->stage='schema_verify';
         foreach($created as$name)self::check((int)$pdo->query('SELECT COUNT(*) FROM `la_'.$name.'`')->fetchColumn()===0,'DDL imported unexpected rows');
         self::check(count($pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN))===35,'Supplemental DDL changed persistent table set');
-        self::check($this->schemaTemporaryCreated===$this->schemaTemporaryDropped,'Temporary expected-schema cleanup incomplete');
+        self::check($this->schemaShadowCreated===$this->schemaShadowDropped,'Owned permanent schema shadow cleanup incomplete');
         self::$schemaContext=[];
         return ['schema_sha256'=>hash('sha256', $sql), 'empty_base_tables'=>count($created),'source_database_connections'=>0,'imported_original_rows'=>0,
             'schema_before_sha256'=>hash('sha256',json_encode($before,JSON_THROW_ON_ERROR)),
             'schema_after_sha256'=>hash('sha256',json_encode($this->schemaFacts($pdo,$created),JSON_THROW_ON_ERROR)),
             'source_add_columns'=>22,'source_add_indexes'=>4,'source_add_applied'=>$added,'source_add_already_consistent'=>$consistent,
             'conditional_source_already_consistent'=>$conditionalSkipped,'source_add_provenance'=>$sources,
-            'temporary_expected_tables_created'=>$this->schemaTemporaryCreated,'temporary_expected_tables_dropped'=>$this->schemaTemporaryDropped,'temporary_expected_tables_remaining'=>0];
+            'expected_schema_shadow_created'=>$this->schemaShadowCreated,'expected_schema_shadow_dropped'=>$this->schemaShadowDropped,'expected_schema_shadow_remaining'=>0];
     }
 
     private static function supplementalDdl(string $sql): array
@@ -225,11 +225,11 @@ final class MarketIsolatedMysqlFixture
         $result=[];foreach($tables as$table)$result[$table]=['columns'=>$this->columnFacts($pdo,'la_'.$table),'indexes'=>$this->indexFacts($pdo,'la_'.$table)];return$result;
     }
 
-    private function recordTemporarySchemaCounts(): void
+    private function recordSchemaShadowCounts(): void
     {
-        self::$schemaContext['temporary_expected_tables_created']=$this->schemaTemporaryCreated;
-        self::$schemaContext['temporary_expected_tables_dropped']=$this->schemaTemporaryDropped;
-        self::$schemaContext['temporary_expected_tables_remaining']=$this->schemaTemporaryCreated-$this->schemaTemporaryDropped;
+        self::$schemaContext['expected_schema_shadow_created']=$this->schemaShadowCreated;
+        self::$schemaContext['expected_schema_shadow_dropped']=$this->schemaShadowDropped;
+        self::$schemaContext['expected_schema_shadow_remaining']=$this->schemaShadowCreated-$this->schemaShadowDropped;
     }
 
     private static function schemaValueDiagnostic(bool $present,mixed $value,string $key): array
@@ -257,24 +257,29 @@ final class MarketIsolatedMysqlFixture
             'expected_typed_sha256'=>hash('sha256',serialize($expected)),'actual_typed_sha256'=>hash('sha256',serialize($actual)),
             'expected_key_order'=>array_keys($expected),'actual_key_order'=>array_keys($actual??[]),
             'key_order_equal'=>array_keys($expected)===array_keys($actual??[]),'diff_keys'=>array_keys($diff),'differences'=>$diff];
-        $this->recordTemporarySchemaCounts();
+        $this->recordSchemaShadowCounts();
     }
 
     private function expectedColumn(PDO $pdo,string $table,string $clause,string $name): array
     {
-        $temporary='c03_schema_'.$this->owner.'_'.bin2hex(random_bytes(4));
+        // Parse permanent-table metadata using a permanent owned shadow too.
+        // MySQL's SHOW metadata for TEMPORARY tables has a different Extra
+        // representation; comparing it would reject equal permanent DDL.
+        $shadow='c03_schema_'.$this->owner.'_'.bin2hex(random_bytes(4));
+        self::check(preg_match('/^c03_schema_'.preg_quote($this->owner,'/').'_[a-f0-9]{8}$/D',$shadow)===1,'Invalid owned schema shadow identity');
+        self::check(!in_array($shadow,$pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN),true),'Owned schema shadow already exists');
         $query=$pdo->prepare('SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');$query->execute([$table]);$collation=$query->fetchColumn();
         self::check(is_string($collation)&&preg_match('/^utf8mb4_[a-z0-9_]+$/D',$collation),'Unexpected private table collation');
         $definition=preg_replace('/\s+(?:AFTER `[a-z][a-z0-9_]+`|FIRST)\s*$/D','',substr($clause,strlen('ADD COLUMN ')));
-        $pdo->exec('CREATE TEMPORARY TABLE `'.$temporary.'` ('.$definition.') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE='.$collation);$this->schemaTemporaryCreated++;
-        self::$schemaContext['temporary_expected_table_sha256']=hash('sha256',$temporary);
-        $this->recordTemporarySchemaCounts();
-        try{$expected=$this->columnFacts($pdo,$temporary)[$name]??null;self::check(is_array($expected),'Cannot parse the reviewed source column');return$expected;}
+        $pdo->exec('CREATE TABLE `'.$shadow.'` ('.$definition.') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE='.$collation);$this->schemaShadowCreated++;
+        self::$schemaContext['expected_schema_shadow_sha256']=hash('sha256',$shadow);
+        $this->recordSchemaShadowCounts();
+        try{$expected=$this->columnFacts($pdo,$shadow)[$name]??null;self::check(is_array($expected),'Cannot parse the reviewed source column');return$expected;}
         finally{
-            $pdo->exec('DROP TEMPORARY TABLE `'.$temporary.'`');$gone=false;
-            try{$pdo->query('SHOW FULL COLUMNS FROM `'.$temporary.'`');}catch(PDOException $error){if((int)($error->errorInfo[1]??0)!==1146)throw$error;$gone=true;}
-            self::check($gone,'Temporary source-schema table remains');$this->schemaTemporaryDropped++;
-            $this->recordTemporarySchemaCounts();
+            $pdo->exec('DROP TABLE `'.$shadow.'`');
+            self::check(!in_array($shadow,$pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN),true),'Owned permanent schema shadow remains');
+            $this->schemaShadowDropped++;
+            $this->recordSchemaShadowCounts();
         }
     }
 
