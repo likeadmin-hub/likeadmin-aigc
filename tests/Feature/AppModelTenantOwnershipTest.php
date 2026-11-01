@@ -21,7 +21,7 @@ class AppModelTenantOwnershipTest extends TestCase
         Db::startTrans();
         try {
             self::assertSame(0, (int)Db::name('tenant')->where('id',$tenant)->count());
-            Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'ownership','name'=>'Rollback ownership','tactics'=>0]);
+            Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'ownership','name'=>'Rollback ownership','tactics'=>0,'create_time'=>time(),'update_time'=>time()]);
             $request->source=AdminTerminalEnum::USER;$request->tenantId=$tenant;
             User::where('id',0)->find(); // Populates the inherited core tenant-field state.
             $platform=AigcShortDramaSkill::create(['tenant_id'=>0,'skill_key'=>$key,'name'=>'Platform fixture','create_time'=>time(),'update_time'=>time()]);
