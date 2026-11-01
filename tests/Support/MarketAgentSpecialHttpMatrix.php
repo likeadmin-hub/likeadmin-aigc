@@ -60,4 +60,6 @@ function runMarketAgentSpecialHttp($f,string $api,string $peer,string $suffix,st
     }
     $report['reservations']=(int)$db::name('ai_consumption_log')->whereIn('product_id',$products)->count();$report['settlements']=(int)$db::name('ai_consumption_log')->whereIn('product_id',$products)->where('billing_status','settled')->count();
     $check($report['reservations']===3&&$report['settlements']===3,'Dedicated audio billing did not settle each original reservation exactly once');
+    foreach($db::name('ai_consumption_log')->whereIn('product_id',$products)->select()->toArray()as$row)$check($row['run_status']==='success'&&(float)$row['actual_user_price']===(float)$row['reserved_user_price']&&(float)$row['actual_tenant_cost']===(float)$row['reserved_tenant_cost'],'Dedicated audio final charge differs from its original fixed-unit reservation');
+    $report['native_billing_three_original_fixed_reservations_settled']=true;
 }
