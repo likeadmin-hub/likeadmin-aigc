@@ -62,6 +62,10 @@ if(($argv[1]??'')==='--worker') {
         exit($command->run(new think\console\Input(['--sleep=1']),new think\console\Output('console')));
     }
     if($argv[4]==='fixture_micro_runner') {while(true){app\common\service\app\aigc_micro_video\MicroVideoWorker::tick();usleep(100000);}}
+    if($argv[4]==='fixture_drama_planning_runner') {
+        $command=new app\common\command\ShortDramaPlanningWorker();
+        exit($command->run(new think\console\Input([]),new think\console\Output('console')));
+    }
     $command=new app\common\command\AiTaskWorker();
     exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
 }
