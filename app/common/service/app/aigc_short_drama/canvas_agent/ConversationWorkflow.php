@@ -325,6 +325,9 @@ final class ConversationWorkflow
             $state=[
                 'workflow_snapshot'=>self::snapshot($tenant,$catalog,$route,$selectedIds,$attachments,$preferences),
                 'stage_state'=>['key'=>'intake','status'=>'collecting','completed'=>[]],
+                // Mark a fresh intake before its first model turn. Historical
+                // draft upgrades must not change the accepted run's state.
+                'intake_collection_version'=>2,
                 // Keep only server-validated stage artifacts here.  This is
                 // the compact continuity ledger used by later Skills; it is
                 // intentionally not a copy of the full chat transcript.
