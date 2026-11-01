@@ -96,6 +96,8 @@ function runMarketAgentMediaBoundaryHttp($f,string $api,string $peer,string $suf
     $speechInput=$input+['request_id'=>'boundary-speech-maximum-0001','content'=>'Synthetic speech maximum boundary'];
     $speech=$pair('submit',$speechInput);$finish((int)$speech['id'],'awaiting_confirmation');$plan=$detail($speech['id']);$step=$plan['steps'][0];
     $check($step['params']['characters']===10000&&$step['params']['execution_mode']==='async','Maximum speech did not select original async service');
+    $before=$counts();$login();$reopened=$detail($speech['id']);
+    $check($reopened['status']==='awaiting_confirmation'&&$reopened['approval_hash']===$plan['approval_hash']&&$reopened['steps'][0]['id']===$step['id']&&$reopened['steps'][0]['params']===$step['params']&&$counts()===$before,'New login changed an unconfirmed speech plan or dispatched work');$report['new_login_unconfirmed_speech_plan_approval_and_parameters_preserved']=true;
     $before=$counts();$bad=callHttp($api,'/api/app.aigc_llm.agent/editPlan'.$suffix,['run_id'=>$speech['id'],'step_id'=>$step['id'],'approval_hash'=>$plan['approval_hash'],'changes'=>['text'=>str_repeat('字',10001)]],$token);
     $check(($bad['code']??1)!==1&&$counts()===$before,'10001 characters crossed quote/submit boundary');
     $pair('confirm',['run_id'=>$speech['id'],'approval_hash'=>$plan['approval_hash']]);$finish((int)$speech['id']);
