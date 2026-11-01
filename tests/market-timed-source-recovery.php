@@ -4,7 +4,9 @@ if(PHP_SAPI!=='cli'||is_file(dirname(__DIR__).'/.env')){fwrite(STDERR,"Use only 
 require dirname(__DIR__).'/vendor/autoload.php';
 (new think\App())->initialize();
 set_exception_handler(static function(Throwable $error): void {
-    fwrite(STDERR,json_encode(['failure_class'=>get_class($error),'failure_fingerprint'=>hash('sha256',$error->getMessage())])."\n");exit(1);
+    $facts=class_exists('MarketIsolatedMysqlFixture',false)?MarketIsolatedMysqlFixture::diagnostic($error,'bootstrap_or_worker'):
+        ['failure_class'=>get_class($error),'failure_fingerprint'=>hash('sha256',$error->getMessage()),'failure_stage'=>'bootstrap'];
+    fwrite(STDERR,json_encode($facts)."\n");exit(1);
 });
 require __DIR__.'/Support/MarketWorkerFixture.php';
 require __DIR__.'/Support/MarketIsolatedMysqlFixture.php';
@@ -27,14 +29,19 @@ MarketIsolatedMysqlFixture::check(in_array($mode,['lease-expired-then-renew','tr
 $s=null;$source=null;$report=['kind'=>$kind,'mode'=>$mode,'scope'=>'Owned loopback wall-clock leases / signed Expires; not a real provider signature or URL-refresh attestation',
     'provider_ai_calls'=>0,'original_database_connections'=>0,'actual_wallet_mutations'=>0,'provider_url_refresh_verified'=>false];
 try{
+    $stage='schema_source';
     $report+=$isolated->seedEmptySchema();
+    $stage='source_setup';
     $source=new MarketTimedSourceFixture($isolated,$kind,$mode);
+    $stage='fixture_create';
     $s=$isolated->fixture($kind,$source->url);$f=$s['f'];
+    $stage='source_expiry_and_worker_start';
     $s['frozen']=AiConsumptionLog::find($s['c']['id'])->toArray();
     MarketIsolatedMysqlFixture::atomic($f->dir.'/timed-source-root',$source->dir);
     if(in_array($mode,['lease-expired-then-renew','fixed-query-expired-no-refresh'],true))$source->expireNaturally();
     $f->start(__FILE__,$s['app']);
     if($mode!=='stored-then-lease-expired'){
+        $stage='expired_source_retry';
         MarketWorkerFixture::wait(function()use($s,$source,$mode){
             $job=Db::name('ai_task_job')->where('id',$s['job']['id'])->find();
             $requests=$source->requests();$expired=array_filter($requests,static fn($row)=>$row['status']===403&&in_array($row['reason'],['lease_expired','query_expired'],true));
@@ -57,6 +64,7 @@ try{
             $report+=['fixed_signed_query_preserved'=>true,'explicit_unrefreshable_source_remains_pending'=>true,
                 'natural_retry_attempts'=>(int)$job['attempts'],'passed'=>true];
         }else{
+            $stage='source_renew_and_recovery';
             $beforeUrl=$blocked['external_url'];$source->renewLease();
             MarketIsolatedMysqlFixture::check(AiTaskResultAsset::find($s['asset'])['external_url']===$beforeUrl,'Lease renewal rewrote an asset URL');
             MarketWorkerFixture::wait(fn()=>Db::name($s['table'])->where('id',$s['business'])->value('status')==='success'
@@ -67,15 +75,18 @@ try{
             $report+=['server_side_opaque_lease_renewal_only'=>true,'same_literal_source_url'=>true,'same_running_worker_natural_backoff_recovered'=>true];
         }
     }else{
+        $stage='stored_source_then_expiry';
         MarketWorkerFixture::wait(fn()=>Db::name($s['table'])->where('id',$s['business'])->value('status')==='success'
             &&(int)Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Initial result did not persist',30);
         $f->stop();$source->expireNaturally();$source->probeExpired();
         $report['exact_original_url_403_after_storage']=true;
     }
     if($mode!=='fixed-query-expired-no-refresh'){
+        $stage='managed_result_verify';
         $report+=MarketIsolatedMysqlFixture::verifyStored($s);
         $asset=AiTaskResultAsset::find($s['asset'])->toArray();$path=$f->dir.'/public/'.$asset['local_uri'];$stat=stat($path);
         $snapshot=static fn()=>[AiTaskResultAsset::find($s['asset'])->toArray(),Db::name('tenant_file')->select()->toArray(),Db::name($s['results'])->select()->toArray(),Db::name('ai_task_job')->order('id')->select()->toArray(),AiConsumptionLog::find($s['c']['id'])->toArray()];
+        $stage='terminal_history_replay';
         $stable=$snapshot();$count=count($source->requests());
         for($i=0;$i<2;$i++){
             $view=View::read((int)$s['task']['id'],$f->tenant,$f->user);
@@ -92,16 +103,17 @@ try{
     MarketIsolatedMysqlFixture::check((float)Db::name('tenant')->where('id',$f->tenant)->value('point_balance')===100.
         &&(float)Db::name('user')->where('id',$f->user)->value('user_money')===100.,'Fixture wallets changed');
     $report['source_observations']=$source->requests();$report['wallets_unchanged']=true;
-}catch(Throwable $error){$failure=$error;$report+=['passed'=>false,'failure_class'=>get_class($error),'failure_fingerprint'=>hash('sha256',$error->getMessage())];}
+}catch(Throwable $error){$failure=$error;$report+=['passed'=>false]+MarketIsolatedMysqlFixture::diagnostic($error,
+    in_array($stage??'',['schema_source','fixture_create'],true)?$isolated->stage:($stage??'owned_fixture'));}
 finally{
-    $stopped=true;if($s)foreach(['worker','repeat']as$role)try{$s['f']->stop($role);}catch(Throwable $error){$failure=$error;$stopped=false;}
-    if($source&&$stopped)try{$source->close();$report['source_root_removed']=!is_dir($source->dir);}catch(Throwable $error){$failure=$error;$stopped=false;}
+    $stopped=true;if($s)foreach(['worker','repeat']as$role)try{$s['f']->stop($role);}catch(Throwable $error){$failure=$error;$stopped=false;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup_stop');}
+    if($source&&$stopped)try{$source->close();$report['source_root_removed']=!is_dir($source->dir);}catch(Throwable $error){$failure=$error;$stopped=false;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup_source');}
     if($s&&$stopped){
         try{$s['f']->cleanup();$report['fixture_root_removed']=!is_dir($s['f']->dir);
             $names=$isolated->pdo()->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
             $report['fixture_tables_remaining']=count(array_filter($names,static fn($name)=>str_starts_with($name,$s['f']->prefix)));
             MarketIsolatedMysqlFixture::check($report['fixture_root_removed']&&$report['fixture_tables_remaining']===0,'Owned fixture cleanup incomplete');
-        }catch(Throwable $error){$failure=$error;$report['retained_fixture']=$s['f']->prefix;}
+        }catch(Throwable $error){$failure=$error;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup');$report['retained_fixture']=$s['f']->prefix;}
     }elseif($s)$report['retained_fixture']=$s['f']->prefix;
     $report['cleanup_complete']=$stopped&&!empty($report['source_root_removed'])&&!empty($report['fixture_root_removed'])&&($report['fixture_tables_remaining']??-1)===0;
     $report['host_owner_must_remove_exact_containers_and_volume']=true;
