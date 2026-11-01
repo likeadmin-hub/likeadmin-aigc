@@ -21,7 +21,7 @@ function marketAgentTextSupplier(array $input,string $dir): bool
         }
         $users=array_values(array_filter($input['messages'],fn($m)=>$m['role']==='user'));$current=end($users);$current=is_string($current['content']??null)?$current['content']:json_encode($current['content']??[]);
         if(preg_match('/Synthetic media (video|music)/',$current,$match)) {
-            $music=$match[1]==='music';$name='plan_creation';$params=['tool_code'=>$music?'aigc_music':'aigc_video','title'=>'Synthetic media '.$match[1],'parameters'=>$music?['prompt'=>'Synthetic instrumental blocks','title'=>'Synthetic instrumental','duration'=>5,'custom'=>false,'instrumental'=>true]:['prompt'=>'Synthetic video blocks','duration'=>1,'quality'=>'720P','ratio'=>'1:1']];
+            $music=$match[1]==='music';$name='plan_creation';$params=['tool_code'=>$music?'aigc_music':'aigc_video','title'=>'Synthetic media '.$match[1],'parameters'=>$music?['prompt'=>'Synthetic instrumental blocks','title'=>'Synthetic instrumental','duration'=>5,'custom'=>false,'instrumental'=>true]:['prompt'=>'Synthetic video blocks','duration'=>1,'resolution'=>'720P','ratio'=>'1:1']];
         }
         $tool=['index'=>0,'id'=>'call-synthetic','type'=>'function','function'=>['name'=>$name,'arguments'=>json_encode(['payload'=>$params],JSON_UNESCAPED_UNICODE)]];
         if($name==='')$tool=false;
