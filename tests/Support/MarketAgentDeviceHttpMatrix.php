@@ -1,6 +1,6 @@
 <?php
 /** Owner-marked, normal-login PC/H5/MP sessions and actual mobile request wrappers. */
-function runMarketAgentDeviceHttp($f,string $api,string $peer,string $suffix,string $token,int $text,array &$report): void
+function runMarketAgentDeviceHttp($f,string $api,string $peer,string $suffix,string $token,string $imageChannel,int $text,array &$report): void
 {
     $db=think\facade\Db::class;$script=dirname(__DIR__).'/market-generation-http.php';
     $check=fn($ok,$why)=>MarketWorkerFixture::check((bool)$ok,$why);
@@ -19,9 +19,10 @@ function runMarketAgentDeviceHttp($f,string $api,string $peer,string $suffix,str
     $finish=function($id,$status)use($f,$script,$db){
         $f->start($script,'fixture_agent_runner','agent');$f->start($script,'aigc_image','worker');
         try{MarketWorkerFixture::wait(fn()=>$db::name('aigc_llm_agent_run')->where('id',$id)->value('status')===$status,'Device Agent did not reach '.$status,60);}
+        catch(Throwable $e){fwrite(STDERR,'Device state: '.json_encode($db::name('aigc_llm_agent_run')->where('id',$id)->field('id,status,phase,error')->find(),JSON_UNESCAPED_UNICODE).chr(10));throw $e;}
         finally{$f->stop('agent');$f->stop('worker');}
     };
-    $p=['session_id'=>0,'request_id'=>'device-image-intent-original-0001','content'=>'Synthetic image plan','preferences'=>['mode'=>'ask','models'=>['text'=>'market_text_'.$text]]];
+    $p=['session_id'=>0,'request_id'=>'device-image-intent-original-0001','content'=>'Synthetic image plan','preferences'=>['mode'=>'ask','models'=>['text'=>'market_text_'.$text,'image'=>$imageChannel]]];
     $first=$request('submit',$p);$id=(int)$first['id'];$before=$counts();
     foreach($tokens as$auth)$check($request('submit',$p,$auth)['id']===$id&&$counts()===$before,'Device replay created a second run');
     $finish($id,'awaiting_confirmation');$old=$request('detail',['run_id'=>$id],$tokens['h5'],'GET');$before=$counts();
