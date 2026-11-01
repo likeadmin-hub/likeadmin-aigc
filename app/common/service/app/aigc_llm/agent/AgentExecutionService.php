@@ -170,14 +170,18 @@ final class AgentExecutionService
         self::requestStop($tenant,$user,$id);
         return self::detail($tenant,$user,$id);
     }
-    public static function cancelProject(int $tenant,int $user,int $project): void
+    public static function cancelProject(int $tenant,int $user,int $project,?array $pages=null): void
     {
         // Native canvas projects may exist before the shared conversation schema is installed.
         foreach(['aigc_llm_session','aigc_llm_agent_run'] as $table){
             if(!Db::query('SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[config('database.connections.mysql.prefix').$table]))return;
         }
         if(!isset(Db::name('aigc_llm_session')->getFields()['workspace_key']))return;
-        $sessions=Db::name('aigc_llm_session')->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereLike('workspace_key','canvas:'.$project.':%')->column('id');
+        if($pages===[])return;
+        $query=Db::name('aigc_llm_session')->where(['tenant_id'=>$tenant,'user_id'=>$user]);
+        if($pages===null)$query->whereLike('workspace_key','canvas:'.$project.':%');
+        else $query->whereIn('workspace_key',array_map(static fn($page)=>'canvas:'.$project.':'.$page,$pages));
+        $sessions=$query->column('id');
         if(!$sessions)return;
         $ids=AgentStore::owner('run',$tenant,$user)->whereIn('session_id',$sessions)->whereNotIn('status',AgentStore::TERMINAL)->column('id');
         foreach($ids as $id)self::requestStop($tenant,$user,(int)$id);

@@ -438,6 +438,8 @@ class AigcCanvasService
         if ($requestId !== '') $incomingViewport['saveReceipt'] = ['id'=>$requestId,'hash'=>$fingerprint,'revision'=>$incomingViewport['saveRevision'],'agentRevision'=>$incomingViewport['agentRevision']];
         $data['viewport_json'] = $incomingViewport;
         $project->save($data);
+        $removedPages = array_values(array_diff(array_column($storedViewport['pages'] ?? [], 'id'), array_column($incomingViewport['pages'] ?? [], 'id')));
+        if ($removedPages) \app\common\service\app\aigc_llm\agent\AgentExecutionService::cancelProject($tenantId, (int)$project['user_id'], $id, $removedPages);
         return self::formatProject($project->toArray(), true);
         });
     }
