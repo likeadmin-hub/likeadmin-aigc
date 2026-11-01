@@ -1,12 +1,21 @@
-[![逻辑帧AIGC 产品介绍：免费开源，一键搭建自己的 AIGC 平台](./.github/media/logicframe-aigc-intro.gif)](./.github/media/logicframe-aigc-intro.mp4)
+# 逻辑帧AIGC - 免费开源的 AI 应用聚合与运营平台
 
-# 逻辑帧AIGC
+[![逻辑帧AIGC 产品介绍：免费开源，一键搭建自己的 AIGC 平台](./.github/media/logicframe-aigc-intro.gif)](./.github/media/logicframe-aigc-intro.mp4)
 
 **免费开源，一键搭建自己的 AIGC 平台，开启 AI 创业之路。**
 
-把模型、算力、工具应用与用户运营组织在同一套系统里。你可以从创作者工具站、电商内容服务、数字人生产或企业 AI 门户开始，搭建自己的平台，并围绕实际用户需求持续扩展。
+逻辑帧AIGC 是一套面向开发者、创业者和企业的开源 AI 应用聚合与运营平台，支持私有化部署。平台汇集 AI 对话、图像创作、视频生成、数字人、电商商品图、音乐和智能剪辑等能力，帮助你搭建创作者工具站、电商内容服务平台、数字人工作室或企业 AI 门户。
 
-[观看逻辑帧AIGC产品宣传片](./.github/media/logicframe-aigc-intro.mp4) · [在线体验](https://aigc.likeadmin.cn/ai?tenant_id=1) · [商业授权与工具应用中心](https://api.likeadmin.cn/user_center/aigc_services) · [快速部署](#快速部署) · [部署与运维文档](./docs/deployment-and-operations.md)
+系统将 **34 款工具应用**与模型接入、多租户管理、用户权限、会员积分、计费和持续更新整合到同一套平台，支持从内容创作到平台运营的完整流程。当前开源交付包含后端源码及多端前端编译资源，可根据业务需求配置品牌、应用与模型通道。
+
+[在线预览](#在线预览) · [应用与功能](#34-款应用按场景组合) · [技术栈](#技术栈) · [快速部署](#快速部署) · [年度服务](#年度服务与技术支持) · [文档导航](#文档导航)
+
+## 在线预览
+
+- **在线体验**：[进入逻辑帧AIGC演示平台](https://aigc.likeadmin.cn/ai?tenant_id=1)，查看工具应用与创作页面。
+- **产品宣传片**：[观看逻辑帧AIGC产品宣传片](./.github/media/logicframe-aigc-intro.mp4)，了解产品定位、应用场景与核心能力。
+- **商业授权与应用中心**：[获取商业授权，查看全部 AIGC 工具应用](https://api.likeadmin.cn/user_center/aigc_services)。
+- **开源仓库**：[Gitee](https://gitee.com/likeadmin/likeadmin-aigc) · [GitHub](https://github.com/likeadmin-hub/likeadmin-aigc)。
 
 ## 你可以用它做什么
 
@@ -41,6 +50,18 @@
 - **部署与更新**：支持本地化部署、系统更新、私有更新源、更新校验和长任务处理。
 
 平台源码免费获取；服务器、第三方模型与算力服务的费用按实际接入和使用情况安排。
+
+## 技术栈
+
+| 层级 | 技术与交付方式 |
+| --- | --- |
+| 后端 | PHP 8.2、ThinkPHP 8、ThinkORM，支持多应用与模块化扩展 |
+| 管理后台 | Vue 3、TypeScript、Vite、Element Plus |
+| PC 前台 | Vue 3、Nuxt 3、TypeScript、Tailwind CSS |
+| 部署 | Docker Compose，或 Nginx + PHP-FPM；支持 MySQL / MariaDB |
+| 多端交付 | 平台后台、租户后台、PC 前台、H5 与微信小程序 |
+
+本仓库提供后端源码和已编译的前端资源，前端源码开放计划见 [开源说明](#开源说明)。详细运行环境与目录结构见 [部署与运维指南](./docs/deployment-and-operations.md)。
 
 ## 快速部署
 
