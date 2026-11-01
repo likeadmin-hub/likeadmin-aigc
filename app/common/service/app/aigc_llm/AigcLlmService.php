@@ -472,6 +472,7 @@ class AigcLlmService
         $output = '';
         $stopped = false;
         $lastProgress = 0.;
+        $result = [];
         try {
             $result = MarketTextModelRuntimeService::generate($tenantId, $userId, [
                 'app_code' => self::APP_CODE,
@@ -516,19 +517,17 @@ class AigcLlmService
                 'charge_points' => $billing['billing']['user_charge_points'],
             ]);
         } catch (Throwable $e) {
+            $pending = $e instanceof \app\common\service\power\TextSettlementPending;
+            if ($pending) $result = $e->result + ['consumption_id'=>$e->consumptionId, 'usage'=>$e->usage, 'billing'=>['billing_status'=>'settlement_failed']];
+            if (isset($result['content'])) $output = (string)$result['content'];
+            $receiptUsage = (array)($result['usage'] ?? []);
+            $receiptUsage += ['billing'=>(array)($result['billing'] ?? ['billing_status'=>'none']), 'provider'=>'power_market', 'consumption_id'=>(int)($result['consumption_id'] ?? 0), 'app_task_id'=>(int)($result['app_task_id'] ?? 0), 'error'=>$e->getMessage()];
             self::finishAssistantMessage($tenantId, (int)$assistantMessage['id'], [
-                'content' => $output,
-                'status' => self::MESSAGE_ERROR,
-                'finish_reason' => 'error',
-                'token_usage_json' => [
-                    'billing_status' => 'none',
-                    'provider' => 'power_market',
-                    'error' => $e->getMessage(),
-                ],
+                'content' => $output, 'status' => self::MESSAGE_ERROR, 'finish_reason' => 'error', 'token_usage_json' => $receiptUsage,
             ]);
             self::finishSession((int)$session['id'], $tenantId);
             self::emitEvent('error', [
-                'message' => $e->getMessage(), 'message_id'=>(int)$assistantMessage['id'], 'terminal'=>true,
+                'message' => $e->getMessage(), 'message_id'=>(int)$assistantMessage['id'], 'terminal'=>!$pending,
             ]);
         }
     }

@@ -13,6 +13,7 @@ function marketAgentTextSupplier(array $input,string $dir): bool
     header('Content-Type: text/event-stream');
     $id='agent-'.count(file($dir.'/deep-calls.jsonl'));
     foreach($tool?[['tool_calls'=>[$tool]]]:array_map(fn($text)=>['content'=>$text],mb_str_split($content,3))as$delta){echo 'data: '.json_encode(['id'=>$id,'choices'=>[['index'=>0,'delta'=>$delta,'finish_reason'=>null]]],JSON_UNESCAPED_UNICODE)."\n\n";@ob_flush();flush();usleep(60000);}
+    if(str_contains(json_encode($input['messages']), 'Synthetic incomplete stream'))return true;
     echo 'data: '.json_encode(['id'=>$id,'choices'=>[['index'=>0,'delta'=>new stdClass(),'finish_reason'=>$tool?'tool_calls':'stop']],'usage'=>['prompt_tokens'=>20,'completion_tokens'=>30,'total_tokens'=>50]])."\n\ndata: [DONE]\n\n";
     return true;
 }
