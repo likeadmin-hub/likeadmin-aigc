@@ -9,6 +9,7 @@ final class AgentRequestOrigin
 {
     public static function normalize(string $origin): string
     {
+        if(preg_match('/[\x00-\x20\x7f]/',$origin))return '';
         $p=parse_url($origin);
         if(!$p||!in_array($p['scheme']??'',['http','https'],true)||empty($p['host'])||isset($p['user'])||isset($p['pass'])||isset($p['query'])||isset($p['fragment'])||!in_array($p['path']??'',['','/'],true)||preg_match('~[\s/\\\\?#@]~',$p['host']))return '';
         if(isset($p['port'])&&($p['port']<1||$p['port']>65535))return '';
