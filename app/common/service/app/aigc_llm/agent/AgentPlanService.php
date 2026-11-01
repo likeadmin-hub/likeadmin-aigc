@@ -84,6 +84,20 @@ final class AgentPlanService
         });
         return AgentExecutionService::detail($tenant,$user,$id);
     }
+    /** Prefer the owner-checked unified receipt; native IDs and billing fields differ by tool. */
+    public static function retryReady(array $task): bool
+    {
+        $receipt=$task;
+        if(array_key_exists('generation_task',$task)){
+            $receipt=$task['generation_task'];
+            if(!is_array($receipt)||($receipt['schema_version']??0)!==1||(int)($receipt['app_task_id']??0)<1||($receipt['task_ref']??'')!=='app_task:'.$receipt['app_task_id'])return false;
+        }elseif(!empty($task['generation_task_unavailable']))return false;
+        return in_array($task['status']??'',['failed','error','canceled','cancelled'],true)
+            && empty($task['results'])
+            && in_array($receipt['status']??'',['failed','error','canceled','cancelled'],true)
+            && empty($receipt['results'])
+            && in_array($receipt['billing_status']??'',['refunded','none','prechecked'],true);
+    }
     public static function retry(int $tenant,int $user,int $id,int $stepId,string $version): array
     {
         AgentStore::access($tenant,$user);$snapshot=AgentStore::run($tenant,$user,$id);$step=self::step($snapshot,$stepId);$old=AgentStore::json($step['prepared']);
@@ -91,7 +105,7 @@ final class AgentPlanService
         if(!hash_equals(self::version($step),$version)||!self::actions($snapshot,$step)['retryable'])throw new \InvalidArgumentException('该步骤不能重试，请刷新后核对');
         if((int)$step['task_id']>0){
             $task=AgentCapabilityCatalog::query($snapshot,$step['tool_code'],(int)$step['task_id']);
-            if(!in_array($task['status']??'',['failed','error','canceled','cancelled'],true)||!empty($task['results'])||!in_array($task['billing_status']??'',['refunded','none','prechecked'],true))throw new \InvalidArgumentException('原任务结果或费用尚未核对完成，暂不能重试');
+            if(!self::retryReady($task))throw new \InvalidArgumentException('原任务结果或费用尚未核对完成，暂不能重试');
         }else{
             foreach(AgentStore::owner('event',$tenant,$user)->where(['run_id'=>$id,'event_type'=>'tool.started'])->column('payload') as $payload)if((int)(AgentStore::json($payload)['step_id']??0)===$stepId)throw new \InvalidArgumentException('此步骤已有提交记录，请先核对，不能重复提交');
         }

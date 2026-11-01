@@ -33,7 +33,8 @@ function runMarketAgentMobileActionsHttp($f,string $api,string $peer,string $suf
         $first=$wait('mobile-first-done.json');$runId=(int)$first['run_id'];$view=$get('detail',['run_id'=>$runId]);
         $check($view['status']==='success'&&count($view['steps'])===2&&$view['steps'][0]['status']==='failed'&&$view['steps'][1]['status']==='success','Mobile original attempt/retry state wrong');
         $oldStep=$db::name('aigc_llm_agent_step')->where('id',$view['steps'][0]['id'])->find();$successfulStep=$db::name('aigc_llm_agent_step')->where('id',$view['steps'][1]['id'])->find();
-        $failedLog=$db::name('ai_consumption_log')->where('app_task_id',$oldStep['task_id'])->find();$successLog=$db::name('ai_consumption_log')->where('app_task_id',$successfulStep['task_id'])->find();
+        $failedApp=$db::name('aigc_image_task')->where('id',$oldStep['task_id'])->value('app_task_id');$successApp=$db::name('aigc_image_task')->where('id',$successfulStep['task_id'])->value('app_task_id');
+        $failedLog=$db::name('ai_consumption_log')->where('app_task_id',$failedApp)->find();$successLog=$db::name('ai_consumption_log')->where('app_task_id',$successApp)->find();
         $check($failedLog['billing_status']==='refunded'&&$successLog['billing_status']==='settled'&&(float)$failedLog['actual_user_price']===0.0,'Retry did not wait for original media refund');
         $refs=json_decode($successfulStep['prepared'],true)['inputs']['reference_images']??[];
         $check($refs===[$first['attachment_ids'][0]],'Prepared image did not use the uploaded managed image identity');
