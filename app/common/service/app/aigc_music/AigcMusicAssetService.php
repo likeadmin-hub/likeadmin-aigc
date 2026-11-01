@@ -216,7 +216,10 @@ class AigcMusicAssetService
         return self::persistBinary($content, $tenantId, $userId, strtolower($matches[1]), 'audio/' . strtolower($matches[1]), $storageConfig, $resultAssetId);
     }
 
-    /** Validate declared response lengths and read failures while retaining the original worker transport policy. */
+    /**
+     * Ordinary workers use ext-curl framing validation. 45 seconds is now a total request deadline
+     * (including redirects), replacing the old stream per-read timeout. No environment proxy is used.
+     */
     private static function downloadRemoteContent(string $url, int $timeout = 45, int $maxBytes = 104857600): array
     {
         if ($timeout < 1 || $timeout > 45 || $maxBytes < 1 || $maxBytes > 104857600) throw new \InvalidArgumentException('下载限制无效');
@@ -226,30 +229,52 @@ class AigcMusicAssetService
             foreach ($wire['headers'] as $name=>$value) $headers[]=$name.': '.$value;
             return [$wire['body'],$headers];
         }
-        $context=stream_context_create(['http'=>['timeout'=>$timeout,'follow_location'=>1,'ignore_errors'=>true,
-            'header'=>"User-Agent: LikeAdminAigcMusic/1.0\r\n"]]);
-        $stream=@fopen($url,'rb',false,$context);
-        if (!is_resource($stream)) throw new Exception('生成音乐下载失败');
+        $curl=curl_init($url);
+        if ($curl === false) throw new Exception('生成音乐下载失败');
+        $headers=[]; $body=''; $status=0; $collectHeaders=false; $expected=null; $oversize=false;
         try {
-            $meta=stream_get_meta_data($stream); $headers=[];
-            // PHP wrapper_data includes every redirect. Only the final response frames this body.
-            foreach (is_array($meta['wrapper_data']??null)?$meta['wrapper_data']:[] as $line) {
-                if (preg_match('~^HTTP/\S+\s+\d{3}~i',(string)$line)) $headers=[];
-                $headers[]=$line;
+            curl_setopt_array($curl,[
+                CURLOPT_FOLLOWLOCATION=>true, CURLOPT_MAXREDIRS=>20,
+                CURLOPT_PROTOCOLS=>CURLPROTO_HTTP|CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS=>CURLPROTO_HTTP|CURLPROTO_HTTPS,
+                CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2,
+                CURLOPT_PROXY=>'', CURLOPT_NOPROXY=>'*', CURLOPT_CONNECTTIMEOUT=>$timeout, CURLOPT_TIMEOUT=>$timeout,
+                CURLOPT_USERAGENT=>'LikeAdminAigcMusic/1.0', CURLOPT_RETURNTRANSFER=>false,
+                CURLOPT_HEADERFUNCTION=>static function($handle,string $line)use(&$headers,&$body,&$status,&$collectHeaders,&$expected,&$oversize,$maxBytes):int {
+                    $length=strlen($line);
+                    if(preg_match('~^HTTP/\S+\s+(\d{3})~i',$line,$match)){
+                        // A final response's trailers cannot open a new header block.
+                        if(!$collectHeaders && $status>=200 && !($status>=300&&$status<400)) return $length;
+                        $status=(int)$match[1]; $headers=[]; $body=''; $expected=null; $collectHeaders=true;
+                    }
+                    if(!$collectHeaders)return $length;
+                    if(trim($line)===''){
+                        $collectHeaders=false;
+                        if($status>=200&&$status<300){
+                            $expected=self::contentLengthFromHeaders($headers);
+                            if($expected!==null&&$expected>$maxBytes){$oversize=true;return 0;}
+                        }
+                    }else $headers[]=rtrim($line,"\r\n");
+                    return $length;
+                },
+                CURLOPT_WRITEFUNCTION=>static function($handle,string $chunk)use(&$body,&$status,&$oversize,$maxBytes):int {
+                    // Redirect bodies are not part of the final media, even when their declared length is huge.
+                    if($status>=300&&$status<400)return strlen($chunk);
+                    if(strlen($body)+strlen($chunk)>$maxBytes){$oversize=true;return 0;}
+                    $body.=$chunk;return strlen($chunk);
+                },
+            ]);
+            $ok=curl_exec($curl);$errno=curl_errno($curl);$http=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);
+            if($ok===false){
+                $body='';
+                if($oversize)throw new Exception('生成音乐下载失败，文件过大');
+                if($errno===CURLE_OPERATION_TIMEDOUT)throw new Exception('生成音乐下载超时');
+                if($errno===CURLE_PARTIAL_FILE)throw new Exception('生成音乐下载不完整');
+                throw new Exception('生成音乐下载读取失败');
             }
-            $expected=self::contentLengthFromHeaders($headers);
-            if ($expected !== null && $expected > $maxBytes) throw new Exception('生成音乐下载失败，文件过大');
-            $content='';
-            while (!feof($stream)) {
-                $chunk=@fread($stream,8192); $meta=stream_get_meta_data($stream);
-                if (!empty($meta['timed_out'])) throw new Exception('生成音乐下载超时');
-                if ($chunk === false || ($chunk === '' && !feof($stream))) throw new Exception('生成音乐下载读取失败');
-                if (strlen($content)+strlen($chunk)>$maxBytes) throw new Exception('生成音乐下载失败，文件过大');
-                $content.=$chunk;
-            }
-            if ($expected !== null && strlen($content)!==$expected) throw new Exception('生成音乐下载不完整');
-            return [$content,$headers];
-        } finally { fclose($stream); }
+            if($status!==$http)throw new Exception('生成音乐下载读取失败');
+            if($expected!==null&&strlen($body)!==$expected)throw new Exception('生成音乐下载不完整');
+            return [$body,$headers];
+        } finally { curl_close($curl); }
     }
 
     /** Null means HTTP framing does not supply a length, including decoded chunked bodies. */
