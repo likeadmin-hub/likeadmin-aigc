@@ -1,5 +1,6 @@
 <?php
 /** Configured OSS writes only synthetic owned output objects; no provider AI calls. Secrets never leave server memory/owned SQL/cache. */
+require __DIR__.'/Support/MarketCloudTransportFault.php';
 require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();
 require __DIR__.'/Support/MarketWorkerFixture.php';
 use think\facade\Db;
@@ -12,6 +13,7 @@ if(($argv[1]??'')==='--worker'){
     // The owner alone creates this one-shot barrier. Stop after OSS accepted the
     // bytes and before the file/receipt transaction can commit.
     $dir=$argv[3];
+    MarketCloudTransportFault::activate($dir);
     if(is_file($dir.'/cloud-crash-next')&&rename($dir.'/cloud-crash-next',$dir.'/cloud-crash-claimed')){
         Db::event('after_insert',static function($query)use($dir){
             if(!str_ends_with($query->getTable(),'tenant_file'))return;
@@ -23,7 +25,7 @@ if(($argv[1]??'')==='--worker'){
     exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
 }
 $kind=$argv[1]??'';MarketWorkerFixture::check(in_array($kind,['image','video','audio'],true),'Pass image/video/audio');
-$mode=$argv[2]??'normal';MarketWorkerFixture::check(in_array($mode,['normal','crash-after-upload'],true),'Pass normal or crash-after-upload');
+$mode=$argv[2]??'normal';MarketWorkerFixture::check(in_array($mode,['normal','crash-after-upload','upload-not-sent','upload-ack-lost'],true),'Pass normal, crash-after-upload, upload-not-sent or upload-ack-lost');
 $cloud=StorageConfigService::getConfiguredStorageConfig(1,'aliyun');
 $names=['ai_app_task','ai_consumption_log','ai_consumption_event','ai_task_job','ai_task_result_asset','tenant_file','tenant','user','config','tenant_config','app','tenant_app_config','aigc_image_task','aigc_image_result','aigc_image_billing','aigc_image_quota','aigc_short_drama_config','power_market_product','power_market_sku','tenant_power_market_sku_price','power_market_price_rule','aigc_image_channel','aigc_image_channel_spec','aigc_video_channel','aigc_video_channel_spec','aigc_llm_config','aigc_video_task','aigc_video_result','aigc_video_billing','aigc_video_quota','aigc_video_config','aigc_product_promo_video_task','aigc_music_task','aigc_music_result','aigc_music_billing','aigc_music_quota'];
 
@@ -47,6 +49,8 @@ try{
     $cfg=$cloud['engine']['aliyun'];$oss=new OSS\OssClient($cfg['access_key'],$cfg['secret_key'],$cfg['domain'],true);app\common\service\storage\StorageOperationTimeout::oss($oss,$cfg);
     $frozen=AiConsumptionLog::find($c['id'])->toArray();
     if($mode==='crash-after-upload')file_put_contents($dir.'/cloud-crash-next','1');
+    $networkFault=in_array($mode,['upload-not-sent','upload-ack-lost'],true);
+    if($networkFault)file_put_contents($dir.'/network-fault-next.json',json_encode(['mode'=>$mode,'object'=>$expected],JSON_THROW_ON_ERROR));
     $fixture->start(__FILE__,$appCode);
     if($mode==='crash-after-upload'){
         MarketWorkerFixture::wait(fn()=>is_file($dir.'/cloud-uploaded-before-commit'),'Cloud worker did not reach receipt barrier',45);
@@ -57,6 +61,18 @@ try{
         $fixture->stop('worker',true);
         MarketWorkerFixture::check(AiTaskResultAsset::find($id)['transfer_status']==='external','Killed cloud worker committed the asset');
         $report+=['killed_after_cloud_upload_before_receipt_commit'=>true,'cloud_bytes_verified_before_kill'=>true,'uncommitted_receipt_invisible'=>true];
+        $fixture->start(__FILE__,$appCode,'recovery');
+    }
+    if($networkFault){
+        MarketWorkerFixture::wait(fn()=>is_file($dir.'/network-fault-observed.json')&&Db::name('ai_task_job')->where('id',$job['id'])->value('status')==='retrying','Owned cloud transport failure did not retain retry scheduling',45);
+        $fixture->stop();
+        $fault=json_decode(file_get_contents($dir.'/network-fault-observed.json'),true,512,JSON_THROW_ON_ERROR);
+        MarketWorkerFixture::check($fault['mode']===$mode,'Wrong cloud interruption mode');
+        MarketWorkerFixture::check((int)Db::name('tenant_file')->count()===0&&AiTaskResultAsset::find($id)['transfer_status']!=='stored','Unacknowledged cloud upload was published');
+        $exists=$oss->doesObjectExist($cfg['bucket'],$expected);
+        MarketWorkerFixture::check($exists===($mode==='upload-ack-lost'),'Cloud presence did not match the injected boundary');
+        if($exists)MarketWorkerFixture::check(hash('sha256',$oss->getObject($cfg['bucket'],$expected))===hash('sha256',$media),'Accepted cloud bytes differ before retry');
+        $report+=['transport_fault'=>$fault,'no_file_receipt_before_retry'=>true,'cloud_object_present_before_retry'=>$exists,'original_billing_retained'=>AiConsumptionLog::find($c['id'])['billing_status']==='settled'];
         $fixture->start(__FILE__,$appCode,'recovery');
     }
     MarketWorkerFixture::wait(fn()=>Db::name($businessTable)->where('id',$business)->value('status')==='success','Cloud business result did not finish',45);
@@ -78,18 +94,18 @@ try{
     MarketWorkerFixture::check(array_diff_key($frozen,$projectionFields)===array_diff_key($afterConsumption,$projectionFields),'Cloud recovery changed frozen billing or request fields');
     MarketWorkerFixture::check(($afterConsumption['response_summary'][$key][0][$uriKey]??null)===$expected,'Cloud consumption did not project its managed result');
     $attempts=(int)Db::name('ai_task_job')->where('id',$job['id'])->value('attempts');
-    if($mode==='crash-after-upload')MarketWorkerFixture::check($attempts>=2,'Cloud recovery did not reclaim the naturally expired lease');
+    if($mode!=='normal')MarketWorkerFixture::check($attempts>=2,'Cloud recovery did not execute the original retry');
     foreach(['tenant_file','ai_task_result_asset']as$table)MarketWorkerFixture::check((int)Db::name($table)->count()===1,'Duplicate cloud result registration');
     MarketWorkerFixture::check((int)Db::name($resultTable)->where('task_id',$business)->count()===1,'Duplicate cloud business result');
     $report+=['storage_scope'=>$asset['storage_scope'],'storage_engine'=>$asset['storage_engine'],'storage_domain_sha256'=>hash('sha256',$asset['storage_domain']),
         'object_uri_sha256'=>hash('sha256',$expected),'readback_sha256'=>hash('sha256',$bytes),'readback_bytes'=>strlen($bytes),'file_records'=>(int)Db::name('tenant_file')->count(),
         'result_assets'=>(int)Db::name('ai_task_result_asset')->count(),'business_results'=>(int)Db::name($resultTable)->where('task_id',$business)->count(),'receipt_mime'=>$receipt['mime_type']??'',
         'ownership_and_storage_match'=>true,'terminal_replay_unchanged'=>true,'wallets_unchanged'=>true,'frozen_billing_and_request_unchanged'=>true,'managed_consumption_projection'=>true,'transfer_attempts'=>$attempts,
-        'natural_lease_expiry_recovered'=>$mode==='crash-after-upload'];
+        'natural_lease_expiry_recovered'=>$mode==='crash-after-upload','transport_retry_recovered'=>$networkFault];
 }catch(Throwable $error){$failure=$error;$message=$error->getMessage();foreach($cloud['engine']['aliyun']as$value)if(is_string($value)&&$value!=='')$message=str_replace($value,'[redacted]',$message);$report['failure_class']=get_class($error);$report['failure_reason']=mb_substr($message,0,200);$report['failure_fingerprint']=hash('sha256',$error->getMessage());$report['stage_failed']=true;
     if($fixture)foreach(glob($fixture->dir.'/*.log')?:[]as$log)fwrite(STDERR,basename($log).': '.mb_substr(preg_replace('~https?://[^\s]+~','[storage-url]',file_get_contents($log)),-2000)."\n");
 }finally{
-    $deleted=0;if($fixture){$fixture->stop();$driver=new Driver($cloud);
+    $deleted=0;if($fixture){foreach(['worker','recovery','repeat']as$role)$fixture->stop($role);$driver=new Driver($cloud);
         foreach($objects as$object){MarketWorkerFixture::check(str_starts_with($object,'uploads/ai_result/'.$fixture->tenant.'/'.$fixture->user.'/asset-'),'Not an owned cleanup key');
             try{if(!$driver->delete($object))throw new RuntimeException('Owned object cleanup failed');
                 if($oss&&$oss->doesObjectExist($cloud['engine']['aliyun']['bucket'],$object))throw new RuntimeException('Owned object still exists after deletion');
