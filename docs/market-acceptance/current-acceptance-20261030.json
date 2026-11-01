@@ -10594,12 +10594,15 @@
     },
     {
       "file": "docs/market-acceptance/agent-stream-chain-batch-66-20261101.json",
-      "sha256": "662654af218fbfbb14d581a1a693a58ea14d208eff7bb8d8fea90e43a67a0726",
+      "sha256": "51e9ec4f5b6159687760265ef813502e99429add91ae782114345ae68ede2f21",
       "scope": "Dedicated Agent/native text-stream chains using private normal-login HTTP, cloned SQL, synthetic loopback suppliers and owned production workers. No real provider generation/query, wallet or task writes.",
       "source_commits": {
-        "source_server_commit": "867c71c851a65bfe5758329e5c01ff8bcb9543df",
-        "http_source_server_commit": "b5ff18d9d",
-        "source_web_commit": "ebb7bb64459aa57ca0fb48740752077c7e4c21f7"
+        "source_server_commit": "4c873d7f2",
+        "http_source_server_commit": "4c873d7f2",
+        "source_web_commit": "b8b4461cf8a0ac0d2ba1d084d595f2c17dea76b2",
+        "prior_regression_source_server_commit": "867c71c851a65bfe5758329e5c01ff8bcb9543df",
+        "regression_source_server_commit": "6f4078a3db30e620440b781a854c60e6d85aeb9e",
+        "prior_source_web_commit": "ebb7bb64459aa57ca0fb48740752077c7e4c21f7"
       },
       "historical_reproduction": false
     },
@@ -114190,7 +114193,7 @@
       "material_mode": null,
       "sku_id": null,
       "entry": null,
-      "scenario": "frontend_657",
+      "scenario": "frontend_659",
       "identity": null,
       "historical_reproduction": false,
       "coverage_level": "original_source_scope_only",
