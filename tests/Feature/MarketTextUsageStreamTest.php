@@ -55,6 +55,8 @@ $partial=method('providerException')->invoke(null,'Synthetic interrupted stream'
 check($partial instanceof \app\common\service\power\MarketTextModelProviderException && $partial->partialResult['content']==='已收到正文' && !$partial->allowsModelFallback,'OpenAI partial text was treated as an unaccepted provider failure');
 $toolPartial=method('providerException')->invoke(null,'Synthetic interrupted tools',true,['tool_calls'=>[['id'=>'partial-call']],'usage'=>[]]);
 check($toolPartial->partialResult!==null && $toolPartial->partialResult['tool_calls']===[] && !$toolPartial->allowsModelFallback,'Partial tools could be executed or retried');
+$usageOnly=method('providerException')->invoke(null,'Synthetic usage-only failure',true,['usage'=>['prompt_tokens'=>20,'completion_tokens'=>0]]);
+check($usageOnly->partialResult['usage']['prompt_tokens']===20 && !$usageOnly->allowsModelFallback,'Usage-only provider evidence was discarded or allowed automatic retry');
 $rejection=method('providerException')->invoke(null,'Synthetic local rejection',true,[]);
 check($rejection->partialResult===null && $rejection->allowsModelFallback,'Output-free definitive rejection lost its original retry contract');
 $units=$same;$units['input']['usage_unit_size']=1000;$units['output']['usage_unit_size']=1000000;
