@@ -1836,7 +1836,7 @@ class MarketTextModelRuntimeService
             'content' => (string)($state['content'] ?? ''),
             'content_source' => (string)($state['content_source']??'content'),
             'protocol_evidence' => self::protocolEvidence($state),
-            'provider_request_id' => (string)$state['request_id'],
+            'provider_request_id' => (string)($state['request_id'] ?? ''),
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],
