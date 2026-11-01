@@ -8,7 +8,7 @@
 
 任务目录 `/Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc`；服务端和前端为独立仓库。任务分支均为 `feature/short-drama-next-optimization`。本台账记录批次目标、验收边界和游标，后续逐资源矩阵应持续补充，不另起一个只写计划、不实施的循环。
 
-最新游标：[批次75](market-acceptance/batch-75-20261101.md)、[全部范围完成／剩余](market-acceptance/full-scope-completion-batch-75-20261101.md)、[当前逐资源证据状态](market-acceptance/current-state-20261030.md)。用户已撤销前后端“常规视频／视频工具”分类拆分及新入口，改由上游API平台调整分类，本地只补模型价格同步的分类边界，未执行实际同步。声音、质量等常规控件保留，可选主体／角色隐藏。批次29／30的持久化边界继续保留。
+最新游标：[批次76](market-acceptance/batch-76-20261101.md)、[完整可执行方案／智能体分工](market-full-completion-execution-plan-20261101.md)、[工作项／依赖](market-full-completion-work-items-20261101.json)、[当前逐资源证据状态](market-acceptance/current-state-20261030.md)。本轮三个子智能体在当前对话内协作，非新聊天或新定时任务；正式资料／实际环境仍有明确等待条件。用户已撤销前后端“常规视频／视频工具”分类拆分及新入口，改由上游API平台调整分类，本地只补模型价格同步的分类边界，未执行实际同步。声音、质量等常规控件保留，可选主体／角色隐藏。批次29／30的持久化边界继续保留。
 
 ## 当前已知基线
 
