@@ -34,7 +34,7 @@ final class ChatSubmission
             $usage=(array)$message['token_usage_json'];$state=['message_id'=>(int)$message['id'],'content'=>(string)$message['content'],'status'=>(string)$message['status']];
             if($state!==$previous){$emit('snapshot',$state);$previous=$state;}
             if(in_array($message['status'],['done','stopped'],true)){$emit('done',$state+['finish_reason'=>$message['finish_reason'],'usage'=>$usage,'billing'=>$usage['billing']??[]]);return;}
-            if($message['status']==='error'){$emit('error',$state+['terminal'=>!in_array($usage['billing']['billing_status']??'', ['pending_usage','settlement_failed','needs_review'],true),'message'=>'本次回复已结束，请查看历史记录；重新生成会建立新请求']);return;}
+            if($message['status']==='error'){$review=in_array($usage['billing']['billing_status']??'', ['pending_usage','settlement_failed','needs_review'],true);$emit('error',$state+['terminal'=>!$review,'message'=>$review?'收到的回复已保留，费用待核对，请勿重复提交':'本次回复已结束，请查看历史记录；重新生成会建立新请求']);return;}
             if(microtime(true)>=$until)break;
             usleep(100000);
         }while(true);
