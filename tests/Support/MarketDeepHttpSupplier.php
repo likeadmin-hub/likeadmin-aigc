@@ -24,7 +24,7 @@ function marketDeepSupplier(string $path,string $dir): bool
             $async=str_ends_with($path,'tts_async');$record($async?'agent_tts_async':'agent_tts');
             echo json_encode(['code'=>1,'data'=>$async?['task_id'=>'agent-tts-async-1','status'=>'pending']:['result'=>['audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]]);return true;
         }
-        if($path==='/api/v1/tasks/agent-tts-async-1'){echo json_encode(['code'=>1,'data'=>['task_id'=>'agent-tts-async-1','status'=>'success','audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]);return true;}
+        if($path==='/api/v1/tasks/agent-tts-async-1'){echo json_encode(['code'=>1,'data'=>['task_id'=>'agent-tts-async-1','status'=>'success','result'=>['audio_url'=>'https://private-media.example.test/fixture/agent-speech.mp3']]]);return true;}
     }
     if($path==='/api/v1/apps/voice_tts/tts_live') {
         $record('tts');echo json_encode(['code'=>1,'data'=>['task_id'=>'deep-tts-1','status'=>'running']]);return true;
