@@ -29,6 +29,7 @@ final class CompiledAssets
     public static function entry(string $scope = 'pc'): string
     {
         $html = self::publicRoot($scope) . (($scope === 'pc' && getenv('TEST_PC_PUBLIC_DIR') !== false) ? '/index.html' : '/' . $scope . '/index.html');
+        if ($scope === 'pc' && getenv('TEST_PC_ENTRY_HTML') !== false) $html = getenv('TEST_PC_ENTRY_HTML');
         Assert::assertFileExists($html);
         $source = (string)file_get_contents($html);
         Assert::assertSame(1, preg_match('~<script[^>]*type="module"[^>]*src="([^"?]+\.js)"~', $source, $matches), $html);
