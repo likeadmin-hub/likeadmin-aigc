@@ -14,6 +14,7 @@ if(($argv[1]??'')==='--worker'){
     // Keep production public-address validation for images, but open only our own loopback socket.
     if($argv[4]==='aigc_image'){putenv('AIGC_HTTP_FIXTURE_DIR='.$argv[3]);require __DIR__.'/Support/MarketDeepHttpTransport.php';}
     $command=new app\common\command\AiTaskWorker();
+    file_put_contents($argv[3].'/worker-entry-'.getmypid(),(string)getmypid());
     exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));
 }
 $kind=$argv[1]??'';$mode=$argv[2]??'';
@@ -55,7 +56,7 @@ ROUTER
     $businessTable='aigc_'.$native.'_task';$resultTable='aigc_'.$native.'_result';$billingTable='aigc_'.$native.'_billing';$key=['image'=>'images','video'=>'videos','audio'=>'items'][$kind];$uriKey=['image'=>'image_uri','video'=>'video_uri','audio'=>'audio_uri'][$kind];
     $summary=[$key=>[[$uriKey=>$uri]+($kind==='video'?['width'=>32,'height'=>32]:['title'=>'Synthetic silence'])]];
     $task=AiAppTask::create(['task_no'=>$prefix.'task','tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$appCode,'action_code'=>'generate','business_table'=>$businessTable,'business_id'=>0,'status'=>'success','progress'=>100,'idempotency_key'=>$prefix.'task','create_time'=>time(),'update_time'=>time(),'finish_time'=>0]);
-    $c=AiConsumptionLog::create(['consume_no'=>$prefix.'consumption','app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$appCode,'action_code'=>'generate','resource_type'=>'model','provider'=>'power_market','protocol'=>$kind.'_generate','quantity'=>1,'price_snapshot'=>['platform_price'=>0,'tenant_price'=>0],'usage_snapshot'=>[],'request_summary'=>['owned_fixture'=>'source-expiry','original_intent'=>$prefix.'intent'],'response_summary'=>$summary,'run_status'=>'success','billing_status'=>'settled','reserved_tenant_cost'=>0,'reserved_user_price'=>0,'actual_tenant_cost'=>0,'actual_user_price'=>0,'create_time'=>time(),'update_time'=>time(),'finish_time'=>time()]);
+    $c=AiConsumptionLog::create(['consume_no'=>$prefix.'consumption','app_task_id'=>$task['id'],'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>$appCode,'action_code'=>'generate','resource_type'=>'model','provider'=>'power_market','protocol'=>$kind.'_generate','quantity'=>1,'price_snapshot'=>['platform_price'=>1.25,'tenant_price'=>2.75,'market_sku_id'=>770001,'revision'=>'synthetic-frozen-v1'],'usage_snapshot'=>['total_tokens'=>37,'source'=>'synthetic-original-receipt'],'request_summary'=>['owned_fixture'=>'source-expiry','original_intent'=>$prefix.'intent'],'response_summary'=>$summary,'run_status'=>'success','billing_status'=>'settled','reserved_tenant_cost'=>3.5,'reserved_user_price'=>4.25,'actual_tenant_cost'=>1.25,'actual_user_price'=>2.75,'create_time'=>time(),'update_time'=>time(),'finish_time'=>time()]);
     $business=Db::name($businessTable)->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'app_task_id'=>$task['id'],'provider'=>$kind==='audio'?'market_music_generation':'power_market','channel'=>'offline-fixture','quality'=>'fixture','ratio'=>'1:1','quantity'=>1,'prompt'=>'Owned synthetic receipt; no generation','status'=>'running','delete_time'=>0,'create_time'=>time(),'update_time'=>time()]+($kind==='image'?[]:($kind==='audio'?['title'=>'Synthetic silence']:['model_json'=>json_encode(['resource_type'=>'model','duration'=>1])])));
     if($kind!=='image')Db::name($businessTable)->where('id',$business)->update(['consumption_id'=>$c['id']]);$task->save(['business_id'=>$business]);
     $assets=Assets::recordConsumptionAssets((int)$c['id'],true);MarketWorkerFixture::check(count($assets)===1,'Missing original result asset');$id=(int)$assets[0]['id'];$job=Db::name('ai_task_job')->where('result_asset_id',$id)->find();
@@ -104,7 +105,11 @@ ROUTER
         $view=View::read((int)$task['id'],$tenant,$user);MarketWorkerFixture::check($view['status']==='success'&&count($view['results'])===1&&(int)$view['results'][0]['result_asset_id']===$id&&$view['results'][0]['uri']===$expected,'History did not use the same managed result');
         Assets::transfer($id);MarketWorkerFixture::check(Business::syncTerminalByConsumptionId((int)$c['id']),'Stored business replay failed');
     }
-    $fixture->start(__FILE__,$appCode,'repeat');usleep(1200000);$fixture->stop('repeat');
+    $priorEntries=glob($dir.'/worker-entry-*')?:[];$fixture->start(__FILE__,$appCode,'repeat');
+    MarketWorkerFixture::wait(fn()=>count(array_diff(glob($dir.'/worker-entry-*')?:[],$priorEntries))===1,'Repeat worker did not initialize',5);
+    $entry=array_values(array_diff(glob($dir.'/worker-entry-*')?:[],$priorEntries))[0];$repeatPid=(int)file_get_contents($entry);
+    usleep(1200000);MarketWorkerFixture::check($repeatPid>0&&posix_kill($repeatPid,0),'Repeat worker exited before observing terminal queue');$fixture->stop('repeat');
+    $report['repeat_worker_observed_running']=true;$report['nonzero_frozen_cost_and_nonempty_usage_retained']=true;
     MarketWorkerFixture::check($stable===$snapshot()&&count($sourceRequests())===$beforeRequests,'Stored replay changed terminal rows or requested original source');
     clearstatcache(true,$path);$replayedStat=stat($path);MarketWorkerFixture::check($stat['ino']===$replayedStat['ino']&&$stat['mtime']===$replayedStat['mtime']&&hash_file('sha256',$path)===hash('sha256',$media),'Stored replay rewrote managed bytes');
     foreach(['ai_app_task','ai_consumption_log','ai_task_result_asset','tenant_file',$resultTable]as$table)MarketWorkerFixture::check((int)Db::name($table)->count()===1,'Duplicate task/consumption/result after replay');
