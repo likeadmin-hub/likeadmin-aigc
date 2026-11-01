@@ -34,6 +34,7 @@ final class MarketGenerationRules
                 case 'keyframes': $times=[]; foreach ($input['keyframes'] ?? [] as $frame) if (isset($frame['timestamp_s'])) { $time=$frame['timestamp_s']; if ($time<=0 || $time>=($input['duration'] ?? 8)) $bad=true; $times[]=$time; } sort($times); for ($i=1;$i<count($times);$i++) if ($times[$i]-$times[$i-1]<1/3) $bad=true; break;
                 case 'kling3_shots': $bad=(!empty($input['customize_multi_shots']) && !empty($input['prefer_multi_shots'])) || (!empty($input['customize_multi_shots']) === empty($input['multi_prompt'])) || array_sum(array_column($input['multi_prompt']??[],'duration'))>15; break;
                 case 'kling4': $bad=!MarketGenerationKlingRules::valid($rule['check'],$input); break;
+                case 'owned_platform': $bad=!MarketOwnedPlatformContractRules::valid($rule,$input); break;
                 case 'oct24_urls':
                     foreach (array_merge($input['image_urls'] ?? [],isset($input['audio_url']) ? [$input['audio_url']] : []) as $url) { $parts=is_string($url) ? parse_url($url) : false; if (!$parts || !in_array(strtolower($parts['scheme'] ?? ''),['http','https'],true) || isset($parts['user']) || isset($parts['pass'])) $bad=true; }
                     if (isset($input['prompt']) && trim($input['prompt']) === '') $bad=true; break;

@@ -213,7 +213,7 @@ class MarketImageModelRuntimeService
         $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, 0, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
-        $market = self::meterMarket($market, $selection, $deferMissingPrompt, $tenantId);
+        $market = self::meterMarket($market, $selection, $deferMissingPrompt, $tenantId, $quantity);
         return self::quoteMarket($market, $quantity, $billingOverride) + ['follow_market_prices' => MarketPriceRuleService::followsApps($tenantId)];
     }
 
@@ -221,11 +221,11 @@ class MarketImageModelRuntimeService
     public static function openPlatformAdmissionQuote(int $tenantId, array $selection, int $quantity): array
     {
         $market = self::resolve($tenantId, $selection);
-        $market = self::meterMarket($market, $selection, false, $tenantId);
+        $market = self::meterMarket($market, $selection, false, $tenantId, $quantity);
         return ['market' => $market, 'quote' => self::quoteMarket($market, $quantity, [])];
     }
 
-    private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false, int $tenantId = 0): array
+    private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false, int $tenantId = 0, ?int $quantity = null): array
     {
         $meter = MarketUsageSettlementService::isActualUsageSku($market['sku'])
             ? MarketGenerationMeter::tokenContract($market['sku']) : MarketGenerationMeter::contract($market['sku']);
@@ -236,7 +236,9 @@ class MarketImageModelRuntimeService
         if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
         // Fixed-price legacy models also need full preflight before a quote or
         // reservation. Their historical per-image billing semantics stay intact.
-        $prepared = self::prepareRequest(self::snapshot($market), $selection, $tenantId, $deferMissingPrompt);
+        $snapshot=self::snapshot($market);
+        if (MarketGenerationPixelMeter::applies($meter) && $quantity!==null) $snapshot['reserved_image_quantity']=$quantity;
+        $prepared = self::prepareRequest($snapshot, $selection, $tenantId, $deferMissingPrompt);
         if (MarketGenerationMeter::isExplicit($meter)) $market['meter_context'] = $prepared->meterContext;
         return $market;
     }
@@ -260,6 +262,13 @@ class MarketImageModelRuntimeService
             self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt),
             $snapshot['billing_meter'] ?? null, [], $declaredKinds
         );
+        $pixelMeter=(array)($snapshot['billing_meter']??[]);
+        if (MarketGenerationPixelMeter::applies($pixelMeter)) {
+            $reserved=$snapshot['reserved_image_quantity']??$pixelMeter['maximum_images'];
+            if (!is_int($reserved)) throw new Exception('冻结图片预占数量无效');
+            MarketGenerationPixelMeter::assertRequestQuantity($pixelMeter,$prepared->nativeInput,$reserved,
+                MarketGenerationAdapterRegistry::modelProtocol('image',$snapshot));
+        }
         $schema=self::arrayValue($metadata['params_schema']??[]);$schema=self::arrayValue($schema['properties']??$schema);
         $imageUses=count(array_filter(MarketGenerationMaterials::assets($request),static fn($a)=>($a['type']??'image')==='image'));
         $undeclaredReferenceField=$imageUses>0 && $schema!==[] && MarketGenerationMaterials::modes($metadata)===[]
@@ -318,7 +327,7 @@ class MarketImageModelRuntimeService
         $quantity = max(1, $quantity);
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         self::assertImageQuantity($market, $quantity);
-        $market = self::meterMarket($market, $request, false, $tenantId);
+        $market = self::meterMarket($market, $request, false, $tenantId, $quantity);
         $bounded=MarketGenerationMeter::boundedToken((array)($market['billing_meter']??[]));
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku'])&&!$bounded;
         if (($deferredUsage||$bounded) && $billingOverride !== []) {

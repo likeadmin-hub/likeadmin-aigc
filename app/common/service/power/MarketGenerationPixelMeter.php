@@ -37,6 +37,37 @@ final class MarketGenerationPixelMeter
         return $images*$meter['maximum_pixels_per_image']/1000000;
     }
 
+    /** Inspect the encoded model payload, never UI aliases or provider estimates. */
+    public static function assertRequestQuantity(array $meter, array $native, int $reservedImages, string $protocol = 'flat_image_v1'): void
+    {
+        self::upperBound($meter,$reservedImages);
+        if (in_array($protocol,['image_messages_v1','qwen_image_v1'],true)) {
+            // These encoders always emit parameters.n; a top-level business n is not its replacement.
+            if (!is_array($native['parameters']??null) || !array_key_exists('n',$native['parameters']))
+                throw new InvalidArgumentException('结构化原生图片数量缺失');
+            $native=$native['parameters'];
+        } else {
+            // V3 currently proves only flat native count fields. Do not recursively guess a count
+            // inside an opaque object/array-of-objects; such a protocol needs a reviewed mapping.
+            foreach($native as$field=>$value)if($field!=='storage'&&is_array($value)
+                && (!array_is_list($value)||array_filter($value,'is_array')!==[]))
+                throw new InvalidArgumentException('当前嵌套原生请求尚不能核验图片数量');
+        }
+        $count=null;
+        foreach (['n','num_images'] as $field) {
+            if (!array_key_exists($field,$native)) continue;
+            $value=$native[$field];
+            if ((!is_int($value) && !(is_string($value) && preg_match('/^[1-9][0-9]*$/D',$value)))
+                || ($quantity=filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>$meter['maximum_images']]]))===false)
+                throw new InvalidArgumentException('原生图片数量无效或超过像素计量合同上限');
+            if ($count!==null && $count!==$quantity) throw new InvalidArgumentException('原生图片数量字段冲突');
+            $count=$quantity;
+        }
+        // Existing encoders omit a count when the model declares no count field.
+        // That is one output request, not permission to invent a native n field.
+        if (($count??1)>$reservedImages) throw new InvalidArgumentException('原生图片数量超过冻结预占数量');
+    }
+
     /** Only a declared result list; preserve repeated output slots, never read width/height here. */
     public static function urls(array $meter, array $response): array
     {

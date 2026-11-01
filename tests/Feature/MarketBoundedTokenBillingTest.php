@@ -75,6 +75,38 @@ class MarketBoundedTokenBillingTest extends TestCase
         self::assertSame(2.5,Meter::price(10.,250.,['usage_unit_size'=>1000]));
         $this->expectExceptionMessage('Token 费用上限');Meter::tokenContract(['usage_unit'=>'token']);
     }
+
+    /** @dataProvider seedanceSourceRows */
+    public function testSeedanceRawResultUsageNeverFallsBackToTheDerivedTopLevel(array $candidate): void
+    {
+        // A synthetic hard bound exercises the shared implementation only. The real candidate remains unbounded/blocked.
+        self::assertNull($candidate['maximum_billable_tokens']);self::assertFalse($candidate['activation_authorized']);
+        $declaration=array_replace(self::declaration(),['usage_path'=>$candidate['observed_result_usage_path']]);
+        $meter=Meter::tokenContract(self::sku($declaration));$snapshot=['billing_meter'=>$meter,'usage_unit'=>'token','usage_unit_size'=>1000,'quantity'=>1000];
+        $frozen=json_decode(json_encode($snapshot),true);
+        foreach([0,900,1001]as$derived){
+            $response=['total_tokens'=>999,'data'=>['usage'=>['total_tokens'=>$derived],'result'=>['usage'=>['total_tokens'=>'250']]]];$wire=$response;
+            self::assertSame(250.,Usage::boundedTokenUsage($response,$frozen['billing_meter']));
+            self::assertSame(250.,Videos::openPlatformSettlementQuantity($frozen,$response));
+            self::assertSame(2.5,Meter::price(10.,250.,$frozen));self::assertSame($wire,$response);
+        }
+        foreach([null,0,-1,true,250.5,'1e2',[]]as$missing){
+            $response=['data'=>['usage'=>['total_tokens'=>250],'result'=>['usage'=>['total_tokens'=>$missing]]]];
+            self::assertSame(0.,Usage::boundedTokenUsage($response,$frozen['billing_meter']));
+            self::assertNull(Videos::openPlatformSettlementQuantity($frozen,$response));
+        }
+        self::assertSame(0.,Usage::boundedTokenUsage(['data'=>['usage'=>['total_tokens'=>250]]],$frozen['billing_meter']));
+        // A different newly reviewed path must not reinterpret the original frozen receipt.
+        Meter::tokenContract(self::sku(self::declaration()));self::assertSame($snapshot,$frozen);
+        $this->expectExceptionMessage('超过冻结合同上限');
+        Usage::boundedTokenUsage(['data'=>['usage'=>['total_tokens'=>1],'result'=>['usage'=>['total_tokens'=>1001]]]],$frozen['billing_meter']);
+    }
+
+    public static function seedanceSourceRows(): array
+    {
+        $source=json_decode(file_get_contents(dirname(__DIR__).'/fixtures/market-meter-source-candidates-20261101.json'),true,512,JSON_THROW_ON_ERROR);
+        return array_map(static fn($row)=>[$row],array_values(array_filter($source['rows'],static fn($row)=>$row['resource_type']==='app_api')));
+    }
     /** @dataProvider lifecycleScenarios */
     public function testLocalRollbackReservationReceiptsRefundAndIdempotency(string $scenario): void
     {
@@ -92,7 +124,8 @@ class MarketBoundedTokenBillingTest extends TestCase
                 'material_capabilities'=>['modes'=>[['code'=>'text_to_video','method'=>'text_to_video','fields'=>[]]]],
                 'category_code'=>'video','supported_durations'=>[4],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1']];
             $p=PowerMarketProduct::create(['product_code'=>$key,'name'=>'Offline bounded Token fixture','resource_type'=>'model','model_type'=>'video','source_code'=>'offline-fixture','upstream_resource_key'=>$key,'upstream_model_code'=>'offline-video','upstream_channel_code'=>'offline','source_payload'=>['market_metadata'=>$meta],'status'=>1,'create_time'=>time(),'update_time'=>time()]);
-            $sku=PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$key,'title'=>'Offline fixture','locked_params'=>['duration'=>4,'resolution'=>'720P'],'usage_unit'=>'token','usage_unit_size'=>1000,'upstream_price'=>10,'sale_points'=>10,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>self::declaration()],'create_time'=>time(),'update_time'=>time()]);
+            $declaration=self::declaration();if(str_starts_with($scenario,'nested_'))$declaration['usage_path']='data.result.usage.total_tokens';
+            $sku=PowerMarketSku::create(['product_id'=>$p['id'],'sku_key'=>$key,'title'=>'Offline fixture','locked_params'=>['duration'=>4,'resolution'=>'720P'],'usage_unit'=>'token','usage_unit_size'=>1000,'upstream_price'=>10,'sale_points'=>10,'sale_status'=>1,'status'=>1,'source_payload'=>['meter_contract'=>$declaration],'create_time'=>time(),'update_time'=>time()]);
             $request=['resource_type'=>'model','model_id'=>'market_video_model:'.$p['id'],'market_sku_id'=>$sku['id'],'prompt'=>'Synthetic bounded Token fixture','duration'=>4,'quality'=>'720P','ratio'=>'1:1','generation_method'=>'text_to_video','maximum_quantity'=>1,'token_budget'=>1];
             $quote=Videos::quote(1,$request);self::assertSame(1000.,$quote['quantity']);self::assertSame(10.,$quote['user_charge_points']);self::assertSame('actual_usage',$quote['settlement_mode']);
             $admission=Videos::openPlatformAdmissionQuote(1,$request);
@@ -115,8 +148,9 @@ class MarketBoundedTokenBillingTest extends TestCase
             $prepared=Videos::prepareRequest($snapshot,$request);self::assertArrayNotHasKey('token_budget',$prepared->nativeInput);self::assertArrayNotHasKey('maximum_quantity',$prepared->nativeInput);
             self::assertSame($prepared->nativeInput,Videos::prepareRequest(json_decode(json_encode($snapshot),true),$request)->nativeInput);
             $settle=new \ReflectionMethod(Videos::class,'settle');$videos=[['url'=>'https://fixtures.invalid/offline.mp4']];
-            if($scenario==='missing'){
-                $settle->invoke(null,$id,$videos,'','',['data'=>['metadata'=>['total_tokens'=>250]]]);
+            if(in_array($scenario,['missing','nested_missing'],true)){
+                $missing=$scenario==='nested_missing'?['data'=>['usage'=>['total_tokens'=>250],'result'=>['usage'=>[]]]]:['data'=>['metadata'=>['total_tokens'=>250]]];
+                $settle->invoke(null,$id,$videos,'','',$missing);
                 $pending=(new \ReflectionMethod(Videos::class,'response'))->invoke(null,AiConsumptionLog::find($id)->toArray());self::assertSame('running',$pending['status']);self::assertSame([],$pending['videos']);
                 self::assertSame('reserved',AiConsumptionLog::find($id)['billing_status']);self::assertSame('running',Db::name('ai_app_task')->where('id',$r['app_task_id'])->value('status'));self::assertSame(round($before['user']-10,2),$this->balances($user)['user']);
             }
@@ -129,13 +163,14 @@ class MarketBoundedTokenBillingTest extends TestCase
             }else{
                 // A live price change cannot replace the already reserved contract.
                 $sku->save(['sale_points'=>99,'source_payload'=>['meter_contract'=>array_replace(self::declaration(),['maximum_quantity'=>2000])]]);
-                $receipt=['data'=>['usage'=>['total_tokens'=>250]]];$settle->invoke(null,$id,$videos,'','',$receipt);$settled=$this->balances($user);
+                $receipt=str_starts_with($scenario,'nested_')?['data'=>['usage'=>['total_tokens'=>900],'result'=>['usage'=>['total_tokens'=>250]]]]:['data'=>['usage'=>['total_tokens'=>250]]];
+                $settle->invoke(null,$id,$videos,'','',$receipt);$settled=$this->balances($user);self::assertSame($snapshot,AiConsumptionLog::find($id)['price_snapshot']);
                 self::assertSame(round($before['user']-2.5,2),$settled['user']);self::assertSame('settled',AiConsumptionLog::find($id)['billing_status']);self::assertSame(2.5,(float)AiConsumptionLog::find($id)['actual_user_price']);
                 $settle->invoke(null,$id,$videos,'','',$receipt);Videos::fail($id,'Late failed callback');self::assertSame($settled,$this->balances($user));
             }
         }finally{Db::rollback();}
         self::assertSame(0,(int)Db::name('power_market_product')->where('product_code',$key)->count());
     }
-    public static function lifecycleScenarios(): array{return [['success'],['missing'],['over_bound'],['failure'],['user_insufficient'],['tenant_insufficient']];}
+    public static function lifecycleScenarios(): array{return [['success'],['missing'],['nested_missing'],['nested_conflict'],['over_bound'],['failure'],['user_insufficient'],['tenant_insufficient']];}
     private function balances(int $user): array{return ['tenant'=>(float)Db::name('tenant')->where('id',1)->value('point_balance'),'user'=>(float)Db::name('user')->where('id',$user)->value('user_money')];}
 }
