@@ -30,10 +30,11 @@ function marketAgentTextSupplier(array $input,string $dir): bool
     if($reading)$content=json_encode(['summary'=>'隔离长资料累计摘要。','note'=>'隔离资料分段笔记。'],JSON_UNESCAPED_UNICODE);
     if(!$agent&&str_contains(json_encode($input['messages'],JSON_UNESCAPED_UNICODE),'统一对话决策'))$content=json_encode(['reply_markdown'=>'隔离短剧中文回复。','action'=>['name'=>'respond','arguments'=>new stdClass()],'remember'=>[]],JSON_UNESCAPED_UNICODE);
     if(!$agent&&str_contains($all,'Synthetic drama media sequence'))$content='隔离媒体方案。<canvas-actions>'.json_encode(['nodes'=>[['type'=>'image','title'=>'Synthetic storyboard','prompt'=>'Synthetic storyboard blocks','key'=>'board'],['type'=>'video','title'=>'Synthetic shot','prompt'=>'Synthetic moving blocks','key'=>'shot','depends_on'=>['board']]]],JSON_UNESCAPED_UNICODE).'</canvas-actions>';
+    if(getenv('AIGC_HTTP_AGENT_MEDIA_BOUNDARY_MATRIX')==='1') {require_once __DIR__.'/MarketAgentMediaBoundaryHttpSupplier.php';[$tool,$content]=marketAgentMediaBoundaryReply($input);}
     if(getenv('AIGC_HTTP_DRAMA_WORKFLOW_MATRIX')==='1') {require_once __DIR__.'/MarketDramaWorkflowHttpSupplier.php';$content=marketDramaWorkflowReply($dir);}
     header('Content-Type: text/event-stream');
     $id='agent-'.count(file($dir.'/deep-calls.jsonl'));
-    foreach($tool?[['tool_calls'=>[$tool]]]:array_map(fn($text)=>['content'=>$text],mb_str_split($content,getenv('AIGC_HTTP_DRAMA_WORKFLOW_MATRIX')==='1'?256:3))as$delta){echo 'data: '.json_encode(['id'=>$id,'choices'=>[['index'=>0,'delta'=>$delta,'finish_reason'=>null]]],JSON_UNESCAPED_UNICODE)."\n\n";@ob_flush();flush();usleep(60000);}
+    foreach($tool?[['tool_calls'=>[$tool]]]:array_map(fn($text)=>['content'=>$text],mb_str_split($content,(getenv('AIGC_HTTP_DRAMA_WORKFLOW_MATRIX')==='1'||getenv('AIGC_HTTP_AGENT_MEDIA_BOUNDARY_MATRIX')==='1')?256:3))as$delta){echo 'data: '.json_encode(['id'=>$id,'choices'=>[['index'=>0,'delta'=>$delta,'finish_reason'=>null]]],JSON_UNESCAPED_UNICODE)."\n\n";@ob_flush();flush();usleep(60000);}
     if(str_contains(json_encode($input['messages']), 'Synthetic incomplete stream')){echo 'data: '.json_encode(['error'=>['message'=>'Synthetic interrupted stream']])."\n\n";return true;}
     echo 'data: '.json_encode(['id'=>$id,'choices'=>[['index'=>0,'delta'=>new stdClass(),'finish_reason'=>$tool?'tool_calls':'stop']],'usage'=>['prompt_tokens'=>20,'completion_tokens'=>30,'total_tokens'=>50]])."\n\ndata: [DONE]\n\n";
     return true;

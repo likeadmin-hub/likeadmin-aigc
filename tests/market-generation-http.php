@@ -56,6 +56,10 @@ if(($argv[1]??'')==='--worker') {
     // Owned workers use the same loopback transport mapping as the HTTP roles.
     putenv('AIGC_HTTP_FIXTURE_DIR='.$argv[3]);
     if(!is_dir($argv[3].'/runtime'))mkdir($argv[3].'/runtime',0700,true);app()->setRuntimePath($argv[3].'/runtime/');
+    if($argv[4]==='fixture_agent_once') {
+        app\common\service\app\aigc_llm\agent\AgentExecutionService::tick();
+        file_put_contents($argv[3].'/agent-once-finished','1');exit;
+    }
     if($argv[4]==='fixture_agent_runner') {while(true){app\common\service\app\aigc_llm\agent\AgentExecutionService::tick();usleep(100000);}}
     if($argv[4]==='fixture_drama_agent_runner') {
         $command=new app\common\command\ShortDramaCanvasAgentWorker();
