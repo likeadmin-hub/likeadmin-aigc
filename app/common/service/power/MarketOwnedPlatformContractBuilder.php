@@ -30,13 +30,14 @@ final class MarketOwnedPlatformContractBuilder
         $source=json_decode($sourceArtifact,true,64,JSON_THROW_ON_ERROR);
         if(($source['version']??null)!==1||($source['repository']??'')!==self::REPOSITORY||($source['revision']??'')!==self::REVISION)
             throw new InvalidArgumentException('平台源码证据版本不匹配');
-        $files=[];
+        $files=[];$sourceTexts=[];
         foreach($source['files']??[]as$file){
             if(!is_string($file['path']??null)||isset($files[$file['path']])||!is_string($file['content']??null)
                 ||!hash_equals((string)($file['sha256']??''),hash('sha256',$file['content']))
                 ||!hash_equals((string)($file['git_blob']??''),sha1('blob '.strlen($file['content'])."\0".$file['content'])))
                 throw new InvalidArgumentException('平台源码文件证据不完整');
             $files[$file['path']]=['git_blob'=>$file['git_blob'],'sha256'=>$file['sha256']];
+            $sourceTexts[$file['path']]=$file['content'];
         }
         if(($snapshot['version']??null)!==1||!is_array($snapshot['entries']??null)||!array_is_list($snapshot['entries'])
             ||!is_string($snapshot['captured_at']??null)||strtotime($snapshot['captured_at'])===false)
@@ -63,16 +64,23 @@ final class MarketOwnedPlatformContractBuilder
                 if(!isset($files[$path]))$state['missing_constraints'][]='missing_source_file:'.$path;
                 else $state['sources'][]=['path'=>$path]+$files[$path];
             }
-            if($profile['profile']===null||$state['missing_constraints']!==[]){$bundle['model_states'][]=$state;continue;}
-            $metadata=$row['metadata']??null;
+            $metadata=$row['metadata']??$row['original_saved_metadata']??null;
             if(!is_array($metadata)||array_key_exists(MarketGenerationReviewedContract::PIN,$metadata)){
                 $state['missing_constraints'][]='original_unreviewed_metadata_required';$bundle['model_states'][]=$state;continue;
             }
+            $metadata=self::declarationMetadata($row);
+            $fingerprint=MarketGenerationReviewedContract::declarationFingerprint($metadata);
             $upstream=MarketGenerationSchema::array($metadata['upstream_metadata']??[]);
             if(($upstream['model_code']??'')!==$identity['model_code']
                 ||isset($upstream['channel_code'])&&$upstream['channel_code']!==$identity['channel_code']){
                 $state['missing_constraints'][]='exact_original_public_identity_required';$bundle['model_states'][]=$state;continue;
             }
+            $state['facts']=MarketOwnedPlatformPartialFacts::extract($profile,$metadata,$sourceTexts);
+            $state['binding_declaration_fingerprint']=$fingerprint;
+            $originalFingerprint=isset($row['original_saved_metadata'])?MarketGenerationReviewedContract::declarationFingerprint($row['original_saved_metadata']):null;
+            $state['original_saved_declaration_fingerprint']=$originalFingerprint;
+            $state['runtime_declaration_matches_original']=$originalFingerprint===null?null:$originalFingerprint===$fingerprint;
+            if($profile['profile']===null||$state['missing_constraints']!==[]){$bundle['model_states'][]=$state;continue;}
             $protocol=$row['effective_protocol']??$metadata['generation_protocol']??$upstream['generation_protocol']??$profile['profile'];
             if($protocol!==$profile['profile']){
                 $state['missing_constraints'][]='current_generation_protocol_conflicts_with_source_profile';$bundle['model_states'][]=$state;continue;
@@ -81,6 +89,7 @@ final class MarketOwnedPlatformContractBuilder
                 'material_capabilities'=>MarketGenerationSchema::array($metadata['material_capabilities']??$upstream['material_capabilities']??[])];
             if($binding['params_schema']===[]){$state['missing_constraints'][]='original_parameter_declaration_required';$bundle['model_states'][]=$state;continue;}
             $execution=MarketGenerationSchema::array($row['execution_metadata']??[]);
+            if(array_key_exists('effective_upstream_model',$row))$execution['upstream_model']=$row['effective_upstream_model'];
             if($profile['profile']==='q4_video_v1'&&(!is_string($execution['upstream_model']??null)||$execution['upstream_model']==='')){
                 $state['missing_constraints'][]='verified_current_upstream_model_required_for_json_body_limit';$bundle['model_states'][]=$state;continue;
             }
@@ -96,6 +105,23 @@ final class MarketOwnedPlatformContractBuilder
         $bundle['counts']=['models'=>18,'candidate_ready'=>count($bundle['entries']),'waiting'=>18-count($bundle['entries']),
             'active_contracts_written'=>0,'live_generations'=>0];
         return $bundle;
+    }
+
+    /** Runtime's immutable declaration view owns the binding; raw saved evidence is compared independently, never rewritten. */
+    public static function declarationMetadata(array $row): array
+    {
+        $metadata=$row['metadata']??$row['original_saved_metadata']??null;
+        if(!is_array($metadata)||isset($metadata[MarketGenerationReviewedContract::PIN]))throw new InvalidArgumentException('原始运行时声明缺失');
+        $views=['declaration_fingerprint'=>$metadata];
+        if(array_key_exists('original_saved_metadata',$row)){
+            if(!is_array($row['original_saved_metadata'])||isset($row['original_saved_metadata'][MarketGenerationReviewedContract::PIN]))
+                throw new InvalidArgumentException('原始保存声明不正确');
+            $views['original_saved_declaration_fingerprint']=$row['original_saved_metadata'];
+        }
+        foreach($views as$field=>$view)if(isset($row[$field])&&(!is_string($row[$field])
+            ||!hash_equals(MarketGenerationReviewedContract::declarationFingerprint($view),$row[$field])))
+            throw new InvalidArgumentException('声明指纹与对应证据视图不一致');
+        return $metadata;
     }
 
     private static function key(array $identity): string

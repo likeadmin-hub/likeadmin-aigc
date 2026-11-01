@@ -3,23 +3,292 @@
   "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
   "activation": "offline_candidates_only",
   "models": [
-    {"generation_type":"image","model_code":"nano-banana-2.1","channel_code":"Google","profile":null,"sources":["api-doc/model-api/nano-banana-2.1.md","server/public/install/db/ai_platform_migration_nano_banana_21.sql"],"missing_constraints":["current_inherited_source_declaration_and_mapping","reference_count_and_file_limits","empty_prompt_mode_conditions"]},
-    {"generation_type":"image","model_code":"nano-banana-2","channel_code":"Google","profile":null,"sources":["api-doc/model-api/model-63-nano-banana-2.md","server/app/common/command/FixNanoBananaDrawUpstreamMapping.php"],"missing_constraints":["exact_google_execution_mapping","reference_count_and_file_limits","complete_mode_conditions"]},
-    {"generation_type":"image","model_code":"nano-banana-pro","channel_code":"Google","profile":null,"sources":["api-doc/model-api/model-66-nano-banana-pro.md","server/app/common/command/FixNanoBananaDrawUpstreamMapping.php"],"missing_constraints":["exact_google_pro_execution_mapping","reference_count_and_file_limits","complete_mode_conditions"]},
-    {"generation_type":"image","model_code":"gpt-image-2.5","channel_code":"OpenAIYI","profile":null,"sources":["server/app/common/command/DakkaGptImage25Migrate.php","server/app/common/service/ai/driver/DrawDriver.php"],"missing_constraints":["current_inherited_openaiyi_configuration","reference_count_and_file_limits","native_quantity_mapping"]},
-    {"generation_type":"image","model_code":"gpt-image-2.5-flare","channel_code":"OpenAIYI","profile":null,"sources":["server/app/common/command/DakkaGptImage25Migrate.php","server/app/common/service/ai/driver/DrawDriver.php"],"missing_constraints":["current_inherited_openaiyi_configuration","reference_count_and_file_limits","exact_sku_and_parameter_binding"]},
-    {"generation_type":"image","model_code":"gpt-image-2.5-sunburst","channel_code":"OpenAIYI","profile":null,"sources":["server/app/common/command/DakkaGptImage25Migrate.php","server/app/common/service/ai/driver/DrawDriver.php"],"missing_constraints":["current_inherited_openaiyi_configuration","reference_count_and_file_limits","exact_sku_and_parameter_binding"]},
-    {"generation_type":"image","model_code":"gpt-image-2","channel_code":"OpenaiM","profile":null,"sources":["api-doc/model-api/model-94-gpt-image-2.md","server/app/common/command/GptImage2OpenaiMModelParamsMigrate.php"],"missing_constraints":["current_recursive_execution_mapping","complete_4k_ratio_combinations"]},
-    {"generation_type":"image","model_code":"gpt-image-2","channel_code":"OpenAIYI","profile":null,"sources":["api-doc/model-api/model-96-gpt-image-2.md","server/app/common/command/OpenAIYIGptImage2Migrate.php"],"missing_constraints":["current_recursive_execution_mapping","reference_count_and_file_limits","complete_resolution_ratio_conditions"]},
-    {"generation_type":"image","model_code":"gpt-image-2-fast","channel_code":"openaiD","profile":null,"sources":["api-doc/model-api/model-gpt-image-2-fast.md","server/app/common/command/OpenaiDGptImage2FastMigrate.php","server/app/common/service/ai/driver/DrawDriver.php"],"missing_constraints":["document_code_1k_matrix_conflict_recorded","reference_count_and_file_limits","documented_prompt_limit_not_enforced_by_generic_driver"]},
-    {"generation_type":"image","model_code":"gpt-image-2-pro","channel_code":"OpenaiM","profile":null,"sources":["api-doc/model-api/model-gpt-image-2-pro.md","server/app/common/command/OpenaiMGptImage2ProMigrate.php"],"missing_constraints":["mask_reference_and_dimension_conditions","current_execution_mapping_and_sku_binding"]},
-    {"generation_type":"image","model_code":"qwen-image-3.0","channel_code":"dashscope_compatible","profile":"qwen_image_v1","sources":["api-doc/model-api/model-qwen-image-3.0.md","server/app/common/command/BailianWanQwenMigrate.php","server/app/common/service/ai/driver/DashScopeQwenImageDriver.php"],"missing_constraints":[],"runtime_dependencies":["raw_provider_input_preservation_not_proven"],"external_verification":["deployed_revision_and_current_nested_or_flat_configuration","provider_media_facts"]},
-    {"generation_type":"image","model_code":"qwen-image-3.0-pro","channel_code":"dashscope_compatible","profile":"qwen_image_v1","sources":["api-doc/model-api/model-qwen-image-3.0-pro.md","server/app/common/command/BailianWanQwenMigrate.php","server/app/common/service/ai/driver/DashScopeQwenImageDriver.php"],"missing_constraints":[],"runtime_dependencies":["raw_provider_input_preservation_not_proven"],"external_verification":["deployed_revision_and_current_nested_or_flat_configuration","provider_media_facts"]},
-    {"generation_type":"video","model_code":"q4-preview-video","channel_code":"q4_video","profile":"q4_video_v1","sources":["api-doc/model-api/model-q4-preview-video.md","server/public/install/db/ai_platform_migration_vidu_q4.sql","server/app/common/service/ai/driver/ViduQ4VideoDriver.php"],"missing_constraints":[],"external_verification":["deployed_driver_and_current_upstream_model","provider_image_facts"]},
-    {"generation_type":"video","model_code":"h3-video","channel_code":"minimax","profile":"h3_content_v1","sources":["api-doc/model-api/model-h3-video.md","server/app/common/command/MinimaxH3Migrate.php","server/app/common/service/ai/driver/VideoTaskDriver.php"],"missing_constraints":[],"runtime_dependencies":["raw_content_merge_and_implicit_first_frame_classification_not_proven"],"external_verification":["deployed_content_validation_and_resolution_intersection","documented_reference_duration_requires_measured_media_facts","frame_ratio_normalization_not_in_gateway_validator"]},
-    {"generation_type":"video","model_code":"grok-video","channel_code":"xAIQ","profile":null,"sources":["api-doc/model-api/model-71-grok-video.md","server/app/common/command/GrokVideoMigrate.php"],"missing_constraints":["exact_xaiq_execution_mapping_not_xai_grok_video","complete_mode_and_reference_conditions"]},
-    {"generation_type":"video","model_code":"veo3.1-fast","channel_code":"xAIQ","profile":null,"sources":["api-doc/model-api/model-72-veo3.1-fast.md","server/app/common/command/VeoVideoMigrate.php"],"missing_constraints":["exact_xaiq_execution_mapping","text_with_images_and_mode_exclusivity","exact_quality_sku_binding"]},
-    {"generation_type":"video","model_code":"veo3.1-pro","channel_code":"xAIQ","profile":null,"sources":["api-doc/model-api/model-73-veo3.1-pro.md","server/app/common/command/VeoVideoMigrate.php"],"missing_constraints":["exact_xaiq_execution_mapping","text_with_images_and_mode_exclusivity","pro_quality_sku_binding_not_fast"]},
-    {"generation_type":"video","model_code":"wan3.0-video","channel_code":"dashscope_compatible","profile":"wan_video_media_v1","sources":["api-doc/model-api/model-wan3.0-video.md","server/app/common/command/BailianWanQwenMigrate.php","server/app/common/service/ai/driver/VideoTaskDriver.php"],"missing_constraints":[],"external_verification":["deployed_dashscope_task_configuration","documented_reference_duration_requires_measured_media_facts","automatic_duration_settlement_bound"]}
+    {
+      "generation_type": "image",
+      "model_code": "nano-banana-2.1",
+      "channel_code": "Google",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/nano-banana-2.1.md",
+        "server/public/install/db/ai_platform_migration_nano_banana_21.sql"
+      ],
+      "missing_constraints": [
+        "current_inherited_source_declaration_and_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "empty_prompt_mode_conditions"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "nano-banana-2",
+      "channel_code": "Google",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-63-nano-banana-2.md",
+        "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php"
+      ],
+      "missing_constraints": [
+        "exact_google_execution_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "complete_mode_conditions"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "nano-banana-pro",
+      "channel_code": "Google",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-66-nano-banana-pro.md",
+        "server/app/common/command/FixNanoBananaDrawUpstreamMapping.php"
+      ],
+      "missing_constraints": [
+        "exact_google_pro_execution_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "complete_mode_conditions"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2.5",
+      "channel_code": "OpenAIYI",
+      "profile": null,
+      "sources": [
+        "server/app/common/command/DakkaGptImage25Migrate.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
+      ],
+      "missing_constraints": [
+        "current_inherited_openaiyi_configuration",
+        "file_limits_and_complete_mode_conditions",
+        "native_quantity_mapping"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2.5-flare",
+      "channel_code": "OpenAIYI",
+      "profile": null,
+      "sources": [
+        "server/app/common/command/DakkaGptImage25Migrate.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
+      ],
+      "missing_constraints": [
+        "current_inherited_openaiyi_configuration",
+        "file_limits_and_complete_mode_conditions",
+        "exact_sku_and_parameter_binding"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2.5-sunburst",
+      "channel_code": "OpenAIYI",
+      "profile": null,
+      "sources": [
+        "server/app/common/command/DakkaGptImage25Migrate.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
+      ],
+      "missing_constraints": [
+        "current_inherited_openaiyi_configuration",
+        "file_limits_and_complete_mode_conditions",
+        "exact_sku_and_parameter_binding"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2",
+      "channel_code": "OpenaiM",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-94-gpt-image-2.md",
+        "server/app/common/command/GptImage2OpenaiMModelParamsMigrate.php"
+      ],
+      "missing_constraints": [
+        "current_recursive_execution_mapping",
+        "complete_4k_ratio_combinations"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2",
+      "channel_code": "OpenAIYI",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-96-gpt-image-2.md",
+        "server/app/common/command/OpenAIYIGptImage2Migrate.php"
+      ],
+      "missing_constraints": [
+        "current_recursive_execution_mapping",
+        "file_limits_and_complete_mode_conditions",
+        "complete_resolution_ratio_conditions"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2-fast",
+      "channel_code": "openaiD",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-gpt-image-2-fast.md",
+        "server/app/common/command/OpenaiDGptImage2FastMigrate.php",
+        "server/app/common/service/ai/driver/DrawDriver.php"
+      ],
+      "missing_constraints": [
+        "document_code_1k_matrix_conflict_recorded",
+        "file_limits_and_complete_mode_conditions",
+        "documented_prompt_limit_not_enforced_by_generic_driver"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "gpt-image-2-pro",
+      "channel_code": "OpenaiM",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-gpt-image-2-pro.md",
+        "server/app/common/command/OpenaiMGptImage2ProMigrate.php"
+      ],
+      "missing_constraints": [
+        "mask_reference_and_dimension_conditions",
+        "current_execution_mapping_and_sku_binding"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "qwen-image-3.0",
+      "channel_code": "dashscope_compatible",
+      "profile": "qwen_image_v1",
+      "sources": [
+        "api-doc/model-api/model-qwen-image-3.0.md",
+        "server/app/common/command/BailianWanQwenMigrate.php",
+        "server/app/common/service/ai/driver/DashScopeQwenImageDriver.php"
+      ],
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "new_pin_raw_input_preservation_requires_offline_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_nested_or_flat_configuration",
+        "provider_media_facts"
+      ]
+    },
+    {
+      "generation_type": "image",
+      "model_code": "qwen-image-3.0-pro",
+      "channel_code": "dashscope_compatible",
+      "profile": "qwen_image_v1",
+      "sources": [
+        "api-doc/model-api/model-qwen-image-3.0-pro.md",
+        "server/app/common/command/BailianWanQwenMigrate.php",
+        "server/app/common/service/ai/driver/DashScopeQwenImageDriver.php"
+      ],
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "new_pin_raw_input_preservation_requires_offline_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_revision_and_current_nested_or_flat_configuration",
+        "provider_media_facts"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "q4-preview-video",
+      "channel_code": "q4_video",
+      "profile": "q4_video_v1",
+      "sources": [
+        "api-doc/model-api/model-q4-preview-video.md",
+        "server/public/install/db/ai_platform_migration_vidu_q4.sql",
+        "server/app/common/service/ai/driver/ViduQ4VideoDriver.php"
+      ],
+      "missing_constraints": [],
+      "external_verification": [
+        "deployed_driver_and_current_upstream_model",
+        "provider_image_facts"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "h3-video",
+      "channel_code": "minimax",
+      "profile": "h3_content_v1",
+      "sources": [
+        "api-doc/model-api/model-h3-video.md",
+        "server/app/common/command/MinimaxH3Migrate.php",
+        "server/app/common/service/ai/driver/VideoTaskDriver.php"
+      ],
+      "missing_constraints": [],
+      "runtime_dependencies": [
+        "new_pin_content_role_and_exact_channel_requires_offline_preparation_verification"
+      ],
+      "external_verification": [
+        "deployed_content_validation_and_resolution_intersection",
+        "documented_reference_duration_requires_measured_media_facts",
+        "frame_ratio_normalization_not_in_gateway_validator"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "grok-video",
+      "channel_code": "xAIQ",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-71-grok-video.md",
+        "server/app/common/command/GrokVideoMigrate.php"
+      ],
+      "missing_constraints": [
+        "exact_xaiq_execution_mapping_not_xai_grok_video",
+        "complete_mode_and_reference_conditions"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "veo3.1-fast",
+      "channel_code": "xAIQ",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-72-veo3.1-fast.md",
+        "server/app/common/command/VeoVideoMigrate.php"
+      ],
+      "missing_constraints": [
+        "exact_xaiq_execution_mapping",
+        "text_with_images_and_mode_exclusivity",
+        "exact_quality_sku_binding"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "veo3.1-pro",
+      "channel_code": "xAIQ",
+      "profile": null,
+      "sources": [
+        "api-doc/model-api/model-73-veo3.1-pro.md",
+        "server/app/common/command/VeoVideoMigrate.php"
+      ],
+      "missing_constraints": [
+        "exact_xaiq_execution_mapping",
+        "text_with_images_and_mode_exclusivity",
+        "pro_quality_sku_binding_not_fast"
+      ]
+    },
+    {
+      "generation_type": "video",
+      "model_code": "wan3.0-video",
+      "channel_code": "dashscope_compatible",
+      "profile": "wan_video_media_v1",
+      "sources": [
+        "api-doc/model-api/model-wan3.0-video.md",
+        "server/app/common/command/BailianWanQwenMigrate.php",
+        "server/app/common/service/ai/driver/VideoTaskDriver.php"
+      ],
+      "missing_constraints": [],
+      "external_verification": [
+        "deployed_dashscope_task_configuration",
+        "documented_reference_duration_requires_measured_media_facts",
+        "automatic_duration_settlement_bound"
+      ],
+      "runtime_dependencies": [
+        "new_pin_per_kind_media_limits_requires_offline_preparation_verification"
+      ]
+    }
   ]
 }

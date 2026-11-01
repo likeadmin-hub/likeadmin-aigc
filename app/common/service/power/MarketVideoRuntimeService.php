@@ -369,6 +369,24 @@ class MarketVideoRuntimeService
             }
         }
         $metadata = self::metadata($market['product']);
+        $bridged=MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection($metadata,$selection,self::arrayValue($market['sku']['locked_params']??[]));
+        $hasNativeDuration=array_key_exists('duration',(array)($selection['provider_params']??[]))
+            ||array_key_exists('duration',(array)($selection['provider_params']['parameters']??[]));
+        if($bridged!==$selection&&$hasNativeDuration&&array_key_exists('duration',$bridged)){
+            if($requestedDuration>0&&$requestedDuration!==$bridged['duration'])throw new Exception('请勿同时提供不同的业务与原生时长');
+            $requestedDuration=$bridged['duration'];
+        }
+        $selection=$bridged;
+        $ownedWan=MarketOwnedPlatformContractRules::applies([
+            'model_code'=>$market['product']['upstream_model_code'],'channel_code'=>$market['product']['upstream_channel_code'],
+            'market_metadata'=>$metadata],'wan_video_media_v1');
+        if($hasNativeDuration&&($selection['duration']??null)===-1&&$ownedWan)
+            return ['duration'=>-1,'market_product_id'=>(int)$market['product']['id'],'market_sku_id'=>(int)$market['sku']['id'],'sku_id'=>(int)$market['sku']['id']];
+        if($ownedWan&&!$hasNativeDuration&&$requestedDuration<=0
+            &&array_intersect_key($selection,array_flip(['duration','seconds','video_duration']))===[]
+            &&self::duration(self::arrayValue($market['sku']['locked_params']??[]))<=0)
+            return ['duration'=>MarketOwnedPlatformContractRules::wanDefaultDuration($selection),
+                'market_product_id'=>(int)$market['product']['id'],'market_sku_id'=>(int)$market['sku']['id'],'sku_id'=>(int)$market['sku']['id']];
         if(MarketGenerationNativeContract::modes($metadata)!==[])self::assertWholeDuration($selection);
         if (MarketGenerationMaterials::modes($metadata) !== []) {
             $mode=MarketGenerationMaterials::select($metadata,$selection);
@@ -851,6 +869,7 @@ class MarketVideoRuntimeService
 
     private static function resolveProduct(int $tenantId, array $productData, array $selection): array
     {
+        $selection=MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection(self::metadata($productData),$selection);
         $productId = (int)$productData['id'];
         $matches = self::availableSkus($tenantId, $productId); $quality = self::value($selection, ['resolution', 'quality']); $duration = (int)self::value($selection, ['duration']); $ratio = self::value($selection, ['ratio', 'aspect_ratio', 'size']); $mode = self::inputMode($selection);
         $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $ratio, $mode, $productData, $selection): bool {
@@ -1058,6 +1077,9 @@ class MarketVideoRuntimeService
     public static function prepareRequest(array $snapshot, array $request, string $idempotency = ''): PreparedMarketGeneration
     {
         $request = self::requestWithReferenceAliases($request);
+        $request = MarketOwnedPlatformContractRules::normalizeH3Request($snapshot,$request);
+        $request = MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection(MarketGenerationRequest::metadata($snapshot),
+            $request,self::arrayValue($snapshot['locked_params']??[]));
         $meter = $snapshot['billing_meter'] ?? null;
         if (MarketGenerationAdapterRegistry::resourceType($snapshot) === PowerMarketService::TYPE_MODEL) {
             MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot);
@@ -1302,6 +1324,7 @@ class MarketVideoRuntimeService
 
     private static function canEncodeDuration(array $snapshot,array $request,int $duration): bool
     {
+        if(MarketOwnedPlatformContractRules::applies($snapshot,'wan_video_media_v1'))return $duration===-1||$duration>0;
         if($duration>0)return true;$metadata=MarketGenerationRequest::metadata($snapshot);
         if(MarketGenerationReviewedContract::selected($metadata)===null)return false;
         $mode=MarketGenerationMaterials::select($metadata,$request);
@@ -1319,6 +1342,8 @@ class MarketVideoRuntimeService
 
     private static function structuredModelPayload(array $snapshot, array $request, array $locked, string $prompt, string $ratio, string $resolution, int $duration, string $idempotency): array
     {
+        $ownedWan=MarketOwnedPlatformContractRules::applies($snapshot,'wan_video_media_v1');
+        if($ownedWan)MarketOwnedPlatformContractRules::assertEnvelope($snapshot,$request);
         $providerParams = self::arrayValue($request['provider_params'] ?? []);
         $input = array_replace_recursive(
             self::arrayValue($locked['input'] ?? []),
@@ -1344,13 +1369,22 @@ class MarketVideoRuntimeService
         if ($input === []) {
             throw new Exception('video generation requires a text prompt or reference media.');
         }
+        if($ownedWan){
+            foreach(['resolution'=>$resolution,'ratio'=>$ratio]as$key=>$value)
+                if($value!==''&&array_key_exists($key,$parameters)&&(!is_string($parameters[$key])||strcasecmp($parameters[$key],$value)!==0))
+                    throw new Exception('原生视频参数与业务或冻结 SKU 不一致');
+        }
         if ($resolution !== '') {
             $parameters['resolution'] = strtoupper($resolution);
         }
         if ($ratio !== '') {
             $parameters['ratio'] = $ratio;
         }
-        if (self::canEncodeDuration($snapshot,$request,$duration)) {
+        $explicitDuration=self::duration(self::arrayValue($snapshot['locked_params']??[]))>0
+            ||array_intersect_key($request,array_flip(['duration','seconds','video_duration']))!==[];
+        if ((!$ownedWan||$explicitDuration)&&self::canEncodeDuration($snapshot,$request,$duration)) {
+            if($ownedWan&&array_key_exists('duration',$parameters)&&(!is_scalar($parameters['duration'])||(string)$parameters['duration']!==(string)$duration))
+                throw new Exception('原生视频时长与业务或冻结 SKU 不一致');
             $parameters['duration'] = $duration;
         }
         foreach (['audio', 'seed', 'watermark'] as $key) {
@@ -1433,7 +1467,8 @@ class MarketVideoRuntimeService
             $mode=MarketGenerationMaterials::select($metadata,$request);
             $documents=array_values(array_intersect(array_column($mode['fields']??[],'kind'),['file','link']));
         }
-        return MarketGenerationMaterialEncoding::wanMedia($request,$documents);
+        return MarketGenerationMaterialEncoding::wanMedia($request,$documents,
+            MarketOwnedPlatformContractRules::applies($snapshot,'wan_video_media_v1')?null:15);
     }
 
     private static function filterEmptyPayload(array $payload): array
@@ -1453,7 +1488,16 @@ class MarketVideoRuntimeService
 
     private static function h3Payload(array $snapshot, array $request, array $locked, string $prompt, string $ratio, string $resolution, int $duration, string $idempotency): array
     {
-        if ($prompt === '') {
+        $owned=MarketOwnedPlatformContractRules::applies($snapshot,'h3_content_v1');
+        $provider=(array)($request['provider_params']??[]);$nativeContent=$owned&&array_key_exists('content',$provider);
+        if($owned)MarketOwnedPlatformContractRules::assertEnvelope($snapshot,$request);
+        if($nativeContent){
+            if(!is_array($provider['content'])||!array_is_list($provider['content']))throw new Exception('原生 content 必须为数组');
+            if(MarketGenerationMaterials::assets($request)!==[])throw new Exception('请勿同时使用业务素材和原生参数提供同一请求的素材');
+            $texts=[];foreach($provider['content']as$item)if(is_array($item)&&($item['type']??'')==='text'&&is_string($item['text']??null))$texts[]=trim($item['text']);
+            if($prompt!==''&&!in_array($prompt,$texts,true))throw new Exception('请勿同时提供不同的文本来源');
+        }
+        if ($prompt === '' && !$nativeContent) {
             throw new Exception('H3 video generation requires a text prompt.');
         }
         // H3 uses the documented public model-task contract.  The market SKU
@@ -1468,10 +1512,27 @@ class MarketVideoRuntimeService
             // active gateway. Keep local SKU and billing calculations numeric,
             // while serializing only its outbound duration value as a string.
             'duration' => self::canEncodeDuration($snapshot,$request,$duration) ? (string)$duration : null,
-            'content' => self::h3Content($request, $prompt),
+            'content' => $nativeContent?$provider['content']:self::h3Content($request, $prompt),
         ];
+        if($owned){
+            $payload['channel']=(string)$snapshot['channel_code'];
+            foreach(['duration','resolution','ratio']as$key)if(array_key_exists($key,$provider)){
+                $value=$provider[$key];
+                if(!is_string($value)&&!is_int($value))throw new Exception('原生视频参数类型不正确');
+                $lockedValue=$key==='duration'?self::duration($locked):($key==='resolution'?self::resolution($locked):($locked['ratio']??$locked['aspect_ratio']??''));
+                $lockedSame=$key==='resolution'?strcasecmp((string)$value,(string)$lockedValue)===0:(string)$value===(string)$lockedValue;
+                if($lockedValue!==''&&$lockedValue!==0&&!$lockedSame)throw new Exception('原生参数与冻结 SKU 不一致');
+                $aliases=$key==='duration'?['duration','seconds','video_duration']:($key==='resolution'?['quality','resolution']:['ratio','aspect_ratio']);
+                foreach($aliases as$alias)if(array_key_exists($alias,$request)){
+                    if(!is_string($request[$alias])&&!is_int($request[$alias]))throw new Exception('业务视频参数类型不正确');
+                    $same=$key==='resolution'?strcasecmp((string)$request[$alias],(string)$value)===0:(string)$request[$alias]===(string)$value;
+                    if((string)$request[$alias]!==''&&!$same)throw new Exception('请勿同时提供不同的业务与原生参数');
+                }
+                $payload[$key]=$key==='duration'&&is_scalar($value)?(string)$value:$value;
+            }
+        }
         $payload = array_merge(self::declaredVideoOptions(self::arrayValue($snapshot['params_schema'] ?? []), $request), $payload);
-        $callbackUrl = trim((string)($request['callback_url'] ?? $request['callbackUrl'] ?? ''));
+        $callbackUrl = trim((string)($request['callback_url'] ?? $request['callbackUrl'] ?? ($owned?($provider['callback_url']??''):'')));
         if ($callbackUrl !== '') {
             $payload['callback_url'] = $callbackUrl;
         }
@@ -1977,6 +2038,7 @@ class MarketVideoRuntimeService
     private static function assertSkuMatchesSelection(array $market, array $selection): void
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
+        $selection=MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection(self::metadata($market['product']),$selection,$locked);
         if (!self::skuMatchesGenerationMode($market['product'], $locked, $selection)) {
             throw new Exception('所选市场 SKU 不支持当前生成档位');
         }
@@ -3276,6 +3338,11 @@ class MarketVideoRuntimeService
     private static function contractSkuMatches(array $product, array $locked, array $selection, string $skuMode, string $mode): bool
     {
         $metadata = self::metadata($product);
+        if(MarketOwnedPlatformContractRules::applies(['model_code'=>$product['upstream_model_code']??'',
+            'channel_code'=>$product['upstream_channel_code']??'','market_metadata'=>$metadata],'wan_video_media_v1')){
+            try{MarketOwnedPlatformContractRules::normalizeVideoBusinessSelection($metadata,$selection,$locked);}
+            catch(\InvalidArgumentException){return false;}
+        }
         if (($product['resource_type'] ?? '') !== 'model' || MarketGenerationMaterials::modes($metadata) === []) return self::skuSupportsInputMode($skuMode, $mode, $product, $locked);
         // Product fallback checks every SKU against the same material request.
         // Resolve that request once within catalogue discovery, independently of SKU locks.

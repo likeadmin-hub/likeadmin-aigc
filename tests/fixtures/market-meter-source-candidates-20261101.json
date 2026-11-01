@@ -12,12 +12,30 @@
     "seedance_legacy_estimate": "server/app/common/service/ai/PointsService.php"
   },
   "official_image_size_request_mapping": {
-    "square": [512, 512],
-    "square_hd": [1024, 1024],
-    "portrait_4_3": [768, 1024],
-    "portrait_16_9": [576, 1024],
-    "landscape_4_3": [1024, 768],
-    "landscape_16_9": [1024, 576]
+    "square": [
+      512,
+      512
+    ],
+    "square_hd": [
+      1024,
+      1024
+    ],
+    "portrait_4_3": [
+      768,
+      1024
+    ],
+    "portrait_16_9": [
+      576,
+      1024
+    ],
+    "landscape_4_3": [
+      1024,
+      768
+    ],
+    "landscape_16_9": [
+      1024,
+      576
+    ]
   },
   "rows": [
     {
@@ -31,14 +49,354 @@
       "material_mode": "image_to_image",
       "meter_basis": "megapixel",
       "request_count_field": "num_images",
-      "request_count_values": ["1", "2", "3", "4"],
+      "request_count_values": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
       "request_default_count": 1,
       "maximum_request_pixels_per_image": 1048576,
       "maximum_billable_pixels_per_image": null,
       "maximum_billable_images": null,
-      "local_metadata_binding": "pending_snapshot",
+      "local_metadata_binding": "saved_declaration_verified_unactivated",
       "status": "waiting_supplier_output_guarantee",
-      "activation_authorized": false
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 380,
+        "product_id": 275,
+        "sku_key": "official_85acaf4ad8935521e3314dc4",
+        "usage_unit": "business_unit",
+        "usage_unit_size": "1.000000",
+        "locked_params": [],
+        "saved_meter_contract": null
+      },
+      "saved_binding": {
+        "captured_at": "2026-11-01T15:58:48+08:00",
+        "source": "coordinator local read-only snapshot v2; not an upstream deployment attestation",
+        "product": {
+          "id": 275,
+          "resource_type": "model",
+          "model_type": "image",
+          "upstream_model_code": "official-33-c0b38c6fcb29f739b0",
+          "upstream_channel_code": "official"
+        },
+        "effective_protocol": "native_v1",
+        "declaration_fingerprint": "aeaf0bb953f357c919dfc9461152ff0dba7e1bb07f09c43c8781810c5a8ceb72",
+        "original_saved_declaration_fingerprint": "aeaf0bb953f357c919dfc9461152ff0dba7e1bb07f09c43c8781810c5a8ceb72",
+        "native_mode_codes": [
+          ""
+        ],
+        "selected_native_mode": "",
+        "metadata": {
+          "params_schema": {
+            "seed": {
+              "type": "integer",
+              "required": false,
+              "description": "随机种子值。相同的种子值、提示词和模型版本，每次生成的图像结果完全一致。"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "把天空改成温暖的日落。",
+              "examples": [
+                "把天空改成温暖的日落。"
+              ],
+              "required": true,
+              "maxLength": 2000,
+              "description": "用于图像生成的文本提示词（最大长度：2000 字符）"
+            },
+            "image_url": {
+              "type": "string",
+              "example": "<UPLOADED_FILE_URL>",
+              "examples": [
+                "<UPLOADED_FILE_URL>"
+              ],
+              "required": true,
+              "description": "待编辑图像的 URL。（为上传后的文件 URL，非文件内容；支持的类型：image/jpeg、image/png、image/webp；最大文件大小：10.0MB）"
+            },
+            "image_size": {
+              "enum": [
+                "square",
+                "square_hd",
+                "portrait_4_3",
+                "portrait_16_9",
+                "landscape_4_3",
+                "landscape_16_9"
+              ],
+              "type": "string",
+              "default": "landscape_4_3",
+              "examples": [
+                "landscape_4_3"
+              ],
+              "required": false,
+              "description": "生成图像的尺寸规格。默认值：landscape_4_3"
+            },
+            "num_images": {
+              "enum": [
+                "1",
+                "2",
+                "3",
+                "4"
+              ],
+              "type": "string",
+              "required": false,
+              "description": "生成图像数量"
+            },
+            "acceleration": {
+              "enum": [
+                "none",
+                "regular",
+                "high"
+              ],
+              "type": "string",
+              "default": "none",
+              "examples": [
+                "none"
+              ],
+              "required": false,
+              "description": "图像生成的加速级别。可选值：'none'（无加速）、'regular'（常规加速）、'high'（高速加速）。加速级别越高，生成速度越快。'regular' 模式在速度与画质间取得平衡。默认值：\"none\""
+            },
+            "nsfw_checker": {
+              "type": "boolean",
+              "required": false,
+              "description": "默认 false。为 false 时不额外进行内容过滤，结果由模型直接返回。"
+            },
+            "output_format": {
+              "enum": [
+                "jpeg",
+                "png"
+              ],
+              "type": "string",
+              "default": "png",
+              "examples": [
+                "png"
+              ],
+              "required": false,
+              "description": "生成图像的输出格式。默认值：\"png\""
+            },
+            "guidance_scale": {
+              "type": "number",
+              "default": 4,
+              "maximum": 20,
+              "minimum": 0,
+              "examples": [
+                4
+              ],
+              "required": false,
+              "description": "CFG（无分类器引导）系数，用于控制模型生成图像时贴合提示词的程度。默认值：4（最小值：0，最大值：20，步长：0.1）"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "examples": [
+                "模糊、丑陋"
+              ],
+              "required": false,
+              "maxLength": 500,
+              "description": "反向提示词，用于规避生成指定内容。默认值：\" \"（最大长度：500 字符）"
+            },
+            "num_inference_steps": {
+              "type": "number",
+              "default": 25,
+              "maximum": 49,
+              "minimum": 2,
+              "examples": [
+                25
+              ],
+              "required": false,
+              "description": "推理步数。默认值：30（最小值：2，最大值：49，步长：1）"
+            },
+            "enable_safety_checker": {
+              "type": "boolean",
+              "examples": [
+                true
+              ],
+              "required": false,
+              "description": "安全校验开关。若设置为 true，将启用内容安全校验。默认值：true（布尔值：true/false）"
+            }
+          },
+          "default_params": [],
+          "capabilities": {
+            "supports_vision": true,
+            "supports_reasoning": false,
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0
+          },
+          "max_reference_images": 1,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0,
+          "upstream_metadata": {
+            "model_code": "qwen-image-edit",
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0,
+            "channel_code": "official",
+            "params_schema": {
+              "seed": {
+                "type": "integer",
+                "required": false,
+                "description": "随机种子值。相同的种子值、提示词和模型版本，每次生成的图像结果完全一致。"
+              },
+              "prompt": {
+                "type": "string",
+                "example": "把天空改成温暖的日落。",
+                "examples": [
+                  "把天空改成温暖的日落。"
+                ],
+                "required": true,
+                "maxLength": 2000,
+                "description": "用于图像生成的文本提示词（最大长度：2000 字符）"
+              },
+              "image_url": {
+                "type": "string",
+                "example": "<UPLOADED_FILE_URL>",
+                "examples": [
+                  "<UPLOADED_FILE_URL>"
+                ],
+                "required": true,
+                "description": "待编辑图像的 URL。（为上传后的文件 URL，非文件内容；支持的类型：image/jpeg、image/png、image/webp；最大文件大小：10.0MB）"
+              },
+              "image_size": {
+                "enum": [
+                  "square",
+                  "square_hd",
+                  "portrait_4_3",
+                  "portrait_16_9",
+                  "landscape_4_3",
+                  "landscape_16_9"
+                ],
+                "type": "string",
+                "default": "landscape_4_3",
+                "examples": [
+                  "landscape_4_3"
+                ],
+                "required": false,
+                "description": "生成图像的尺寸规格。默认值：landscape_4_3"
+              },
+              "num_images": {
+                "enum": [
+                  "1",
+                  "2",
+                  "3",
+                  "4"
+                ],
+                "type": "string",
+                "required": false,
+                "description": "生成图像数量"
+              },
+              "acceleration": {
+                "enum": [
+                  "none",
+                  "regular",
+                  "high"
+                ],
+                "type": "string",
+                "default": "none",
+                "examples": [
+                  "none"
+                ],
+                "required": false,
+                "description": "图像生成的加速级别。可选值：'none'（无加速）、'regular'（常规加速）、'high'（高速加速）。加速级别越高，生成速度越快。'regular' 模式在速度与画质间取得平衡。默认值：\"none\""
+              },
+              "nsfw_checker": {
+                "type": "boolean",
+                "required": false,
+                "description": "默认 false。为 false 时不额外进行内容过滤，结果由模型直接返回。"
+              },
+              "output_format": {
+                "enum": [
+                  "jpeg",
+                  "png"
+                ],
+                "type": "string",
+                "default": "png",
+                "examples": [
+                  "png"
+                ],
+                "required": false,
+                "description": "生成图像的输出格式。默认值：\"png\""
+              },
+              "guidance_scale": {
+                "type": "number",
+                "default": 4,
+                "maximum": 20,
+                "minimum": 0,
+                "examples": [
+                  4
+                ],
+                "required": false,
+                "description": "CFG（无分类器引导）系数，用于控制模型生成图像时贴合提示词的程度。默认值：4（最小值：0，最大值：20，步长：0.1）"
+              },
+              "negative_prompt": {
+                "type": "string",
+                "examples": [
+                  "模糊、丑陋"
+                ],
+                "required": false,
+                "maxLength": 500,
+                "description": "反向提示词，用于规避生成指定内容。默认值：\" \"（最大长度：500 字符）"
+              },
+              "num_inference_steps": {
+                "type": "number",
+                "default": 25,
+                "maximum": 49,
+                "minimum": 2,
+                "examples": [
+                  25
+                ],
+                "required": false,
+                "description": "推理步数。默认值：30（最小值：2，最大值：49，步长：1）"
+              },
+              "enable_safety_checker": {
+                "type": "boolean",
+                "examples": [
+                  true
+                ],
+                "required": false,
+                "description": "安全校验开关。若设置为 true，将启用内容安全校验。默认值：true（布尔值：true/false）"
+              }
+            },
+            "default_params": [],
+            "material_capabilities": {
+              "revision": "materials-2026-10-23-1",
+              "modes": [
+                {
+                  "code": "",
+                  "label": "图片生成／编辑",
+                  "first_frame": "不支持",
+                  "last_frame": "不支持",
+                  "first_last_frame": "不支持",
+                  "fields": [
+                    {
+                      "field": "image_url",
+                      "kind": "image",
+                      "required": true,
+                      "conditional_required": false,
+                      "minimum": 1,
+                      "maximum": 1,
+                      "scope": "本次请求",
+                      "role": "reference"
+                    }
+                  ],
+                  "rules": [],
+                  "images": "参考素材 1–1 张（`image_url`）",
+                  "videos": "不接受",
+                  "audios": "不接受",
+                  "other_materials": ""
+                }
+              ]
+            },
+            "capabilities": {
+              "supports_vision": true,
+              "supports_reasoning": false,
+              "max_reference_images": 1,
+              "max_reference_audios": 0,
+              "max_reference_videos": 0
+            },
+            "model_id": 405
+          }
+        }
+      }
     },
     {
       "id": "meter_sku:277:383",
@@ -56,51 +414,477 @@
       "maximum_request_pixels_per_image": 1048576,
       "maximum_billable_pixels_per_image": null,
       "maximum_billable_images": null,
-      "local_metadata_binding": "pending_snapshot",
+      "local_metadata_binding": "saved_declaration_verified_unactivated",
       "status": "waiting_supplier_output_guarantee",
-      "activation_authorized": false
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 383,
+        "product_id": 277,
+        "sku_key": "official_52283c72470cd56ffc3150c6",
+        "usage_unit": "business_unit",
+        "usage_unit_size": "1.000000",
+        "locked_params": {
+          "generation_type": "text_to_image"
+        },
+        "saved_meter_contract": null
+      },
+      "saved_binding": {
+        "captured_at": "2026-11-01T15:58:48+08:00",
+        "source": "coordinator local read-only snapshot v2; not an upstream deployment attestation",
+        "product": {
+          "id": 277,
+          "resource_type": "model",
+          "model_type": "image",
+          "upstream_model_code": "official-33-f3baf6c03742072d3a",
+          "upstream_channel_code": "official"
+        },
+        "effective_protocol": "native_v1",
+        "declaration_fingerprint": "aa1528759fcfe7d6fc015c29fde253af617e338220bc2f33b683f6c07b077e7f",
+        "original_saved_declaration_fingerprint": "aa1528759fcfe7d6fc015c29fde253af617e338220bc2f33b683f6c07b077e7f",
+        "native_mode_codes": [
+          "text_to_image",
+          "image_to_image"
+        ],
+        "selected_native_mode": "text_to_image",
+        "metadata": {
+          "params_schema": {
+            "seed": {
+              "type": "integer",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像\n适用生成方式 image_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "A red paper boat floating on a calm blue lake, soft morning light.",
+              "required": true,
+              "maxLength": 5000,
+              "description": "适用生成方式 text_to_image（必填）：用于生成图像的文本描述（最大长度：5000 字符）；最长长度：5000\n适用生成方式 image_to_image（必填）：用于图像生成的文本描述（最大长度：5000 字符）；最长长度：5000"
+            },
+            "strength": {
+              "type": "number",
+              "default": 0.8,
+              "maximum": 1,
+              "minimum": 0,
+              "required": false,
+              "description": "适用生成方式 image_to_image（可选；条件必填见说明）：去噪强度。1.0 = 完全重构图像；0.0 = 完全保留原图（最小值：0，最大值：1，步长：0.01）；最小值：0；最大值：1；默认值：0.8"
+            },
+            "image_url": {
+              "type": "string",
+              "required": false,
+              "description": "适用生成方式 image_to_image（必填）：用于引导图像生成的参考图 URL（为上传后的文件 URL，而非文件内容；支持类型：image/jpeg、image/png、image/webp；最大大小：10.0MB）"
+            },
+            "image_size": {
+              "enum": [
+                "square",
+                "square_hd",
+                "portrait_4_3",
+                "portrait_16_9",
+                "landscape_4_3",
+                "landscape_16_9"
+              ],
+              "type": "string",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的尺寸规格。请显式传入。"
+            },
+            "acceleration": {
+              "enum": [
+                "none",
+                "regular",
+                "high"
+              ],
+              "type": "string",
+              "default": "none",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\"\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\""
+            },
+            "nsfw_checker": {
+              "type": "boolean",
+              "default": false,
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false\n适用生成方式 image_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false"
+            },
+            "output_format": {
+              "enum": [
+                "png",
+                "jpeg"
+              ],
+              "type": "string",
+              "default": "png",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\"\n适用生成方式 image_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\""
+            },
+            "guidance_scale": {
+              "type": "number",
+              "default": 2.5,
+              "maximum": 20,
+              "minimum": 0,
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5\n适用生成方式 image_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5"
+            },
+            "generation_type": {
+              "enum": [
+                "text_to_image",
+                "image_to_image"
+              ],
+              "type": "string",
+              "required": false,
+              "description": "选择生成方式；传入单个字符串，例如 \"text_to_image\"，不是数组。省略时仅在素材及组合约束可以唯一确定方式时自动选择；存在歧义必须显式传入。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "required": false,
+              "maxLength": 500,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500"
+            },
+            "num_inference_steps": {
+              "type": "number",
+              "default": 30,
+              "maximum": 250,
+              "minimum": 2,
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30\n适用生成方式 image_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30"
+            },
+            "enable_safety_checker": {
+              "type": "boolean",
+              "required": false,
+              "description": "适用生成方式 text_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））\n适用生成方式 image_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））"
+            }
+          },
+          "default_params": [],
+          "capabilities": {
+            "supports_vision": true,
+            "supports_reasoning": false,
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0
+          },
+          "max_reference_images": 1,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0,
+          "upstream_metadata": {
+            "model_code": "qwen-image",
+            "max_reference_images": 1,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0,
+            "channel_code": "official",
+            "params_schema": {
+              "seed": {
+                "type": "integer",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像\n适用生成方式 image_to_image（可选；条件必填见说明）：对于同一版本的模型，相同的种子值和文本描述将生成完全相同的图像"
+              },
+              "prompt": {
+                "type": "string",
+                "example": "A red paper boat floating on a calm blue lake, soft morning light.",
+                "required": true,
+                "maxLength": 5000,
+                "description": "适用生成方式 text_to_image（必填）：用于生成图像的文本描述（最大长度：5000 字符）；最长长度：5000\n适用生成方式 image_to_image（必填）：用于图像生成的文本描述（最大长度：5000 字符）；最长长度：5000"
+              },
+              "strength": {
+                "type": "number",
+                "default": 0.8,
+                "maximum": 1,
+                "minimum": 0,
+                "required": false,
+                "description": "适用生成方式 image_to_image（可选；条件必填见说明）：去噪强度。1.0 = 完全重构图像；0.0 = 完全保留原图（最小值：0，最大值：1，步长：0.01）；最小值：0；最大值：1；默认值：0.8"
+              },
+              "image_url": {
+                "type": "string",
+                "required": false,
+                "description": "适用生成方式 image_to_image（必填）：用于引导图像生成的参考图 URL（为上传后的文件 URL，而非文件内容；支持类型：image/jpeg、image/png、image/webp；最大大小：10.0MB）"
+              },
+              "image_size": {
+                "enum": [
+                  "square",
+                  "square_hd",
+                  "portrait_4_3",
+                  "portrait_16_9",
+                  "landscape_4_3",
+                  "landscape_16_9"
+                ],
+                "type": "string",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的尺寸规格。请显式传入。"
+              },
+              "acceleration": {
+                "enum": [
+                  "none",
+                  "regular",
+                  "high"
+                ],
+                "type": "string",
+                "default": "none",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\"\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的加速级别。可选值：'none'、'regular'、'high'。加速级别越高，生成速度越快。'regular' 模式平衡速度与质量。'high' 模式推荐用于不含文字的图像生成；默认值：\"none\""
+              },
+              "nsfw_checker": {
+                "type": "boolean",
+                "default": false,
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false\n适用生成方式 image_to_image（可选；条件必填见说明）：默认值为 false。您可以根据需要将其设置为 false。如果设置为 false，我们的内容过滤功能将被禁用，所有结果将由模型直接返回。；默认值：false"
+              },
+              "output_format": {
+                "enum": [
+                  "png",
+                  "jpeg"
+                ],
+                "type": "string",
+                "default": "png",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\"\n适用生成方式 image_to_image（可选；条件必填见说明）：生成图像的格式；默认值：\"png\""
+              },
+              "guidance_scale": {
+                "type": "number",
+                "default": 2.5,
+                "maximum": 20,
+                "minimum": 0,
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5\n适用生成方式 image_to_image（可选；条件必填见说明）：无分类器引导系数（CFG），用于控制生成图像与文本描述的贴合程度（最小值：0，最大值：20，步长：0.1）；最小值：0；最大值：20；默认值：2.5"
+              },
+              "generation_type": {
+                "enum": [
+                  "text_to_image",
+                  "image_to_image"
+                ],
+                "type": "string",
+                "required": false,
+                "description": "选择生成方式；传入单个字符串，例如 \"text_to_image\"，不是数组。省略时仅在素材及组合约束可以唯一确定方式时自动选择；存在歧义必须显式传入。"
+              },
+              "negative_prompt": {
+                "type": "string",
+                "required": false,
+                "maxLength": 500,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500\n适用生成方式 image_to_image（可选；条件必填见说明）：图像生成的反向文本描述（最大长度：500 字符）；最长长度：500"
+              },
+              "num_inference_steps": {
+                "type": "number",
+                "default": 30,
+                "maximum": 250,
+                "minimum": 2,
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30\n适用生成方式 image_to_image（可选；条件必填见说明）：推理步数（最小值：2，最大值：250，步长：1）；最小值：2；最大值：250；默认值：30"
+              },
+              "enable_safety_checker": {
+                "type": "boolean",
+                "required": false,
+                "description": "适用生成方式 text_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））\n适用生成方式 image_to_image（可选；条件必填见说明）：在控制台中安全检测功能始终启用。仅可通过 API 将该参数设为 false 来关闭此功能。（布尔值（true/false））"
+              }
+            },
+            "default_params": [],
+            "material_capabilities": {
+              "revision": "materials-2026-10-23-1",
+              "modes": [
+                {
+                  "code": "text_to_image",
+                  "label": "文生图",
+                  "first_frame": "不支持",
+                  "last_frame": "不支持",
+                  "first_last_frame": "不支持",
+                  "fields": [],
+                  "rules": [],
+                  "images": "不接受",
+                  "videos": "不接受",
+                  "audios": "不接受",
+                  "other_materials": ""
+                },
+                {
+                  "code": "image_to_image",
+                  "label": "图生图",
+                  "first_frame": "不支持",
+                  "last_frame": "不支持",
+                  "first_last_frame": "不支持",
+                  "fields": [
+                    {
+                      "field": "image_url",
+                      "kind": "image",
+                      "required": true,
+                      "conditional_required": false,
+                      "minimum": 1,
+                      "maximum": 1,
+                      "scope": "本次请求",
+                      "role": "reference"
+                    }
+                  ],
+                  "rules": [],
+                  "images": "参考素材 1–1 张（`image_url`）",
+                  "videos": "不接受",
+                  "audios": "不接受",
+                  "other_materials": ""
+                }
+              ]
+            },
+            "capabilities": {
+              "supports_vision": true,
+              "supports_reasoning": false,
+              "max_reference_images": 1,
+              "max_reference_audios": 0,
+              "max_reference_videos": 0
+            }
+          }
+        }
+      }
     },
     {
-      "id": "meter_sku:140:210", "product_id": 140, "sku_id": 210,
-      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
-      "material_mode": "with_video", "resolution": "480p", "meter_basis": "token",
+      "id": "meter_sku:140:210",
+      "product_id": 140,
+      "sku_id": 210,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "with_video",
+      "resolution": "480p",
+      "meter_basis": "token",
       "observed_result_usage_path": "data.result.usage.total_tokens",
-      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 210,
+        "product_id": 140,
+        "sku_key": "create_matrix_480p_with_video",
+        "usage_unit": "token",
+        "usage_unit_size": "1000000.000000",
+        "locked_params": {
+          "resolution": "480p",
+          "_pricing_variant": "with_video"
+        },
+        "saved_meter_contract": null
+      }
     },
     {
-      "id": "meter_sku:140:211", "product_id": 140, "sku_id": 211,
-      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
-      "material_mode": "without_video", "resolution": "480p", "meter_basis": "token",
+      "id": "meter_sku:140:211",
+      "product_id": 140,
+      "sku_id": 211,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "without_video",
+      "resolution": "480p",
+      "meter_basis": "token",
       "observed_result_usage_path": "data.result.usage.total_tokens",
-      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 211,
+        "product_id": 140,
+        "sku_key": "create_matrix_480p_without_video",
+        "usage_unit": "token",
+        "usage_unit_size": "1000000.000000",
+        "locked_params": {
+          "resolution": "480p",
+          "_pricing_variant": "without_video"
+        },
+        "saved_meter_contract": null
+      }
     },
     {
-      "id": "meter_sku:140:212", "product_id": 140, "sku_id": 212,
-      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
-      "material_mode": "with_video", "resolution": "720p", "meter_basis": "token",
+      "id": "meter_sku:140:212",
+      "product_id": 140,
+      "sku_id": 212,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "with_video",
+      "resolution": "720p",
+      "meter_basis": "token",
       "observed_result_usage_path": "data.result.usage.total_tokens",
-      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 212,
+        "product_id": 140,
+        "sku_key": "create_matrix_720p_with_video",
+        "usage_unit": "token",
+        "usage_unit_size": "1000000.000000",
+        "locked_params": {
+          "resolution": "720p",
+          "_pricing_variant": "with_video"
+        },
+        "saved_meter_contract": null
+      }
     },
     {
-      "id": "meter_sku:140:213", "product_id": 140, "sku_id": 213,
-      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
-      "material_mode": "without_video", "resolution": "720p", "meter_basis": "token",
+      "id": "meter_sku:140:213",
+      "product_id": 140,
+      "sku_id": 213,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "without_video",
+      "resolution": "720p",
+      "meter_basis": "token",
       "observed_result_usage_path": "data.result.usage.total_tokens",
-      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 213,
+        "product_id": 140,
+        "sku_key": "create_matrix_720p_without_video",
+        "usage_unit": "token",
+        "usage_unit_size": "1000000.000000",
+        "locked_params": {
+          "resolution": "720p",
+          "_pricing_variant": "without_video"
+        },
+        "saved_meter_contract": null
+      }
     },
     {
-      "id": "meter_sku:140:214", "product_id": 140, "sku_id": 214,
-      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
-      "material_mode": "with_video", "resolution": "1080p", "meter_basis": "token",
+      "id": "meter_sku:140:214",
+      "product_id": 140,
+      "sku_id": 214,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "with_video",
+      "resolution": "1080p",
+      "meter_basis": "token",
       "observed_result_usage_path": "data.result.usage.total_tokens",
-      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 214,
+        "product_id": 140,
+        "sku_key": "create_matrix_1080p_with_video",
+        "usage_unit": "token",
+        "usage_unit_size": "1000000.000000",
+        "locked_params": {
+          "resolution": "1080p",
+          "_pricing_variant": "with_video"
+        },
+        "saved_meter_contract": null
+      }
     },
     {
-      "id": "meter_sku:140:215", "product_id": 140, "sku_id": 215,
-      "resource_type": "app_api", "app_code": "seedance", "api_code": "create",
-      "material_mode": "without_video", "resolution": "1080p", "meter_basis": "token",
+      "id": "meter_sku:140:215",
+      "product_id": 140,
+      "sku_id": 215,
+      "resource_type": "app_api",
+      "app_code": "seedance",
+      "api_code": "create",
+      "material_mode": "without_video",
+      "resolution": "1080p",
+      "meter_basis": "token",
       "observed_result_usage_path": "data.result.usage.total_tokens",
-      "maximum_billable_tokens": null, "status": "blocked_missing_token_budget", "activation_authorized": false
+      "maximum_billable_tokens": null,
+      "status": "blocked_missing_token_budget",
+      "activation_authorized": false,
+      "saved_sku_binding": {
+        "id": 215,
+        "product_id": 140,
+        "sku_key": "create_matrix_1080p_without_video",
+        "usage_unit": "token",
+        "usage_unit_size": "1000000.000000",
+        "locked_params": {
+          "resolution": "1080p",
+          "_pricing_variant": "without_video"
+        },
+        "saved_meter_contract": null
+      }
     }
   ]
 }

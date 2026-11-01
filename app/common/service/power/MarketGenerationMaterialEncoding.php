@@ -85,10 +85,11 @@ final class MarketGenerationMaterialEncoding
         return $images;
     }
 
-    public static function wanMedia(array $request,array $documentTypes=[]): array
+    public static function wanMedia(array $request,array $documentTypes=[],?int $maximumMedia=15): array
     {
         $media = [];
-        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
+        $assets=$maximumMedia===null?AigcVideoReferenceAssetService::normalizeForMarket($request):AigcVideoReferenceAssetService::normalize($request);
+        foreach ($assets as $asset) {
             $url = AigcVideoReferenceAssetService::publicUrl($asset);
             if ($url === '') {
                 continue;
@@ -124,7 +125,7 @@ final class MarketGenerationMaterialEncoding
             self::assertDocumentUrl($url);
             $media[]=['type'=>$type,'url'=>$url];
         }
-        if($documentTypes!==[]&&count($media)>15)throw new \InvalidArgumentException('参考素材数量超出限制');
+        if($documentTypes!==[]&&$maximumMedia!==null&&count($media)>$maximumMedia)throw new \InvalidArgumentException('参考素材数量超出限制');
         return $media;
     }
 
