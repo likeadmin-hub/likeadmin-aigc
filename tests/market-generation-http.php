@@ -55,6 +55,10 @@ if(($argv[1]??'')==='--worker') {
     MarketWorkerFixture::activate($original,$argv[2],$argv[3]);app()->env->set('database.prefix',$argv[2]);
     if(!is_dir($argv[3].'/runtime'))mkdir($argv[3].'/runtime',0700,true);app()->setRuntimePath($argv[3].'/runtime/');
     if($argv[4]==='fixture_agent_runner') {while(true){app\common\service\app\aigc_llm\agent\AgentExecutionService::tick();usleep(100000);}}
+    if($argv[4]==='fixture_drama_agent_runner') {
+        $command=new app\common\command\ShortDramaCanvasAgentWorker();
+        exit($command->run(new think\console\Input(['--sleep=1']),new think\console\Output('console')));
+    }
     if($argv[4]==='fixture_micro_runner') {while(true){app\common\service\app\aigc_micro_video\MicroVideoWorker::tick();usleep(100000);}}
     $command=new app\common\command\AiTaskWorker();
     exit($command->run(new think\console\Input(['--app='.$argv[4],'--lease=10','--sleep=1','--batch=1']),new think\console\Output('console')));

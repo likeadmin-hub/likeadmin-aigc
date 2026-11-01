@@ -56,4 +56,11 @@ function runMarketAgentHttp($f,$api,$peer,$suffix,$token,$imageChannel,array &$r
     $beforeRows=$db::name('aigc_llm_agent_run')->order('id')->select()->toArray();$f->start($script,'fixture_agent_runner','agent');usleep(400000);$f->stop('agent');$check($beforeRows===$db::name('aigc_llm_agent_run')->order('id')->select()->toArray(),'Agent restart rewrote completed runs');$report['agent_history_sse_restart_preserved']=true;
     $report['text_reservations']=(int)$db::name('ai_consumption_log')->where('app_code','aigc_llm')->count();
     $report['text_settlements']=(int)$db::name('ai_consumption_log')->where('app_code','aigc_llm')->where('billing_status','settled')->count();
+    if(getenv('AIGC_HTTP_CANVAS_AGENT_MATRIX')==='1') {
+        require __DIR__.'/MarketCanvasAgentHttpMatrix.php';
+        $report['canvas_agents']=[];
+        runMarketCanvasAgentHttp($f,$api,$peer,$suffix,$token,$imageChannel,$text,$agent,$report['canvas_agents']);
+        $report['text_reservations']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->count();
+        $report['text_settlements']=(int)$db::name('ai_consumption_log')->whereIn('product_id',[$text,$agent])->where('billing_status','settled')->count();
+    }
 }
