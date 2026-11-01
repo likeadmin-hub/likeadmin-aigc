@@ -82,6 +82,7 @@ try{
 }catch(Throwable $error){$failure=$error;$report+=['passed'=>false]+MarketIsolatedMysqlFixture::diagnostic($error,
     in_array($stage??'',['schema_source','fixture_create'],true)?$isolated->stage:($stage??'owned_fixture'));}
 finally{
+    if($isolated->faultProgress!==[])$report['fault_progress']=$isolated->faultProgress;
     if($s){
         try{$report['worker_diagnostics_before_cleanup']=$isolated->workerDiagnostics($s['f'],'before_cleanup');}catch(Throwable$error){$failure=$error;$report['diagnostic_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'diagnostic_capture');}
         $stopped=true;foreach(['worker','recovery','repeat']as$role)try{$s['f']->stop($role);}catch(Throwable $error){$stopped=false;$failure=$error;$report['cleanup_failure']=MarketIsolatedMysqlFixture::diagnostic($error,'cleanup_stop');}
