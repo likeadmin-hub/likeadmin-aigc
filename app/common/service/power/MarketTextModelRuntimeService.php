@@ -1831,7 +1831,8 @@ class MarketTextModelRuntimeService
             || (int)($state['delta_count'] ?? 0) > 0;
         $hasNativePartial = (!empty($state['anthropic']) || !empty($state['responses'])) && !empty($state['request_id']);
         $hasExpectedPartial = !empty($state['responses_expected']) && ($hasOutput || !empty($state['usage']));
-        $partial = $hasNativePartial || $hasExpectedPartial ? [
+        // OpenAI-compatible deltas are evidence of acceptance too, even without a final usage frame.
+        $partial = $hasNativePartial || $hasExpectedPartial || $hasOutput ? [
             'content' => (string)($state['content'] ?? ''),
             'content_source' => (string)($state['content_source']??'content'),
             'protocol_evidence' => self::protocolEvidence($state),

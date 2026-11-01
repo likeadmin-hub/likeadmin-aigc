@@ -51,5 +51,11 @@ foreach([
  check($normalize->invoke(null,$u)===$u,'Normalization lost usage field provenance');
 }
 echo "Usage completeness passed: missing/invalid counters, explicit zero, totals consistency and equal-price total-only compatibility\n";
+$partial=method('providerException')->invoke(null,'Synthetic interrupted stream',true,['content'=>'已收到正文','delta_count'=>1,'request_id'=>'synthetic-openai-id','usage'=>[]]);
+check($partial instanceof \app\common\service\power\MarketTextModelProviderException && $partial->partialResult['content']==='已收到正文' && !$partial->modelFallbackAllowed,'OpenAI partial text was treated as an unaccepted provider failure');
+$toolPartial=method('providerException')->invoke(null,'Synthetic interrupted tools',true,['tool_calls'=>[['id'=>'partial-call']],'usage'=>[]]);
+check($toolPartial->partialResult!==null && $toolPartial->partialResult['tool_calls']===[] && !$toolPartial->modelFallbackAllowed,'Partial tools could be executed or retried');
+$rejection=method('providerException')->invoke(null,'Synthetic local rejection',true,[]);
+check($rejection->partialResult===null && $rejection->modelFallbackAllowed,'Output-free definitive rejection lost its original retry contract');
 $units=$same;$units['input']['usage_unit_size']=1000;$units['output']['usage_unit_size']=1000000;
 check(!$settle->invoke(null,$units,$normalize->invoke(null,['total_tokens'=>12])),'Different effective token rates settled from total only');
