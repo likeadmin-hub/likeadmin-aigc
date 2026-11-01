@@ -51,6 +51,14 @@ final class MarketGenerationAuditFixtures
             $item = $properties[$key]['items'] ?? [];
             foreach ((array)($item['required'] ?? []) as $required) {
                 $bad = $params; unset($bad[$key][0][$required]);
+                // Ordinary named-audio uploads already have a contract-derived local alias policy.
+                // Missing aliases exercise that policy; explicit invalid names must still fail.
+                if ($required === 'name' && ($field['creator_automatic'] ?? '') === 'named_audio') {
+                    $cases[] = self::row($mode, 'automatic_name:'.$key, array_replace($request, ['provider_params'=>$bad]), 'constructed');
+                    $bad[$key][0]['name'] = '';
+                    $cases[] = self::row($mode, 'empty_name:'.$key, array_replace($request, ['provider_params'=>$bad]), 'rejected');
+                    continue;
+                }
                 $cases[] = self::row($mode, 'missing_child:'.$key.'.'.$required, array_replace($request, ['provider_params'=>$bad]), 'rejected');
             }
             if (($item['additionalProperties'] ?? true) === false) {
