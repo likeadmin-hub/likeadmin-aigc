@@ -1,0 +1,35 @@
+{
+  "batch": 69,
+  "date": "2026-11-01",
+  "scope": "Private authenticated HTTP and source-correlated reproductions; no real SKU certification",
+  "observations": [
+    {
+      "scenario": "core_tenant_lookup_overwrites_explicit_app_platform_owner",
+      "status": "reproduced_failure",
+      "source_server_commit": "3b1a415c9",
+      "detail": "正常登录冷初始化继承核心模型租户事件，将显式平台tenant0的应用Skill写成当前租户；后续平台查找缺失并出现PDO driver1062。原真实Skill表未改。",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "fresh_intake_upgraded_as_legacy_before_accepted_turn_publishes",
+      "status": "reproduced_failure",
+      "source_server_commit": "add605ac1",
+      "detail": "新建工作流缺intake_collection_version，被旧草稿升级提前改为reviewing_intake；完整本机SSE已结算，原受理run最终UPSTREAM_COMPLETED_UNPUBLISHED。",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "generic_public_five_second_duration_incorrectly_normalized_to_zero",
+      "status": "reproduced_failure",
+      "source_server_commit": "4dca6b31f",
+      "detail": "私有SKU、公用schema与supported_durations都显式支持5秒，normalizeDurationSelection仍因缺原生schema返回0，正式视频报价拒绝5秒；修复另有4个有效通用声明回滚场景。",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "current_assets_stage_scene_cannot_reuse_in_next_episode",
+      "status": "reproduced_failure",
+      "source_server_commit": "aa10ee8d2",
+      "detail": "第一集视频已成功并进入第二集，场景复用匹配仅接受storyboard:旧前缀，当前assets:场景未复用，ready复用节点检查失败。修复同时保留两种合法来源及原签名／归属校验。",
+      "real_sku_certification": false
+    }
+  ]
+}
