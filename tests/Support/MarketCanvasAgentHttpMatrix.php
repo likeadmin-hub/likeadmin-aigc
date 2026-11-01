@@ -1,6 +1,6 @@
 <?php
 /** Two native Agent workspaces through authenticated HTTP and their original workers. */
-function runMarketCanvasAgentHttp($f,string $api,string $peer,string $suffix,string $token,string $image,int $text,int $agent,array &$report): void
+function runMarketCanvasAgentHttp($f,string $api,string $peer,string $suffix,string &$token,string $image,int $text,int $agent,array &$report): void
 {
     $db=think\facade\Db::class;$t=$f->tenant;$u=$f->user;$script=dirname(__DIR__).'/market-generation-http.php';
     $check=fn($ok,$why)=>MarketWorkerFixture::check((bool)$ok,$why);
@@ -85,6 +85,7 @@ function runMarketCanvasAgentHttp($f,string $api,string $peer,string $suffix,str
     $f->start($script,'fixture_drama_agent_runner','drama');MarketWorkerFixture::wait(fn()=>$db::name('aigc_short_drama_canvas_agent_run')->where('id',$neuron['run_id'])->value('status')==='success','Neuron short drama decision incomplete',35);$f->stop('drama');
     $check((int)$db::name('aigc_short_drama_canvas_agent_event')->where(['run_id'=>$neuron['run_id'],'kind'=>'agent.decision'])->count()===1,'Neuron decision was not committed');$report['drama_neuron_shared_runtime_decision_writeback']=true;
     $login=dataHttp($peer,'/api/login/account'.$suffix,['account'=>$f->prefix,'password'=>'Private-fixture-pass-2026','scene'=>1,'terminal'=>4]);
+    $token=$login['token'];
     $reopen=dataHttp($peer,'/api/app.aigc_canvas.project/detail'.$suffix.'&id='.$entry['project_id'],[],$login['token'],'GET');
     $drama=dataHttp($peer,'/api/app.aigc_short_drama.canvas/current'.$suffix.'&id='.$c,[],$login['token'],'GET');
     $check($reopen['nodes']===$page['nodes']&&$drama['nodes']===$patched['nodes'],'Normal-login Agent project reopen lost stored nodes');$report['both_projects_new_login_reopen_results']=true;
