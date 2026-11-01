@@ -23,6 +23,11 @@ class AiTaskResultAssetService
         foreach ([['images', 'image', 'image_uri'], ['videos', 'video', 'video_uri'], ['items', 'audio', 'audio_uri']] as [$key, $type, $uriKey]) {
             foreach ((array)($summary[$key] ?? []) as $item) {
                 $item = is_array($item) ? $item : [];
+                // Native tools also persist these two legacy names. Project
+                // their recorded facts without overriding canonical values or
+                // substituting current model defaults for historical results.
+                if (!array_key_exists('mime_type',$item) && is_string($item['mime']??null)) $item['mime_type']=$item['mime'];
+                if (!array_key_exists('file_size',$item) && is_numeric($item['size']??null) && is_finite((float)$item['size']) && (float)$item['size']>=0) $item['file_size']=(int)$item['size'];
                 $uri = trim((string)($item[$uriKey] ?? $item['url'] ?? $item['audio_url'] ?? ''));
                 if ($uri === '') {
                     continue;
