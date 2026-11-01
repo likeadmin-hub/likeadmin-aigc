@@ -67,6 +67,10 @@ function runMarketAgentMediaBoundaryHttp($f,string $api,string $peer,string $suf
         $done=$detail($id);$saved=$chunks($id,$asset['file_id']);
         $check($done['readings'][0]['status']==='completed'&&(float)$done['readings'][0]['offset']===(float)$total&&array_column($saved,'offset')===$expectedOffsets,'Reading did not cover each original page/time range exactly once');
         $check($first[0]===$saved[0],'Resume rewrote an earlier source segment');
+        if($kind==='pdf'){
+            $sourceText=implode('\n',array_column($saved,'source_text'));
+            foreach([1,2,3]as$page)$check(substr_count($sourceText,'Synthetic page '.$page.'.')===1,'A decoded PDF page was missing or duplicated');
+        }
         $before=$counts();$check($request('submit',$p)['id']===$id&&$counts()===$before,'Completed reading replay generated');
         $next=$p;$next['session_id']=$run['session_id'];$next['request_id']='boundary-long-'.$kind.'-history-0002';$new=$pair('submit',$next);$check($new['id']!==$id,'History reading did not create a new intent');$finish((int)$new['id']);
         $check(array_column($chunks($new['id'],$asset['file_id']),'offset')===$expectedOffsets&&$chunks($id,$asset['file_id'])===$saved,'New reading changed old source checkpoints');
@@ -74,7 +78,13 @@ function runMarketAgentMediaBoundaryHttp($f,string $api,string $peer,string $suf
     }
     $visionCalls=array_filter($calls('agent_text'),fn($row)=>str_contains(json_encode($row['input']['messages'],JSON_UNESCAPED_UNICODE),'你负责阅读用户资料'));
     $check(count($visionCalls)===10,'PDF/video batch count changed');
-    foreach($visionCalls as$row){$encoded=json_encode($row['input']['messages'],JSON_UNESCAPED_SLASHES);$check(str_contains($encoded,'data:image/jpeg;base64,'),'A visual reading segment lost actual decoded page/frame bytes');}
+    $visualCounts=[];
+    foreach($visionCalls as$row){
+        $encoded=json_encode($row['input']['messages'],JSON_UNESCAPED_SLASHES);$check(str_contains($encoded,'data:image/jpeg;base64,'),'A visual reading segment lost actual decoded page/frame bytes');
+        $countImages=function($value)use(&$countImages){if(!is_array($value))return 0;$n=($value['type']??'')==='image_url'?1:0;foreach($value as$child)if(is_array($child))$n+=$countImages($child);return $n;};
+        $visualCounts[]=$countImages($row['input']['messages']);
+    }
+    $check($visualCounts===[2,1,2,1,4,4,4,4,4,4],'Decoded PDF pages or sampled video frames disappeared in the model request');$report['native_reading_visual_counts']=$visualCounts;
     $report['pdf_rasters_and_video_frames_reach_declared_vision_model']=true;
 
     $p=$input+['request_id'=>'boundary-video-stt-0001','content'=>'Synthetic transcription video boundary','attachments'=>[$videoAsset['file_id']]];
