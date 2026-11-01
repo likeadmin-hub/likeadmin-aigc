@@ -19,20 +19,29 @@
     "full_real_matrix_not_representative_smoke_only": true
   },
   "latest_continuation": {
-    "batch": 77,
-    "user_response": "Does not know which technical inputs to provide; no new paid/real-task/ledger/deployment permissions granted.",
-    "intake_responsibility": "Agents prepare technical material, exact matrix, SHA, synthetic media and version evidence; owner only decides spending limits, device helper and deployment operator.",
-    "support_message": "docs/market-completion-support-message-20261101.md",
-    "planning_inventory": "docs/market-acceptance/execution-planning-inventory-batch-77-20261101.json",
-    "scope_preservation": "107 current local options / 542 SKU do not exclude the 14 historical resources / 25 SKU absent now; union121/567 retained, not certified as live active catalogue.",
-    "source_403_follow_up": {
-      "status": "verified_local_only",
-      "cases": 6,
-      "source_feature_commit": "21c3e0a2ef0aa81416bcb2f32066a584575bc5a5",
-      "runtime_local_develop_commit": "9a13987421d328d9e7da949082334eca1e71c0a1",
-      "evidence": "docs/market-acceptance/source-403-recovery-batch-77-20261101.json",
-      "does_not_close_real_signature_network_or_dedicated_infra": true
-    }
+    "batch": 78,
+    "user_response": "Platform is user-maintained; supplied yc_open/platform-api-saas source repository. Agents extract technical material; no new paid/task/asset/ledger/deployment authorization.",
+    "source_repository": {
+      "url": "https://gitee.com/yc_open/platform-api-saas.git",
+      "develop": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+      "master": "c57897b9d6e9555224dd298a4124f0c7da3673be",
+      "deployed_commit": "unverified",
+      "read_mode": "Git objects only, no checkout/worktree or execution of upstream code"
+    },
+    "documentation_lookup_fix": {
+      "feature_commit": "2d623735495e9318de3d52c37b270e9d0fd83f28",
+      "runtime_local_develop_commit": "a7b7203bb1928f0811098f6b342f1960071efe9e",
+      "tests_passed": 139,
+      "assertions": 814,
+      "native_catalogue_cli_passed": true,
+      "php_syntax_files": 7
+    },
+    "source_reviews": [
+      "docs/market-owned-platform-source-review-20261101.md",
+      "docs/market-owned-platform-meter-review-20261101.md"
+    ],
+    "formal_admission_grants": 0,
+    "scope_note": "18 historic complete-rule review items now have source evidence to review, not 18 models with no documents. Exact remaining conditions/DB mappings/deployment and independent 8 SKU meter guarantees stay explicit."
   },
   "tasks": [
     {
@@ -147,12 +156,14 @@
     {
       "id": "B01-input",
       "owner": "owner/upstream-provider",
-      "status": "waiting_external",
+      "status": "in_progress",
       "depends_on": [
         "B01"
       ],
       "output": "Versioned authoritative schemas, conditions, SKU bounds and receipts for missing resources",
-      "acceptance": "Each resource binds exact identity/channel/API/version/SKU and complete conditional rules; source provenance retained"
+      "acceptance": "Each resource binds exact identity/channel/API/version/SKU and complete conditional rules; source provenance retained",
+      "source_received": "user-supplied source repository at fixed develop/master revisions; per-identity extraction documented, no reviewed bundle compiled/activated",
+      "remaining": "Exact current saved configuration and deployed version binding; resolve documented missing conditional limits and document/code conflicts; compile/review/test each complete source-backed candidate."
     },
     {
       "id": "B02",
@@ -241,7 +252,8 @@
       "special_input_gates": [
         "Nano model/app nested/quantity/bare_b64/asset-ID: only the corresponding exact model/channel or app/API contract.",
         "H3 native content merge: only model:video:minimax:h3-video exact rules."
-      ]
+      ],
+      "source_review": "Two official Qwen source mappings/sizes and six Seedance usage paths identified; actual fee upper bounds and missing-usage guarantees remain unresolved. See market-owned-platform-meter-review-20261101.md."
     },
     {
       "id": "B03",
@@ -305,7 +317,8 @@
         "A04"
       ],
       "output": "Physical WeChat/native App and independent-device normal-login/lifecycle/history evidence",
-      "acceptance": "Real device/build/session/tenant provenance recorded; paid actions subject to C01; no token injection or new cross-device draft feature"
+      "acceptance": "Real device/build/session/tenant provenance recorded; paid actions subject to C01; no token injection or new cross-device draft feature",
+      "local_read_only_observation": "Platform WeChat config, tenant0/1 authorizers/versions/artifact/template records absent; tenant1 key-mode credential row has no keys. 8 managed directories self-consistent, official public/mp-weixin lacks metadata; no proven experience build. Not a physical-device pass."
     },
     {
       "id": "C03-preparation",
@@ -381,6 +394,24 @@
       ],
       "output": "Full plan completion report or exact outstanding dependencies with evidence and owners",
       "acceptance": "No external wait, skipped case, synthetic result or source-only delivery mislabeled as full real-world completion"
+    }
+  ],
+  "continuation_history": [
+    {
+      "batch": 77,
+      "user_response": "Does not know which technical inputs to provide; no new paid/real-task/ledger/deployment permissions granted.",
+      "intake_responsibility": "Agents prepare technical material, exact matrix, SHA, synthetic media and version evidence; owner only decides spending limits, device helper and deployment operator.",
+      "support_message": "docs/market-completion-support-message-20261101.md",
+      "planning_inventory": "docs/market-acceptance/execution-planning-inventory-batch-77-20261101.json",
+      "scope_preservation": "107 current local options / 542 SKU do not exclude the 14 historical resources / 25 SKU absent now; union121/567 retained, not certified as live active catalogue.",
+      "source_403_follow_up": {
+        "status": "verified_local_only",
+        "cases": 6,
+        "source_feature_commit": "21c3e0a2ef0aa81416bcb2f32066a584575bc5a5",
+        "runtime_local_develop_commit": "9a13987421d328d9e7da949082334eca1e71c0a1",
+        "evidence": "docs/market-acceptance/source-403-recovery-batch-77-20261101.json",
+        "does_not_close_real_signature_network_or_dedicated_infra": true
+      }
     }
   ]
 }

@@ -1,0 +1,543 @@
+{
+  "batch": 78,
+  "scope": "Verified documentation-ID lookup and identity/cache fixes; local terminal metadata and managed-byte inventory; read-only user-owned upstream source review. No upstream code execution, paid AI, real task/asset/ledger/config or deployment writes.",
+  "source_server_commit": "2d623735495e9318de3d52c37b270e9d0fd83f28",
+  "runtime_local_develop_server_commit": "a7b7203bb1928f0811098f6b342f1960071efe9e",
+  "source_web_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+  "validation": {
+    "phpunit": [
+      {
+        "suite": "MarketDeveloperDocumentLookupTest",
+        "tests": 47,
+        "assertions": 263
+      },
+      {
+        "suite": "MarketGenerationSourceIdentityTest",
+        "tests": 18,
+        "assertions": 117
+      },
+      {
+        "suite": "MarketGenerationContractReviewTest",
+        "tests": 35,
+        "assertions": 335
+      },
+      {
+        "suite": "MarketGenerationReviewedContractTest",
+        "tests": 27,
+        "assertions": 59
+      },
+      {
+        "suite": "MarketNativeDocumentParametersTest",
+        "tests": 10,
+        "assertions": 16
+      },
+      {
+        "suite": "MarketFrozenDefaultsReuseTest",
+        "tests": 2,
+        "assertions": 24
+      }
+    ],
+    "tests": 139,
+    "assertions": 814,
+    "syntax_files": 7,
+    "catalog_cli_passed": true
+  },
+  "observations": [
+    {
+      "status": "scoped_document_lookup_regressions_passed",
+      "entry": "backend_document_metadata",
+      "scenario": "real_client_resolver_and_identity_with_isolated_synthetic_wire",
+      "tests": 139,
+      "assertions": 814,
+      "skipped": 0
+    },
+    {
+      "status": "scoped_catalogue_native_cli_passed",
+      "entry": "backend_local_catalogue",
+      "scenario": "existing_native_catalogue_regression_rolled_back"
+    },
+    {
+      "status": "local_terminal_config_observed",
+      "entry": "tenant0_1_wechat_metadata",
+      "scenario": "strict_read_only_presence_and_managed_manifest_inventory"
+    },
+    {
+      "status": "owned_upstream_source_received_read_only",
+      "entry": "source_develop_and_master_objects",
+      "scenario": "exact_model_and_meter_source_review_not_deployed_certification"
+    }
+  ],
+  "terminal_local_inventory": {
+    "schema_version": 1,
+    "status": "ok",
+    "observed_at": "2026-11-01T15:00:15+08:00",
+    "scope": {
+      "tenant_ids": [
+        0,
+        1
+      ],
+      "readonly_transaction": true,
+      "show_tables_calls": 1,
+      "external_requests": false,
+      "secrets_decrypted": false,
+      "raw_appids_urls_paths_redacted": true,
+      "evidence_limit": "Stored configuration and managed bytes only; not physical device, live WeChat validity or deployment certification"
+    },
+    "schema": {
+      "config": {
+        "exists": true,
+        "column_count": 6,
+        "requested_columns_missing": []
+      },
+      "tenant_config": {
+        "exists": true,
+        "column_count": 7,
+        "requested_columns_missing": []
+      },
+      "tenant": {
+        "exists": true,
+        "column_count": 27,
+        "requested_columns_missing": []
+      },
+      "tenant_domain_alias": {
+        "exists": true,
+        "column_count": 8,
+        "requested_columns_missing": []
+      },
+      "wechat_open_platform": {
+        "exists": true,
+        "column_count": 18,
+        "requested_columns_missing": []
+      },
+      "wechat_authorizers": {
+        "exists": true,
+        "column_count": 24,
+        "requested_columns_missing": []
+      },
+      "wechat_credentials": {
+        "exists": true,
+        "column_count": 17,
+        "requested_columns_missing": []
+      },
+      "wechat_mnp_versions": {
+        "exists": true,
+        "column_count": 19,
+        "requested_columns_missing": []
+      },
+      "wechat_artifacts": {
+        "exists": true,
+        "column_count": 11,
+        "requested_columns_missing": []
+      },
+      "wechat_templates": {
+        "exists": true,
+        "column_count": 11,
+        "requested_columns_missing": []
+      },
+      "wechat_template_drafts": {
+        "exists": true,
+        "column_count": 12,
+        "requested_columns_missing": []
+      }
+    },
+    "platform_wechat": {
+      "configuration_rows": 0
+    },
+    "tenant_bindings": {
+      "tenant_0": {
+        "tenant_row_present": false,
+        "active_primary_alias_count": 0,
+        "configured_root_host_present": true
+      },
+      "tenant_1": {
+        "tenant_row_present": true,
+        "active_primary_alias_count": 1,
+        "configured_root_host_present": true,
+        "configuration_partitioned": false,
+        "alias_enabled_stored": true,
+        "alias_host_present": true,
+        "effective_host_derivable_from_stored_config": true,
+        "tenant_deleted": false
+      }
+    },
+    "manual_config": {
+      "platform_legacy_config": {
+        "available": true,
+        "matched_rows": 0,
+        "mnp_setting": [],
+        "web_page": []
+      },
+      "tenant_0": {
+        "available": true,
+        "matched_rows": 0,
+        "mnp_setting": [],
+        "web_page": []
+      },
+      "tenant_1": {
+        "available": true,
+        "matched_rows": 0,
+        "mnp_setting": [],
+        "web_page": []
+      }
+    },
+    "authorizers": {
+      "tenant_0": {
+        "rows": 0,
+        "by_type_state": [],
+        "active_miniprogram_count": 0,
+        "multiple_active_miniprograms": false
+      },
+      "tenant_1": {
+        "rows": 0,
+        "by_type_state": [],
+        "active_miniprogram_count": 0,
+        "multiple_active_miniprograms": false
+      }
+    },
+    "credentials": {
+      "tenant_0": {
+        "rows": 0,
+        "stored": []
+      },
+      "tenant_1": {
+        "rows": 1,
+        "stored": [
+          {
+            "upload_mode": "key",
+            "has_upload_private_key": false,
+            "has_upload_private_pem": false,
+            "has_upload_certificate": false,
+            "has_app_secret": false,
+            "has_api_key": false,
+            "settings": {
+              "request_domain": {
+                "present": false,
+                "is_array": false
+              },
+              "socket_domain": {
+                "present": false,
+                "is_array": false
+              },
+              "upload_file_domain": {
+                "present": false,
+                "is_array": false
+              },
+              "download_file_domain": {
+                "present": false,
+                "is_array": false
+              },
+              "business_domain": {
+                "present": false,
+                "is_array": false
+              }
+            }
+          }
+        ]
+      }
+    },
+    "versions": {
+      "tenant_0": {
+        "rows": 0,
+        "effective_scope_rows": 0,
+        "state_counts": [],
+        "stored": []
+      },
+      "tenant_1": {
+        "rows": 0,
+        "effective_scope_rows": 0,
+        "state_counts": [],
+        "stored": []
+      }
+    },
+    "artifacts": {
+      "registered_rows": 0,
+      "registered": [],
+      "managed_directories_seen": 9,
+      "managed_directories_checked": 9,
+      "current_byte_valid_count": 8,
+      "managed_files": [
+        {
+          "path_sha256": "0a334850b3f602ad93665633169bf8571e3e0978260656fc44c9bb3147003648",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": false,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 1278,
+          "bytes": 3359433,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": false,
+          "metadata_version_shape": false,
+          "metadata_version_matches_directory": false,
+          "metadata_file_count_matches": false,
+          "metadata_manifest_hash_matches": false,
+          "metadata_file_map_matches": false,
+          "metadata_source_sha_present": false,
+          "metadata_source_sha_shape": false,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": false
+        },
+        {
+          "path_sha256": "943c6b3eb0451611507ad6f6b88e8c93bdd672c735ec073d17d4e6b69b4cda96",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 507,
+          "bytes": 1388120,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        },
+        {
+          "path_sha256": "bd13e180d9ab0d52b47815befd179c8e198ae0c4cefec386a2f106616a6f0ddd",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 521,
+          "bytes": 2866891,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        },
+        {
+          "path_sha256": "b50b9f5b94280d69e2b5fddb3a09f12f1b8092a2759ebcd536b59d0c075eb83a",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 746,
+          "bytes": 2566780,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        },
+        {
+          "path_sha256": "3d0e3055553834f3bacb4d69b1efad70cea46f50fc9d3b6111de1652ff5f6b4f",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 746,
+          "bytes": 2567252,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        },
+        {
+          "path_sha256": "4fa8ca41bf8cd7ca58139116a3d1608320d6e990c18f1250e4a3a29c69d82cdd",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 747,
+          "bytes": 2568390,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        },
+        {
+          "path_sha256": "72bd1b6ef911593d61aff0920ced6d3366ac4ab1994a6d852028061932fab96a",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 754,
+          "bytes": 2611716,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        },
+        {
+          "path_sha256": "94e6526d01c36f6195a0cef1627103a77a2a93ec1000c9965660148b6ab577fa",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 754,
+          "bytes": 2611893,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        },
+        {
+          "path_sha256": "ac529469f31e25e85c1b8bf4da92db9efb3ff884c82536a2f3b490489e3af259",
+          "allowed_managed_path": true,
+          "registered_rows": 0,
+          "directory_exists": true,
+          "root_is_symlink": false,
+          "metadata_exists": true,
+          "checked": true,
+          "manifest_read_ok": true,
+          "file_count": 1183,
+          "bytes": 3138916,
+          "has_app_json": true,
+          "has_project_config_json": true,
+          "has_runtime_js": true,
+          "metadata_json_present": true,
+          "metadata_version_shape": true,
+          "metadata_version_matches_directory": true,
+          "metadata_file_count_matches": true,
+          "metadata_manifest_hash_matches": true,
+          "metadata_file_map_matches": true,
+          "metadata_source_sha_present": true,
+          "metadata_source_sha_shape": true,
+          "registered_source_mismatches": 0,
+          "registered_version_mismatches": 0,
+          "valid_current_bytes": true
+        }
+      ]
+    },
+    "templates": {
+      "local_rows": 0,
+      "success_with_template_id": 0
+    },
+    "template_drafts": {
+      "local_rows": 0,
+      "success_rows": 0,
+      "success_with_artifact_and_source": 0
+    },
+    "transaction_rolled_back": true,
+    "incomplete_reasons": []
+  },
+  "source_intake": {
+    "url": "https://gitee.com/yc_open/platform-api-saas.git",
+    "develop": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+    "master": "c57897b9d6e9555224dd298a4124f0c7da3673be",
+    "deployed_commit": "unverified",
+    "read_mode": "Git objects only, no checkout/worktree or execution of upstream code"
+  },
+  "formal_new_grants": 0,
+  "provider_ai_calls": 0,
+  "provider_real_task_queries": 0,
+  "original_data_integrity": {
+    "equal_previous_batch": true,
+    "task_rows": 143,
+    "llm_agent_rows": 4080,
+    "balance": 4332.54
+  },
+  "initial_runner_failures": {
+    "directory_filter": "Loading the entire Feature directory before filtering caused pre-existing duplicate check() declarations; target suites were rerun by explicit files.",
+    "catalogue_phpunit": "MarketCatalogReadTest is a native CLI script, not a PHPUnit class; it rolled back, then was correctly run as native CLI.",
+    "terminal_stdin": "CLI standard output constants unavailable in stdin mode; script was copied to its owned /tmp path and rerun successfully, with no metadata/data writes."
+  },
+  "log_sha256": {
+    "b78-document-lookup-tests.log": "314b9a5585f21a116423b2014cb3721746aad22f678c9e1696bb7d9c01c8c6c7",
+    "b78-MarketGenerationSourceIdentityTest.log": "2e561d0b247e2618525a607211f73208716fc6fc56a44e1de1e6988d24607262",
+    "b78-MarketGenerationContractReviewTest.log": "b8ad46676c98525a2a32968779b8221151cf2f61cac7fb99ed5dfb0096b24051",
+    "b78-MarketGenerationReviewedContractTest.log": "73bde791567a1989c451b619a90127c321aba9e15dbe68916161d850958eb537",
+    "b78-MarketNativeDocumentParametersTest.log": "0902d9dd8edeb25b07045c52659ce465b02a0d23ca10a1d96855339ba52e0252",
+    "b78-MarketFrozenDefaultsReuseTest.log": "c2d1b63bd71b90446b91532de9e0a9953eb0e2af77ff327e298b2258b5dbc75f",
+    "b78-catalog-read-cli.log": "24560d96d6ae676292a752aac5947540137774e0b6756c56e0e67fd070e9dd91",
+    "b78-document-related-tests.log": "e91ddc61b40d28131a0aaa92fac561f1175adbfd254afbb0608e0dd00703b94c",
+    "b78-MarketCatalogReadTest.log": "f43df6952f89c5d2c176e23ef2429bf6fff2623c775eecee8c252e3f27150b75",
+    "b78-local-terminal-config-readonly.json": "58fb64ada1a576aded515471be8a308ada7772f648c96e1dab023111231c9fb7",
+    "b78-current-document-audit.json": "a892dbd2b6729adf28ec6b60f7b3e3cc517c20827aad0559703fb2ba8eda7330",
+    "b78-after-tasks.json": "85f3222bcb03a93cb5eeb69b802630380d26ebd190cfcbaa4a50b140b3baf3b9",
+    "b78-after-llm.json": "929b9e5015aa2ca6059e4762c9bfb5fcd2aa04d3040724e755ffb896ec4271b8"
+  }
+}
