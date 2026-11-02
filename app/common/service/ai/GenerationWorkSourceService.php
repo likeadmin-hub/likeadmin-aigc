@@ -69,7 +69,7 @@ final class GenerationWorkSourceService
         $column = static fn($field) => '`'.$outer.'`.`'.$field.'`';
         foreach (self::relations($app) as $relation) {
             $query->whereNotExists(function($sub) use ($relation,$column) {
-                $sub->name($relation['table'])->alias('s')->field('1')
+                $sub->name($relation['table'])->alias('s')->fieldRaw('1')
                     ->whereRaw('s.tenant_id='.$column('tenant_id').' AND s.user_id='.$column('user_id'))
                     ->whereRaw(self::matchSql($relation,$column('id')));
                 self::constrain($sub,$relation);
