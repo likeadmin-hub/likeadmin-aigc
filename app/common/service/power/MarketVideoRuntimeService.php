@@ -656,6 +656,16 @@ class MarketVideoRuntimeService
             self::clearTerminalRefreshDiagnostics((int)$c['id']);
             return self::response($c->toArray());
         }
+        $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
+        $storedSummary = self::arrayValue($c['response_summary'] ?? []);
+        if ((string)$c['run_status'] === 'success' && !empty($snapshot['requires_actual_duration'])
+            && !self::isTokenSnapshot($snapshot) && !empty($storedSummary['videos'])) {
+            try { return self::resumeMeasuredVideoResult($consumptionId, $c->toArray()); }
+            catch (\Throwable $error) {
+                self::recordRefreshError($consumptionId, (string)$c['upstream_task_id'], $error);
+                return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
+        }
         $taskId = trim((string)$c['upstream_task_id']);
         if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) {
             $summary=self::arrayValue($c['response_summary']);
@@ -781,6 +791,13 @@ class MarketVideoRuntimeService
             if (self::isTokenSnapshot($snapshot)) {
                 $usage['actual_quantity'] = self::tokenUsage($snapshot, $response);
             }
+            if ((float)($usage['actual_quantity'] ?? 0) <= 0) {
+                $measured = self::measuredOutputSeconds($snapshot, $videos);
+                if ($measured > 0) {
+                    $usage['actual_quantity'] = $measured;
+                    $usage['actual_quantity_source'] = 'managed_output_metadata';
+                }
+            }
             if ((self::isTokenSnapshot($snapshot) || !empty($snapshot['requires_actual_duration'])) && (float)($usage['actual_quantity'] ?? 0) <= 0) {
                 $now = time();
                 $usage['settlement_basis'] = 'awaiting_actual_usage';
@@ -815,6 +832,39 @@ class MarketVideoRuntimeService
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['video_count' => count($videos), 'quantity' => $quantity]);
         });
+    }
+
+    /** Finish an accepted result from its owned managed file, without another provider query/upload. */
+    private static function resumeMeasuredVideoResult(int $consumptionId, array $consumption): array
+    {
+        $assets = \app\common\service\ai\AiTaskResultAssetService::recordConsumptionAssets($consumptionId, true);
+        foreach ($assets as $asset) {
+            if (($asset['asset_type'] ?? '') !== 'video' || ($asset['transfer_status'] ?? '') !== 'stored') continue;
+            \app\common\service\ai\AiTaskResultAssetService::measureStoredVideo((int)$asset['id'], $consumptionId,
+                (int)$consumption['tenant_id'], (int)$consumption['user_id']);
+        }
+        $current = AiConsumptionLog::findOrEmpty($consumptionId);
+        $summary = self::arrayValue($current['response_summary'] ?? []);
+        self::settle($consumptionId, (array)($summary['videos'] ?? []), (string)$current['upstream_request_id'], (string)$current['upstream_task_id'], $summary);
+        return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+    }
+
+    private static function measuredOutputSeconds(array $snapshot, array $videos): float
+    {
+        if (empty($snapshot['requires_actual_duration']) || self::isTokenSnapshot($snapshot)) return 0.;
+        $basis = $snapshot['billing_meter']['basis'] ?? '';
+        if ($basis !== '' && !in_array($basis, ['output','output_plus_video','output_plus_max_video'], true)) return 0.;
+        if ($basis === '' && !in_array(strtolower((string)($snapshot['usage_unit'] ?? '')), ['output_second','second','seconds','sec'], true)) return 0.;
+        $seconds = 0.; $seen = [];
+        foreach ($videos as $video) {
+            $uri = (string)($video['video_uri'] ?? '');
+            $duration = $video['duration'] ?? null;
+            if ($uri === '' || empty($video['storage_scope']) || empty($video['storage_engine'])
+                || !is_numeric($duration) || !is_finite((float)$duration) || (float)$duration <= 0) return 0.;
+            if (!isset($seen[$uri])) $seconds += (float)$duration;
+            $seen[$uri] = true;
+        }
+        return is_finite($seconds) ? $seconds : 0.;
     }
 
     private static function resolve(int $tenantId, array $selection): array
@@ -3783,7 +3833,7 @@ class MarketVideoRuntimeService
                     'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'),
                     'storage_engine' => (string)($stored['storage_engine'] ?? ''),
                     'storage_domain' => (string)($stored['storage_domain'] ?? ''),
-                ];
+                ] + array_intersect_key($stored, array_flip(['duration','mime_type','file_size','stored']));
             } catch (\Throwable $e) {
                 $errors[] = $e->getMessage();
             }
