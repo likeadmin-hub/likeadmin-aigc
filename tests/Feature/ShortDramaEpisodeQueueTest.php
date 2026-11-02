@@ -291,7 +291,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame(1,$naturalRequest['_revision_agent_version']);
         self::assertSame('production',$naturalRequest['_revision_stage']);
         self::assertSame($result['storyboard'],$naturalRequest['revision_base_result']['storyboard']);
-        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把第1个分镜改为雨天']);
+        $revision = $natural;
         $revisionTask = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
         self::assertSame((int)$created['project_id'], (int)$revisionTask['project_id']);
         self::assertSame($lockedOutline, Episodes::decode($revisionTask['request_json'])['series_context']['outline']);
@@ -301,7 +301,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame((int)$created['project_id'], (int)$retry['project_id']);
         self::assertSame($revision['task_id'], $retry['task_id'], 'Same-context retries reuse durable receipts');
         $retryRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->value('request_json'));
-        self::assertSame('把第1个分镜改为雨天', $retryRequest['revision_message']);
+        self::assertSame('把本集开场改为雨天', $retryRequest['revision_message']);
         self::assertSame('pending', Episodes::detail(1, 1, $list['lists'][1]['id'])['status']);
 
         // A failed legacy continuity review switches once to bounded review;
