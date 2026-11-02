@@ -85,6 +85,14 @@ final class ShortDramaRevisionAgentTest extends TestCase
             'expectations'=>['languages'=>[['entity'=>'shot','id'=>'s1','field'=>'dialogue','language'=>'en']]]]);
         $this->assertFalse($result['revision_response']['edited']);
     }
+    public function testEnglishSpeechRetainsNamedSpeakerAndSynchronizesOnlyTheSoundLine(): void
+    {
+        $out=$this->runReply(['action'=>'edit','message'=>'改英文','operations'=>[['entity'=>'shot','op'=>'update','id'=>'s1','values'=>['dialogue'=>'甲：Let us solve it.']]],
+            'expectations'=>['languages'=>[['entity'=>'shot','id'=>'s1','field'=>'dialogue','language'=>'en']]]]);
+        $this->assertTrue($out['revision_response']['edited']);
+        $this->assertSame('声音：甲：Let us solve it.',$out['storyboard'][0]['video_prompt']);
+        $this->assertSame($this->plan()['storyboard'][0]['image_prompt'],$out['storyboard'][0]['image_prompt']);
+    }
     public function testSplitMoveAddRemoveAndTimeConstraints(): void
     {
         $base=$this->plan();

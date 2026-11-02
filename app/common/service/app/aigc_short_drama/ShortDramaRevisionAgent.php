@@ -166,7 +166,10 @@ TEXT;
                 }
             } else {
                 if ($index===null) self::fail('修改对象不存在，请按当前版本重新指定');
-                if ($op==='update') $rows[$index]=array_replace($rows[$index],self::fields($kind,$values));
+                if ($op==='update') {
+                    $rows[$index]=array_replace($rows[$index],self::fields($kind,$values));
+                    if ($kind==='shot' && !array_key_exists('video_prompt',$values)) $rows[$index]=self::syncVideoLines($rows[$index],array_keys($values));
+                }
                 elseif ($op==='remove') array_splice($rows,$index,1);
                 elseif ($op==='move') {
                     $item=$rows[$index]; array_splice($rows,$index,1);
@@ -219,6 +222,7 @@ TEXT;
                 if (!is_array($item)) self::fail('修改结果包含无效对象');
                 $id=self::id($item[self::key($kind)] ?? '');
                 if ($id==='' || isset($seen[$id])) self::fail('修改结果包含缺失或重复标识');
+                if (in_array($kind,['episode','scene'],true) && !preg_match('/^[1-9][0-9]{0,3}$/D',$id)) self::fail('集号或场次编号无效');
                 $seen[$id]=true;
                 if (in_array($kind,['subject','location'],true) && trim((string)($item['name'] ?? ''))==='') self::fail('主体或场景名称不能为空');
                 if ($kind==='subject' && isset($item['category']) && !in_array($item['category'],['character','animal','prop','symbol'],true)) self::fail('主体分类无效');
@@ -258,6 +262,9 @@ TEXT;
             $item=$kind==='plan'?$plan:self::find($plan[self::COLLECTIONS[$kind] ?? ''] ?? [],self::key($kind),self::id($language['id'] ?? ''));
             $text=$item[$field] ?? null;
             if (!is_string($text) || trim($text)==='') self::fail('指定语言的修改内容缺失');
+            if ($field==='dialogue') {
+                foreach (array_column($plan['subjects'] ?? [],'name') as $name) $text=preg_replace('/(?:^|\n)\s*'.preg_quote((string)$name,'/').'\s*[：:]\s*/u','',$text);
+            }
             if (($language['language'] ?? '')==='en' && (!preg_match('/[a-zA-Z]{2}/',$text) || preg_match('/\p{Han}/u',$text))) self::fail('指定字段未完整改为英文');
             if (($language['language'] ?? '')==='zh' && !preg_match('/\p{Han}/u',$text)) self::fail('指定字段未改为中文');
         }
@@ -300,6 +307,24 @@ TEXT;
             if ($visual || $sound || ($old['camera_movement'] ?? '')!==($shot['camera_movement'] ?? '') || ($old['video_prompt'] ?? '')!==($shot['video_prompt'] ?? '') || ($old['recommended_duration_seconds'] ?? 0)!==($shot['recommended_duration_seconds'] ?? 0)) $video[]=$id;
         }
         return ['image_shot_ids'=>$image,'video_shot_ids'=>$video,'audio_shot_ids'=>$audio,'regenerated'=>false];
+    }
+
+    private static function syncVideoLines(array $shot,array $fields): array
+    {
+        $prompt=(string)($shot['video_prompt'] ?? '');
+        foreach (['camera_movement'=>'运镜手法','composition'=>'构图','shot_type'=>'景别'] as $field=>$label) {
+            if (in_array($field,$fields,true)) $prompt=preg_replace_callback('/^'. $label .'[：:].*$/mu',static fn()=>$label.'：'.$shot[$field],$prompt);
+        }
+        if (array_intersect($fields,['dialogue','voice_role','sound_effect'])) {
+            $sound=trim((string)($shot['dialogue'] ?? ''));
+            $speaker=trim((string)($shot['voice_role'] ?? ''));
+            if ($sound==='') $sound='无对白';
+            elseif ($speaker!=='' && !preg_match('/^'.preg_quote($speaker,'/').'\s*[：:]/u',$sound)) $sound=$speaker.'：'.$sound;
+            if (!empty($shot['sound_effect'])) $sound.='；'.$shot['sound_effect'];
+            $prompt=preg_replace_callback('/^声音[：:].*$/mu',static fn()=>'声音：'.$sound,$prompt);
+        }
+        if ($prompt!=='') $shot['video_prompt']=$prompt;
+        return $shot;
     }
 
     private static function key(string $kind): string { return match($kind) {'shot'=>'shot_id','episode'=>'episode_number','scene'=>'scene_number',default=>'id'}; }
