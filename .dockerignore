@@ -17,3 +17,6 @@ public/qrcode/*
 tests
 phpunit.xml.dist
 *.log
+
+# Documentation-only promotional media is not part of the runtime image.
+.github/media/

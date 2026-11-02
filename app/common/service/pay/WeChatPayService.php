@@ -27,6 +27,7 @@ use app\common\model\power\TenantPowerOrder;
 use app\common\model\recharge\RechargeOrder;
 use app\common\model\user\UserAuth;
 use app\common\service\pay\BasePayService;
+use app\common\service\promotion\PackagePromotionPolicy;
 use app\common\service\wechat\WeChatConfigService;
 use EasyWeChat\Pay\Application;
 use EasyWeChat\Pay\Message;
@@ -168,7 +169,7 @@ class WeChatPayService extends BasePayService
             "out_trade_no" => $order['pay_sn'],
             "notify_url" => $this->config['notify_url'],
             "amount" => [
-                "total" => intval($order['order_amount'] * 100),
+                "total" => PackagePromotionPolicy::cents($order['order_amount']),
             ],
             "payer" => [
                 "openid" => $this->auth['openid']
@@ -202,7 +203,7 @@ class WeChatPayService extends BasePayService
             'out_trade_no' => $order['pay_sn'],
             'notify_url' => $this->config['notify_url'],
             'amount' => [
-                'total' => intval($order['order_amount'] * 100),
+                'total' => PackagePromotionPolicy::cents($order['order_amount']),
             ],
             'attach' => $from
         ]);
@@ -232,7 +233,7 @@ class WeChatPayService extends BasePayService
             'out_trade_no' => $order['pay_sn'],
             'notify_url' => $this->config['notify_url'],
             'amount' => [
-                'total' => intval($order['order_amount'] * 100),
+                'total' => PackagePromotionPolicy::cents($order['order_amount']),
             ],
             'attach' => $from
         ]);
@@ -268,7 +269,7 @@ class WeChatPayService extends BasePayService
             'out_trade_no' => $order['pay_sn'],
             'notify_url' => $this->config['notify_url'],
             'amount' => [
-                'total' => intval(strval($order['order_amount'] * 100)),
+                'total' => PackagePromotionPolicy::cents($order['order_amount']),
             ],
             'attach' => $from,
             'scene_info' => [
