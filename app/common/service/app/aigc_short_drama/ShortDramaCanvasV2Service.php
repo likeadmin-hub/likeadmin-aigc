@@ -36,7 +36,7 @@ final class ShortDramaCanvasV2Service
         $threads=FeatureGate::enabled($tenant)?ConversationStore::threads($tenant,$user,$id):[];
         $thread=null;foreach ($threads as $candidate) if ($candidate['title']==='V2 画布对话') {$thread=$candidate;break;}
         return ['workspace'=>['id'=>$id,'title'=>$document['title'],'project_id'=>(int)($document['viewport']['v2_project_id']??0)],
-            'graph'=>ShortDramaCanvasV2Graph::project($document),'messages'=>$thread?ConversationStore::messages($tenant,$user,$id,$thread['id']):[],
+            'graph'=>ShortDramaCanvasV2Graph::project($document),'messages'=>$thread?ShortDramaCanvasV2Graph::messages(ConversationStore::messages($tenant,$user,$id,$thread['id'])):[],
             'agent_thread'=>$thread,'capabilities'=>self::capabilities($tenant)];
     }
 
@@ -47,14 +47,14 @@ final class ShortDramaCanvasV2Service
         $prompt=$input['prompt']??'';
         if (!is_string($prompt)||trim($prompt)===''||mb_strlen($prompt)>20000) throw new RuntimeException('请输入不超过20000字的创作内容');
         $hash=hash('sha256',json_encode([$prompt,(int)($input['skill_id']??0),(int)($input['skill_version']??0),$project],JSON_THROW_ON_ERROR));
-        $skill=(int)($input['skill_id']??0)>0 ? ShortDramaSkillService::resolveForTask($tenant,$input) : [];
-        $id=Db::transaction(static function()use($tenant,$user,$key,$prompt,$hash,$project,$skill):int {
+        $id=Db::transaction(static function()use($tenant,$user,$key,$prompt,$hash,$project,$input):int {
             $scope=['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>0,'request_key'=>'v2-entry:'.$key];
             $receipt=Db::name(GraphService::RECEIPTS)->where($scope)->lock(true)->find();
             if ($receipt) {
                 if (!hash_equals($receipt['request_hash'],$hash)) throw new RuntimeException('IDEMPOTENCY_CONFLICT');
                 return (int)json_decode($receipt['result_json'],true,512,JSON_THROW_ON_ERROR)['canvas_id'];
             }
+            $skill=(int)($input['skill_id']??0)>0 ? ShortDramaSkillService::resolveForTask($tenant,$input) : [];
             $row=ShortDramaCanvasService::create($tenant,$user,['title'=>mb_substr(trim($prompt),0,40)]);
             $graph=['version'=>$row['graph_revision'],'title'=>$row['title'],'nodes'=>[['node_key'=>'idea','node_type'=>'text','business_kind'=>'script','title'=>'创作需求','content'=>['text'=>$prompt],'position'=>['x'=>80,'y'=>120],'width'=>420,'height'=>248,'z_index'=>1]],'edges'=>[],'viewport'=>['x'=>260,'y'=>160,'k'=>1]];
             $save=ShortDramaCanvasV2Graph::saveInput($row,$graph);$save['viewport']['v2_project_id']=$project;
@@ -86,13 +86,13 @@ final class ShortDramaCanvasV2Service
             'request_key'=>self::requestKey($input['request_key']??null),'content'=>$input['content']??'',
             'selected_node_ids'=>[],'base_revision'=>(int)$document['graph_revision'],
             'skill_id'=>(int)($document['viewport']['v2_skill_id']??0),'skill_version'=>(int)($document['viewport']['v2_skill_version']??0)]);
-        return ['run'=>$run,'thread_id'=>$thread['id'],'messages'=>ConversationStore::messages($tenant,$user,$id,$thread['id'])];
+        return ['run'=>$run,'thread_id'=>$thread['id'],'messages'=>ShortDramaCanvasV2Graph::messages(ConversationStore::messages($tenant,$user,$id,$thread['id']))];
     }
 
     public static function agentStatus(int $tenant,int $user,int $id,int $thread,int $run): array
     {
         $status=ConversationStore::run($tenant,$user,$id,$thread,$run);
-        return ['run'=>$status,'thread_id'=>$thread,'messages'=>ConversationStore::messages($tenant,$user,$id,$thread),
+        return ['run'=>$status,'thread_id'=>$thread,'messages'=>ShortDramaCanvasV2Graph::messages(ConversationStore::messages($tenant,$user,$id,$thread)),
             'graph'=>ShortDramaCanvasV2Graph::project(self::document($tenant,$user,$id))];
     }
 

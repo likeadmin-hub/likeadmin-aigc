@@ -35,6 +35,10 @@ class ShortDramaCanvasV2ContractTest extends TestCase
         self::assertSame('4',$saved['edges'][0]['from']);self::assertSame('9',$saved['edges'][0]['to']);self::assertSame(3,$saved['expected_revision']);
         self::assertSame($document['document_token'],$saved['expected_document_token']);
     }
+    public function testConversationMessagesExposeUserTextRatherThanRawStructuredJson(): void
+    {
+        self::assertSame([['id'=>3,'role'=>'assistant','content'=>'Visible reply']],Graph::messages([['id'=>3,'role'=>'assistant','content'=>['text'=>'Visible reply','canvas_actions'=>['internal'=>'not displayed']]]]));
+    }
     public function testTaskProjectionNeverExposesPrivateProviderDiagnostics(): void
     {
         $run=['id'=>9,'node_id'=>'4','type'=>'video','status'=>'success','result'=>['api_key'=>'secret','provider_response'=>['token'=>'secret'],'content'=>'Public text'],
