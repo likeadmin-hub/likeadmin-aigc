@@ -366,7 +366,7 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         \app\common\service\power\MarketTextModelRuntimeService::$returnIncompleteEveryOutline = true;
 
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('多集大纲');
+        $this->expectExceptionMessage('大纲不完整');
         $this->generate([
             'multi_episode' => true,
             'episode_count' => 3,
