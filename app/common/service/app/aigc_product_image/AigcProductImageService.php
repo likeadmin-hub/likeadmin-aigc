@@ -755,7 +755,7 @@ class AigcProductImageService
             $row['product_image_url'] = self::imageUrl((string)($row['product_image'] ?? ''));
             $row['custom_scene_image_url'] = self::imageUrl((string)($row['custom_scene_image'] ?? ''));
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -771,7 +771,7 @@ class AigcProductImageService
             'canceled' => '已取消',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function formatTemplate(array $row): array

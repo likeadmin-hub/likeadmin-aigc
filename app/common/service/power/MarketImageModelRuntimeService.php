@@ -175,7 +175,7 @@ class MarketImageModelRuntimeService
                 'sort' => (int)$product['id'],
             ];
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     /**
@@ -322,7 +322,14 @@ class MarketImageModelRuntimeService
         bool $tenantAdminConsumption = false
     ): array {
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
-        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, $userId, $tenantAdminConsumption);
+        // Business apps resolve owned material IDs into URLs after choosing a
+        // model. Admission must select the SKU using those exact prepared
+        // materials, just as quote and submission do. Keep routing authority
+        // in selection; never replace it from an arbitrary request field.
+        $materialSelection = array_replace($selection, array_intersect_key($request, array_flip([
+            'reference_assets', 'reference_images', 'generation_method', 'generation_type', 'material_mode',
+        ])));
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $materialSelection), $tenantId, $userId, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
         $quantity = max(1, $quantity);
@@ -375,7 +382,7 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array<string,mixed> */
-    public static function submit(int $consumptionId, array $request, bool $tenantAdminConsumption = false): array
+    public static function submit(int $consumptionId, array $request, bool $tenantAdminConsumption = false, ?array $frozenNative = null): array
     {
         $context = self::context($consumptionId, false);
         if ($context === null) {
@@ -398,7 +405,7 @@ class MarketImageModelRuntimeService
                     ||(float)$consumption['reserved_tenant_cost']+0.000001<MarketGenerationMeter::price((float)$price['platform_price'],$meter['maximum_quantity'],$price)
                     ||(float)$consumption['reserved_user_price']+0.000001<MarketGenerationMeter::price((float)$price['tenant_price'],$meter['maximum_quantity'],$price))throw new Exception('Token 预占未覆盖冻结费用上限，禁止提交');
             }
-            $payload = self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput;
+            $payload = $frozenNative ?? self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput;
             if(self::requiresMeterReceipt($price)){$plan=MarketGenerationAdapterRegistry::transport($price,'submit');$submitUrl=self::origin().$plan['path'];}
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
@@ -407,13 +414,9 @@ class MarketImageModelRuntimeService
             self::fail($consumptionId, $e->getMessage(), 'request_invalid');
             throw $e;
         }
-        if ($tenantAdminConsumption) {
-            // Commit a claim before outbound I/O. A restarted worker must never replay it.
-            $claimed = AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update(['run_status' => 'submitting', 'update_time' => time()]);
-            if (!$claimed) return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+        if (!self::claimSubmission($consumptionId, $price, $tenantAdminConsumption, $microSubmission)) {
+            return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         }
-        if(!$microSubmission&&!$tenantAdminConsumption&&!MarketBoundedImageSubmission::begin($consumptionId))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
-        if($microSubmission&&!MicroVideoSubmission::begin($consumptionId))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         $started = microtime(true);
         $taskId = '';
         $requestId = '';
@@ -466,17 +469,23 @@ class MarketImageModelRuntimeService
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             if($microSubmission&&self::holdMicroSubmissionError($consumptionId,$e))return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            if (!$microSubmission && self::deferUnacceptedSubmit($consumptionId, $request, $e, $tenantAdminConsumption, $payload)) return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             if ($upstreamAccepted) {
                 self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
             }
-            if (($tenantAdminConsumption || self::requiresMeterReceipt($price)) && (!($e instanceof MarketImageProviderRequestException) || $e->wasAccepted())) {
-                if ($e instanceof MarketImageProviderRequestException && $e->receipt()) {
-                    self::retainMeterReceipt($consumptionId,$e->receipt(),self::taskId($e->receipt()),self::requestId($e->receipt()));
-                }
-                // A timeout/invalid response proves neither rejection nor acceptance.
-                $held=true;
-                if(self::requiresMeterReceipt($price))$held=MarketBoundedImageSubmission::holdUnknown($consumptionId);
+            if ($e instanceof MarketImageProviderRequestException && $e->wasAccepted()) {
+                $receipt = $e->receipt();
+                $receipt = (is_array($receipt['data'] ?? null) ? $receipt['data'] : []) + $receipt;
+                self::retainMeterReceipt($consumptionId, $receipt, self::taskId($receipt), self::requestId($receipt));
+                self::recordAcceptedSubmissionFailure($consumptionId, self::taskId($receipt), self::requestId($receipt), $e);
+                if (self::requiresMeterReceipt($price)) MarketBoundedImageSubmission::holdUnknown($consumptionId);
+                return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            }
+            if (!($e instanceof MarketImageProviderRequestException)) {
+                // Unknown acceptance retains the original reservation and cannot be replayed.
+                $held = true;
+                if (self::requiresMeterReceipt($price)) $held = MarketBoundedImageSubmission::holdUnknown($consumptionId);
                 else AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
                     'run_status' => 'pending_confirmation', 'error_code' => 'pending_confirmation',
                     'error_message' => '图片服务受理状态待核对，禁止自动重试', 'finish_time' => 0, 'update_time' => time(),
@@ -489,11 +498,20 @@ class MarketImageModelRuntimeService
         }
     }
 
+    private static function claimSubmission(int $id, array $price, bool $admin, bool $micro): bool
+    {
+        if ($micro) return MicroVideoSubmission::begin($id);
+        if (!$admin && self::requiresMeterReceipt($price)) return MarketBoundedImageSubmission::begin($id);
+        // Exactly one durable claim precedes provider I/O, including ordinary image tasks.
+        return (bool)AiConsumptionLog::where('id', $id)->where('run_status', 'reserved')->update([
+            'run_status' => 'submitting', 'update_time' => time(),
+        ]);
+    }
+
     /**
      * Retries only a response that explicitly proves no provider task was
      * accepted (429/5xx or a documented temporary-capacity response). The
-     * immutable consumption number is already present in the payload as the
-     * provider idempotency key, so every attempt is one logical paid request.
+     * immutable consumption number remains the local receipt identity; retries are allowed only after proven non-acceptance.
      *
      * @return array{response:array<string,mixed>,attempts:int}
      */
@@ -505,6 +523,7 @@ class MarketImageModelRuntimeService
             try {
                 return ['response' => $microVideo?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
+                MarketProviderReceipt::record($consumptionId,(int)$e->getCode(),$e->receipt());
                 if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
                 if (!self::shouldRetrySubmit($e, $attempt, $singleAttempt)) {
                     throw $e;
@@ -515,6 +534,44 @@ class MarketImageModelRuntimeService
             }
         }
         throw new Exception('图片模型提交失败');
+    }
+
+    /** Only a proven non-acceptance may return to the submission queue. */
+    private static function deferUnacceptedSubmit(int $id, array $request, \Throwable $error, bool $admin, ?array $native = null): bool
+    {
+        if (!$error instanceof MarketImageProviderRequestException || $error->wasAccepted() || !$error->isRetryable()) return false;
+        return Db::transaction(static function () use ($id,$request,$error,$admin,$native): bool {
+            $ctx=self::context($id,true);if (!$ctx) return false;$c=$ctx['consumption'];
+            if (!in_array($c['billing_status'],['reserved','pending_usage'],true) || $c['upstream_task_id'] || $c['upstream_request_id']) return false;
+            if (!in_array($c['run_status'],['reserved','submitting','retrying_submit'],true)) return false;
+            $job=\app\common\model\ai\AiTaskJob::where(['consumption_id'=>$id,'job_type'=>AiTaskJobService::TYPE_IMAGE_SUBMIT_RETRY])->lock(true)->find();
+            $identity=['consumption_id'=>$id,'consume_no'=>(string)$c['consume_no'],'tenant_id'=>(int)$c['tenant_id'],'user_id'=>(int)$c['user_id']];
+            if ($job) {
+                $saved=json_decode(\app\common\service\open_platform\OpenVault::open($job['payload']['sealed']),true,512,JSON_THROW_ON_ERROR);
+                if ($saved['request']!==$request || array_intersect_key($saved,$identity)!==$identity) throw new \RuntimeException('图片重试输入与原请求不一致');
+            } else {
+                $sealed=\app\common\service\open_platform\OpenVault::seal(json_encode($identity+['request'=>$request,'native'=>$native,'admin'=>$admin],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
+                AiTaskJobService::enqueue(AiTaskJobService::TYPE_IMAGE_SUBMIT_RETRY,$id,0,['sealed'=>$sealed]);
+            }
+            $c->save(['run_status'=>'retrying_submit','error_code'=>'submit_retrying','error_message'=>'模型暂忙，原请求已排队继续','update_time'=>time()]);
+            self::event($id,'submit_deferred','pending',['provider_http_status'=>(int)$error->getCode()]);
+            return true;
+        });
+    }
+
+    /** Worker continuation never creates another reservation or new paid identity. */
+    public static function resumeDeferredSubmit(int $id,array $payload): bool
+    {
+        $saved=json_decode(\app\common\service\open_platform\OpenVault::open((string)($payload['sealed']??'')),true,512,JSON_THROW_ON_ERROR);
+        $claimed=Db::transaction(static function () use ($id,$saved): bool {
+            $ctx=self::context($id,true);if(!$ctx)return false;$c=$ctx['consumption'];
+            foreach(['consumption_id'=>$id,'consume_no'=>(string)$c['consume_no'],'tenant_id'=>(int)$c['tenant_id'],'user_id'=>(int)$c['user_id']]as$key=>$expected)if(($saved[$key]??null)!==$expected)throw new \RuntimeException('图片重试任务归属不匹配');
+            if($c['run_status']!=='retrying_submit'||!in_array($c['billing_status'],['reserved','pending_usage'],true)||$c['upstream_task_id']||$c['upstream_request_id'])return false;
+            $c->save(['run_status'=>'reserved','update_time'=>time()]);return true;
+        });
+        if($claimed)self::submit($id,(array)$saved['request'],(bool)$saved['admin'],$saved['native']??null);
+        $c=AiConsumptionLog::findOrEmpty($id);
+        return $c->isEmpty() || $c['run_status']!=='retrying_submit';
     }
 
     private static function holdMicroSubmissionError(int $id,\Throwable $error): bool
@@ -539,7 +596,7 @@ class MarketImageModelRuntimeService
     private static function recordSubmitRetry(int $consumptionId, int $attempt, int $delayMs, \Throwable $e): void
     {
         try {
-            AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update([
+            AiConsumptionLog::where('id', $consumptionId)->whereIn('run_status', ['reserved','submitting'])->update([
                 'response_summary' => ['submit_attempts' => $attempt, 'submit_retrying' => true],
                 'error_code' => 'submit_retrying',
                 'error_message' => mb_substr($e->getMessage(), 0, 1000),
@@ -567,7 +624,7 @@ class MarketImageModelRuntimeService
         $lane = 'market-image-submit:' . substr(sha1($url . '|' . (string)($payload['channel'] ?? '') . '|' . (string)($payload['model'] ?? '')), 0, 32);
         $row = Db::query('SELECT GET_LOCK(?, ?) AS acquired', [$lane, self::SUBMIT_LANE_WAIT_SECONDS]);
         if (!(int)($row[0]['acquired'] ?? 0)) {
-            throw new MarketImageProviderRequestException('图片模型当前请求较多，请稍后重试');
+            throw new MarketImageProviderRequestException('图片模型当前请求较多，请稍后重试', true, 429, false);
         }
         $cooldownKey = 'aigc:' . $lane;
         $connectionLost = false;

@@ -541,6 +541,8 @@ class installModel
         \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix);
         $tenantRows = $this->dbh->query('SELECT id,tactics,sn FROM `' . $this->prefix . 'tenant`')->fetchAll(PDO::FETCH_ASSOC);
         foreach ($tenantRows as $tenant) \app\common\service\OemBrandService::initialize($this->dbh, $this->prefix, (int)$tenant['id'], null, true, (int)$tenant['tactics']===1?(string)$tenant['sn']:'');
+        require_once $this->getAppRoot() . '/app/common/service/distribution/BuiltinPosterService.php';
+        \app\common\service\distribution\BuiltinPosterService::seedAll($this->dbh, $this->prefix);
         return true;
     }
 

@@ -27,7 +27,7 @@ final class ShortDramaStoryGeneration
         $qualityReviewEnabled = ShortDramaStoryWorkflow::qualityReviewEnabled($request);
         $receipts = [];
         $rejected = [];
-        $call = static function (string $key, array $messages, int $count, bool $public, ?callable $validate = null) use (&$model, &$receipts, &$rejected, $provider): array {
+        $call = static function (string $key, array $messages, int $count, bool $public, ?callable $validate = null) use (&$model, &$receipts, &$rejected, $provider, $request, $stage): array {
             $budget = ($public || str_starts_with($key, 'roadmap'))
                 ? ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, $public ? 'story' : 'roadmap')
                 : ShortDramaPlanningBudget::calculate($messages['system_prompt'] . $messages['content'], $model, $count, false);
@@ -39,8 +39,9 @@ final class ShortDramaStoryGeneration
             $receipt = $provider($key, $messages, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
-            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate): array {
-                $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
+            try { return ShortDramaPlanningUnit::validate($receipt, static function () use ($receipt, $validate, $request, $stage): array {
+                $payload = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []), (int)($request['_input_contract_version']??0)>=27);
+                if($stage==='story') $payload=ShortDramaMaterialContract::prepare($payload,$request);
                 if ($validate) $validate($payload);
                 return $payload;
             }); } catch (RuntimeException $error) { $rejected = $receipt; throw $error; }
@@ -255,9 +256,9 @@ final class ShortDramaStoryGeneration
         foreach (array_values($episodes) as $index => $episode) {
             if (!is_array($episode)) throw new RuntimeException('本批集号不连续', 422);
             foreach (['title', 'story_outline', 'conflict_point', 'ending_hook'] as $field) {
-                if ($qualityReviewEnabled
+                if (!is_string($episode[$field] ?? null) || ($qualityReviewEnabled
                     ? !ShortDramaStoryWorkflow::isCreativeText($episode[$field] ?? null)
-                    : trim((string)($episode[$field] ?? '')) === '') throw new RuntimeException('第' . ($index + 1) . '集缺少 ' . $field, 422);
+                    : trim($episode[$field]) === '')) throw new RuntimeException('第' . ($index + 1) . '集缺少 ' . $field, 422);
             }
             if ($qualityReviewEnabled && isset($seen[trim($episode['story_outline'])])) throw new RuntimeException('本批存在完全重复的集剧情', 422);
             $seen[trim($episode['story_outline'])] = true;

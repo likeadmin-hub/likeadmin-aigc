@@ -115,12 +115,16 @@ final class MarketPriceRuleService
         return ['rules' => self::rules($owner), 'follow_apps' => self::followsApps($owner)];
     }
 
-    private static function lockOwner(int $owner): void
+    public static function lockOwner(int $owner): void
     {
         foreach (array_values(array_unique([0, $owner])) as $id) {
             $table = Db::name('power_market_price_rule')->getTable();
-            Db::execute("INSERT IGNORE INTO `$table` (owner_id,scope_type,scope_id,mode,value,revision,follow_apps,create_time,update_time) VALUES (?, 'global',0,'inherit',0,0,0,?,?)", [$id, time(), time()]);
-            Db::name('power_market_price_rule')->where(['owner_id' => $id, 'scope_type' => 'global', 'scope_id' => 0])->lock(true)->find();
+            $where = ['owner_id' => $id, 'scope_type' => 'global', 'scope_id' => 0];
+            // Existing owners avoid an INSERT IGNORE shared-lock upgrade on every SKU.
+            if (!Db::name('power_market_price_rule')->where($where)->lock(true)->find()) {
+                Db::execute("INSERT IGNORE INTO `$table` (owner_id,scope_type,scope_id,mode,value,revision,follow_apps,create_time,update_time) VALUES (?, 'global',0,'inherit',0,0,0,?,?)", [$id, time(), time()]);
+                Db::name('power_market_price_rule')->where($where)->lock(true)->find();
+            }
         }
     }
 
@@ -218,7 +222,7 @@ final class MarketPriceRuleService
     public static function preview(int $owner, int $admin, array $params): array
     {
         $params = self::request($params);
-        $view = Db::transaction(static function () use ($owner, $params) { self::lockOwner($owner); return self::view($owner, $params); });
+        $view = MarketPriceWriteTransaction::run(static function () use ($owner, $params) { self::lockOwner($owner); return self::view($owner, $params); });
         $token = bin2hex(random_bytes(24));
         Cache::set('market_price_preview:'.$token, ['owner' => $owner, 'admin' => $admin, 'params' => $params, 'fingerprint' => $view['fingerprint']], 300);
         unset($view['next_rules'], $view['fingerprint']);
@@ -232,7 +236,7 @@ final class MarketPriceRuleService
         if (!preg_match('/^[a-f0-9]{48}$/', $token)) throw new RuntimeException('请先预览价格');
         $saved = Cache::get('market_price_preview:'.$token);
         if (!$saved || $saved['owner'] !== $owner || $saved['admin'] !== $admin) throw new RuntimeException('价格预览已过期，请重新预览');
-        $result = Db::transaction(static function () use ($owner, $saved) {
+        $result = MarketPriceWriteTransaction::run(static function () use ($owner, $saved) {
             self::lockOwner($owner);
             $view = self::view($owner, $saved['params'], true);
             // Creating the revision row at first apply is not a price change.

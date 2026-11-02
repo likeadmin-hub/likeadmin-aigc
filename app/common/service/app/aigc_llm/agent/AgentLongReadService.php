@@ -86,7 +86,6 @@ final class AgentLongReadService
         $jobs=self::jobs($run);$file=null;foreach($jobs as $key=>$job)if($job['status']==='pending'){$file=$key;break;}
         if($file===null){self::resumeChat($run);return;}
         $job=$jobs[$file];
-        if($job['batch_count']>=128){self::pause($run,$file);return;}
         // Old jobs keep their original fixed cursors, including partially consumed PDF pages.
         $structured=($job['segmentation']??'')==='structure_v1';
         $page=AgentContextService::readAsset($run,$file,(int)$job['offset'],0,$structured);

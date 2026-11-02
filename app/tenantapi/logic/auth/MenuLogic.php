@@ -58,6 +58,7 @@ class MenuLogic extends BaseLogic
             self::ensurePcNoticeMenu($tenantId);
             self::ensureLatestNewsMenu($tenantId);
             self::ensureTutorialMenu($tenantId);
+            \app\common\service\auth\TenantAuthorizationMenus::ensureTenant($tenantId);
             \app\common\service\point_alert\AlertMenus::sync($tenantId);
         }
 
@@ -78,6 +79,9 @@ class MenuLogic extends BaseLogic
             ->select()
             ->toArray();
 
+        $menu = \app\common\service\auth\TenantFeatureMenuService::filter(
+            $menu, \app\common\service\auth\TenantFeatureMenuService::capabilities($tenantId)
+        );
         return self::sortTopLevelTailMenus(linear_to_tree($menu, 'children'));
     }
 

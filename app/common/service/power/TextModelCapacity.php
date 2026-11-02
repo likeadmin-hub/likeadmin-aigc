@@ -52,6 +52,8 @@ final class TextModelCapacity
             // and never raise an explicit channel limit to our legacy minimum.
             return max(1, min($value, max(1, $capacity['context_window'] - 1)));
         }
-        return max(256, min(32768, $value));
+        // Honor the selected channel's real output capacity; 32K was an
+        // application ceiling, and 256 could exceed a smaller real limit.
+        return max(1, $value);
     }
 }

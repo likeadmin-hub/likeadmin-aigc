@@ -34,8 +34,8 @@ class ShortDramaGenerationReliabilityTest extends TestCase
     public function testInputOnlyLimitDoesNotBecomeCombinedContextLimit(): void
     {
         $budget = Budget::stage(str_repeat('中', 1000), ['max_input_tokens' => 2048, 'max_tokens' => 4096], 'story');
-        self::assertSame(32768, $budget['context']); self::assertSame(4096, $budget['max_tokens']);
-        self::assertSame(32768, TextModelCapacity::output(['max_tokens' => 65536], 65536));
+        self::assertSame(0, $budget['context']); self::assertSame(4096, $budget['max_tokens']);
+        self::assertSame(65536, TextModelCapacity::output(['max_tokens' => 65536], 65536));
         $this->expectException(\RuntimeException::class);
         Budget::stage(str_repeat('中', 2100), ['max_input_tokens' => 2048], 'story');
     }

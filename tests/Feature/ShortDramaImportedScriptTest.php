@@ -76,4 +76,13 @@ class ShortDramaImportedScriptTest extends TestCase
         $this->expectExceptionCode(422);
         ShortDramaImportedScript::sourceContent(['content' => ['正文']]);
     }
+    public function testEpisodeScopeCoversLegacyParserSourceWithoutScopeMarker(): void
+    {
+        $request=['_input_contract_version'=>28,'series_context'=>['current_episode'=>['source_content'=>'甲找到旧信。','source_range'=>['start_line'=>2,'end_line'=>3]]]];
+        $instruction=ShortDramaImportedScript::episodeInstruction($request);
+        foreach(['story_outline','script_lines','分场','分镜','最后事件','显式修改'] as $field) self::assertStringContainsString($field,$instruction);
+        $request['_input_contract_version']=27;
+        self::assertSame('',ShortDramaImportedScript::episodeInstruction($request),'Old paid unit input stays frozen');
+        self::assertSame('',ShortDramaImportedScript::episodeInstruction(['_input_contract_version'=>28]));
+    }
 }

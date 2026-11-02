@@ -301,8 +301,8 @@ final class ShortDramaPlanningContext
             if (!is_array($reference)) {
                 continue;
             }
-            $id = trim((string)($reference['id'] ?? ''));
-            $name = trim((string)($reference['name'] ?? ''));
+            $id = trim(self::scalarText($reference['id'] ?? ''));
+            $name = trim(self::scalarText($reference['name'] ?? ''));
             if ($id === '' || $name === '' || isset($seen[$id])) {
                 continue;
             }
@@ -344,8 +344,8 @@ final class ShortDramaPlanningContext
             if (!is_array($subject)) {
                 continue;
             }
-            $id = trim((string)($subject['id'] ?? $subject['subject_ref_id'] ?? ''));
-            $name = trim((string)($subject['name'] ?? ''));
+            $id = trim(self::scalarText($subject['id'] ?? $subject['subject_ref_id'] ?? ''));
+            $name = trim(self::scalarText($subject['name'] ?? ''));
             if ($id === '' || $name === '') {
                 continue;
             }
@@ -372,8 +372,8 @@ final class ShortDramaPlanningContext
             if (!is_array($location)) {
                 continue;
             }
-            $id = trim((string)($location['id'] ?? $location['scene_id'] ?? ''));
-            $name = trim((string)($location['name'] ?? ''));
+            $id = trim(self::scalarText($location['id'] ?? $location['scene_id'] ?? ''));
+            $name = trim(self::scalarText($location['name'] ?? ''));
             if ($id === '' || $name === '') {
                 continue;
             }
@@ -469,7 +469,7 @@ final class ShortDramaPlanningContext
         $result = [];
         foreach ($values as $value) {
             if (is_array($value)) {
-                $value = $value['rule'] ?? $value['text'] ?? $value['description'] ?? '';
+                $value = $value['rule'] ?? $value['text'] ?? $value['description'] ?? $value;
             }
             $text = self::text($value, $textLimit);
             if ($text !== '') {
@@ -484,11 +484,21 @@ final class ShortDramaPlanningContext
 
     private static function text(mixed $value, int $limit): string
     {
-        $text = trim((string)$value);
+        $text = trim(self::scalarText($value));
         if ($text === '') {
             return '';
         }
         $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
         return mb_substr($text, 0, $limit, 'UTF-8');
+    }
+
+    private static function scalarText(mixed $value): string
+    {
+        // Never flatten structured creative facts or let PHP coerce them to "Array".
+        // Keep the original input intact so the caller can correct its field type.
+        if ($value !== null && !is_scalar($value)) {
+            throw new \RuntimeException('创作资料文本字段格式无效，请改为文本后继续；原内容保留', 422);
+        }
+        return (string)$value;
     }
 }

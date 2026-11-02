@@ -28,6 +28,7 @@ class MarketFileQaAppRuntimeService
     {
         $market = self::resolve($tenantId, []);
         return [[
+            ...MarketModelSource::product($market['product']),
             'id' => 'market_file_qa:' . (int)$market['product']['id'] . ':' . (int)$market['sku']['id'],
             'value' => (string)$market['sku']['id'],
             'label' => (string)($market['product']['name'] ?? '剧本解析'),

@@ -18,6 +18,24 @@ final class MarketModelSource
         return self::channel((string)($product['upstream_channel_code'] ?? ''));
     }
 
+    /** Stable partition: all existing price, rank and SKU ordering survives within each group. */
+    public static function officialFirst(array $rows): array
+    {
+        $official = []; $other = [];
+        foreach ($rows as $row) {
+            $source = $row['channel_source'] ?? self::product($row)['channel_source'];
+            if ($source === 'official') $official[] = $row;
+            else $other[] = $row;
+        }
+        return array_merge($official, $other);
+    }
+
+    /** SQL priority must precede LIMIT so official entries cannot hide on later pages. */
+    public static function officialFirstOrder(): string
+    {
+        return "CASE WHEN LOWER(TRIM(upstream_channel_code)) = 'official' THEN 0 ELSE 1 END";
+    }
+
     public static function task(array $task): array
     {
         $snapshot = $task['pricing_snapshot'] ?? [];

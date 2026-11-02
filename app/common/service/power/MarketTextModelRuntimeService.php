@@ -232,19 +232,16 @@ class MarketTextModelRuntimeService
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
         $context = self::createConsumption($tenantId, $userId, $model, $action, $requestSummary, $reserve, (int)($params['parent_app_task_id'] ?? 0), $appCode, $businessTable, $businessId);
-        if ($onEvent) {
-            $onEvent('app_task', [
-                'app_task_id' => (int)$context['appTask']['id'],
-                'consumption_id' => (int)$context['consumption']['id'],
-            ]);
-        }
-
         $openTextCall = \app\common\service\open_platform\OpenCallContext::id() !== '';
         $result = null;
         $usage = [];
         $started = microtime(true);
         $requestTimeout = self::resolveRequestTimeout($params);
         try {
+            if ($onEvent) $onEvent('app_task', [
+                'app_task_id' => (int)$context['appTask']['id'],
+                'consumption_id' => (int)$context['consumption']['id'],
+            ]);
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
             $transportOptions = self::initialTransportOptions($model,$params,$tenantAdminConsumption,$operatorCapabilityProbe!==null);
@@ -283,7 +280,7 @@ class MarketTextModelRuntimeService
                     if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
                         throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
                     }
-                    if ($resultValidator!==null) $resultValidator($result);
+                    if ($resultValidator!==null) self::validateStructuredResult($context,$result,$resultValidator);
                     break;
                 } catch (\Throwable $initialError) {
                     if ($initialError instanceof TextSettlementPending) throw $initialError;
@@ -352,6 +349,10 @@ class MarketTextModelRuntimeService
             if($e instanceof TextSettlementPending)throw $e;
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
                 $result = $e->partialResult;
+                if(!$openTextCall&&MarketTextFailurePolicy::preGenerationRejection($result)){
+                    MarketTextUsageReview::resolveNativeRejection($tenantId,$userId,(int)$context['consumption']['id'],$result,true);
+                    throw new MarketTextModelProviderException('所选模型暂不可用，本次未生成且不收费，请切换模型',false);
+                }
                 if($executionPolicy!==null){try{$executionPolicy->recordReceipt($context['consumption']->toArray(),$context['appTask']->toArray(),$result,false);}catch(\Throwable $ignored){}}
                 if ($homeAgent) {
                     try { \app\common\service\app\aigc_llm\agent\AgentTextReceipt::record($context['consumption']->toArray(), $context['appTask']->toArray(), $result, false); }
@@ -669,7 +670,7 @@ class MarketTextModelRuntimeService
                 'sort' => (int)($product['id'] ?? 0),
             ];
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     /** @return array<string, array<string, mixed>> */
@@ -771,6 +772,26 @@ class MarketTextModelRuntimeService
     }
 
     /** Preserve trusted usage and the submit-time price snapshot for an explicit audit decision. */
+    /** A completed paid reply failing local structure is not a provider rejection. */
+    private static function validateStructuredResult(array $context,array $result,callable $validator):void
+    {
+        try{$validator($result);}
+        catch(\Throwable $error){
+            if(!in_array($error->getMessage(),['INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE','INVALID_AGENT_ACTION','UNSUPPORTED_MODEL_RESPONSE'],true)
+                || in_array($result['finish_reason']??'',['content_filter','refusal','safety'],true))throw $error;
+            $usage=self::normalizeUsage((array)($result['usage']??[]));
+            try{
+                self::deferSettlement($context,$result,$usage,$error);
+                $c=$context['consumption'];
+                AiConsumptionEvent::create(['consumption_id'=>(int)$c['id'],'event_type'=>'validation_receipt','event_status'=>'pending','attempt_no'=>1,
+                    'payload_summary'=>['reason'=>'structured_response_invalid','output_length'=>mb_strlen((string)($result['content']??''))],
+                    'payload_ciphertext'=>\app\common\service\open_platform\OpenVault::seal(json_encode(['consumption_id'=>(int)$c['id'],'tenant_id'=>(int)$c['tenant_id'],'user_id'=>(int)$c['user_id'],'result'=>$result],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)),
+                    'http_status'=>0,'elapsed_ms'=>0,'create_time'=>time()]);
+            }catch(\Throwable $persistError){Log::error('Structured text receipt review persistence failed: '.get_class($persistError));}
+            throw new TextSettlementPending((int)$context['consumption']['id'],$result,$usage,$error,'模型结构化回复已保留，费用待核对；未执行本轮操作');
+        }
+    }
+
     private static function deferSettlement(array $context,array $result,array $usage,\Throwable $error,bool $incomplete=false): void
     {
         Db::transaction(function()use($context,$result,$usage,$error,$incomplete){
@@ -1401,8 +1422,7 @@ class MarketTextModelRuntimeService
             throw self::providerException('模型未返回要求的原生Responses完整回复，未执行本轮工具；费用待核对', false, $state);
         }
         try {
-            AnthropicMessagesAdapter::assertComplete($state);
-            ResponsesMessagesAdapter::assertComplete($state);
+            self::assertStreamComplete($state);
         } catch (\RuntimeException $error) {
             // An incomplete tool response must not fall back to a different model.
             $state['native_error_code'] = empty($state['responses_complete']) && !empty($state['responses']) ? 'responses_missing_completion' : 'native_output_validation';
@@ -1731,8 +1751,26 @@ class MarketTextModelRuntimeService
             $existing = is_array($current[$index] ?? null) ? $current[$index] : [];
             $existingFunction = is_array($existing['function'] ?? null) ? $existing['function'] : [];
             $function = is_array($call['function'] ?? null) ? $call['function'] : [];
-            if (isset($function['arguments'])) {
-                $existingFunction['arguments'] = (string)($existingFunction['arguments'] ?? '') . (string)$function['arguments'];
+            $incomingId = $call['id'] ?? '';
+            if (!is_string($incomingId)) throw new \RuntimeException('模型工具调用标识格式错误', 422);
+            $existingId = (string)($existing['id'] ?? '');
+            if ($incomingId !== '' && $existingId !== '' && $incomingId !== $existingId) {
+                throw new \RuntimeException('模型工具调用标识发生冲突', 422);
+            }
+            // Compatible gateways may repeat an empty id on every argument delta.
+            // It is not a new identity and must never erase the first received id.
+            if ($incomingId === '' && $existingId !== '') unset($call['id']);
+            if (array_key_exists('arguments', $function)) {
+                $arguments = $function['arguments'];
+                $previous = (string)($existingFunction['arguments'] ?? '');
+                if (is_array($arguments) || $arguments instanceof \stdClass) {
+                    if (is_array($arguments) && $arguments !== [] && array_is_list($arguments)) throw new \RuntimeException('模型工具参数必须为对象', 422);
+                    $complete = json_encode($arguments === [] ? new \stdClass() : $arguments, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    if ($previous !== '' && !str_starts_with($complete, $previous)) throw new \RuntimeException('模型工具参数发生冲突', 422);
+                    $existingFunction['arguments'] = $complete;
+                } elseif (is_string($arguments)) {
+                    $existingFunction['arguments'] = $previous . $arguments;
+                } elseif ($arguments !== null) throw new \RuntimeException('模型工具参数格式错误', 422);
             }
             foreach (['name'] as $key) {
                 if (!empty($function[$key])) {
@@ -1823,6 +1861,16 @@ class MarketTextModelRuntimeService
             'usage_event_count' => (int)($state['usage_event_count'] ?? 0),
             'usage_sources' => array_values(array_intersect(['responses_native', 'anthropic_messages', 'compatible_sse'], array_keys($state['usage_sources'] ?? []))),
         ];
+    }
+
+    private static function assertStreamComplete(array $state):void
+    {
+        AnthropicMessagesAdapter::assertComplete($state);
+        ResponsesMessagesAdapter::assertComplete($state);
+        if(empty($state['anthropic'])&&empty($state['responses'])&&empty($state['legacy_terminal_seen'])){
+            $state['native_error_code']='legacy_missing_completion';
+            throw self::providerException('文本模型响应中断，未收到完成回执；已保留收到的内容，费用待核对',false,$state);
+        }
     }
 
     private static function providerException(string $message, bool $fallbackAllowed, array $state = []): Exception

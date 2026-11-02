@@ -8,10 +8,11 @@ use app\common\model\ai\AiTaskJob;
 use app\common\model\ai\AiTaskResultAsset;
 use think\facade\Db;
 
-/** Durable DB queue for post-submit result work. Provider submission is never run here. */
+/** Durable task queue; pre-submit continuation has its own explicit job type. */
 class AiTaskJobService
 {
     public const TYPE_QUERY_RESULT = 'query_result';
+    public const TYPE_IMAGE_SUBMIT_RETRY = 'image_submit_retry';
     // A distinct type keeps pre-upgrade workers from treating music exports as generation.
     public const TYPE_MUSIC_OPERATION = 'music_operation';
     public const TYPE_SMART_CLIP = 'native_smart_clip';
@@ -169,12 +170,12 @@ class AiTaskJobService
     }
 
     /** @return array<int,array<string,mixed>> */
-    public static function claim(string $worker, int $leaseSeconds, int $batch, string $appCode = ''): array
+    public static function claim(string $worker, int $leaseSeconds, int $batch, string $appCode = '', int $consumptionId = 0): array
     {
         $jobs = [];
         $batch = max(1, min(100, $batch));
         for ($index = 0; $index < $batch; $index++) {
-            $claimed = Db::transaction(function () use ($worker, $leaseSeconds, $appCode) {
+            $claimed = Db::transaction(function () use ($worker, $leaseSeconds, $appCode, $consumptionId) {
                 $now = time();
                 $job = AiTaskJob::where(function ($query) use ($now) {
                     $query->where(function ($pending) use ($now) {
@@ -182,9 +183,15 @@ class AiTaskJobService
                     })->whereOr(function ($expired) use ($now) {
                         $expired->where('status', 'running')->where('lease_expire_time', '<=', $now);
                     });
-                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
+                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_IMAGE_SUBMIT_RETRY, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
                     ->when($appCode !== '', function ($query) use ($appCode) {
                         $query->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
+                    })
+                    ->when($consumptionId > 0, function ($query) use ($consumptionId) {
+                        $query->where(function ($owned) use ($consumptionId) {
+                            $owned->where('consumption_id', $consumptionId)->whereOr('result_asset_id', 'in',
+                                Db::raw(\app\common\model\ai\AiTaskResultAsset::where('consumption_id', $consumptionId)->field('id')->buildSql()));
+                        });
                     })
                     ->order(['priority' => 'desc', 'next_run_time' => 'asc', 'id' => 'asc'])
                     ->lock(true)
@@ -258,6 +265,9 @@ class AiTaskJobService
             return self::queryResult((int)$job['consumption_id'], (int)$job['attempts']);
         }
         if ($type === self::TYPE_SMART_CLIP) return \app\common\service\app\smart_clip\SmartClipTaskRuntime::run((int)$job['app_task_id']);
+        if ($type === self::TYPE_IMAGE_SUBMIT_RETRY) {
+            return \app\common\service\power\MarketImageModelRuntimeService::resumeDeferredSubmit((int)$job['consumption_id'], (array)$job['payload']);
+        }
         if ($type === self::TYPE_MUSIC_OPERATION) {
             \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$job['consumption_id']);
             $c=AiConsumptionLog::findOrEmpty((int)$job['consumption_id']);

@@ -842,6 +842,17 @@ class DecorateTemplateService
             ->select()
             ->toArray();
 
+        $publishedPages = self::decodeJson((string)($template['published_pages'] ?? ''), []);
+        $publishedPageIds = array_fill_keys(array_map('intval', array_column($publishedPages, 'id')), true);
+        $excludedPages = array_values(array_filter($pages, static fn(array $page): bool =>
+            (int)($page['draft_deleted'] ?? 0) === 1 && !isset($publishedPageIds[(int)$page['id']])
+        ));
+        // A deleted draft may still serve the last published version. Only
+        // discard tombstones that no longer belong to either current version.
+        $pages = array_values(array_filter($pages, static fn(array $page): bool =>
+            (int)($page['draft_deleted'] ?? 0) !== 1 || isset($publishedPageIds[(int)$page['id']])
+        ));
+
         $progress && $progress('已读取模板及'.count($pages).'个页面，开始整理素材');
         $manifest = [
             'schema_version' => '1.0',
@@ -863,7 +874,7 @@ class DecorateTemplateService
                     $ids=array_column($pages,'id');$position=array_search((int)($item['id']??0),array_map('intval',$ids),true);
                     if($position===false)throw new RuntimeException('模板发布页面结构不完整');
                     unset($item['id']);$item['package_page_id']=$position+1;return $item;
-                },self::decodeJson((string)($template['published_pages']??''),[])),
+                }, $publishedPages),
             ],
             'pages' => array_map(function ($page, $position) {
                 $page['package_page_id']=$position+1;
@@ -871,10 +882,19 @@ class DecorateTemplateService
                 return $page;
             }, $pages, array_keys($pages)),
         ];
-        $portable=DecorationPortableAssets::export($payload,$tenantId,$progress);
+        $portable=DecorationPortableAssets::export($payload,$tenantId,$progress,true);
         $payload=$portable['payload'];
         $manifest['asset_count']=$portable['resources']['count'];
         $manifest['asset_manifest']='assets/resources.json';
+        $pageWarnings = array_map(static fn(array $page): array => [
+            'kind'=>'page', 'page'=>(string)$page['name'], 'page_code'=>(string)$page['page_code'],
+            'source'=>'', 'reason'=>'已从草稿删除，且不在当前发布结构中', 'locations'=>[],
+        ], $excludedPages);
+        $warnings = ['assets'=>count($portable['warnings']), 'pages'=>count($pageWarnings),
+            'items'=>array_merge($pageWarnings, $portable['warnings'])];
+        // Keep a durable, credential-free report inside the downloaded package.
+        $manifest['export_warnings'] = $warnings;
+        if ($warnings['items']) $progress && $progress('已排除'.$warnings['assets'].'个失效素材、'.$warnings['pages'].'个旧页面；详细信息请查看导出提示');
 
         $progress && $progress('素材清单已整理，正在生成 ZIP 模板包');
         $dir = runtime_path() . 'decorate_export/';
@@ -902,6 +922,7 @@ class DecorateTemplateService
             'mime' => 'application/zip',
             'content' => $content,
             'asset_count' => $manifest['asset_count'],
+            'export_warnings' => $warnings,
         ];
     }
 
