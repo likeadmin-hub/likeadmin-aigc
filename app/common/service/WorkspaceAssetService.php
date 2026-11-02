@@ -245,6 +245,10 @@ final class WorkspaceAssetService
             if (is_string($value)) $value = json_decode($value, true) ?: [];
             if (is_array($value)) $raw[$field] = array_intersect_key(array_replace(is_array($value['params'] ?? null) ? $value['params'] : [], $value), $displayFields);
         }
+        if (in_array($source,['image','video'],true)) {
+            $originTask = $task ?: $record;
+            $raw['creation_source'] = \app\common\service\ai\GenerationWorkSourceService::appendRows([$originTask],$prefix)[0]['creation_source'];
+        }
         $raw['result_id'] = $kind === 'result' ? (int)$id : 0;
         $raw['task_id'] = $kind === 'task' ? (int)$id : ($record['task_id'] ?? 0);
         foreach (['image', 'video', 'audio', 'cover'] as $type) {
