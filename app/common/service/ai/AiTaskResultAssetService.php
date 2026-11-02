@@ -91,6 +91,7 @@ class AiTaskResultAssetService
         if(is_numeric($meta['duration']??null) && is_finite((float)$meta['duration']) && (float)$meta['duration']>0)return;
         $uri=(string)$asset['local_uri'];
         $engine=(string)$asset['storage_engine'];
+        $identity=array_intersect_key($asset->toArray(),array_flip(['local_uri','storage_scope','storage_engine','storage_domain']));
         $public=realpath(root_path().'public');
         $path=$engine==='local'?realpath(root_path().'public/'.ltrim($uri,'/')):false;
         if($path!==false && $public!==false && str_starts_with($path,$public.DIRECTORY_SEPARATOR))
@@ -99,11 +100,11 @@ class AiTaskResultAssetService
             $url=\app\common\service\FileService::getFileUrlByStorage($uri,(string)$asset['storage_scope'],$engine,(string)$asset['storage_domain']);
             $facts=\app\common\service\power\MarketGenerationMedia::videoFacts($url);
         }
-        \think\facade\Db::transaction(function()use($owner,$uri,$facts,$consumptionId){
+        \think\facade\Db::transaction(function()use($owner,$identity,$facts,$consumptionId){
             $current=AiTaskResultAsset::where($owner)->lock(true)->findOrEmpty();
-            if($current->isEmpty() || (string)$current['local_uri']!==$uri)throw new Exception('视频结果归属或文件已变化');
+            if($current->isEmpty() || array_intersect_key($current->toArray(),$identity)!==$identity)throw new Exception('视频结果归属或文件已变化');
             $meta=self::arrayValue($current['storage_meta']);
-            $current->save(['storage_meta'=>array_replace($meta,array_intersect_key($facts,array_flip(['duration','width','height']))),'update_time'=>time()]);
+            $current->save(['storage_meta'=>array_replace($meta,array_intersect_key($facts,array_flip(['duration','width','height','file_size','mime_type']))),'update_time'=>time()]);
             self::hydrateStoredSummary($consumptionId,[$current->toArray()]);
         });
     }

@@ -845,7 +845,9 @@ class MarketVideoRuntimeService
         }
         $current = AiConsumptionLog::findOrEmpty($consumptionId);
         $summary = self::arrayValue($current['response_summary'] ?? []);
-        self::settle($consumptionId, (array)($summary['videos'] ?? []), (string)$current['upstream_request_id'], (string)$current['upstream_task_id'], $summary);
+        $usage = self::arrayValue($current['usage_snapshot'] ?? []);
+        $receipt = $summary + ['usage'=>self::arrayValue($usage['upstream_usage'] ?? [])];
+        self::settle($consumptionId, (array)($summary['videos'] ?? []), (string)$current['upstream_request_id'], (string)$current['upstream_task_id'], $receipt);
         return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
     }
 

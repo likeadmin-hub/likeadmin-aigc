@@ -71,6 +71,7 @@ class MarketMeasuredVideoCompletionTest extends TestCase
             $c=AiConsumptionLog::create(['consume_no'=>$key,'app_task_id'=>$task['id'],'tenant_id'=>1,'user_id'=>$user,'app_code'=>'aigc_video',
                 'action_code'=>'video_generate','provider'=>'power_market','resource_type'=>'model','protocol'=>'video_generate',
                 'upstream_task_id'=>'accepted-offline-fixture','price_snapshot'=>$snapshot,'response_summary'=>['videos'=>[$video]],
+                'usage_snapshot'=>['actual_quantity'=>0,'submitted_quantity'=>1,'upstream_usage'=>['points_cost'=>11]],
                 'run_status'=>'success','billing_status'=>'reserved','reserved_tenant_cost'=>10,'reserved_user_price'=>10,
                 'create_time'=>time(),'update_time'=>time()]);
             PointService::reserveBusinessAmountsInCurrentTransaction(1,$user,10,10,$key.'-reserve','Offline fixture',
@@ -87,6 +88,7 @@ class MarketMeasuredVideoCompletionTest extends TestCase
                 self::assertSame('settled',$fresh['billing_status']);self::assertSame(11.0,(float)$fresh['actual_user_price']);
                 self::assertSame(1.04,(float)$fresh['usage_snapshot']['actual_quantity']);
                 self::assertSame('managed_output_metadata',$fresh['usage_snapshot']['actual_quantity_source']);
+                self::assertSame(11,$fresh['usage_snapshot']['upstream_usage']['points_cost']);
                 self::assertSame($before['user']-11,$this->balances($user)['user']);
                 self::assertSame($before['tenant']-11,$this->balances($user)['tenant']);
                 self::assertSame($count,AiTaskResultAsset::where('consumption_id',$c['id'])->count());
