@@ -57,7 +57,8 @@ final class MarketGenerationMedia
             if($kind==='visual'&&($image=@getimagesizefromstring($body))!==false&&$image[0]>0&&$image[1]>0)return $cache[$key]=['kind'=>'image','duration'=>0.0];
             if(file_put_contents($path,$body)!==strlen($body))throw new InvalidArgumentException('素材读取失败');
             unset($body);
-            return $cache[$key]=self::localFacts($path,$kind);
+            $facts=self::localFacts($path,$kind);
+            return $cache[$key]=$cache[$facts['kind'].':'.hash('sha256',$url)]=$facts;
         }finally{@unlink($path);}
     }
 
