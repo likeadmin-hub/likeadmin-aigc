@@ -65,6 +65,15 @@ final class MicroVideoRetailCatalogTest extends TestCase
         $out=Retail::projectVideoModels($this->models(),[41=>['available'=>[['sku'=>$sku,'tenant_price'=>1.]]]]);
         self::assertSame('unavailable',$out[0]['reference_price']['status']);
     }
+    public function testBillingUnitFallbackMatchesRuntimeForAnExplicitPerCallMeter(): void
+    {
+        foreach ([''=>'per_call','  OUTPUT_SECOND  '=>'OUTPUT_SECOND'] as $unit=>$expected) {
+            $sku=$this->sku();$sku['usage_unit']=$unit;$sku['source_payload']['meter_summary']=$unit===''?'按次，总点数向上取整':'生成秒数，总点数向上取整';
+            $out=Retail::projectVideoModels($this->models(),[41=>['available'=>[['sku'=>$sku,'tenant_price'=>37.]]]]);
+            self::assertSame('available',$out[0]['reference_price']['status']);
+            self::assertSame($expected,$out[0]['reference_price']['rates'][0]['unit']);
+        }
+    }
     public function testLiveReaderUsesTheSameRetailRuleAsVideoQuoteWithoutAnyRequest(): void
     {
         $db=config('database.connections.mysql');

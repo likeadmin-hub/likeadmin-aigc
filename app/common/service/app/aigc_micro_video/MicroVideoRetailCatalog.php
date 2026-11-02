@@ -32,7 +32,7 @@ final class MicroVideoRetailCatalog
                     try { $meter = MarketGenerationMeter::contract($sku); } catch (\Throwable) { continue; }
                     $key = $sku['id'].'|'.$spec['quality'].'|'.$spec['ratio'];
                     if (!isset($rates[$key])) $rates[$key] = [
-                        'points' => (float)$price, 'unit' => (string)$sku['usage_unit'], 'unit_size' => max(1.0, (float)$size),
+                        'points' => (float)$price, 'unit' => trim((string)($sku['usage_unit'] ?? '')) ?: 'per_call', 'unit_size' => max(1.0, (float)$size),
                         'quality' => (string)$spec['quality'], 'ratio' => (string)$spec['ratio'], 'durations' => [],
                         'meter_summary' => (string)$meter['summary'],
                     ];
