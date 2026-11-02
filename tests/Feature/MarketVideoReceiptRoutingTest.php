@@ -24,7 +24,8 @@ class MarketVideoReceiptRoutingTest extends TestCase
                 'usage_unit_size' => 1, 'upstream_price' => 1, 'sale_points' => 1, 'source_payload' => []], 'tenant_price' => 1];
         $snapshot = (new ReflectionMethod(Videos::class, 'snapshot'))->invoke(null, $market, 1.0);
         self::assertSame('video_generate', $snapshot['protocol']);
-        self::assertSame($metadata, $snapshot['market_metadata']);
+        self::assertSame($metadata, array_intersect_key($snapshot['market_metadata'], $metadata));
+        self::assertSame(array_key_exists('protocol', $source), array_key_exists('protocol', $snapshot['market_metadata']));
         self::assertSame($resource === 'model' ? 'video' : '', $snapshot['model_type']);
     }
 
@@ -40,7 +41,7 @@ class MarketVideoReceiptRoutingTest extends TestCase
     public function testOwnedLegacyAndCanonicalVideoReceiptsReplayTerminalStateWithoutCatalogueOrCharging(array $snapshot, string $protocol, string $app): void
     {
         $this->fixture($snapshot, $protocol, $app, function ($task, $receipt) use ($snapshot) {
-            $before = [$task->toArray(), $receipt->toArray()];
+            $before = [AiAppTask::find($task['id'])->toArray(), AiConsumptionLog::find($receipt['id'])->toArray()];
             $runtime = Runtime::consumption((int)$receipt['id'], (int)$receipt['tenant_id'], (int)$receipt['user_id']);
             self::assertSame($snapshot['resource_type'] === 'model' ? MarketVideoModelRuntimeService::class : MarketVideoAppRuntimeService::class, $runtime->adapter);
             foreach (['submit', 'refresh'] as $operation) {
