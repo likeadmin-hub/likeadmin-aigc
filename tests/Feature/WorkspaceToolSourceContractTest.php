@@ -11,7 +11,7 @@ $checks = 0;
 Db::startTrans();
 try {
     foreach ($sources as $source => $app) {
-        if (in_array($source,['canvas','short_drama','fitting'],true)) continue; // Dedicated asset/shared-result contracts.
+        if (in_array($source,['canvas','short_drama','fitting','agent'],true)) continue; // Dedicated asset/shared-result contracts; Agent artifacts have no task/result tables.
         $task = Db::name($app.'_task')->insertGetId($owner+['status'=>'success','create_time'=>time(),'delete_time'=>0]);
         $columns = Db::name($app.'_result')->getTableFields();
         $field = array_values(array_intersect(['video_uri','image_uri','audio_uri'], $columns))[0] ?? '';
