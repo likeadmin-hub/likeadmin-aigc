@@ -806,6 +806,9 @@ class AigcProductSuiteService
 
     private static function appendTaskResults(int $tenantId, int $userId, array $rows): array
     {
+        $owners=[];$references=[];
+        foreach ($rows as $row) $owners[(int)$row['user_id']][(int)$row['id']]=\app\common\service\WorkspaceAssetReferenceService::inputs([$row]);
+        foreach ($owners as $owner=>$groups) $references+=\app\common\service\WorkspaceAssetReferenceService::resolveGroups($tenantId,$owner,$groups);
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         if ($taskIds) {
@@ -823,7 +826,7 @@ class AigcProductSuiteService
                     continue;
                 }
                 $result['download_url'] = $result['image_url'];
-                $result['source_image_url'] = self::imageUrl((string)($result['source_image'] ?? ''));
+                $result['source_image_url'] = (string)($references[(int)$result['task_id']][0]['url'] ?? '');
                 $resultMap[(int)$result['task_id']][] = $result;
             }
         }
@@ -832,7 +835,8 @@ class AigcProductSuiteService
             $row['results'] = $results;
             $row['result_count'] = count($results);
             $productImages = self::normalizeImages($row['product_images'] ?? []);
-            $row['product_image_urls'] = array_values(array_filter(array_map([self::class, 'imageUrl'], $productImages)));
+            $row['reference_assets'] = $references[(int)$row['id']] ?? [];
+            $row['product_image_urls'] = array_column($row['reference_assets'],'url');
             $row['source_image_urls'] = $row['product_image_urls'];
             $row['source_image_url'] = (string)($row['product_image_urls'][0] ?? '');
             $first = $results[0] ?? [];

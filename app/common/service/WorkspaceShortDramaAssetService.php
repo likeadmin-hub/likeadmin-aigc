@@ -31,6 +31,7 @@ final class WorkspaceShortDramaAssetService
             foreach ($originals as $original) $outputs[$original['task_id']][$original['uri']] ??= $original;
         }
         $generations = UserTaskTraceService::appendRows($generations);
+        $references = self::references($tenant,$user,$generations);
         foreach ($rows as &$row) {
             unset($row['library_origin_ref'],$row['library_origin']);
             $meta = (array)($row['meta'] ?? []);
@@ -58,6 +59,7 @@ final class WorkspaceShortDramaAssetService
                     'provider_request_id'=>(string)($generation['provider_request_id'] ?? ''),
                     'prompt'=>self::text($params['prompt'] ?? $meta['visible_prompt'] ?? $meta['prompt'] ?? ''),
                     'create_time'=>(int)$original['create_time'],
+                    'reference_assets'=>$references[$generation['task_id']] ?? [],
                 ];
                 $row['library_origin_ref']='short_drama:result:'.$original['id'];
                 $row['library_origin']='generated';
@@ -76,6 +78,33 @@ final class WorkspaceShortDramaAssetService
         if (in_array($meta['source'] ?? '', ['pc_subject_create_manual','canvas_project_upload','subject_library'],true)) return true;
         // Historical canvas upload registrations have no generation/run identity.
         return ($meta['source'] ?? '') === 'short_drama_canvas' && empty($meta['canvas_run_id']) && empty($row['task_id']);
+    }
+
+    private static function references(int $tenant,int $user,array $generations): array
+    {
+        $groups=[];$inputIds=[];$byTask=[];
+        foreach ($generations as $generation) {
+            $request=self::object($generation['request_json'] ?? '');$params=self::object($request['params'] ?? []);
+            $roots=[$request,$params,self::object($params['params'] ?? []),self::object($request['image_params'] ?? []),self::object($request['video_params'] ?? [])];
+            $ids=self::object($generation['input_asset_ids'] ?? []);
+            foreach ($roots as $root) {
+                foreach (['input_asset_ids','reference_asset_ids'] as $field) $ids=array_merge($ids,self::object($root[$field] ?? []));
+                foreach (['first_frame_asset_id','last_frame_asset_id'] as $field) $ids[]=$root[$field] ?? 0;
+            }
+            $ids=array_values(array_unique(array_filter(array_map('intval',$ids),static fn($id)=>$id>0)));
+            $byTask[$generation['task_id']]=$ids;$inputIds=array_merge($inputIds,$ids);
+            $groups[$generation['task_id']]=WorkspaceAssetReferenceService::inputs($roots);
+        }
+        $assets=[];
+        if ($inputIds) foreach (Db::name('aigc_short_drama_asset')->where(['tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])
+            ->whereIn('id',array_values(array_unique($inputIds)))->select()->toArray() as $asset) $assets[$asset['id']]=$asset;
+        foreach ($byTask as $task=>$ids) foreach ($ids as $id) {
+            if (!isset($assets[$id])) continue;
+            $asset=$assets[$id];
+            $groups[$task][]=['id'=>$id,'title'=>$asset['title'],'asset_type'=>$asset['asset_type'],
+                'url'=>FileService::getFileUrlByStorage($asset['uri'],$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain'])];
+        }
+        return WorkspaceAssetReferenceService::resolveGroups($tenant,$user,$groups);
     }
 
     private static function object($value): array
