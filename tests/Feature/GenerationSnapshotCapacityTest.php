@@ -115,7 +115,7 @@ class GenerationSnapshotCapacityTest extends TestCase
             $quote = $runtime->quote(1);
             self::assertGreaterThan(65535, strlen(json_encode($quote['market_snapshot'])));
             $task = AigcVideoTask::create(['tenant_id'=>1,'user_id'=>$user,'prompt'=>$key,'pricing_snapshot'=>$quote['market_snapshot']]);
-            self::assertSame($quote['market_snapshot'], AigcVideoTask::find($task['id'])['pricing_snapshot']);
+            self::assertSame(json_decode(json_encode($quote['market_snapshot']), true), AigcVideoTask::find($task['id'])['pricing_snapshot']);
             $reserved = $runtime->reserve(1,$user,'aigc_video','video_generate','aigc_video_task',$key,$request);
             self::assertSame($reserved['consumption_id'], $runtime->reserve(1,$user,'aigc_video','video_generate','aigc_video_task',$key,$request)['consumption_id']);
             $receipt = AiConsumptionLog::find($reserved['consumption_id']);
