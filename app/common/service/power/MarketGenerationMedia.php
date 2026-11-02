@@ -81,7 +81,8 @@ final class MarketGenerationMedia
         $expected=$kind==='visual'?'video':$kind;
         if($code!==0 || !is_finite($seconds) || $seconds<=0 || !in_array($expected,array_column($info['streams']??[],'codec_type'),true))throw new InvalidArgumentException('素材损坏或没有有效音视频轨道');
         $video=[];foreach(($info['streams']??[]) as $stream)if(($stream['codec_type']??'')==='video'){$video=$stream;break;}
-        return ['kind'=>$expected,'duration'=>$seconds,'width'=>max(0,(int)($video['width']??0)),'height'=>max(0,(int)($video['height']??0))];
+        return ['kind'=>$expected,'duration'=>$seconds,'width'=>max(0,(int)($video['width']??0)),'height'=>max(0,(int)($video['height']??0)),
+            'file_size'=>(int)filesize($path),'mime_type'=>(string)mime_content_type($path)];
     }
 
     /** Only server-owned output URLs call this; downloads retain the existing safe HTTP bounds. */
