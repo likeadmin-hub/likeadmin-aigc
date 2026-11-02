@@ -73,7 +73,7 @@ class MarketVideoPreparationLifecycleTest extends TestCase
                 'prompt' => ['type' => 'string'], 'duration' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 8],
                 'resolution' => ['type' => 'string', 'enum' => ['720P']], 'aspect_ratio' => ['type' => 'string', 'enum' => ['1:1']],
             ], 'required' => ['prompt', 'duration']], 'category_code' => 'video', 'category_name' => '视频生成',
-                'supported_durations' => [4], 'supported_ratios' => ['1:1'], 'supported_resolutions' => ['720P']];
+                'supported_durations' => [4], 'supported_ratios' => ['1:1'], 'supported_resolutions' => ['720P'], 'protocol' => ''];
             if ($resource === 'model') $metadata['material_capabilities'] = ['modes' => [['code' => 'text_to_video', 'method' => 'text_to_video', 'fields' => []]]];
             else {
                 // The Full Video API encodes text in content, unlike the
@@ -122,6 +122,10 @@ class MarketVideoPreparationLifecycleTest extends TestCase
             $reserved = $reserve($key);
             self::assertSame($reserved['consumption_id'], $reserve($key)['consumption_id']);
             $log = AiConsumptionLog::find($reserved['consumption_id']);
+            self::assertSame('video_generate', $log['protocol']);
+            self::assertSame('video_generate', $log['price_snapshot']['protocol']);
+            self::assertSame($resource === 'model' ? \app\common\service\power\MarketVideoModelRuntimeService::class : \app\common\service\power\MarketVideoAppRuntimeService::class,
+                \app\common\service\power\MarketGenerationRuntime::consumption((int)$log['id'], 1, $user)->adapter);
             self::assertSame((float)$quote['user_charge_points'], (float)$log['reserved_user_price']);
             self::assertSame((float)$quote['tenant_cost_points'], (float)$log['reserved_tenant_cost']);
             self::assertSame(4.0, (float)$log['quantity']);
