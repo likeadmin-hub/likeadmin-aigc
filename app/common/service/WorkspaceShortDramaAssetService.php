@@ -20,7 +20,7 @@ final class WorkspaceShortDramaAssetService
             $generations = Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>$tenant,'user_id'=>$user])
                 ->whereIn('task_type', self::MEDIA_TASKS)->where(function($q) use ($tasks,$consumptions) {
                     if ($tasks) $q->whereIn('task_id',$tasks);
-                    if ($consumptions) $q->whereOrIn('consumption_id',$consumptions);
+                    if ($consumptions) $q->whereOr('consumption_id','in',$consumptions);
                 })->select()->toArray();
         }
         $outputs = [];

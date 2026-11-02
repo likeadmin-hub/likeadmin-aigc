@@ -1,6 +1,7 @@
 <?php
 // Synthetic local records in one rolled-back transaction. No providers or filesystem writes.
 require dirname(__DIR__,2).'/vendor/autoload.php'; (new think\App())->initialize();
+set_exception_handler(static function(Throwable $error){fwrite(STDERR,$error->getMessage()."\n".$error->getTraceAsString()."\n");exit(1);});
 use think\facade\Db;
 use app\common\service\WorkspaceShortDramaAssetService as Provenance;
 use app\common\service\WorkspaceAssetService;
