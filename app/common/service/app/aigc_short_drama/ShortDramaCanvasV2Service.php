@@ -23,7 +23,7 @@ final class ShortDramaCanvasV2Service
         unset($model);
         $music=\app\common\service\app\aigc_music\AigcMusicService::config($tenant)['option_config']??[];
         $models['music']=array_values((array)($music['channels']??[]));
-        foreach ($models['music'] as &$model) $model['id']=$model['id']??$model['value']??'';
+        foreach ($models['music'] as &$model) $model['id']=$model['code']??$model['value']??'';
         unset($model);
         return ['resource_models'=>$models,'agent_enabled'=>FeatureGate::enabled($tenant),'maximum_nodes'=>200];
     }
@@ -95,6 +95,8 @@ final class ShortDramaCanvasV2Service
     {
         $params=self::mediaInput($tenant,$user,$id,$input);
         $params['request_key']=self::requestKey($input['request_key']??null);
+        $allowed=[];foreach (self::capabilities($tenant)['resource_models'][$input['kind']]??[] as $model) $allowed[]=(string)($model['id']??$model['value']??'');
+        if (!in_array($params['channel'],$allowed,true)) throw new RuntimeException('当前模型不可用，请重新选择');
         $quoted=ShortDramaCanvasService::quote($tenant,$user,$params,true);
         return ['quote'=>$quoted['quote'],'quote_hash'=>$quoted['quote_token'],'request_key'=>$params['request_key'],'request'=>['model_code'=>$params['channel']]];
     }
@@ -103,7 +105,6 @@ final class ShortDramaCanvasV2Service
     {
         $params=self::mediaInput($tenant,$user,$id,$input);
         $params['request_key']=self::requestKey($input['request_key']??null);$params['quote_token']=$input['quote_hash']??'';
-        ShortDramaCanvasService::confirmQuote($tenant,$user,$params);
         return ShortDramaCanvasV2Graph::task(ShortDramaCanvasService::submitIdempotent($tenant,$user,$params,true));
     }
 
@@ -136,8 +137,6 @@ final class ShortDramaCanvasV2Service
         if (!in_array($type,['image','video','audio'],true)||$node['type']!==$type) throw new RuntimeException('NODE_TYPE_MISMATCH');
         $channel=$input['model_code']??'';
         if (!is_string($channel)||$channel==='') throw new RuntimeException('请选择当前可用模型');
-        $allowed=[];foreach (self::capabilities($tenant)['resource_models'][$kind]??[] as $model) $allowed[]=(string)($model['id']??$model['value']??'');
-        if (!in_array($channel,$allowed,true)) throw new RuntimeException('当前模型不可用，请重新选择');
         $params=array_intersect_key($input,array_flip(['prompt','ratio','quality','resolution','generation_method','material_mode','advanced_params']));
         return $params+['canvas_id'=>$id,'node_id'=>(string)$node['id'],'type'=>$type,'channel'=>$channel,'duration'=>(int)($input['duration_seconds']??0)];
     }

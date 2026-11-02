@@ -420,7 +420,12 @@ class ShortDramaCanvasService
             // Resolve only a new submission. Replays use the accepted snapshot
             // even if the administrator changed/disabled the model meanwhile.
             if ($type === 'text') $payload = self::withTenantTextModel($tenantId, $payload);
-            if ($type === 'video' || $requireMediaQuote) self::assertConfirmedQuote($tenantId, $userId, $document, $nodeId, $key, $payload, (string)($params['quote_token'] ?? ''));
+            if ($type === 'video' || $requireMediaQuote) {
+                // V2 has one explicit confirmation button. Accepted replay skips
+                // this block, retaining the original receipt after quote expiry.
+                if ($requireMediaQuote) self::confirmQuote($tenantId,$userId,$params);
+                self::assertConfirmedQuote($tenantId, $userId, $document, $nodeId, $key, $payload, (string)($params['quote_token'] ?? ''));
+            }
             if ((int)($params['skill_id']??0)>0) $payload=self::applyComposerSkill($type,$payload,$params,ShortDramaSkillService::resolveForTask($tenantId,$params));
             $intent=GenerationIntentService::reserve($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$payload,$requestInput);
         }
