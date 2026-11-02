@@ -14,8 +14,9 @@ Db::startTrans();
 try {
     $tenant=1999999651;$user=$tenant;$owner=['tenant_id'=>$tenant,'user_id'=>$user];
     $uri='uploads/provenance-fixture.png';$task='sd_gen_provenance_fixture';
+    $input=Db::name('aigc_short_drama_asset')->insertGetId($owner+['task_id'=>'','asset_type'=>'reference_image','title'=>'Actual first frame','uri'=>'uploads/provenance-input.png','storage_scope'=>'platform','storage_engine'=>'aliyun','storage_domain'=>'https://fixtures.invalid','status'=>'ready']);
     $generation=$owner+['task_id'=>$task,'task_type'=>'subject_image','status'=>'success','consumption_id'=>1999999651,'provider_task_id'=>'upstream-media-real',
-        'request_json'=>json_encode(['params'=>['model_name'=>'Image snapshot','ratio'=>'16:9','quality'=>'1k','prompt'=>'Original user prompt','api_key'=>'never expose'],'image_params'=>['quantity'=>1,'api_key'=>'never expose']]),'result_json'=>'{}','create_time'=>100];
+        'request_json'=>json_encode(['params'=>['model_name'=>'Image snapshot','ratio'=>'16:9','quality'=>'1k','prompt'=>'Original user prompt','api_key'=>'never expose'],'image_params'=>['quantity'=>1,'api_key'=>'never expose']]),'result_json'=>'{}','input_asset_ids'=>json_encode([$input]),'create_time'=>100];
     Db::name('aigc_short_drama_generation_task')->insert($generation);
     Db::name('aigc_short_drama_generation_task')->insert($owner+['task_id'=>'sd_plan_fixture','task_type'=>'script_plan','status'=>'success','request_json'=>'{"model_name":"Qwen planning","prompt":"Plan this script"}','create_time'=>200]);
     $base=$owner+['project_id'=>0,'task_id'=>$task,'asset_type'=>'subject_image','uri'=>$uri,'title'=>'fixture','status'=>'ready','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','create_time'=>100,'delete_time'=>0,'meta_json'=>json_encode(['consumption_id'=>1999999651])];
@@ -24,11 +25,13 @@ try {
     $local=Db::name('aigc_short_drama_asset')->insertGetId(array_replace($base,['task_id'=>'sd_plan_fixture','uri'=>'uploads/local-fixture.png','meta_json'=>'{"source":"pc_subject_create_manual"}']));
     $list=AigcShortDramaService::assetLists($tenant,$user,['page_size'=>100]);
     $rows=array_column($list['lists'],null,'id');$a=$rows[$original];$b=$rows[$copy];
-    $check($list['count']===3,'Do not change project records or source pagination');
+    $check($list['count']===4,'Do not change project records or source pagination');
     $check($a['library_origin_ref']===$b['library_origin_ref'] && $b['library_origin_ref']==='short_drama:result:'.$original,'Reuse retains original identity');
     $check($b['generation_snapshot']['model_name']==='Image snapshot' && $b['generation_snapshot']['task_id']===$task,'Never read the script model');
     $check($b['generation_snapshot']['prompt']==='Original user prompt' && $b['generation_snapshot']['create_time']===100,'Original prompt and result timestamp');
     $check($b['generation_snapshot']['provider_task_id']==='upstream-media-real','Actual provider ID');
+    $check(count($b['generation_snapshot']['reference_assets'])===1 && $b['generation_snapshot']['reference_assets'][0]['id']===$input,'Reuse preserves actual original generation input');
+    $check($b['generation_snapshot']['reference_assets'][0]['url']==='https://fixtures.invalid/uploads/provenance-input.png','Input uses stored media domain');
     $check(!str_contains(json_encode($b['generation_snapshot']),'never expose'),'Only presentation parameters leave the service');
     $check($rows[$local]['library_origin']==='upload' && $rows[$local]['generation_snapshot']===[],'Manual subject is an upload without a generated task');
     $foreign=Provenance::appendRows($tenant+1,$user,[$b])[0];

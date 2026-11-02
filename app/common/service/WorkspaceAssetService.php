@@ -245,6 +245,12 @@ final class WorkspaceAssetService
             if (is_string($value)) $value = json_decode($value, true) ?: [];
             if (is_array($value)) $raw[$field] = array_intersect_key(array_replace(is_array($value['params'] ?? null) ? $value['params'] : [], $value), $displayFields);
         }
+        $referenceRoots=[$metadata];
+        foreach (['params','provider_params_json','request_snapshot','image_params','video_params'] as $field) {
+            $value=WorkspaceAssetReferenceService::object($metadata[$field] ?? []);
+            $referenceRoots[]=$value;$referenceRoots[]=WorkspaceAssetReferenceService::object($value['params'] ?? []);
+        }
+        $raw['reference_assets']=WorkspaceAssetReferenceService::resolveGroups($tenant,$user,[WorkspaceAssetReferenceService::inputs($referenceRoots)])[0];
         if (in_array($source,['image','video'],true)) {
             $originTask = $task ?: $record;
             $raw['creation_source'] = \app\common\service\ai\GenerationWorkSourceService::appendRows([$originTask],$prefix)[0]['creation_source'];
