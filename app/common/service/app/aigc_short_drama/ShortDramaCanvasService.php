@@ -327,13 +327,13 @@ class ShortDramaCanvasService
      * selection, so the browser cannot reuse a confirmation after changing a
      * model, duration, resolution or an owned reference-asset version.
      */
-    public static function quote(int $tenantId, int $userId, array $params): array
+    public static function quote(int $tenantId, int $userId, array $params, bool $allMedia = false): array
     {
         $document = self::ownedDocument($tenantId, $userId, (int)($params['canvas_id'] ?? 0));
         $nodeId = trim((string)($params['node_id'] ?? ''));
         $type = strtolower(trim((string)($params['type'] ?? '')));
         $previewOnly = filter_var($params['preview_only'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        if ($type !== 'video' && (!$previewOnly || !in_array($type, ['image', 'audio'], true))) {
+        if (!in_array($type, ['image', 'video', 'audio'], true) || $type !== 'video' && !$previewOnly && !$allMedia) {
             throw new Exception('QUOTE_UNSUPPORTED_NODE_TYPE');
         }
         self::assertGenerationNode($document, $nodeId, $type);
@@ -391,7 +391,7 @@ class ShortDramaCanvasService
     }
 
     /** P1 integration boundary, deliberately not routed until recovery/UI gates pass. */
-    public static function submitIdempotent(int $tenantId, int $userId, array $params): array
+    public static function submitIdempotent(int $tenantId, int $userId, array $params, bool $requireMediaQuote = false): array
     {
         $document=self::ownedDocument($tenantId,$userId,(int)($params['canvas_id']??0));
         $nodeId=trim((string)($params['node_id']??''));
@@ -420,7 +420,7 @@ class ShortDramaCanvasService
             // Resolve only a new submission. Replays use the accepted snapshot
             // even if the administrator changed/disabled the model meanwhile.
             if ($type === 'text') $payload = self::withTenantTextModel($tenantId, $payload);
-            if ($type === 'video') self::assertConfirmedQuote($tenantId, $userId, $document, $nodeId, $key, $payload, (string)($params['quote_token'] ?? ''));
+            if ($type === 'video' || $requireMediaQuote) self::assertConfirmedQuote($tenantId, $userId, $document, $nodeId, $key, $payload, (string)($params['quote_token'] ?? ''));
             if ((int)($params['skill_id']??0)>0) $payload=self::applyComposerSkill($type,$payload,$params,ShortDramaSkillService::resolveForTask($tenantId,$params));
             $intent=GenerationIntentService::reserve($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$payload,$requestInput);
         }
