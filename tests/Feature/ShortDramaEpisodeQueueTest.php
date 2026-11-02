@@ -286,12 +286,11 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $result['storyboard'] = [['shot_id' => '1', 'visual_description' => '调查员进入街道']];
         Db::name('aigc_short_drama_script_task')->where('task_id', $created['task_id'])->update(['status' => 'success', 'result_json' => json_encode($result)]);
         Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status' => 'success', 'completed_once' => 1]);
-        try {
-            Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把本集开场改为雨天']);
-            self::fail('An ambiguous revision must not expand its scope');
-        } catch (\Exception $error) {
-            self::assertStringContainsString('请明确要修改的分镜或场景', $error->getMessage());
-        }
+        $natural = Episodes::message(1, 1, ['episode_id'=>$row['id'],'message'=>'把本集开场改为雨天']);
+        $naturalRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id',$natural['task_id'])->value('request_json'));
+        self::assertSame(1,$naturalRequest['_revision_agent_version']);
+        self::assertSame('production',$naturalRequest['_revision_stage']);
+        self::assertSame($result['storyboard'],$naturalRequest['revision_base_result']['storyboard']);
         $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把第1个分镜改为雨天']);
         $revisionTask = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
         self::assertSame((int)$created['project_id'], (int)$revisionTask['project_id']);

@@ -158,19 +158,8 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
             $generated = $this->generate($request);
             self::assertCount(12, $generated['result']['storyboard']);
             self::assertSame(0, $generated['result']['review_report']['blocking_count']);
-            self::assertCount($episode ? 7 : 1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
-            if ($episode) {
-                $evidenceInput = json_decode(\app\common\service\power\MarketTextModelRuntimeService::$requests[2]['content'], true);
-                self::assertArrayHasKey('checks', $evidenceInput['response_contract']);
-                self::assertCount(4, $evidenceInput['storyboard']);
-                $reviewedIds = [];
-                foreach ([2, 4, 6] as $index) {
-                    $block = json_decode(\app\common\service\power\MarketTextModelRuntimeService::$requests[$index]['content'], true);
-                    array_push($reviewedIds, ...array_column($block['storyboard'], 'shot_id'));
-                    self::assertStringNotContainsString('video_prompt', json_encode($block));
-                }
-                self::assertSame(array_column($generated['result']['storyboard'], 'shot_id'), $reviewedIds);
-            }
+            self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+            if ($episode) self::assertSame('skipped', $generated['result']['_continuity']['audit_status']);
             if ($episode) self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
             else self::assertArrayNotHasKey('_continuity', $generated['result']);
             self::assertTrue(\app\common\service\power\MarketTextModelRuntimeService::$requests[0]['_disable_transient_retry']);
@@ -216,13 +205,14 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
             'series_context' => ['current_episode' => ['story_outline' => '主角找到线索'],
                 'continuity' => ['state' => ['subject_1:location' => '旧宅'], 'previous_digest' => 'previous']]]);
 
-        self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+        self::assertCount(2, \app\common\service\power\MarketTextModelRuntimeService::$requests);
         self::assertTrue($generated['result']['review_report']['skipped']);
         self::assertSame(false, $generated['result']['generation_settings']['quality_review_enabled']);
         self::assertSame('skipped', $generated['result']['_continuity']['audit_status']);
         self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
         self::assertSame(['subject_1:location' => '旧宅'], $generated['result']['_continuity']['state']);
-        self::assertSame([], $generated['repair_llm']);
+        self::assertNotEmpty($generated['repair_llm']);
+        self::assertSame($generated['result']['subjects'][0]['name'], $generated['result']['storyboard'][0]['voice_role']);
     }
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
@@ -263,20 +253,21 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
      * @runInSeparateProcess
      * @preserveGlobalState disabled
      */
-    public function testInvalidSpeakerPatchFallsBackToTheExistingFullQualityRepair(): void
+    public function testInvalidSpeakerPatchFailsClearlyWithoutRewritingTheWholeScript(): void
     {
         require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
         $this->silenceLog();
         \app\common\service\power\MarketTextModelRuntimeService::reset();
         \app\common\service\power\MarketTextModelRuntimeService::$missingSpeaker = true;
         \app\common\service\power\MarketTextModelRuntimeService::$invalidDialogueRepair = true;
-
-        $generated = $this->generate(['multi_episode' => false, 'episode_count' => 1]);
-
-        self::assertCount(3, \app\common\service\power\MarketTextModelRuntimeService::$requests);
-        self::assertSame('script_plan_dialogue_repair', \app\common\service\power\MarketTextModelRuntimeService::$requests[1]['action_code']);
-        self::assertSame('script_plan_repair', \app\common\service\power\MarketTextModelRuntimeService::$requests[2]['action_code']);
-        self::assertSame(0, $generated['result']['review_report']['blocking_count']);
+        try {
+            $this->generate(['multi_episode'=>false,'episode_count'=>1]);
+            self::fail('Missing attribution must not become a successful script');
+        } catch (\Exception $error) {
+            self::assertStringContainsString('分镜对白缺少实际说话角色',$error->getMessage());
+            self::assertCount(2,\app\common\service\power\MarketTextModelRuntimeService::$requests);
+            self::assertSame('script_plan_dialogue_repair',\app\common\service\power\MarketTextModelRuntimeService::$requests[1]['action_code']);
+        }
     }
 
     /**
@@ -375,7 +366,7 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         \app\common\service\power\MarketTextModelRuntimeService::$returnIncompleteEveryOutline = true;
 
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('剧本计划质检未通过');
+        $this->expectExceptionMessage('多集大纲');
         $this->generate([
             'multi_episode' => true,
             'episode_count' => 3,

@@ -18015,12 +18015,36 @@ class AigcShortDramaService
                 'model_selection' => $model, 'raw_content' => $rawContent];
         }
         if (!ShortDramaStoryWorkflow::qualityReviewEnabled($request)) {
+            $repairLlmResult = [];
+            // Speaker attribution is a required output field, not editorial review.
+            if ($dialogueCheck['issues']) {
+                $targets = ShortDramaDialogueContract::repairTargets($payload, $dialogueCheck['issues']);
+                if (!$targets) throw new Exception('分镜对白缺少实际说话角色，请补充后继续');
+                $repairLlmResult = self::repairDialogueSpeakersWithLlm($tenantId, $userId, $request, $model,
+                    $payload, $targets, (int)($llmResult['app_task_id'] ?? 0), $onEvent);
+                $patch = self::decodeCompleteJsonObject(trim((string)($repairLlmResult['content'] ?? '')));
+                $dialogueCheck = ShortDramaDialogueContract::prepare(ShortDramaDialogueContract::applySpeakerRepairs($payload, $patch, $targets));
+                if ($dialogueCheck['issues']) throw new Exception('分镜对白缺少实际说话角色，原内容已保留；请补充后继续');
+                $payload = $dialogueCheck['payload'];
+            }
             $result = self::skipPlanQualityReview(self::normalizeGeneratedPlanResult($payload, $prompt, $request, $title));
             if (!empty($request['revision_target']) && is_array($request['revision_target'])) {
                 $result = self::skipPlanQualityReview(self::protectRevisionTargetResult($result, $request));
             }
+            if (!empty($request['multi_episode'])) {
+                try { self::assertCompleteMultiEpisodeOutline($result, $request); }
+                catch (Exception $error) {
+                    // Complete missing outline fields only. Never return an incomplete episode set.
+                    $result['review_report'] = self::buildReviewReport([['code'=>'episodes.incomplete','severity'=>'blocking','message'=>$error->getMessage()]]);
+                    $receipt = self::repairScriptPlanResultWithLlm($tenantId, $userId, $prompt, $request, $title,
+                        $model, $result, (int)($llmResult['app_task_id'] ?? 0), $onEvent);
+                    $repairLlmResult = $repairLlmResult ? self::mergeScriptPlanLlmResults([$repairLlmResult,$receipt]) : $receipt;
+                    $repaired = self::normalizeGeneratedPlanResult(self::decodeLlmJsonObject((string)($receipt['content'] ?? '')), $prompt, $request, $title);
+                    $result = self::skipPlanQualityReview(self::mergeRepairPlanResult($result, $repaired, true));
+                    self::assertCompleteMultiEpisodeOutline($result, $request);
+                }
+            }
             if (!self::planResultHasContent($result)) throw new Exception('剧本内容不完整，请重试');
-            self::assertCompleteMultiEpisodeOutline($result, $request);
             if ($v3Generation !== null && !empty($request['series_context'])) {
                 $summary = trim(implode("\n", array_filter((array)($result['script_lines'] ?? []), 'is_string')));
                 if ($summary === '') $summary = trim((string)($result['story_outline'] ?? ''));
@@ -18034,7 +18058,7 @@ class AigcShortDramaService
             if (ShortDramaReviewOutcome::enabled($request) && !empty($result['storyboard'])) {
                 $result = ShortDramaReviewOutcome::unreviewed($result, $request);
             }
-            return ['result' => $result, 'llm' => $llmResult, 'repair_llm' => [],
+            return ['result' => $result, 'llm' => $llmResult, 'repair_llm' => $repairLlmResult,
                 'provider' => (string)($model['provider'] ?? ''), 'model_selection' => $model,
                 'raw_content' => $rawContent];
         }
