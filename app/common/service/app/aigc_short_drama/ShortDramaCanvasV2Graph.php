@@ -79,6 +79,14 @@ final class ShortDramaCanvasV2Graph
             'removed_node_ids'=>array_values(array_diff(array_map('strval',array_column($document['nodes']??[],'id')),array_values($ids)))];
     }
 
+    public static function messages(array $rows): array
+    {
+        return array_map(static function(array $row):array {
+            $content=$row['content']??'';
+            return ['id'=>(int)$row['id'],'role'=>(string)$row['role'],'content'=>is_array($content)?(string)($content['text']??''):(string)$content];
+        },$rows);
+    }
+
     public static function task(array $run): array
     {
         $result=(array)($run['result']??[]);
