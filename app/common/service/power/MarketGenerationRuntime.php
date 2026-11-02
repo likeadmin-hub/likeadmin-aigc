@@ -45,13 +45,34 @@ final class MarketGenerationRuntime
     {
         $c = AiConsumptionLog::where(['id'=>$id, 'tenant_id'=>$tenantId, 'user_id'=>$userId, 'provider'=>'power_market'])->find();
         if (!$c) throw new InvalidArgumentException('生成任务不存在或无权访问');
-        if (!AiAppTask::where(['id'=>(int)$c['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId])->find()) throw new InvalidArgumentException('生成任务关联不存在或无权访问');
+        $task = AiAppTask::where(['id'=>(int)$c['app_task_id'],'tenant_id'=>$tenantId,'user_id'=>$userId])->find();
+        if (!$task) throw new InvalidArgumentException('生成任务关联不存在或无权访问');
         $snapshot = (array)$c['price_snapshot'];
         if ($c['protocol'] === 'application_api') return new self($snapshot, MarketApplicationApiRuntimeService::adapterForConsumption($id), (int)$c['app_task_id']);
-        $type = match ($c['protocol']) {'image_generate'=>'image', 'video_generate'=>'video', default=>''};
+        $protocol = (string)$c['protocol'];
+        // Older video reservations copied an empty supplier protocol into the
+        // receipt. Recover only from owned, frozen video facts, never today's catalogue.
+        if ($protocol === '' && self::legacyVideoReceipt($c->toArray(), $snapshot, $task->toArray())) $protocol = 'video_generate';
+        $type = match ($protocol) {'image_generate'=>'image', 'video_generate'=>'video', default=>''};
         if ($type === '') throw new InvalidArgumentException('该任务协议尚未接入统一运行接口');
         // No live product lookup here: the task continues with its accepted protocol even if the catalogue changes.
         return new self($snapshot, MarketGenerationAdapterRegistry::runtime($type, $snapshot), (int)$c['app_task_id']);
+    }
+
+    private static function legacyVideoReceipt(array $receipt, array $snapshot, array $task): bool
+    {
+        $resource = (string)($snapshot['resource_type'] ?? '');
+        if ($resource !== ($receipt['resource_type'] ?? '')) return false;
+        if ($resource === 'app_api') return MarketGenerationAdapterRegistry::supportsVideoApplication((string)($snapshot['app_code'] ?? ''));
+        if ($resource !== 'model') return false;
+        $metadata = MarketGenerationSchema::array($snapshot['market_metadata'] ?? []);
+        $types = array_filter([(string)($snapshot['model_type'] ?? ''), (string)($metadata['model_type'] ?? '')],
+            static fn(string $type): bool => $type !== '');
+        if ($types !== []) return array_values(array_unique($types)) === ['video'];
+        // Pre-metadata receipts still have the server-owned video action on both records.
+        return ($receipt['action_code'] ?? '') === 'video_generate' && ($task['action_code'] ?? '') === 'video_generate'
+            && !empty($receipt['app_code']) && $receipt['app_code'] === ($task['app_code'] ?? '')
+            && !empty($snapshot['model_code']);
     }
 
     public function quote(int $tenantId, int|float $quantity = 1, array $billingOverride = []): array
