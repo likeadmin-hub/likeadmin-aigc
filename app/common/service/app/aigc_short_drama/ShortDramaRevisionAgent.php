@@ -282,9 +282,9 @@ TEXT;
             if (($language['language'] ?? '')==='zh' && !preg_match('/\p{Han}/u',$text)) self::fail('指定字段未改为中文');
         }
         $settings=$plan['generation_settings'] ?? [];
-        if (array_key_exists('resolution',self::settingPatch($base,$plan))) self::fail('分辨率由当前可售模型规格决定，请在素材生成时选择支持的规格');
-        if (isset($settings['aspect_ratio']) && !preg_match('/^(?:auto|[1-9]\d?:[1-9]\d?)$/D',(string)$settings['aspect_ratio'])) self::fail('画面比例无效');
-        if (isset($settings['resolution']) && !preg_match('/^(?:[1248][kK]|(?:360|480|540|720|1080|1440|2160)[pP])$/D',(string)$settings['resolution'])) self::fail('分辨率无效');
+        $changedSettings=self::settingPatch($base,$plan);
+        if (array_key_exists('resolution',$changedSettings)) self::fail('分辨率由当前可售模型规格决定，请在素材生成时选择支持的规格');
+        if (isset($changedSettings['aspect_ratio']) && !preg_match('/^(?:auto|[1-9]\d?:[1-9]\d?)$/D',(string)$settings['aspect_ratio'])) self::fail('画面比例无效');
     }
 
     public static function changes(array $before,array $after): array
