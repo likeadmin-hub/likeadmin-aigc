@@ -543,23 +543,32 @@ class AiUsageService
             return [];
         }
         $data = self::formatAppTask($task->toArray());
-        $data['consumptions'] = AiConsumptionLog::where('app_task_id', (int)$task['id'])
+        $data['consumptions'] = AiConsumptionLog::where(['app_task_id' => (int)$task['id'], 'tenant_id' => (int)$task['tenant_id'], 'user_id' => (int)$task['user_id']])
             ->order(['id' => 'asc'])->select()->toArray();
         $data['consumptions'] = self::formatConsumptions($data['consumptions']);
+        foreach ($data['consumptions'] as &$consumption) {
+            $consumption['request_summary'] = AiUsageSupportService::diagnosticSummary($consumption['request_summary'] ?? []);
+            $consumption['response_summary'] = AiUsageSupportService::diagnosticSummary($consumption['response_summary'] ?? []);
+        }
+        unset($consumption);
         $firstConsumption = $data['consumptions'][0] ?? [];
         $data['source_app_name'] = (string)$data['app_code'];
         $data['base_app_name'] = '统一应用任务';
-        $data['prompt'] = '';
+        $support = AiUsageSupportService::forAppTask($task->toArray(), $firstConsumption);
+        $data['support_detail'] = $support;
+        $data['prompt'] = $support['prompt'];
         $data['error'] = (string)($firstConsumption['error_message'] ?? '');
         $data['provider_task_id'] = (string)($firstConsumption['upstream_task_id'] ?? $firstConsumption['upstream_request_id'] ?? '');
-        $data['request_params'] = (array)($data['request_summary'] ?? []);
+        $data['request_params'] = $support['inputs'];
         $data['response_info'] = [
             'status' => (string)$data['status'],
             'provider_task_id' => $data['provider_task_id'],
             'consumption_count' => count($data['consumptions']),
         ];
-        $data['media_results'] = [];
-        $data['result_count'] = (int)(((array)($data['result_summary'] ?? []))['result_count'] ?? 0);
+        $data['media_results'] = $support['media_results'];
+        $data['text_result'] = $support['text_result'];
+        $data['display_model'] = $support['display_model'];
+        $data['result_count'] = count($data['media_results']) + ($data['text_result'] !== '' ? 1 : 0);
         $data['user_info'] = [
             'user_id' => (int)$data['user_id'],
             'nickname' => '',
@@ -580,7 +589,7 @@ class AiUsageService
     public static function consumptionLists(array $params, int $tenantId = 0): array
     {
         $query = AiConsumptionLog::alias('c')
-            ->leftJoin('ai_app_task t', 't.id=c.app_task_id')
+            ->leftJoin('ai_app_task t', 't.id=c.app_task_id AND t.tenant_id=c.tenant_id AND t.user_id=c.user_id')
             ->leftJoin('user u', 'u.id=c.user_id AND u.tenant_id=c.tenant_id')
             ->field('c.*,t.task_no,t.status app_task_status,t.action_code,u.nickname user_nickname,u.account user_account,u.mobile user_mobile');
         if ($tenantId > 0) {
@@ -619,7 +628,7 @@ class AiUsageService
     public static function consumptionDetail(int $id, int $tenantId = 0, bool $includePayload = false): array
     {
         $query = AiConsumptionLog::alias('c')
-            ->leftJoin('ai_app_task t', 't.id=c.app_task_id')
+            ->leftJoin('ai_app_task t', 't.id=c.app_task_id AND t.tenant_id=c.tenant_id AND t.user_id=c.user_id')
             ->leftJoin('user u', 'u.id=c.user_id AND u.tenant_id=c.tenant_id')
             ->field('c.*,t.task_no,t.status app_task_status,t.action_code,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
             ->where('c.id', $id);
@@ -633,12 +642,16 @@ class AiUsageService
         $data = self::formatConsumptions([$row->toArray()])[0] ?? [];
         $events = AiConsumptionEvent::where('consumption_id', $id)->order('id', 'asc')->select()->toArray();
         foreach ($events as &$event) {
+            $event['payload_summary'] = AiUsageSupportService::diagnosticSummary($event['payload_summary'] ?? []);
             $event['create_time_text'] = self::timeText($event['create_time'] ?? 0);
             if (!$includePayload) {
                 unset($event['payload_ciphertext']);
             }
         }
         unset($event);
+        $data['support_detail'] = AiUsageSupportService::forConsumption($data);
+        $data['request_summary'] = AiUsageSupportService::diagnosticSummary($data['request_summary'] ?? []);
+        $data['response_summary'] = AiUsageSupportService::diagnosticSummary($data['response_summary'] ?? []);
         $data['events'] = $events;
         return $data;
     }
@@ -805,6 +818,8 @@ class AiUsageService
 
     private static function formatAppTask(array $row): array
     {
+        $row['request_summary'] = AiUsageSupportService::diagnosticSummary($row['request_summary'] ?? []);
+        $row['result_summary'] = AiUsageSupportService::diagnosticSummary($row['result_summary'] ?? []);
         $row['record_key'] = 'app_task:' . (int)$row['id'];
         $row['base_app_code'] = 'ai_app_task';
         $row['task_sn'] = (string)$row['task_no'];
