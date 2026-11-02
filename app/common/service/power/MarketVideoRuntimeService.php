@@ -61,12 +61,24 @@ class MarketVideoRuntimeService
                 continue;
             }
             $validSkus = [];
+            $unavailableReasons = [];
             foreach ($skus as $market) {
+                // Catalogue choices must satisfy the same pre-submit budget
+                // contract as quote/reserve. Do not offer unbounded Token SKUs
+                // and let the creator discover the configuration error on send.
+                if (self::isTokenSku($market['sku'])) {
+                    try {
+                        MarketGenerationMeter::tokenContract($market['sku']);
+                    } catch (\InvalidArgumentException $error) {
+                        $unavailableReasons[] = $error->getMessage();
+                        continue;
+                    }
+                }
                 $sku = self::formatSku($market, $product);
                 $validSkus[] = $sku;
             }
             if ($validSkus === []) {
-                $options[] = self::unavailableOption($resourceType, $product, '暂无可用规格');
+                $options[] = self::unavailableOption($resourceType, $product, $unavailableReasons[0] ?? '暂无可用规格');
                 continue;
             }
             $metadata = self::metadata($product);

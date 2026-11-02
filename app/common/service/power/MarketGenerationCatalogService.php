@@ -39,6 +39,7 @@ class MarketGenerationCatalogService
         $adapterOptions = [];
         foreach (self::applicationProducts($tenantId, $generationType) as $product) {
             $matched = false;
+            $unavailableReason = 'Market application API has no sellable runtime option';
             try {
                 $adapter = self::adapterForProduct($generationType, $product);
             } catch (\Throwable $e) {
@@ -57,6 +58,7 @@ class MarketGenerationCatalogService
                     continue;
                 }
                 if (!self::isVisibleOption($option)) {
+                    $unavailableReason = (string)($option['unavailable_reason'] ?? $unavailableReason);
                     continue;
                 }
                 $option['generation_type'] = $generationType;
@@ -67,7 +69,7 @@ class MarketGenerationCatalogService
                 $matched = true;
             }
             if (!$matched) {
-                $unavailable[] = self::unavailable($product, 'Market application API has no sellable runtime option');
+                $unavailable[] = self::unavailable($product, $unavailableReason);
             }
         }
 
