@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryWorkflowTest extends TestCase
 {
-    public function testCanvasSavedTasksAndRevisionsDisableReviewWithoutChangingOtherWorkflows(): void
+    public function testSavedTasksCannotEnableAutomaticReview(): void
     {
         foreach (['canvas-production:397:807:episode_1', 'canvas-revision:1285:task'] as $key) {
             foreach (['_submission_key', 'submission_key'] as $field) {
@@ -17,29 +17,29 @@ class ShortDramaStoryWorkflowTest extends TestCase
                 self::assertFalse(ShortDramaStoryWorkflow::inheritQualityReview([], $request)['quality_review_enabled']);
             }
         }
-        self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled(['_submission_key' => 'normal-task', 'quality_review_enabled' => true]));
-        self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
+        self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled(['_submission_key' => 'normal-task', 'quality_review_enabled' => true]));
+        self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
     }
 
-    public function testNewSubmissionsDefaultOffAndExplicitHistoricalPolicyIsPreserved(): void
+    public function testNewSubmissionsIgnoreHistoricalAutomaticReviewFlags(): void
     {
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeCreateRequest');
         $method->setAccessible(true);
         self::assertFalse($method->invoke(null, ['prompt' => '故事'], [])['quality_review_enabled']);
         self::assertFalse($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => false], [])['quality_review_enabled']);
-        self::assertTrue($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => true], [])['quality_review_enabled']);
-        self::assertTrue(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
+        self::assertFalse($method->invoke(null, ['prompt' => '故事', 'quality_review_enabled' => true], [])['quality_review_enabled']);
+        self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled([]));
         self::assertFalse(ShortDramaStoryWorkflow::qualityReviewEnabled(['quality_review_enabled' => false]));
     }
 
-    public function testEpisodeAlwaysInheritsConfirmedOutlineReviewPolicy(): void
+    public function testEpisodeDoesNotInheritAutomaticReviewFromOutline(): void
     {
         $episode = ['quality_review_enabled' => true, 'episode_number' => 1];
         $disabled = ShortDramaStoryWorkflow::inheritQualityReview($episode, ['quality_review_enabled' => false]);
         self::assertFalse($disabled['quality_review_enabled']);
         self::assertSame(1, $disabled['episode_number']);
-        self::assertTrue(ShortDramaStoryWorkflow::inheritQualityReview($disabled, ['quality_review_enabled' => true])['quality_review_enabled']);
-        self::assertTrue(ShortDramaStoryWorkflow::inheritQualityReview($disabled, [])['quality_review_enabled']);
+        self::assertFalse(ShortDramaStoryWorkflow::inheritQualityReview($disabled, ['quality_review_enabled' => true])['quality_review_enabled']);
+        self::assertFalse(ShortDramaStoryWorkflow::inheritQualityReview($disabled, [])['quality_review_enabled']);
     }
 
     public function testExplicitNewReviewSurvivesParentOptOutAtEveryWorkerBoundary(): void

@@ -2651,10 +2651,6 @@ class AigcShortDramaService
         // This service owns the conventional script flow, not canvas Skills.
         // Internal episode retries preserve the originating execution version.
         $params = ShortDramaInputContract::withoutSkills($params);
-        if ($existingProjectId > 0 && !array_key_exists('quality_review_enabled', $params)) {
-            // Historical parent tasks keep the original review policy.
-            $params['quality_review_enabled'] = true;
-        }
         if ($existingProjectId > 0) {
             // A child/replanned task is a new intent, not the parent's HTTP submission.
             unset($internalContext['_submission_key'], $internalContext['_submission_hash'], $internalContext['submission_key']);
@@ -17510,7 +17506,7 @@ class AigcShortDramaService
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
             'multi_episode' => $episodeSettings['multi_episode'],
-            'quality_review_enabled' => filter_var($params['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'quality_review_enabled' => false,
             'episode_count' => $episodeSettings['episode_count'],
             'multi_episode_stage' => $episodeSettings['multi_episode']
                 ? self::MULTI_EPISODE_STAGE_STORY
@@ -17850,7 +17846,7 @@ class AigcShortDramaService
                 $response=$result['revision_response'];
                 if (ShortDramaReviewOutcome::enabled($request) && !empty($result['storyboard'])
                     && ShortDramaContinuity::fingerprint($result)!==ShortDramaContinuity::fingerprint($request['revision_base_result'])) {
-                    $result=ShortDramaReviewOutcome::pending($result,$request,'修改已验收，剧情连续性仍需复核');
+                    $result=ShortDramaReviewOutcome::unreviewed($result,$request);
                 }
                 $result['revision_response']=$response;
             }
@@ -18012,7 +18008,7 @@ class AigcShortDramaService
             $targetResult = self::protectRevisionTargetResult($payload, $request);
             if (ShortDramaReviewOutcome::enabled($request)
                 && ShortDramaContinuity::fingerprint($targetResult) !== ShortDramaContinuity::fingerprint((array)($request['revision_base_result'] ?? []))) {
-                $targetResult = ShortDramaReviewOutcome::pending($targetResult, $request, '局部修改已保存，剧情变化需要复核');
+                $targetResult = ShortDramaReviewOutcome::unreviewed($targetResult, $request);
             }
             return ['result' => $targetResult,
                 'llm' => $llmResult, 'repair_llm' => [], 'provider' => (string)($model['provider'] ?? ''),

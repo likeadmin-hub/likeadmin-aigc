@@ -340,7 +340,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         AigcShortDramaService::message(self::TENANT,self::USER,['task_id'=>$created['task_id'],'mode'=>'review_content']);
     }
 
-    public function testWorkerPreservesPendingReviewAndOnlyVerifiedContentReleasesNextEpisode(): void
+    public function testWorkerPreservesReviewFindingsWithoutBlockingTheNextEpisode(): void
     {
         $project = $this->project(2);
         Db::name('aigc_short_drama_script_task')->where('task_id', $project['task_id'])->update([
@@ -363,11 +363,10 @@ class ShortDramaEpisodeQueueTest extends TestCase
             'status'=>'running','task_id'=>$task,'production_project_id'=>$child]);
         self::assertSame(1,Episodes::tick(self::TENANT,$project['project_id']));
         $list = Episodes::lists(self::TENANT,self::USER,$project['project_id']);
-        self::assertTrue($list['paused']); self::assertTrue($list['lists'][0]['ready']);
-        self::assertTrue($list['lists'][0]['needs_review']); self::assertTrue($list['lists'][0]['can_retry']);
+        self::assertFalse($list['paused']); self::assertTrue($list['lists'][0]['ready']);
+        self::assertFalse($list['lists'][0]['needs_review']); self::assertFalse($list['lists'][0]['can_retry']);
         self::assertSame('success',$list['lists'][0]['status']);
-        self::assertSame(0,Episodes::tick(self::TENANT,$project['project_id']));
-        self::assertSame(0,(int)Db::name('aigc_short_drama_episode_job')->where('episode_id',$rows[1]['id'])->count());
+        self::assertSame(1,(int)Db::name('aigc_short_drama_episode_job')->where('episode_id',$rows[1]['id'])->count());
         $saved = Episodes::detail(self::TENANT,self::USER,$rows[0]['id']);
         self::assertSame($plan['storyboard'],$saved['result']['storyboard']);
         self::assertSame([], $saved['result']['_continuity']['state']);

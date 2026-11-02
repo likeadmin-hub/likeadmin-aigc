@@ -386,7 +386,7 @@ class ShortDramaMissingShotRecoveryTest extends TestCase
         $draft=['edits'=>['s1_1'=>['visual_description'=>['before'=>$before,'after'=>$before.'（用户补充）']]]];
         $merged=\app\common\service\app\aigc_short_drama\ShortDramaEditableDraft::merge($result['payload'],$draft,$request);
         self::assertSame($before.'（用户补充）',$merged['storyboard'][0]['visual_description']);
-        self::assertSame('needs_review',$merged['script_review']['status']);
+        self::assertSame('unreviewed',$merged['script_review']['status']);
     }
 
     public function testTruncatedTimedSkeletonSavesCompletePrefixAndUsesItAsRepairContext(): void

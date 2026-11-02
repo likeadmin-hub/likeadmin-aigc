@@ -6,6 +6,33 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaReviewOutcomeTest extends TestCase
 {
+    public function testLegacyWaitingNoticeBecomesUnreviewedWithoutChangingSavedContent(): void
+    {
+        $saved=Outcome::pending($this->plan(),[], '局部修改已保存，剧情变化需要复核');
+        $raw=json_encode($saved);
+        $view=Outcome::present($saved);
+        self::assertSame('unreviewed',$view['script_review']['status']);
+        self::assertSame('skipped',$view['_continuity']['audit_status']);
+        self::assertSame($saved['storyboard'],$view['storyboard']);
+        self::assertSame($raw,json_encode($saved));
+        self::assertFalse(Outcome::blocksNext($saved));
+        $manual=Outcome::pending($this->plan(),$this->request(),'第一个镜头的人物去向与后文不一致');
+        self::assertSame('manual',Outcome::present($manual)['script_review']['mode']);
+        self::assertSame($manual['script_review']['issues'],Outcome::present($manual)['script_review']['issues']);
+        self::assertFalse(Outcome::blocksNext($manual));
+    }
+
+    public function testOptionalFailureDoesNotBlockNextEpisodeButGenerationFailureAndCancelDo(): void
+    {
+        $rows=[['episode_number'=>1,'completed_once'=>1,'status'=>'failed'],
+            ['episode_number'=>2,'completed_once'=>0,'status'=>'pending']];
+        self::assertSame(2,Episodes::nextInitialEpisode($rows)['episode_number']);
+        $rows[0]['completed_once']=0;
+        self::assertSame(1,Episodes::nextInitialEpisode($rows)['episode_number']);
+        $rows[0]['completed_once']=1;$rows[0]['status']='canceled';
+        self::assertSame(1,Episodes::nextInitialEpisode($rows)['episode_number']);
+    }
+
     private function plan(): array
     {
         return ['title'=>'等候','story_outline'=>'陈溪在走廊等候','script_lines'=>['陈溪在走廊等候'],
@@ -19,7 +46,7 @@ class ShortDramaReviewOutcomeTest extends TestCase
 
     private function request(): array
     {
-        return ['_input_contract_version'=>19,'prompt'=>'陈溪在走廊等候','episode_number'=>2,
+        return ['_input_contract_version'=>19,'prompt'=>'陈溪在走廊等候','episode_number'=>2,'_continuity_review_only'=>true,
             'series_context'=>['outline'=>[],'continuity'=>['previous_digest'=>'previous','state'=>[],'open_hooks'=>[]]]];
     }
 
@@ -45,7 +72,7 @@ class ShortDramaReviewOutcomeTest extends TestCase
         self::assertLessThanOrEqual(6,$calls);
         self::assertSame('verified',Outcome::present($result)['script_review']['status']);
         $result['storyboard'][0]['visual_description']='陈溪到了车站。';
-        self::assertSame('needs_review',Outcome::present($result)['script_review']['status']);
+        self::assertSame('unreviewed',Outcome::present($result)['script_review']['status']);
     }
 
     public function testUnresolvedMeaningStopsAfterTwoLocalRepairsAndKeepsUsableDraft(): void
@@ -63,13 +90,13 @@ class ShortDramaReviewOutcomeTest extends TestCase
         self::assertSame(2,$repairs);self::assertSame(3,$checks);
         self::assertSame('needs_review',$result['script_review']['status']);
         self::assertNotEmpty($result['script_review']['issues']);
-        self::assertTrue(Outcome::blocksNext($result));self::assertSame([],$result['_continuity']['state']);
+        self::assertFalse(Outcome::blocksNext($result));self::assertSame([],$result['_continuity']['state']);
         foreach(['shot_id','scene_ref_id','subject_ref_ids','recommended_duration_seconds','image_url','video_url'] as$field) {
             self::assertSame($before['storyboard'][0][$field],$result['storyboard'][0][$field]);
         }
         self::assertSame($before['script_lines'],$result['content_acceptance']['source_script_lines']);
         $row=Episodes::summary(['status'=>'success','completed_once'=>1,'needs_review'=>true,'continuity_json'=>json_encode($result['_continuity'])]);
-        self::assertTrue($row['ready']);self::assertTrue($row['can_retry']);self::assertSame('success',$row['status']);
+        self::assertTrue($row['ready']);self::assertFalse($row['can_retry']);self::assertSame('success',$row['status']);
     }
 
     public function testMalformedSettledReviewResponseDefersWithoutDestroyingScript(): void
@@ -127,7 +154,7 @@ class ShortDramaReviewOutcomeTest extends TestCase
         Review::generate($this->plan(),array_replace($this->request(),['_input_contract_version'=>18]),static function()use($error){throw $error;});
     }
 
-    public function testActualUnresolvedReviewBlocksDependenciesEvenWhenOptionalReviewIsOff(): void
+    public function testUnresolvedManualReviewIsAdvisoryWhenAutomaticReviewIsOff(): void
     {
         $plan=Outcome::pending($this->plan(),$this->request(),'复核发现未解决问题');
         $ledger=$plan['_continuity'];$ledger['previous_digest']='';
@@ -135,7 +162,7 @@ class ShortDramaReviewOutcomeTest extends TestCase
         $rows=[['id'=>1,'status'=>'success','production_project_id'=>1,'continuity_json'=>json_encode($ledger)],
             ['id'=>2,'status'=>'success','production_project_id'=>2,'continuity_json'=>json_encode($next)]];
         $result=Continuity::dependencyStatus($rows,[],false);
-        self::assertTrue($result[0]['needs_review']);self::assertTrue($result[1]['needs_review']);
+        self::assertFalse($result[0]['needs_review']);self::assertFalse($result[1]['needs_review']);
         $ledger['audit_status']='verified';$rows[0]['continuity_json']=json_encode($ledger);
         $result=Continuity::dependencyStatus($rows,[],false);
         self::assertFalse($result[0]['needs_review']);self::assertFalse($result[1]['needs_review']);
@@ -149,7 +176,7 @@ class ShortDramaReviewOutcomeTest extends TestCase
         $canvas=['_submission_key'=>'canvas-production:test'];
         self::assertFalse(Workflow::qualityReviewEnabled($canvas));
         self::assertFalse(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19]));
-        self::assertTrue(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19,'quality_review_enabled'=>true]));
+        self::assertFalse(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19,'quality_review_enabled'=>true]));
         self::assertFalse(Workflow::qualityReviewEnabled($canvas+['_input_contract_version'=>19,'quality_review_enabled'=>false]));
     }
 
@@ -168,7 +195,7 @@ class ShortDramaReviewOutcomeTest extends TestCase
         self::assertFalse(Continuity::dependencyStatus($rows,[],false)[0]['needs_review']);
     }
 
-    public function testLegacyOptOutIsReleasedButFailedReviewAndDifferentRevisionAreNot(): void
+    public function testLegacyReviewStatesDoNotBlockCreationOrClaimVerification(): void
     {
         $old=Outcome::pending($this->plan(),$this->request(),'旧版未复核',[],'unreviewed');
         self::assertFalse(Outcome::blocksNext($old));
@@ -179,10 +206,10 @@ class ShortDramaReviewOutcomeTest extends TestCase
         self::assertFalse($result[0]['needs_review']);
         self::assertSame('skipped',json_decode($result[0]['continuity_json'],true)['audit_status']);
         $failed=$old;$failed['script_review']['status']='needs_review';
-        self::assertTrue(Outcome::blocksNext($failed));
+        self::assertFalse(Outcome::blocksNext($failed));
         $row['result_json']=json_encode($failed);
-        self::assertTrue(Continuity::dependencyStatus([$row],$current,false)[0]['needs_review']);
+        self::assertFalse(Continuity::dependencyStatus([$row],$current,false)[0]['needs_review']);
         $old['storyboard'][0]['visual_description']='角色已进入车站';
-        self::assertTrue(Outcome::blocksNext($old),'Different narrative cannot use an old opt-out to waive review');
+        self::assertFalse(Outcome::blocksNext($old),'Different narrative cannot use an old opt-out to waive review');
     }
 }

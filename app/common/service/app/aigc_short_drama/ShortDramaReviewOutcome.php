@@ -29,6 +29,7 @@ final class ShortDramaReviewOutcome
     {
         $plan['generation_settings']['review_policy_version'] = 1;
         $plan['script_review'] = ['version'=>1, 'status'=>$status, 'message'=>$reason,
+            'mode'=>!empty($request['_continuity_review_only']) ? 'manual' : 'automatic',
             'issues'=>array_values($issues ?: [['message'=>$reason,'shot_ids'=>[]]])];
         // Do not expose an unverified episode's claims as the next episode's facts.
         $plan['_continuity'] = ['version'=>1, 'review_policy_version'=>1,
@@ -50,7 +51,7 @@ final class ShortDramaReviewOutcome
             return self::pending($plan, $request, '剧本已保存，仍有剧情疑点需要复核',
                 array_map(static fn($message)=>['message'=>$message,'shot_ids'=>[]], (array)($plan['_continuity']['warnings'] ?? [])));
         }
-        $plan['script_review'] = ['version'=>1, 'status'=>'verified', 'message'=>'剧情复核通过', 'issues'=>[]];
+        $plan['script_review'] = ['version'=>1, 'status'=>'verified', 'mode'=>'manual', 'message'=>'剧情检查通过', 'issues'=>[]];
         return $plan;
     }
 
@@ -89,19 +90,23 @@ final class ShortDramaReviewOutcome
     public static function present(array $plan): array
     {
         if (!self::enabled($plan) || empty($plan['storyboard'])) return $plan;
+        if (($plan['script_review']['status'] ?? '') === 'needs_review'
+            && ($plan['script_review']['mode'] ?? '') !== 'manual') {
+            // Read compatibility only: preserve historical receipts and versions on disk.
+            return self::unreviewed($plan, []);
+        }
         if (empty($plan['script_review'])) {
             $plan['script_review'] = ['version'=>1,'status'=>'unreviewed','message'=>'剧本已生成，尚未通过剧情复核','issues'=>[]];
         } elseif (($plan['script_review']['status'] ?? '') === 'verified'
             && ($plan['_continuity']['digest'] ?? '') !== ShortDramaContinuity::fingerprint($plan)) {
-            $plan['script_review'] = ['version'=>1,'status'=>'needs_review','message'=>'剧本内容已修改，需要重新复核','issues'=>[]];
+            return self::unreviewed($plan, []);
         }
         return $plan;
     }
 
     public static function blocksNext(array $plan): bool
     {
-        $ledger = self::compatibleLedger((array)($plan['_continuity'] ?? []), $plan);
-        return ($ledger['review_policy_version'] ?? 0) >= 1
-            && !in_array($ledger['audit_status'] ?? '', ['verified','skipped'], true);
+        // Editorial findings are advisory. Generation validity is checked separately.
+        return false;
     }
 }

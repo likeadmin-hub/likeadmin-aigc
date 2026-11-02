@@ -55,6 +55,7 @@ settings: aspect_ratio,resolution,generate_audio，仅为后续生成设置，�
 遵守 stage_scope：story 仅故事设定，不生成分集或分镜；episodes 仅分集大纲，已确认故事设定不变；production 仅本集，不改其他集。集数及生成时长受服务端规则约束，不自行绕过。
 expectations 可包含 subjects_max、characters_max、locations_max、shots_max、duration_max_seconds、languages:[{entity,id,field,language:"en|zh"}]，将用户明确的数量/语言要求写入；不可虚构用户给定的数量。精简请求没有确切目标数时可以用修改前数量减一作为最大数量，但不能擅自决定主要人物去留。
 answer/clarify 必须 operations=[]，只回答问题或询问缺少的信息，不生成假修改结果。
+用户明确要求检查剧情衔接、前后矛盾或连续性时，按询问处理：answer 列出当前剧本中具体问题及对应人物、场景或分镜；未发现问题就如实说明。不能仅以“需要复核”代替检查，不主动启动检查或改写正文。用户同时明确要求修复时才用 edit，并保留无关内容。
 restore 只能选择 version_catalog 中用户指定的版本，恢复会建立新版本，不删除任何历史；“上一个版本”指当前编辑版本之前的已保存版本。
 TEXT;
     }

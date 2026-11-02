@@ -180,7 +180,7 @@ final class ShortDramaEditableDraft
         if ($dialogue['issues']) throw new RuntimeException('草稿对白缺少明确说话人，请查看草稿后处理', 422);
         $plan=$dialogue['payload'];
         if (ShortDramaEpisodeDuration::active($request)) ShortDramaTimedScriptGeneration::assertCompletePlan($plan, $request);
-        return ShortDramaReviewOutcome::pending($plan, $request, '已合并用户草稿修改，请重新复核后继续制作');
+        return ShortDramaReviewOutcome::unreviewed($plan, $request);
     }
 
     public static function load(int $tenant, int $user, string $task): array
