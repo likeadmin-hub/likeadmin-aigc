@@ -17,7 +17,7 @@ try {
         $foreign=$owner; $foreign[$field]--;
         Db::name('aigc_short_drama_canvas_run')->insert($foreign+['canvas_id'=>0,'node_id'=>'fixture','node_type'=>'image','provider_task_id'=>(string)$plain,'request_json'=>'{}','result_json'=>'{}']);
     }
-    $toolId=Db::name('aigc_product_suite_task')->insertGetId($owner+['image_task_ids'=>json_encode([$tool,(string)$stringChild]),'status'=>'success']);
+    $toolId=Db::name('aigc_product_suite_task')->insertGetId($owner+['image_task_ids'=>json_encode([$tool,(string)$stringChild,$plain.'invalid']),'status'=>'success']);
     $legacyKey='fixture-legacy-image';
     Db::name('aigc_short_drama_generation_task')->insert($owner+['task_id'=>$legacyKey,'task_type'=>'subject_image','request_json'=>'{}','result_json'=>json_encode(['image_task_id'=>$legacy]),'provider_task_id'=>'not-a-local-id']);
     // A market canvas app-task ID may collide with a base image task. It is not a relationship.

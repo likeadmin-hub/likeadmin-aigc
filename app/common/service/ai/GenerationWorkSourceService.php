@@ -43,7 +43,8 @@ final class GenerationWorkSourceService
             $column = 's.`'.$field.'`';
             if ($field === 'result_json') {
                 $json = "IF(JSON_VALID($column),$column,'{}')";
-                $parts[] = "CAST(JSON_UNQUOTE(JSON_EXTRACT($json,'$.image_task_id')) AS UNSIGNED)=$id";
+                $value = "JSON_UNQUOTE(JSON_EXTRACT($json,'$.image_task_id'))";
+                $parts[] = "($value REGEXP '^[0-9]+$' AND CAST($value AS UNSIGNED)=$id)";
             } elseif ($field === 'image_task_ids') {
                 // Historical JSON contains either integer or string IDs. Invalid legacy JSON is empty.
                 $json = "IF(JSON_VALID($column),$column,'[]')";
@@ -98,10 +99,11 @@ final class GenerationWorkSourceService
                     $children = [];
                     foreach ($relation['fields'] as $field) {
                         $value = $source[$field] ?? '';
-                        if ($field === 'result_json') $children[] = (int)((json_decode((string)$value,true) ?: [])['image_task_id'] ?? 0);
+                        if ($field === 'result_json') $children[] = (json_decode((string)$value,true) ?: [])['image_task_id'] ?? 0;
                         elseif ($field === 'image_task_ids') $children = array_merge($children,(array)(json_decode((string)$value,true) ?: []));
                         elseif (ctype_digit((string)$value)) $children[] = (int)$value;
                     }
+                    $children = array_filter($children,static fn($value)=>is_int($value) || (is_string($value) && ctype_digit($value)));
                     foreach (array_intersect($ids,array_map('intval',$children)) as $id) {
                         $mapped[$owner][$id] ??= ['app_code'=>$relation['app'],'task_id'=>(string)($relation['prefix'] ?? '').(string)($source[$relation['key'] ?? 'id'] ?? $source['id'])];
                     }
