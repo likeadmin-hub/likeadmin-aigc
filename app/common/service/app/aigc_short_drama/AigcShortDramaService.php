@@ -4333,6 +4333,8 @@ class AigcShortDramaService
             }
             $result = !$hasRevisionEdits ? $result : self::attachSelectedSubjectReferences($result, $request);
             if (ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits) ShortDramaRevisionAgent::validate($request['revision_base_result'],$result,$request,[]);
+            $revisionSettingPatch=ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits
+                ? ShortDramaRevisionAgent::settingPatch($request['revision_base_result'],$result) : [];
             $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? '')) ?: self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
             if (ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits
                 && ($result['generation_settings']['aspect_ratio'] ?? null)!==($request['revision_base_result']['generation_settings']['aspect_ratio'] ?? null)) {
@@ -4430,9 +4432,8 @@ class AigcShortDramaService
                     'current_agent_run_id' => $agentRunId,
                     'last_task_id' => $taskId,
                     'ratio' => $projectRatio !== '' ? $projectRatio : (string)($project['ratio'] ?? ''),
-                    'generation_settings_json' => self::jsonEncode(ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits
-                        ? self::mergeProjectGenerationSettings(self::projectGenerationSettingsFromRow($project->toArray()),self::normalizeProjectGenerationSettings((array)($result['generation_settings'] ?? [])))
-                        : self::projectGenerationSettingsFromRow($project->toArray())),
+                    ...($revisionSettingPatch ? ['generation_settings_json'=>self::jsonEncode(self::mergeProjectGenerationSettings(
+                        self::projectGenerationSettingsFromRow($project->toArray()),self::normalizeProjectGenerationSettings($revisionSettingPatch)))] : []),
                     'update_time' => $finishTime,
                 ]);
                 self::replaceStoryboard($tenantId, $userId, $projectId, $taskId, $result['storyboard']);

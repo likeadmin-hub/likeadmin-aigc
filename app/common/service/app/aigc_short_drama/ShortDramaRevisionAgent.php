@@ -47,6 +47,7 @@ location: name,description,story_phase,visual_prompt,space_lock,unified_prompt,i
 shot: title,scene_name,scene_ref_id,subject_ref_ids,dialogue,voice_role,speech_type(character/narration/none),visual_description,composition,camera_movement,shot_type,angle,action,result,atmosphere,image_prompt,image_negative_prompt,video_prompt,video_negative_prompt,bgm_prompt,sound_effect,recommended_duration_seconds,frame_type,interior_exterior,time_of_day。
 episode: title,story_outline,conflict_point,ending_hook,characters,subjects,locations,duration_seconds。scene: title,location,scene_ref_id,entry,action,dialogue,exit。
 settings: aspect_ratio,resolution,generate_audio，仅为后续生成设置，不能声称已有图片/视频已变更。
+当前短剧的图片分辨率由生成页的可售模型规格决定，不在剧本对话中覆盖该规格；用户要求更换分辨率时给出说明，提示在素材生成时选择支持的模型规格，不声称已修改。模型切换也使用现有模型选择器。
 一次支持多项要求，生成一组最小必要补丁，不能把局部修改扩大为整剧重写。删除/合并人物需同步修改故事正文、人物关系、说话人及分镜引用；删除/合并地点需同步调整场次和分镜。增删/拆合镜头要保持动作、对白和时间连续；move 不改变镜头身份。
 改对白/运镜/构图时同步更新受影响的视频提示词，不能覆盖用户无关的提示词。语言按用户指定，其他内容保持原语言。
 禁止修改文件URL、存储、模型、价格、权限、任务ID或素材库原记录。绑定素材的身份不得擅自修改；需要换身份时询问是否更换引用。
@@ -269,6 +270,7 @@ TEXT;
             if (($language['language'] ?? '')==='zh' && !preg_match('/\p{Han}/u',$text)) self::fail('指定字段未改为中文');
         }
         $settings=$plan['generation_settings'] ?? [];
+        if (array_key_exists('resolution',self::settingPatch($base,$plan))) self::fail('分辨率由当前可售模型规格决定，请在素材生成时选择支持的规格');
         if (isset($settings['aspect_ratio']) && !preg_match('/^(?:auto|[1-9]\d?:[1-9]\d?)$/D',(string)$settings['aspect_ratio'])) self::fail('画面比例无效');
         if (isset($settings['resolution']) && !preg_match('/^(?:[1248][kK]|(?:360|480|540|720|1080|1440|2160)[pP])$/D',(string)$settings['resolution'])) self::fail('分辨率无效');
     }
@@ -285,6 +287,16 @@ TEXT;
             if (($before[$field] ?? null)!==($after[$field] ?? null)) $changes[]='已调整'.$label;
         }
         return $changes;
+    }
+
+    public static function settingPatch(array $before,array $after): array
+    {
+        $patch=[];
+        foreach (self::FIELDS['settings'] as $field) {
+            if (array_key_exists($field,(array)($after['generation_settings'] ?? []))
+                && ($before['generation_settings'][$field] ?? null)!==$after['generation_settings'][$field]) $patch[$field]=$after['generation_settings'][$field];
+        }
+        return $patch;
     }
 
     public static function mediaImpact(array $before,array $after): array
