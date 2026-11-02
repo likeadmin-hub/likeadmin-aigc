@@ -239,7 +239,7 @@ final class WorkspaceAssetService
         $fields = ['id','task_id','title','prompt','script_text','status','create_time','width','height','duration','ratio','aspect_ratio','resolution','quality','model_name','model_id','channel_name','channel','style','asset_type','mime_type','project_id'];
         $raw = array_intersect_key(array_replace($task ?: [], $record), array_flip($fields));
         $metadata = array_replace($task ?: [], $record);
-        $displayFields = array_flip(['ratio','aspect_ratio','resolution','quality','model_name','model_label','model_id','image_model_id','channel_name','channel_code','model','width','height']);
+        $displayFields = array_flip(['ratio','aspect_ratio','resolution','quality','model_name','model_label','model_id','image_model_id','channel_name','channel_code','model','submitted_model_label','width','height','duration','quantity','generate_audio','background','generation_method','mode','seed','output_format']);
         foreach (['params','provider_params_json','request_snapshot','image_params'] as $field) {
             $value = $metadata[$field] ?? [];
             if (is_string($value)) $value = json_decode($value, true) ?: [];
@@ -257,7 +257,7 @@ final class WorkspaceAssetService
         if (in_array($source, ['short_drama', 'canvas'], true)) {
             $raw['url'] = self::url($record, 'uri');
             $meta = json_decode($record['meta_json'] ?? '{}', true) ?: [];
-            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id']));
+            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id','model_name','submitted_model_label','resolution','quality','duration','quantity','generate_audio','background']));
         }
         return ['source' => $source, 'ref' => $ref, 'raw' => $raw];
     }

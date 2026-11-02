@@ -23,7 +23,7 @@ final class WorkspaceCanvasAssetService
             if ($kind === 'task') array_push($items, ...self::outputs($row));
             else {
                 $raw = CanvasAssetService::formatAsset($row);
-                $raw['meta'] = array_intersect_key($raw['meta'], array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id']));
+                $raw['meta'] = array_intersect_key($raw['meta'], array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id','model_name','submitted_model_label','resolution','quality','duration','quantity','generate_audio','background']));
                 $items[] = ['source'=>'canvas', 'ref'=>'canvas:result:'.$row['id'], 'raw'=>$raw];
             }
         }
@@ -51,7 +51,7 @@ final class WorkspaceCanvasAssetService
                 'asset_type'=>'canvas_'.$row['run_type'], 'url'=>$output['url'],
                 'title'=>(string)($row['prompt'] ?? $params['prompt'] ?? ''),
                 'status'=>'ready', 'create_time'=>(int)$row['create_time'],
-                'meta'=>array_intersect_key($params, array_flip(['prompt','model','model_id','channel','ratio','resolution','quality','duration'])),
+                'meta'=>array_intersect_key($params, array_flip(['prompt','model','model_id','submitted_model_label','channel','ratio','resolution','quality','duration','quantity','generate_audio','background','generation_method','seed','output_format'])),
             ]];
         }
         return $result;

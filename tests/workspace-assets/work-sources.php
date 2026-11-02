@@ -50,5 +50,10 @@ try {
         foreach ($states as $state) expectSource(($action==='trash')===((int)$state['trashed_at']>0),'Linked trash/restore state is consistent');
     }
     expectSource((int)Db::name('aigc_image_result')->where('id',$imageResult)->value('delete_time')===0,'Linked result restored without deleting files');
+    Db::name('aigc_canvas_run')->insert($owner+['project_id'=>0,'node_id'=>'fixture-metadata','run_type'=>'image','status'=>'success','source_app_code'=>'power_market_image','params_json'=>json_encode(['submitted_model_label'=>'Submitted canvas model','ratio'=>'3:4','quality'=>'2k','background'=>'transparent','api_key'=>'never-expose']),'result_json'=>json_encode(['image_url'=>'https://fixture.invalid/result.png'])]);
+    $outputs=\app\common\service\WorkspaceCanvasAssetService::lists($owner['tenant_id'],$owner['user_id'],1)['lists'];
+    $metadata=$outputs[0]['raw']['meta'];
+    expectSource($metadata['submitted_model_label']==='Submitted canvas model' && $metadata['background']==='transparent','Native canvas library retains its recorded parameter snapshot');
+    expectSource(!array_key_exists('api_key',$metadata),'Canvas library exposes presentation fields only');
     echo "work sources: ownership, JSON mappings, namespace collisions, image/video history and pagination passed\n";
 } finally { Db::rollback(); }
