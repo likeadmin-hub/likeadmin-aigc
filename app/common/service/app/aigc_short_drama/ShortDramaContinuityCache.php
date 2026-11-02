@@ -13,7 +13,7 @@ final class ShortDramaContinuityCache
         $versions = array_map(static fn($version) => array_intersect_key($version,
             array_flip(['ledger','narrative_digest'])), $current);
         $fingerprint = hash('sha256', json_encode([$inputs,$versions,$review], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
-        $key = 'short_drama_continuity_v2:' . $tenant . ':' . $user . ':' . $project;
+        $key = 'short_drama_continuity_v3:' . $tenant . ':' . $user . ':' . $project;
         try { $cached = Cache::get($key); } catch (\Throwable) { $cached = null; }
         if (is_array($cached) && ($cached['fingerprint'] ?? '') === $fingerprint && count($cached['rows'] ?? []) === count($rows)) {
             foreach ($rows as &$row) $row = array_replace($row, $cached['rows'][(int)$row['id']] ?? []);

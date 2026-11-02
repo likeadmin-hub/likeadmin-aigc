@@ -14,7 +14,7 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
-    public function testCompletedScriptSurvivesMalformedEditorialReceiptThroughService(): void
+    public function testHistoricalReviewOptInDoesNotScheduleEditorialCalls(): void
     {
         require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
         Container::getInstance()->instance('config', new \think\Config());
@@ -24,11 +24,11 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         $out=$this->generate(['_generation_version'=>3,'_input_contract_version'=>19,
             'multi_episode'=>false,'episode_count'=>1,'quality_review_enabled'=>true]);
         self::assertCount(12,$out['result']['storyboard']);
-        self::assertSame('needs_review',$out['result']['script_review']['status']);
-        self::assertSame('blocked',$out['result']['_continuity']['dependency_status']);
+        self::assertSame('unreviewed',$out['result']['script_review']['status']);
+        self::assertSame('ready',$out['result']['_continuity']['dependency_status']);
         self::assertSame([],$out['result']['_continuity']['state']);
-        self::assertNotEmpty($out['repair_llm']);
-        self::assertCount(4,\app\common\service\power\MarketTextModelRuntimeService::$requests);
+        self::assertEmpty($out['repair_llm']);
+        self::assertCount(1,\app\common\service\power\MarketTextModelRuntimeService::$requests);
     }
 
     /** @runInSeparateProcess
