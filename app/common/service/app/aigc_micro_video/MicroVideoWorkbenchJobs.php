@@ -50,7 +50,7 @@ final class MicroVideoWorkbenchJobs
             }
             $refs=self::uniqueImages($refs);if(count($refs)>(int)$model['max_reference_images'])throw new InvalidArgumentException('本次角色与商品参考图超过模型上限，请调整分镜或更换模型，图片不会被静默丢弃');
             $refs=MicroVideoMedia::validateImages($tenant,$user,$refs,15);$request+=['selection'=>$selection,'images'=>$refs,'prompt'=>'生成一张'.($action==='role_image'?'角色定妆照':'剧情场景剧照').'。保持参考图的身份、服饰及商品结构，不添加未经确认的文字或功效。'.MicroVideoStore::encode($item).'\n商品事实：'.MicroVideoStore::encode($body['product_snapshot']??[]).'\n补充：'.$instructions];
-            $quote=MicroVideoFrameCatalog::quote($tenant,$selection);$quote['approximate']=false;
+            $quote=MicroVideoFrameCatalog::quote($tenant,$selection,self::imageRequest($request));$quote['approximate']=false;
         }else{
             $config=MicroVideoSettings::get($tenant);$modelId=(string)($selection['model_id']??$config['script_model_id']);if($modelId==='')throw new InvalidArgumentException('请先在应用配置选择剧本规划模型');$model=Text::resolveModel($tenant,$modelId);$selection=['model_id'=>$model['id']];
             $request['continuity']=(string)($body['script']['continuity']??$body['template_snapshot']['body']['reference_rules']??MicroVideoSettings::defaults()['continuity_template']);
@@ -65,6 +65,9 @@ final class MicroVideoWorkbenchJobs
         // Fingerprint contains the actual, frozen project snapshot and exact action parameters.
         $request['snapshot']=$body;$request['quote']=$quote;return ['project'=>$project,'request'=>$request,'quote'=>$quote,'hash'=>MicroVideoWorkbenchPolicy::hash($request)];
     }
+    /** One authorized image input for exact estimates, re-quotes and provider admission. */
+    public static function imageRequest(array $request): array
+    {return $request['selection']+['quantity'=>1,'prompt'=>$request['prompt'],'reference_images'=>MicroVideoMedia::visionInputs($request['images'])];}
     public static function uniqueImages(array $images): array
     {$out=[];$seen=[];foreach($images as $image){$uri=(string)($image['uri']??$image['url']??'');if($uri!==''&&!isset($seen[$uri])){$out[]=$image;$seen[$uri]=true;}}return $out;}
     private static function system(string $action,array $body): string

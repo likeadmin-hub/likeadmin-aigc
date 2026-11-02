@@ -132,7 +132,7 @@ final class MarketGenerationSchema
 
     public static function validate(array $schema, array $values, string $mode = '', string $prefix = '', array $deferMissingRootFields = []): void
     {
-        if (($schema['additionalProperties'] ?? true) === false) foreach ($values as $key=>$_) if (!isset($schema['properties'][$key]) && $key!=='generation_type') throw new InvalidArgumentException('当前参数组合不支持：' . $prefix . $key);
+        if (($schema['additionalProperties'] ?? true) === false) foreach ($values as $key=>$_) if (!isset($schema['properties'][$key]) && $key!=='generation_type') throw new InvalidArgumentException('当前参数组合不支持：' . $prefix . self::label((string)$key, []));
         foreach ((array)($schema['allOf'] ?? []) as $branch) self::validate($branch,$values,$mode,$prefix,$deferMissingRootFields);
         foreach (['oneOf','anyOf'] as $group) {
             if (empty($schema[$group])) continue;
@@ -142,7 +142,7 @@ final class MarketGenerationSchema
         }
         foreach (self::properties($schema) as $name => $definition) {
             if (!self::applies($definition, $mode) || str_starts_with($name, '_')) continue;
-            $path = $prefix . $name;
+            $path = $prefix . self::label($name, $definition);
             $required = self::required($definition, $mode) || in_array($name, (array)($schema['required'] ?? []), true);
             if (!array_key_exists($name, $values) || $values[$name] === null || $values[$name] === '' || $values[$name] === []) {
                 if ($required && !($prefix === '' && in_array($name, $deferMissingRootFields, true))) throw new InvalidArgumentException('请填写必填参数：' . $path);
@@ -150,6 +150,27 @@ final class MarketGenerationSchema
             }
             self::validateValue($definition, $values[$name], $path);
         }
+    }
+
+    /** Display names never change schema keys, normalized requests or immutable snapshots. */
+    private static function label(string $name, array $definition): string
+    {
+        $title = $definition['title'] ?? null;
+        if (is_string($title) && preg_match('/\p{Han}/u', $title)) return trim($title);
+        return [
+            'prompt'=>'提示词', 'content'=>'内容', 'negative_prompt'=>'反向提示词',
+            'duration'=>'时长', 'seconds'=>'时长', 'video_duration'=>'视频时长',
+            'ratio'=>'画面比例', 'aspect_ratio'=>'画面比例', 'resolution'=>'分辨率',
+            'quality'=>'画质', 'size'=>'尺寸', 'image_size'=>'图片尺寸',
+            'width'=>'宽度', 'height'=>'高度', 'n'=>'生成数量', 'num_images'=>'图片数量',
+            'quantity'=>'生成数量', 'seed'=>'随机种子', 'model'=>'模型', 'model_id'=>'模型',
+            'reference_images'=>'参考图片', 'images'=>'图片', 'image'=>'图片', 'image_url'=>'图片',
+            'first_frame'=>'首帧图片', 'last_frame'=>'尾帧图片', 'start_image'=>'首帧图片', 'end_image'=>'尾帧图片',
+            'video'=>'视频', 'video_url'=>'视频', 'audio'=>'音频', 'audio_url'=>'音频',
+            'generation_type'=>'生成方式', 'generation_mode'=>'生成方式', 'mode'=>'生成方式',
+            'input'=>'输入内容', 'parameters'=>'生成设置', 'steps'=>'生成步数',
+            'guidance_scale'=>'提示词引导强度', 'fps'=>'帧率', 'output_format'=>'输出格式',
+        ][$name] ?? '参数';
     }
 
     private static function validateValue(array $definition, $value, string $path): void

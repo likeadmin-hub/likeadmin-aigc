@@ -53,7 +53,7 @@ final class MicroVideoWorkbenchWorker
             if($row['status']!=='queued'||$reconcileOnly){self::write($id,['status'=>'unknown','error'=>'作业中断，需核对受理记录，不会自动重新付费','next_run_at'=>time()+30]);return;}
             MicroVideoService::available($tenant);
             // Revalidate selected price immediately before public runtime admission. No DB lock waits on I/O.
-            if($image){$freshQuote=MicroVideoFrameCatalog::quote($tenant,$request['selection']);$freshQuote['approximate']=false;}
+            if($image){$freshQuote=MicroVideoFrameCatalog::quote($tenant,$request['selection'],self::imageRequest($request));$freshQuote['approximate']=false;}
             else{$m=Text::resolveModel($tenant,$request['selection']['model_id']);$freshQuote=$request['quote'];$freshQuote['price_identity']=['model_id'=>$m['id'],'input'=>$m['input'],'output'=>$m['output']];}
             if(MicroVideoWorkbenchPolicy::hash($freshQuote)!==MicroVideoWorkbenchPolicy::hash($request['quote']))throw new InvalidArgumentException('模型价格已变化，请重新估价');
             self::write($id,['status'=>'running','error'=>'']);
@@ -79,7 +79,7 @@ final class MicroVideoWorkbenchWorker
         }
     }
     private static function imageRequest(array $r): array
-    {return $r['selection']+['quantity'=>1,'prompt'=>$r['prompt'],'reference_images'=>MicroVideoMedia::visionInputs($r['images'])];}
+    {return MicroVideoWorkbenchJobs::imageRequest($r);}
     private static function imageResult(array $row,array $result): void
     {
         $fresh=MicroVideoWorkbenchJobs::table()->where('id',$row['id'])->find();$c=self::consumption($fresh);
