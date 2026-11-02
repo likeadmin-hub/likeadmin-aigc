@@ -159,6 +159,22 @@ final class ShortDramaRevisionAgentTest extends TestCase
         $this->assertFalse($out['revision_response']['edited']);
         $this->assertSame($base['generation_settings'],$out['generation_settings']);
     }
+    public function testFinalizationAndLaterReadsCannotUndoMovedShotsOrAuthoredPrompts(): void
+    {
+        $base=$this->plan();$base['locations'][]=['id'=>'yard','name'=>'院子','description'=>'院子'];
+        $base['storyboard'][0]['scene_order']=1;$base['storyboard'][1]['scene_order']=2;$base['storyboard'][1]['scene_ref_id']='yard';
+        $base['storyboard'][0]['image_prompt']='User-authored exact image prompt.';
+        $candidate=Agent::apply($base,[['entity'=>'shot','op'=>'move','id'=>'s2','after_id'=>null]],$this->request());
+        $service=\app\common\service\app\aigc_short_drama\AigcShortDramaService::class;
+        $finish=new \ReflectionMethod($service,'finalizeRevisionPlan');$finish->setAccessible(true);
+        $read=new \ReflectionMethod($service,'enhancePlanResult');$read->setAccessible(true);
+        $final=$finish->invoke(null,$candidate,$base,false);
+        $this->assertSame(['s2','s1'],array_column($final['storyboard'],'shot_id'));
+        $this->assertSame('User-authored exact image prompt.',$final['storyboard'][1]['image_prompt']);
+        $again=$read->invoke(null,$final,false);
+        $this->assertSame($final['storyboard'],$again['storyboard']);
+        $this->assertSame($base['subjects'],$again['subjects']);
+    }
     public function testCanvasClarificationRestoresPriorCardWithoutGraphWrites(): void
     {
         $state=['state_revision'=>2,'artifact_memory'=>[['key'=>'old']],'series'=>['episode_number'=>1],
@@ -194,6 +210,7 @@ final class ShortDramaRevisionAgentTest extends TestCase
             $first=$run();$second=$run();
             $this->assertTrue($first['result']['revision_response']['edited']);
             $this->assertCount(2,$first['result']['subjects']);
+            $this->assertSame($this->plan()['storyboard'][1],$first['result']['storyboard'][1]);
             $this->assertSame($first,$second);
             $this->assertSame(20,$first['llm']['usage']['prompt_tokens']);
             $this->assertSame(2,\think\facade\Db::name('aigc_short_drama_planning_unit')->where($scope)->count());
