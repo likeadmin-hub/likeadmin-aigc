@@ -580,7 +580,7 @@ class AigcLocalRedrawService
             $row['source_image_url'] = self::imageUrl((string)($row['source_image'] ?? ''));
             $row['mask_image_url'] = self::imageUrl((string)($row['mask_image'] ?? ''));
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function formatTaskRow(array $row): array
@@ -596,7 +596,7 @@ class AigcLocalRedrawService
             'pending' => '排队中',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function defaults(): array

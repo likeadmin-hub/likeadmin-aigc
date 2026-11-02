@@ -2319,7 +2319,7 @@ CREATE TABLE `la_user`
     `delete_time`           int(10) UNSIGNED                                              NULL     DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`) USING BTREE,
     UNIQUE INDEX `sn` (`sn`) USING BTREE COMMENT '编号唯一',
-    UNIQUE INDEX `account` (`account`) USING BTREE COMMENT '账号唯一'
+    UNIQUE INDEX `uk_tenant_account` (`tenant_id`, `account`) USING BTREE COMMENT '租户内账号唯一'
 ) ENGINE = InnoDB
   AUTO_INCREMENT = 1
   CHARACTER SET = utf8mb4
@@ -8275,7 +8275,7 @@ CREATE TABLE IF NOT EXISTS `la_ai_app_task` (
   `status` varchar(30) NOT NULL DEFAULT 'queued', `progress` tinyint unsigned NOT NULL DEFAULT 0, `request_summary` text, `result_summary` text,
   `estimated_tenant_cost` decimal(16,6) NOT NULL DEFAULT 0.000000, `estimated_user_price` decimal(16,6) NOT NULL DEFAULT 0.000000, `actual_tenant_cost` decimal(16,6) NOT NULL DEFAULT 0.000000, `actual_user_price` decimal(16,6) NOT NULL DEFAULT 0.000000,
   `idempotency_key` varchar(64) NOT NULL DEFAULT '', `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0, `finish_time` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`), UNIQUE KEY `uk_task_no` (`task_no`), UNIQUE KEY `uk_tenant_idempotency` (`tenant_id`,`idempotency_key`), KEY `idx_tenant_app_time` (`tenant_id`,`app_code`,`create_time`), KEY `idx_business` (`business_table`,`business_id`), KEY `idx_user_time` (`tenant_id`,`user_id`,`create_time`)
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_task_no` (`task_no`), UNIQUE KEY `uk_tenant_idempotency` (`tenant_id`,`idempotency_key`), KEY `idx_tenant_app_time` (`tenant_id`,`app_code`,`create_time`), KEY `idx_business` (`business_table`,`business_id`), KEY `idx_user_time` (`tenant_id`,`user_id`,`create_time`), KEY `idx_ops_tenant_parent_time` (`tenant_id`,`parent_task_id`,`create_time`), KEY `idx_ops_parent_time` (`parent_task_id`,`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI应用任务';
 
 CREATE TABLE IF NOT EXISTS `la_ai_market_app_gate` (
@@ -8299,7 +8299,7 @@ CREATE TABLE IF NOT EXISTS `la_ai_consumption_log` (
   `quantity` decimal(16,6) NOT NULL DEFAULT 0.000000, `usage_unit` varchar(40) NOT NULL DEFAULT '', `usage_snapshot` text, `price_snapshot` text, `request_summary` text, `response_summary` longtext,
   `run_status` varchar(30) NOT NULL DEFAULT 'pending', `billing_status` varchar(30) NOT NULL DEFAULT 'none', `reserved_tenant_cost` decimal(16,6) NOT NULL DEFAULT 0.000000, `reserved_user_price` decimal(16,6) NOT NULL DEFAULT 0.000000, `actual_tenant_cost` decimal(16,6) NOT NULL DEFAULT 0.000000, `actual_user_price` decimal(16,6) NOT NULL DEFAULT 0.000000,
   `tenant_point_sn` varchar(64) NOT NULL DEFAULT '', `user_point_sn` varchar(64) NOT NULL DEFAULT '', `error_code` varchar(64) NOT NULL DEFAULT '', `error_message` varchar(1000) NOT NULL DEFAULT '', `refresh_requested_at` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0, `finish_time` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`), UNIQUE KEY `uk_consume_no` (`consume_no`), KEY `idx_app_task` (`app_task_id`), KEY `idx_tenant_time` (`tenant_id`,`create_time`), KEY `idx_tenant_status` (`tenant_id`,`run_status`,`billing_status`), KEY `idx_upstream_task` (`upstream_task_id`), KEY `idx_product_sku` (`product_id`,`sku_id`)
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_consume_no` (`consume_no`), KEY `idx_app_task` (`app_task_id`), KEY `idx_tenant_time` (`tenant_id`,`create_time`), KEY `idx_tenant_status` (`tenant_id`,`run_status`,`billing_status`), KEY `idx_upstream_task` (`upstream_task_id`), KEY `idx_product_sku` (`product_id`,`sku_id`), KEY `idx_ops_tenant_billing_finish` (`tenant_id`,`billing_status`,`finish_time`), KEY `idx_ops_billing_finish` (`billing_status`,`finish_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI上游消耗日志';
 
 CREATE TABLE IF NOT EXISTS `la_ai_consumption_event` (
@@ -14222,12 +14222,12 @@ UPDATE `la_app` SET `is_builtin`=1,`status`='installed',`expire_policy`='allow' 
 
 -- Distribution posters: additive, repeatable, published snapshots are immutable.
 CREATE TABLE IF NOT EXISTS `la_distribution_poster_template` (
- `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL,
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `builtin_key` varchar(32) DEFAULT NULL,
  `name` varchar(80) NOT NULL, `sort` int NOT NULL DEFAULT 0, `status` tinyint unsigned NOT NULL DEFAULT 0,
  `revision` int unsigned NOT NULL DEFAULT 1, `published_version` int unsigned NOT NULL DEFAULT 0,
  `draft_json` longtext NOT NULL, `create_time` int unsigned NOT NULL, `update_time` int unsigned NOT NULL,
  `delete_time` int unsigned NOT NULL DEFAULT 0,
- PRIMARY KEY (`id`), KEY `idx_tenant_list` (`tenant_id`,`delete_time`,`status`,`sort`)
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_tenant_builtin` (`tenant_id`,`builtin_key`), KEY `idx_tenant_list` (`tenant_id`,`delete_time`,`status`,`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS `la_distribution_poster_version` (
  `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `template_id` int unsigned NOT NULL,

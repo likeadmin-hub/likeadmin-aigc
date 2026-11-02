@@ -58,10 +58,9 @@ namespace {
 
   OpenStore::table('file')->insert($saved);
   $p=S::json(S::run(1,1,$id)['preferences']);$p['_long_reads'][$file]['batch_count']=128;
-  S::table('run')->where('id',$id)->update(['preferences'=>S::encode($p),'cancel_requested'=>0]);$n=count(Fake::$calls);$paused=$work();
-  check($paused['status']==='canceled'&&L::view($paused)[0]['status']==='paused'&&count(Fake::$calls)===$n,'Batch limit charged or failed to pause');
-  L::resume(1,1,$id);L::resume(1,1,$id);$continued=$work();check(L::view($continued)[0]['offset']===20000&&count(Fake::$calls)===$n+1,'Batch resume replayed old chunk');
-  echo "EDGE_PASS batch128_pause_resume_no_replay\n";
+  S::table('run')->where('id',$id)->update(['preferences'=>S::encode($p),'cancel_requested'=>0]);$n=count(Fake::$calls);$continued=$work();
+  check(L::view($continued)[0]['status']==='pending'&&L::view($continued)[0]['offset']===20000&&count(Fake::$calls)===$n+1,'Historical batch128 stopped continuation or replayed old chunk');
+  echo "EDGE_PASS batch128_continues_without_replay\n";
   Fake::$admission=true;$beforeCalls=count(Fake::$calls);$blocked=$work();
   check(count(Fake::$calls)===$beforeCalls&&$blocked['status']==='failed'&&str_contains($blocked['error'],'余额不足'),'Pre-admission failure not resumable');
   denied(fn()=>L::resume(2,1,$id));denied(fn()=>L::resume(1,2,$id));

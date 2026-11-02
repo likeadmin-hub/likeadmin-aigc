@@ -39,7 +39,6 @@ final class MicroVideoMedia
                 throw new RuntimeException('参考图片地址与所属素材不匹配');
             }
             if ($storage['storage_engine'] === 'local') self::imageData(self::localPath($uri));
-            else OpenSafeHttp::resolve($url, false);
             $result[] = [
                 'uri' => $uri, 'url' => $url,
                 'name' => mb_substr((string)($image['name'] ?? $file['name'] ?? basename($uri)), 0, 200),
@@ -184,8 +183,32 @@ final class MicroVideoMedia
         }
         $signed = StorageSignedUrlService::resolve($uri, (string)($storage['storage_scope'] ?? ''), (string)($storage['storage_engine'] ?? ''), (string)($storage['storage_domain'] ?? ''), $tenant);
         $url = $signed ?? FileService::format((string)($storage['storage_domain'] ?? ''), $uri);
-        OpenSafeHttp::resolve($url, false);
+        self::assertStoredCloudUrl($url);
         return $url;
+    }
+
+    /**
+     * This URL was rebuilt from an owned tenant_file receipt and server storage
+     * configuration. Constructing a reference is not an outbound HTTP request:
+     * resolving DNS here makes a draft save depend on a workstation proxy's
+     * fake-IP answers. Actual downloads still use OpenSafeHttp::get, which pins
+     * public IPs and revalidates every redirect before sending any bytes.
+     */
+    private static function assertStoredCloudUrl(string $url): void
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower((string)($parts['scheme'] ?? ''));
+        if (!is_array($parts) || !in_array($scheme, ['http', 'https'], true)
+            || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])
+            || preg_match('/[\x00-\x20\x7f\\\\]/', $url)
+            || (int)($parts['port'] ?? ($scheme === 'https' ? 443 : 80)) !== ($scheme === 'https' ? 443 : 80)) {
+            throw new RuntimeException('素材存储地址无效');
+        }
+        $host = trim((string)$parts['host'], '[]');
+        if (filter_var($host, FILTER_VALIDATE_IP)
+            && !\app\common\service\open_platform\OpenPolicy::isPublicIp($host)) {
+            throw new RuntimeException('素材存储地址不能使用内部网络 IP');
+        }
     }
 
     private static function sameObjectUrl(string $a, string $b): bool

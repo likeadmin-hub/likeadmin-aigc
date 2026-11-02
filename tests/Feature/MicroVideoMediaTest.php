@@ -78,6 +78,41 @@ final class MicroVideoMediaTest extends TestCase
         }
     }
 
+    public function testOwnedCloudMetadataDoesNotResolveDnsOrFetchTheObjectDuringDraftValidation(): void
+    {
+        // .invalid deliberately has no usable public origin. URL construction
+        // must remain local after the authoritative tenant_file ownership check.
+        $domain = 'https://owned-storage.invalid';
+        $row = $this->image('cloud.png', ['storage_engine' => 'qcloud', 'storage_domain' => $domain]);
+        $input = ['uri' => $row['uri'], 'storage_engine' => 'local', 'storage_domain' => 'http://169.254.169.254'];
+        $images = MicroVideoMedia::validateImages(self::TENANT, self::USER, [$input], 1);
+        self::assertSame('qcloud', $images[0]['storage_engine']);
+        self::assertSame($domain, $images[0]['storage_domain']);
+        self::assertSame($domain . '/' . $row['uri'], $images[0]['url']);
+        self::assertSame((int)$row['id'], $images[0]['file_id']);
+        $body = \app\common\service\app\aigc_micro_video\MicroVideoWorkbenchRecords::images(self::TENANT, self::USER,
+            ['product_snapshot' => ['body' => ['images' => $images]], 'scenes' => [['images' => $images]]]);
+        self::assertSame($images[0]['url'], $body['product_snapshot']['body']['images'][0]['url']);
+        self::assertSame($images[0]['url'], $body['scenes'][0]['images'][0]['url']);
+        self::assertSame($images[0]['url'], MicroVideoMedia::visionInputs($images)[0]);
+        // Neither signatures nor matching /uploads paths grant asset authority.
+        $this->rejects(fn() => MicroVideoMedia::validateImages(self::TENANT, self::USER + 1, [['uri' => $images[0]['url'] . '?signature=forged']], 1));
+        $this->rejects(fn() => MicroVideoMedia::validateImages(self::TENANT + 1, self::USER, [['uri' => $images[0]['url'] . '?signature=forged']], 1));
+        $this->rejects(fn() => MicroVideoMedia::validateImages(self::TENANT, self::USER, [['uri' => 'https://attacker.invalid/' . $row['uri'] . '?signature=forged']], 1));
+        $this->rejects(fn() => MicroVideoMedia::validateImages(self::TENANT, self::USER, [['uri' => $domain . '/uploads/%252e%252e/private.png?signature=forged']], 1));
+    }
+
+    public function testOwnedCloudMetadataStillRejectsUnsafeAddressSyntaxAndPrivateIpLiterals(): void
+    {
+        foreach (['file:///etc/passwd', 'https://user:pass@storage.invalid/uploads/a.png', 'https://storage.invalid:9000/uploads/a.png',
+            'https://storage.invalid/uploads/a.png#fragment', 'http://127.0.0.1/uploads/a.png', 'http://169.254.169.254/uploads/a.png',
+            'http://[::1]/uploads/a.png', 'http://198.18.0.165/uploads/a.png', 'http://[2001:2::78]/uploads/a.png'] as $url) {
+            $this->rejects(fn() => $this->invoke('assertStoredCloudUrl', [$url]));
+            // Actual outbound downloads retain the original DNS/IP/port guard.
+            $this->rejects(fn() => \app\common\service\open_platform\OpenSafeHttp::get($url, 1024, 1));
+        }
+    }
+
     public function testOwnershipTenantUserDeletionTypeAndOriginAreEnforced(): void
     {
         $row = $this->image();

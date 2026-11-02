@@ -256,4 +256,51 @@ class ShortDramaContentAcceptanceTest extends TestCase
         $review=State::prepare(['changes'=>[['entity_id'=>'books','field'=>'location','after'=>'yard']]],['_canonical_state'=>true,'continuity'=>['state'=>['books:state/current_location'=>'room']]]);
         self::assertSame('state/current_location',$review['changes'][0]['field']); self::assertSame('room',$review['changes'][0]['before']);
     }
+    public function testUploadedEpisodeRequirementsReadOriginalInsteadOfOnlyUploadSupplement(): void
+    {
+        $method=new \ReflectionMethod(Acceptance::class,'requirements');$method->setAccessible(true);
+        $request=['_input_contract_version'=>29,'prompt'=>'保留原文两集，不合并。','series_context'=>['current_episode'=>[
+            'episode_number'=>2,'title'=>'门内','source_content'=>'乙打开门，把日记交给甲。甲说：“原来你找到了。”']]];
+        $requirements=$method->invoke(null,$request,static function($key,$input,$budget,$validate):array {
+            $data=json_decode($input['content'],true);
+            self::assertStringContainsString('乙打开门，把日记交给甲。',$data['source']);
+            self::assertStringContainsString('原来你找到了',$data['source']);
+            self::assertStringContainsString('保留原文两集，不合并。',$data['source']);
+            $index=null;foreach($data['sources'] as $row)if(str_contains($row['text'],'乙打开门'))$index=$row['source_index'];
+            self::assertNotNull($index);
+            $reply=['requirements'=>[['text'=>'乙把日记交给甲','kind'=>'event','source_index'=>$index]]];$validate($reply);return $reply;
+        });
+        self::assertStringContainsString('乙打开门',$requirements[0]['quote']);
+        $request['_continuity_review_only']=true;
+        $request['revision_base_result']['content_acceptance']=['version'=>Acceptance::VERSION,'requirements'=>[['id'=>'stale','text'=>'旧补充说明']]];
+        $rechecked=$method->invoke(null,$request,static function($key,$input,$budget,$validate):array {
+            self::assertStringContainsString('乙打开门',json_decode($input['content'],true)['source']);
+            $reply=['requirements'=>[]];$validate($reply);return $reply;
+        });
+        self::assertSame([],$rechecked,'Old cached requirements must be rebuilt from uploaded source');
+        unset($request['_continuity_review_only'],$request['revision_base_result']);
+        // Older paid review units keep the exact source used in their receipts.
+        $request['_input_contract_version']=28;
+        $method->invoke(null,$request,static function($key,$input,$budget,$validate):array {
+            self::assertSame('保留原文两集，不合并。',json_decode($input['content'],true)['source']);
+            $reply=['requirements'=>[]];$validate($reply);return $reply;
+        });
+    }
+    /** @dataProvider workflowCache */
+    public function testWorkflowInstructionsAreNotRequiredOnScreenAndRealScriptWordsStay(bool $cached):void
+    {
+        $method=new \ReflectionMethod(Acceptance::class,'requirements');$method->setAccessible(true);
+        $r=['_input_contract_version'=>31,'prompt'=>'按照剧本进行策划。只生成剧本和分镜。','series_context'=>['current_episode'=>['episode_number'=>1,'source_content'=>'甲翻开剧本并说：“这里只生成剧本和分镜。”']]];
+        if($cached){$r['_continuity_review_only']=true;$r['revision_base_result']['content_acceptance']=['version'=>Acceptance::VERSION,'uploaded_source_version'=>1,'requirements'=>[['id'=>'stale','text'=>'按照剧本进行策划','kind'=>'event','quote'=>'按照剧本进行策划。']]];}
+        $out=$method->invoke(null,$r,static function($key,$input,$budget,$validate):array {
+            self::assertStringContainsString('workflow',$input['system_prompt']);$data=json_decode($input['content'],true);$requirements=[];
+            foreach($data['sources'] as $row){$text=trim($row['text']);
+                if(in_array($text,['按照剧本进行策划。','只生成剧本和分镜。'],true))$requirements[]=['text'=>$text,'kind'=>'workflow','source_index'=>$row['source_index']];
+                if(str_contains($text,'甲翻开剧本'))$requirements[]=['text'=>'甲翻开剧本并说出原文对白','kind'=>'event','source_index'=>$row['source_index']];
+            }
+            $reply=['requirements'=>$requirements];$validate($reply);return $reply;
+        });
+        self::assertCount(1,$out);self::assertSame('甲翻开剧本并说出原文对白',$out[0]['text']);self::assertStringContainsString('生成剧本和分镜',$out[0]['quote']);
+    }
+    public static function workflowCache():array { return [[false],[true]]; }
 }

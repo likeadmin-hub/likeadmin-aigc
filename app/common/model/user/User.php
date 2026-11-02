@@ -167,7 +167,11 @@ class User extends BaseModel
             $rand_str .= mt_rand(1, 9);
         }
         $sn = $prefix . $rand_str;
-        if (User::where(['sn' => $sn])->find()) {
+        // Shared tables retain a global unique sn, while tenant tables retain
+        // their own unique sn. Include deleted users and reserved u{sn} accounts.
+        if (User::withoutGlobalScope()->withTrashed()->where('sn', $sn)->find()
+            || User::withTrashed()->where('sn', $sn)->find()
+            || User::withTrashed()->where('account', 'u' . $sn)->find()) {
             return self::createUserSn($prefix, $length);
         }
         return $sn;

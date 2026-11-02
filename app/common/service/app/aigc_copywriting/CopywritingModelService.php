@@ -7,7 +7,7 @@ final class CopywritingModelService
 {
     public static function publicModel(array $m): array
     {
-        return array_intersect_key($m,array_flip(['id','product_id','name','description','display_icon','model_code','tenant_input_unit_price','tenant_output_unit_price','billing_unit','billing_unit_size','context_window','max_output_tokens']));
+        return array_intersect_key($m,array_flip(['id','product_id','name','description','display_icon','channel_source','channel_source_label','model_code','tenant_input_unit_price','tenant_output_unit_price','billing_unit','billing_unit_size','context_window','max_output_tokens']));
     }
     public static function options(int $tenantId,array $document=[]): array
     {

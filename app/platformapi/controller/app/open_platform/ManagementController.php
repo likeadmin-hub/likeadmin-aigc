@@ -10,7 +10,15 @@ class ManagementController extends BaseAdminController
 {
     private function run(callable $fn){try{\app\common\service\open_platform\OpenAdminPermission::assert('platform_admin',$this->adminInfo,(string)$this->request->action());return $this->success('操作成功',$fn());}catch(\Throwable $e){return $this->fail($e instanceof \app\common\service\open_platform\OpenException?$e->getMessage():'开放平台操作失败，请查看服务日志');}}
     public function detail(){return $this->run(fn()=>OpenManagement::adminSettings((int)$this->request->param('tenant_id',0)));}
-    public function setTenantAuthorization(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::setTenantAuthorization((int)$this->request->post('tenant_id'),OpenManagement::authorizationInput($this->request->post('enabled'))));}
+    public function setTenantAuthorization()
+    {
+        if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');
+        // Preserve JSON false: the application's default trim filter converts it to ''.
+        return $this->run(fn()=>OpenManagement::setTenantAuthorization(
+            (int)$this->request->post('tenant_id'),
+            OpenManagement::authorizationInput($this->request->post('enabled',null,null))
+        ));
+    }
     public function setup(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::saveSettings((int)$this->request->param('tenant_id',0),$this->request->post(),true));}
     public function pages(){return $this->run(fn()=>OpenPages::configured((int)$this->request->param('tenant_id',0)));}
     public function savePages(){if(!$this->request->isPost())return $this->fail('仅支持 POST 请求');return $this->run(fn()=>OpenManagement::savePages((int)$this->request->param('tenant_id',0),(array)$this->request->post('pages',[])));}

@@ -99,6 +99,7 @@ class MarketMusicAppRuntimeService
                 $duration = (int)($locked['duration'] ?? $locked['seconds'] ?? 0);
 
                 $options[] = [
+                    ...MarketModelSource::product($product),
                     'id' => (string)$sku['id'],
                     'value' => (string)$sku['id'],
                     'label' => !empty($product['display_name_overridden']) ? (string)$product['name'] : (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
@@ -135,7 +136,7 @@ class MarketMusicAppRuntimeService
             }
         }
 
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     public static function quote(int $tenantId, array $selection = []): array

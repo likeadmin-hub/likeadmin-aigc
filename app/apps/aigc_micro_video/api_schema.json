@@ -496,6 +496,33 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/writeScript",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:writeScript:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0,
+      "name": "直接写剧本"
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/scriptStream",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:scriptStream:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0,
+      "name": "剧本实时输出"
+    },
+    {
+      "api_path": "app.aigc_micro_video.workbench/confirmScript",
+      "api_method": "POST",
+      "permission_key": "aigc_micro_video:workbench:confirmScript:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0,
+      "name": "核对当前剧本"
     }
   ]
 }

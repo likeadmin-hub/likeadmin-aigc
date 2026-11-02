@@ -193,7 +193,7 @@ class MarketVideoRuntimeService
                 'sort' => (int)$product['id'],
             ];
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     /** Expose only sellable generation variants to every catalogue consumer. */
@@ -1081,7 +1081,11 @@ class MarketVideoRuntimeService
                 self::appPayload($snapshot, $request, $idempotency), $request));
         }
         $plan = MarketGenerationAdapterRegistry::transport($snapshot, 'submit');
-        return self::request($plan['method'], self::origin() . $plan['path'], $prepared->nativeInput);
+        $payload = $prepared->nativeInput;
+        if (MarketGenerationAdapterRegistry::resourceType($snapshot) === PowerMarketService::TYPE_MODEL) {
+            $payload = MarketModelTaskRequest::payload($payload);
+        }
+        return self::request($plan['method'], self::origin() . $plan['path'], $payload, false, $consumptionId);
     }
 
     /** No supplier uploads or task/point writes: safe before quote/reservation. */
@@ -3852,7 +3856,7 @@ class MarketVideoRuntimeService
     }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); if (empty($parts['host'])) throw new Exception('视频 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function endpoint(string $app, string $api): string { return self::origin() . '/api/v1/apps/' . rawurlencode($app) . '/' . rawurlencode($api); }
-    private static function request(string $method, string $url, array $payload = [], bool $allowApplicationError = false): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('视频 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '视频 API 网络请求失败'); $data = json_decode((string)$body, true); if ($method === 'POST' && is_array($data)) \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== ''); if (!is_array($data)) throw new Exception('视频 API 响应格式错误'); $hasApplicationError = isset($data['error']) || (isset($data['code']) && is_numeric($data['code']) && (int)$data['code'] !== 1); if (($http >= 400 || $hasApplicationError) && !$allowApplicationError) throw new Exception(self::error($data)); return $data; }
+    private static function request(string $method, string $url, array $payload = [], bool $allowApplicationError = false, int $consumptionId = 0): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('视频 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '视频 API 网络请求失败'); $data = json_decode((string)$body, true); if ($method === 'POST' && is_array($data)) \app\common\service\open_platform\OpenCallContext::providerFailure($http, (string)$body, self::taskId($data) !== ''); if (!is_array($data)) throw new Exception('视频 API 响应格式错误'); $hasApplicationError = isset($data['error']) || (isset($data['code']) && is_numeric($data['code']) && (int)$data['code'] !== 1); if (($http >= 400 || $hasApplicationError) && !$allowApplicationError) { MarketProviderReceipt::record($consumptionId,$http,$data); throw new Exception(self::error($data)); } return $data; }
     private static function recordRefreshError(int $consumptionId, string $taskId, \Throwable $e): void
     {
         $message = mb_substr($e->getMessage() ?: '视频任务查询失败', 0, 1000);

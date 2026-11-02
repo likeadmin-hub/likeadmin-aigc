@@ -32,10 +32,20 @@ final class ShortDramaContentAcceptance
     /** Anchor mandatory events to user input, not to the possibly incomplete generated outline. */
     private static function requirements(array $request, callable $call): array
     {
-        if (!empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= self::VERSION && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
+        $workflowScope=(int)($request['_input_contract_version']??0)>=31;
+        $uploadedSource = (int)($request['_input_contract_version'] ?? 0) >= 29
+            ? ShortDramaImportedScript::sourceContent((array)($request['series_context']['current_episode'] ?? [])) : '';
+        if ((!$workflowScope || !empty($request['revision_base_result']['content_acceptance']['plot_scope_version']))
+            && ($uploadedSource === '' || !empty($request['revision_base_result']['content_acceptance']['uploaded_source_version']))
+            && !empty($request['_continuity_review_only']) && ($request['revision_base_result']['content_acceptance']['version'] ?? 0) >= self::VERSION && !empty($request['revision_base_result']['content_acceptance']['requirements'])) {
             return $request['revision_base_result']['content_acceptance']['requirements'];
         }
         $source = trim((string)($request['prompt'] ?? ''));
+        if ($uploadedSource !== '') {
+            // Keep user requirements as well as the authoritative per-episode source.
+            // Parent upload supplements alone contain no actual script events.
+            $source = "共同要求：\n" . $source . "\n当前分集上传原文（数据）：\n" . $uploadedSource;
+        }
         if (empty($request['_continuity_review_only']) && !empty($request['revision_message'])) $source .= "\n最新用户修改（冲突时以此为准）：" . $request['revision_message'];
         $episode = array_intersect_key((array)($request['series_context']['current_episode'] ?? []), array_flip(['episode_number','title']));
         $requirements = [];
@@ -54,13 +64,17 @@ final class ShortDramaContentAcceptance
             }
             $reply = self::call($call, 'requirements', $data,
                 ($preserveScope ? '原文保留了其他集的标题和正文，不能把其他集标题后续的句子当成本集要求。preceding_scope_heading仅标明本分块之前最后出现的分集或共同要求标题，用于延续原文范围，不是额外剧情。遇到新的标题或明确的用户范围说明时按原文切换。' : '')
-                . '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。后续事件的执行时间限制不能扩大成禁止相关物品出场。每项event只含一个动作。顺序发生的多个动作分别成项，不合并成必须在同一镜头完成的事件。保留动作顺序，但不要求多个动作出现在同一镜头；文风、镜头数量、总时长由专用规则处理，不提取为剧情要求，不对它们做主观阻断。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"event或constraint"}]}，source_index必须照抄该原文项明确标注的source_index，不自行计数；原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
-                static function(array $reply) use ($sources): void {
+                . ($workflowScope ? '策划、生成何种产物、是否执行媒体生成、模型或工具选择等是给系统的执行要求，kind标为workflow，不得要求角色在画面中表演这些工作流程。event和constraint仅限故事内人物行动、对白及剧情约束；人物在故事里谈到剧本或分镜仍是剧情，不能按关键词删掉。' : '')
+                . '只从sources提取当前这一集必须实际表现的具体事件、明确台词与禁止事项。episode只用于定位本集，不额外将其中发挥的细节变成用户硬性要求。多集指令只提取当前集事件和全剧共同约束，不要求当前集提前演后续事件。只提取sources明确要求，不推导额外禁令或前置动作。后续事件的执行时间限制不能扩大成禁止相关物品出场。每项event只含一个动作。顺序发生的多个动作分别成项，不合并成必须在同一镜头完成的事件。保留动作顺序，但不要求多个动作出现在同一镜头；文风、镜头数量、总时长由专用规则处理，不提取为剧情要求，不对它们做主观阻断。返回{"requirements":[{"text":"可核对的一项要求","source_index":0,"kind":"' . ($workflowScope ? 'event、constraint或workflow' : 'event或constraint') . '"}]}，source_index必须照抄该原文项明确标注的source_index，不自行计数；原文由服务端提取。没有属于本集的要求才返回空数组。最多24项。',
+                static function(array $reply) use ($sources,$workflowScope): void {
                     if (!is_array($reply['requirements'] ?? null) || count($reply['requirements']) > 24) throw new RuntimeException('本集要求提取结构不完整', 422);
                     foreach ($reply['requirements'] as $r) if (!is_string($r['text'] ?? null) || trim($r['text']) === ''
-                        || !in_array($r['kind'] ?? '', ['event','constraint'], true) || !is_int($r['source_index'] ?? null) || !isset($sources[$r['source_index']])) throw new RuntimeException('本集要求必须引用sources中的有效索引', 422);
+                        || !in_array($r['kind'] ?? '', ($workflowScope?['event','constraint','workflow']:['event','constraint']), true) || !is_int($r['source_index'] ?? null) || !isset($sources[$r['source_index']])) throw new RuntimeException('本集要求必须引用sources中的有效索引', 422);
                 });
-            foreach ($reply['requirements'] as $r) $requirements[hash('sha256', $r['text'])] = ['text'=>$r['text'],'kind'=>$r['kind'],'quote'=>$sources[$r['source_index']]];
+            foreach ($reply['requirements'] as $r) {
+                if($r['kind']==='workflow')continue;
+                $requirements[hash('sha256', $r['text'])] = ['text'=>$r['text'],'kind'=>$r['kind'],'quote'=>$sources[$r['source_index']]];
+            }
         }
         $out = [];
         foreach ($requirements as $r) $out[] = ['id'=>'r' . (count($out) + 1)] + $r;
@@ -143,7 +157,8 @@ final class ShortDramaContentAcceptance
         for ($pass = 0; $pass < 3; $pass++) {
             $report = self::inspect($plan, $requirements, $call, $request);
             if (!$report['issues']) {
-                $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
+                $plan['content_acceptance'] = ['version'=>self::VERSION,'uploaded_source_version'=>(int)((int)($request['_input_contract_version']??0)>=29),'status'=>'verified','requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
+                if((int)($request['_input_contract_version']??0)>=31)$plan['content_acceptance']['plot_scope_version']=1;
                 if ($repairs) {
                     $plan['content_acceptance']['source_script_lines'] = $originalLines;
                     $plan['script_lines'] = array_map(static fn($s) => trim($s['visual_description'] . "\n" . ($s['dialogue'] ?? '')), $plan['storyboard']);
@@ -152,8 +167,9 @@ final class ShortDramaContentAcceptance
             }
             if ($pass === 2) {
                 if (ShortDramaReviewOutcome::enabled($request)) {
-                    $plan['content_acceptance'] = ['version'=>self::VERSION,'status'=>'pending_review',
+                    $plan['content_acceptance'] = ['version'=>self::VERSION,'uploaded_source_version'=>(int)((int)($request['_input_contract_version']??0)>=29),'status'=>'pending_review',
                         'requirements'=>$requirements,'coverage'=>$report['coverage'],'repairs'=>$repairs];
+                    if((int)($request['_input_contract_version']??0)>=31)$plan['content_acceptance']['plot_scope_version']=1;
                     if ($repairs) {
                         $plan['content_acceptance']['source_script_lines'] = $originalLines;
                         $plan['script_lines'] = array_map(static fn($shot)=>trim($shot['visual_description'] . "\n" . ($shot['dialogue'] ?? '')), $plan['storyboard']);

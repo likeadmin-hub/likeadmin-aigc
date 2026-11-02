@@ -7,4 +7,4 @@ $policy=new Policy('aigc_copywriting',Policy::fingerprint($m));$policy->assertMo
 try{$policy->assertModel($m,'aigc_copywriting');throw new RuntimeException('changed price accepted');}catch(InvalidArgumentException $e){check($e->getMessage()==='MODEL_OR_PRICE_CHANGED','price change reason');}
 echo "copywriting model policy PASS\n";
 
-check($policy->generationParams(['model_code'=>'deepseek-v4-pro','protocol'=>'openai_chat'],[])['thinking']['type']==='disabled','copywriting disables default DeepSeek thinking');check($policy->generationParams(['model_code'=>'other-model'],[])===[],'other models preserve declared parameters');
+check($policy->generationParams(['model_code'=>'deepseek-v4-pro','protocol'=>'openai_chat'],[])['thinking']['type']==='disabled','copywriting disables default DeepSeek thinking');check($policy->generationParams(['model_code'=>'qwen3.6-plus','protocol'=>'openai_chat'],[])['enable_thinking']===false,'copywriting disables Qwen thinking');check($policy->generationParams(['model_code'=>'other-model'],[])===[],'ordinary models receive no unsupported parameters');

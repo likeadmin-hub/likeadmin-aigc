@@ -61,3 +61,14 @@ $rejection=method('providerException')->invoke(null,'Synthetic local rejection',
 check($rejection->partialResult===null && $rejection->allowsModelFallback,'Output-free definitive rejection lost its original retry contract');
 $units=$same;$units['input']['usage_unit_size']=1000;$units['output']['usage_unit_size']=1000000;
 check(!$settle->invoke(null,$units,$normalize->invoke(null,['total_tokens'=>12])),'Different effective token rates settled from total only');
+$complete=method('assertStreamComplete');
+foreach([
+ ['content'=>'partial','request_id'=>'fixture','delta_count'=>1,'usage'=>[]],
+ ['content'=>'valid JSON is still partial','request_id'=>'fixture','delta_count'=>1,'usage'=>['total_tokens'=>2]],
+ ['content'=>'','request_id'=>'fixture','usage'=>['prompt_tokens'=>120,'completion_tokens'=>0]],
+]as$partial){
+ try{$complete->invoke(null,$partial);throw new RuntimeException('Legacy stream without terminal was accepted');}
+ catch(\app\common\service\power\MarketTextModelProviderException $e){check($e->partialResult!==null,'Legacy output was discarded/refunded');check($e->partialResult['tool_calls']===[],'Partial tools escaped');}
+}
+$complete->invoke(null,['content'=>'done','legacy_terminal_seen'=>true]);
+echo "Legacy terminal validation passed: no success or tool dispatch from a truncated stream\n";

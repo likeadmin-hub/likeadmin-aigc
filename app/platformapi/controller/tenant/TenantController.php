@@ -116,6 +116,7 @@ class TenantController extends BaseAdminController
                 isset($params['tactics']) && (string)$params['tactics'] === '1'
             );
             TenantLogic::syncCustomStorageMenu((int)$tenant['id'], (int)($params['allow_custom_storage'] ?? 0) === 1);
+            \app\common\service\distribution\BuiltinPosterService::ensure((int)$tenant['id']);
             // 提交事务
             DB::commit();
             // 返回成功

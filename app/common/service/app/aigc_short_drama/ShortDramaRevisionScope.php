@@ -24,6 +24,35 @@ class ShortDramaRevisionScope
         return ['type' => 'episode', 'id' => (string)$number, 'rule' => 'Modify only this episode. All other episodes and the confirmed story are immutable.'];
     }
 
+    public static function screenplayTarget(string $message,array $plan):array
+    {
+        if(!preg_match_all('/第\s*([0-9零〇一二两三四五六七八九十百]+)\s*场/u',$message,$m))return [];
+        $numbers=array_values(array_unique(array_map([self::class,'number'],$m[1])));
+        if(count($numbers)!==1)throw new Exception('请每次明确修改一场，其他场次将保持不变');
+        $number=$numbers[0];$matches=array_values(array_filter((array)($plan['scene_screenplays']??[]),static fn($s)=>is_array($s)&&(int)($s['scene_number']??0)===$number));
+        if(count($matches)!==1)throw new Exception('指定场次不存在或标识不唯一，请刷新后重试');
+        $editable=preg_split('/其余|其他|保持|保留|不改/u',$message)[0];
+        $fields=preg_match('/光|环境|景色|描写/u',$editable)?['entry','action','exit']:(preg_match('/台词|对白|对话/u',$editable)?['dialogue']:['entry','action','dialogue','exit']);
+        return ['type'=>'scene_screenplay_fields','id'=>(string)$number,'fields'=>$fields,'payload'=>$matches[0],
+            'rule'=>'Modify only this numbered scene and the listed fields. Preserve every other scene, dialogue, subject, location, shot, ID and duration.'];
+    }
+
+    public static function mergeScreenplay(array $base,array $patch,array $target):array
+    {
+        $number=(int)$target['id'];$found=array_values(array_filter((array)($patch['scene_screenplays']??[]),static fn($s)=>is_array($s)&&(int)($s['scene_number']??0)===$number));
+        if(count($found)!==1)throw new Exception('修改结果缺少指定场次或场次重复，请重试');
+        $changes=array_intersect_key($found[0],array_flip(array_intersect((array)$target['fields'],['entry','action','dialogue','exit'])));
+        if(!$changes)throw new Exception('修改结果缺少指定正文，请重试');
+        foreach($base['scene_screenplays']as&$scene){if((int)$scene['scene_number']!==$number)continue;
+            foreach($changes as$key=>$value){
+                if(!is_string($value)&&!is_array($value))throw new Exception('场次修改内容格式无效');
+                if(is_array($value))foreach($value as$line)if(!is_string($line)&&!is_array($line))throw new Exception('场次修改内容格式无效');
+                $scene[$key]=$value;
+            }
+        }unset($scene);
+        return $base;
+    }
+
     private static function number(string $value): int
     {
         if (ctype_digit($value)) return (int)$value;

@@ -28,11 +28,14 @@ class ShortDramaScriptUploadContractTest extends TestCase
         self::assertCount(1, $upload);
         self::assertSame('POST', $upload[0]['api_method']);
         self::assertSame('user', $upload[0]['scene']);
+        self::assertSame('aigc_short_drama:script_plan:upload:user', $upload[0]['permission_key']);
+        self::assertSame(1, $upload[0]['need_login']);
 
         $manifest = $this->json('app/apps/aigc_short_drama/manifest.json');
         self::assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', $manifest['version']);
         self::assertTrue(version_compare($manifest['version'], '1.0.14', '>='));
-        self::assertStringContainsString('上传文档', $manifest['changelog']);
+        // The latest release note changes independently of the upload API.
+        self::assertNotEmpty($manifest['changelog']);
     }
 
     public function testTextScriptNormalizationHandlesBomLineEndingsAndBlankRuns(): void
