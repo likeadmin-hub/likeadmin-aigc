@@ -1915,11 +1915,19 @@ class AigcCanvasService
         $data['user_account'] = (string)($data['user_account'] ?? '');
         $data['user_mobile'] = (string)($data['user_mobile'] ?? '');
         $data['duration_ms'] = (int)($row['duration_ms'] ?? 0);
-        $data['create_time'] = (int)($row['create_time'] ?? 0);
-        $data['update_time'] = (int)($row['update_time'] ?? 0);
-        $data['finish_time'] = (int)($row['finish_time'] ?? 0);
+        // ORM serialization can return datetime strings even for integer columns.
+        $data['create_time'] = max(0, self::normalizeRunTime($row['create_time'] ?? 0));
+        $data['update_time'] = max(0, self::normalizeRunTime($row['update_time'] ?? 0));
+        $data['finish_time'] = max(0, self::normalizeRunTime($row['finish_time'] ?? 0));
         $data['source_create_time'] = self::normalizeRunTime($result['create_time'] ?? 0);
         $data['source_update_time'] = self::normalizeRunTime($result['update_time'] ?? 0);
+        // Upstream AI task dates must be >= 2000-01-01 UTC. Reject year-only
+        // casts (e.g. 2026 seconds) so they cannot mask a valid local task date.
+        foreach (['source_create_time', 'source_update_time'] as $key) {
+            if ($data[$key] < 946684800) {
+                $data[$key] = 0;
+            }
+        }
         $data['display_create_time'] = $data['source_create_time'] ?: $data['create_time'];
         $data['display_update_time'] = $data['source_update_time'] ?: $data['update_time'];
         $data['results'] = self::runResultItems($runType, $result);
