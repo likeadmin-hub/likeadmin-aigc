@@ -149,6 +149,16 @@ final class ShortDramaRevisionAgentTest extends TestCase
         $this->assertArrayNotHasKey('image',$context['subjects'][0]);$this->assertArrayNotHasKey('api_key',$context['subjects'][0]);
         $this->assertSame('程序员',$context['subjects'][0]['description']);
     }
+    public function testOnlyExplicitSettingsChangesCanAlterProjectDefaults(): void
+    {
+        $base=$this->plan();$after=$base;$after['generation_settings']['review_policy_version']=1;
+        $this->assertSame([],Agent::settingPatch($base,$after));
+        $after['generation_settings']['aspect_ratio']='9:16';
+        $this->assertSame(['aspect_ratio'=>'9:16'],Agent::settingPatch($base,$after));
+        $out=$this->runReply(['action'=>'edit','message'=>'更换分辨率','operations'=>[['entity'=>'settings','op'=>'update','values'=>['resolution'=>'4k']]]]);
+        $this->assertFalse($out['revision_response']['edited']);
+        $this->assertSame($base['generation_settings'],$out['generation_settings']);
+    }
     public function testCanvasClarificationRestoresPriorCardWithoutGraphWrites(): void
     {
         $state=['state_revision'=>2,'artifact_memory'=>[['key'=>'old']],'series'=>['episode_number'=>1],
