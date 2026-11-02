@@ -14131,8 +14131,40 @@ class AigcShortDramaService
         );
     }
 
+    private static function finalizeRevisionPlan(array $plan,array $base,bool $qualityReviewEnabled): array
+    {
+        $input=$plan;
+        unset($input['_revision_projection_version']);
+        $input['revision_response']=['version'=>1,'edited'=>true];
+        $expanded=self::enhancePlanResult($input,$qualityReviewEnabled);
+        foreach (['subjects'=>'id','locations'=>'id','storyboard'=>'shot_id'] as $field=>$key) {
+            $originals=[];$defaults=[];
+            foreach ($base[$field] ?? [] as $item) $originals[(string)$item[$key]]=$item;
+            foreach ($expanded[$field] ?? [] as $item) $defaults[(string)$item[$key]]=$item;
+            foreach ($plan[$field] ?? [] as $index=>$item) {
+                $id=(string)$item[$key];
+                // Fill missing fields only for changed/new objects. Every authored value wins.
+                if (($originals[$id] ?? null)!==$item) $plan[$field][$index]=array_replace($defaults[$id] ?? [],$item);
+            }
+        }
+        foreach (['duration_stats','storyboard_breaking_diagnostics','agents','workflow_steps','export_plan','review_report','quality_check'] as $field) {
+            if (array_key_exists($field,$expanded)) $plan[$field]=$expanded[$field];
+        }
+        if (($plan['storyboard'] ?? [])!==($base['storyboard'] ?? []) && ($plan['music_plan'] ?? null)===($base['music_plan'] ?? null)) $plan['music_plan']=$expanded['music_plan'] ?? ($plan['music_plan'] ?? []);
+        $plan['scenes']=$plan['locations'] ?? [];
+        $plan['_result_projection_version']=1;
+        $plan['_revision_projection_version']=1;
+        return $plan;
+    }
+
     private static function enhancePlanResult(array $plan, ?bool $qualityReviewEnabled = null): array
     {
+        if (($plan['_revision_projection_version'] ?? 0)===1) {
+            // A verified revision is already canonical. Reads cannot rewrite its accepted content.
+            $plan['scenes']=$plan['locations'] ?? [];
+            $plan['duration_stats']=self::durationStats((array)($plan['storyboard'] ?? []),count($plan['locations'] ?? []));
+            return ShortDramaReviewOutcome::present($plan);
+        }
         $plan = ShortDramaResultProjection::normalize($plan);
         $qualityReviewEnabled ??= self::planQualityReviewEnabled($plan);
         $subjects = [];
@@ -14273,7 +14305,7 @@ class AigcShortDramaService
         $plan['scenes'] = $locations;
         // Repeated visits to a scene are narrative order, not a sorting error.
         // Regrouping them would move dialogue and break locked time boundaries.
-        if (!ShortDramaEpisodeDuration::active($plan)) $storyboard = self::sortStoryboardBySceneAndOrder($storyboard);
+        if (!ShortDramaEpisodeDuration::active($plan) && !isset($plan['revision_response'])) $storyboard = self::sortStoryboardBySceneAndOrder($storyboard);
         $elapsedSeconds = (float)(ShortDramaEpisodeDuration::policy($plan)['timeline_segments'][0]['start_seconds'] ?? 0);
         foreach ($storyboard as $index => $shot) {
             $storyboard[$index]['video_prompt'] = self::normalizeReadableShotVideoPrompt(
@@ -17813,10 +17845,9 @@ class AigcShortDramaService
                         ->where('project_id',(int)self::findTask($tenantId,$userId,(string)$request['revision_base_task_id'])['project_id'])->findOrEmpty();
                     if ($row->isEmpty()) throw new Exception('指定历史版本不可用');
                     return self::stripPlanRuntimeFields(self::jsonDecode((string)$row['plan_json']));
-                });
+                }, static fn(array $plan,array $base):array=>self::finalizeRevisionPlan($plan,$base,ShortDramaStoryWorkflow::qualityReviewEnabled($request)));
             if (ShortDramaRevisionAgent::edited($result)) {
                 $response=$result['revision_response'];
-                $result=self::enhancePlanResult($result,ShortDramaStoryWorkflow::qualityReviewEnabled($request));
                 if (ShortDramaReviewOutcome::enabled($request) && !empty($result['storyboard'])
                     && ShortDramaContinuity::fingerprint($result)!==ShortDramaContinuity::fingerprint($request['revision_base_result'])) {
                     $result=ShortDramaReviewOutcome::pending($result,$request,'修改已验收，剧情连续性仍需复核');
@@ -22278,6 +22309,7 @@ class AigcShortDramaService
 
     private static function cleanStoredStoryboardForVersionRow(int $tenantId, int $userId, int $projectId, array $versionRow): void
     {
+        if ((self::jsonDecode((string)($versionRow['plan_json'] ?? ''))['_revision_projection_version'] ?? 0)===1) return;
         $taskId = trim((string)($versionRow['task_id'] ?? ''));
         if ($taskId === '') {
             return;
@@ -22356,7 +22388,7 @@ class AigcShortDramaService
             return $taskData;
         }
         $result = self::jsonDecode((string)($taskData['result_json'] ?? ''));
-        if (!ShortDramaRevisionAgent::edited($result)) return $taskData;
+        if (!ShortDramaRevisionAgent::edited($result) || ($result['_revision_projection_version'] ?? 0)===1) return $taskData;
         $cleanup = self::cleanStoryboardResultData($tenantId, $userId, $projectId, $taskId, $result);
         if (empty($cleanup['changed'])) {
             return $taskData;
