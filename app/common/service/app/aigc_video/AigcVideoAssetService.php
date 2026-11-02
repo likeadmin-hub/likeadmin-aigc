@@ -27,8 +27,9 @@ class AigcVideoAssetService
             throw new Exception('生成视频文件损坏或格式不支持');
         }
         $config = $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId);
+        $facts = self::measuredFacts($path);
         $uri = self::uploadLocalFile($path, $tenantId, $userId, $config);
-        return [
+        return $facts + [
             'uri' => $uri, 'width' => 0, 'height' => 0, 'stored' => true,
             'storage_scope' => (string)($config['scope'] ?? 'tenant'),
             'storage_engine' => (string)($config['default'] ?? 'local'),
@@ -205,12 +206,13 @@ class AigcVideoAssetService
         file_put_contents($tmpPath, $content);
         try {
             $config = $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId);
-            if ($resultAssetId > 0) return \app\common\service\ai\AiTaskManagedFileService::persist($tmpPath, $resultAssetId, $tenantId, $userId, $config, ['width' => 0, 'height' => 0]);
+            $facts = self::measuredFacts($tmpPath);
+            if ($resultAssetId > 0) return \app\common\service\ai\AiTaskManagedFileService::persist($tmpPath, $resultAssetId, $tenantId, $userId, $config, $facts);
             $uri = self::uploadLocalFile($tmpPath, $tenantId, $userId, $config);
         } finally {
             @unlink($tmpPath);
         }
-        return [
+        return $facts + [
             'uri' => $uri,
             'width' => 0,
             'height' => 0,
@@ -219,6 +221,18 @@ class AigcVideoAssetService
             'storage_domain' => StorageConfigService::getStorageDomain($config),
             'stored' => true,
         ];
+    }
+
+    private static function measuredFacts(string $path): array
+    {
+        try {
+            return array_intersect_key(\app\common\service\power\MarketGenerationMedia::localFacts($path), array_flip(['duration','width','height']))
+                + ['file_size'=>(int)filesize($path), 'mime_type'=>(string)mime_content_type($path)];
+        } catch (\Throwable) {
+            // Storage can finish even when probing is temporarily unavailable;
+            // actual-duration billing remains pending until a verified measurement exists.
+            return ['width'=>0,'height'=>0];
+        }
     }
 
     private static function uploadLocalFile(string $filePath, int $tenantId, int $userId, array $config): string
