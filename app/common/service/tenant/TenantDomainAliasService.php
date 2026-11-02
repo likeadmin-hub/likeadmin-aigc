@@ -98,8 +98,28 @@ class TenantDomainAliasService
             } catch (\Throwable) {
                 // Validation can also run from a CLI/import context.
             }
-            if (TenantUrlService::isPlatformHost($domain, $requestHost)) {
-                throw new Exception('租户域名不能与平台域名一致或使用平台域名的子域名：' . $domain);
+            $platformHosts = TenantUrlService::platformHosts($requestHost);
+            if (in_array($domain, $platformHosts, true)) {
+                throw new Exception('租户域名不能与平台域名一致：' . $domain);
+            }
+            // Platform roots also host tenant defaults. Aliases may use a
+            // subdomain, but must not take another tenant's default address.
+            foreach ($platformHosts as $platformHost) {
+                $suffix = '.' . $platformHost;
+                if (!str_ends_with($domain, $suffix)) {
+                    continue;
+                }
+                $sn = substr($domain, 0, -strlen($suffix));
+                if ($sn === '' || str_contains($sn, '.')) {
+                    continue;
+                }
+                $subdomainTenant = Tenant::where('sn', $sn);
+                if ($tenantId > 0) {
+                    $subdomainTenant->where('id', '<>', $tenantId);
+                }
+                if (!$subdomainTenant->findOrEmpty()->isEmpty()) {
+                    throw new Exception('租户别名已存在：' . $domain);
+                }
             }
             if ((int)($alias['status'] ?? 1) === 1) {
                 $activeCount++;
