@@ -39,7 +39,7 @@ try {
     $db->name('user')->insert(['tenant_id'=>2,'sn'=>44444444,'account'=>'ALICE1']);
     throw new RuntimeException('Database allowed duplicate account');
 } catch (\think\db\exception\PDOException $e) {
-    $assert(str_contains($e->getMessage(), 'SQLSTATE[23000]') && str_contains($e->getMessage(), 'tenant_id, account'), 'database constraint rejects same-tenant race winner duplicate');
+    $assert(str_contains($e->getMessage(), 'SQLSTATE[23000]') && str_contains($e->getMessage(), 'la_user.tenant_id, la_user.account'), 'database constraint rejects same-tenant race winner duplicate');
 }
 request()->tenantId = 1;
 $assert(User::where('account|mobile','alice1')->value('password') === 'tenant1', 'login user lookup is tenant scoped');
