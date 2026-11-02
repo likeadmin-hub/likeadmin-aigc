@@ -39,5 +39,16 @@ try {
     Db::name('aigc_short_drama_canvas_run')->insert($owner+['canvas_id'=>0,'node_id'=>'fixture-video','node_type'=>'video','provider_task_id'=>(string)$video,'request_json'=>'{}','result_json'=>'{}']);
     $vq=Db::name('aigc_video_task')->where($owner); Sources::ownOnly($vq,'aigc_video');
     expectSource((int)$vq->count()===0,'Short drama video does not enter Video Creation');
+    $imageResult=Db::name('aigc_image_result')->insertGetId($owner+['task_id'=>$canvas,'image_uri'=>'uploads/source-fixture.png']);
+    $canvasAsset=Db::name('aigc_short_drama_asset')->insertGetId($owner+['project_id'=>0,'task_id'=>'canvas_run_'.$run,'asset_type'=>'canvas_image','title'=>'Fixture','uri'=>'uploads/source-fixture.png','status'=>'ready']);
+    $refs=['short_drama:result:'.$canvasAsset,'image:result:'.$imageResult];
+    $library=\app\common\service\WorkspaceAssetService::class;
+    $library::update($owner['tenant_id'],$owner['user_id'],['refs'=>$refs,'favorite'=>1]);
+    foreach (['trash','restore'] as $action) {
+        $states=$library::update($owner['tenant_id'],$owner['user_id'],['refs'=>$refs,'action'=>$action])['states'];
+        expectSource(count($states)===2,'Both linked asset states are updated');
+        foreach ($states as $state) expectSource(($action==='trash')===((int)$state['trashed_at']>0),'Linked trash/restore state is consistent');
+    }
+    expectSource((int)Db::name('aigc_image_result')->where('id',$imageResult)->value('delete_time')===0,'Linked result restored without deleting files');
     echo "work sources: ownership, JSON mappings, namespace collisions, image/video history and pagination passed\n";
 } finally { Db::rollback(); }
