@@ -158,6 +158,10 @@ final class ShortDramaRevisionAgentTest extends TestCase
         $out=$this->runReply(['action'=>'edit','message'=>'更换分辨率','operations'=>[['entity'=>'settings','op'=>'update','values'=>['resolution'=>'4k']]]]);
         $this->assertFalse($out['revision_response']['edited']);
         $this->assertSame($base['generation_settings'],$out['generation_settings']);
+        $base['generation_settings']['aspect_ratio']='';$base['generation_settings']['resolution']='';
+        $out=$this->runReply(['action'=>'edit','message'=>'修改标题','operations'=>[['entity'=>'plan','op'=>'update','values'=>['title'=>'新标题']]]],$this->request($base));
+        $this->assertTrue($out['revision_response']['edited']);
+        $this->assertSame($base['generation_settings'],$out['generation_settings']);
     }
     public function testFinalizationAndLaterReadsCannotUndoMovedShotsOrAuthoredPrompts(): void
     {
