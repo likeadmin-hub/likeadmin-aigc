@@ -2215,6 +2215,7 @@ class AigcShortDramaService
         $data['multi_episode'] = (int)($row['multi_episode'] ?? 0) === 1;
         $data['current_version'] = self::currentPlanVersion($tenantId, $userId, $projectId);
         $data['versions'] = self::planVersions($tenantId, $userId, $projectId);
+        $data['revision_turns'] = self::revisionConversation($tenantId, $userId, $projectId);
         $data['assets'] = self::projectAssets($tenantId, $userId, $projectId);
         $data['generation_tasks'] = self::projectGenerationTasks($tenantId, $userId, $projectId);
         $data['published_works'] = self::projectPublishedWorks($tenantId, $userId, $projectId);
@@ -4319,8 +4320,24 @@ class AigcShortDramaService
                     }
                 }
             }
-            $result = self::attachSelectedSubjectReferences($result, $request);
+            $hasRevisionEdits = ShortDramaRevisionAgent::edited($result);
+            if (ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits) {
+                // Removing a bound subject affects this draft, never the shared library.
+                $beforeBindings=array_map('strval',array_filter(array_column($request['revision_base_result']['subjects'] ?? [],'library_subject_id')));
+                $afterBindings=array_map('strval',array_filter(array_column($result['subjects'] ?? [],'library_subject_id')));
+                $removedBindings=array_diff($beforeBindings,$afterBindings);
+                foreach (['subject_references','locked_subject_references'] as $field) if (isset($request[$field])) {
+                    $request[$field]=array_values(array_filter($request[$field],static fn($ref)=>!in_array((string)($ref['id'] ?? ''),$removedBindings,true)));
+                }
+                $request['subject_ids']=array_values(array_diff((array)($request['subject_ids'] ?? []),$removedBindings));
+            }
+            $result = !$hasRevisionEdits ? $result : self::attachSelectedSubjectReferences($result, $request);
+            if (ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits) ShortDramaRevisionAgent::validate($request['revision_base_result'],$result,$request,[]);
             $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? '')) ?: self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
+            if (ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits
+                && ($result['generation_settings']['aspect_ratio'] ?? null)!==($request['revision_base_result']['generation_settings']['aspect_ratio'] ?? null)) {
+                $projectRatio=self::normalizeGenerationRatio((string)($result['generation_settings']['aspect_ratio'] ?? '')) ?: $projectRatio;
+            }
             if ($projectRatio !== '') {
                 $result['generation_settings'] = is_array($result['generation_settings'] ?? null) ? $result['generation_settings'] : [];
                 $result['generation_settings']['aspect_ratio'] = $projectRatio;
@@ -4344,7 +4361,7 @@ class AigcShortDramaService
                 // storage metadata is retained on the reference records so
                 // image and video generation can resolve the exact same
                 // subject image/three-view through normal asset ownership.
-                $result = self::ensureProjectSubjectReferenceAssets(
+                $result = !$hasRevisionEdits ? $result : self::ensureProjectSubjectReferenceAssets(
                     $tenantId,
                     $userId,
                     $projectId,
@@ -4359,9 +4376,9 @@ class AigcShortDramaService
                 ])->update([
                     'status' => self::STATUS_SUCCESS,
                     'progress' => 100,
-                    'current_step' => !empty($request['multi_episode'])
+                    'current_step' => !$hasRevisionEdits ? '对话回复已完成' : (!empty($request['multi_episode'])
                         ? self::multiEpisodeStageLabel($multiEpisodeStage) . '生成完成'
-                        : '剧本策划完成',
+                        : '剧本策划完成'),
                     'request_json' => self::jsonEncode($request),
                     'config_snapshot' => self::jsonEncode([
                         'model_id' => $request['model_id'] ?? '',
@@ -4387,7 +4404,7 @@ class AigcShortDramaService
 
                 $isRevisionPlan = (string)($request['source'] ?? '') === 'revision';
                 self::createAgentRunRecord($tenantId, $userId, $projectId, $agentRunId, $taskId, $isRevisionPlan ? 'agent_revision' : 'initial_plan', $request, $result, $selectedModels['script_plan'] ?? [], self::STATUS_SUCCESS, $finishTime);
-                $version = self::createPlanVersion($tenantId, $userId, $projectId, $taskId, $agentRunId, $isRevisionPlan ? 'agent_revision' : 'agent_initial', $result, $isRevisionPlan ? (int)($project['current_version_id'] ?? 0) : 0, true, $finishTime);
+                $version = $hasRevisionEdits ? self::createPlanVersion($tenantId, $userId, $projectId, $taskId, $agentRunId, $isRevisionPlan ? 'agent_revision' : 'agent_initial', $result, $isRevisionPlan ? (int)($project['current_version_id'] ?? 0) : 0, true, $finishTime) : ['id'=>(int)($project['current_version_id'] ?? 0)];
                 self::createGenerationTaskRecord($tenantId, $userId, $projectId, '', 'script_plan', $taskId, self::STATUS_SUCCESS, [
                     'provider' => (string)($selectedModels['script_plan']['provider'] ?? ''),
                     'source_app_code' => self::LLM_APP_CODE,
@@ -4408,11 +4425,14 @@ class AigcShortDramaService
                     'id' => $projectId,
                 ])->update([
                     'status' => self::PROJECT_STATUS_PLAN_REVIEW,
-                    'title' => !empty($request['multi_episode']) && ($request['source'] ?? '') !== 'revision' ? mb_substr((string)$result['title'], 0, 120) : (string)$project['title'],
+                    'title' => $hasRevisionEdits && (ShortDramaRevisionAgent::enabled($request) || (!empty($request['multi_episode']) && ($request['source'] ?? '') !== 'revision')) ? mb_substr((string)$result['title'], 0, 120) : (string)$project['title'],
                     'current_version_id' => (int)$version['id'],
                     'current_agent_run_id' => $agentRunId,
                     'last_task_id' => $taskId,
                     'ratio' => $projectRatio !== '' ? $projectRatio : (string)($project['ratio'] ?? ''),
+                    'generation_settings_json' => self::jsonEncode(ShortDramaRevisionAgent::enabled($request) && $hasRevisionEdits
+                        ? self::mergeProjectGenerationSettings(self::projectGenerationSettingsFromRow($project->toArray()),self::normalizeProjectGenerationSettings((array)($result['generation_settings'] ?? [])))
+                        : self::projectGenerationSettingsFromRow($project->toArray())),
                     'update_time' => $finishTime,
                 ]);
                 self::replaceStoryboard($tenantId, $userId, $projectId, $taskId, $result['storyboard']);
@@ -5560,11 +5580,8 @@ class AigcShortDramaService
             $episodeTarget = ShortDramaRevisionScope::episodeTarget($message, (int)$request['episode_count']);
             if ($episodeTarget) { $revisionTarget = $episodeTarget; $fullPlanRevision = false; }
         }
-        // An episode project still requires an explicit local target or an
-        // explicit whole-episode rewrite; do not silently expand edit scope.
-        if ($isEpisodeProduction && !$fullPlanRevision && !$revisionTarget && !$contentReview) {
-            throw new Exception('请明确要修改的分镜或场景；如需整集调整，请明确输入“重写本集剧本”。原剧本保持不变');
-        }
+        // Natural episode edits are resolved to stable IDs by the revision agent;
+        // stage, ownership and no-cross-episode guards still apply below.
         $request['revision_message'] = $message;
         // An explicit edit is an LLM revision, not another file parser poll.
         if (self::isMarketFileQaParseRequest($request)) $request['source'] = 'revision';
@@ -5593,6 +5610,17 @@ class AigcShortDramaService
         }
         if (!empty($revisionTarget)) {
             $request['revision_target'] = $revisionTarget;
+        }
+        unset($request['_revision_agent_version'], $request['_revision_context'], $request['_revision_stage']);
+        if (!$advanceStage && !$contentReview) {
+            $request['_revision_agent_version'] = ShortDramaRevisionAgent::VERSION;
+            $request['_revision_stage'] = ShortDramaStoryWorkflow::enabled($sourceRequest) ? $currentStage : (!empty($request['multi_episode']) ? 'episodes' : 'production');
+            $turns = self::revisionConversation($tenantId, $userId, (int)$task['project_id']);
+            $request['_revision_context'] = [
+                'messages' => array_map(static fn($turn)=>['user'=>$turn['revision_message'],'assistant'=>$turn['reply']['message'] ?? '', 'status'=>$turn['status']], array_slice($turns,-8)),
+                'versions' => array_map(static fn($version)=>array_intersect_key($version,array_flip(['task_id','version_no','title','created_at','is_current'])), array_slice(self::planVersions($tenantId,$userId,(int)$task['project_id']),0,12)),
+                'selection' => array_intersect_key($revisionTarget,array_flip(['type','id','ids','fields'])),
+            ];
         }
         $request['source'] = 'revision';
         $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
@@ -13764,6 +13792,25 @@ class AigcShortDramaService
         }, $rows);
     }
 
+    /** Durable conversation also includes questions, clarifications and unsuccessful edits without a version card. */
+    private static function revisionConversation(int $tenantId, int $userId, int $projectId): array
+    {
+        $rows = AigcShortDramaScriptTask::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'project_id'=>$projectId,'delete_time'=>0])
+            ->whereLike('task_id','sd_plan_revision_%')->order('id','asc')->field('task_id,status,request_json,result_json,error,create_time')->select()->toArray();
+        $turns=[];
+        foreach ($rows as $row) {
+            $request=self::jsonDecode((string)$row['request_json']);
+            if (empty($request['revision_message'])) continue;
+            $result=self::jsonDecode((string)$row['result_json']);
+            $reply=(array)($result['revision_response'] ?? []);
+            $turns[]=['task_id'=>$row['task_id'],'status'=>$row['status'],'revision_message'=>ShortDramaText::value($request['revision_message']),
+                'created_timestamp'=>is_numeric($row['create_time'])?(int)$row['create_time']:(int)strtotime((string)$row['create_time']),
+                'error'=>in_array($row['status'],['failed','canceled'],true)?self::scriptPlanProviderError((string)$row['error']):'',
+                'reply'=>array_intersect_key($reply,array_flip(['action','edited','message','changes','media_impact','base_task_id']))];
+        }
+        return $turns;
+    }
+
     private static function storyboardImageAssetRows(int $tenantId, int $userId, int $projectId): array
     {
         $shotRows = AigcShortDramaStoryboard::where([
@@ -17746,6 +17793,37 @@ class AigcShortDramaService
 
     private static function generateScriptPlanResultScoped(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
     {
+        if (ShortDramaRevisionAgent::enabled($request)) {
+            $receipts=[];
+            $result=ShortDramaRevisionAgent::run($request,
+                static function(string $key,array $messages,int $desired) use ($tenantId,$userId,$request,$model,$onEvent,&$receipts): array {
+                    if ($onEvent) $onEvent('stage',['progress'=>$key==='revision_acceptance'?85:25,'current_step'=>$key==='revision_acceptance'?'核对修改结果':'理解要求并调整剧本']);
+                    $budget=ShortDramaPlanningBudget::fitMessages($messages,$model,'script',$desired,true);
+                    $params=$messages+['source_app_code'=>self::APP_CODE,'source_type'=>'script_plan','action_code'=>$key,
+                        'model_config'=>['max_tokens'=>$budget['max_tokens'],'enable_thinking'=>false], '_planning_stage'=>'script','_planning_count'=>1,'_planning_public'=>false];
+                    $receipt=ShortDramaPlanningUnit::call($tenantId,$userId,(string)$request['_prompt_task_id'],'agent_'.$key,$params,
+                        static fn(array $input):array=>self::generateScriptPlanLlmWithFallback($tenantId,$userId,$input,$model,$request,$key,
+                            $onEvent===null?null:static function($event,$data)use($onEvent){if($event!=='delta')$onEvent($event,$data);}),true);
+                    $receipts[]=(array)$receipt['result'];
+                    return ShortDramaStructuredResponse::decode((array)$receipt['result'],true);
+                }, static function(string $id)use($tenantId,$userId,$request):array {
+                    $row=AigcShortDramaPlanVersion::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>$id,'delete_time'=>0])
+                        ->where('project_id',(int)self::findTask($tenantId,$userId,(string)$request['revision_base_task_id'])['project_id'])->findOrEmpty();
+                    if ($row->isEmpty()) throw new Exception('指定历史版本不可用');
+                    return self::stripPlanRuntimeFields(self::jsonDecode((string)$row['plan_json']));
+                });
+            if (ShortDramaRevisionAgent::edited($result)) {
+                $response=$result['revision_response'];
+                $result=self::enhancePlanResult($result,ShortDramaStoryWorkflow::qualityReviewEnabled($request));
+                if (ShortDramaReviewOutcome::enabled($request) && !empty($result['storyboard'])
+                    && ShortDramaContinuity::fingerprint($result)!==ShortDramaContinuity::fingerprint($request['revision_base_result'])) {
+                    $result=ShortDramaReviewOutcome::pending($result,$request,'修改已验收，剧情连续性仍需复核');
+                }
+                $result['revision_response']=$response;
+            }
+            return ['result'=>$result,'llm'=>self::mergeScriptPlanLlmResults($receipts),'repair_llm'=>[],
+                'provider'=>(string)($model['provider'] ?? ''),'model_selection'=>$model,'raw_content'=>''];
+        }
         // All entry points share the conventional stage pipeline. Input schema
         // versions must never bypass story confirmation or production stages.
         if (!empty($request['_continuity_review_only']) && !empty($request['revision_base_result'])) {
@@ -22276,6 +22354,7 @@ class AigcShortDramaService
             return $taskData;
         }
         $result = self::jsonDecode((string)($taskData['result_json'] ?? ''));
+        if (!ShortDramaRevisionAgent::edited($result)) return $taskData;
         $cleanup = self::cleanStoryboardResultData($tenantId, $userId, $projectId, $taskId, $result);
         if (empty($cleanup['changed'])) {
             return $taskData;
@@ -23456,7 +23535,7 @@ class AigcShortDramaService
             $result = self::hydratePlanLibrarySubjectReferences(
                 (int)$task['tenant_id'],
                 (int)$task['user_id'],
-                self::enhancePlanResult(self::attachSelectedSubjectReferences($result, $request)),
+                ShortDramaRevisionAgent::edited($result) ? self::enhancePlanResult(self::attachSelectedSubjectReferences($result, $request)) : $result,
                 self::lockedSubjectReferences($request)
             );
             $result = self::applyStoryboardSelectionState(
@@ -23481,10 +23560,10 @@ class AigcShortDramaService
                 $result = self::hydratePlanLibrarySubjectReferences(
                     (int)$task['tenant_id'],
                     (int)$task['user_id'],
-                    self::enhancePlanResult(self::canonicalizeStoryDraftSubjects(
+                    ShortDramaRevisionAgent::edited($result) ? self::enhancePlanResult(self::canonicalizeStoryDraftSubjects(
                         ShortDramaStoryDraft::effective($request, $storedResult),
                         $request
-                    )),
+                    )) : $result,
                     self::lockedSubjectReferences($request)
                 );
                 $result = self::applyStoryboardSelectionState(

@@ -34,6 +34,9 @@ final class ConversationProduction
             ? AigcShortDramaService::productionPlanForTask($tenant,$user,(string)$task['task_id'])
             : ShortDramaStoryDraft::effective($request,json_decode((string)$task['result_json'],true)?:[]);
         if (!$plan) throw new RuntimeException('EMPTY_MODEL_RESPONSE');
+        if (isset($plan['revision_response']) && empty($plan['revision_response']['edited'])) {
+            return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],(string)$plan['revision_response']['message'])?'success':'needs_reconciliation';
+        }
         $proposals=ConversationSeries::proposals($plan,$stage,ConversationSeries::episode($workflow));
         $label=['story'=>'故事设定已生成，请核对后确认生成分集大纲。','outline'=>'分集大纲已生成，请核对后确认开始第一集创作。','episode'=>'本集剧本已生成，可直接告诉我需要修改的镜头或内容。采用后再准备素材。'][$stage];
         if ($stage==='episode' && !ConversationCreativePolicy::enabled($workflow)) $label='本集剧本已生成，将继续准备本集的主体、场景和分镜。';
