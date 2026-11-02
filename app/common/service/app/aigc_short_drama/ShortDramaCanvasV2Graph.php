@@ -82,7 +82,9 @@ final class ShortDramaCanvasV2Graph
     public static function task(array $run): array
     {
         $result=(array)($run['result']??[]);
-        if (!isset($result['assets'])) $result['assets']=(array)($run['results']??[]);
+        $assets=(array)($run['results']??$result['assets']??[]);
+        $assets=array_values(array_map(static fn(array $asset):array=>array_intersect_key($asset,array_flip(['url','uri','type','asset_id','result_asset_id','storage_scope','storage_engine','storage_domain','width','height','duration'])),array_filter($assets,'is_array')));
+        $result=['assets'=>$assets,'content'=>(string)($result['content']??$result['text']??'')];
         return ['id'=>(int)($run['id']??0),'kind'=>($run['node_type']??$run['type']??'')==='audio'?'music':($run['node_type']??$run['type']??''),'status'=>(string)($run['status']??'pending'),
             'version'=>(int)($run['version']??0),'generation_task_id'=>(string)($run['generation_task']['task_ref']??$result['generation_task']['task_ref']??''),
             'provider_task_id'=>'','error_message'=>(string)($run['error']??''),'result'=>$result];
