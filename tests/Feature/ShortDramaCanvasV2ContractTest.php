@@ -35,6 +35,13 @@ class ShortDramaCanvasV2ContractTest extends TestCase
         self::assertSame('4',$saved['edges'][0]['from']);self::assertSame('9',$saved['edges'][0]['to']);self::assertSame(3,$saved['expected_revision']);
         self::assertSame($document['document_token'],$saved['expected_document_token']);
     }
+    public function testTaskProjectionNeverExposesPrivateProviderDiagnostics(): void
+    {
+        $run=['id'=>9,'node_id'=>'4','type'=>'video','status'=>'success','result'=>['api_key'=>'secret','provider_response'=>['token'=>'secret'],'content'=>'Public text'],
+            'results'=>[['url'=>'https://example.invalid/managed.mp4','storage_scope'=>'tenant','provider_cost'=>123,'token'=>'secret']]];
+        $projected=Graph::task($run);self::assertStringNotContainsString('secret',json_encode($projected));
+        self::assertArrayNotHasKey('provider_cost',$projected['result']['assets'][0]);self::assertSame('Public text',$projected['result']['content']);
+    }
     public function testExplicitRemovalRetainsTombstonesAndNeverReusesDeletedIds(): void
     {
         $doc=$this->document();$graph=Graph::project($doc);$graph['nodes']=[];
