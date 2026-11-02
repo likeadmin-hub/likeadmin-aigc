@@ -6707,7 +6707,7 @@ class AigcShortDramaService
         $count = (int)(clone $query)->count();
         $rows = $query->order(['id' => 'desc'])->page($pageNo, $pageSize)->select()->toArray();
         return self::sanitizeUtf8Payload([
-            'lists' => array_map([self::class, 'formatAsset'], $rows),
+            'lists' => \app\common\service\WorkspaceShortDramaAssetService::appendRows($tenantId, $userId, array_map([self::class, 'formatAsset'], $rows)),
             'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize,
         ]);
     }

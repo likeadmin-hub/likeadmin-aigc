@@ -257,7 +257,12 @@ final class WorkspaceAssetService
         if (in_array($source, ['short_drama', 'canvas'], true)) {
             $raw['url'] = self::url($record, 'uri');
             $meta = json_decode($record['meta_json'] ?? '{}', true) ?: [];
-            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id','model_name','submitted_model_label','resolution','quality','duration','quantity','generate_audio','background']));
+            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id','model_name','submitted_model_label','resolution','quality','duration','quantity','generate_audio','background','consumption_id','reused_from_asset_id','canvas_run_id']));
+            if ($source === 'short_drama') {
+                $raw['uri'] = $record['uri'];
+                $raw = WorkspaceShortDramaAssetService::appendRows($tenant,$user,[$raw])[0];
+                unset($raw['uri']);
+            }
         }
         return ['source' => $source, 'ref' => $ref, 'raw' => $raw];
     }
