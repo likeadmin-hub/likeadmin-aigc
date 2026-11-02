@@ -154,4 +154,31 @@ final class ShortDramaRevisionAgentTest extends TestCase
         $this->assertNull(ConversationProductionRevision::dialogueState($state,$task,'伪造回复',9));
         $this->assertNull(ConversationProductionRevision::dialogueState($state,$task,'请指定角色',10));
     }
+
+    public function testSavedEditAndAcceptanceReceiptsReplayThroughTheRealGenerationBridge(): void
+    {
+        if (getenv('SHORT_DRAMA_STORY_DB_TESTS')!=='1') self::markTestSkipped('Transactional local receipts only');
+        (new \think\App())->initialize();
+        \think\facade\Db::startTrans();
+        try {
+            $task='test_revision_'.bin2hex(random_bytes(8));$scope=['tenant_id'=>2000000719,'user_id'=>7,'task_id'=>$task];
+            $request=$this->request();$request['_prompt_task_id']=$task;$request['quality_review_enabled']=false;
+            $edit=['action'=>'edit','message'=>'减少独立素材','operations'=>[
+                ['entity'=>'subject','op'=>'remove','id'=>'p'],
+                ['entity'=>'shot','op'=>'update','id'=>'s1','values'=>['subject_ref_ids'=>['a'],'visual_description'=>'甲思考','image_prompt'=>'甲思考']]],'expectations'=>['subjects_max'=>2]];
+            foreach (['revision_edit'=>$edit,'revision_acceptance'=>['passed'=>true]] as $key=>$payload) {
+                \think\facade\Db::name('aigc_short_drama_planning_unit')->insert($scope+['unit_key'=>'agent_'.$key,'status'=>'received','attempt'=>1,
+                    'request_json'=>'{}','result_json'=>json_encode(['result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'usage'=>['prompt_tokens'=>10,'completion_tokens'=>5]]]),'create_time'=>time(),'update_time'=>time()]);
+            }
+            $method=new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class,'generateScriptPlanResultScoped');$method->setAccessible(true);
+            $run=static fn()=>\app\common\service\app\aigc_short_drama\ShortDramaPlanningUnit::withinDispatch(2000000719,7,$task,0,
+                static fn()=>$method->invoke(null,2000000719,7,'原始故事',$request,'原剧本',['id'=>'offline-receipt-only','provider'=>'offline']));
+            $first=$run();$second=$run();
+            $this->assertTrue($first['result']['revision_response']['edited']);
+            $this->assertCount(2,$first['result']['subjects']);
+            $this->assertSame($first,$second);
+            $this->assertSame(20,$first['llm']['usage']['prompt_tokens']);
+            $this->assertSame(2,\think\facade\Db::name('aigc_short_drama_planning_unit')->where($scope)->count());
+        } finally { \think\facade\Db::rollback(); }
+    }
 }
