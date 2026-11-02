@@ -58,11 +58,14 @@ class MarketPicLipsyncAppRuntimeService
                 if (!static::acceptsSku(self::arrayValue($sku['locked_params'] ?? []))) continue;
                 $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
                 $options[] = [
+                    ...MarketModelSource::product($product),
                     'id' => static::selectionId((int)$product['id'], (int)$sku['id']),
                     'value' => static::selectionId((int)$product['id'], (int)$sku['id']),
                     'label' => (string)($sku['title'] ?: ($product['name'] ?? '图片数字人、AI翻唱 API')),
-                    'name' => (string)($sku['title'] ?: ($product['name'] ?? '图片数字人、AI翻唱 API')),
+                    'name' => !empty($product['display_name_overridden']) ? (string)$product['name'] : (string)($sku['title'] ?: ($product['name'] ?? '图片数字人、AI翻唱 API')),
                     'description' => (string)($product['description'] ?? ''),
+                    'display_name_overridden' => !empty($product['display_name_overridden']),
+                    'model_display_name' => self::modelDisplayName($metadata, (string)(self::arrayValue($sku['locked_params'] ?? [])['model'] ?? '')),
                     'display_icon' => (string)($product['display_icon'] ?? ''),
                     'resource_type' => PowerMarketService::TYPE_APP_API,
                     'resource_type_label' => '应用 API',
@@ -92,7 +95,23 @@ class MarketPicLipsyncAppRuntimeService
                 ];
             }
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
+    }
+
+    /** Use explicit upstream model labels when the catalogue provides them. */
+    public static function modelDisplayName(array $metadata, string $model): string
+    {
+        $schema = self::arrayValue($metadata['params_schema'] ?? []);
+        $field = self::arrayValue($schema['properties']['model'] ?? $schema['model'] ?? []);
+        $options = (array)($field['options'] ?? $field['enum'] ?? []);
+        foreach ($options as $key => $option) {
+            if (is_array($option) && (string)($option['value'] ?? $option['code'] ?? '') === $model) {
+                return trim((string)($option['label'] ?? $option['name'] ?? ''));
+            }
+            if (is_string($key) && $key === $model && is_string($option)) return trim($option);
+            if (is_string($option) && $option === $model) return trim((string)($field['enumNames'][$key] ?? $field['enum_labels'][$key] ?? ''));
+        }
+        return '';
     }
 
     protected static function requiresAdmissionGate(): bool

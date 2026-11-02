@@ -1,5 +1,6 @@
 <?php
 namespace Tests\Feature;
+require_once __DIR__.'/CanvasAgentDecisionTest.php';
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;

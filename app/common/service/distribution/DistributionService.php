@@ -2,6 +2,8 @@
 
 namespace app\common\service\distribution;
 
+use app\common\model\membership\MembershipPlan;
+use app\common\model\recharge\RechargePackage;
 use RuntimeException;
 use think\facade\Db;
 
@@ -95,6 +97,9 @@ class DistributionService
         if ($packageId <= 0) {
             throw new RuntimeException('套餐不能为空');
         }
+        if (!self::activePackages($tenantId, $orderType)->where('id', $packageId)->count()) {
+            throw new RuntimeException('套餐不存在或已停用，请刷新列表');
+        }
         $mode = (string)($input['rule_mode'] ?? self::RULE_INHERIT);
         if (!in_array($mode, [self::RULE_INHERIT, self::RULE_CUSTOM, self::RULE_DISABLED], true)) {
             throw new RuntimeException('套餐分销规则不正确');
@@ -135,7 +140,14 @@ class DistributionService
         ];
     }
 
-    /** Returns every payable package with explicit and inherited distribution rules. */
+    private static function activePackages(int $tenantId, string $orderType)
+    {
+        $model = $orderType === self::ORDER_RECHARGE ? RechargePackage::class : MembershipPlan::class;
+        // Use the package models so the same soft-delete scope as package management applies.
+        return $model::where(['tenant_id' => $tenantId, 'status' => 1]);
+    }
+
+    /** Returns active packages with explicit and inherited distribution rules. */
     public static function packageRulesForTenant(int $tenantId, string $orderType = ''): array
     {
         $types = $orderType === '' ? [self::ORDER_RECHARGE, self::ORDER_MEMBERSHIP] : [$orderType];
@@ -143,9 +155,12 @@ class DistributionService
         foreach ($types as $type) {
             self::assertOrderType($type);
             $packages = $type === self::ORDER_RECHARGE
-                ? Db::name('recharge_package')->where('tenant_id', $tenantId)->field('id,name,amount,status,sort')->order('sort desc,id asc')->select()->toArray()
-                : Db::name('membership_plan')->where('tenant_id', $tenantId)->field('id,name,monthly_price,yearly_price,status,sort')->order('sort desc,id asc')->select()->toArray();
+                ? self::activePackages($tenantId, $type)->field('id,name,amount,status,sort')->order('sort desc,id asc')->select()->toArray()
+                : self::activePackages($tenantId, $type)->field('id,name,monthly_price,yearly_price,status,sort')->order('sort desc,id asc')->select()->toArray();
             foreach ($packages as $package) {
+                if ($type === self::ORDER_MEMBERSHIP) {
+                    $package['price'] = $package['monthly_price'];
+                }
                 $id = (int)$package['id'];
                 $result[] = array_merge($package, [
                     'order_type' => $type,

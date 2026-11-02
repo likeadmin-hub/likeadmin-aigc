@@ -39,6 +39,8 @@ final class PackagePricingService
     public static function create(int $tenant,int $user,int $terminal,string $from,int $package,string $cycle='',string $quoteHash='',string $requestId=''): array
     {
         if ($user <= 0) throw new \RuntimeException('请先登录后购买套餐');
+        // Idempotent transport retries must not revive an order for a stopped package.
+        self::catalog($tenant,$from,$package,$cycle?:'package');
         return \app\common\service\pay\CashCheckoutService::create($tenant,$user,$from,$requestId,[$terminal,$package,$cycle,$quoteHash],function(string $sn)use($tenant,$user,$terminal,$from,$package,$cycle,$quoteHash){
         return Db::transaction(function()use($tenant,$user,$terminal,$from,$package,$cycle,$quoteHash,$sn){
             $identity=User::where(['tenant_id'=>$tenant,'id'=>$user])->lock(true)->findOrEmpty();if($identity->isEmpty()||!empty($identity['is_disable']))throw new \RuntimeException('用户身份已变化，请重新登录');

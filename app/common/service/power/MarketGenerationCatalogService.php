@@ -78,10 +78,10 @@ class MarketGenerationCatalogService
 
         return [
             'generation_type' => $generationType,
-            'models' => $models,
-            'applications' => $applications,
+            'models' => MarketModelSource::officialFirst($models),
+            'applications' => MarketModelSource::officialFirst($applications),
             'unavailable_applications' => $unavailable,
-            'channels' => array_merge($models, $applications),
+            'channels' => MarketModelSource::officialFirst(array_merge($models, $applications)),
         ];
     }
 

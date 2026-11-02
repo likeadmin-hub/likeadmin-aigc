@@ -61,9 +61,16 @@ final class MicroVideoWorkbenchWorker
                 $r=Db::transaction(function()use($id,$tenant,$user,$request){$job=MicroVideoWorkbenchJobs::table()->where('id',$id)->lock(true)->find();if((int)$job['consumption_id']>0)return ['consumption_id'=>$job['consumption_id']];$reserve=Image::reserve($tenant,$user,'workbench_'.$job['action'],(string)$id,$request['selection'],self::imageRequest($request),1,MicroVideoStore::APP,'aigc_micro_video_workbench_job');self::write($id,['consumption_id'=>$reserve['consumption_id'],'app_task_id'=>$reserve['app_task_id']]);return $reserve;});
                 self::imageResult($row,Image::submit((int)$r['consumption_id'],self::imageRequest($request)));return;
             }
+            $streamRaw='';$lastStreamAt=0.;
             $result=Text::generate($tenant,$user,['content'=>$request['content'],'system_prompt'=>$request['system'],'model_id'=>$request['selection']['model_id'],'source_app_code'=>MicroVideoStore::APP,'business_table'=>'aigc_micro_video_workbench_job','business_id'=>$id,'action_code'=>'workbench_'.$row['action'],'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_disable_compatibility_retry'=>true,'_require_final_content'=>true,'_micro_video_preserve_uncertain'=>true,'_micro_video_native_transport'=>true,'request_timeout_seconds'=>180,'model_config'=>['max_tokens'=>8000],
                 '_result_validator'=>static function(array $result)use($id){self::write($id,['receipt_json'=>MicroVideoStore::encode($result)]);}],
-                static function($event,$data)use($id){if($event==='app_task')self::write($id,['app_task_id'=>(int)$data['app_task_id'],'consumption_id'=>(int)$data['consumption_id']]);});
+                static function($event,$data)use($id,$row,$request,&$streamRaw,&$lastStreamAt){
+                    if($event==='app_task')self::write($id,['app_task_id'=>(int)$data['app_task_id'],'consumption_id'=>(int)$data['consumption_id']]);
+                    if($event==='delta'&&$row['action']==='rewrite'){
+                        $streamRaw.=(string)($data['delta']??'');
+                        if(microtime(true)-$lastStreamAt>=0.2){$lastStreamAt=microtime(true);self::write($id,['result_json'=>MicroVideoStore::encode(['stream_text'=>MicroVideoScriptStream::preview($streamRaw,$request)])]);}
+                    }
+                });
             self::write($id,['receipt_json'=>MicroVideoStore::encode($result)]);$fresh=MicroVideoWorkbenchJobs::table()->where('id',$id)->find();$c=self::consumption($fresh);if(!$c||$c['billing_status']!=='settled'){self::write($id,['status'=>'unknown','error'=>'已返回结果，等待实际用量结算','next_run_at'=>time()+30]);return;}self::finish($row,$result,$c);
         }catch(\Throwable $e){
             if($e instanceof \app\common\service\power\TextSettlementPending)self::write($id,['receipt_json'=>MicroVideoStore::encode($e->result)]);
@@ -137,6 +144,7 @@ final class MicroVideoWorkbenchWorker
         $script=$result['script']??null;
         if(!is_array($script)||!is_string($script['text']??null)||trim($script['text'])===''||empty($script['segments'])||!is_array($script['segments'])||count($script['segments'])>60)throw new InvalidArgumentException('改写结果缺少完整剧本或分镜');
         $input=MicroVideoStore::json($row['request_json']);$snapshot=(array)($input['snapshot']??[]);
+        $script=MicroVideoGeneratedReferences::script($script,$snapshot);$imageCount=count((array)($snapshot['images']??[]));
         $continuity='';
         foreach([$script['continuity']??'', $result['continuity']??'', $input['continuity']??'', $snapshot['script']['continuity']??'', $snapshot['template_snapshot']['body']['reference_rules']??'', MicroVideoSettings::defaults()['continuity_template']] as $candidate){if(is_string($candidate)&&trim($candidate)!==''){$continuity=trim($candidate);break;}}
         if(mb_strlen($continuity)>10000)throw new InvalidArgumentException('整片一致性设定过长');$script['continuity']=$continuity;
@@ -144,9 +152,9 @@ final class MicroVideoWorkbenchWorker
         $sum=0;foreach($script['segments'] as $segment){$duration=(int)($segment['duration']??0);if($duration<1||$duration>120)throw new InvalidArgumentException('分镜时长无效');MicroVideoTimeline::validate((string)($segment['prompt']??''),$duration);$sum+=$duration;}
         if(!empty($input['planning_contract'])){
             // The real SKU contract owns rounding/minimum-duration bounds; a fixed +15s rule can reject a valid 30s-only SKU.
-            $script['segments']=MicroVideoContentPlanning::validate(['segments'=>$script['segments'],'continuity'=>$continuity],$input['planning_contract'],15,(int)$input['video_reference_limit'],true,true);
+            $script['segments']=MicroVideoContentPlanning::validate(['segments'=>$script['segments'],'continuity'=>$continuity],$input['planning_contract'],$imageCount,(int)$input['video_reference_limit'],true,true);
         }else{
-            $script['segments']=MicroVideoPolicy::segments($script['segments'],array_values(array_unique(array_column($script['segments'],'duration'))),15,15,60,true,true);
+            $script['segments']=MicroVideoPolicy::segments($script['segments'],array_values(array_unique(array_column($script['segments'],'duration'))),$imageCount,15,60,true,true);
             $target=(int)($snapshot['target_duration']??$snapshot['brief']['target_duration']??30);
             if($sum<$target||$sum>$target+15)throw new InvalidArgumentException('改写剧本未覆盖目标时长，请查看保留的结果后重新规划');
         }

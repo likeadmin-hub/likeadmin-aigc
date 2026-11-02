@@ -723,7 +723,7 @@ class AigcFittingService
             $row['image_url'] = (string)($first['image_url'] ?? '');
             $row['image_uri'] = (string)($first['image_uri'] ?? '');
         }
-        return $rows;
+        return \app\common\service\ai\UserTaskTraceService::appendRows($rows);
     }
 
     private static function detachImageTask(int $tenantId, int $imageTaskId, int $userId = 0): void
@@ -772,7 +772,7 @@ class AigcFittingService
             'canceled' => '已取消',
             default => '生成中',
         };
-        return $row;
+        return \app\common\service\ai\UserTaskTraceService::appendMapped($row);
     }
 
     private static function imageUrls(mixed $images): array

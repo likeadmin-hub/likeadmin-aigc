@@ -18,8 +18,45 @@ final class MicroVideoWorkbenchWorkflowTest extends TestCase
     /** Both workbench validation and unchanged media ownership refusal are valid application rejections. */
     private function rejects(callable $f): void
     {try{$f();self::fail('Expected scope/revision rejection');}catch(\InvalidArgumentException|\RuntimeException $e){self::assertNotSame('',$e->getMessage());}}
+    public function testExplicitScriptReviewClearsStaleWithoutChangingWordsAndKeepsSceneReview(): void
+    {
+        $p=$this->create('project',['script'=>['text'=>'保留原稿','segments'=>[['sort'=>1,'duration'=>15,'prompt'=>'0-15秒：人物走入书店。']]],'scenes'=>[['scene_id'=>'s1','sort'=>1,'confirmed'=>false,'status'=>'stale']]]);
+        $body=$p['body'];$body['script_stale']=true;R::table()->where('id',$p['id'])->update(['body_json'=>json_encode($body)]);
+        $before=Db::name('ai_consumption_log')->count();$r=R::confirmScript(1,1,['project_id'=>$p['id'],'project_revision'=>1]);
+        self::assertFalse($r['body']['script_stale']);self::assertSame('保留原稿',$r['body']['script']['text']);self::assertFalse($r['body']['scenes'][0]['confirmed']);self::assertSame($before,Db::name('ai_consumption_log')->count());
+        $this->rejects(fn()=>R::confirmScript(1,1,['project_id'=>$p['id'],'project_revision'=>1]));$this->rejects(fn()=>R::confirmScript(2,1,['project_id'=>$p['id'],'project_revision'=>2]));$this->rejects(fn()=>R::confirmScript(1,2,['project_id'=>$p['id'],'project_revision'=>2]));
+    }
+    public function testDirectWritingCannotBypassMediaConfirmationAndReplaysOnlyItsOwnIntent(): void
+    {
+        $this->rejects(fn()=>J::writeScript(1,1,['action'=>'role_image']));
+        $p=$this->create();$key='direct-script-test-'.bin2hex(random_bytes(8));$request=['instructions'=>'重逢','selection'=>['model_id'=>'writer']];
+        $id=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$p['id'],'project_revision'=>1,'action'=>'rewrite','idempotency_key'=>$key,'input_hash'=>'fixture','status'=>'queued','request_json'=>json_encode($request),'receipt_json'=>'{}','result_json'=>'{}','next_run_at'=>time(),'create_time'=>time(),'update_time'=>time()]);
+        $args=['project_id'=>$p['id'],'project_revision'=>1,'instructions'=>'重逢','selection'=>['model_id'=>'writer'],'idempotency_key'=>$key];$before=Db::name('ai_consumption_log')->count();$quotes=J::table('quote')->count();
+        self::assertSame($id,J::writeScript(1,1,$args)['id']);self::assertSame($quotes,J::table('quote')->count());self::assertSame($before,Db::name('ai_consumption_log')->count());
+        $args['instructions']='另一个故事';$this->rejects(fn()=>J::writeScript(1,1,$args));
+    }
     public function testCloudDraftIsScopedAndOptimisticVersionsAreImmutable(): void
     {$before=Db::name('ai_consumption_log')->count();$a=$this->create('project',['brief'=>['goal'=>'original']]);$this->rejects(fn()=>R::owned(2,1,'project',$a['id']));$this->rejects(fn()=>R::owned(1,2,'project',$a['id']));$b=R::save(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>1,'title'=>'new','body'=>['brief'=>['goal'=>'new']]]);self::assertSame(2,$b['revision']);$this->rejects(fn()=>R::save(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>1,'title'=>'stale','body'=>[]]));$v=R::versions(1,1,['kind'=>'project','id'=>$a['id']]);self::assertSame('original',$v['lists'][1]['body']['brief']['goal']);$restored=R::restore(1,1,['kind'=>'project','id'=>$a['id'],'revision'=>2,'version'=>1]);self::assertSame(3,$restored['revision']);self::assertSame('original',$restored['body']['brief']['goal']);self::assertSame($before,Db::name('ai_consumption_log')->count());}
+    public function testSavingOwnedCloudProductSnapshotDoesNotRequireNetworkResolution(): void
+    {
+        $tenant = 987654321; $user = 987654322;
+        $uri = 'uploads/micro-workbench-cloud-metadata/' . bin2hex(random_bytes(8)) . '.png';
+        Db::name('tenant_file')->insert(['tenant_id' => $tenant, 'source_id' => $user, 'source' => 1, 'type' => 10, 'cid' => 0,
+            'uri' => $uri, 'name' => 'owned cloud product', 'storage_scope' => 'tenant', 'storage_engine' => 'qcloud',
+            'storage_domain' => 'https://owned-storage.invalid', 'create_time' => time(), 'delete_time' => 0]);
+        $before = Db::name('ai_consumption_log')->count();
+        $product = $this->create('product', ['brand' => 'Keep product facts', 'images' => [['uri' => $uri]]], $tenant, $user);
+        $project = $this->create('project', ['product' => ['id' => $product['id'], 'revision' => 1], 'brief' => ['goal' => 'Keep all filled fields']], $tenant, $user);
+        $saved = R::save($tenant, $user, ['kind' => 'project', 'id' => $project['id'], 'revision' => $project['revision'],
+            'title' => $project['title'], 'body' => $project['body']]);
+        self::assertSame(2, $saved['revision']);
+        self::assertSame('Keep all filled fields', $saved['body']['brief']['goal']);
+        self::assertSame($uri, $saved['body']['product_snapshot']['body']['images'][0]['uri']);
+        self::assertSame('https://owned-storage.invalid/' . $uri, $saved['body']['product_snapshot']['body']['images'][0]['url']);
+        self::assertSame($before, Db::name('ai_consumption_log')->count());
+        $this->rejects(fn() => R::save($tenant, $user + 1, ['kind' => 'project', 'id' => $saved['id'], 'revision' => 2,
+            'title' => 'foreign save', 'body' => $saved['body']]));
+    }
     public function testPrivateTemplateNeverLeaksIntoLegacyDirectionOrOtherUserCatalog(): void
     {$legacy=\app\common\service\app\aigc_micro_video\MicroVideoStore::table('direction')->count();$t=$this->create('template',['category'=>'campus']);$this->rejects(fn()=>R::owned(1,2,'template',$t['id']));self::assertSame($legacy,\app\common\service\app\aigc_micro_video\MicroVideoStore::table('direction')->count());$q=R::lists(1,1,['kind'=>'template','category'=>'campus']);self::assertContains($t['id'],array_column($q['lists'],'id'));$other=R::lists(1,1,['kind'=>'template','category'=>'office']);self::assertNotContains($t['id'],array_column($other['lists'],'id'));}
     public function testProductSnapshotsDoNotFollowCatalogEditsAndClientSnapshotsAreIgnored(): void
@@ -31,7 +68,7 @@ final class MicroVideoWorkbenchWorkflowTest extends TestCase
     public function testJobIdempotentReplaySurvivesExpiredQuoteAndNewProjectRevision(): void
     {$p=$this->create();$request=['target_id'=>'','instructions'=>'keep','selection'=>['model_id'=>'test']];$id=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$p['id'],'project_revision'=>1,'action'=>'rewrite','idempotency_key'=>'workbench_test_replay','input_hash'=>str_repeat('a',64),'status'=>'queued','request_json'=>json_encode($request),'receipt_json'=>'{}','result_json'=>'{}','create_time'=>time(),'update_time'=>time()]);$a=J::create(1,1,['project_id'=>$p['id'],'project_revision'=>1,'action'=>'rewrite','idempotency_key'=>'workbench_test_replay','instructions'=>'keep','quote_token'=>'expired']);self::assertSame($id,$a['id']);$this->rejects(fn()=>J::create(1,1,['project_id'=>$p['id'],'project_revision'=>1,'action'=>'rewrite','idempotency_key'=>'workbench_test_replay','instructions'=>'different']));$this->rejects(fn()=>J::owned(1,2,$id));self::assertSame($id,J::lists(1,1,['project_id'=>$p['id']])['lists'][0]['id']);}
     public function testOldResultNeverAutoOverwritesCurrentProjectAndExplicitAdoptionChecksRevision(): void
-    {$p=$this->create('project',['script'=>['text'=>'current','segments'=>[]]]);$id=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$p['id'],'project_revision'=>1,'action'=>'rewrite','idempotency_key'=>'workbench_test_adopt','input_hash'=>str_repeat('b',64),'status'=>'success','request_json'=>'{}','receipt_json'=>'{}','result_json'=>json_encode(['script'=>['text'=>'AI result','segments'=>[]]]),'create_time'=>time(),'update_time'=>time()]);$new=R::save(1,1,['kind'=>'project','id'=>$p['id'],'revision'=>1,'title'=>'edit','body'=>['script'=>['text'=>'user new','segments'=>[]]]]);$this->rejects(fn()=>J::adopt(1,1,['project_id'=>$p['id'],'project_revision'=>1,'job_id'=>$id]));self::assertSame('user new',R::dto(R::owned(1,1,'project',$p['id']))['body']['script']['text']);$yes=J::adopt(1,1,['project_id'=>$p['id'],'project_revision'=>2,'job_id'=>$id]);self::assertSame('AI result',$yes['body']['script']['text']);}
+    {$p=$this->create('project',['script'=>['text'=>'current','segments'=>[]]]);$id=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$p['id'],'project_revision'=>1,'action'=>'rewrite','idempotency_key'=>'workbench_test_adopt','input_hash'=>str_repeat('b',64),'status'=>'success','request_json'=>'{}','receipt_json'=>'{}','result_json'=>json_encode(['script'=>['text'=>'AI result','segments'=>[]]]),'create_time'=>time(),'update_time'=>time()]);$new=R::save(1,1,['kind'=>'project','id'=>$p['id'],'revision'=>1,'title'=>'edit','body'=>['script'=>['text'=>'user new','segments'=>[]]]]);$this->rejects(fn()=>J::adopt(1,1,['project_id'=>$p['id'],'project_revision'=>1,'job_id'=>$id]));self::assertSame('user new',R::dto(R::owned(1,1,'project',$p['id']))['body']['script']['text']);$this->rejects(fn()=>J::adopt(1,1,['project_id'=>$p['id'],'project_revision'=>2,'job_id'=>$id,'auto_apply'=>true]));$yes=J::adopt(1,1,['project_id'=>$p['id'],'project_revision'=>2,'job_id'=>$id]);self::assertSame('AI result',$yes['body']['script']['text']);}
     public function testUnknownJobCannotRetryOrCauseAnyCharge(): void
     {$p=$this->create();$id=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$p['id'],'project_revision'=>1,'action'=>'rewrite','idempotency_key'=>'workbench_test_unknown','input_hash'=>str_repeat('c',64),'status'=>'unknown','request_json'=>'{}','receipt_json'=>'{}','result_json'=>'{}','consumption_id'=>123,'create_time'=>time(),'update_time'=>time()]);$before=Db::name('ai_consumption_log')->count();$this->rejects(fn()=>J::retry(1,1,$id));self::assertSame($before,Db::name('ai_consumption_log')->count());}
     public function testVariantsAreSeparateFreeDraftsWithFrozenSelections(): void

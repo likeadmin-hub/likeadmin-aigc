@@ -42,6 +42,7 @@ class MarketGeoAppRuntimeService
                 }
                 if (!MarketPriceRuleService::available($tenantId, $sku, $tenantPrice)) continue;
                 $options[] = [
+                    ...MarketModelSource::product($product),
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'value' => self::selectionId((int)$product['id'], (int)$sku['id']),
                     'market_product_id' => (int)$product['id'],
@@ -69,7 +70,7 @@ class MarketGeoAppRuntimeService
                 ];
             }
         }
-        return $options;
+        return MarketModelSource::officialFirst($options);
     }
 
     public static function isSelection(array $selection): bool

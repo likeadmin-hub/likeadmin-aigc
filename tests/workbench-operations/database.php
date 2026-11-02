@@ -46,6 +46,10 @@ try {
     check(metric($data,'points_issued')['value']==30 && metric($data,'points_consumed')['value']==7 && metric($data,'points_returned')['value']==2,'point issuance, usage, returns separate');
     $trend=array_column($data['trend']['series'],null,'key')['task_total']['data'];check(count($trend)===13&&array_sum($trend)==3,'hour buckets filled zero');
     $platform=D::build(0,$params,$now);check(metric($platform,'task_total')['value']-metric($baseline,'task_total')['value']==4,'platform count aggregates tenant scope once');
+    check(metric($platform,'tenant_total')['value']-metric($baseline,'tenant_total')['value']==2 && metric($platform,'tenant_point_balance')['value']-metric($baseline,'tenant_point_balance')['value']==22,'Combined platform snapshot preserves total accounts and balances');
+    foreach (['partial_success','canceled','cancelled','queued','waiting_continue'] as $status) $task($tenant,$user,$status,$at);
+    $terminal=D::build($tenant,$params,$now);
+    check(metric($terminal,'task_success_rate')['value']==20 && metric($terminal,'task_success_rate')['previous']==100,'Success rate reuses true terminal count including partial/canceled variants and excluding all ongoing states');
     // Virtual refunds have their own confirmed receipt ledger, not refund_record.
     foreach (['recharge'=>40,'membership'=>60] as $kind=>$amount) {
         $table=$kind==='recharge'?'recharge_order':'membership_order';$sn=$kind==='recharge'?'sn':'order_sn';$tx='operations-virtual-'.$kind;

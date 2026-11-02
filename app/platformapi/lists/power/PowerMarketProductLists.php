@@ -6,6 +6,7 @@ use app\common\lists\ListsSearchInterface;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\service\power\PowerMarketService;
+use app\common\service\power\MarketModelSource;
 use app\platformapi\lists\BaseAdminDataLists;
 
 class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchInterface
@@ -27,6 +28,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code|upstream_app_code|upstream_api_code', '%' . $keyword . '%');
         }
         $rows = $query
+            ->orderRaw(MarketModelSource::officialFirstOrder())
             ->order(['status' => 'desc', 'update_time' => 'desc', 'id' => 'desc'])
             ->limit($this->limitOffset, $this->limitLength)
             ->select()

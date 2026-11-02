@@ -75,6 +75,26 @@ test('changed app submitters include their unchanged submit-lock dependency', ()
 })
 
 const bridgeWorkers=['AiTaskWorker','CanvasSubAgentWorker','ShortDramaEpisodeWorker','ShortDramaPlanningWorker','ShortDramaCanvasAgentWorker','Crontab']
+test('README presentation media remains source-only while application videos still ship', () => {
+    const f = fixture(), out = path.join(f.dir, 'readme-media-stage')
+    try {
+        f.write('.github/media/logicframe-aigc-intro.mp4', 'README-only video')
+        f.write('.github/media/logicframe-aigc-intro.gif', 'README-only preview')
+        f.write('public/media/application-demo.mp4', 'application runtime video')
+        execFileSync('git', ['add', '.github/media/logicframe-aigc-intro.mp4', '.github/media/logicframe-aigc-intro.gif', 'public/media/application-demo.mp4'], {cwd: f.repo})
+        execFileSync('git', ['commit', '-m', 'presentation and runtime media'], {cwd: f.repo, stdio: 'pipe'})
+        const result = spawnSync(process.execPath, [script.pathname, '--repo', f.repo, '--base-ref', f.base, '--base-version', '1.0.391', '--version', '1.0.392', '--out-dir', out, '--composer-runtime'], {encoding: 'utf8'})
+        assert.equal(result.status, 0, result.stderr)
+        assert.equal(fs.existsSync(path.join(out, 'files/.github/media')), false)
+        assert.equal(fs.readFileSync(path.join(out, 'files/public/media/application-demo.mp4'), 'utf8'), 'application runtime video')
+        const coverage = JSON.parse(fs.readFileSync(path.join(out, 'release-change-manifest.json')))
+        for (const name of ['logicframe-aigc-intro.mp4', 'logicframe-aigc-intro.gif']) {
+            assert.ok(coverage.paths.some(row => row.path === '.github/media/' + name && row.delivery === 'source-only-or-protected'))
+        }
+        assert.equal(coverage.uncovered.length, 0)
+    } finally { fs.rmSync(f.dir, {recursive: true, force: true}) }
+})
+
 test('new app migration ships unchanged runtime deferral dependency with exact owner',()=>{
     const f=fixture(),out=path.join(f.dir,'app-migration-stage')
     try {
