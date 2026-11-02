@@ -87,7 +87,7 @@ final class WorkspaceAssetReferenceService
     private static function uri(string $value): string
     {
         $path=parse_url($value,PHP_URL_PATH);
-        return is_string($path) && preg_match('#(?:^|/)((?:uploads|storage)/[^?#]+)$#',$path,$match) && !str_contains($match[1],'..') ? $match[1] : '';
+        return is_string($path) && preg_match('~(?:^|/)((?:uploads|storage)/[^?#]+)$~',$path,$match) && !str_contains($match[1],'..') ? $match[1] : '';
     }
     private static function text($value): string { return is_scalar($value)?trim((string)$value):''; }
 }
