@@ -91,6 +91,12 @@ final class AiUsageSupportService
             } else {
                 $result['text_result'] = self::text($row['result_text'] ?? $row['output_text'] ?? '');
             }
+            if ($table === 'aigc_canvas_run' && ($row['run_type'] ?? '') === 'text') {
+                // Canvas finishRun persists the text runtime receipt under result_json.
+                // Read only its user-visible string, never arbitrary receipt/provider fields.
+                $receipt = self::arrayValue($row['result_json'] ?? []);
+                $result['text_result'] = is_string($receipt['content'] ?? null) ? self::text($receipt['content']) : '';
+            }
             if ($table === 'aigc_copywriting_task') {
                 $prompt = self::arrayValue($row['prompt_snapshot'] ?? []);
                 $result['prompt'] = self::text($prompt['user_prompt'] ?? $prompt['content'] ?? '');

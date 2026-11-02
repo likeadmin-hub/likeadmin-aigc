@@ -173,6 +173,52 @@ final class AiUsageSupportDetailTest extends TestCase
         self::assertFalse(isset(request()->tenantId));
     }
 
+    public function testCanvasTextResultUsesOnlyScopedPersistedContentAndTerminalSuccess(): void
+    {
+        $this->binding('aigc_canvas', 'aigc_canvas_run');
+        Db::execute('CREATE TABLE la_aigc_canvas_run (id INTEGER PRIMARY KEY, tenant_id INTEGER, user_id INTEGER, run_type TEXT, status TEXT, prompt TEXT, params_json TEXT, result_json TEXT, delete_time INTEGER DEFAULT 0)');
+        $savedResult = json_encode([
+            'content' => '<b>画布生成的文本</b>', 'consumption_id' => 2,
+            'provider_payload' => ['api_key' => 'DO_NOT_LEAK'], 'authorization' => 'DO_NOT_LEAK',
+        ]);
+        Db::name('aigc_canvas_run')->insert([
+            'id' => 20, 'tenant_id' => 11, 'user_id' => 7, 'run_type' => 'text',
+            'status' => 'success', 'prompt' => '画布文本输入', 'params_json' => '{}', 'result_json' => $savedResult,
+        ]);
+        $before = Db::name('aigc_canvas_run')->find();
+        $support = AiUsageService::consumptionDetail(2, 11)['support_detail'];
+        self::assertTrue($support['source_available']);
+        self::assertSame('<b>画布生成的文本</b>', $support['text_result']);
+        self::assertStringNotContainsString('DO_NOT_LEAK', json_encode($support));
+        self::assertSame('<b>画布生成的文本</b>', AiUsageService::appTaskDetail(1, 11)['text_result']);
+        self::assertSame($before, Db::name('aigc_canvas_run')->find());
+
+        foreach ([['tenant_id' => 12, 'user_id' => 7], ['tenant_id' => 11, 'user_id' => 8]] as $scope) {
+            Db::name('aigc_canvas_run')->where('id', 20)->update($scope);
+            $support = AiUsageService::consumptionDetail(2, 11)['support_detail'];
+            self::assertFalse($support['source_available']);
+            self::assertSame('', $support['text_result']);
+        }
+        Db::name('aigc_canvas_run')->where('id', 20)->update(['tenant_id' => 11, 'user_id' => 7]);
+        foreach (['failed', 'running', 'canceled'] as $status) {
+            Db::name('aigc_canvas_run')->where('id', 20)->update(['status' => $status]);
+            self::assertSame('', AiUsageService::consumptionDetail(2, 11)['support_detail']['text_result']);
+        }
+        Db::name('aigc_canvas_run')->where('id', 20)->update(['status' => 'success']);
+        Db::name('ai_consumption_log')->where('id', 2)->update(['run_status' => 'failed']);
+        self::assertSame('', AiUsageService::consumptionDetail(2, 11)['support_detail']['text_result']);
+        Db::name('ai_consumption_log')->where('id', 2)->update(['run_status' => 'success']);
+        foreach ([json_encode(['content' => ['api_key' => 'DO_NOT_LEAK']]), '{invalid-json'] as $invalid) {
+            Db::name('aigc_canvas_run')->where('id', 20)->update(['result_json' => $invalid]);
+            self::assertSame('', AiUsageService::consumptionDetail(2, 11)['support_detail']['text_result']);
+        }
+        Db::name('aigc_canvas_run')->where('id', 20)->update(['result_json' => $savedResult, 'run_type' => 'image']);
+        self::assertSame('', AiUsageService::consumptionDetail(2, 11)['support_detail']['text_result']);
+        Db::name('aigc_canvas_run')->where('id', 20)->update(['run_type' => 'text', 'delete_time' => 1]);
+        self::assertFalse(AiUsageService::consumptionDetail(2, 11)['support_detail']['source_available']);
+        self::assertSame(99, request()->tenantId);
+    }
+
     public function testNestedShortDramaRequestOnlyProjectsUserInputFields(): void
     {
         $this->binding('aigc_short_drama', 'aigc_short_drama_generation_task');
