@@ -13759,7 +13759,7 @@ class AigcShortDramaService
             return self::formatPlanVersion($row, false) + [
                 'revision_message'=>ShortDramaText::value($request['revision_message'] ?? ''),
                 'revision_base_task_id'=>ShortDramaText::value($request['revision_base_task_id'] ?? ''),
-                'created_timestamp'=>(int)$row['create_time'],
+                'created_timestamp'=>is_numeric($row['create_time']) ? (int)$row['create_time'] : (int)strtotime((string)$row['create_time']),
             ];
         }, $rows);
     }
