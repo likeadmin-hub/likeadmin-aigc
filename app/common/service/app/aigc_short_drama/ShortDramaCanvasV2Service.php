@@ -25,7 +25,9 @@ final class ShortDramaCanvasV2Service
         $models['music']=array_values((array)($music['channels']??[]));
         foreach ($models['music'] as &$model) $model['id']=$model['code']??$model['value']??'';
         unset($model);
-        return ['resource_models'=>$models,'agent_enabled'=>FeatureGate::enabled($tenant),'maximum_nodes'=>200];
+        $enabled=FeatureGate::enabled($tenant);$ready=$enabled && FeatureGate::executionEnabled($tenant) && $models['text']!==[];
+        return ['resource_models'=>$models,'agent_enabled'=>$enabled,'agent_ready'=>$ready,'maximum_nodes'=>200,
+            'message'=>$ready?'当前短剧资源可用':($enabled?'当前暂无可用的创作助手资源':'当前租户未开启创作助手')];
     }
 
     public static function detail(int $tenant,int $user,int $id): array
