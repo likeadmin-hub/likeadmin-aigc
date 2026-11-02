@@ -495,6 +495,7 @@ class AigcImageService
             ->where('t.tenant_id', $tenantId)
             ->where('t.delete_time', 0)
             ->order('t.id', 'desc');
+        if (($params['creation_scope'] ?? '') === 'own') \app\common\service\ai\GenerationWorkSourceService::ownOnly($query, self::APP_CODE, 't');
         if ($userId > 0) {
             $query->where('t.user_id', $userId);
         }
@@ -580,6 +581,7 @@ class AigcImageService
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
         }
+        $rows = \app\common\service\ai\GenerationWorkSourceService::appendRows($rows, self::APP_CODE);
         if ($usePage) {
             return [
                 'lists' => GenerationTaskResultService::appendNativeList($rows),
@@ -743,13 +745,14 @@ class AigcImageService
         ]);
     }
 
-    public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = '', string $style = ''): array
+    public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = '', string $style = '', bool $ownOnly = false): array
     {
         if ($status === '' || $status === 'running') {
             self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         }
 
         $query = AigcImageTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
+        if ($ownOnly) \app\common\service\ai\GenerationWorkSourceService::ownOnly($query, self::APP_CODE);
         if ($userId > 0) {
             $query->where('user_id', $userId);
         }
@@ -795,7 +798,7 @@ class AigcImageService
             $task['width'] = (int)($first['width'] ?? 0);
             $task['height'] = (int)($first['height'] ?? 0);
         }
-        return $tasks;
+        return \app\common\service\ai\GenerationWorkSourceService::appendRows($tasks, self::APP_CODE);
     }
 
     public static function deleteResult(int $tenantId, int $resultId, int $userId = 0): void
