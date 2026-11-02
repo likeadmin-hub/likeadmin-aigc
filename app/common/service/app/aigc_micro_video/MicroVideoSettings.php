@@ -48,7 +48,7 @@ final class MicroVideoSettings
         $models=array_values(array_filter($all,fn($m)=>in_array($m['id'],$config['video_model_ids'],true)));
         $out=array_intersect_key($config,array_flip(['status','default_model_id','default_quality','default_ratio','target_duration_options','max_images','max_segments']));
         $frameModels=MicroVideoFrameCatalog::models($tenant);$out+=['frames_enabled'=>(int)$config['frames_enabled'],'frame_models'=>array_values(array_filter($frameModels,fn($m)=>in_array($m['id'],$config['frame_model_ids'],true))),'default_frame_model_id'=>$config['default_frame_model_id'],'default_frame_quality'=>$config['default_frame_quality']];
-        $out+=['models'=>$models,'directions'=>self::directions($tenant,false),'duration_notice'=>self::NOTICE];
+        $out+=['models'=>MicroVideoRetailCatalog::videoModels($tenant,$models),'directions'=>self::directions($tenant,false),'duration_notice'=>self::NOTICE];
         if($admin)$out+=['available_frame_models'=>$frameModels,'available_models'=>$all,'text_models'=>MarketTextModelRuntimeService::modelGroups($tenant),'config'=>$config];return $out;
     }
     public static function directions(int $tenant,bool $admin=false): array
