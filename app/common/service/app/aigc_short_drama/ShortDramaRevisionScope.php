@@ -68,19 +68,14 @@ class ShortDramaRevisionScope
     public static function shotTarget(string $message, array $plan): array
     {
         $shots = array_values(array_filter((array)($plan['storyboard'] ?? []), 'is_array'));
-        $locations = [];
-        foreach ((array)($plan['locations'] ?? []) as $location) $locations[(string)($location['id'] ?? '')] = $location;
-        $order = static function (array $shot, int $index) use ($locations): array {
-            $sceneId = (string)($shot['scene_ref_id'] ?? $shot['scene_ref'] ?? '');
-            $scene = $locations[$sceneId] ?? [];
-            $numeric = static function ($value): int { preg_match('/\d+/', (string)$value, $match); return (int)($match[0] ?? 0); };
-            return [(int)($scene['story_order'] ?? $shot['scene_order'] ?? 0), $numeric($shot['sort'] ?? '') ?: ($numeric($shot['shot_id'] ?? '') ?: $index + 1)];
-        };
+        // Match the document's compareShotTimeline: explicit global sort wins;
+        // otherwise retain the returned sequence, never the location library order.
         $indexed = [];
-        foreach ($shots as $index => $shot) $indexed[] = ['shot' => $shot, 'order' => $order($shot, $index), 'index' => $index];
+        foreach ($shots as $index => $shot) $indexed[] = ['shot' => $shot, 'index' => $index];
         usort($indexed, static function (array $a, array $b): int {
-            if ($a['order'][0] > 0 && $b['order'][0] > 0 && $a['order'][0] !== $b['order'][0]) return $a['order'][0] <=> $b['order'][0];
-            return ($a['order'][1] <=> $b['order'][1]) ?: ($a['index'] <=> $b['index']);
+            $left = is_numeric($a['shot']['sort'] ?? null) ? (float)$a['shot']['sort'] : 0;
+            $right = is_numeric($b['shot']['sort'] ?? null) ? (float)$b['shot']['sort'] : 0;
+            return ($left > 0 && $right > 0 ? $left <=> $right : 0) ?: $a['index'] <=> $b['index'];
         });
         $shots = array_column($indexed, 'shot');
         $number = '[0-9零〇一二两三四五六七八九十百]+';
