@@ -5614,6 +5614,7 @@ class AigcShortDramaService
         unset($request['_revision_agent_version'], $request['_revision_context'], $request['_revision_stage']);
         if (!$advanceStage && !$contentReview) {
             $request['_revision_agent_version'] = ShortDramaRevisionAgent::VERSION;
+            $request['_generation_version'] = max(3,(int)($request['_generation_version'] ?? 0));
             $request['_revision_stage'] = ShortDramaStoryWorkflow::enabled($sourceRequest) ? $currentStage : (!empty($request['multi_episode']) ? 'episodes' : 'production');
             $turns = self::revisionConversation($tenantId, $userId, (int)$task['project_id']);
             $request['_revision_context'] = [
