@@ -43,7 +43,10 @@ class PackageController extends BaseAdminController
 
     public function appPlans()
     {
-        return $this->success('获取成功', TenantPackageService::appPlanOptions());
+        $data = (int)$this->request->get('catalog', 0) === 1
+            ? TenantPackageService::appPlanCatalog()
+            : TenantPackageService::appPlanOptions();
+        return $this->success('获取成功', $data);
     }
 
     public function quotaOrders()
