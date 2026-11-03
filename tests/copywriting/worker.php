@@ -8,7 +8,8 @@ use think\facade\Db;
 $temporaryTables=[];
 foreach(['task','task_event'] as $name){
  $table=Store::table($name)->getTable();
- Db::execute('CREATE TEMPORARY TABLE `'.$table.'` LIKE `'.$table.'`');
+ $definition=Db::query('SHOW CREATE TABLE `'.$table.'`')[0]['Create Table'];
+ Db::execute(preg_replace('/^CREATE TABLE /','CREATE TEMPORARY TABLE ',$definition));
  $temporaryTables[]=$table;
 }
 Db::startTrans();try{
