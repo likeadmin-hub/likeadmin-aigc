@@ -21,8 +21,14 @@ final class ShortDramaVideoReferenceMode
 
     private static function acceptsImages(array $capabilities, string $method, int $count): bool
     {
+        return self::referenceLimit($capabilities, $method, $count) >= min(2, $count);
+    }
+
+    public static function referenceLimit(array $capabilities, string $method, int $limit): int
+    {
         $modes = (array)($capabilities['material_modes'] ?? []);
-        if ($modes === []) return true; // Historical adapters publish their image limits separately.
+        if ($modes === [] || !in_array($method, ['omni_reference', 'image_reference', 'multi_frame'], true)) return $limit;
+        $available = 0;
         foreach ($modes as $mode) {
             if (($mode['method'] ?? '') !== $method) continue;
             $minimum = 0; $maximum = 0; $unsupported = false;
@@ -35,8 +41,8 @@ final class ShortDramaVideoReferenceMode
                 $minimum += $required;
                 $maximum += (int)($field['maximum'] ?? $field['minimum'] ?? 0);
             }
-            if (!$unsupported && $maximum >= min(2, $count) && $count >= $minimum) return true;
+            if (!$unsupported && $limit >= $minimum) $available = max($available, $maximum);
         }
-        return false;
+        return min($limit, $available);
     }
 }

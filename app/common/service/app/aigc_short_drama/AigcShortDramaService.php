@@ -16531,6 +16531,7 @@ class AigcShortDramaService
         );
         $method = ShortDramaVideoReferenceMode::referenceMethod($capabilities, min(count($candidates), $referenceLimit));
         if (in_array($method, ['omni_reference', 'image_reference', 'multi_frame'], true)) {
+            $referenceLimit = ShortDramaVideoReferenceMode::referenceLimit($capabilities, $method, $referenceLimit);
             $selected = array_slice($candidates, 0, $referenceLimit);
             return self::shortDramaVideoReferenceContractPayload(
                 $method,

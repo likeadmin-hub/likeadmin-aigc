@@ -102,6 +102,17 @@ class ShortDramaVideoModeAndRatioTest extends TestCase
             'material_modes' => [['method' => 'multi_frame', 'fields' => [['kind' => 'image', 'role' => 'keyframe', 'maximum' => 10]]]]], 3));
     }
 
+    public function testContextualImageCountUsesTheSelectedModeLimit(): void
+    {
+        $capabilities = ['generation_modes' => ['image_to_video', 'omni_reference'], 'material_modes' => [
+            ['method' => 'omni_reference', 'fields' => [['kind' => 'image', 'role' => 'reference', 'required' => true, 'minimum' => 1, 'maximum' => 5]]],
+        ]];
+        self::assertSame('omni_reference', ShortDramaVideoReferenceMode::referenceMethod($capabilities, 6));
+        self::assertSame(5, ShortDramaVideoReferenceMode::referenceLimit($capabilities, 'omni_reference', 6));
+        self::assertSame(3, ShortDramaVideoReferenceMode::referenceLimit($capabilities, 'omni_reference', 3));
+        self::assertSame(6, ShortDramaVideoReferenceMode::referenceLimit([], 'multi_frame', 6));
+    }
+
     private function request(string $method): array
     {
         $assets = [];
