@@ -21,6 +21,15 @@ final class MicroVideoFramesWorkflowTest extends TestCase
         $c=C::get(1);$c['video_model_ids']=array_values(array_unique([...$c['video_model_ids'],$video['id']]));$c['frames_enabled']=1;$c['frame_model_ids']=[$this->model['id']];$c['default_frame_model_id']=$this->model['id'];$c['default_frame_quality']=$this->model['specs'][0]['quality'];S::table('config')->where('tenant_id',1)->update(['config_json'=>S::encode($c)]);
     }
     protected function tearDown(): void{Db::rollback();}
+    private function ownedImage(): string
+    {
+        // Reuse a real owned input accepted by this model's URL contract as the
+        // prior successful frame; these tests exercise revisions, not rendering.
+        $params=S::json(S::owned(1,1,$this->id)['params_json']);
+        $images=\app\common\service\app\aigc_micro_video\MicroVideoMedia::validateImages(1,1,$params['images'],15);
+        self::assertNotEmpty($images);
+        return $images[0]['uri'];
+    }
     private function configured(): array{return F::configure(1,1,['id'=>$this->id,'plan_revision'=>1,'generation_mode'=>'start_end','frame_model_id'=>$this->model['id'],'frame_quality'=>$this->model['specs'][0]['quality']]);}
     private function reject(callable $f): void{try{$f();}catch(\InvalidArgumentException|\RuntimeException $e){self::assertNotSame('',$e->getMessage());return;}self::fail('Admission should reject');}
     public function testConfigurationCreatesNPlusOneSharedBoundaryRowsWithoutBilling(): void
@@ -33,7 +42,7 @@ final class MicroVideoFramesWorkflowTest extends TestCase
     }
     public function testStaticEditKeepsEarlierMediaAndInvalidatesDependentTailAndQuote(): void
     {
-        $d=$this->configured();S::table('frame')->where('task_id',$this->id)->update(['status'=>'success','confirmed'=>1,'image_uri'=>'uploads/kept-audit.png']);$before=F::rows($this->id);$q=F::estimate(1,1,['id'=>$this->id,'plan_revision'=>1,'frame_ids'=>[$before[1]['id']]]);$changed=F::save(1,1,['id'=>$this->id,'plan_revision'=>1,'frames_revision'=>$d['frames_revision'],'frame_id'=>$before[1]['id'],'prompt'=>'静态人物举起蓝瓶，保持身份。','reference_indices'=>[0]]);$after=F::rows($this->id);self::assertSame($before[0],$after[0]);self::assertNotSame($before[1]['id'],$after[1]['id']);self::assertSame('stale',$after[1]['status']);self::assertSame('stale',$after[2]['status']);self::assertSame('uploads/kept-audit.png',S::table('frame')->where('id',$before[1]['id'])->value('image_uri'));$this->reject(fn()=>F::generate(1,1,['id'=>$this->id,'plan_revision'=>1,'frames_revision'=>$changed['frames_revision'],'quote_token'=>$q['quote_token'],'frame_ids'=>[$after[1]['id']],'idempotency_key'=>'stale_frame_quote']));
+        $d=$this->configured();$uri=$this->ownedImage();S::table('frame')->where('task_id',$this->id)->update(['status'=>'success','confirmed'=>1,'image_uri'=>$uri]);$before=F::rows($this->id);$q=F::estimate(1,1,['id'=>$this->id,'plan_revision'=>1,'frame_ids'=>[$before[1]['id']]]);$changed=F::save(1,1,['id'=>$this->id,'plan_revision'=>1,'frames_revision'=>$d['frames_revision'],'frame_id'=>$before[1]['id'],'prompt'=>'静态人物举起蓝瓶，保持身份。','reference_indices'=>[0]]);$after=F::rows($this->id);self::assertSame($before[0],$after[0]);self::assertNotSame($before[1]['id'],$after[1]['id']);self::assertSame('stale',$after[1]['status']);self::assertSame('stale',$after[2]['status']);self::assertSame($uri,S::table('frame')->where('id',$before[1]['id'])->value('image_uri'));$this->reject(fn()=>F::generate(1,1,['id'=>$this->id,'plan_revision'=>1,'frames_revision'=>$changed['frames_revision'],'quote_token'=>$q['quote_token'],'frame_ids'=>[$after[1]['id']],'idempotency_key'=>'stale_frame_quote']));
     }
     public function testFrameOwnershipReadinessAndOldRevisionsAreRejected(): void
     {
@@ -58,7 +67,7 @@ final class MicroVideoFramesWorkflowTest extends TestCase
 
     public function testPreProviderFailureRetriesOnlySelectedImageAndRetainsIndependentSuccess(): void
     {
-        $d=$this->configured();$frames=F::rows($this->id);S::table('frame')->where('id',$frames[0]['id'])->update(['status'=>'success','image_uri'=>'uploads/retained-fixture.png','confirmed'=>1]);S::table('frame')->where('id',$frames[1]['id'])->update(['status'=>'failed','error'=>'Injected before provider call']);$kept=F::rows($this->id)[0];$before=Db::name('ai_consumption_log')->count();$q=F::estimate(1,1,['id'=>$this->id,'plan_revision'=>1,'frame_ids'=>[$frames[1]['id']]]);self::assertSame(1,$q['frame_count']);F::generate(1,1,['id'=>$this->id,'plan_revision'=>1,'frames_revision'=>$d['frames_revision'],'frame_ids'=>[$frames[1]['id']],'quote_token'=>$q['quote_token'],'idempotency_key'=>'retry_pre_provider_image']);$after=F::rows($this->id);self::assertSame($kept,$after[0]);self::assertSame('pending',$after[1]['status']);self::assertSame('stale',$after[2]['status']);self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertSame([$after[1]['id']],S::json(S::table('frame_batch')->where('task_id',$this->id)->value('frame_ids')));
+        $d=$this->configured();$uri=$this->ownedImage();$frames=F::rows($this->id);S::table('frame')->where('id',$frames[0]['id'])->update(['status'=>'success','image_uri'=>$uri,'confirmed'=>1]);S::table('frame')->where('id',$frames[1]['id'])->update(['status'=>'failed','error'=>'Injected before provider call']);$kept=F::rows($this->id)[0];$before=Db::name('ai_consumption_log')->count();$q=F::estimate(1,1,['id'=>$this->id,'plan_revision'=>1,'frame_ids'=>[$frames[1]['id']]]);self::assertSame(1,$q['frame_count']);F::generate(1,1,['id'=>$this->id,'plan_revision'=>1,'frames_revision'=>$d['frames_revision'],'frame_ids'=>[$frames[1]['id']],'quote_token'=>$q['quote_token'],'idempotency_key'=>'retry_pre_provider_image']);$after=F::rows($this->id);self::assertSame($kept,$after[0]);self::assertSame('pending',$after[1]['status']);self::assertSame('stale',$after[2]['status']);self::assertSame($before,Db::name('ai_consumption_log')->count());self::assertSame([$after[1]['id']],S::json(S::table('frame_batch')->where('task_id',$this->id)->value('frame_ids')));
     }
 
 }
