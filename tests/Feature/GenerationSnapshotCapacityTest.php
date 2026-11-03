@@ -34,7 +34,7 @@ class GenerationSnapshotCapacityTest extends TestCase
             if ($table === 'la_ai_consumption_log') continue;
             $app = preg_replace('/_(?:script_|generation_)?task$/', '', substr($table, 3));
             $folder = $root.'/app/apps/'.$app.'/migrations/';
-            $appTargets = array_map([RuntimeGenerationSnapshotCapacity::class, 'target'], SqlMigrationExecutor::split(file_get_contents($folder.'upgrade_20261103_generation_snapshot_capacity.sql')));
+            $appTargets = array_map([RuntimeGenerationSnapshotCapacity::class, 'target'], SqlMigrationExecutor::split(file_get_contents($folder.'upgrade_20261103_generation_snapshot_capacity_'.$app.'.sql')));
             self::assertContains([$suffix, $column], $appTargets);
             // Signed historical install bytes stay intact. A fresh app install
             // reaches the same capacity through its new bounded upgrade intent.
