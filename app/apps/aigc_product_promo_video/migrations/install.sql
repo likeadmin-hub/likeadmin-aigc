@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_promo_video_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` mediumtext,
+  `pricing_snapshot` text,
   `billing_status` varchar(30) NOT NULL DEFAULT 'none',
   `idempotency_key` varchar(100) DEFAULT NULL,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',

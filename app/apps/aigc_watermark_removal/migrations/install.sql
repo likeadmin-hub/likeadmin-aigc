@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_watermark_removal_task` (
   `provider_task_id` varchar(160) NOT NULL DEFAULT '',
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` mediumtext,
+  `pricing_snapshot` text,
   `source_url` varchar(1000) NOT NULL DEFAULT '',
   `request_snapshot` text,
   `tenant_cost_points` decimal(12,2) NOT NULL DEFAULT 0.00,

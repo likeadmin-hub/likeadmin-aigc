@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `model` varchar(100) NOT NULL DEFAULT '' COMMENT '模型',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '供应商任务ID',
   `model_json` text COMMENT '市场模型快照',
-  `pricing_snapshot` mediumtext COMMENT '市场价格快照',
+  `pricing_snapshot` text COMMENT '市场价格快照',
   `status` varchar(30) NOT NULL DEFAULT 'pending',
   `error` text,
   `create_time` int unsigned NOT NULL DEFAULT 0,
