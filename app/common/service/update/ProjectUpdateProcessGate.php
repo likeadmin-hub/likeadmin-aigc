@@ -6,6 +6,12 @@ use RuntimeException;
 /** Read-only Linux process gate. Never signals processes or prints their arguments. */
 class ProjectUpdateProcessGate
 {
+    /** System upgrades report process changes after commit, rather than demand a stop. */
+    public static function systemUpdateAdvice(array $impact): array
+    {
+        return ['requires_stop'=>false,'requires_restart'=>!empty($impact['requires_stop']),'reasons'=>(array)($impact['reasons']??[])];
+    }
+
     /** Compare verified package bytes with the selected immutable runtime, not a checkout. */
     public static function inspectUpdate(string $siteRoot, string $extract, array $manifest): array
     {

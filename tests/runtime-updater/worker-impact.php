@@ -17,6 +17,7 @@ try {
     impactPut($package.'/files/config/project.php',"<?php return ['version'=>'1.0.395','name'=>'test'];");
     $impact=Gate::inspectUpdate($site,$package,$manifest);
     impactCheck(!$impact['requires_stop'],'frontend/version-only update requires stop');
+    impactCheck(!Gate::systemUpdateAdvice($impact)['requires_restart'],'Static-only system update requests restart');
     $pipes=[];$worker=proc_open([PHP_BINARY,$site.'/think','decoration:agent-worker'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);usleep(100000);
     try {
         Gate::assertUpdateAllowed($site,$impact);
@@ -25,6 +26,9 @@ try {
         impactPut($package.'/files/app/common/command/DecorationAgentWorker.php','<?php // new worker');
         $impact=Gate::inspectUpdate($site,$package,$manifest);
         impactCheck($impact['requires_stop'],'changed decoration worker not detected');
+        $advice=Gate::systemUpdateAdvice($impact);
+        impactCheck(!$advice['requires_stop'] && $advice['requires_restart'],'System update still requires stopping its live worker');
+        impactCheck($advice['reasons']===$impact['reasons'],'System restart advice lost verified reasons');
         $blocked=false;try{Gate::assertUpdateAllowed($site,$impact);}catch(RuntimeException $e){$blocked=str_contains($e->getMessage(),'DecorationAgentWorker.php');}
         impactCheck($blocked,'active worker allowed a worker code update without a diagnostic path');
     } finally {proc_terminate($worker);foreach($pipes as $pipe)fclose($pipe);proc_close($worker);}

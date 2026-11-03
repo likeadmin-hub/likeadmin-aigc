@@ -10,7 +10,7 @@ class DirectSiteUpdateService
 {
     private string $root;
     private $writer = null;
-    private $writerIntent = null;
+    private $legacyWriterBarrier = null;
     private ?array $legacy = null;
 
     public function __construct(string $root, private string $php = '', private string $runner = '')
@@ -26,13 +26,13 @@ class DirectSiteUpdateService
         return is_array($state) && ($state['schema'] ?? null) === 1 && ($state['mode'] ?? '') === 'canonical';
     }
 
-    /** Every canonical HTTP reader holds this until exit; writers never wait indefinitely. */
+    /** Admit requests outside the write window; old reader leases never veto an update. */
     public static function acquireReader(string $root)
     {
         $directory = rtrim($root, '/') . '/runtime';
         if (!is_dir($directory) && !mkdir($directory, 0755, true)) throw new RuntimeException('无法创建站点运行目录');
-        // Admit no new readers while an updater drains existing requests. The
-        // short admission lease closes the check-versus-read-lock race.
+        // The short admission lease excludes a writer during bootstrap. Keep
+        // the legacy shared lease only to coordinate with older updater code.
         $intent = self::openSiteLock($directory.'/site-update-intent.lock');
         $handle = null;
         try {
@@ -312,7 +312,7 @@ class DirectSiteUpdateService
             $this->assertTarget($path);
             if ($entry['existed']) {
                 $this->directory(dirname($backup));
-                if (!empty($entry['watch'])) $this->copy($target, $backup);
+                if (!empty($entry['watch']) || (is_file($target) && $entry['source'] !== null && is_file($entry['source']))) $this->copy($target, $backup);
                 elseif (!rename($target, $backup)) throw new RuntimeException('无法暂存被替换文件: ' . $path);
             }
             $entry['state'] = 'backed_up'; $this->save($state);
@@ -364,15 +364,12 @@ class DirectSiteUpdateService
     {
         $this->directory($this->root . '/runtime');
         try {
-            $this->writerIntent=self::openSiteLock($this->root.'/runtime/site-update-intent.lock');
-            if (!flock($this->writerIntent,LOCK_EX|LOCK_NB)) throw new RuntimeException('本站已有更新正在等待或执行，请稍后重试');
-            $this->writer=self::openSiteLock($this->root.'/runtime/site-update.lock');
-            $deadline=hrtime(true)+5_000_000_000;
-            do {
-                if (flock($this->writer,LOCK_EX|LOCK_NB)) return;
-                usleep(50000);
-            } while (hrtime(true)<$deadline);
-            throw new RuntimeException('本站现有请求尚未结束，请稍后重试更新');
+            $this->writer=self::openSiteLock($this->root.'/runtime/site-update-intent.lock');
+            if (!flock($this->writer,LOCK_EX|LOCK_NB)) throw new RuntimeException('本站已有更新正在执行，请稍后重试');
+            // Shared with old HTTP/CLI readers, exclusive against an older
+            // updater. This also upgrades sites with already-running workers.
+            $this->legacyWriterBarrier=self::openSiteLock($this->root.'/runtime/site-update.lock');
+            if (!flock($this->legacyWriterBarrier,LOCK_SH|LOCK_NB)) throw new RuntimeException('本站已有更新正在执行，请稍后重试');
         } catch (Throwable $failure) { $this->unlock(); throw $failure; }
     }
     private static function openSiteLock(string $path)
@@ -387,7 +384,7 @@ class DirectSiteUpdateService
         foreach ($this->legacyVendorLeases as $lease) if (is_resource($lease)) fclose($lease);
         $this->legacyVendorLeases=[];
         if (is_resource($this->writer)) fclose($this->writer); $this->writer=null;
-        if (is_resource($this->writerIntent)) fclose($this->writerIntent); $this->writerIntent=null;
+        if (is_resource($this->legacyWriterBarrier)) fclose($this->legacyWriterBarrier); $this->legacyWriterBarrier=null;
     }
     public function writerLease() { return $this->writer; }
 
@@ -398,6 +395,7 @@ class DirectSiteUpdateService
         $runner=$this->runner ?: $this->root.'/scripts/composer-runtime-runner.php';
         $descriptors=[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']];
         if(is_resource($this->writer))$descriptors[3]=$this->writer;
+        if(is_resource($this->legacyWriterBarrier))$descriptors[4]=$this->legacyWriterBarrier;
         $pipes=[];$process=proc_open(array_merge([$this->php,'-d','opcache.enable_cli=0',$runner,'--site-root',$this->root],$arguments),$descriptors,$pipes,$this->root);
         if(!is_resource($process))throw new RuntimeException('无法启动站点更新子进程');
         fclose($pipes[0]);stream_set_blocking($pipes[1],false);stream_set_blocking($pipes[2],false);
