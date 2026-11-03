@@ -1,6 +1,4 @@
 {
   "component": true,
-  "usingComponents": {
-    "task-trace": "../task-trace/TaskTrace"
-  }
+  "usingComponents": {}
 }

@@ -1,7 +1,6 @@
 {
   "component": true,
   "usingComponents": {
-    "task-trace": "../../../../components/task-trace/TaskTrace",
     "micro-page": "../../components/MicroPage"
   }
 }
