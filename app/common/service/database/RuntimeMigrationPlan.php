@@ -14,6 +14,7 @@ final class RuntimeMigrationPlan
         $content = MicroVideoFrameSchema::expand($content);
         $prepare = []; $complete = []; $tables = [];
         if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
+        if (!class_exists(RuntimeGenerationSnapshotCapacity::class)) require_once __DIR__.'/RuntimeGenerationSnapshotCapacity.php';
         foreach (SqlMigrationExecutor::split($content) as $sql) {
             // Inspect SQL syntax without matching action words or @ inside string data.
             $syntax = preg_replace("/'(?:''|\\\\.|[^'])*'/s", "''", $sql);
@@ -27,6 +28,8 @@ final class RuntimeMigrationPlan
                 $complete[] = $sql;
             } elseif (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i', $syntax)
                 && !preg_match('/\b(?:SELECT|LIKE)\b/i', $syntax)) {
+                $prepare[] = $sql;
+            } elseif (RuntimeGenerationSnapshotCapacity::target($sql) !== null) {
                 $prepare[] = $sql;
             } elseif (preg_match('/^\s*ALTER\s+TABLE\s+`?la_aigc_video_config`?\s+MODIFY\s+(?:COLUMN\s+)?`?config_json`?\s+MEDIUMTEXT\s*$/iD', $sql)) {
                 // The executor reads the original column/engine and performs only
