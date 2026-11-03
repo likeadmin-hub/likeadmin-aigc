@@ -265,6 +265,15 @@
                                 "reference_audio_urls"
                             ],
                             "message": "首帧／首尾帧不能与参考素材同时使用。"
+                        },
+                        {
+                            "kind": "equals",
+                            "when_present": [
+                                "first_frame_url"
+                            ],
+                            "field": "aspect_ratio",
+                            "value": "adaptive",
+                            "message": "Seedance 2.5 首帧和首尾帧仅支持自适应比例。"
                         }
                     ]
                 }

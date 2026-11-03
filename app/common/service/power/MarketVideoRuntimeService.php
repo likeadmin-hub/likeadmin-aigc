@@ -301,6 +301,7 @@ class MarketVideoRuntimeService
         );
         return [
             'generation_modes' => self::sellableGenerationModes($product, $metadata, $sellableSkus),
+            'material_modes' => MarketGenerationMaterials::modes($metadata),
             'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
             'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
             'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
@@ -310,6 +311,16 @@ class MarketVideoRuntimeService
             'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
             'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $metadata),
         ];
+    }
+
+    /** Resolve a composed app's preferred ratio against its actual material mode, without billing or submission. */
+    public static function normalizeRatioSelection(int $tenantId, array $selection): array
+    {
+        $market = self::resolve($tenantId, $selection);
+        $result = MarketVideoRatioPolicy::normalize(self::metadata($market['product']), $selection);
+        $locked = self::skuRatio(self::arrayValue($market['sku']['locked_params'] ?? []));
+        if ($locked !== '' && $locked !== $result['ratio']) throw new Exception('当前规格的固定比例与生成方式不兼容');
+        return $result;
     }
 
     public static function supportsGenerateAudio(int $tenantId, array $selection): bool

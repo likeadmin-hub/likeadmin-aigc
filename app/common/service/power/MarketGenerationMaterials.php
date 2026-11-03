@@ -79,7 +79,8 @@ final class MarketGenerationMaterials
             if (isset($result[$fingerprint])) continue;
             $automatic=MarketGenerationCreatorMaterials::policies($metadata,$code,$fields);
             foreach($fields as&$field)if(isset($automatic[$field['field']]))$field['creator_automatic']=$automatic[$field['field']]['kind'];unset($field);
-            $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields, 'parameter_schema'=>MarketGenerationNativeContract::schema($metadata, $code)]);
+            $schema = MarketVideoRatioPolicy::modeSchema($metadata, $mode, MarketGenerationNativeContract::schema($metadata, $code));
+            $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields, 'parameter_schema'=>$schema]);
         }
         return array_values($result);
     }

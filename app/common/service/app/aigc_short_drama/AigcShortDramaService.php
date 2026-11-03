@@ -6800,7 +6800,7 @@ class AigcShortDramaService
             $params = self::prepareShortDramaVideoReferenceParams($tenantId, $userId, $projectId, $shot ? $shot->toArray() : [], $params);
             $videoRequest = self::marketShortDramaVideoParams($tenantId, $userId, $projectId, $shot ? $shot->toArray() : [], $params);
             $billing = self::estimateMarketVideoGenerationBilling($tenantId, array_replace($params, $videoRequest));
-            $billing['effective_video_params'] = self::shortDramaVideoEffectiveParams($params);
+            $billing['effective_video_params'] = self::shortDramaVideoEffectiveParams(array_replace($params, $videoRequest));
             return $billing;
         }
         if ($taskType === 'bgm_audio') {
@@ -16529,16 +16529,17 @@ class AigcShortDramaService
             self::shortDramaVideoSceneAssets($tenantId, $userId, $projectId, $shot),
             self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params)
         );
-        if (in_array('multi_frame', $modes, true) && $referenceLimit >= 2 && count($candidates) >= 2) {
+        $method = ShortDramaVideoReferenceMode::referenceMethod($capabilities, min(count($candidates), $referenceLimit));
+        if (in_array($method, ['omni_reference', 'image_reference', 'multi_frame'], true)) {
             $selected = array_slice($candidates, 0, $referenceLimit);
             return self::shortDramaVideoReferenceContractPayload(
-                'multi_frame',
+                $method,
                 $selected,
                 array_slice($candidates, count($selected)),
                 $capabilities
             );
         }
-        if (in_array('image_to_video', $modes, true)) {
+        if ($method === 'image_to_video') {
             return self::shortDramaVideoReferenceContractPayload(
                 'image_to_video',
                 [['asset' => $assetMap[$firstFrameId], 'role' => 'first_frame_image']],
@@ -16546,15 +16547,7 @@ class AigcShortDramaService
                 $capabilities
             );
         }
-        if (!in_array('omni_reference', $modes, true) || $referenceLimit < 1) {
-            throw new Exception('当前视频模型不支持可用的首帧参考方式，请更换模型');
-        }
-        return self::shortDramaVideoReferenceContractPayload(
-            'omni_reference',
-            array_slice($candidates, 0, $referenceLimit),
-            array_slice($candidates, $referenceLimit),
-            $capabilities
-        );
+        throw new Exception('当前视频模型不支持可用的首帧参考方式，请更换模型');
     }
 
     /**
@@ -16755,7 +16748,13 @@ class AigcShortDramaService
         $projectRatio = (string)AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId, 'delete_time' => 0])->value('ratio');
         $ratio = self::normalizeGenerationRatio($projectRatio) ?: self::requestGenerationRatio($params) ?: '9:16';
         $references = self::shortDramaVideoReferenceContract($tenantId, $userId, $projectId, $shot, $params);
+        $ratioSelection = $runtime::normalizeRatioSelection($tenantId, array_replace($selection, $params, [
+            'ratio' => $ratio, 'generation_method' => $references['generation_method'],
+            'reference_assets' => $references['reference_assets'], 'reference_images' => [],
+        ]));
+        $ratio = $ratioSelection['ratio'];
         $request = self::assembleVideoPromptRequest($tenantId, $shot, $params, $plan, $ratio, $references, $generateAudio);
+        $request = array_replace($request, $ratioSelection);
         $request['_visual_dependencies'] = self::inheritVisualDependencies($tenantId, $userId, $projectId,
             ShortDramaVisualDependencies::capture($plan, $shot, $params, (array)($references['reference_assets'] ?? [])),
             (array)($references['input_asset_ids'] ?? []));
