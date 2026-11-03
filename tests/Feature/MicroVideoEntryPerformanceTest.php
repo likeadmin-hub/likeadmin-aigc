@@ -8,12 +8,22 @@ final class MicroVideoEntryPerformanceTest extends TestCase
 {
     protected function setUp(): void
     {(new \think\App(dirname(__DIR__,2).'/'))->initialize();$db=config('database.connections.mysql');if($db['hostname']!=='127.0.0.1'||$db['database']!=='z_cn')self::markTestSkipped('Local read-only catalog verification');}
-    public function testImageCatalogUsesBatchedReadsAndAdvertisedPricesStillMatchLiveQuotes(): void
+    public function testImageCatalogUsesBatchedReadsAndPreservesLiveSkuPrices(): void
     {
         $queries=0;\think\facade\Db::listen(function()use(&$queries){$queries++;});
         $models=F::models(1);$listingQueries=$queries;
         self::assertNotEmpty($models);self::assertLessThanOrEqual(12,$listingQueries,'Do not re-query product, SKU and tenant price for every ratio');
-        foreach($models as $model)foreach($model['specs'] as $spec){$q=R::quote(1,['model_id'=>$model['id'],'market_sku_id'=>$spec['market_sku_id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio']],1);self::assertSame((int)$q['market_sku_id'],$spec['market_sku_id']);self::assertEqualsWithDelta((float)$q['user_charge_points'],$spec['user_charge_points'],0.00001);}
+        // Catalogue prices are advisory SKU data. Exact quotes additionally need
+        // the authored prompt and material mode; omitting those can select a
+        // different text/image SKU under the current admission contract.
+        $options=array_column(R::options(1),null,'id');
+        foreach($models as $model){$skus=array_column($options[$model['id']]['skus'],null,'market_sku_id');foreach($model['specs'] as $spec){
+            self::assertArrayHasKey($spec['market_sku_id'],$skus);$sku=$skus[$spec['market_sku_id']];
+            self::assertSame('reserved',$sku['settlement_mode']);
+            self::assertSame($sku['quality'],$spec['quality']);
+            self::assertContains($spec['ratio'],$sku['ratio_options']);
+            self::assertEqualsWithDelta(round((float)$sku['tenant_unit_price'],4),$spec['user_charge_points'],0.00001);
+        }}
     }
     public function testConfiguredVideoSubsetKeepsFullSpecificationAndDoesNotExposeOtherModels(): void
     {
