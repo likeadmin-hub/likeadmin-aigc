@@ -36,7 +36,7 @@ while True:time.sleep(.05)
  env=dict(os.environ,PHP_BIN=str(fake),PATH=tmp+':'+os.environ['PATH'])
  p=subprocess.Popen(['/bin/dash' if '--dash' in sys.argv else '/bin/sh',str(site/'scripts/start-ai-task-worker.sh')],env=env,start_new_session=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
  def entries():return (site/'runtime/started').read_text().splitlines() if (site/'runtime/started').exists() else []
- expected={'ai:task-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','decoration:agent-worker','brand:worker','home-agent:worker','micro-video:worker'}
+ expected={'ai:task-worker','short-drama:episode-worker','short-drama:planning-worker','short-drama:canvas-agent-worker','decoration:agent-worker','brand:worker','home-agent:worker','micro-video:worker','copywriting:worker'}
  try:
   until(lambda:(site/'runtime/active').exists(),'unified entry did not recover virtual maintenance after a failed iteration')
   rows=entries();ai=[r for r in rows if not r.endswith('virtualpay:maintain')]
@@ -58,4 +58,4 @@ while True:time.sleep(.05)
   (site/'runtime/finish').touch()
   if p.poll() is None:
    os.killpg(p.pid,signal.SIGTERM);p.communicate(timeout=8)
-print('PASS unified virtual maintenance startup/retry/non-overlap/graceful drain and eight existing workers unchanged')
+print('PASS unified virtual maintenance startup/retry/non-overlap/graceful drain and all queue workers unchanged')
