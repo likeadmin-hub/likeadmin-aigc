@@ -16,6 +16,20 @@ final class RuntimeGenerationSnapshotCapacityTest extends TestCase
         }
     }
 
+    public function testNewSnapshotMigrationsHaveAnUnambiguousPackageOwner(): void
+    {
+        $files=glob(dirname(__DIR__,2).'/app/apps/*/migrations/upgrade_20261103_generation_snapshot_capacity*.sql');
+        self::assertCount(11,$files);
+        self::assertCount(11,array_unique(array_map('basename',$files)), 'System staging identifies migration ownership by package filename');
+    }
+
+    public function testPublishedCopywritingInstallIsImmutableAndUpgradeAddsDeletion(): void
+    {
+        $root=dirname(__DIR__,2).'/app/apps/aigc_copywriting/migrations/';
+        self::assertSame('de7f8058049c514bb5bf66db50cae87d47bd065988baed5aa5f14224c6d1f664',hash_file('sha256',$root.'install.sql'));
+        self::assertStringContainsString('ADD COLUMN `delete_time`',file_get_contents($root.'upgrade_20261103_history_delete.sql'));
+    }
+
     public function testEveryNewAppMigrationPassesTheExistingRuntimePlanner(): void
     {
         $root = dirname(__DIR__, 2);
