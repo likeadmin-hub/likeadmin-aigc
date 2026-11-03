@@ -31,7 +31,8 @@ try {
             check($detail['icon']===($customIcon===''?'':\app\common\service\FileService::getFileUrl($customIcon)),'configured cover reaches '.$terminal);
         }
     }
-    $otherId=S::insert('tool',['tenant_id'=>$tenant+100000,'tool_code'=>'copy_rewrite','builtin_code'=>'copy_rewrite','name'=>'另一租户封面','icon'=>'resource/image/copywriting/copy_rewrite.png']);
+    $otherCategory=S::insert('category',['tenant_id'=>$tenant+100000,'code'=>'cover_test','name'=>'封面测试']);
+    $otherId=S::insert('tool',['tenant_id'=>$tenant+100000,'category_id'=>$otherCategory,'tool_code'=>'copy_rewrite','builtin_code'=>'copy_rewrite','name'=>'另一租户封面','icon'=>'resource/image/copywriting/copy_rewrite.png']);
     Seed::ensureTenant($tenant);
     check(S::owned('tool',$tenant+100000,$otherId)['icon']==='resource/image/copywriting/copy_rewrite.png','repair scoped to current tenant');
     $category=(int)S::table('category')->where('tenant_id',$tenant)->value('id');
