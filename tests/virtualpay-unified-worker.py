@@ -48,8 +48,13 @@ while True:time.sleep(.05)
   time.sleep(.3)
   assert p.poll() is None,'launcher did not wait for active maintenance to drain'
   assert not (site/'runtime/finished').exists(),'maintenance was not active at shutdown'
+  if '--repeat-signal' in sys.argv:
+   p.send_signal(signal.SIGTERM)
+   time.sleep(.2)
+   assert p.poll() is None,'repeated stop killed launcher before children drained'
   (site/'runtime/finish').touch();out,err=p.communicate(timeout=8)
   assert p.returncode==143,(p.returncode,out,err)
+  assert not (site/'runtime/ai_task_worker.pid').exists(),'stopped launcher left its PID file behind'
   assert (site/'runtime/finished').exists(),'active maintenance was killed before completion'
   assert entries()==rows,('shutdown started another iteration', rows,entries())
   until(lambda:(site/'runtime/stopped').exists(),'workers did not stop')
@@ -58,4 +63,6 @@ while True:time.sleep(.05)
   (site/'runtime/finish').touch()
   if p.poll() is None:
    os.killpg(p.pid,signal.SIGTERM);p.communicate(timeout=8)
+  if (site/'runtime/active').exists():
+   until(lambda:(site/'runtime/finished').exists(),'fixture maintenance did not finish during teardown')
 print('PASS unified virtual maintenance startup/retry/non-overlap/graceful drain and eight existing workers unchanged')

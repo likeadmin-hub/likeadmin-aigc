@@ -155,6 +155,7 @@ class SystemPackageUpdateService
             'remark' => 'AI 任务守护进程',
             'directory' => $directory,
             'start_command' => '/bin/sh ' . escapeshellarg($script),
+            'stop_config' => "stopsignal=TERM\nstopasgroup=true\nkillasgroup=true\nstopwaitsecs=3600",
             'log_command' => 'tail -f ' . escapeshellarg($directory . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR . 'ai_task_worker.log'),
         ];
     }

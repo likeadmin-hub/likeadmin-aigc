@@ -10,6 +10,7 @@ class DirectSiteUpdateService
 {
     private string $root;
     private $writer = null;
+    private $writerIntent = null;
     private ?array $legacy = null;
 
     public function __construct(string $root, private string $php = '', private string $runner = '')
@@ -30,13 +31,18 @@ class DirectSiteUpdateService
     {
         $directory = rtrim($root, '/') . '/runtime';
         if (!is_dir($directory) && !mkdir($directory, 0755, true)) throw new RuntimeException('无法创建站点运行目录');
-        $file = $directory . '/site-update.lock';
-        if (is_link($file)) throw new RuntimeException('站点更新锁不能是链接');
-        $handle = fopen($file, 'c+e');
-        if (!$handle || !flock($handle, LOCK_SH | LOCK_NB)) {
+        // Admit no new readers while an updater drains existing requests. The
+        // short admission lease closes the check-versus-read-lock race.
+        $intent = self::openSiteLock($directory.'/site-update-intent.lock');
+        $handle = null;
+        try {
+            if (!flock($intent, LOCK_SH | LOCK_NB)) throw new RuntimeException('本站正在更新，请稍后重试');
+            $handle = self::openSiteLock($directory.'/site-update.lock');
+            if (!flock($handle, LOCK_SH | LOCK_NB)) throw new RuntimeException('本站正在更新，请稍后重试');
+        } catch (Throwable $failure) {
             if (is_resource($handle)) fclose($handle);
-            throw new RuntimeException('本站正在更新，请稍后重试');
-        }
+            throw $failure;
+        } finally { fclose($intent); }
         if (is_file($directory . '/direct-update-active.json')) {
             fclose($handle);
             throw new RuntimeException('本站更新恢复尚未完成');
@@ -356,16 +362,32 @@ class DirectSiteUpdateService
     private function receipt(string $digest): string { return $this->root . '/runtime/update_receipts/' . $digest . '.json'; }
     private function lock(): void
     {
-        $this->directory($this->root . '/runtime'); $path=$this->root . '/runtime/site-update.lock';
+        $this->directory($this->root . '/runtime');
+        try {
+            $this->writerIntent=self::openSiteLock($this->root.'/runtime/site-update-intent.lock');
+            if (!flock($this->writerIntent,LOCK_EX|LOCK_NB)) throw new RuntimeException('本站已有更新正在等待或执行，请稍后重试');
+            $this->writer=self::openSiteLock($this->root.'/runtime/site-update.lock');
+            $deadline=hrtime(true)+5_000_000_000;
+            do {
+                if (flock($this->writer,LOCK_EX|LOCK_NB)) return;
+                usleep(50000);
+            } while (hrtime(true)<$deadline);
+            throw new RuntimeException('本站现有请求尚未结束，请稍后重试更新');
+        } catch (Throwable $failure) { $this->unlock(); throw $failure; }
+    }
+    private static function openSiteLock(string $path)
+    {
         if (is_link($path)) throw new RuntimeException('站点更新锁不能是链接');
-        $this->writer=fopen($path,'c+');
-        if (!$this->writer || !flock($this->writer,LOCK_EX|LOCK_NB)) { $this->unlock(); throw new RuntimeException('本站仍有请求或更新正在执行，请稍后重试'); }
+        $handle=fopen($path,'c+e');
+        if (!$handle) throw new RuntimeException('无法打开站点更新锁');
+        return $handle;
     }
     private function unlock(): void
     {
         foreach ($this->legacyVendorLeases as $lease) if (is_resource($lease)) fclose($lease);
         $this->legacyVendorLeases=[];
         if (is_resource($this->writer)) fclose($this->writer); $this->writer=null;
+        if (is_resource($this->writerIntent)) fclose($this->writerIntent); $this->writerIntent=null;
     }
     public function writerLease() { return $this->writer; }
 
