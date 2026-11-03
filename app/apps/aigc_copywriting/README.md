@@ -65,3 +65,6 @@ php tests/copywriting/recovery.php
 ```
 
 行为测试使用本地事务回滚，不调用供应商。完整新系统安装、生产代理、小程序真机和各模型的实际可用性仍应在对应交付环境验收；编译成功不代表这些环境已经通过。
+
+### 基础配置与封面
+租户基础配置复用 AppDisplayConfigService 和 tenant_app_config；不新增业务表。菜单、保存权限和 API 声明随应用目录同步。新安装和新租户走 DefaultAppService；已有环境可执行 `php think copywriting:repair --apply --tenant=<id>` 同步注册与菜单，不改租户展示设置。用户端仅暴露展示字段白名单。功能封面继续使用既有 icon 字段，后台保留素材实际访问地址，避免将本地文件替换为当前云存储默认域名。
