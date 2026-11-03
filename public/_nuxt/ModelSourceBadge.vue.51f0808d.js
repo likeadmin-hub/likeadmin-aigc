@@ -1,0 +1,1 @@
+import{M as e}from"./ModelSourceBadge.70bd1c2a.js";import{g as n,o as a,l as p}from"./entry.a7a72a95.js";const l=n({__name:"ModelSourceBadge",props:{model:{},compact:{type:Boolean},showUnknown:{type:Boolean}},setup(c){return(o,m)=>(a(),p(e,{model:o.model,compact:o.compact,"show-unknown":o.showUnknown},null,8,["model","compact","show-unknown"]))}});export{l as _};
