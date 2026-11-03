@@ -10,13 +10,16 @@ final class ShortDramaVideoModelParameters
     public static function normalize(int $tenantId, array $params): array
     {
         $nested = is_array($params['params'] ?? null) ? $params['params'] : [];
-        foreach (['advanced_params', 'provider_params'] as $key) {
+        foreach (['advanced_params', 'provider_params', 'market_sku_id', 'sku_id'] as $key) {
             if (!array_key_exists($key, $params) && array_key_exists($key, $nested)) {
                 $params[$key] = $nested[$key];
             }
         }
-        if (!isset($params['model_id'])) {
-            $params['model_id'] = $params['video_model_id'] ?? $nested['model_id'] ?? $nested['video_model_id'] ?? '';
+        if (empty($params['model_id'])) {
+            $selection = array_replace($nested, $params);
+            $id = (string)($selection['model_id'] ?? '');
+            if ($id === '') $id = (string)($selection['video_model_id'] ?? $selection['channel'] ?? '');
+            if ($id !== '') $params['model_id'] = $id;
         }
         return MarketCreationParameters::apply($tenantId, $params, 'video');
     }

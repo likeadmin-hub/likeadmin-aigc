@@ -72,6 +72,19 @@ class ShortDramaVideoModelParametersTest extends TestCase
         self::assertArrayNotHasKey('multi_shots', $payload);
     }
 
+    public function testExistingSelectionAliasesAndNestedSkuReachControlValidation(): void
+    {
+        $request = ShortDramaVideoModelParameters::normalize(0, ['channel' => 'offline-video', 'params' => ['market_sku_id' => 12]]);
+        self::assertSame('offline-video', $request['model_id']);
+        self::assertSame(12, $request['market_sku_id']);
+        $request = ShortDramaVideoModelParameters::normalize(0, ['params' => ['video_model_id' => 'nested-video', 'market_sku_id' => 12], 'market_sku_id' => 17]);
+        self::assertSame('nested-video', $request['model_id']);
+        self::assertSame(17, $request['market_sku_id']);
+        $request = ShortDramaVideoModelParameters::normalize(0, ['params' => ['model_id' => 'selected', 'video_model_id' => 'old']]);
+        self::assertSame('selected', $request['model_id']);
+        self::assertArrayNotHasKey('model_id', ShortDramaVideoModelParameters::normalize(0, []));
+    }
+
     public function testUnsupportedControlsAreRejectedByTheExistingValidator(): void
     {
         $this->expectException(\InvalidArgumentException::class);
