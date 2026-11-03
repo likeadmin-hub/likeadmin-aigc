@@ -6,6 +6,7 @@ class TaskController extends Controller {
  public function detail(){return $this->call(fn()=>Tasks::detail($this->tenant(),$this->userId,(int)$this->request->get('id')));}
  public function lists(){return $this->call(fn()=>Tasks::lists($this->tenant(),$this->userId,(int)$this->request->get('page_no',1)));}
  public function cancel(){return $this->call(fn()=>Tasks::cancel($this->tenant(),$this->userId,(int)$this->request->post('id')));}
+ public function delete(){return $this->call(fn()=>Tasks::delete($this->tenant(),$this->userId,(int)$this->request->post('id')));}
  public function events(){
   $tenant=$this->tenant();$id=(int)$this->request->param('id');$after=(int)$this->request->param('after_seq',0);
   try{Tasks::owned($tenant,$this->userId,$id);}catch(\Throwable $e){return $this->fail($e->getMessage());}
