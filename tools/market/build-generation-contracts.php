@@ -41,6 +41,11 @@ $contracts=[];foreach(json_decode(file_get_contents($argv[1]),true,512,JSON_THRO
  $modes=[];$group=G::forSource($profile['source_model']);
  if($group){foreach($group['modes'] as $mode=>$def){$native=R::profile($def['source_model']);$modes[$mode]=admission($native);}}
  else $modes['']=admission($profile);
+ // Verified gateway rejection, 2026-11-03: frames require adaptive; contextual references do not.
+ if($public==='bytedance-seedance-2-5')foreach($modes as &$mode){
+  $rule=['kind'=>'equals','when_present'=>['first_frame_url'],'field'=>'aspect_ratio','value'=>'adaptive','message'=>'Seedance 2.5 首帧和首尾帧仅支持自适应比例。'];
+  if(!in_array($rule,$mode['rules'],true))$mode['rules'][]=$rule;
+ }unset($mode);
  $fingerprint=hash('sha256',json_encode(canonical([$meta['params_schema']??[],$meta['upstream_metadata']['material_capabilities']??[]]),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
  $contracts[$public]=['fingerprint'=>$fingerprint,'modes'=>$modes];
 }
