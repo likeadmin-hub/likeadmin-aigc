@@ -49,7 +49,12 @@ function aigcRepair428Updater(string $site,string $archive,bool $apply=false,?ca
         if(stat($root.'/runtime')['dev']!==stat($root.'/public')['dev'])throw new RuntimeException('运行目录与后台不在同一磁盘，需人工安排备份');
         $result=['passed'=>true,'status'=>$apply?'installed':'preview','from_version'=>'1.0.428','target_version'=>'1.0.429','archive_sha256'=>AIGC_429_REPAIR_ARCHIVE,'new_hashes'=>$new,'platform_files'=>count($platform),'version_marker_unchanged'=>true];
         if(!$apply)return $result;
-        $open=static function(string $path){if(is_link($path))throw new RuntimeException('更新锁不能是链接');$h=fopen($path,'c+e');if(!$h)throw new RuntimeException('无法打开更新接入锁');return $h;};
+        $open=static function(string $path)use($root){
+            if(is_link($path))throw new RuntimeException('更新锁不能是链接');$h=fopen($path,'c+e');if(!$h)throw new RuntimeException('无法打开更新接入锁');
+            $owner=stat($root.'/runtime');$actual=fstat($h);
+            if(($actual['uid']!==$owner['uid']&&!chown($path,$owner['uid']))||($actual['gid']!==$owner['gid']&&!chgrp($path,$owner['gid']))||!chmod($path,0644)){fclose($h);throw new RuntimeException('更新锁权限无法匹配网站运行用户');}
+            return $h;
+        };
         $writer=$open($root.'/runtime/site-update-intent.lock');if(!flock($writer,LOCK_EX|LOCK_NB))throw new RuntimeException('存在其他更新任务');
         $legacy=$open($root.'/runtime/site-update.lock');if(!flock($legacy,LOCK_SH|LOCK_NB))throw new RuntimeException('旧更新器仍在写入，请等待结束');
         foreach(AIGC_428_UPDATER_HASHES as $path=>$hash)if(hash_file('sha256',$root.'/'.$path)!==$hash)throw new RuntimeException('接入前更新器指纹发生变化');
