@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { decorationPresetAssets } from './decoration-preset-assets.mjs'
+import { assertSnapshotMigrationCoverage, snapshotCoreSql } from './snapshot-migration-coverage.mjs'
 const args=process.argv.slice(2)
 const option=(key,fallback='')=>{const i=args.indexOf(key);return i<0?fallback:args[i+1]}
 const repo=path.resolve(option('--repo',path.join(path.dirname(fileURLToPath(import.meta.url)),'..')))
@@ -104,7 +105,7 @@ try {
     const generatedWorkers=bridge?[...bridgeWorkerPatches].map(([p,patches])=>[p,bridgeWorker(p,patches)]):[]
     if(runtime&&!delegated&&compareVersion(baseVersion)<compareVersion('1.0.391'))fail('Install updater bridge 1.0.391 first')
     for(const dir of ['files','sql/data','sql/structure','menus','rollback'])fs.mkdirSync(path.join(out,dir),{recursive:true})
-    const coverage=[], uncovered=[], sql=new Map(), sqlSources=new Map(), remove=[], replaced=[]
+    const coverage=[], uncovered=[], sql=new Map(), sqlSources=new Map(), remove=[], replaced=[], coveredAppMigrations=[]
     for(const p of changed){
         safe(p)
         if(ignored(p)){coverage.push({path:p,delivery:'source-only-or-protected'});continue}
@@ -120,6 +121,12 @@ try {
         coverage.push({path:p,delivery:'files/'+p})
         if(/^(?:public\/)?upgrade\/.*\.sql$/.test(p)||(/^app\/apps\/[^/]+\/migrations\/[^/]+\.sql$/.test(p)&&path.basename(p)!=='install.sql')){
             const name=path.basename(p),contents=fs.readFileSync(path.join(repo,p),'utf8')
+            const appCode=p.match(/^app\/apps\/([^/]+)\/migrations\//)?.[1]
+            if(appCode && fs.existsSync(path.join(repo,'app/apps',appCode,'manifest.json')) && JSON.parse(fs.readFileSync(path.join(repo,'app/apps',appCode,'manifest.json'),'utf8')).is_builtin===0){
+                assertSnapshotMigrationCoverage(appCode,p,contents,fs.readFileSync(path.join(repo,'upgrade/20261103_generation_snapshot_capacity.sql'),'utf8'))
+                coveredAppMigrations.push({source_path:p,sha256:crypto.createHash('sha256').update(contents).digest('hex'),app_code:appCode,execution_owner:'system',system_sql:snapshotCoreSql})
+                continue
+            }
             if(sql.has(name)&&sql.get(name)!==contents)fail(`Upgrade SQL mirrors differ: ${name}`)
             sql.set(name,contents)
             sqlSources.set(name,[...(sqlSources.get(name)||[]),p])
@@ -163,7 +170,7 @@ try {
             const root='app/apps/'+code,manifestPath=path.join(repo,root,'manifest.json')
             if(!fs.existsSync(manifestPath))continue
             const metadata=JSON.parse(fs.readFileSync(manifestPath,'utf8'))
-            if(!metadata.is_builtin)continue
+            if(!metadata.is_builtin&&!coveredAppMigrations.some(row=>row.app_code===code))continue
             if(metadata.code!==code)fail(`Builtin app manifest differs: ${code}`)
             for(const entry of ['manifest.json','api_schema.json','menus','permissions','frontend','migrations']){
                 const relative=root+'/'+entry
@@ -201,6 +208,11 @@ try {
         coverage.push({path:'config/runtime_migration_baseline.php',delivery:'generated-genuine-base-migration-identity'})
     }
 
+    if(coveredAppMigrations.length){
+        if(!sql.has(path.basename(snapshotCoreSql)))fail('Optional app capacity coverage requires declared core SQL')
+        const dependency='scripts/snapshot-migration-coverage.mjs';copy(dependency,'files/'+dependency)
+        if(!coverage.some(row=>row.path===dependency))coverage.push({path:dependency,delivery:'required-runtime-dependency'})
+    }
     const notesPath=option('--notes')
     const changelog=notesPath?fs.readFileSync(notesPath,'utf8').split('\n').filter(line=>/^\d+\./.test(line)):['1. 更新后必须将网站及对应任务进程的 PHP 版本切换到 8.2。']
     const manifest={product_code:'likeadmin_aigc_saas',version:baseVersion,package_mode:'incremental',base_version:baseVersion,
@@ -236,7 +248,7 @@ try {
         if(appSources.length>1)fail(`Ambiguous runtime migration owner: ${name}`)
         return {package_path:'sql/structure/'+name,source_paths:sources,sha256:crypto.createHash('sha256').update(sql.get(name)).digest('hex'),execution_owner:appSources.length?'app/runtime':'system',app_code:appSources.length?appSources[0].split('/')[2]:null}
     })
-    json('release-change-manifest.json',{base_ref:baseRef,source_commit:git('rev-parse','HEAD').trim(),base_version:baseVersion,target_version:version,bridge,paths:coverage,migrations,uncovered})
+    json('release-change-manifest.json',{base_ref:baseRef,source_commit:git('rev-parse','HEAD').trim(),base_version:baseVersion,target_version:version,bridge,paths:coverage,migrations,covered_app_migrations:coveredAppMigrations,uncovered})
     fs.writeFileSync(path.join(out,'menus/README.txt'),'Preserve tenant custom menus; packaged app metadata uses the existing synchronization service.\n')
     fs.writeFileSync(path.join(out,'rollback/README.txt'),'Back up the database and persistent data before upgrading. Runtime transaction restores code and its dependency pointer on failure. Additive SQL is journaled, never automatically reversed or replayed after an interrupted migration.\n')
     console.log(JSON.stringify({ok:true,out,target_version:version,changed_paths:changed.length,full_replace_dirs:replaced,sql_order:manifest.sql_order,composer_runtime:runtime,bridge},null,2))
