@@ -42,6 +42,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_copywriting.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_copywriting:task:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_copywriting.task/events",
       "api_method": "GET",
       "permission_key": "aigc_copywriting:task:events:user",

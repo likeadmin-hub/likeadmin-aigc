@@ -38,11 +38,12 @@ final class CopywritingTaskService
     private static function sameRequest(array $old,string $hash): array
     {
         if(!hash_equals($old['request_hash'],$hash))throw new \RuntimeException('同一请求标识的内容已变化，请重新提交',409);
+        if(!empty($old['delete_time']))throw new \InvalidArgumentException('任务已删除，请重新创作');
         return self::publicTask($old);
     }
     public static function owned(int $tenantId,int $userId,int $id): array
     {
-        $row=CopywritingStore::table('task')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'id'=>$id])->find();
+        $row=CopywritingStore::table('task')->where(['tenant_id'=>$tenantId,'user_id'=>$userId,'id'=>$id,'delete_time'=>0])->find();
         if(!$row)throw new \InvalidArgumentException('任务不存在或无权访问');return $row;
     }
     public static function publicTask(array $row): array
@@ -57,9 +58,24 @@ final class CopywritingTaskService
     public static function detail(int $tenantId,int $userId,int $id): array{return self::publicTask(self::owned($tenantId,$userId,$id));}
     public static function lists(int $tenantId,int $userId,int $page=1,bool $admin=false): array
     {
-        $q=CopywritingStore::table('task')->where('tenant_id',$tenantId);if(!$admin)$q->where('user_id',$userId);
+        $q=CopywritingStore::table('task')->where('tenant_id',$tenantId);if(!$admin)$q->where(['user_id'=>$userId,'delete_time'=>0]);
         $count=(clone $q)->count();$rows=$q->order('id','desc')->page(max(1,$page),20)->select()->toArray();
         return ['lists'=>array_map([self::class,'publicTask'],$rows),'count'=>$count];
+    }
+    /** Hide a finished work from its owner's history; preserve billing and audit evidence. */
+    public static function delete(int $tenantId,int $userId,int $id): array
+    {
+        if($tenantId<=0||$userId<=0||$id<=0)throw new \InvalidArgumentException('任务不存在或无权访问');
+        return Db::transaction(function()use($tenantId,$userId,$id){
+            $where=['id'=>$id,'tenant_id'=>$tenantId,'user_id'=>$userId];
+            $row=CopywritingStore::table('task')->where($where)->lock(true)->find();
+            if(!$row)throw new \InvalidArgumentException('任务不存在或无权访问');
+            if(!empty($row['delete_time']))return ['id'=>$id];
+            if(!in_array($row['status'],['success','failed','canceled'],true))throw new \InvalidArgumentException('请先停止生成，再删除作品');
+            CopywritingStore::table('task')->where($where)->update(['delete_time'=>time(),'update_time'=>time()]);
+            CopywritingStore::audit($tenantId,$userId,'user_delete','task',$id);
+            return ['id'=>$id];
+        });
     }
     public static function cancel(int $tenantId,int $userId,int $id): array
     {
