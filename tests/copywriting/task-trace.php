@@ -7,7 +7,8 @@ use app\common\service\app\aigc_copywriting\CopywritingStore as Store;
 use app\common\service\app\aigc_copywriting\CopywritingTaskService as Tasks;
 
 $database = config('database.connections.mysql');
-if (($database['hostname'] ?? '') !== '127.0.0.1' || ($database['database'] ?? '') !== 'z_cn') {
+$expectedDatabase = getenv('COPYWRITING_TEST_DATABASE') ?: 'z_cn';
+if (($database['hostname'] ?? '') !== '127.0.0.1' || ($database['database'] ?? '') !== $expectedDatabase) {
     throw new RuntimeException('Local development database required');
 }
 $version = Store::table('version')->order('id')->find();
