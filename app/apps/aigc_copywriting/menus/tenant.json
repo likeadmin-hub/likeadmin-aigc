@@ -12,6 +12,26 @@
     "component": "",
     "children": [
       {
+        "source_menu_key": "cw_config",
+        "app_code": "aigc_copywriting",
+        "source": "app",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_copywriting.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_copywriting/config",
+        "sort": 60
+      },
+      {
+        "source_menu_key": "cw_config_setup",
+        "app_code": "aigc_copywriting",
+        "source": "app",
+        "type": "A",
+        "name": "保存基础配置",
+        "perms": "app.aigc_copywriting.config/setup",
+        "sort": 0
+      },
+      {
         "source_menu_key": "cw_index",
         "type": "C",
         "name": "功能管理",
