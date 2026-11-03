@@ -23,8 +23,14 @@ final class VirtualPayPolicy
     {
         if (!in_array($env, [0,1], true)) throw new \InvalidArgumentException('支付环境不正确');
     }
+    /** HarmonyOS uses the existing non-Apple configuration and native WeChat routing. */
+    public static function paymentPlatform(string $platform): string
+    {
+        return $platform==='ohos'?'android':$platform;
+    }
     public static function client(string $platform, int $env, int $cents): void
     {
+        $platform=self::paymentPlatform($platform);
         self::environment($env);
         if (!in_array($platform,['ios','android'],true)) throw new \InvalidArgumentException('请在支持虚拟支付的微信小程序中购买');
         if ($cents<=0) throw new \InvalidArgumentException('免费套餐无需虚拟支付');
