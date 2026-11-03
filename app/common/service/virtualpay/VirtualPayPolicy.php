@@ -32,10 +32,10 @@ final class VirtualPayPolicy
     {
         $platform=self::paymentPlatform($platform);
         self::environment($env);
-        if (!in_array($platform,['ios','android'],true)) throw new \InvalidArgumentException('请在支持虚拟支付的微信小程序中购买');
+        if (!in_array($platform,['ios','android'],true)) throw new \InvalidArgumentException('请在手机端微信中打开小程序后支付');
         if ($cents<=0) throw new \InvalidArgumentException('免费套餐无需虚拟支付');
-        if ($platform==='ios' && $env!==0) throw new \RuntimeException('苹果设备仅支持现网虚拟支付');
-        if ($platform==='ios' && $cents<100) throw new \RuntimeException('苹果虚拟支付金额不能低于1元');
+        if ($platform==='ios' && $env!==0) throw new \RuntimeException('当前订单暂不能完成支付，请联系商家核对');
+        if ($platform==='ios' && $cents<100) throw new \RuntimeException('当前套餐在 iOS 上支付金额不能低于1元，请选择其他套餐');
     }
     public static function sign(array $data,string $key,string $session): array
     {
