@@ -20,6 +20,7 @@ parser.add_argument('--phpunit-phar', type=pathlib.Path)
 parser.add_argument('--canonical', action='store_true')
 parser.add_argument('--legacy402', action='store_true')
 parser.add_argument('--baseline',type=pathlib.Path)
+parser.add_argument('--entry-repair',action='store_true',help='Repair the genuine428 updater entry from the verified429 archive before bootstrap')
 parser.add_argument('--business', action='store_true', help='Run PHP tests excluding built asset contracts')
 parser.add_argument('--cases', nargs='+')
 parser.add_argument('--archive',type=pathlib.Path)
@@ -57,6 +58,7 @@ def php(database):
     command = ['docker', 'run', '--rm', '--name', container, '--network', ('container:'+name if database=='x_cn' else network),
         '-v', str(root) + ':/repo:ro', '--tmpfs', '/repo/runtime', '--tmpfs', '/repo/public/uploads', '-w', '/repo',
         '-e', 'SYSTEM_SERVICE_DISPOSABLE=1', '-e', 'INSTALL_PARITY_DISPOSABLE=1',
+        '-e', 'FIXTURE_ENTRY_REPAIR='+('1' if args.entry_repair else '0'),
         '-e', 'PHP_DATABASE_HOSTNAME='+('127.0.0.1' if database=='x_cn' else 'mysql'), '-e', 'PHP_DATABASE_DATABASE=' + database,
         '-e', 'PHP_DATABASE_USERNAME=root', '-e', 'PHP_DATABASE_PASSWORD=',
         '-e', 'FIXTURE_APP_PACKAGES='+('1' if args.app_packages else '0'), '-e', 'PHP_DATABASE_PREFIX=la_', '-e', 'PHP_DATABASE_HOSTPORT=3306', '-e', 'PHP_CACHE_DRIVER=file']
