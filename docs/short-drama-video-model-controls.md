@@ -1,0 +1,19 @@
+# Storyboard video model controls
+
+Storyboard estimate and generation normalize advanced controls through `MarketCreationParameters`, the same validator used by standalone video creation. Both top-level controls and the historical nested `params` envelope are supported; the top-level value remains authoritative. Nested SKU identity is included in control validation.
+
+Prompt assembly retains native provider options and the validated flat mirrors required by legacy adapters. The assembled prompt, model selection, resolution, duration and server-resolved references remain authoritative. A storyboard task explicitly defaults `multi_shots` to false because it represents one shot; an explicit choice is retained, SKU locks still win, and models that do not declare this option never receive it on the wire. This fixes missing required single-shot choices without maintaining model-name exceptions.
+
+No API path, permission, database schema, pricing, refund, storage, task status or frontend change is required. Existing saved provider requests are not rewritten. To roll back new-request behavior, revert the service integration and helper together; retain historical task, asset and consumption records.
+
+## Verification on 2026-11-03
+
+- The actual prompt assembler is exercised with native and legacy encoders, explicit false/zero values, nested input, supplier defaults, required controls, SKU locks and protected business fields. These tests never call a supplier or bill points.
+- Focused regression covers storyboard reference roles, frame readiness and ownership, duration, audio, director prompts, model variants, shared video adapters and frozen receipt routing, including rollback-only database fixtures.
+- A read-only catalogue audit prepared 613 supported model/mode/SKU combinations across all 46 video models and 4 application interfaces (383 SKUs). Video-input SKUs combined with modes that cannot carry video were excluded rather than submitted. This verifies local encoding and admission contracts, not supplier availability or generated-video quality.
+
+## Separate upstream rejection investigation
+
+The reported Seedance 2.5 storyboard request was rejected during upstream submission, before an upstream task identifier was issued. Standalone video creation and storyboard generation resolve the same product/SKU and shared submission interface. Four controlled standalone submissions reproduced the rejection: the original request, a prompt-only change, a reference-only change from that baseline, and a duration-only change from that baseline. All four returned the same generic upstream rejection and were refunded; recorded actual user and tenant costs are zero.
+
+The generic response does not identify a content, image, duration or internal supplier failure. The model-control omission above is independently reproduced and fixed; it is not established as the cause of this Seedance rejection. No other model received a live test request, and no automatic model fallback or repeated paid retry was added.
