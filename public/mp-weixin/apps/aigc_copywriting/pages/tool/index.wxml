@@ -1,1 +1,1 @@
-<mobile-workspace wx:if="{{a}}" u-i="448950f2-0" bind:__l="__l" u-p="{{b}}"/><mp-privacy-popup u-i="448950f2-1" bind:__l="__l"/>
+<page-meta page-style="{{c}}"><navigation-bar front-color="{{a}}" background-color="{{b}}"/></page-meta><page-content u-i="8c9f4f8e-0" bind:__l="__l"/><mp-privacy-popup u-i="8c9f4f8e-1" bind:__l="__l"/>

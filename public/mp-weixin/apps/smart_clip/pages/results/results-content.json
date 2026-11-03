@@ -1,7 +1,6 @@
 {
   "component": true,
   "usingComponents": {
-    "task-trace": "../../../../components/task-trace/TaskTrace",
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
     "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
   }

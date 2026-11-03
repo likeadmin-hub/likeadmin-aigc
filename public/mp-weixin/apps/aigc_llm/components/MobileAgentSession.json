@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "mobile-agent-plan-editor": "./MobileAgentPlanEditor"
+  }
+}
