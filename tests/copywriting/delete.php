@@ -6,7 +6,7 @@ use app\common\service\app\aigc_copywriting\CopywritingStore as Store;
 use app\common\service\app\aigc_copywriting\CopywritingTaskService as Tasks;
 $app=new think\App();$app->initialize();
 check(in_array(config('database.connections.mysql.hostname'),['127.0.0.1','localhost'],true),'Local database required');
-$version=Store::table('version')->find();check((bool)$version,'published version fixture required');
+$version=Store::table('version')->order('id')->find();check((bool)$version,'published version fixture required');
 $tenant=(int)$version['tenant_id'];$user=987654321;
 Db::startTrans();
 try {
