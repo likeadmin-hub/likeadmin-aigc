@@ -9,7 +9,13 @@ final class CopywritingSeeder {
  public static function homeDocument(): array {return CopywritingDocument::normalize(json_decode(file_get_contents(dirname(__DIR__,4).'/apps/aigc_copywriting/data/home-v3.json'),true,512,JSON_THROW_ON_ERROR));}
  /** Upgrade only untouched defaults; never overwrite a tenant draft or a custom icon. */
  private static function upgradePresentation(int $tenantId): void {
-  foreach(self::catalog() as $tool){CopywritingStore::table('tool')->where(['tenant_id'=>$tenantId,'builtin_code'=>$tool['code']])->where(function($q){$q->where('icon','resource/image/common/menu_generator.png')->whereOr(function($empty){$empty->where('icon','')->where('is_customized',0);});})->update(['icon'=>$tool['icon']]);}
+  foreach(self::catalog() as $tool){
+   $legacyIcons=['resource/image/common/menu_generator.png','resource/image/copywriting/'.$tool['code'].'.png','resource/image/copywriting/'.$tool['code'].'.svg'];
+   $legacyIcons=array_merge($legacyIcons,array_map(fn($path)=>'/'.$path,$legacyIcons));
+   CopywritingStore::table('tool')->where(['tenant_id'=>$tenantId,'builtin_code'=>$tool['code'],'delete_time'=>0])->where(function($q)use($legacyIcons){
+    $q->whereIn('icon',$legacyIcons)->whereOr(function($empty){$empty->where('icon','')->where('is_customized',0);});
+   })->update(['icon'=>$tool['icon']]);
+  }
   $page=CopywritingStore::table('page')->where(['tenant_id'=>$tenantId,'page_code'=>'home'])->find();if(!$page||!$page['published_version_id'])return;
   $legacy=CopywritingDocument::normalize(json_decode(file_get_contents(dirname(__DIR__,4).'/apps/aigc_copywriting/data/home-v1.json'),true,512,JSON_THROW_ON_ERROR));
   $version=CopywritingStore::owned('version',$tenantId,(int)$page['published_version_id']);
