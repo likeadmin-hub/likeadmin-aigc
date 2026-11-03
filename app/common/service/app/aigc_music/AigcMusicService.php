@@ -284,7 +284,7 @@ class AigcMusicService
         } else {
             $query->limit(100);
         }
-        $rows = self::attachTaskResults($tenantId, $query->select()->toArray(), $userId);
+        $rows = \app\common\service\ai\GenerationTaskResultService::appendNativeList(self::attachTaskResults($tenantId, $query->select()->toArray(), $userId));
         return $usePage ? ['lists' => $rows, 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize] : $rows;
     }
 
@@ -308,7 +308,7 @@ class AigcMusicService
         }
         $data = $task->toArray();
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
-        return $data;
+        return \app\common\service\ai\GenerationTaskResultService::appendBusiness($data,(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function platformTaskLists(array $params = []): array
@@ -343,25 +343,7 @@ class AigcMusicService
     public static function retryTask(int $tenantId, int $taskId): array
     {
         $task = self::taskDetail($tenantId, $taskId);
-        return self::generate($tenantId, (int)$task['user_id'], [
-            'title' => $task['title'],
-            'prompt' => $task['prompt'],
-            'lyrics' => $task['lyrics'],
-            'genre' => $task['genre'],
-            'mood' => $task['mood'],
-            'instruments' => $task['instruments'],
-            'style_id' => $task['style_id'],
-            'persona_id' => $task['persona_id'],
-            'voice_clone_id' => $task['voice_clone_id'],
-            'reference_asset_id' => $task['reference_asset_id'],
-            'channel' => $task['channel'],
-            'quality' => $task['quality'],
-            'duration' => $task['duration'],
-            'market_product_id' => $task['market_product_id'] ?? 0,
-            'market_sku_id' => $task['market_sku_id'] ?? 0,
-            'custom' => $task['provider_payload']['generation']['custom'] ?? false,
-            'instrumental' => $task['provider_payload']['generation']['instrumental'] ?? false,
-        ]);
+        return self::generate($tenantId, (int)$task['user_id'], self::historyGenerationParams($task));
     }
 
     public static function deleteTask(int $tenantId, int $taskId, int $userId = 0): void
@@ -902,22 +884,19 @@ class AigcMusicService
 
     private static function buildRequestFromTask(AigcMusicTask $task, array $selection): AigcMusicGenerateRequest
     {
-        $payload = [
-            'title' => (string)$task['title'],
-            'prompt' => (string)$task['prompt'],
-            'lyrics' => (string)$task['lyrics'],
-            'genre' => (string)$task['genre'],
-            'mood' => (string)$task['mood'],
-            'instruments' => (string)$task['instruments'],
-            'style_id' => (int)$task['style_id'],
-            'persona_id' => (int)$task['persona_id'],
-            'voice_clone_id' => (int)$task['voice_clone_id'],
-            'reference_asset_id' => (int)$task['reference_asset_id'],
-            'duration' => (int)$task['duration'],
-            'custom' => (string)$task['lyrics'] !== '',
-            'instrumental' => (string)$task['lyrics'] === '' && (string)$task['prompt'] !== '',
-        ];
-        return self::buildRequest($task, $selection, $payload);
+        return self::buildRequest($task, $selection, self::historyGenerationParams($task->toArray()));
+    }
+
+    /** Retry and legacy query recovery share saved generation choices, including explicit false values. */
+    private static function historyGenerationParams(array $task): array
+    {
+        $payload = array_intersect_key($task, array_flip(['title','prompt','lyrics','genre','mood','instruments',
+            'style_id','persona_id','voice_clone_id','reference_asset_id','channel','quality','duration','market_product_id','market_sku_id']));
+        $generation = (array)($task['provider_payload']['generation'] ?? []);
+        return array_replace($payload, [
+            'custom' => (string)($task['lyrics'] ?? '') !== '',
+            'instrumental' => (string)($task['lyrics'] ?? '') === '' && (string)($task['prompt'] ?? '') !== '',
+        ], array_intersect_key($generation, array_flip(['custom','instrumental','vocal_gender','language','style'])));
     }
 
     private static function existingResultRows(int $tenantId, int $userId, int $taskId): array

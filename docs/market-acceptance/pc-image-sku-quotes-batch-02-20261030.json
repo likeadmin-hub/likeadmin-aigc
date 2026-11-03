@@ -1,0 +1,3247 @@
+{
+  "version": 1,
+  "tenant_id": 1,
+  "observed_at": "2026-10-30T01:33:19+08:00",
+  "scope": "One first dimension combination per public PC image SKU; optional declared flat image/mask recipes; excludes browser UI, opaque structures and generation.",
+  "image_role_recipes": true,
+  "summary": {
+    "observations": 198,
+    "statuses": {
+      "quoted": 196,
+      "rejected": 2
+    },
+    "changed_sku": 0
+  },
+  "observations": [
+    {
+      "channel": "market_image_model:305",
+      "name": "FLUX 3 Klein",
+      "requested_sku": 470,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 470
+    },
+    {
+      "channel": "market_image_model:305",
+      "name": "FLUX 3 Klein",
+      "requested_sku": 469,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "4k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 469
+    },
+    {
+      "channel": "market_image_model:305",
+      "name": "FLUX 3 Klein",
+      "requested_sku": 471,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 471
+    },
+    {
+      "channel": "market_image_model:305",
+      "name": "FLUX 3 Klein",
+      "requested_sku": 466,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "4k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 466
+    },
+    {
+      "channel": "market_image_model:305",
+      "name": "FLUX 3 Klein",
+      "requested_sku": 468,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 468
+    },
+    {
+      "channel": "market_image_model:305",
+      "name": "FLUX 3 Klein",
+      "requested_sku": 467,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 467
+    },
+    {
+      "channel": "market_image_model:304",
+      "name": "使用 nano-banana-2-1 生成图片",
+      "requested_sku": 464,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 464
+    },
+    {
+      "channel": "market_image_model:304",
+      "name": "使用 nano-banana-2-1 生成图片",
+      "requested_sku": 465,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 465
+    },
+    {
+      "channel": "market_image_model:304",
+      "name": "使用 nano-banana-2-1 生成图片",
+      "requested_sku": 463,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "4k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 463
+    },
+    {
+      "channel": "market_image_model:303",
+      "name": "Seedream 5.0 Flash",
+      "requested_sku": 462,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 462
+    },
+    {
+      "channel": "market_image_model:303",
+      "name": "Seedream 5.0 Flash",
+      "requested_sku": 460,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 460
+    },
+    {
+      "channel": "market_image_model:303",
+      "name": "Seedream 5.0 Flash",
+      "requested_sku": 461,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1.5k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 461
+    },
+    {
+      "channel": "market_image_model:303",
+      "name": "Seedream 5.0 Flash",
+      "requested_sku": 459,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 459
+    },
+    {
+      "channel": "market_image_model:303",
+      "name": "Seedream 5.0 Flash",
+      "requested_sku": 457,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 457
+    },
+    {
+      "channel": "market_image_model:303",
+      "name": "Seedream 5.0 Flash",
+      "requested_sku": 458,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1.5k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 458
+    },
+    {
+      "channel": "market_image_model:302",
+      "name": "Qwen Image 2.1",
+      "requested_sku": 456,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 456
+    },
+    {
+      "channel": "market_image_model:302",
+      "name": "Qwen Image 2.1",
+      "requested_sku": 456,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "assigned_optional_masks",
+      "status": "quoted",
+      "selected_sku": 456
+    },
+    {
+      "channel": "market_image_model:302",
+      "name": "Qwen Image 2.1",
+      "requested_sku": 455,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 455
+    },
+    {
+      "channel": "market_image_model:302",
+      "name": "Qwen Image 2.1",
+      "requested_sku": 455,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "assigned_optional_masks",
+      "status": "quoted",
+      "selected_sku": 455
+    },
+    {
+      "channel": "market_image_model:302",
+      "name": "Qwen Image 2.1",
+      "requested_sku": 454,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 454
+    },
+    {
+      "channel": "market_image_model:302",
+      "name": "Qwen Image 2.1",
+      "requested_sku": 453,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 453
+    },
+    {
+      "channel": "market_image_model:301",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 451,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 451
+    },
+    {
+      "channel": "market_image_model:301",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 452,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 452
+    },
+    {
+      "channel": "market_image_model:301",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 450,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 450
+    },
+    {
+      "channel": "market_image_model:301",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 447,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 447
+    },
+    {
+      "channel": "market_image_model:301",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 449,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 449
+    },
+    {
+      "channel": "market_image_model:301",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 448,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 448
+    },
+    {
+      "channel": "market_image_model:300",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 446,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 446
+    },
+    {
+      "channel": "market_image_model:300",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 444,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 444
+    },
+    {
+      "channel": "market_image_model:300",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 445,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 445
+    },
+    {
+      "channel": "market_image_model:300",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 442,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 442
+    },
+    {
+      "channel": "market_image_model:300",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 443,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 443
+    },
+    {
+      "channel": "market_image_model:300",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 441,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 441
+    },
+    {
+      "channel": "market_image_model:299",
+      "name": "Grok Imagine Image 2.0",
+      "requested_sku": 440,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 440
+    },
+    {
+      "channel": "market_image_model:299",
+      "name": "Grok Imagine Image 2.0",
+      "requested_sku": 439,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 439
+    },
+    {
+      "channel": "market_image_model:298",
+      "name": "Qwen Image 3 Pro",
+      "requested_sku": 437,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 437
+    },
+    {
+      "channel": "market_image_model:298",
+      "name": "Qwen Image 3 Pro",
+      "requested_sku": 438,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 438
+    },
+    {
+      "channel": "market_image_model:298",
+      "name": "Qwen Image 3 Pro",
+      "requested_sku": 435,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 435
+    },
+    {
+      "channel": "market_image_model:298",
+      "name": "Qwen Image 3 Pro",
+      "requested_sku": 436,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 436
+    },
+    {
+      "channel": "market_image_model:297",
+      "name": "Qwen Image 3",
+      "requested_sku": 433,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 433
+    },
+    {
+      "channel": "market_image_model:297",
+      "name": "Qwen Image 3",
+      "requested_sku": 434,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 434
+    },
+    {
+      "channel": "market_image_model:297",
+      "name": "Qwen Image 3",
+      "requested_sku": 432,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 432
+    },
+    {
+      "channel": "market_image_model:297",
+      "name": "Qwen Image 3",
+      "requested_sku": 431,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 431
+    },
+    {
+      "channel": "market_image_model:296",
+      "name": "Seedream 5.0 Pro",
+      "requested_sku": 430,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "basic",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 430
+    },
+    {
+      "channel": "market_image_model:296",
+      "name": "Seedream 5.0 Pro",
+      "requested_sku": 429,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "high",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 429
+    },
+    {
+      "channel": "market_image_model:296",
+      "name": "Seedream 5.0 Pro",
+      "requested_sku": 428,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "basic",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 428
+    },
+    {
+      "channel": "market_image_model:296",
+      "name": "Seedream 5.0 Pro",
+      "requested_sku": 427,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "high",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 427
+    },
+    {
+      "channel": "market_image_model:295",
+      "name": "Nano Banana 2 Lite",
+      "requested_sku": 426,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 426
+    },
+    {
+      "channel": "market_image_model:294",
+      "name": "GPT Image 2",
+      "requested_sku": 423,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 423
+    },
+    {
+      "channel": "market_image_model:294",
+      "name": "GPT Image 2",
+      "requested_sku": 424,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 424
+    },
+    {
+      "channel": "market_image_model:294",
+      "name": "GPT Image 2",
+      "requested_sku": 425,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 425
+    },
+    {
+      "channel": "market_image_model:294",
+      "name": "GPT Image 2",
+      "requested_sku": 421,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 421
+    },
+    {
+      "channel": "market_image_model:294",
+      "name": "GPT Image 2",
+      "requested_sku": 422,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 422
+    },
+    {
+      "channel": "market_image_model:294",
+      "name": "GPT Image 2",
+      "requested_sku": 420,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 420
+    },
+    {
+      "channel": "market_image_model:293",
+      "name": "Wan 2.7 Image",
+      "requested_sku": 419,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 419
+    },
+    {
+      "channel": "market_image_model:292",
+      "name": "Wan 2.7 Image Pro",
+      "requested_sku": 418,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 418
+    },
+    {
+      "channel": "market_image_model:291",
+      "name": "Qwen Image 2",
+      "requested_sku": 417,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 417
+    },
+    {
+      "channel": "market_image_model:291",
+      "name": "Qwen Image 2",
+      "requested_sku": 416,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 416
+    },
+    {
+      "channel": "market_image_model:290",
+      "name": "使用 nano-banana-2 生成内容",
+      "requested_sku": 413,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "4k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 413
+    },
+    {
+      "channel": "market_image_model:290",
+      "name": "使用 nano-banana-2 生成内容",
+      "requested_sku": 415,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 415
+    },
+    {
+      "channel": "market_image_model:290",
+      "name": "使用 nano-banana-2 生成内容",
+      "requested_sku": 414,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 414
+    },
+    {
+      "channel": "market_image_model:289",
+      "name": "Seedream 5.0 Lite",
+      "requested_sku": 412,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "basic",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 412
+    },
+    {
+      "channel": "market_image_model:289",
+      "name": "Seedream 5.0 Lite",
+      "requested_sku": 411,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "basic",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 411
+    },
+    {
+      "channel": "market_image_model:288",
+      "name": "GPT Image 1.5",
+      "requested_sku": 409,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "high",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 409
+    },
+    {
+      "channel": "market_image_model:288",
+      "name": "GPT Image 1.5",
+      "requested_sku": 410,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "medium",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 410
+    },
+    {
+      "channel": "market_image_model:288",
+      "name": "GPT Image 1.5",
+      "requested_sku": 408,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "medium",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 408
+    },
+    {
+      "channel": "market_image_model:288",
+      "name": "GPT Image 1.5",
+      "requested_sku": 407,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "high",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 407
+    },
+    {
+      "channel": "market_image_model:287",
+      "name": "Seedream 4.5",
+      "requested_sku": 406,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "basic",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 406
+    },
+    {
+      "channel": "market_image_model:287",
+      "name": "Seedream 4.5",
+      "requested_sku": 405,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "basic",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 405
+    },
+    {
+      "channel": "market_image_model:286",
+      "name": "使用 z-image 生成内容",
+      "requested_sku": 404,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 404
+    },
+    {
+      "channel": "market_image_model:285",
+      "name": "FLUX 2 Pro",
+      "requested_sku": 402,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 402
+    },
+    {
+      "channel": "market_image_model:285",
+      "name": "FLUX 2 Pro",
+      "requested_sku": 403,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 403
+    },
+    {
+      "channel": "market_image_model:285",
+      "name": "FLUX 2 Pro",
+      "requested_sku": 401,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 401
+    },
+    {
+      "channel": "market_image_model:285",
+      "name": "FLUX 2 Pro",
+      "requested_sku": 400,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 400
+    },
+    {
+      "channel": "market_image_model:284",
+      "name": "FLUX 2 Flex",
+      "requested_sku": 398,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 398
+    },
+    {
+      "channel": "market_image_model:284",
+      "name": "FLUX 2 Flex",
+      "requested_sku": 399,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 399
+    },
+    {
+      "channel": "market_image_model:284",
+      "name": "FLUX 2 Flex",
+      "requested_sku": 397,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 397
+    },
+    {
+      "channel": "market_image_model:284",
+      "name": "FLUX 2 Flex",
+      "requested_sku": 396,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 396
+    },
+    {
+      "channel": "market_image_model:283",
+      "name": "Nano Banana Pro 图生图",
+      "requested_sku": 394,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 394
+    },
+    {
+      "channel": "market_image_model:283",
+      "name": "Nano Banana Pro 图生图",
+      "requested_sku": 395,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "4k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 395
+    },
+    {
+      "channel": "market_image_model:282",
+      "name": "Grok Imagine Image",
+      "requested_sku": 393,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "",
+      "ratio": "2:3",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 393
+    },
+    {
+      "channel": "market_image_model:282",
+      "name": "Grok Imagine Image",
+      "requested_sku": 391,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "",
+      "ratio": "2:3",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 391
+    },
+    {
+      "channel": "market_image_model:282",
+      "name": "Grok Imagine Image",
+      "requested_sku": 392,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "",
+      "ratio": "2:3",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 392
+    },
+    {
+      "channel": "market_image_model:281",
+      "name": "生成4o图像",
+      "requested_sku": 390,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 390
+    },
+    {
+      "channel": "market_image_model:280",
+      "name": "生成或编辑图像",
+      "requested_sku": 389,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "",
+      "ratio": "21:9",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 389
+    },
+    {
+      "channel": "market_image_model:280",
+      "name": "生成或编辑图像",
+      "requested_sku": 388,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "",
+      "ratio": "21:9",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 388
+    },
+    {
+      "channel": "market_image_model:279",
+      "name": "Seedream 4.0",
+      "requested_sku": 387,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 387
+    },
+    {
+      "channel": "market_image_model:279",
+      "name": "Seedream 4.0",
+      "requested_sku": 386,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 386
+    },
+    {
+      "channel": "market_image_model:278",
+      "name": "Seedream3.0 生成图像",
+      "requested_sku": 385,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 385
+    },
+    {
+      "channel": "market_image_model:277",
+      "name": "Qwen Image",
+      "requested_sku": 384,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 384
+    },
+    {
+      "channel": "market_image_model:277",
+      "name": "Qwen Image",
+      "requested_sku": 383,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "text",
+      "status": "rejected",
+      "reason": "requires_verified_pixel_quote",
+      "field": "",
+      "error_fingerprint": "5d69e83bda7793f93e8eb77125440b769e6e94713f686fb82c067936fc798f2d"
+    },
+    {
+      "channel": "market_image_model:276",
+      "name": "Nano Banana",
+      "requested_sku": 382,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 382
+    },
+    {
+      "channel": "market_image_model:276",
+      "name": "Nano Banana",
+      "requested_sku": 381,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 381
+    },
+    {
+      "channel": "market_image_model:275",
+      "name": "Qwen 图片编辑",
+      "requested_sku": 380,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "rejected",
+      "reason": "requires_verified_pixel_quote",
+      "field": "",
+      "error_fingerprint": "5d69e83bda7793f93e8eb77125440b769e6e94713f686fb82c067936fc798f2d"
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 377,
+      "native_mode": "image_edit",
+      "material_mode": "image_edit:2",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 377
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 379,
+      "native_mode": "image_edit",
+      "material_mode": "image_edit:2",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 379
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 378,
+      "native_mode": "image_edit",
+      "material_mode": "image_edit:2",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 378
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 374,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 374
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 374,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_optional_masks",
+      "status": "quoted",
+      "selected_sku": 374
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 376,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 376
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 376,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_optional_masks",
+      "status": "quoted",
+      "selected_sku": 376
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 375,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 375
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 375,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_optional_masks",
+      "status": "quoted",
+      "selected_sku": 375
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 372,
+      "native_mode": "reference_to_image",
+      "material_mode": "reference_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 372
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 371,
+      "native_mode": "reference_to_image",
+      "material_mode": "reference_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 371
+    },
+    {
+      "channel": "market_image_model:274",
+      "name": "Ideogram Character",
+      "requested_sku": 373,
+      "native_mode": "reference_to_image",
+      "material_mode": "reference_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 373
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 370,
+      "native_mode": "image_edit",
+      "material_mode": "image_edit:2",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 370
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 368,
+      "native_mode": "image_edit",
+      "material_mode": "image_edit:2",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 368
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 369,
+      "native_mode": "image_edit",
+      "material_mode": "image_edit:2",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "assigned_required_images",
+      "status": "quoted",
+      "selected_sku": 369
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 367,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 367
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 366,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 366
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 365,
+      "native_mode": "image_to_image",
+      "material_mode": "image_to_image:1",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 365
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 364,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 364
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 362,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 362
+    },
+    {
+      "channel": "market_image_model:273",
+      "name": "Ideogram V3",
+      "requested_sku": 363,
+      "native_mode": "text_to_image",
+      "material_mode": "text_to_image:0",
+      "quality": "square",
+      "ratio": "",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 363
+    },
+    {
+      "channel": "market_image_model:272",
+      "name": "Google Imagen4 Fast",
+      "requested_sku": 361,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 361
+    },
+    {
+      "channel": "market_image_model:271",
+      "name": "Google Imagen4 Ultra",
+      "requested_sku": 360,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 360
+    },
+    {
+      "channel": "market_image_model:270",
+      "name": "Google Imagen4",
+      "requested_sku": 359,
+      "native_mode": "",
+      "material_mode": "default:0",
+      "quality": "",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 359
+    },
+    {
+      "channel": "market_image_model:234",
+      "name": "Nano-Banana 2.1",
+      "requested_sku": 318,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 318
+    },
+    {
+      "channel": "market_image_model:234",
+      "name": "Nano-Banana 2.1",
+      "requested_sku": 318,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 318
+    },
+    {
+      "channel": "market_image_model:169",
+      "name": "GPT Image 2.5",
+      "requested_sku": 252,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 252
+    },
+    {
+      "channel": "market_image_model:169",
+      "name": "GPT Image 2.5",
+      "requested_sku": 252,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 252
+    },
+    {
+      "channel": "market_image_model:169",
+      "name": "GPT Image 2.5",
+      "requested_sku": 251,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 251
+    },
+    {
+      "channel": "market_image_model:169",
+      "name": "GPT Image 2.5",
+      "requested_sku": 251,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 251
+    },
+    {
+      "channel": "market_image_model:169",
+      "name": "GPT Image 2.5",
+      "requested_sku": 250,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 250
+    },
+    {
+      "channel": "market_image_model:169",
+      "name": "GPT Image 2.5",
+      "requested_sku": 250,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 250
+    },
+    {
+      "channel": "market_image_model:168",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 249,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 249
+    },
+    {
+      "channel": "market_image_model:168",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 249,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 249
+    },
+    {
+      "channel": "market_image_model:168",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 248,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 248
+    },
+    {
+      "channel": "market_image_model:168",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 248,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 248
+    },
+    {
+      "channel": "market_image_model:168",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 247,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 247
+    },
+    {
+      "channel": "market_image_model:168",
+      "name": "GPT Image 2.5 Flare",
+      "requested_sku": 247,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 247
+    },
+    {
+      "channel": "market_image_model:167",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 246,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 246
+    },
+    {
+      "channel": "market_image_model:167",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 246,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 246
+    },
+    {
+      "channel": "market_image_model:167",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 245,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 245
+    },
+    {
+      "channel": "market_image_model:167",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 245,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 245
+    },
+    {
+      "channel": "market_image_model:167",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 244,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 244
+    },
+    {
+      "channel": "market_image_model:167",
+      "name": "GPT Image 2.5 Sunburst",
+      "requested_sku": 244,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 244
+    },
+    {
+      "channel": "market_image_model:93",
+      "name": "Nano-Banana 2",
+      "requested_sku": 103,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 103
+    },
+    {
+      "channel": "market_image_model:93",
+      "name": "Nano-Banana 2",
+      "requested_sku": 103,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 103
+    },
+    {
+      "channel": "market_image_model:92",
+      "name": "Nano-Banana Pro",
+      "requested_sku": 102,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 102
+    },
+    {
+      "channel": "market_image_model:92",
+      "name": "Nano-Banana Pro",
+      "requested_sku": 102,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 102
+    },
+    {
+      "channel": "market_image_model:91",
+      "name": "GPT Image 2",
+      "requested_sku": 101,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 101
+    },
+    {
+      "channel": "market_image_model:91",
+      "name": "GPT Image 2",
+      "requested_sku": 101,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 101
+    },
+    {
+      "channel": "market_image_model:91",
+      "name": "GPT Image 2",
+      "requested_sku": 100,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 100
+    },
+    {
+      "channel": "market_image_model:91",
+      "name": "GPT Image 2",
+      "requested_sku": 100,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 100
+    },
+    {
+      "channel": "market_image_model:91",
+      "name": "GPT Image 2",
+      "requested_sku": 99,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 99
+    },
+    {
+      "channel": "market_image_model:91",
+      "name": "GPT Image 2",
+      "requested_sku": 99,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 99
+    },
+    {
+      "channel": "market_image_model:90",
+      "name": "GPT Image 2",
+      "requested_sku": 98,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 98
+    },
+    {
+      "channel": "market_image_model:90",
+      "name": "GPT Image 2",
+      "requested_sku": 98,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 98
+    },
+    {
+      "channel": "market_image_model:90",
+      "name": "GPT Image 2",
+      "requested_sku": 97,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 97
+    },
+    {
+      "channel": "market_image_model:90",
+      "name": "GPT Image 2",
+      "requested_sku": 97,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 97
+    },
+    {
+      "channel": "market_image_model:90",
+      "name": "GPT Image 2",
+      "requested_sku": 96,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 96
+    },
+    {
+      "channel": "market_image_model:90",
+      "name": "GPT Image 2",
+      "requested_sku": 96,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 96
+    },
+    {
+      "channel": "market_image_model:89",
+      "name": "GPT Image 2 Fast",
+      "requested_sku": 93,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 93
+    },
+    {
+      "channel": "market_image_model:89",
+      "name": "GPT Image 2 Fast",
+      "requested_sku": 93,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 93
+    },
+    {
+      "channel": "market_image_model:89",
+      "name": "GPT Image 2 Fast",
+      "requested_sku": 94,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 94
+    },
+    {
+      "channel": "market_image_model:89",
+      "name": "GPT Image 2 Fast",
+      "requested_sku": 94,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 94
+    },
+    {
+      "channel": "market_image_model:89",
+      "name": "GPT Image 2 Fast",
+      "requested_sku": 95,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 95
+    },
+    {
+      "channel": "market_image_model:89",
+      "name": "GPT Image 2 Fast",
+      "requested_sku": 95,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 95
+    },
+    {
+      "channel": "market_image_model:88",
+      "name": "GPT Image 2 Pro",
+      "requested_sku": 90,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 90
+    },
+    {
+      "channel": "market_image_model:88",
+      "name": "GPT Image 2 Pro",
+      "requested_sku": 90,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 90
+    },
+    {
+      "channel": "market_image_model:88",
+      "name": "GPT Image 2 Pro",
+      "requested_sku": 91,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 91
+    },
+    {
+      "channel": "market_image_model:88",
+      "name": "GPT Image 2 Pro",
+      "requested_sku": 91,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 91
+    },
+    {
+      "channel": "market_image_model:88",
+      "name": "GPT Image 2 Pro",
+      "requested_sku": 92,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 92
+    },
+    {
+      "channel": "market_image_model:88",
+      "name": "GPT Image 2 Pro",
+      "requested_sku": 92,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 92
+    },
+    {
+      "channel": "market_image_model:87",
+      "name": "Qwen Image 3.0 Pro",
+      "requested_sku": 88,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 88
+    },
+    {
+      "channel": "market_image_model:87",
+      "name": "Qwen Image 3.0 Pro",
+      "requested_sku": 88,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 88
+    },
+    {
+      "channel": "market_image_model:87",
+      "name": "Qwen Image 3.0 Pro",
+      "requested_sku": 89,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 89
+    },
+    {
+      "channel": "market_image_model:87",
+      "name": "Qwen Image 3.0 Pro",
+      "requested_sku": 89,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 89
+    },
+    {
+      "channel": "market_image_model:86",
+      "name": "Qwen Image 3.0",
+      "requested_sku": 86,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 86
+    },
+    {
+      "channel": "market_image_model:86",
+      "name": "Qwen Image 3.0",
+      "requested_sku": 86,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 86
+    },
+    {
+      "channel": "market_image_model:86",
+      "name": "Qwen Image 3.0",
+      "requested_sku": 87,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 87
+    },
+    {
+      "channel": "market_image_model:86",
+      "name": "Qwen Image 3.0",
+      "requested_sku": 87,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "1:1",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 87
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmE=",
+      "name": "Nano Banana",
+      "requested_sku": 143,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 143
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmE=",
+      "name": "Nano Banana",
+      "requested_sku": 143,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 143
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+      "name": "Nano Banana 2",
+      "requested_sku": 144,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 144
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+      "name": "Nano Banana 2",
+      "requested_sku": 144,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 144
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl",
+      "name": "Nano Banana 2 Lite",
+      "requested_sku": 145,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 145
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl",
+      "name": "Nano Banana 2 Lite",
+      "requested_sku": 145,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 145
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs",
+      "name": "Nano Banana 2 Lite Official",
+      "requested_sku": 148,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 148
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs",
+      "name": "Nano Banana 2 Lite Official",
+      "requested_sku": 148,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 148
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "name": "Nano Banana 2 Official",
+      "requested_sku": 149,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 149
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "name": "Nano Banana 2 Official",
+      "requested_sku": 149,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 149
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "name": "Nano Banana 2 Official",
+      "requested_sku": 150,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 150
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "name": "Nano Banana 2 Official",
+      "requested_sku": 150,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 150
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "name": "Nano Banana 2 Official",
+      "requested_sku": 151,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 151
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "name": "Nano Banana 2 Official",
+      "requested_sku": 151,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 151
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw=",
+      "name": "Nano Banana Official",
+      "requested_sku": 147,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 147
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw=",
+      "name": "Nano Banana Official",
+      "requested_sku": 147,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 147
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv",
+      "name": "Nano Banana Pro",
+      "requested_sku": 146,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 146
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv",
+      "name": "Nano Banana Pro",
+      "requested_sku": 146,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 146
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+      "name": "Nano Banana Pro Official",
+      "requested_sku": 152,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 152
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+      "name": "Nano Banana Pro Official",
+      "requested_sku": 152,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "1k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 152
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+      "name": "Nano Banana Pro Official",
+      "requested_sku": 153,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 153
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+      "name": "Nano Banana Pro Official",
+      "requested_sku": 153,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "2k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 153
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+      "name": "Nano Banana Pro Official",
+      "requested_sku": 154,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "text",
+      "status": "quoted",
+      "selected_sku": 154
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+      "name": "Nano Banana Pro Official",
+      "requested_sku": 154,
+      "native_mode": "",
+      "material_mode": "",
+      "quality": "4k",
+      "ratio": "auto",
+      "scenario": "browser_upload_dto",
+      "status": "quoted",
+      "selected_sku": 154
+    }
+  ],
+  "baseline": "tenant-1-baseline-20261030.json",
+  "baseline_identity_observed_at": "2026-10-30T01:16:40+08:00",
+  "source_commits": {
+    "server": "3feec8e8b",
+    "server_size_fix": "c94f4957a",
+    "web": "726ae97a"
+  },
+  "acceptance": "Partial backend quote observations only; excludes complete entry acceptance, all dimensions and supplier generation.",
+  "baseline_identity_bindings": {
+    "market_image_model:305": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:305",
+        "product_id": 305,
+        "resource_type": "model",
+        "model_code": "official-33-49681e747b116721be",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "680828e1b7161c141db989356f6ba961ac1fc67b9f7ce04f7a06479c04744a21"
+    },
+    "market_image_model:304": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:304",
+        "product_id": 304,
+        "resource_type": "model",
+        "model_code": "official-33-ebe7720af286570e23",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "dbf82912435e728b00a76cb57c708a33332f9bcec1832886133b05ee73ca7e41"
+    },
+    "market_image_model:303": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:303",
+        "product_id": 303,
+        "resource_type": "model",
+        "model_code": "official-33-feeebc6212e136273f",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "ac9c22f6dc058384e238b0cf9e493ea27961b3c58f5a53e62d2f19522ecce434"
+    },
+    "market_image_model:302": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:302",
+        "product_id": 302,
+        "resource_type": "model",
+        "model_code": "official-33-fbfd4ec9543263b5c5",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "eea1a5218b65d20a8ad7992338349c6763fc3f09144dfb60b688eafd7041f838"
+    },
+    "market_image_model:301": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:301",
+        "product_id": 301,
+        "resource_type": "model",
+        "model_code": "official-33-73a270041f4aa21b32",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "8702f62f149422cb79e85609b115b535e5854dbcc95d63a63395514a812bc891"
+    },
+    "market_image_model:300": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:300",
+        "product_id": 300,
+        "resource_type": "model",
+        "model_code": "official-33-27a2e27f62e7673e63",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "8702f62f149422cb79e85609b115b535e5854dbcc95d63a63395514a812bc891"
+    },
+    "market_image_model:299": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:299",
+        "product_id": 299,
+        "resource_type": "model",
+        "model_code": "official-33-fdd0d25eb0e1393359",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "446589e7148b6b3b21f0a8fe776c1a97bd36a92695f3392973bf595d68c3a5ed"
+    },
+    "market_image_model:298": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:298",
+        "product_id": 298,
+        "resource_type": "model",
+        "model_code": "official-33-46075a008448cf995e",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "711dee9eefd1ef3859e0ee1b9e58496d2baaa244e48910403c6c565000ff020f"
+    },
+    "market_image_model:297": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:297",
+        "product_id": 297,
+        "resource_type": "model",
+        "model_code": "official-33-ade2587e3070365ddf",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "711dee9eefd1ef3859e0ee1b9e58496d2baaa244e48910403c6c565000ff020f"
+    },
+    "market_image_model:296": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:296",
+        "product_id": 296,
+        "resource_type": "model",
+        "model_code": "official-33-3915e8af5a771fb8f8",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "c1d2e8a82fe857d1a5646bbcd9d80c97e2c26e55fd705d82b579925dfdb8c681"
+    },
+    "market_image_model:295": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:295",
+        "product_id": 295,
+        "resource_type": "model",
+        "model_code": "official-33-b22176a807bcb8c44a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "29e9b8ce0265fa1f311cb247832a8c650856ccae71199729238e9e5d8d5cd908"
+    },
+    "market_image_model:294": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:294",
+        "product_id": 294,
+        "resource_type": "model",
+        "model_code": "official-33-ed04442a46681b32ad",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "36f6b12861affa120f7ceb205a7e572d11bdb143e9e6b09c48b82fce030a285a"
+    },
+    "market_image_model:293": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:293",
+        "product_id": 293,
+        "resource_type": "model",
+        "model_code": "official-33-98364592a7492e8fc3",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "e75826b02cb4e41e3dddfe71ad25e0660c2f6d61663e0df012fa96ba1b0d684c"
+    },
+    "market_image_model:292": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:292",
+        "product_id": 292,
+        "resource_type": "model",
+        "model_code": "official-33-39c7c0b409eb3762c1",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "b0d00a22ba7f33faa91963dc0518a960aa93216bd0d145eb2ca89f6d26ad0d78"
+    },
+    "market_image_model:291": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:291",
+        "product_id": 291,
+        "resource_type": "model",
+        "model_code": "official-33-26027546c4725a9719",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "d2163e184a11300c9fd90e61dcea3214f0308282d9c1986e32ca3392a2871ad2"
+    },
+    "market_image_model:290": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:290",
+        "product_id": 290,
+        "resource_type": "model",
+        "model_code": "official-33-15d851fa639e9d4015",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "dbf82912435e728b00a76cb57c708a33332f9bcec1832886133b05ee73ca7e41"
+    },
+    "market_image_model:289": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:289",
+        "product_id": 289,
+        "resource_type": "model",
+        "model_code": "official-33-c78ce1860e37bd0439",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "7e1a2a07312e3b3a4eb38552fec16573a257657ac122ed22e4d3de01f927fded"
+    },
+    "market_image_model:288": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:288",
+        "product_id": 288,
+        "resource_type": "model",
+        "model_code": "official-33-8a4e0878e664e17d82",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "a330ed0372b4563d99a2891fabb36901d9b67b531b3423eb8afc837ba179e4f3"
+    },
+    "market_image_model:287": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:287",
+        "product_id": 287,
+        "resource_type": "model",
+        "model_code": "official-33-8f0fafa8deaae082d3",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "32670870142c3444d7a2da5241d4ec55dc32c74cc390d241e5d0564c4c1e1bfb"
+    },
+    "market_image_model:286": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:286",
+        "product_id": 286,
+        "resource_type": "model",
+        "model_code": "official-33-7ac6429f9f44e17d48",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "314da9fe94d604a81ecee045996911257bec34559cc17eb902527051a44917e0"
+    },
+    "market_image_model:285": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:285",
+        "product_id": 285,
+        "resource_type": "model",
+        "model_code": "official-33-02e3101acd7c234fac",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "5a4dc3f532df2c9be83d255f4871b9cda5ebfaa49de5f9ea711c59ef89da0b06"
+    },
+    "market_image_model:284": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:284",
+        "product_id": 284,
+        "resource_type": "model",
+        "model_code": "official-33-91078d7e1075a4d22b",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "5a4dc3f532df2c9be83d255f4871b9cda5ebfaa49de5f9ea711c59ef89da0b06"
+    },
+    "market_image_model:283": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:283",
+        "product_id": 283,
+        "resource_type": "model",
+        "model_code": "official-33-33aa9999f57aa99943",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "78f594c8dc16b3e384eb11df6b1547e73440d5a254d55262dea2b2d6d9928195"
+    },
+    "market_image_model:282": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:282",
+        "product_id": 282,
+        "resource_type": "model",
+        "model_code": "official-33-d1cd4f83fd8eb9dcc5",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "ca7efd2c14161406dde1c30b75e143de918b64d7235deaa7a09e05f8be9e2a5e"
+    },
+    "market_image_model:281": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:281",
+        "product_id": 281,
+        "resource_type": "model",
+        "model_code": "official-33-147ffdea964655ab26",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "5dfa88ba9efdf7ca778a47d1422fed19d125ca8b82558e32c7e861421da6595b"
+    },
+    "market_image_model:280": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:280",
+        "product_id": 280,
+        "resource_type": "model",
+        "model_code": "official-33-4093bb129f33d36561",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "9a69556e7d7603c2ab639c0161e56689eaf3c24f1c82673a7cda35228e9f1564"
+    },
+    "market_image_model:279": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:279",
+        "product_id": 279,
+        "resource_type": "model",
+        "model_code": "official-33-d05458fc163e8a9b70",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "35a078f71f0d5da589d456a3e1e438941e33a26ff9bf6a8c5444dba24f2ffa9a"
+    },
+    "market_image_model:278": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:278",
+        "product_id": 278,
+        "resource_type": "model",
+        "model_code": "official-33-49bf5a97697595afbe",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "32a74000bb0594367eee0c95b0a638b5a3b63b092b101b234fd903cd49fd60cc"
+    },
+    "market_image_model:277": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:277",
+        "product_id": 277,
+        "resource_type": "model",
+        "model_code": "official-33-f3baf6c03742072d3a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "c5453a77acf2d3018226d55403f04fb91f332a72f37fb209407ba927af647a2c"
+    },
+    "market_image_model:276": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:276",
+        "product_id": 276,
+        "resource_type": "model",
+        "model_code": "official-33-5901fec1e4f482dc9f",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "9403ce9c2a6272c2b0156090660e1916158944db5ece81d1a0139d89099b197b"
+    },
+    "market_image_model:275": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:275",
+        "product_id": 275,
+        "resource_type": "model",
+        "model_code": "official-33-c0b38c6fcb29f739b0",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "e8a5bff299703ed8a743fcf4bce1d4bc68d6b2792f629756302c12c8493f30ee"
+    },
+    "market_image_model:274": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:274",
+        "product_id": 274,
+        "resource_type": "model",
+        "model_code": "official-33-99f7864e9c69192f6b",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "9c73a9ba9ba9c505ed605afd572ed120a7bb4ba513363cc1f66b8b8cd1479a40"
+    },
+    "market_image_model:273": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:273",
+        "product_id": 273,
+        "resource_type": "model",
+        "model_code": "official-33-a89cf866c234f6089d",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "d18b59c9eda4ce28d4de53aa92e484c7b2ef87de60c590166cc8bebc12888f97"
+    },
+    "market_image_model:272": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:272",
+        "product_id": 272,
+        "resource_type": "model",
+        "model_code": "official-33-e8c8eb1813d875178a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "4787e11c2272d10b36f5792aa9d3eec1e58c23040a70102360f206b91e86031c"
+    },
+    "market_image_model:271": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:271",
+        "product_id": 271,
+        "resource_type": "model",
+        "model_code": "official-33-c24187c808ad9e2ae8",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "000b6592f26e0e2b1e478f9b0323be154a09dae798a2ebe2c1fa58acb5ae307d"
+    },
+    "market_image_model:270": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:270",
+        "product_id": 270,
+        "resource_type": "model",
+        "model_code": "official-33-a237b79358f378dcbd",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "000b6592f26e0e2b1e478f9b0323be154a09dae798a2ebe2c1fa58acb5ae307d"
+    },
+    "market_image_model:234": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:234",
+        "product_id": 234,
+        "resource_type": "model",
+        "model_code": "nano-banana-2.1",
+        "channel_code": "Google",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "864c9a8bf73956e974f403325dac3c08bc9f15059a86fb981d73741641e7a601"
+    },
+    "market_image_model:169": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:169",
+        "product_id": 169,
+        "resource_type": "model",
+        "model_code": "gpt-image-2.5",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4"
+    },
+    "market_image_model:168": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:168",
+        "product_id": 168,
+        "resource_type": "model",
+        "model_code": "gpt-image-2.5-flare",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "b6e3248784f1908f3d15a7c4d9584f6db5e3526a769d26b8da0c1e1eb6a6ad13"
+    },
+    "market_image_model:167": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:167",
+        "product_id": 167,
+        "resource_type": "model",
+        "model_code": "gpt-image-2.5-sunburst",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "e2e07a4af2efec219ac91a297db658c1471a0a19b52fd808c5b9044c1a29873a"
+    },
+    "market_image_model:93": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:93",
+        "product_id": 93,
+        "resource_type": "model",
+        "model_code": "nano-banana-2",
+        "channel_code": "Google",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "7812a7275c4b38ae7294f293ffbca27e8c2bf9e72104ace538aeeedd9a311b5b"
+    },
+    "market_image_model:92": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:92",
+        "product_id": 92,
+        "resource_type": "model",
+        "model_code": "nano-banana-pro",
+        "channel_code": "Google",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "7812a7275c4b38ae7294f293ffbca27e8c2bf9e72104ace538aeeedd9a311b5b"
+    },
+    "market_image_model:91": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:91",
+        "product_id": 91,
+        "resource_type": "model",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenaiM",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "05310bc24ecb6069788bba47039164d8357b5c1017d8aa8d6e99573799c48934"
+    },
+    "market_image_model:90": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:90",
+        "product_id": 90,
+        "resource_type": "model",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4"
+    },
+    "market_image_model:89": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:89",
+        "product_id": 89,
+        "resource_type": "model",
+        "model_code": "gpt-image-2-fast",
+        "channel_code": "openaiD",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "44ccb0d87464e260598fb73a0960a190c2df9ca5c4c1e548954c9dea559f7dba"
+    },
+    "market_image_model:88": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:88",
+        "product_id": 88,
+        "resource_type": "model",
+        "model_code": "gpt-image-2-pro",
+        "channel_code": "OpenaiM",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "deaa079d368b5681c1c24ab2cbb9638ea27eb0f25759ab4a1a22be6a94b2ebb1"
+    },
+    "market_image_model:87": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:87",
+        "product_id": 87,
+        "resource_type": "model",
+        "model_code": "qwen-image-3.0-pro",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d"
+    },
+    "market_image_model:86": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:86",
+        "product_id": 86,
+        "resource_type": "model",
+        "model_code": "qwen-image-3.0",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmE=": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmE=",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmEtMg==": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2-lite",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2-lite:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw=": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw=",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-pro",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    },
+    "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-pro:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "declaration_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+    }
+  },
+  "browser_observations": [
+    {
+      "channel": "market_image_model:281",
+      "sku_id": 390,
+      "material_mode": "default:0",
+      "entry": "pc_studio",
+      "scenario": "browser_text_ratio_1_1",
+      "status": "partial_observed",
+      "observed_quote_points": 24,
+      "uploaded_images": 0,
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:281",
+        "product_id": 281,
+        "resource_type": "model",
+        "model_code": "official-33-147ffdea964655ab26",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "remaining": "Remaining parameter boundaries, quantity, lifecycle and other entries not certified; no supplier generation.",
+      "cell_key": "86ff92a81223993e13aeadf1c78321787f9e81e8645ed286e57c7e7009b2e35f"
+    },
+    {
+      "channel": "market_image_model:281",
+      "sku_id": 390,
+      "material_mode": "default:0",
+      "entry": "pc_studio",
+      "scenario": "browser_upload_ratio_3_2",
+      "status": "partial_observed",
+      "observed_quote_points": 24,
+      "uploaded_images": 1,
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:281",
+        "product_id": 281,
+        "resource_type": "model",
+        "model_code": "official-33-147ffdea964655ab26",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "remaining": "Remaining parameter boundaries, quantity, lifecycle and other entries not certified; no supplier generation.",
+      "cell_key": "2805fd0625d6c494582ff0180a0019c1993477cd46618405877ff0b313f7b135"
+    },
+    {
+      "channel": "market_image_model:281",
+      "sku_id": 390,
+      "material_mode": "default:0",
+      "entry": "pc_studio",
+      "scenario": "browser_upload_ratio_2_3",
+      "status": "partial_observed",
+      "observed_quote_points": 24,
+      "uploaded_images": 1,
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:281",
+        "product_id": 281,
+        "resource_type": "model",
+        "model_code": "official-33-147ffdea964655ab26",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "remaining": "Remaining parameter boundaries, quantity, lifecycle and other entries not certified; no supplier generation.",
+      "cell_key": "979cf44e64399be59d75b627ca7718bbf103d33c3ab0f44efcd4d4cc6848d534"
+    },
+    {
+      "channel": "market_image_model:273",
+      "sku_id": null,
+      "material_mode": "image_edit:2",
+      "entry": "pc_studio",
+      "scenario": "browser_reference_mask_default_speed",
+      "status": "partial_observed",
+      "observed_quote_points": 14,
+      "uploaded_images": 2,
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:273",
+        "product_id": 273,
+        "resource_type": "model",
+        "model_code": "official-33-a89cf866c234f6089d",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "remaining": "Remaining parameter boundaries, quantity, lifecycle and other entries not certified; no supplier generation.",
+      "sku_evidence": "Page shows prices; exact selected SKU not observed in browser, do not infer from price."
+    },
+    {
+      "channel": "market_image_model:273",
+      "sku_id": null,
+      "material_mode": "image_edit:2",
+      "entry": "pc_studio",
+      "scenario": "browser_reference_mask_quality_speed",
+      "status": "partial_observed",
+      "observed_quote_points": 40,
+      "uploaded_images": 2,
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:273",
+        "product_id": 273,
+        "resource_type": "model",
+        "model_code": "official-33-a89cf866c234f6089d",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "remaining": "Remaining parameter boundaries, quantity, lifecycle and other entries not certified; no supplier generation.",
+      "sku_evidence": "Page shows prices; exact selected SKU not observed in browser, do not infer from price."
+    }
+  ]
+}

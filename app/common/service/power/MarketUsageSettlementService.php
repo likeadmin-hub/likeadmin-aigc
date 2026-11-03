@@ -36,6 +36,22 @@ class MarketUsageSettlementService
         return $value > 0 ? $value : 0.0;
     }
 
+    /** New bounded contracts bind one receipt path; unrelated nested numbers
+     * and missing/invalid usage can never release a reservation as free usage. */
+    public static function boundedTokenUsage(array $payload, array $meter): float
+    {
+        if (!MarketGenerationMeter::boundedToken($meter)) throw new \InvalidArgumentException('Token 计量上限合同无效');
+        $value=$payload;
+        foreach (explode('.', $meter['usage_path']) as $key) {
+            if (!is_array($value) || !array_key_exists($key,$value)) return 0.;
+            $value=$value[$key];
+        }
+        if ((!is_int($value) && !(is_string($value) && preg_match('/^[1-9][0-9]*$/D',$value)))
+            || !is_finite((float)$value) || (float)$value<=0) return 0.;
+        if ((float)$value>$meter['maximum_quantity']) throw new \InvalidArgumentException('实际 Token 用量超过冻结合同上限，请核查计费回执');
+        return (float)$value;
+    }
+
     private static function firstNumber(array $value, array $keys): float
     {
         foreach ($keys as $key) {

@@ -1,0 +1,42 @@
+{
+  "batch": 34,
+  "date": "2026-10-31",
+  "source_web_commit": "6200ff8634487576596f486cbb9485b555ed6688",
+  "source_server_commit": "22f34ece6743492ede564dec3286a7dda7ed3132",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "new_uploads": 0,
+  "scope": "Historical reproductions only. Pure old shared helper plus metadata projection; real current published catalogue on old short-drama connection policy with valid string IDs. No provider, charge, original task/project write.",
+  "cases": [
+    {
+      "source_web_commit": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "scenario": "same_field_ambiguity_error_not_retained_or_blocked",
+      "status": "reproduced_failure",
+      "helper_returned_ambiguity": true,
+      "metadata_conflict_retained": false,
+      "payload_accepted": true
+    },
+    {
+      "source_web_commit": "84e7feb3",
+      "channel": "market_video_model:335",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "scenario": "published_subject_groups_hidden_by_legacy_flat_image_limit",
+      "status": "reproduced_failure",
+      "shared_supported_methods": [
+        "text_to_video",
+        "image_to_video",
+        "start_end"
+      ],
+      "short_drama_compatible_choices": 0,
+      "subject_rows": 2,
+      "image_uses": 4,
+      "fixed_by": "7f994f8d"
+    }
+  ]
+}

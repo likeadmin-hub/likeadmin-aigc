@@ -322,6 +322,6 @@ class ShortDramaEpisodeReviewTest extends TestCase
         $result=Episodes::summary(['status'=>'failed','completed_once'=>1,'error'=>'模型容量不足']);
         self::assertTrue($result['ready']); self::assertSame('success',$result['status']);
         self::assertSame('failed',$result['queue_state']); self::assertSame('failed',$result['review_status']);
-        self::assertTrue($result['can_retry']); self::assertTrue($result['needs_review']);
+        self::assertTrue($result['can_retry']); self::assertFalse($result['needs_review']);
     }
 }

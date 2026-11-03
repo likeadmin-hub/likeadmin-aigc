@@ -1,0 +1,214 @@
+{
+  "batch": 30,
+  "date": "2026-10-31",
+  "source_web_commit": "5a2371d8c1e677a799b33cb6748839813e971a26",
+  "source_server_commit": "df9dee35dcdeff14e529dfa5603245dc6b9bfe9c",
+  "scope": "Normal signed-in HTTP full pages with newly created and clearly named synthetic projects. No auth injection, API replacement, transaction-only fixture, original project writes or paid generation. Only the listed resource and material scenarios are accepted.",
+  "cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:357",
+      "scenario": "normal_login_http_save_fresh_tab_and_final_process_restart_mixed_graph",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "status": "http_graph_state_preserved",
+      "isolated_project_id": 843,
+      "node_count": 4,
+      "edge_count": 3,
+      "committed_graph_hash_before": "96358974b83ff43bcc5ca9271b2c781b1d280f6ae0536cd364cf1c8fe3570024",
+      "committed_graph_hash_after_restart": "96358974b83ff43bcc5ca9271b2c781b1d280f6ae0536cd364cf1c8fe3570024",
+      "nodes_and_edges_unchanged_after_fresh_http_read": true,
+      "material_uses": [
+        {
+          "type": "image",
+          "role": "reference_image",
+          "sourceId": "image_1793416309391_wwwe3zpi",
+          "reference_slot_id": "node:image_1793416309391_wwwe3zpi",
+          "field": null,
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "1c34155cd2d040165b0a96daaa296536d4b31dcc0ce5c9221043ea8ea2231341"
+        },
+        {
+          "type": "video",
+          "role": "reference_video",
+          "sourceId": "video_1793416312183_8dxp8ixq",
+          "reference_slot_id": "node:video_1793416312183_8dxp8ixq",
+          "field": null,
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "2fa85b07c6b5c93e614b952d5beb172e0cf100efb46ddf249a0f29396c622130"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio",
+          "sourceId": "audio_1793416314522_qrzmgsw7",
+          "reference_slot_id": "node:audio_1793416314522_qrzmgsw7",
+          "field": null,
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "69b074a125bd49bf180171f58829ade3333228b726a94c9f86b4f80ec7fb3693"
+        }
+      ],
+      "page_quote_points": 635,
+      "scope": "Normal authenticated full-page UI creates, uploads, connects and auto-saves to ordinary HTTP APIs. New tabs reopen after real PC and PHP-FPM process restart. Independent read-only PHP processes verify committed SQL. This is not raw browser DTO capture, provider submission or database restart testing.",
+      "sku_id": 806,
+      "sku_source": "persisted target metadata selected by actual page"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:357",
+      "scenario": "normal_login_http_save_fresh_tab_and_final_process_restart_mixed_graph",
+      "requested_method": "omni_reference",
+      "requested_parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "status": "http_graph_state_preserved",
+      "isolated_project_id": 483,
+      "node_count": 4,
+      "edge_count": 3,
+      "committed_graph_hash_before": "f201f3b665961a37a70b3bb9449c1d0e6268695798abfd380a3a4d94d4f498b7",
+      "committed_graph_hash_after_restart": "f201f3b665961a37a70b3bb9449c1d0e6268695798abfd380a3a4d94d4f498b7",
+      "nodes_and_edges_unchanged_after_fresh_http_read": true,
+      "material_uses": [
+        {
+          "type": "image",
+          "role": "reference_image",
+          "sourceId": "1793416599668",
+          "reference_slot_id": "node:1793416599668",
+          "field": null,
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "88ff7535564e2e91f6b5610174652ae4b04a5b92faaf39c7a0f4e2ce3aecdce6"
+        },
+        {
+          "type": "video",
+          "role": "reference_video",
+          "sourceId": "1793416599670",
+          "reference_slot_id": "node:1793416599670",
+          "field": null,
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "205daeb928a3801e285f3e3dfedfc3cbdedde494ebfdeb179c1900d4f6f86400"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio",
+          "sourceId": "1793416599671",
+          "reference_slot_id": "node:1793416599671",
+          "field": null,
+          "has_owned_asset_id": true,
+          "storage_fingerprint": "edbc725282d33dc6f9abb8dfe2a6f4b6a1b317468aad406f8646b8812fbabccb"
+        }
+      ],
+      "page_quote_points": 635,
+      "scope": "Normal authenticated full-page UI creates, uploads, connects and auto-saves to ordinary HTTP APIs. New tabs reopen after real PC and PHP-FPM process restart. Independent read-only PHP processes verify committed SQL. This is not raw browser DTO capture, provider submission or database restart testing.",
+      "sku_binding": "not captured in browser HTTP response; exact SKU is recorded separately by the read-only saved-graph preparation replay"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:357",
+      "sku_id": 806,
+      "requested_method": "omni_reference",
+      "scenario": "normal_http_append_image_history_select_old_and_reopen_with_video_audio",
+      "requested_parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "status": "http_graph_state_preserved",
+      "scope": "Actual append upload, previous-result control and HTTP reload on the new synthetic project only. Two uploaded result items, no historical provider task inserted or rewritten.",
+      "media_history_count": 2,
+      "active_image_changed_then_restored": true,
+      "source_and_target_image_storage_match": true,
+      "video_audio_and_audio_false_preserved": true,
+      "edges_unchanged": true,
+      "page_quote_points": 635,
+      "old_image_fingerprint": "1c34155cd2d040165b0a96daaa296536d4b31dcc0ce5c9221043ea8ea2231341",
+      "new_image_fingerprint": "b8a3fe77fc2bcd3420322162305120c84222a1a4b88bd2f1a84b6eebdb2b4512",
+      "material_uses": [
+        {
+          "type": "image",
+          "role": "reference_image",
+          "sourceId": "image_1793416309391_wwwe3zpi",
+          "reference_slot_id": "node:image_1793416309391_wwwe3zpi",
+          "field": null,
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "1c34155cd2d040165b0a96daaa296536d4b31dcc0ce5c9221043ea8ea2231341"
+        },
+        {
+          "type": "video",
+          "role": "reference_video",
+          "sourceId": "video_1793416312183_8dxp8ixq",
+          "reference_slot_id": "node:video_1793416312183_8dxp8ixq",
+          "field": null,
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "2fa85b07c6b5c93e614b952d5beb172e0cf100efb46ddf249a0f29396c622130"
+        },
+        {
+          "type": "audio",
+          "role": "reference_audio",
+          "sourceId": "audio_1793416314522_qrzmgsw7",
+          "reference_slot_id": "node:audio_1793416314522_qrzmgsw7",
+          "field": null,
+          "has_owned_asset_id": false,
+          "storage_fingerprint": "69b074a125bd49bf180171f58829ade3333228b726a94c9f86b4f80ec7fb3693"
+        }
+      ]
+    }
+  ],
+  "restart": {
+    "final_source": "5a2371d8c1e677a799b33cb6748839813e971a26",
+    "pc_process_changed": true,
+    "php_fpm_master_changed": true,
+    "php_fpm_workers_replaced": true,
+    "mode": "PC development service restarted; corresponding main PHP 8.2 FPM pool gracefully reloaded. MySQL, Nginx and platform/tenant frontend processes were not restarted.",
+    "cycles": 2,
+    "reason": "Initial durability audit, then final-code recheck after material-method recursion fix."
+  },
+  "console": {
+    "final_canvas_errors_warnings": [],
+    "final_short_drama_errors_warnings": []
+  },
+  "retention": {
+    "synthetic_projects_retained_for_review": [
+      {
+        "entry": "canvas",
+        "id": 843,
+        "name": "AIGC批次30-隔离合成画布-20261031"
+      },
+      {
+        "entry": "short_drama",
+        "id": 483,
+        "name": "AIGC批次30-隔离合成短剧-20261031"
+      }
+    ],
+    "original_user_projects_modified": false,
+    "physical_uploads": "normal existing SaaS uploads of non-private synthetic media; retained with the isolated projects"
+  },
+  "exclusions": [
+    "No raw network DTO capture; browser values and independently read committed SQL are labeled separately.",
+    "Only PC and main PHP process recovery, not database/container/host restart or crash-consistency certification.",
+    "Old uploaded media items are tested; full old-provider-task history and all mixed native field combinations remain incomplete.",
+    "Temporary diagnostic render hooks were removed before final validation."
+  ]
+}

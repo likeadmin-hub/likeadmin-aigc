@@ -1,0 +1,254 @@
+{
+  "batch": 27,
+  "date": "2026-10-31",
+  "scope": "Visible browser constructor fields manually transcribed into a local read-only fixture. Real short-drama tier boundary/reference-payload builder and video estimate/admission/preparation/frozen replay; project ownership and asset DB resolution replaced by an existing synthetic color image fixture. No browser wire capture, project API acceptance, provider or paid generation.",
+  "source_web_commit": "6234b454eeb350818d806ee58e52f2977062676f",
+  "browser_business_commit": "3ea8d121",
+  "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95",
+  "cases": [
+    {
+      "entry": "short_drama",
+      "kind": "video",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_single_fast_480p_5s_synthetic_first_frame",
+      "selected_sku": 137,
+      "expected": "accepted",
+      "requested_parameters": {
+        "video_mode": "fast",
+        "mode": "video_generate",
+        "resolution": "480p",
+        "duration": 5,
+        "ratio": "1:1",
+        "generation_method": "image_to_video"
+      },
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "selection_business_mode": "fast",
+      "status": "quote_preparation_frozen_equal",
+      "sku_id": 137,
+      "points": 148.83,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "grok-imagine-video-1.5-fast",
+        "resolution": "480p",
+        "duration": 5,
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "1d29b24c60fcdc8533f9bcef4776b09e737876d68553d73edd82875e176c49e9",
+      "frozen_native_and_meter_equal": true,
+      "entry_surface": "pc_storyboard_single",
+      "source_web_commit": "3ea8d121",
+      "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95"
+    },
+    {
+      "entry": "short_drama",
+      "kind": "video",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_single_standard_720p_5s_synthetic_first_frame",
+      "selected_sku": 141,
+      "expected": "accepted",
+      "requested_parameters": {
+        "video_mode": "standard",
+        "mode": "video_generate",
+        "resolution": "720p",
+        "duration": 5,
+        "ratio": "1:1",
+        "generation_method": "image_to_video"
+      },
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "selection_business_mode": "standard",
+      "status": "quote_preparation_frozen_equal",
+      "sku_id": 141,
+      "points": 76.7,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "grok-imagine-video-1.5",
+        "resolution": "720p",
+        "duration": 5,
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "4082466c5214fc8f98393f5865b9ad14c8c02526770c68cb253ea730c9ccf893",
+      "frozen_native_and_meter_equal": true,
+      "entry_surface": "pc_storyboard_single",
+      "source_web_commit": "3ea8d121",
+      "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95"
+    },
+    {
+      "entry": "short_drama",
+      "kind": "video",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_batch_standard_720p_6s_synthetic_first_frame",
+      "selected_sku": 141,
+      "expected": "accepted",
+      "requested_parameters": {
+        "video_mode": "standard",
+        "mode": "video_generate",
+        "resolution": "720p",
+        "duration": 6,
+        "ratio": "1:1",
+        "generation_method": "image_to_video"
+      },
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "selection_business_mode": "standard",
+      "status": "quote_preparation_frozen_equal",
+      "sku_id": 141,
+      "points": 92.04,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "grok-imagine-video-1.5",
+        "resolution": "720p",
+        "duration": 6,
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "e18eb228af37c8b631c0c2e47225455ac6db622b79205d7bd647fd1d039e3f32",
+      "frozen_native_and_meter_equal": true,
+      "entry_surface": "pc_storyboard_batch",
+      "source_web_commit": "3ea8d121",
+      "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95"
+    },
+    {
+      "entry": "short_drama",
+      "kind": "video",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_batch_standard_720p_8s_synthetic_first_frame",
+      "selected_sku": 141,
+      "expected": "accepted",
+      "requested_parameters": {
+        "video_mode": "standard",
+        "mode": "video_generate",
+        "resolution": "720p",
+        "duration": 8,
+        "ratio": "1:1",
+        "generation_method": "image_to_video"
+      },
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "selection_business_mode": "standard",
+      "status": "quote_preparation_frozen_equal",
+      "sku_id": 141,
+      "points": 122.72,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "grok-imagine-video-1.5",
+        "resolution": "720p",
+        "duration": 8,
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "e04c003a33e3869f088a64e8841f387ff75e010c6edaaa97d0350704c8f906aa",
+      "frozen_native_and_meter_equal": true,
+      "entry_surface": "pc_storyboard_batch",
+      "source_web_commit": "3ea8d121",
+      "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95"
+    },
+    {
+      "entry": "short_drama",
+      "kind": "video",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_single_standard_720p_8s_synthetic_first_frame",
+      "selected_sku": 141,
+      "expected": "accepted",
+      "requested_parameters": {
+        "video_mode": "standard",
+        "mode": "video_generate",
+        "resolution": "720p",
+        "duration": 8,
+        "ratio": "1:1",
+        "generation_method": "image_to_video"
+      },
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "selection_business_mode": "standard",
+      "status": "quote_preparation_frozen_equal",
+      "sku_id": 141,
+      "points": 122.72,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "grok-imagine-video-1.5",
+        "resolution": "720p",
+        "duration": 8,
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "e04c003a33e3869f088a64e8841f387ff75e010c6edaaa97d0350704c8f906aa",
+      "frozen_native_and_meter_equal": true,
+      "entry_surface": "pc_storyboard_single",
+      "source_web_commit": "3ea8d121",
+      "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95"
+    },
+    {
+      "entry": "short_drama",
+      "kind": "video",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "storyboard_single_standard_no_reference_rejected",
+      "selected_sku": 0,
+      "expected": "rejected",
+      "requested_parameters": {
+        "video_mode": "standard",
+        "mode": "video_generate",
+        "resolution": "720p",
+        "duration": 5,
+        "ratio": "1:1",
+        "generation_method": "text_to_video"
+      },
+      "requested_counts": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "selection_business_mode": "standard",
+      "status": "local_rejection",
+      "error": "所选生成档位不支持当前生成方式、素材或规格，请调整参数",
+      "entry_surface": "pc_storyboard_single",
+      "source_web_commit": "3ea8d121",
+      "source_server_commit": "a5ea863ddced7effa06822e79646f949727e3b95"
+    }
+  ],
+  "summary": {
+    "quote_preparation_frozen_equal": 5,
+    "expected_local_rejection": 1
+  },
+  "project_ownership": "not_tested_synthetic_fixture",
+  "provider_generation": "not_tested",
+  "asset_resolution": "synthetic_fixture_only"
+}

@@ -1,0 +1,450 @@
+{
+  "observed_at": "2026-10-30T02:05:10+08:00",
+  "scope": "Production frontend projection to actual local quote and frozen preparation; no task, reserve or provider calls",
+  "observations": [
+    {
+      "channel": "market_image_model:274",
+      "scenario": "default",
+      "material_mode": "image_edit:2",
+      "selected_sku": 379,
+      "advanced_override": false,
+      "projected_rendering_speed": "BALANCED",
+      "prepared_rendering_speed": "BALANCED",
+      "points": 72,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_image_model:274",
+      "scenario": "override_quality",
+      "material_mode": "image_edit:2",
+      "selected_sku": 377,
+      "advanced_override": true,
+      "projected_rendering_speed": "QUALITY",
+      "prepared_rendering_speed": "QUALITY",
+      "points": 96,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_image_model:274",
+      "scenario": "reset",
+      "material_mode": "image_edit:2",
+      "selected_sku": 379,
+      "advanced_override": false,
+      "projected_rendering_speed": "BALANCED",
+      "prepared_rendering_speed": "BALANCED",
+      "points": 72,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_image_model:274",
+      "scenario": "explicit_turbo_sku",
+      "material_mode": "image_edit:2",
+      "selected_sku": 378,
+      "advanced_override": false,
+      "projected_rendering_speed": "TURBO",
+      "prepared_rendering_speed": "TURBO",
+      "points": 48,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_image_model:273",
+      "scenario": "default",
+      "material_mode": "image_edit:2",
+      "selected_sku": 369,
+      "advanced_override": false,
+      "projected_rendering_speed": "BALANCED",
+      "prepared_rendering_speed": "BALANCED",
+      "points": 28,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_image_model:273",
+      "scenario": "override_quality",
+      "material_mode": "image_edit:2",
+      "selected_sku": 368,
+      "advanced_override": true,
+      "projected_rendering_speed": "QUALITY",
+      "prepared_rendering_speed": "QUALITY",
+      "points": 40,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_image_model:273",
+      "scenario": "reset",
+      "material_mode": "image_edit:2",
+      "selected_sku": 369,
+      "advanced_override": false,
+      "projected_rendering_speed": "BALANCED",
+      "prepared_rendering_speed": "BALANCED",
+      "points": 28,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    },
+    {
+      "channel": "market_image_model:273",
+      "scenario": "explicit_turbo_sku",
+      "material_mode": "image_edit:2",
+      "selected_sku": 370,
+      "advanced_override": false,
+      "projected_rendering_speed": "TURBO",
+      "prepared_rendering_speed": "TURBO",
+      "points": 14,
+      "status": "shared_projection_quote_and_frozen_preparation_equal"
+    }
+  ],
+  "video_regression": [
+    {
+      "channel": "market_video_model:355",
+      "material_mode": "text_to_video:0",
+      "sku_id": 783,
+      "status": "quote_and_preparation_default_equal",
+      "defaults": {
+        "audio": false
+      }
+    },
+    {
+      "channel": "market_video_model:352",
+      "material_mode": "text_to_video:0",
+      "sku_id": 742,
+      "status": "quote_and_preparation_default_equal",
+      "defaults": {
+        "generate_audio_switch": false
+      }
+    },
+    {
+      "channel": "market_video_model:306",
+      "material_mode": "text_to_video:0",
+      "sku_id": 472,
+      "status": "quote_and_preparation_default_equal",
+      "defaults": {
+        "generate_audio_switch": false
+      }
+    }
+  ],
+  "projection_scope_review": {
+    "scope": "Pure projection at unbound SKU per native mode; not entry, quote or full contract acceptance",
+    "inspected_options": 121,
+    "affected": [
+      {
+        "type": "image",
+        "id": "market_image_model:303",
+        "name": "Seedream 5.0 Flash",
+        "material_mode": "text_to_image:0",
+        "fields": [
+          "size"
+        ]
+      },
+      {
+        "type": "image",
+        "id": "market_image_model:303",
+        "name": "Seedream 5.0 Flash",
+        "material_mode": "image_to_image:1",
+        "fields": [
+          "size"
+        ]
+      },
+      {
+        "type": "image",
+        "id": "market_image_model:280",
+        "name": "生成或编辑图像",
+        "material_mode": "default:0",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "image",
+        "id": "market_image_model:274",
+        "name": "Ideogram Character",
+        "material_mode": "reference_to_image:0",
+        "fields": [
+          "rendering_speed"
+        ]
+      },
+      {
+        "type": "image",
+        "id": "market_image_model:274",
+        "name": "Ideogram Character",
+        "material_mode": "image_to_image:1",
+        "fields": [
+          "rendering_speed"
+        ]
+      },
+      {
+        "type": "image",
+        "id": "market_image_model:274",
+        "name": "Ideogram Character",
+        "material_mode": "image_edit:2",
+        "fields": [
+          "rendering_speed"
+        ]
+      },
+      {
+        "type": "image",
+        "id": "market_image_model:273",
+        "name": "Ideogram V3",
+        "material_mode": "image_edit:2",
+        "fields": [
+          "rendering_speed"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:355",
+        "name": "Kling 3.0 Omni",
+        "material_mode": "text_to_video:0",
+        "fields": [
+          "audio"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:352",
+        "name": "PixVerse V6",
+        "material_mode": "text_to_video:0",
+        "fields": [
+          "generate_audio_switch"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:352",
+        "name": "PixVerse V6",
+        "material_mode": "image_to_video:1",
+        "fields": [
+          "generate_audio_switch"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:352",
+        "name": "PixVerse V6",
+        "material_mode": "reference_to_video:4",
+        "fields": [
+          "generate_audio_switch"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:337",
+        "name": "Kling-3.0 motion-control",
+        "material_mode": "default:0",
+        "fields": [
+          "mode"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:327",
+        "name": "生成veo3.1视频",
+        "material_mode": ":text",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:327",
+        "name": "生成veo3.1视频",
+        "material_mode": ":first",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:327",
+        "name": "生成veo3.1视频",
+        "material_mode": ":pair",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:327",
+        "name": "生成veo3.1视频",
+        "material_mode": ":reference",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:326",
+        "name": "生成veo3.1视频",
+        "material_mode": ":text",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:326",
+        "name": "生成veo3.1视频",
+        "material_mode": ":first",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:326",
+        "name": "生成veo3.1视频",
+        "material_mode": ":pair",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:326",
+        "name": "生成veo3.1视频",
+        "material_mode": ":reference",
+        "fields": [
+          "model_version"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:306",
+        "name": "PixVerse V6 Max",
+        "material_mode": "text_to_video:0",
+        "fields": [
+          "generate_audio_switch"
+        ]
+      },
+      {
+        "type": "video",
+        "id": "market_video_model:306",
+        "name": "PixVerse V6 Max",
+        "material_mode": "image_to_video:1",
+        "fields": [
+          "generate_audio_switch"
+        ]
+      }
+    ],
+    "qualification": "Upper bound at unbound SKU with no base-owned keys; actual forms filter fields owned by active base selectors. Not 22 accepted modes."
+  },
+  "baseline": "tenant-1-baseline-20261030.json",
+  "baseline_identity_observed_at": "2026-10-30T01:16:40+08:00",
+  "identity_bindings": {
+    "market_image_model:273": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:273",
+        "product_id": 273,
+        "resource_type": "model",
+        "model_code": "official-33-a89cf866c234f6089d",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "d18b59c9eda4ce28d4de53aa92e484c7b2ef87de60c590166cc8bebc12888f97"
+    },
+    "market_image_model:274": {
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:274",
+        "product_id": 274,
+        "resource_type": "model",
+        "model_code": "official-33-99f7864e9c69192f6b",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "9c73a9ba9ba9c505ed605afd572ed120a7bb4ba513363cc1f66b8b8cd1479a40"
+    },
+    "market_video_model:306": {
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:306",
+        "product_id": 306,
+        "resource_type": "model",
+        "model_code": "official-33-b575b2056738558b52",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "69addf1e027d72e7ae284adfe0270cbce57e6aea667710a481893bb2f46832d8"
+    },
+    "market_video_model:352": {
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:352",
+        "product_id": 352,
+        "resource_type": "model",
+        "model_code": "official-33-bc43b516f1e62b4c7e",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "4e5e0c507d24d8b5b9ec15d9702388b34188edc3eb85709f84734a919ab8588e"
+    },
+    "market_video_model:355": {
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:355",
+        "product_id": 355,
+        "resource_type": "model",
+        "model_code": "official-33-b3e3713fe0a132855f",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_fingerprint": "17928631d3c05680fe5d07091d27b26272dc2ae4ab7e02b89367b162bdcd57c9"
+    }
+  },
+  "source_commits": {
+    "web_shared_projection": "41f7d59a",
+    "server_business_baseline": "3feec8e8b"
+  },
+  "closed_findings": [
+    {
+      "channel": "market_image_model:274",
+      "material_mode": "image_edit:2",
+      "previous_record": "pc-image-groups-batch-03-20261030.json",
+      "previous_status": "open_default_display_mismatch",
+      "status": "resolved_for_tested_shared_projection_scenarios",
+      "default": "BALANCED"
+    },
+    {
+      "channel": "market_image_model:273",
+      "material_mode": "image_edit:2",
+      "previous_record": "pc-image-groups-batch-03-20261030.json",
+      "previous_status": "open_default_display_mismatch",
+      "status": "resolved_for_tested_shared_projection_scenarios",
+      "default": "BALANCED"
+    }
+  ],
+  "browser_observations": [
+    {
+      "channel": "market_image_model:274",
+      "entry": "pc_studio",
+      "material_mode": "image_edit:2",
+      "quantity_slots": 1,
+      "default_label": "BALANCED",
+      "default_points": 72,
+      "quality_override_points": 96,
+      "reset_points": 72,
+      "sku_status": "not_directly_observed",
+      "status": "partial_observed"
+    },
+    {
+      "channel": "market_image_model:273",
+      "entry": "pc_studio",
+      "material_mode": "image_edit:2",
+      "quantity_slots": 1,
+      "default_label": "BALANCED",
+      "default_points": 28,
+      "quality_override_points": 40,
+      "reset_points": 28,
+      "sku_status": "not_directly_observed",
+      "status": "partial_observed"
+    }
+  ],
+  "limitations": [
+    "No complete entry or full mode acceptance; base-owned fields and remaining scope require separate regression.",
+    "Raw callers which do not use shared projection retain existing SKU-lock/default behavior; original frozen tasks are unchanged.",
+    "No provider generation, task creation, reservation or market configuration changes."
+  ]
+}

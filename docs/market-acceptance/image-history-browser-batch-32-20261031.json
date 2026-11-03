@@ -1,0 +1,144 @@
+{
+  "batch": 32,
+  "date": "2026-10-31",
+  "source_web_commit": "0d4316ea4b0372f60fdc9e88cd06668abfb03a7e",
+  "source_server_commit": "46c3a959a61658c4f41454f1bf892cc004b390ce",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "direct_task_writes": false,
+  "scope": "Normal authenticated PC image history page, five re-edits and final reload. Local draft edits only; no API replacement, auth injection, generation/rerun click, original task save, new project or upload.",
+  "normal_page_cases": [
+    {
+      "channel": "market_image_model:305",
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "normal_authenticated_old_image_history_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "4k",
+        "ratio": "9:16",
+        "references": 0
+      },
+      "page_quote_points": 26,
+      "scope": "Normal full page re-edit restores model/specifications; no browser SKU/DTO captured and no SKU inferred from price."
+    },
+    {
+      "channel": "market_image_model:169",
+      "entry": "pc_create",
+      "requested_method": "image_reference",
+      "scenario": "normal_authenticated_old_image_history_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "1k",
+        "ratio": "3:4",
+        "references": 2
+      },
+      "page_quote_points": 20,
+      "scope": "Normal full page re-edit restores model/specifications; no browser SKU/DTO captured and no SKU inferred from price."
+    },
+    {
+      "channel": "market_image_model:282",
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "normal_authenticated_old_image_history_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "",
+        "ratio": "2:3",
+        "references": 0
+      },
+      "page_quote_points": 20,
+      "scope": "Normal full page re-edit restores model/specifications; no browser SKU/DTO captured and no SKU inferred from price."
+    },
+    {
+      "channel": "market_image_model:296",
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "normal_authenticated_old_image_history_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "basic",
+        "ratio": "1:1",
+        "references": 0
+      },
+      "page_quote_points": 28,
+      "scope": "Normal full page re-edit restores model/specifications; no browser SKU/DTO captured and no SKU inferred from price."
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "normal_authenticated_old_image_history_reedit",
+      "status": "observed_pass",
+      "controls": {
+        "resolution": "1k",
+        "ratio": "1:1",
+        "references": 0
+      },
+      "page_quote_points": 38,
+      "scope": "Normal full page re-edit restores model/specifications; no browser SKU/DTO captured and no SKU inferred from price."
+    }
+  ],
+  "row_stability_cases": [
+    {
+      "channel": "market_image_model:305",
+      "sku_id": 466,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "image_history_http_read_preserves_saved_task_row",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "cfc49b9f2b9fb5809a36f81ea8884da351326d21306262b0532795b79fca077b",
+      "task_hash_after": "cfc49b9f2b9fb5809a36f81ea8884da351326d21306262b0532795b79fca077b",
+      "scope": "SKU identifies the old saved task/consumption, not the current browser quote. Complete task row hash equality before initial page access and after final fresh-page re-edits/reload."
+    },
+    {
+      "channel": "market_image_model:169",
+      "sku_id": 252,
+      "entry": "pc_create",
+      "requested_method": "image_reference",
+      "scenario": "image_history_http_read_preserves_saved_task_row",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "2f4449d73889a6a0a44a043cd1beea7b7bd084b9520ea41b8cbd5fde7a80fc7f",
+      "task_hash_after": "2f4449d73889a6a0a44a043cd1beea7b7bd084b9520ea41b8cbd5fde7a80fc7f",
+      "scope": "SKU identifies the old saved task/consumption, not the current browser quote. Complete task row hash equality before initial page access and after final fresh-page re-edits/reload."
+    },
+    {
+      "channel": "market_image_model:282",
+      "sku_id": 391,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "image_history_http_read_preserves_saved_task_row",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "ab77fa359c9bec19a2722f398a0f094eed39b31c283f43120b9c206a270e3bbb",
+      "task_hash_after": "ab77fa359c9bec19a2722f398a0f094eed39b31c283f43120b9c206a270e3bbb",
+      "scope": "SKU identifies the old saved task/consumption, not the current browser quote. Complete task row hash equality before initial page access and after final fresh-page re-edits/reload."
+    },
+    {
+      "channel": "market_image_model:296",
+      "sku_id": 428,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "image_history_http_read_preserves_saved_task_row",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "786cb26e7def7fb5d8c3a1f9691a927b031e1dc0fd6619b8c4b5b504b114a374",
+      "task_hash_after": "786cb26e7def7fb5d8c3a1f9691a927b031e1dc0fd6619b8c4b5b504b114a374",
+      "scope": "SKU identifies the old saved task/consumption, not the current browser quote. Complete task row hash equality before initial page access and after final fresh-page re-edits/reload."
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+      "sku_id": 144,
+      "entry": "pc_create",
+      "requested_method": "text_to_image",
+      "scenario": "image_history_http_read_preserves_saved_task_row",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "5040d7977e813e323d74452b05a33900943a95b61bc1dcd61373918235390c76",
+      "task_hash_after": "5040d7977e813e323d74452b05a33900943a95b61bc1dcd61373918235390c76",
+      "scope": "SKU identifies the old saved task/consumption, not the current browser quote. Complete task row hash equality before initial page access and after final fresh-page re-edits/reload."
+    }
+  ],
+  "terminal_image_rows_before": 80,
+  "terminal_image_rows_after": 80,
+  "all_terminal_image_row_hashes_equal": true,
+  "final_page_errors_or_warnings": 0
+}

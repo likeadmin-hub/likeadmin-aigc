@@ -15,6 +15,7 @@ use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_image\ImageAppTaskSync;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -316,15 +317,16 @@ class AigcProductSuiteService
         $imageTaskIds = self::taskImageIds($task->toArray());
         $task->save(['status' => $imageTaskIds ? 'running' : 'failed', 'finish_time' => $imageTaskIds ? 0 : time(), 'update_time' => time()]);
         self::syncTaskFromImageTask($task);
-        return [
+        $generationDetail = self::taskDetail($tenantId, (int)$task['id'], $userId);
+        return \app\common\service\ai\GenerationTaskResultService::carry([
             'task_id' => (int)$task['id'],
             'batch_no' => $batchNo,
             'image_task_ids' => $imageTaskIds,
             'status' => (string)($task['status'] ?: 'running'),
             'error' => (string)($task['error'] ?? ''),
-            'results' => self::taskDetail($tenantId, (int)$task['id'], $userId)['results'] ?? [],
+            'results' => $generationDetail['results'] ?? [],
             'estimate' => $estimate,
-        ];
+        ], $generationDetail);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
@@ -363,7 +365,7 @@ class AigcProductSuiteService
         $count = (int)(clone $query)->count();
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::appendTaskResults($tenantId, $userId, $rows);
-        return ['lists' => array_map([self::class, 'formatTaskRow'], $rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
+        return ['lists' => \app\common\service\ai\GenerationTaskResultService::appendRelatedList(array_map([self::class, 'formatTaskRow'], $rows),'image'), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
@@ -378,7 +380,7 @@ class AigcProductSuiteService
             throw new Exception('任务不存在');
         }
         $rows = self::appendTaskResults($tenantId, $userId, [$task->toArray()]);
-        return self::formatTaskRow($rows[0] ?? []);
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated(self::formatTaskRow($rows[0] ?? []),'image',self::taskImageIds($task->toArray()),(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
@@ -675,11 +677,10 @@ class AigcProductSuiteService
         }
         $finishTimes = array_filter(array_map(static fn($row) => (int)($row['finish_time'] ?? 0), $imageTasks));
         $task->error = implode('；', array_unique($errors));
-        $task->finish_time = in_array((string)$task->status, ['success', 'failed', 'canceled', 'partial_failed'], true) ? max($finishTimes ?: [time()]) : 0;
+        $task->finish_time = ImageAppTaskSync::finishTime($task, $finishTimes, ['success', 'failed', 'canceled', 'partial_failed']);
         $task->tenant_cost_points = number_format(array_sum(array_map(static fn($row) => (float)($row['tenant_cost_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->user_charge_points = number_format(array_sum(array_map(static fn($row) => (float)($row['user_charge_points'] ?? 0), $imageTasks)), 2, '.', '');
-        $task->update_time = time();
-        $task->save();
+        ImageAppTaskSync::saveChangedFacts($task);
     }
 
     private static function syncResultsFromImageTask(AigcProductSuiteTask $task): array
@@ -805,6 +806,9 @@ class AigcProductSuiteService
 
     private static function appendTaskResults(int $tenantId, int $userId, array $rows): array
     {
+        $owners=[];$references=[];
+        foreach ($rows as $row) $owners[(int)$row['user_id']][(int)$row['id']]=\app\common\service\WorkspaceAssetReferenceService::inputs([$row]);
+        foreach ($owners as $owner=>$groups) $references+=\app\common\service\WorkspaceAssetReferenceService::resolveGroups($tenantId,$owner,$groups);
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         if ($taskIds) {
@@ -822,7 +826,7 @@ class AigcProductSuiteService
                     continue;
                 }
                 $result['download_url'] = $result['image_url'];
-                $result['source_image_url'] = self::imageUrl((string)($result['source_image'] ?? ''));
+                $result['source_image_url'] = (string)($references[(int)$result['task_id']][0]['url'] ?? '');
                 $resultMap[(int)$result['task_id']][] = $result;
             }
         }
@@ -831,7 +835,8 @@ class AigcProductSuiteService
             $row['results'] = $results;
             $row['result_count'] = count($results);
             $productImages = self::normalizeImages($row['product_images'] ?? []);
-            $row['product_image_urls'] = array_values(array_filter(array_map([self::class, 'imageUrl'], $productImages)));
+            $row['reference_assets'] = $references[(int)$row['id']] ?? [];
+            $row['product_image_urls'] = array_column($row['reference_assets'],'url');
             $row['source_image_urls'] = $row['product_image_urls'];
             $row['source_image_url'] = (string)($row['product_image_urls'][0] ?? '');
             $first = $results[0] ?? [];

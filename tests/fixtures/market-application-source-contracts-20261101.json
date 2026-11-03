@@ -1,0 +1,3448 @@
+{
+  "version": 1,
+  "status": "offline_preparation_fixture_only",
+  "captured_at": "2026-11-01T17:09:09+08:00",
+  "capture_source": "existing_configured_UpstreamPricingService_GET_transport",
+  "upstream_source_commit": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+  "scope": "Six exact current application declarations and 37 saved SKU bindings. No activation, quote, task, meter upper-bound or deployment certification. Schemas are preserved verbatim.",
+  "source_paths": [
+    "server/app/common/service/ai/app/SeedanceDriver.php",
+    "api-doc/application-api/app-11-seedance/api-27-create.md",
+    "server/app/common/service/ai/app/HappyHorseAppDriver.php",
+    "server/app/common/service/ai/app/HappyHorseTaskChannelService.php",
+    "server/app/common/service/ai/app/FullVideoAppDriver.php",
+    "server/app/common/service/ai/app/ElasticGpuAppDriver.php",
+    "server/app/api/controller/v1/AppController.php"
+  ],
+  "entries": [
+    {
+      "product": {
+        "id": 110,
+        "resource_type": "app_api",
+        "model_type": "",
+        "upstream_app_code": "nano_banana",
+        "upstream_api_code": "submit",
+        "status": 1
+      },
+      "metadata": {
+        "api_code": "submit",
+        "call_type": 2,
+        "method": "POST",
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "prompt"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "default": "nano-banana",
+              "example": "nano-banana",
+              "options": "nano-banana / nano-banana-2 / nano-banana-2-lite / nano-banana-pro / nano-banana:official / nano-banana-2-lite:official / nano-banana-2:official / nano-banana-pro:official",
+              "description": "模型规格。普通模型适合常规生成，官方模型适合更高一致性和高清档位。"
+            },
+            "action": {
+              "type": "string",
+              "default": "generate",
+              "example": "generate",
+              "options": "generate / edit",
+              "description": "任务类型。generate 为文生图，edit 为基于参考图编辑。"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "A clean product photo of a yellow banana-shaped speaker on a white table.",
+              "description": "图片内容、风格、主体和细节描述。"
+            },
+            "image_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/reference.png"
+              ],
+              "description": "参考图片 URL 列表。action=edit 时必填。"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "1K",
+              "example": "1K",
+              "options": "1K / 2K / 4K",
+              "description": "输出分辨率。官方高清模型按 1K、2K、4K 分档计费。"
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "example": "1:1",
+              "options": "auto / 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9",
+              "description": "图片宽高比。"
+            },
+            "callback_url": {
+              "type": "string",
+              "example": "https://example.com/api/ai/callback",
+              "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+            }
+          }
+        },
+        "default_params": {
+          "model": "nano-banana",
+          "action": "generate",
+          "resolution": "1K"
+        },
+        "pricing_v2": [],
+        "content_schema": [],
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 12,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0
+        },
+        "upstream_app_metadata": {
+          "id": 22,
+          "name": "nano-banana",
+          "code": "nano_banana"
+        },
+        "upstream_api_metadata": {
+          "id": 69,
+          "code": "submit",
+          "name": "创建图片任务",
+          "call_type": 2,
+          "method": "POST",
+          "supports_vision": 0,
+          "supports_reasoning": 0,
+          "max_reference_images": 12,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0,
+          "capabilities": {
+            "supports_vision": false,
+            "supports_reasoning": false,
+            "max_reference_images": 12,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0
+          }
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 12,
+        "max_reference_audios": 0,
+        "max_reference_videos": 0
+      },
+      "saved_schema_fingerprints": {
+        "params_schema": "b8b2466b4dfa6a3da5007fc5ab6922ec8a95fcf405f6efb6ce953b7e028f8fb2",
+        "content_schema": "99bcfca61a865fe7ac5bb675250de956e8e0fb175d59adac80bb2fb177154a2c"
+      },
+      "public_api_declaration": {
+        "id": 69,
+        "app_id": 22,
+        "name": "创建图片任务",
+        "code": "submit",
+        "method": "POST",
+        "endpoint_path": "/api/v1/apps/nano_banana/submit",
+        "call_type": 2,
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "prompt"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "default": "nano-banana",
+              "example": "nano-banana",
+              "options": "nano-banana / nano-banana-2 / nano-banana-2-lite / nano-banana-pro / nano-banana:official / nano-banana-2-lite:official / nano-banana-2:official / nano-banana-pro:official",
+              "description": "模型规格。普通模型适合常规生成，官方模型适合更高一致性和高清档位。"
+            },
+            "action": {
+              "type": "string",
+              "default": "generate",
+              "example": "generate",
+              "options": "generate / edit",
+              "description": "任务类型。generate 为文生图，edit 为基于参考图编辑。"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "A clean product photo of a yellow banana-shaped speaker on a white table.",
+              "description": "图片内容、风格、主体和细节描述。"
+            },
+            "image_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/reference.png"
+              ],
+              "description": "参考图片 URL 列表。action=edit 时必填。"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "1K",
+              "example": "1K",
+              "options": "1K / 2K / 4K",
+              "description": "输出分辨率。官方高清模型按 1K、2K、4K 分档计费。"
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "example": "1:1",
+              "options": "auto / 1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9",
+              "description": "图片宽高比。"
+            },
+            "callback_url": {
+              "type": "string",
+              "example": "https://example.com/api/ai/callback",
+              "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+            }
+          }
+        },
+        "default_params": {
+          "model": "nano-banana",
+          "action": "generate",
+          "resolution": "1K"
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 12,
+        "max_reference_audios": 0,
+        "max_reference_videos": 0,
+        "status": 1,
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 12,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0
+        }
+      },
+      "public_schema_fingerprints": {
+        "params_schema": "b8b2466b4dfa6a3da5007fc5ab6922ec8a95fcf405f6efb6ce953b7e028f8fb2"
+      },
+      "skus": [
+        {
+          "id": 143,
+          "product_id": 110,
+          "sku_key": "nano_banana",
+          "title": "普通模型 / nano-banana",
+          "locked_params": {
+            "model": "nano-banana"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana",
+            "title": "普通模型 / nano-banana",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 144,
+          "product_id": 110,
+          "sku_key": "nano_banana_2",
+          "title": "普通模型 / nano-banana-2",
+          "locked_params": {
+            "model": "nano-banana-2"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_2",
+            "title": "普通模型 / nano-banana-2",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 145,
+          "product_id": 110,
+          "sku_key": "nano_banana_2_lite",
+          "title": "普通模型 / nano-banana-2-lite",
+          "locked_params": {
+            "model": "nano-banana-2-lite"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_2_lite",
+            "title": "普通模型 / nano-banana-2-lite",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 146,
+          "product_id": 110,
+          "sku_key": "nano_banana_pro",
+          "title": "普通模型 / nano-banana-pro",
+          "locked_params": {
+            "model": "nano-banana-pro"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_pro",
+            "title": "普通模型 / nano-banana-pro",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 147,
+          "product_id": 110,
+          "sku_key": "nano_banana_official",
+          "title": "官方模型 / nano-banana:official",
+          "locked_params": {
+            "model": "nano-banana:official"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_official",
+            "title": "官方模型 / nano-banana:official",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 148,
+          "product_id": 110,
+          "sku_key": "nano_banana_2_lite_official",
+          "title": "官方模型 / nano-banana-2-lite:official",
+          "locked_params": {
+            "model": "nano-banana-2-lite:official"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_2_lite_official",
+            "title": "官方模型 / nano-banana-2-lite:official",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 149,
+          "product_id": 110,
+          "sku_key": "nano_banana_2_official_1k",
+          "title": "官方高清 / nano-banana-2:official / 1K",
+          "locked_params": {
+            "model": "nano-banana-2:official",
+            "resolution": "1k"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_2_official_1k",
+            "title": "官方高清 / nano-banana-2:official / 1K",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 150,
+          "product_id": 110,
+          "sku_key": "nano_banana_2_official_2k",
+          "title": "官方高清 / nano-banana-2:official / 2K",
+          "locked_params": {
+            "model": "nano-banana-2:official",
+            "resolution": "2k"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_2_official_2k",
+            "title": "官方高清 / nano-banana-2:official / 2K",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 151,
+          "product_id": 110,
+          "sku_key": "nano_banana_2_official_4k",
+          "title": "官方高清 / nano-banana-2:official / 4K",
+          "locked_params": {
+            "model": "nano-banana-2:official",
+            "resolution": "4k"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_2_official_4k",
+            "title": "官方高清 / nano-banana-2:official / 4K",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 152,
+          "product_id": 110,
+          "sku_key": "nano_banana_pro_official_1k",
+          "title": "官方高清 / nano-banana-pro:official / 1K",
+          "locked_params": {
+            "model": "nano-banana-pro:official",
+            "resolution": "1k"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_pro_official_1k",
+            "title": "官方高清 / nano-banana-pro:official / 1K",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 153,
+          "product_id": 110,
+          "sku_key": "nano_banana_pro_official_2k",
+          "title": "官方高清 / nano-banana-pro:official / 2K",
+          "locked_params": {
+            "model": "nano-banana-pro:official",
+            "resolution": "2k"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_pro_official_2k",
+            "title": "官方高清 / nano-banana-pro:official / 2K",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 154,
+          "product_id": 110,
+          "sku_key": "nano_banana_pro_official_4k",
+          "title": "官方高清 / nano-banana-pro:official / 4K",
+          "locked_params": {
+            "model": "nano-banana-pro:official",
+            "resolution": "4k"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "nano_banana_pro_official_4k",
+            "title": "官方高清 / nano-banana-pro:official / 4K",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        }
+      ]
+    },
+    {
+      "product": {
+        "id": 140,
+        "resource_type": "app_api",
+        "model_type": "",
+        "upstream_app_code": "seedance",
+        "upstream_api_code": "create",
+        "status": 1
+      },
+      "metadata": {
+        "api_code": "create",
+        "call_type": 2,
+        "method": "POST",
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "model",
+            "content"
+          ],
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "description": "随机种子，可复现结果（若上游支持）"
+            },
+            "draft": {
+              "type": "boolean",
+              "description": "是否草稿模式（若上游支持）"
+            },
+            "model": {
+              "type": "string",
+              "example": "seedance-2-text-2-video",
+              "options": "seedance-2-text-2-video / seedance-2-video-2-video / seedance-2-fast-text-2-video / seedance-2-fast-video-2-video",
+              "description": "公开模型名称。请从模型名称与使用场景表中选择一个名称。"
+            },
+            "ratio": {
+              "type": "string",
+              "default": "adaptive",
+              "example": "16:9",
+              "options": "16:9 / 4:3 / 1:1 / 3:4 / 9:16 / 21:9 / adaptive",
+              "description": "画面宽高比。adaptive 表示由模型根据输入自动选择"
+            },
+            "tools": {
+              "type": "array",
+              "example": [
+                {
+                  "type": "web_search"
+                }
+              ],
+              "description": "可选工具（仅文生视频支持 web_search 联网搜索）"
+            },
+            "frames": {
+              "type": "integer",
+              "description": "帧数相关参数（若上游支持）"
+            },
+            "content": {
+              "type": "array",
+              "example": [
+                {
+                  "text": "一只金毛犬在海边奔跑，夕阳西下",
+                  "type": "text"
+                }
+              ],
+              "children": {
+                "role": {
+                  "type": "string",
+                  "description": "条件必填。图片首尾帧：first_frame / last_frame；参考图：reference_image；参考视频：reference_video；参考音频：reference_audio"
+                },
+                "text": {
+                  "type": "string",
+                  "description": "文本提示词（type=text 时必填）"
+                },
+                "type": {
+                  "type": "string",
+                  "options": "text / image_url / video_url / audio_url",
+                  "required": "1",
+                  "description": "内容类型"
+                },
+                "audio_url": {
+                  "type": "object",
+                  "description": "音频对象，格式 {\"url\": \"音频地址\"}"
+                },
+                "image_url": {
+                  "type": "object",
+                  "description": "图片对象，格式 {\"url\": \"图片地址\"}"
+                },
+                "video_url": {
+                  "type": "object",
+                  "description": "视频对象，格式 {\"url\": \"视频地址\"}"
+                }
+              },
+              "examples": {
+                "文生视频": [
+                  {
+                    "text": "一只金毛犬在海边奔跑",
+                    "type": "text"
+                  }
+                ],
+                "图生视频-首帧": [
+                  {
+                    "role": "first_frame",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "https://example.com/pic1.jpg"
+                    }
+                  },
+                  {
+                    "text": "让画面动起来",
+                    "type": "text"
+                  }
+                ],
+                "图生视频-首尾帧": [
+                  {
+                    "role": "first_frame",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "首帧图片地址"
+                    }
+                  },
+                  {
+                    "role": "last_frame",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "尾帧图片地址"
+                    }
+                  },
+                  {
+                    "text": "平滑过渡",
+                    "type": "text"
+                  }
+                ],
+                "多模态参考生视频": [
+                  {
+                    "role": "reference_image",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "参考图1"
+                    }
+                  },
+                  {
+                    "role": "reference_video",
+                    "type": "video_url",
+                    "video_url": {
+                      "url": "参考视频1"
+                    }
+                  },
+                  {
+                    "role": "reference_audio",
+                    "type": "audio_url",
+                    "audio_url": {
+                      "url": "参考音频1"
+                    }
+                  },
+                  {
+                    "text": "场景描述",
+                    "type": "text"
+                  }
+                ]
+              },
+              "description": "多模态输入列表：支持 文本 + 图片 + 视频 + 音频 的任意组合。图片最多 9 张、视频最多 3 个、音频最多 3 段，且不可单独传音频。含 video_url 时按「含视频输入」档位计费。"
+            },
+            "duration": {
+              "type": "integer",
+              "default": "5",
+              "example": "5",
+              "description": "生成视频时长（秒）。取值 4~15，或 -1 由模型自动决定"
+            },
+            "watermark": {
+              "type": "boolean",
+              "default": "",
+              "example": "",
+              "description": "是否在视频右下角添加水印"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "720p",
+              "example": "720p",
+              "options": "480p / 720p / 1080p",
+              "description": "输出分辨率"
+            },
+            "callback_url": {
+              "type": "string",
+              "example": "https://your-domain.com/webhook/seedance",
+              "description": "异步任务完成/失败时的回调地址"
+            },
+            "camera_fixed": {
+              "type": "boolean",
+              "description": "是否固定机位（若上游支持）"
+            },
+            "service_tier": {
+              "type": "string",
+              "description": "服务档位（若上游支持）"
+            },
+            "generate_audio": {
+              "type": "boolean",
+              "default": "1",
+              "example": "1",
+              "description": "是否生成与画面同步的音频"
+            }
+          }
+        },
+        "default_params": {
+          "ratio": "adaptive",
+          "duration": "5",
+          "watermark": "",
+          "resolution": "720p",
+          "generate_audio": "1"
+        },
+        "pricing_v2": {
+          "resource_type": "app_api",
+          "resource_id": 27,
+          "billing_mode": "usage",
+          "attributes": [
+            {
+              "code": "resolution",
+              "label": "resolution",
+              "param_path": "resolution",
+              "value_type": "enum",
+              "options": [
+                "480p",
+                "720p",
+                "1080p"
+              ],
+              "affects_price": true,
+              "user_selectable": true,
+              "required": true
+            },
+            {
+              "code": "pricing_variant",
+              "label": "_pricing_variant",
+              "param_path": "_pricing_variant",
+              "value_type": "enum",
+              "options": [
+                "with_video",
+                "without_video"
+              ],
+              "affects_price": true,
+              "user_selectable": true,
+              "required": true
+            }
+          ]
+        },
+        "content_schema": [],
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 9,
+          "max_reference_audios": 3,
+          "max_reference_videos": 3
+        },
+        "upstream_app_metadata": {
+          "id": 11,
+          "name": "Seedance 2.0",
+          "code": "seedance"
+        },
+        "upstream_api_metadata": {
+          "id": 27,
+          "code": "create",
+          "name": "创建任务",
+          "call_type": 2,
+          "method": "POST",
+          "supports_vision": 0,
+          "supports_reasoning": 0,
+          "max_reference_images": 9,
+          "max_reference_audios": 3,
+          "max_reference_videos": 3,
+          "capabilities": {
+            "supports_vision": false,
+            "supports_reasoning": false,
+            "max_reference_images": 9,
+            "max_reference_audios": 3,
+            "max_reference_videos": 3
+          }
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 9,
+        "max_reference_audios": 3,
+        "max_reference_videos": 3
+      },
+      "saved_schema_fingerprints": {
+        "params_schema": "9168759ee8e0400a8fd5549c8e80e6c6e01ff42b6294cb0e9065f5c11b572905",
+        "content_schema": "99bcfca61a865fe7ac5bb675250de956e8e0fb175d59adac80bb2fb177154a2c"
+      },
+      "public_api_declaration": {
+        "id": 27,
+        "app_id": 11,
+        "name": "创建任务",
+        "code": "create",
+        "method": "POST",
+        "endpoint_path": "/ant/createTask",
+        "call_type": 2,
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "model",
+            "content"
+          ],
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "description": "随机种子，可复现结果（若上游支持）"
+            },
+            "draft": {
+              "type": "boolean",
+              "description": "是否草稿模式（若上游支持）"
+            },
+            "model": {
+              "type": "string",
+              "example": "seedance-2-text-2-video",
+              "options": "seedance-2-text-2-video / seedance-2-video-2-video / seedance-2-fast-text-2-video / seedance-2-fast-video-2-video",
+              "description": "公开模型名称。请从模型名称与使用场景表中选择一个名称。"
+            },
+            "ratio": {
+              "type": "string",
+              "default": "adaptive",
+              "example": "16:9",
+              "options": "16:9 / 4:3 / 1:1 / 3:4 / 9:16 / 21:9 / adaptive",
+              "description": "画面宽高比。adaptive 表示由模型根据输入自动选择"
+            },
+            "tools": {
+              "type": "array",
+              "example": [
+                {
+                  "type": "web_search"
+                }
+              ],
+              "description": "可选工具（仅文生视频支持 web_search 联网搜索）"
+            },
+            "frames": {
+              "type": "integer",
+              "description": "帧数相关参数（若上游支持）"
+            },
+            "content": {
+              "type": "array",
+              "example": [
+                {
+                  "text": "一只金毛犬在海边奔跑，夕阳西下",
+                  "type": "text"
+                }
+              ],
+              "children": {
+                "role": {
+                  "type": "string",
+                  "description": "条件必填。图片首尾帧：first_frame / last_frame；参考图：reference_image；参考视频：reference_video；参考音频：reference_audio"
+                },
+                "text": {
+                  "type": "string",
+                  "description": "文本提示词（type=text 时必填）"
+                },
+                "type": {
+                  "type": "string",
+                  "options": "text / image_url / video_url / audio_url",
+                  "required": "1",
+                  "description": "内容类型"
+                },
+                "audio_url": {
+                  "type": "object",
+                  "description": "音频对象，格式 {\"url\": \"音频地址\"}"
+                },
+                "image_url": {
+                  "type": "object",
+                  "description": "图片对象，格式 {\"url\": \"图片地址\"}"
+                },
+                "video_url": {
+                  "type": "object",
+                  "description": "视频对象，格式 {\"url\": \"视频地址\"}"
+                }
+              },
+              "examples": {
+                "文生视频": [
+                  {
+                    "text": "一只金毛犬在海边奔跑",
+                    "type": "text"
+                  }
+                ],
+                "图生视频-首帧": [
+                  {
+                    "role": "first_frame",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "https://example.com/pic1.jpg"
+                    }
+                  },
+                  {
+                    "text": "让画面动起来",
+                    "type": "text"
+                  }
+                ],
+                "图生视频-首尾帧": [
+                  {
+                    "role": "first_frame",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "首帧图片地址"
+                    }
+                  },
+                  {
+                    "role": "last_frame",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "尾帧图片地址"
+                    }
+                  },
+                  {
+                    "text": "平滑过渡",
+                    "type": "text"
+                  }
+                ],
+                "多模态参考生视频": [
+                  {
+                    "role": "reference_image",
+                    "type": "image_url",
+                    "image_url": {
+                      "url": "参考图1"
+                    }
+                  },
+                  {
+                    "role": "reference_video",
+                    "type": "video_url",
+                    "video_url": {
+                      "url": "参考视频1"
+                    }
+                  },
+                  {
+                    "role": "reference_audio",
+                    "type": "audio_url",
+                    "audio_url": {
+                      "url": "参考音频1"
+                    }
+                  },
+                  {
+                    "text": "场景描述",
+                    "type": "text"
+                  }
+                ]
+              },
+              "description": "多模态输入列表：支持 文本 + 图片 + 视频 + 音频 的任意组合。图片最多 9 张、视频最多 3 个、音频最多 3 段，且不可单独传音频。含 video_url 时按「含视频输入」档位计费。"
+            },
+            "duration": {
+              "type": "integer",
+              "default": "5",
+              "example": "5",
+              "description": "生成视频时长（秒）。取值 4~15，或 -1 由模型自动决定"
+            },
+            "watermark": {
+              "type": "boolean",
+              "default": "",
+              "example": "",
+              "description": "是否在视频右下角添加水印"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "720p",
+              "example": "720p",
+              "options": "480p / 720p / 1080p",
+              "description": "输出分辨率"
+            },
+            "callback_url": {
+              "type": "string",
+              "example": "https://your-domain.com/webhook/seedance",
+              "description": "异步任务完成/失败时的回调地址"
+            },
+            "camera_fixed": {
+              "type": "boolean",
+              "description": "是否固定机位（若上游支持）"
+            },
+            "service_tier": {
+              "type": "string",
+              "description": "服务档位（若上游支持）"
+            },
+            "generate_audio": {
+              "type": "boolean",
+              "default": "1",
+              "example": "1",
+              "description": "是否生成与画面同步的音频"
+            }
+          }
+        },
+        "default_params": {
+          "ratio": "adaptive",
+          "duration": "5",
+          "watermark": "",
+          "resolution": "720p",
+          "generate_audio": "1"
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 9,
+        "max_reference_audios": 3,
+        "max_reference_videos": 3,
+        "status": 1,
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 9,
+          "max_reference_audios": 3,
+          "max_reference_videos": 3
+        }
+      },
+      "public_schema_fingerprints": {
+        "params_schema": "9168759ee8e0400a8fd5549c8e80e6c6e01ff42b6294cb0e9065f5c11b572905"
+      },
+      "skus": [
+        {
+          "id": 210,
+          "product_id": 140,
+          "sku_key": "create_matrix_480p_with_video",
+          "title": "480P / 含视频输入",
+          "locked_params": {
+            "resolution": "480p",
+            "_pricing_variant": "with_video"
+          },
+          "selectable_params": [],
+          "usage_unit": "token",
+          "usage_unit_size": "1000000.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_480p_with_video",
+            "title": "480P / 含视频输入",
+            "usage_unit": "token",
+            "usage_unit_size": 1000000
+          }
+        },
+        {
+          "id": 211,
+          "product_id": 140,
+          "sku_key": "create_matrix_480p_without_video",
+          "title": "480P / 不含视频输入",
+          "locked_params": {
+            "resolution": "480p",
+            "_pricing_variant": "without_video"
+          },
+          "selectable_params": [],
+          "usage_unit": "token",
+          "usage_unit_size": "1000000.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_480p_without_video",
+            "title": "480P / 不含视频输入",
+            "usage_unit": "token",
+            "usage_unit_size": 1000000
+          }
+        },
+        {
+          "id": 212,
+          "product_id": 140,
+          "sku_key": "create_matrix_720p_with_video",
+          "title": "720P / 含视频输入",
+          "locked_params": {
+            "resolution": "720p",
+            "_pricing_variant": "with_video"
+          },
+          "selectable_params": [],
+          "usage_unit": "token",
+          "usage_unit_size": "1000000.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_720p_with_video",
+            "title": "720P / 含视频输入",
+            "usage_unit": "token",
+            "usage_unit_size": 1000000
+          }
+        },
+        {
+          "id": 213,
+          "product_id": 140,
+          "sku_key": "create_matrix_720p_without_video",
+          "title": "720P / 不含视频输入",
+          "locked_params": {
+            "resolution": "720p",
+            "_pricing_variant": "without_video"
+          },
+          "selectable_params": [],
+          "usage_unit": "token",
+          "usage_unit_size": "1000000.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_720p_without_video",
+            "title": "720P / 不含视频输入",
+            "usage_unit": "token",
+            "usage_unit_size": 1000000
+          }
+        },
+        {
+          "id": 214,
+          "product_id": 140,
+          "sku_key": "create_matrix_1080p_with_video",
+          "title": "1080P / 含视频输入",
+          "locked_params": {
+            "resolution": "1080p",
+            "_pricing_variant": "with_video"
+          },
+          "selectable_params": [],
+          "usage_unit": "token",
+          "usage_unit_size": "1000000.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_1080p_with_video",
+            "title": "1080P / 含视频输入",
+            "usage_unit": "token",
+            "usage_unit_size": 1000000
+          }
+        },
+        {
+          "id": 215,
+          "product_id": 140,
+          "sku_key": "create_matrix_1080p_without_video",
+          "title": "1080P / 不含视频输入",
+          "locked_params": {
+            "resolution": "1080p",
+            "_pricing_variant": "without_video"
+          },
+          "selectable_params": [],
+          "usage_unit": "token",
+          "usage_unit_size": "1000000.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_1080p_without_video",
+            "title": "1080P / 不含视频输入",
+            "usage_unit": "token",
+            "usage_unit_size": 1000000
+          }
+        }
+      ]
+    },
+    {
+      "product": {
+        "id": 133,
+        "resource_type": "app_api",
+        "model_type": "",
+        "upstream_app_code": "wan",
+        "upstream_api_code": "create",
+        "status": 1
+      },
+      "metadata": {
+        "api_code": "create",
+        "call_type": 2,
+        "method": "POST",
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "model",
+            "prompt"
+          ],
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "options": "0-2147483647",
+              "description": "随机种子，用于结果复现。范围：0-2147483647。"
+            },
+            "size": {
+              "type": "string",
+              "example": "16:9",
+              "options": "16:9 / 9:16 / 1:1 / 4:3 / 3:4",
+              "description": "视频画幅比例。"
+            },
+            "model": {
+              "type": "string",
+              "example": "wan2.7",
+              "options": "wan2.7 / wan2.7-r2v / wan2.7-videoedit",
+              "description": "Wan 模型版本。不同版本支持的素材输入略有差异。"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "一辆复古跑车沿着海岸公路行驶，电影感光影",
+              "description": "视频画面与运动描述。"
+            },
+            "duration": {
+              "type": "integer",
+              "default": "5",
+              "example": "5",
+              "options": "wan2.7 / wan2.7-r2v: 2-15；wan2.7-videoedit: 2-10",
+              "description": "生成视频时长，单位秒。wan2.7、wan2.7-r2v 支持 2-15；wan2.7-videoedit 支持 2-10。"
+            },
+            "metadata": {
+              "type": "object",
+              "example": {
+                "biz_id": "order_1001",
+                "audio_setting": "auto"
+              },
+              "children": {
+                "biz_id": {
+                  "type": "string",
+                  "description": "业务侧自定义 ID"
+                },
+                "audio_setting": {
+                  "type": "string",
+                  "options": "auto / origin",
+                  "description": "音频处理方式，主要用于视频编辑场景。"
+                }
+              },
+              "description": "附加业务信息。wan2.7-videoedit 可在 metadata.audio_setting 中选择音频处理方式。"
+            },
+            "audio_url": {
+              "type": "string",
+              "example": "https://example.com/audio.mp3",
+              "description": "参考音频 URL。需要音频驱动生成时传入。"
+            },
+            "watermark": {
+              "type": "boolean",
+              "example": "",
+              "options": "true / false",
+              "description": "是否添加水印。"
+            },
+            "image_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/reference.png"
+              ],
+              "description": "参考图片 URL 列表。wan2.7 最多 2 张；wan2.7-videoedit 最多 4 张。"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "720p",
+              "example": "720p",
+              "options": "720p / 1080p",
+              "description": "输出分辨率。"
+            },
+            "video_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/input.mp4"
+              ],
+              "description": "视频素材地址列表，最多 1 段。wan2.7-videoedit 必填，并按含视频输入档计费。"
+            },
+            "callback_url": {
+              "type": "string",
+              "example": "https://your-domain.com/webhook/wan",
+              "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+            },
+            "prompt_extend": {
+              "type": "boolean",
+              "example": "",
+              "options": "true / false",
+              "description": "是否启用提示词扩展。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "description": "不希望出现在画面中的内容。"
+            },
+            "image_with_roles": {
+              "type": "array",
+              "example": [
+                {
+                  "url": "https://example.com/role.png",
+                  "role": "reference_image"
+                }
+              ],
+              "children": {
+                "url": {
+                  "type": "string",
+                  "required": "1",
+                  "description": "图片地址，支持 http/https"
+                },
+                "role": {
+                  "type": "string",
+                  "options": "reference_image / first_frame / last_frame",
+                  "description": "图片角色。wan2.7-r2v 可用 reference_image / first_frame；首尾帧场景可用 first_frame / last_frame。"
+                }
+              },
+              "description": "角色或参考图列表。wan2.7-r2v 必填，最多 2 张。"
+            }
+          }
+        },
+        "default_params": {
+          "model": "wan2.7",
+          "duration": "5",
+          "resolution": "720p"
+        },
+        "pricing_v2": {
+          "resource_type": "app_api",
+          "resource_id": 37,
+          "billing_mode": "spec",
+          "attributes": [
+            {
+              "code": "model",
+              "label": "model",
+              "param_path": "model",
+              "value_type": "enum",
+              "options": [
+                "wan2.7",
+                "wan2.7-r2v",
+                "wan2.7-videoedit"
+              ],
+              "affects_price": true,
+              "user_selectable": true,
+              "required": true
+            },
+            {
+              "code": "resolution",
+              "label": "resolution",
+              "param_path": "resolution",
+              "value_type": "enum",
+              "options": [
+                "720p",
+                "1080p"
+              ],
+              "affects_price": true,
+              "user_selectable": true,
+              "required": true
+            }
+          ]
+        },
+        "content_schema": [],
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 9,
+          "max_reference_audios": 5,
+          "max_reference_videos": 5
+        },
+        "upstream_app_metadata": {
+          "id": 13,
+          "name": "Wan 视频生成",
+          "code": "wan"
+        },
+        "upstream_api_metadata": {
+          "id": 37,
+          "code": "create",
+          "name": "创建视频任务",
+          "call_type": 2,
+          "method": "POST",
+          "supports_vision": 0,
+          "supports_reasoning": 0,
+          "max_reference_images": 9,
+          "max_reference_audios": 5,
+          "max_reference_videos": 5,
+          "capabilities": {
+            "supports_vision": false,
+            "supports_reasoning": false,
+            "max_reference_images": 9,
+            "max_reference_audios": 5,
+            "max_reference_videos": 5
+          }
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 9,
+        "max_reference_audios": 5,
+        "max_reference_videos": 5
+      },
+      "saved_schema_fingerprints": {
+        "params_schema": "3bfc804e48b3741da7f2f412d9cf80e4e88873e05aebf4be83f3c2fb294e083c",
+        "content_schema": "99bcfca61a865fe7ac5bb675250de956e8e0fb175d59adac80bb2fb177154a2c"
+      },
+      "public_api_declaration": {
+        "id": 37,
+        "app_id": 13,
+        "name": "创建视频任务",
+        "code": "create",
+        "method": "POST",
+        "endpoint_path": "/v1/videos/generations",
+        "call_type": 2,
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "model",
+            "prompt"
+          ],
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "options": "0-2147483647",
+              "description": "随机种子，用于结果复现。范围：0-2147483647。"
+            },
+            "size": {
+              "type": "string",
+              "example": "16:9",
+              "options": "16:9 / 9:16 / 1:1 / 4:3 / 3:4",
+              "description": "视频画幅比例。"
+            },
+            "model": {
+              "type": "string",
+              "example": "wan2.7",
+              "options": "wan2.7 / wan2.7-r2v / wan2.7-videoedit",
+              "description": "Wan 模型版本。不同版本支持的素材输入略有差异。"
+            },
+            "prompt": {
+              "type": "string",
+              "example": "一辆复古跑车沿着海岸公路行驶，电影感光影",
+              "description": "视频画面与运动描述。"
+            },
+            "duration": {
+              "type": "integer",
+              "default": "5",
+              "example": "5",
+              "options": "wan2.7 / wan2.7-r2v: 2-15；wan2.7-videoedit: 2-10",
+              "description": "生成视频时长，单位秒。wan2.7、wan2.7-r2v 支持 2-15；wan2.7-videoedit 支持 2-10。"
+            },
+            "metadata": {
+              "type": "object",
+              "example": {
+                "biz_id": "order_1001",
+                "audio_setting": "auto"
+              },
+              "children": {
+                "biz_id": {
+                  "type": "string",
+                  "description": "业务侧自定义 ID"
+                },
+                "audio_setting": {
+                  "type": "string",
+                  "options": "auto / origin",
+                  "description": "音频处理方式，主要用于视频编辑场景。"
+                }
+              },
+              "description": "附加业务信息。wan2.7-videoedit 可在 metadata.audio_setting 中选择音频处理方式。"
+            },
+            "audio_url": {
+              "type": "string",
+              "example": "https://example.com/audio.mp3",
+              "description": "参考音频 URL。需要音频驱动生成时传入。"
+            },
+            "watermark": {
+              "type": "boolean",
+              "example": "",
+              "options": "true / false",
+              "description": "是否添加水印。"
+            },
+            "image_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/reference.png"
+              ],
+              "description": "参考图片 URL 列表。wan2.7 最多 2 张；wan2.7-videoedit 最多 4 张。"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "720p",
+              "example": "720p",
+              "options": "720p / 1080p",
+              "description": "输出分辨率。"
+            },
+            "video_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/input.mp4"
+              ],
+              "description": "视频素材地址列表，最多 1 段。wan2.7-videoedit 必填，并按含视频输入档计费。"
+            },
+            "callback_url": {
+              "type": "string",
+              "example": "https://your-domain.com/webhook/wan",
+              "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+            },
+            "prompt_extend": {
+              "type": "boolean",
+              "example": "",
+              "options": "true / false",
+              "description": "是否启用提示词扩展。"
+            },
+            "negative_prompt": {
+              "type": "string",
+              "description": "不希望出现在画面中的内容。"
+            },
+            "image_with_roles": {
+              "type": "array",
+              "example": [
+                {
+                  "url": "https://example.com/role.png",
+                  "role": "reference_image"
+                }
+              ],
+              "children": {
+                "url": {
+                  "type": "string",
+                  "required": "1",
+                  "description": "图片地址，支持 http/https"
+                },
+                "role": {
+                  "type": "string",
+                  "options": "reference_image / first_frame / last_frame",
+                  "description": "图片角色。wan2.7-r2v 可用 reference_image / first_frame；首尾帧场景可用 first_frame / last_frame。"
+                }
+              },
+              "description": "角色或参考图列表。wan2.7-r2v 必填，最多 2 张。"
+            }
+          }
+        },
+        "default_params": {
+          "model": "wan2.7",
+          "duration": "5",
+          "resolution": "720p"
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 9,
+        "max_reference_audios": 5,
+        "max_reference_videos": 5,
+        "status": 1,
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 9,
+          "max_reference_audios": 5,
+          "max_reference_videos": 5
+        }
+      },
+      "public_schema_fingerprints": {
+        "params_schema": "3bfc804e48b3741da7f2f412d9cf80e4e88873e05aebf4be83f3c2fb294e083c"
+      },
+      "skus": [
+        {
+          "id": 198,
+          "product_id": 133,
+          "sku_key": "create_matrix_wan2_7_720p",
+          "title": "wan2.7 / 720P",
+          "locked_params": {
+            "model": "wan2.7",
+            "resolution": "720p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_wan2_7_720p",
+            "title": "wan2.7 / 720P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 199,
+          "product_id": 133,
+          "sku_key": "create_matrix_wan2_7_1080p",
+          "title": "wan2.7 / 1080P",
+          "locked_params": {
+            "model": "wan2.7",
+            "resolution": "1080p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_wan2_7_1080p",
+            "title": "wan2.7 / 1080P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 200,
+          "product_id": 133,
+          "sku_key": "create_matrix_wan2_7-r2v_720p",
+          "title": "wan2.7-r2v / 720P",
+          "locked_params": {
+            "model": "wan2.7-r2v",
+            "resolution": "720p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_wan2_7-r2v_720p",
+            "title": "wan2.7-r2v / 720P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 201,
+          "product_id": 133,
+          "sku_key": "create_matrix_wan2_7-r2v_1080p",
+          "title": "wan2.7-r2v / 1080P",
+          "locked_params": {
+            "model": "wan2.7-r2v",
+            "resolution": "1080p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_wan2_7-r2v_1080p",
+            "title": "wan2.7-r2v / 1080P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 202,
+          "product_id": 133,
+          "sku_key": "create_matrix_wan2_7-videoedit_720p",
+          "title": "wan2.7-videoedit / 720P",
+          "locked_params": {
+            "model": "wan2.7-videoedit",
+            "resolution": "720p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_wan2_7-videoedit_720p",
+            "title": "wan2.7-videoedit / 720P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 203,
+          "product_id": 133,
+          "sku_key": "create_matrix_wan2_7-videoedit_1080p",
+          "title": "wan2.7-videoedit / 1080P",
+          "locked_params": {
+            "model": "wan2.7-videoedit",
+            "resolution": "1080p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "create_matrix_wan2_7-videoedit_1080p",
+            "title": "wan2.7-videoedit / 1080P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        }
+      ]
+    },
+    {
+      "product": {
+        "id": 108,
+        "resource_type": "app_api",
+        "model_type": "",
+        "upstream_app_code": "grok_video",
+        "upstream_api_code": "submit",
+        "status": 1
+      },
+      "metadata": {
+        "api_code": "submit",
+        "call_type": 2,
+        "method": "POST",
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "default": "grok-imagine-video-1.5-fast",
+              "options": "grok-imagine-video-1.5-fast / grok-imagine-video-1.5",
+              "description": "视频模型规格。"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "视频内容描述。快速生成在未提供 image_urls 时必填。"
+            },
+            "duration": {
+              "type": "integer",
+              "default": "8",
+              "options": "1-30",
+              "description": "视频时长（秒）。快速生成支持 1-30，标准生成支持 1-15。"
+            },
+            "image_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/main.jpg",
+                "https://example.com/style.jpg"
+              ],
+              "description": "输入图片地址列表。第一张作为主图，其余图片作为参考图；标准生成模型至少需要一张。"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "480p",
+              "options": "480p / 720p / 1080p",
+              "description": "输出分辨率，影响价格。"
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "options": "1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3",
+              "description": "视频宽高比。"
+            },
+            "callback_url": {
+              "type": "string",
+              "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+            }
+          }
+        },
+        "default_params": {
+          "model": "grok-imagine-video-1.5-fast",
+          "duration": "8",
+          "resolution": "480p"
+        },
+        "pricing_v2": [],
+        "content_schema": [],
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 7,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0
+        },
+        "upstream_app_metadata": {
+          "id": 23,
+          "name": "Grok 视频生成",
+          "code": "grok_video"
+        },
+        "upstream_api_metadata": {
+          "id": 71,
+          "code": "submit",
+          "name": "创建视频任务",
+          "call_type": 2,
+          "method": "POST",
+          "supports_vision": 0,
+          "supports_reasoning": 0,
+          "max_reference_images": 7,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0,
+          "capabilities": {
+            "supports_vision": false,
+            "supports_reasoning": false,
+            "max_reference_images": 7,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0
+          }
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 7,
+        "max_reference_audios": 0,
+        "max_reference_videos": 0
+      },
+      "saved_schema_fingerprints": {
+        "params_schema": "9f008403f8ee8cac37fd8c782b4a8c2c16eb6bf6d5acae4497ff9f1c3b472ab3",
+        "content_schema": "99bcfca61a865fe7ac5bb675250de956e8e0fb175d59adac80bb2fb177154a2c"
+      },
+      "public_api_declaration": {
+        "id": 71,
+        "app_id": 23,
+        "name": "创建视频任务",
+        "code": "submit",
+        "method": "POST",
+        "endpoint_path": "/api/v1/apps/grok_video/submit",
+        "call_type": 2,
+        "params_schema": {
+          "type": "object",
+          "required": [
+            "model"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "default": "grok-imagine-video-1.5-fast",
+              "options": "grok-imagine-video-1.5-fast / grok-imagine-video-1.5",
+              "description": "视频模型规格。"
+            },
+            "prompt": {
+              "type": "string",
+              "description": "视频内容描述。快速生成在未提供 image_urls 时必填。"
+            },
+            "duration": {
+              "type": "integer",
+              "default": "8",
+              "options": "1-30",
+              "description": "视频时长（秒）。快速生成支持 1-30，标准生成支持 1-15。"
+            },
+            "image_urls": {
+              "type": "array",
+              "example": [
+                "https://example.com/main.jpg",
+                "https://example.com/style.jpg"
+              ],
+              "description": "输入图片地址列表。第一张作为主图，其余图片作为参考图；标准生成模型至少需要一张。"
+            },
+            "resolution": {
+              "type": "string",
+              "default": "480p",
+              "options": "480p / 720p / 1080p",
+              "description": "输出分辨率，影响价格。"
+            },
+            "aspect_ratio": {
+              "type": "string",
+              "options": "1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3",
+              "description": "视频宽高比。"
+            },
+            "callback_url": {
+              "type": "string",
+              "description": "任务完成或失败时由平台主动通知的 HTTPS 地址。"
+            }
+          }
+        },
+        "default_params": {
+          "model": "grok-imagine-video-1.5-fast",
+          "duration": "8",
+          "resolution": "480p"
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 7,
+        "max_reference_audios": 0,
+        "max_reference_videos": 0,
+        "status": 1,
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 7,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0
+        }
+      },
+      "public_schema_fingerprints": {
+        "params_schema": "9f008403f8ee8cac37fd8c782b4a8c2c16eb6bf6d5acae4497ff9f1c3b472ab3"
+      },
+      "skus": [
+        {
+          "id": 137,
+          "product_id": 108,
+          "sku_key": "fast_480p",
+          "title": "快速生成 / 480p",
+          "locked_params": {
+            "model": "grok-imagine-video-1.5-fast",
+            "resolution": "480p"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "fast_480p",
+            "title": "快速生成 / 480p",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 138,
+          "product_id": 108,
+          "sku_key": "fast_720p",
+          "title": "快速生成 / 720p",
+          "locked_params": {
+            "model": "grok-imagine-video-1.5-fast",
+            "resolution": "720p"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "fast_720p",
+            "title": "快速生成 / 720p",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 139,
+          "product_id": 108,
+          "sku_key": "fast_1080p",
+          "title": "快速生成 / 1080p",
+          "locked_params": {
+            "model": "grok-imagine-video-1.5-fast",
+            "resolution": "1080p"
+          },
+          "selectable_params": [],
+          "usage_unit": "per_call",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "fast_1080p",
+            "title": "快速生成 / 1080p",
+            "usage_unit": "per_call",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 140,
+          "product_id": 108,
+          "sku_key": "image_480p",
+          "title": "标准生成 / 480p",
+          "locked_params": {
+            "model": "grok-imagine-video-1.5",
+            "resolution": "480p"
+          },
+          "selectable_params": [],
+          "usage_unit": "output_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "image_480p",
+            "title": "标准生成 / 480p",
+            "usage_unit": "output_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 141,
+          "product_id": 108,
+          "sku_key": "image_720p",
+          "title": "标准生成 / 720p",
+          "locked_params": {
+            "model": "grok-imagine-video-1.5",
+            "resolution": "720p"
+          },
+          "selectable_params": [],
+          "usage_unit": "output_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "image_720p",
+            "title": "标准生成 / 720p",
+            "usage_unit": "output_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 142,
+          "product_id": 108,
+          "sku_key": "image_1080p",
+          "title": "标准生成 / 1080p",
+          "locked_params": {
+            "model": "grok-imagine-video-1.5",
+            "resolution": "1080p"
+          },
+          "selectable_params": [],
+          "usage_unit": "output_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "image_1080p",
+            "title": "标准生成 / 1080p",
+            "usage_unit": "output_second",
+            "usage_unit_size": 1
+          }
+        }
+      ]
+    },
+    {
+      "product": {
+        "id": 105,
+        "resource_type": "app_api",
+        "model_type": "",
+        "upstream_app_code": "happy_horse",
+        "upstream_api_code": "submit",
+        "status": 1
+      },
+      "metadata": {
+        "api_code": "submit",
+        "call_type": 2,
+        "method": "POST",
+        "params_schema": {
+          "seed": {
+            "type": "number",
+            "example": 42,
+            "options": "0～2147483647 的整数",
+            "required": false,
+            "description": "随机种子，用于尽量复现生成效果；不传则随机"
+          },
+          "media": {
+            "type": "array",
+            "example": [
+              {
+                "url": "https://example.com/input.mp4",
+                "type": "video"
+              },
+              {
+                "url": "https://example.com/ref1.jpg",
+                "type": "image"
+              }
+            ],
+            "children": {
+              "url": {
+                "type": "string",
+                "required": true,
+                "description": "素材 URL，需为公网可访问地址"
+              },
+              "type": {
+                "type": "string",
+                "options": "image / video",
+                "required": false,
+                "description": "素材类型；可省略自动推断"
+              }
+            },
+            "required": false,
+            "description": "统一参考素材数组。文生不传；单图首帧传 1 张 image；多参考传 1～9 张 image（建议至少 2 张）；视频编辑传 1 个 video，可附 0～5 张 image"
+          },
+          "model": {
+            "type": "string",
+            "example": "happyhorse-1.1-t2v",
+            "options": "happyhorse-1.1-t2v / happyhorse-1.1-i2v / happyhorse-1.1-r2v / happyhorse-1.0-video-edit",
+            "required": true,
+            "description": "生成能力代号，决定 media 的使用规则"
+          },
+          "ratio": {
+            "type": "string",
+            "example": "16:9",
+            "options": "16:9 / 9:16 / 1:1 / 4:3 / 3:4",
+            "required": false,
+            "description": "画幅比例；文生和多参考可传，单图首帧不需要传"
+          },
+          "prompt": {
+            "type": "string",
+            "example": "一只猫在草地上奔跑",
+            "required": true,
+            "description": "画面、镜头、风格与对白等描述；最多 2500 字，不能为空"
+          },
+          "duration": {
+            "type": "number",
+            "example": 5,
+            "options": "3～15 的整数",
+            "required": true,
+            "description": "目标视频时长(秒)，整数；文生、图生、多参考支持 3～15 秒。本平台按该值计费"
+          },
+          "watermark": {
+            "type": "boolean",
+            "example": true,
+            "options": "true / false",
+            "required": false,
+            "description": "是否添加水印；不传默认 true"
+          },
+          "resolution": {
+            "type": "string",
+            "example": "720P",
+            "options": "720P / 1080P",
+            "required": true,
+            "description": "目标分辨率；支持 720P、1080P（也接受小写，平台会归一）"
+          }
+        },
+        "default_params": {
+          "duration": 5,
+          "resolution": "720P"
+        },
+        "pricing_v2": {
+          "resource_type": "app_api",
+          "resource_id": 34,
+          "billing_mode": "spec",
+          "attributes": [
+            {
+              "code": "resolution",
+              "label": "resolution",
+              "param_path": "resolution",
+              "value_type": "enum",
+              "options": [
+                "720p",
+                "1080p"
+              ],
+              "affects_price": true,
+              "user_selectable": true,
+              "required": true
+            }
+          ]
+        },
+        "content_schema": [],
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 9,
+          "max_reference_audios": 0,
+          "max_reference_videos": 1
+        },
+        "upstream_app_metadata": {
+          "id": 12,
+          "name": "Happy Horse",
+          "code": "happy_horse"
+        },
+        "upstream_api_metadata": {
+          "id": 34,
+          "code": "submit",
+          "name": "提交任务",
+          "call_type": 2,
+          "method": "POST",
+          "supports_vision": 0,
+          "supports_reasoning": 0,
+          "max_reference_images": 9,
+          "max_reference_audios": 0,
+          "max_reference_videos": 1,
+          "capabilities": {
+            "supports_vision": false,
+            "supports_reasoning": false,
+            "max_reference_images": 9,
+            "max_reference_audios": 0,
+            "max_reference_videos": 1
+          }
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 9,
+        "max_reference_audios": 0,
+        "max_reference_videos": 1
+      },
+      "saved_schema_fingerprints": {
+        "params_schema": "2ca6f7110869e67b6425ab6a99ac874503c12708fd912d891d6f754ea6a9b20e",
+        "content_schema": "99bcfca61a865fe7ac5bb675250de956e8e0fb175d59adac80bb2fb177154a2c"
+      },
+      "public_api_declaration": {
+        "id": 34,
+        "app_id": 12,
+        "name": "提交任务",
+        "code": "submit",
+        "method": "POST",
+        "endpoint_path": "/happy_horse/submit",
+        "call_type": 2,
+        "params_schema": {
+          "seed": {
+            "type": "number",
+            "example": 42,
+            "options": "0～2147483647 的整数",
+            "required": false,
+            "description": "随机种子，用于尽量复现生成效果；不传则随机"
+          },
+          "media": {
+            "type": "array",
+            "example": [
+              {
+                "url": "https://example.com/input.mp4",
+                "type": "video"
+              },
+              {
+                "url": "https://example.com/ref1.jpg",
+                "type": "image"
+              }
+            ],
+            "children": {
+              "url": {
+                "type": "string",
+                "required": true,
+                "description": "素材 URL，需为公网可访问地址"
+              },
+              "type": {
+                "type": "string",
+                "options": "image / video",
+                "required": false,
+                "description": "素材类型；可省略自动推断"
+              }
+            },
+            "required": false,
+            "description": "统一参考素材数组。文生不传；单图首帧传 1 张 image；多参考传 1～9 张 image（建议至少 2 张）；视频编辑传 1 个 video，可附 0～5 张 image"
+          },
+          "model": {
+            "type": "string",
+            "example": "happyhorse-1.1-t2v",
+            "options": "happyhorse-1.1-t2v / happyhorse-1.1-i2v / happyhorse-1.1-r2v / happyhorse-1.0-video-edit",
+            "required": true,
+            "description": "生成能力代号，决定 media 的使用规则"
+          },
+          "ratio": {
+            "type": "string",
+            "example": "16:9",
+            "options": "16:9 / 9:16 / 1:1 / 4:3 / 3:4",
+            "required": false,
+            "description": "画幅比例；文生和多参考可传，单图首帧不需要传"
+          },
+          "prompt": {
+            "type": "string",
+            "example": "一只猫在草地上奔跑",
+            "required": true,
+            "description": "画面、镜头、风格与对白等描述；最多 2500 字，不能为空"
+          },
+          "duration": {
+            "type": "number",
+            "example": 5,
+            "options": "3～15 的整数",
+            "required": true,
+            "description": "目标视频时长(秒)，整数；文生、图生、多参考支持 3～15 秒。本平台按该值计费"
+          },
+          "watermark": {
+            "type": "boolean",
+            "example": true,
+            "options": "true / false",
+            "required": false,
+            "description": "是否添加水印；不传默认 true"
+          },
+          "resolution": {
+            "type": "string",
+            "example": "720P",
+            "options": "720P / 1080P",
+            "required": true,
+            "description": "目标分辨率；支持 720P、1080P（也接受小写，平台会归一）"
+          }
+        },
+        "default_params": {
+          "duration": 5,
+          "resolution": "720P"
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 9,
+        "max_reference_audios": 0,
+        "max_reference_videos": 1,
+        "status": 1,
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 9,
+          "max_reference_audios": 0,
+          "max_reference_videos": 1
+        }
+      },
+      "public_schema_fingerprints": {
+        "params_schema": "2ca6f7110869e67b6425ab6a99ac874503c12708fd912d891d6f754ea6a9b20e"
+      },
+      "skus": [
+        {
+          "id": 132,
+          "product_id": 105,
+          "sku_key": "submit_matrix_720p",
+          "title": "720P",
+          "locked_params": {
+            "resolution": "720p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "submit_matrix_720p",
+            "title": "720P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 133,
+          "product_id": 105,
+          "sku_key": "submit_matrix_1080p",
+          "title": "1080P",
+          "locked_params": {
+            "resolution": "1080p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "submit_matrix_1080p",
+            "title": "1080P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        }
+      ]
+    },
+    {
+      "product": {
+        "id": 103,
+        "resource_type": "app_api",
+        "model_type": "",
+        "upstream_app_code": "full_video",
+        "upstream_api_code": "submit",
+        "status": 1
+      },
+      "metadata": {
+        "api_code": "submit",
+        "call_type": 2,
+        "method": "POST",
+        "params_schema": {
+          "model": {
+            "type": "string",
+            "default": "full-video",
+            "example": "full-video",
+            "required": false,
+            "description": "视频生成模型标识，固定为 full-video。"
+          },
+          "ratio": {
+            "type": "string",
+            "default": "16:9",
+            "example": "16:9",
+            "required": false,
+            "description": "视频画幅比例；图生视频可使用 adaptive。"
+          },
+          "content": {
+            "type": "array",
+            "required": true,
+            "description": "内容列表，须包含文本项；可按模式传入首帧、尾帧或参考媒体。"
+          },
+          "duration": {
+            "type": "integer",
+            "default": 4,
+            "example": 4,
+            "maximum": 15,
+            "minimum": 4,
+            "required": false,
+            "description": "生成时长，单位秒，范围 4 到 15。"
+          },
+          "resolution": {
+            "enum": [
+              "480P",
+              "768P",
+              "1080P",
+              "2K",
+              "4K"
+            ],
+            "type": "string",
+            "default": "480P",
+            "example": "480P",
+            "required": false,
+            "description": "输出分辨率；不同分辨率对应独立的按秒 SKU，具体售价以当前租户价格配置为准。"
+          },
+          "aigc_watermark": {
+            "type": "boolean",
+            "default": false,
+            "example": false,
+            "required": false,
+            "description": "是否添加生成标识。"
+          }
+        },
+        "default_params": {
+          "model": "full-video",
+          "ratio": "16:9",
+          "duration": 4,
+          "resolution": "480P",
+          "aigc_watermark": false
+        },
+        "pricing_v2": {
+          "resource_type": "app_api",
+          "resource_id": 73,
+          "billing_mode": "usage",
+          "attributes": [
+            {
+              "code": "resolution",
+              "label": "分辨率",
+              "param_path": "resolution",
+              "value_type": "enum",
+              "options": [
+                "480P",
+                "768P",
+                "1080P",
+                "2K",
+                "4K"
+              ],
+              "affects_price": true,
+              "user_selectable": true,
+              "required": true
+            },
+            {
+              "code": "duration",
+              "label": "时长",
+              "param_path": "duration",
+              "value_type": "integer",
+              "options": [
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+              ],
+              "affects_price": true,
+              "user_selectable": true,
+              "required": true
+            }
+          ]
+        },
+        "content_schema": {
+          "items": {
+            "text": {
+              "asset_type": "text",
+              "roles": [],
+              "required_field": "text"
+            },
+            "image_url": {
+              "asset_type": "image",
+              "roles": [
+                "first_frame",
+                "last_frame",
+                "reference_image"
+              ],
+              "required_field": "image_url.url"
+            },
+            "video_url": {
+              "asset_type": "video",
+              "roles": [
+                "reference_video"
+              ],
+              "required_field": "video_url.url"
+            },
+            "audio_url": {
+              "asset_type": "audio",
+              "roles": [
+                "reference_audio"
+              ],
+              "required_field": "audio_url.url"
+            }
+          },
+          "limits": {
+            "first_frame": 1,
+            "last_frame": 1,
+            "reference_image": 9,
+            "reference_video": 3,
+            "reference_audio": 3
+          },
+          "rules": {
+            "requires_text": true,
+            "frame_and_reference_mutually_exclusive": true,
+            "reference_audio_requires_visual": true
+          }
+        },
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 0,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0
+        },
+        "upstream_app_metadata": {
+          "id": 24,
+          "name": "全能视频生成",
+          "code": "full_video"
+        },
+        "upstream_api_metadata": {
+          "id": 73,
+          "code": "submit",
+          "name": "提交任务",
+          "call_type": 2,
+          "method": "POST",
+          "supports_vision": 0,
+          "supports_reasoning": 0,
+          "max_reference_images": 0,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0,
+          "capabilities": {
+            "supports_vision": false,
+            "supports_reasoning": false,
+            "max_reference_images": 0,
+            "max_reference_audios": 0,
+            "max_reference_videos": 0
+          }
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 0,
+        "max_reference_audios": 0,
+        "max_reference_videos": 0
+      },
+      "saved_schema_fingerprints": {
+        "params_schema": "d342216664eb8b43c85706fb5c712a493afdbb2c55366278b64d6464161bd188",
+        "content_schema": "3d2f07bbfb1c54e21a799f1944e9794cdcc37bea6deb65715b78d751a513055c"
+      },
+      "public_api_declaration": {
+        "id": 73,
+        "app_id": 24,
+        "name": "提交任务",
+        "code": "submit",
+        "method": "POST",
+        "endpoint_path": "/full_video/submit",
+        "call_type": 2,
+        "params_schema": {
+          "model": {
+            "type": "string",
+            "default": "full-video",
+            "example": "full-video",
+            "required": false,
+            "description": "视频生成模型标识，固定为 full-video。"
+          },
+          "ratio": {
+            "type": "string",
+            "default": "16:9",
+            "example": "16:9",
+            "required": false,
+            "description": "视频画幅比例；图生视频可使用 adaptive。"
+          },
+          "content": {
+            "type": "array",
+            "required": true,
+            "description": "内容列表，须包含文本项；可按模式传入首帧、尾帧或参考媒体。"
+          },
+          "duration": {
+            "type": "integer",
+            "default": 4,
+            "example": 4,
+            "maximum": 15,
+            "minimum": 4,
+            "required": false,
+            "description": "生成时长，单位秒，范围 4 到 15。"
+          },
+          "resolution": {
+            "enum": [
+              "480P",
+              "768P",
+              "1080P",
+              "2K",
+              "4K"
+            ],
+            "type": "string",
+            "default": "480P",
+            "example": "480P",
+            "required": false,
+            "description": "输出分辨率；不同分辨率对应独立的按秒 SKU，具体售价以当前租户价格配置为准。"
+          },
+          "aigc_watermark": {
+            "type": "boolean",
+            "default": false,
+            "example": false,
+            "required": false,
+            "description": "是否添加生成标识。"
+          }
+        },
+        "default_params": {
+          "model": "full-video",
+          "ratio": "16:9",
+          "duration": 4,
+          "resolution": "480P",
+          "aigc_watermark": false
+        },
+        "supports_vision": 0,
+        "supports_reasoning": 0,
+        "max_reference_images": 0,
+        "max_reference_audios": 0,
+        "max_reference_videos": 0,
+        "status": 1,
+        "capabilities": {
+          "supports_vision": false,
+          "supports_reasoning": false,
+          "max_reference_images": 0,
+          "max_reference_audios": 0,
+          "max_reference_videos": 0
+        }
+      },
+      "public_schema_fingerprints": {
+        "params_schema": "d342216664eb8b43c85706fb5c712a493afdbb2c55366278b64d6464161bd188"
+      },
+      "skus": [
+        {
+          "id": 127,
+          "product_id": 103,
+          "sku_key": "full_video_480p_per_second",
+          "title": "480P",
+          "locked_params": {
+            "resolution": "480p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "full_video_480p_per_second",
+            "title": "480P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 128,
+          "product_id": 103,
+          "sku_key": "full_video_768p_per_second",
+          "title": "768P",
+          "locked_params": {
+            "resolution": "768p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "full_video_768p_per_second",
+            "title": "768P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 129,
+          "product_id": 103,
+          "sku_key": "full_video_2k_per_second",
+          "title": "2K",
+          "locked_params": {
+            "resolution": "2k"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "full_video_2k_per_second",
+            "title": "2K",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 130,
+          "product_id": 103,
+          "sku_key": "full_video_1080p_per_second",
+          "title": "1080P",
+          "locked_params": {
+            "resolution": "1080p"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "full_video_1080p_per_second",
+            "title": "1080P",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        },
+        {
+          "id": 131,
+          "product_id": 103,
+          "sku_key": "full_video_4k_per_second",
+          "title": "4K",
+          "locked_params": {
+            "resolution": "4k"
+          },
+          "selectable_params": [],
+          "usage_unit": "input_second",
+          "usage_unit_size": "1.000000",
+          "status": 1,
+          "sale_status": 1,
+          "source_field_names": [
+            "sku_key",
+            "title",
+            "billing_mode",
+            "locked_params",
+            "selectable_params",
+            "usage_unit",
+            "usage_unit_size",
+            "price"
+          ],
+          "source_metadata": {
+            "sku_key": "full_video_4k_per_second",
+            "title": "4K",
+            "usage_unit": "input_second",
+            "usage_unit_size": 1
+          }
+        }
+      ]
+    }
+  ],
+  "historical_option_bindings": [
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        143
+      ],
+      "sellable_sku_ids": [
+        143
+      ]
+    },
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana-2",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        144
+      ],
+      "sellable_sku_ids": [
+        144
+      ]
+    },
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana-2-lite",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        145
+      ],
+      "sellable_sku_ids": [
+        145
+      ]
+    },
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana-2-lite:official",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        148
+      ],
+      "sellable_sku_ids": [
+        148
+      ]
+    },
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana-2:official",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        149,
+        150,
+        151
+      ],
+      "sellable_sku_ids": [
+        149,
+        150,
+        151
+      ]
+    },
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana:official",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        147
+      ],
+      "sellable_sku_ids": [
+        147
+      ]
+    },
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana-pro",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        146
+      ],
+      "sellable_sku_ids": [
+        146
+      ]
+    },
+    {
+      "app_code": "nano_banana",
+      "api_code": "submit",
+      "product_id": 110,
+      "variant": "nano-banana-pro:official",
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        152,
+        153,
+        154
+      ],
+      "sellable_sku_ids": [
+        152,
+        153,
+        154
+      ]
+    },
+    {
+      "app_code": "seedance",
+      "api_code": "create",
+      "product_id": 140,
+      "variant": null,
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        210,
+        211,
+        212,
+        213,
+        214,
+        215
+      ],
+      "sellable_sku_ids": [
+        210,
+        211,
+        212,
+        213,
+        214,
+        215
+      ]
+    },
+    {
+      "app_code": "wan",
+      "api_code": "create",
+      "product_id": 133,
+      "variant": null,
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        198,
+        199,
+        200,
+        201,
+        202,
+        203
+      ],
+      "sellable_sku_ids": [
+        198,
+        199,
+        200,
+        201,
+        202,
+        203
+      ]
+    },
+    {
+      "app_code": "grok_video",
+      "api_code": "submit",
+      "product_id": 108,
+      "variant": null,
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        137,
+        138,
+        139,
+        140,
+        141,
+        142
+      ],
+      "sellable_sku_ids": [
+        137,
+        138,
+        139,
+        140,
+        141,
+        142
+      ]
+    },
+    {
+      "app_code": "happy_horse",
+      "api_code": "submit",
+      "product_id": 105,
+      "variant": null,
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        132,
+        133
+      ],
+      "sellable_sku_ids": [
+        132,
+        133
+      ]
+    },
+    {
+      "app_code": "full_video",
+      "api_code": "submit",
+      "product_id": 103,
+      "variant": null,
+      "scope": "historical_expected_option_not_newly_enabled",
+      "sku_ids": [
+        127,
+        128,
+        129,
+        130,
+        131
+      ],
+      "sellable_sku_ids": [
+        127,
+        128,
+        129,
+        130,
+        131
+      ]
+    }
+  ],
+  "unverified": [
+    "Real Seedance maximum billable tokens",
+    "Live provider execution and deployed source revision",
+    "FullVideo dynamic surcharge contract activation and complete freeze/quote/reserve/settle software"
+  ],
+  "reviewed_source_routes": {
+    "happy_horse_submit": {
+      "status": "local_frozen_route_guard_only",
+      "app_id": 12,
+      "api_id": 34,
+      "app_code": "happy_horse",
+      "api_code": "submit",
+      "params_schema_fingerprint": "2ca6f7110869e67b6425ab6a99ac874503c12708fd912d891d6f754ea6a9b20e",
+      "channel": "dashscope",
+      "source_commit": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+      "source_default_has_no_global_or_tenant_channel_lookup": true,
+      "normal_admin_read_confirmed_driver_and_direct_route": true,
+      "async_source_excludes_existing_synchronous_smart_route_executor": true,
+      "live_provider_execution": "unverified"
+    }
+  },
+  "ui_business_evidence": {
+    "source": "normal_authenticated_admin_UI_read_only",
+    "upstream_source_commit": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+    "captured_documents_sha256": {
+      "happy_full": "f48fda848affdb0af3a502c8d6643d4c2a739c6457194e142bbe516af0123ec9",
+      "wan": "fad2f10dae5ba618b4bfe3ed30cee0950b15ed8bb57a4754eac257e60c0d6160"
+    },
+    "configuration_saves": 0,
+    "provider_operations": 0,
+    "applications": [
+      {
+        "app_code": "happy_horse",
+        "driver": "happy_horse",
+        "observed_at": "2026-11-01T09:28:46.641Z",
+        "no_channel_override": true,
+        "api_fallback_configured": false
+      },
+      {
+        "app_code": "full_video",
+        "driver": "full_video",
+        "observed_at": "2026-11-01T09:30:16.886Z",
+        "current_billing": {
+          "reference_image_free_count": 5,
+          "reference_image_overage_cost_points": 20,
+          "reference_image_overage_sale_points": 20
+        },
+        "elastic_strategy_id": 10,
+        "api_fallback_configured": false,
+        "connection_sections_recorded": false
+      },
+      {
+        "app_code": "wan",
+        "driver": "apimart_video",
+        "observed_at": "2026-11-01T09:31:49.630Z",
+        "model_specs": {
+          "wan2.7": {
+            "pricing_key": "resolution_video_input",
+            "allowed_fields": [
+              "model",
+              "prompt",
+              "negative_prompt",
+              "resolution",
+              "duration",
+              "size",
+              "prompt_extend",
+              "watermark",
+              "seed",
+              "image_urls",
+              "image_with_roles",
+              "video_urls",
+              "audio_url",
+              "metadata"
+            ],
+            "default_params": {
+              "duration": 5,
+              "resolution": "720p"
+            },
+            "duration_policy": "request_duration_seconds",
+            "required_fields": [
+              "model",
+              "prompt"
+            ],
+            "video_input_fields": []
+          },
+          "wan2.7-r2v": {
+            "pricing_key": "resolution_video_input",
+            "allowed_fields": [
+              "model",
+              "prompt",
+              "negative_prompt",
+              "resolution",
+              "duration",
+              "size",
+              "prompt_extend",
+              "watermark",
+              "seed",
+              "image_urls",
+              "image_with_roles",
+              "video_urls",
+              "audio_url",
+              "metadata"
+            ],
+            "default_params": {
+              "duration": 5,
+              "resolution": "720p"
+            },
+            "duration_policy": "request_duration_seconds",
+            "required_fields": [
+              "model",
+              "prompt",
+              "image_with_roles"
+            ],
+            "video_input_fields": []
+          },
+          "wan2.7-videoedit": {
+            "pricing_key": "resolution_video_input",
+            "allowed_fields": [
+              "model",
+              "prompt",
+              "negative_prompt",
+              "resolution",
+              "duration",
+              "size",
+              "prompt_extend",
+              "watermark",
+              "seed",
+              "image_urls",
+              "image_with_roles",
+              "video_urls",
+              "audio_url",
+              "metadata"
+            ],
+            "default_params": {
+              "duration": 5,
+              "resolution": "720p"
+            },
+            "duration_policy": "request_duration_seconds",
+            "required_fields": [
+              "model",
+              "prompt",
+              "video_urls"
+            ],
+            "video_input_fields": [
+              "video_urls"
+            ]
+          }
+        },
+        "create_path": "/v1/videos/generations",
+        "query_path": "/v1/tasks/{task_id}",
+        "api_fallback_configured": false
+      }
+    ],
+    "final_six_application_document_sha256": "2ca9bfeb349f9d4907f89a70a2a972d0a9694dfb0b5490e0fa2ad9927b3b9847",
+    "initial_two_application_document_preserved_as": "/tmp/b80-current-app-ui-initial2.json"
+  },
+  "inactive_application_billing_candidates": {
+    "full_video_submit": {
+      "status": "inactive",
+      "production_activation": false,
+      "app_code": "full_video",
+      "api_code": "submit",
+      "upstream_app_id": 24,
+      "upstream_api_id": 73,
+      "params_schema_fingerprint": "d342216664eb8b43c85706fb5c712a493afdbb2c55366278b64d6464161bd188",
+      "source_commit": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+      "current_config_evidence": {
+        "reference_image_free_count": 5,
+        "reference_image_overage_cost_points": 20,
+        "reference_image_overage_sale_points": 20
+      },
+      "counted_native_slot": {
+        "type": "image_url",
+        "role": "reference_image"
+      },
+      "first_last_frames_counted": false,
+      "formula": "request duration × frozen SKU rate + max(0, reference_image slots - frozen free count) × frozen surcharge points",
+      "remaining": "Missing explicit API point conversion and both local fee-layer decisions; Runtime/native admission, reservation and settlement integration plus isolated lifecycle verification remain. Current fees stay inactive.",
+      "software_fee_contract": {
+        "version": 1,
+        "status": "inactive",
+        "binding": {
+          "app_code": "full_video",
+          "api_code": "submit",
+          "upstream_app_id": 24,
+          "upstream_api_id": 73,
+          "schema_digest": "d342216664eb8b43c85706fb5c712a493afdbb2c55366278b64d6464161bd188",
+          "defaults_digest": "ebff0bc56eaa9918e20933a4cfe4262628967be80251056713f4d85ef234af33",
+          "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+          "config_digest": "1c7da7bfa511a58a009fe99acf691d9f05a1a0c304c0d6240333ccfa1384314d"
+        },
+        "source_config": {
+          "reference_image_free_count": 5,
+          "reference_image_overage_cost_points": 20,
+          "reference_image_overage_sale_points": 20
+        },
+        "meter": {
+          "basis": "request_duration",
+          "free_reference_images": 5,
+          "maximum_reference_images": 9,
+          "slot_type": "image_url",
+          "slot_role": "reference_image"
+        },
+        "layers": {
+          "api_to_aigc": {
+            "api_points_per_image": "20.000000",
+            "conversion": {
+              "numerator": null,
+              "denominator": null
+            }
+          },
+          "platform_to_tenant": {
+            "points_per_image": null
+          },
+          "tenant_to_user": {
+            "points_per_image": null
+          }
+        },
+        "rounding": "half_up_6",
+        "terms_digest": "e0788b4eadf5f8c561ba8b929398c4aee65cd47b950531a9cf08f36194acb412"
+      },
+      "maximum_reference_images_source": {
+        "captured_declaration": "content_schema.limits.reference_image=9",
+        "upstream_source_path": "server/app/common/service/ai/app/ElasticGpuAppDriver.php::prepareFullVideoParams",
+        "source_revision": "b5887e1c153111edd4515beb0635e6b66d9978b6"
+      },
+      "trusted_boundary": "Only fromTrustedMarketConfiguration creates the typed fee capability. Native fee-contract fields are rejected. No runtime integration or active metadata update exists in this slice."
+    }
+  },
+  "snapshot_compatibility": {
+    "marker": "price_snapshot.application_contract",
+    "version": 1,
+    "created_only_at": "MarketVideoRuntimeService::snapshot via bindNewSnapshot",
+    "legacy_absence": "No marker means original codec and validation, even when its declaration fingerprint equals the current capture. prepareRequest never upgrades a saved snapshot.",
+    "binding": "Exact reviewed app/API declaration, defaults, upstream identity and frozen SKU locks. Malformed or changed marked contracts reject instead of falling back.",
+    "new_profiles": [
+      "seedance_create_20261101",
+      "happy_horse_submit_dashscope_20261101",
+      "full_video_submit_20261101"
+    ],
+    "billing_activation": false
+  },
+  "native_full_admission_protection": {
+    "version": 1,
+    "scope": "Only new reviewed Full snapshots. No native surcharge integration or activation.",
+    "snapshot_marker": "full_video_native_projection",
+    "preserved": "Original content text items and repeated URL slots remain in the unchanged transport payload. Only a separate source-default pricing copy is inspected.",
+    "without_reviewed_fee_terms": "More than five reference_image slots reject before quote; first/last frames do not count.",
+    "settlement_units": "Only this new projection fixes units to the original request duration; response usage cannot increase it. Existing price calculation is unchanged.",
+    "legacy": "No native projection marker means no new dispatch or units rule is applied."
+  }
+}

@@ -100,8 +100,7 @@ class ReferenceMentionPromptService
     private static function references(array $params): array
     {
         $references = [];
-        $seen = [];
-        $append = static function ($item, string $fallbackType = 'image') use (&$references, &$seen): void {
+        $append = static function ($item, string $fallbackType = 'image') use (&$references): void {
             if (!is_array($item)) {
                 $item = ['url' => $item];
             }
@@ -111,12 +110,15 @@ class ReferenceMentionPromptService
             }
             $type = self::type((string)($item['type'] ?? $item['media_type'] ?? $item['asset_type'] ?? $fallbackType));
             $assetId = trim((string)($item['asset_id'] ?? $item['id'] ?? ''));
-            $key = $type . '|' . $url;
-            if (isset($seen[$key])) {
-                return;
+            $slotId = ReferenceMaterialSlot::id($item);
+            foreach ($references as &$existing) {
+                if ($existing['type'] === $type && $existing['url'] === $url && !ReferenceMaterialSlot::distinct($item, $existing)) {
+                    if ($slotId !== '') $existing['reference_slot_id'] = $slotId;
+                    return;
+                }
             }
-            $seen[$key] = true;
-            $references[] = ['type' => $type, 'url' => $url, 'asset_id' => $assetId];
+            unset($existing);
+            $references[] = ['type' => $type, 'url' => $url, 'asset_id' => $assetId] + ($slotId !== '' ? ['reference_slot_id' => $slotId] : []);
         };
         foreach ((array)($params['reference_assets'] ?? []) as $item) {
             $append($item);

@@ -1,0 +1,1802 @@
+{
+  "version": 1,
+  "observed_at": "2026-10-30T17:18:03+08:00",
+  "tenant_id": 1,
+  "scope": "18 finite current-native-model cases: actual shared reconciliation followed by production canvas and short-drama projection, real local estimate/admission/frozen preparation. Authorized synthetic files reused. No new upload, tasks, reserve, charge, supplier assets, market sync or history changes. READ ONLY transaction rolled back. Does not close complete contract, opaque structure, application coverage or all-entrance gaps.",
+  "source_web_commit": "e1121aff",
+  "summary": {
+    "quote_admission_frozen_slots_equal": 12,
+    "local_rejection": 6
+  },
+  "equal_entry_pairs": 6,
+  "cases": [
+    {
+      "channel": "market_video_model:335",
+      "scenario": "replace_subject_image",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "selected_sku": 651,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "fac9adc4f3d16e27f516245018a45ee7268e3a4fbc50f8c9b4b2eb227ad717a2",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "duration": 5,
+        "generation_method": "text_to_video",
+        "market_sku_id": 651
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 1,
+              "element_input_audio_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "replace_subject_image",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "45d9acd94b36c4bdc389201a1347f3b10c95f92a27491663931efad4a5c939ed"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "replace_subject_image",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "fac9adc4f3d16e27f516245018a45ee7268e3a4fbc50f8c9b4b2eb227ad717a2",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "text_to_video"
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 1,
+              "element_input_audio_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "replace_subject_image",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "d3eeccd06ef96e6fe737651019b536c93ce0f8cbe7517774b2f0b346fca3778a"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "replace_subject_audio",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "selected_sku": 651,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "d63816f3e0c012eaf6de60701f96bdf9c4cd8fe8da34dad044edc0d51c94cc14",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "duration": 5,
+        "generation_method": "text_to_video",
+        "market_sku_id": 651
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 1,
+              "element_input_audio_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "replace_subject_audio",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "246acf94a5c78c93784ab92a461af2bc8852a448d9139866318ac21f5add5c2a"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "replace_subject_audio",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 1
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "d63816f3e0c012eaf6de60701f96bdf9c4cd8fe8da34dad044edc0d51c94cc14",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "text_to_video"
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 1,
+              "element_input_audio_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "replace_subject_audio",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "1d1fa93dd2048e0ae2cde91e9bfe95ea9c942130872094af46fa1bec06ef3589"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "remove_second_subject_image",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "selected_sku": 651,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "cbb6d50e06f3caa1accb0ef493b8b704e0362a32476252a9d51aef8e3506e74f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "duration": 5,
+        "generation_method": "text_to_video",
+        "market_sku_id": 651
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "remove_second_subject_image",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "d6d0bbb56b0867ca2573b1d3ed3951877127949ee368a8fd0ef16372d952dc0a"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "remove_second_subject_image",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 1,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "cbb6d50e06f3caa1accb0ef493b8b704e0362a32476252a9d51aef8e3506e74f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "text_to_video"
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "remove_second_subject_image",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "fdb93ef5935d217406b4ccf8c0886dcfa3a1cb86ee6c4563da6b48d2ffbf7847"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "remove_only_required_subject_image",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "selected_sku": 651,
+      "expected": "expected_required_rejection",
+      "requested_counts": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "local_rejection",
+      "error": "请填写必填参数：kling_elements[0].element_input_urls",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "duration": 5,
+        "generation_method": "text_to_video",
+        "market_sku_id": 651
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 0
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "remove_only_required_subject_image",
+        "expected": "expected_required_rejection",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [],
+        "material_values_updated": true
+      },
+      "case_key": "6887a048f5ff8bc77d61fdd1783df778ca917d66911929da13f629ea2d93f55d"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "remove_only_required_subject_image",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "expected": "expected_required_rejection",
+      "requested_counts": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "local_rejection",
+      "error": "请填写必填参数：kling_elements[0].element_input_urls",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "text_to_video"
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 0
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "remove_only_required_subject_image",
+        "expected": "expected_required_rejection",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [],
+        "material_values_updated": true
+      },
+      "case_key": "1d139ebf3ea7cffd479f5a09d1ee9081069243b52fad196de0dd9a6c8a00b753"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "ambiguous_shared_file_uses",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "selected_sku": 651,
+      "expected": "expected_ambiguous_rejection",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "status": "local_rejection",
+      "error": "当前生成方式不支持已添加的素材角色",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "duration": 5,
+        "generation_method": "text_to_video",
+        "market_sku_id": 651
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "ambiguous_shared_file_uses",
+        "expected": "expected_ambiguous_rejection",
+        "reconcile_error": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": false
+      },
+      "case_key": "c46d8acfad4edb52a3bd32aa93f41d1ac9acd123a65f318c5631c6558af9e367"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "ambiguous_shared_file_uses",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "expected": "expected_ambiguous_rejection",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "status": "local_rejection",
+      "error": "当前生成方式不支持已添加的素材角色",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "text_to_video"
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "ambiguous_shared_file_uses",
+        "expected": "expected_ambiguous_rejection",
+        "reconcile_error": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": false
+      },
+      "case_key": "2ed424fdc16e5b4687fa98990440770fb3935713ba01ac9d0531c8c9de4b50f1"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "replace_element_second_image",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "selected_sku": 493,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 1
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "points": 845,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 1
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "2fd2378d90a697920cb42258a111e8a1fc88d1c89290541642e0c7f1d97f899f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "identity": {
+        "value": "market_video_model:308",
+        "name": "Kling 4.0",
+        "market_product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "00eee771db21c7fa84b70c8a5f449c6098ec64eebcc33172113990fc269f2f42",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "1080p",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "market_sku_id": 493
+      },
+      "material_mode_requested": "reference_to_video:4",
+      "material_group_shapes": {
+        "elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "image_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:308",
+        "scenario": "replace_element_second_image",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "b2d4e75f8c192f6281b42dba2cbc71a3a9ddfe8b6184b8963bacf8ebe07f7413"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "replace_element_second_image",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 1
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "points": 845,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 1
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "2fd2378d90a697920cb42258a111e8a1fc88d1c89290541642e0c7f1d97f899f",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "identity": {
+        "value": "market_video_model:308",
+        "name": "Kling 4.0",
+        "market_product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "00eee771db21c7fa84b70c8a5f449c6098ec64eebcc33172113990fc269f2f42",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "omni_reference"
+      },
+      "material_mode_requested": "reference_to_video:4",
+      "material_group_shapes": {
+        "elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "image_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:308",
+        "scenario": "replace_element_second_image",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "6ca0162de44f9255112ca032bce110f16939e729d28b2d4a265d37136f4f9d06"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "remove_optional_element_voice",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "selected_sku": 493,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "points": 845,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "94631d1d8682ad6cce0fd358ccae912fa28d96015ee4dfda405436157204d661",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "identity": {
+        "value": "market_video_model:308",
+        "name": "Kling 4.0",
+        "market_product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "00eee771db21c7fa84b70c8a5f449c6098ec64eebcc33172113990fc269f2f42",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "1080p",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "market_sku_id": 493
+      },
+      "material_mode_requested": "reference_to_video:4",
+      "material_group_shapes": {
+        "elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "image_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:308",
+        "scenario": "remove_optional_element_voice",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "b2c56d67c4f5fcd0ca3590452afea5168e535f7b56569d42402adcf8b58c0665"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "remove_optional_element_voice",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 493,
+      "points": 845,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 2,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-bf8474d9d1c7136651",
+        "duration": 5,
+        "resolution": "1080p",
+        "aspect_ratio": "1:1",
+        "generation_type": "reference_to_video"
+      },
+      "prepared_hash": "94631d1d8682ad6cce0fd358ccae912fa28d96015ee4dfda405436157204d661",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "identity": {
+        "value": "market_video_model:308",
+        "name": "Kling 4.0",
+        "market_product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "00eee771db21c7fa84b70c8a5f449c6098ec64eebcc33172113990fc269f2f42",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "omni_reference"
+      },
+      "material_mode_requested": "reference_to_video:4",
+      "material_group_shapes": {
+        "elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "image_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:308",
+        "scenario": "remove_optional_element_voice",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "subject-voice",
+            "type": "audio",
+            "field": "elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "25ba0cdb26badc175b55cc3d82d2bcff7cf5b237f708e54f5a1595baf5bf19cc"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "remove_element_image_below_minimum",
+      "entry": "canvas",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "selected_sku": 493,
+      "expected": "expected_required_rejection",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "local_rejection",
+      "error": "素材或参数数量不正确：elements[0].image_urls",
+      "identity": {
+        "value": "market_video_model:308",
+        "name": "Kling 4.0",
+        "market_product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "00eee771db21c7fa84b70c8a5f449c6098ec64eebcc33172113990fc269f2f42",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "1080p",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "market_sku_id": 493
+      },
+      "material_mode_requested": "reference_to_video:4",
+      "material_group_shapes": {
+        "elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "image_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:308",
+        "scenario": "remove_element_image_below_minimum",
+        "expected": "expected_required_rejection",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "d06707c4cffec8f722e7d3b2348c00d23b2dee0b13b97ecfc277e79458a8a5f6"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "remove_element_image_below_minimum",
+      "entry": "short_drama",
+      "requested_method": "omni_reference",
+      "selected_method": "omni_reference",
+      "expected": "expected_required_rejection",
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "local_rejection",
+      "error": "素材或参数数量不正确：elements[0].image_urls",
+      "identity": {
+        "value": "market_video_model:308",
+        "name": "Kling 4.0",
+        "market_product_id": 308,
+        "resource_type": "model",
+        "model_code": "official-33-bf8474d9d1c7136651",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "00eee771db21c7fa84b70c8a5f449c6098ec64eebcc33172113990fc269f2f42",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "omni_reference"
+      },
+      "material_mode_requested": "reference_to_video:4",
+      "material_group_shapes": {
+        "elements": {
+          "groups": 1,
+          "child_array_sizes": [
+            {
+              "image_urls": 1
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:308",
+        "scenario": "remove_element_image_below_minimum",
+        "expected": "expected_required_rejection",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "elements"
+          }
+        ],
+        "material_values_updated": true
+      },
+      "case_key": "5162fc5e33c7268f0edc2c13a627b0fded29af99553611b2394e8dd06d9bee67"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "two_subjects_four_image_uses",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "selected_sku": 651,
+      "expected": "observe",
+      "requested_counts": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 4,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "2f7b1b7732afed8ae2e0a5953a114bfc25f63ac813f735dc1724c58ce632ca3a",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "duration": 5,
+        "generation_method": "text_to_video",
+        "market_sku_id": 651
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 2,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 2
+            },
+            {
+              "element_input_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "two_subjects_four_image_uses",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "third-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "fourth-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "third-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "fourth-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": false
+      },
+      "case_key": "40868ff30765ab03bca3ba00ab8876257f3f33d9f419a89ccfa017aa3c5ce0c9"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "two_subjects_four_image_uses",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "selected_method": "text_to_video",
+      "expected": "observe",
+      "requested_counts": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      },
+      "transition_diagnostic": "",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 651,
+      "points": 280,
+      "native_slots": {
+        "image": 4,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": {
+        "reference_images": 4,
+        "reference_video_seconds": 0
+      },
+      "native_controls": {
+        "model": "official-33-27cdf26af16f988f51",
+        "sound": false,
+        "duration": "5",
+        "aspect_ratio": "1:1",
+        "mode": "std",
+        "multi_shots": false
+      },
+      "prepared_hash": "2f7b1b7732afed8ae2e0a5953a114bfc25f63ac813f735dc1724c58ce632ca3a",
+      "frozen_native_and_meter_equal": true,
+      "prepared_method": "text_to_video",
+      "material_mode": ":text",
+      "identity": {
+        "value": "market_video_model:335",
+        "name": "Kling 3.0",
+        "market_product_id": 335,
+        "resource_type": "model",
+        "model_code": "official-33-27cdf26af16f988f51",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "declaration_projection_fingerprint": "9f6b7b7f435a5eadf097a45848e6e6cc5c3e7a9cf63067e3a2222749d7a925d0",
+      "controls": {
+        "ratio": "1:1",
+        "quality": "",
+        "duration": 5,
+        "generation_method": "text_to_video"
+      },
+      "material_mode_requested": ":text",
+      "material_group_shapes": {
+        "kling_elements": {
+          "groups": 2,
+          "child_array_sizes": [
+            {
+              "element_input_urls": 2
+            },
+            {
+              "element_input_urls": 2
+            }
+          ]
+        }
+      },
+      "transition": {
+        "channel": "market_video_model:335",
+        "scenario": "two_subjects_four_image_uses",
+        "expected": "observe",
+        "reconcile_error": "",
+        "old_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "third-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "fourth-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "new_inputs": [
+          {
+            "id": "subject-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "second-image",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "third-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          },
+          {
+            "id": "fourth-image-use",
+            "type": "image",
+            "field": "kling_elements"
+          }
+        ],
+        "material_values_updated": false
+      },
+      "case_key": "01522dea507de73a337c67c303ec076bb081a189fcde27ccd8321e16ca70064e"
+    }
+  ],
+  "entry_pairs": [
+    {
+      "channel": "market_video_model:335",
+      "scenario": "replace_subject_image",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "replace_subject_audio",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "remove_second_subject_image",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "remove_only_required_subject_image",
+      "statuses": [
+        "local_rejection",
+        "local_rejection"
+      ],
+      "status": "expected_contract_rejection"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "ambiguous_shared_file_uses",
+      "statuses": [
+        "local_rejection",
+        "local_rejection"
+      ],
+      "status": "expected_contract_rejection"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "replace_element_second_image",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "remove_optional_element_voice",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    },
+    {
+      "channel": "market_video_model:308",
+      "scenario": "remove_element_image_below_minimum",
+      "statuses": [
+        "local_rejection",
+        "local_rejection"
+      ],
+      "status": "expected_contract_rejection"
+    },
+    {
+      "channel": "market_video_model:335",
+      "scenario": "two_subjects_four_image_uses",
+      "statuses": [
+        "quote_admission_frozen_slots_equal",
+        "quote_admission_frozen_slots_equal"
+      ],
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "method_equal": true,
+      "material_mode_equal": true,
+      "status": "entries_equal"
+    }
+  ],
+  "upstream_generation": "not_tested_no_new_paid_authorization"
+}

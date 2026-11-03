@@ -286,13 +286,12 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $result['storyboard'] = [['shot_id' => '1', 'visual_description' => '调查员进入街道']];
         Db::name('aigc_short_drama_script_task')->where('task_id', $created['task_id'])->update(['status' => 'success', 'result_json' => json_encode($result)]);
         Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status' => 'success', 'completed_once' => 1]);
-        try {
-            Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把本集开场改为雨天']);
-            self::fail('An ambiguous revision must not expand its scope');
-        } catch (\Exception $error) {
-            self::assertStringContainsString('请明确要修改的分镜或场景', $error->getMessage());
-        }
-        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把第1个分镜改为雨天']);
+        $natural = Episodes::message(1, 1, ['episode_id'=>$row['id'],'message'=>'把本集开场改为雨天']);
+        $naturalRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id',$natural['task_id'])->value('request_json'));
+        self::assertSame(1,$naturalRequest['_revision_agent_version']);
+        self::assertSame('production',$naturalRequest['_revision_stage']);
+        self::assertSame($result['storyboard'],$naturalRequest['revision_base_result']['storyboard']);
+        $revision = $natural;
         $revisionTask = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
         self::assertSame((int)$created['project_id'], (int)$revisionTask['project_id']);
         self::assertSame($lockedOutline, Episodes::decode($revisionTask['request_json'])['series_context']['outline']);
@@ -302,7 +301,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame((int)$created['project_id'], (int)$retry['project_id']);
         self::assertSame($revision['task_id'], $retry['task_id'], 'Same-context retries reuse durable receipts');
         $retryRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->value('request_json'));
-        self::assertSame('把第1个分镜改为雨天', $retryRequest['revision_message']);
+        self::assertSame('把本集开场改为雨天', $retryRequest['revision_message']);
         self::assertSame('pending', Episodes::detail(1, 1, $list['lists'][1]['id'])['status']);
 
         // A failed legacy continuity review switches once to bounded review;
@@ -340,7 +339,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         AigcShortDramaService::message(self::TENANT,self::USER,['task_id'=>$created['task_id'],'mode'=>'review_content']);
     }
 
-    public function testWorkerPreservesPendingReviewAndOnlyVerifiedContentReleasesNextEpisode(): void
+    public function testWorkerPreservesReviewFindingsWithoutBlockingTheNextEpisode(): void
     {
         $project = $this->project(2);
         Db::name('aigc_short_drama_script_task')->where('task_id', $project['task_id'])->update([
@@ -363,11 +362,10 @@ class ShortDramaEpisodeQueueTest extends TestCase
             'status'=>'running','task_id'=>$task,'production_project_id'=>$child]);
         self::assertSame(1,Episodes::tick(self::TENANT,$project['project_id']));
         $list = Episodes::lists(self::TENANT,self::USER,$project['project_id']);
-        self::assertTrue($list['paused']); self::assertTrue($list['lists'][0]['ready']);
-        self::assertTrue($list['lists'][0]['needs_review']); self::assertTrue($list['lists'][0]['can_retry']);
+        self::assertFalse($list['paused']); self::assertTrue($list['lists'][0]['ready']);
+        self::assertFalse($list['lists'][0]['needs_review']); self::assertFalse($list['lists'][0]['can_retry']);
         self::assertSame('success',$list['lists'][0]['status']);
-        self::assertSame(0,Episodes::tick(self::TENANT,$project['project_id']));
-        self::assertSame(0,(int)Db::name('aigc_short_drama_episode_job')->where('episode_id',$rows[1]['id'])->count());
+        self::assertSame(1,(int)Db::name('aigc_short_drama_episode_job')->where('episode_id',$rows[1]['id'])->count());
         $saved = Episodes::detail(self::TENANT,self::USER,$rows[0]['id']);
         self::assertSame($plan['storyboard'],$saved['result']['storyboard']);
         self::assertSame([], $saved['result']['_continuity']['state']);

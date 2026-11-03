@@ -14,15 +14,15 @@ class ShortDramaEditableDraftTest extends TestCase
             ['shot_id'=>'s1_1','visual_description'=>'原画面','dialogue'=>'甲：原台词','voice_role'=>'甲','speech_type'=>'character']]];
     }
 
-    public function testEditsMergeOnlyAgainstTheirOriginalFieldsAndRequireReview(): void
+    public function testEditsMergeAgainstOriginalFieldsWithoutEditorialGate(): void
     {
         $plan=$this->plan();
         $edits=['edits'=>['s1_1'=>['visual_description'=>['before'=>'原画面','after'=>'新画面']]]];
         $merged=Draft::merge($plan,$edits,['_input_contract_version'=>25]);
         self::assertSame('新画面',$merged['storyboard'][0]['visual_description']);
         self::assertSame('甲：原台词',$merged['storyboard'][0]['dialogue']);
-        self::assertSame('needs_review',$merged['script_review']['status']);
-        self::assertSame('blocked',$merged['_continuity']['dependency_status']);
+        self::assertSame('unreviewed',$merged['script_review']['status']);
+        self::assertSame('ready',$merged['_continuity']['dependency_status']);
         $plan['storyboard'][0]['visual_description']='已经变化';
         $this->expectExceptionCode(409);
         Draft::merge($plan,$edits,[]);
@@ -98,7 +98,7 @@ class ShortDramaEditableDraftTest extends TestCase
             $merged=Draft::merge($candidate,Draft::load($scope['tenant_id'],7,$scope['task_id']),[]);
             self::assertSame('用户画面',$merged['storyboard'][0]['visual_description']);
             self::assertSame('甲：新生成台词',$merged['storyboard'][0]['dialogue']);
-            self::assertSame('needs_review',$merged['script_review']['status']);
+            self::assertSame('unreviewed',$merged['script_review']['status']);
         } finally { Db::rollback(); }
     }
 

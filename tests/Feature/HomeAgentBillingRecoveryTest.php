@@ -211,11 +211,17 @@ namespace {
   check(F::$calls===0,'Free-side admission called provider');
  });
  fixture(function()use($params){
-  // Other consumers keep the shared runtime's established contract.
+  // The shared runtime now checks both payers for every text entry.
   $params['source_app_code']='aigc_short_drama';$params['business_table']='aigc_short_drama_script_task';
-  F::$mode='no_usage';Db::name('user')->where('id',1)->update(['user_money'=>0]);
-  $files=glob(runtime_path().'home-agent-text-receipts/*')?:[];$result=R::generate(1,1,$params);
-  check(F::$calls===1&&$result['billing']['billing_status']==='pending_usage'&&(glob(runtime_path().'home-agent-text-receipts/*')?:[])===$files,'Agent-only guard changed a shared consumer');
+  F::$mode='no_usage';$before=balance();Db::name('user')->where('id',1)->update(['user_money'=>0]);
+  $files=glob(runtime_path().'home-agent-text-receipts/*')?:[];
+  $counts=[AiAppTask::count(),AiConsumptionLog::count()];
+  try{R::generate(1,1,$params);throw new \LogicException('Unfunded shared text entry was admitted');}
+  catch(\app\common\service\power\TextAdmissionRejected){}
+  check(F::$calls===0&&$counts===[AiAppTask::count(),AiConsumptionLog::count()]&&(glob(runtime_path().'home-agent-text-receipts/*')?:[])===$files,'Rejected shared entry wrote a task or called upstream');
+  Db::name('user')->where('id',1)->update(['user_money'=>$before]);
+  $result=R::generate(1,1,$params);
+  check(F::$calls===1&&$result['billing']['billing_status']==='pending_usage'&&(glob(runtime_path().'home-agent-text-receipts/*')?:[])===$files,'Funded shared consumer lost pending usage compatibility');
  });
  // Legacy reservations still release exactly once using the shared wallet services.
  fixture(function()use($model){

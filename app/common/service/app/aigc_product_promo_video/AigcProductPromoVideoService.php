@@ -192,13 +192,14 @@ class AigcProductPromoVideoService
             ])->order('id', 'asc')->findOrEmpty();
             if (!$existing->isEmpty()) {
                 self::syncTaskFromVideoTask($existing);
-                return [
+                $generationDetail = self::taskDetail($tenantId, (int)$existing['id'], $userId);
+                return \app\common\service\ai\GenerationTaskResultService::carry([
                     'task_id' => (int)$existing['id'],
                     'video_task_id' => (int)$existing['video_task_id'],
                     'status' => (string)($existing['status'] ?: 'running'),
                     'error' => (string)($existing['error'] ?? ''),
-                    'results' => self::taskDetail($tenantId, (int)$existing['id'], $userId)['results'] ?? [],
-                ];
+                    'results' => $generationDetail['results'] ?? [],
+                ], $generationDetail);
             }
         }
         self::assertAvailable($tenantId);
@@ -213,14 +214,15 @@ class AigcProductPromoVideoService
         }
         $task = self::createMappedTask($tenantId, $userId, $videoTaskId, $prepared, $estimate);
         self::syncTaskFromVideoTask($task);
-        return [
+        $generationDetail = self::taskDetail($tenantId, (int)$task['id'], $userId);
+        return \app\common\service\ai\GenerationTaskResultService::carry([
             'task_id' => (int)$task['id'],
             'video_task_id' => $videoTaskId,
             'status' => (string)($task['status'] ?: 'running'),
             'error' => (string)($task['error'] ?? ''),
-            'results' => self::taskDetail($tenantId, (int)$task['id'], $userId)['results'] ?? [],
+            'results' => $generationDetail['results'] ?? [],
             'estimate' => $estimate,
-        ];
+        ], $generationDetail);
     }
 
     public static function writePrompt(int $tenantId, int $userId, array $params): array
@@ -280,7 +282,7 @@ class AigcProductPromoVideoService
         $count = (int)(clone $query)->count();
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::appendTaskResults($tenantId, $userId, $rows);
-        return ['lists' => array_map([self::class, 'formatTaskRow'], $rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
+        return ['lists' => \app\common\service\ai\GenerationTaskResultService::appendRelatedList(array_map([self::class, 'formatTaskRow'], $rows),'video'), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
@@ -295,7 +297,7 @@ class AigcProductPromoVideoService
             throw new Exception('任务不存在');
         }
         $rows = self::appendTaskResults($tenantId, $userId, [$task->toArray()]);
-        return self::formatTaskRow($rows[0] ?? []);
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated(self::formatTaskRow($rows[0] ?? []),'video',[(int)$task['video_task_id']],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
@@ -682,6 +684,10 @@ class AigcProductPromoVideoService
     /** Select the strongest mode that can generate a product video from one image. */
     private static function marketPromoGenerationMethod(array $option): string
     {
+        // Concrete material modes are stricter than the product-level union of capabilities.
+        // This tool supplies one product image and cannot satisfy a required driving video/audio or a frame pair.
+        $declared=(array)($option['material_modes']??[]);
+        if ($declared!==[]) return \app\common\service\power\MarketGenerationMaterials::singleImageMethod($option);
         $modes = self::promoModes($option);
         foreach (['image_reference', 'image_to_video', 'omni_reference', 'text_to_video', 'video_edit', 'audio_reference'] as $mode) {
             if (in_array($mode, $modes, true)) {

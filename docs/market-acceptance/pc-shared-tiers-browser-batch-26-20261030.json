@@ -1,0 +1,119 @@
+{
+  "batch": 26,
+  "date": "2026-10-30",
+  "scope": "Authenticated complete local SaaS pages, normal synthetic uploads, tiers, options, replacement/removal and estimates. No browser wire DTO or SKU capture; prices do not prove browser SKU identity.",
+  "source_web_commit": "d364eaa9",
+  "observations": [
+    {
+      "entry": "pc_home",
+      "scenario": "normal_upload_tier_resolution_duration_remove_reupload",
+      "observed": [
+        "red PNG normal SaaS upload; fast480P5s quote148.83",
+        "standard720P6s quote92.04; slider index5; standard limit15s",
+        "remove image rejects and keeps standard; green PNG reupload restores92.04"
+      ],
+      "channel": "market_video_app:grok_video:108",
+      "status": "observed_pass",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "source_web_commit": "a69c9436"
+    },
+    {
+      "entry": "pc_studio",
+      "scenario": "normal_upload_tier_resolution_duration_replace",
+      "observed": [
+        "blue PNG normal upload; fast480P5s quote148.83",
+        "standard1080P5s quote103.4; duration1..15",
+        "inline red PNG replacement retains prompt image1, tier, resolution, duration and103.4"
+      ],
+      "channel": "market_video_app:grok_video:108",
+      "status": "observed_pass",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "source_web_commit": "a69c9436"
+    },
+    {
+      "entry": "pc_studio",
+      "scenario": "remove_required_reference_keeps_standard",
+      "observed": [
+        "remove reference; standard1080P5s retained; text mode selected",
+        "explicit tier/material error; quote invalid; generation disabled"
+      ],
+      "channel": "market_video_app:grok_video:108",
+      "status": "observed_pass",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "source_web_commit": "a69c9436"
+    },
+    {
+      "entry": "standalone",
+      "scenario": "normal_upload_standard_720p_5s",
+      "observed": [
+        "green PNG normal upload; standard720P1:1duration5 quote76.7",
+        "standard duration buttons1..15"
+      ],
+      "channel": "market_video_app:grok_video:108",
+      "status": "observed_pass",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "source_web_commit": "0fb67bc9"
+    },
+    {
+      "entry": "standalone",
+      "scenario": "remove_required_image",
+      "observed": [
+        "remove via card cross; no matching generation specification error",
+        "quote cleared to dash; standard tier retained"
+      ],
+      "channel": "market_video_app:grok_video:108",
+      "status": "observed_pass",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "source_web_commit": "0fb67bc9"
+    },
+    {
+      "entry": "standalone",
+      "scenario": "standard_without_image_upload_and_remove_reupload_restores_dimensions",
+      "observed": [
+        "final source: select standard without image rejects; blue PNG normal upload restores choices",
+        "select standard720P1:1duration5 quote76.7",
+        "remove and reupload green PNG restores standard720P5s1:1 and76.7"
+      ],
+      "channel": "market_video_app:grok_video:108",
+      "status": "observed_pass",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "source_web_commit": "d364eaa9"
+    },
+    {
+      "entry": "pc_studio",
+      "channel": "market_video_app:grok_video:108",
+      "scenario": "final_revision_duration_label_marker",
+      "status": "observed_pass",
+      "source_web_commit": "d364eaa9",
+      "coverage_level": "authenticated_complete_page_interaction_without_wire_capture",
+      "observed": [
+        "Final revision after query reload settled: Grok fast720P5sec text estimate168.83; account points4387.65",
+        "Chinese5sec label and5sec selected menu row agree; aria-checked=true; fast maximum30sec"
+      ]
+    }
+  ],
+  "synthetic_files": [
+    "aigc-batch26-red.png",
+    "aigc-batch26-green.png",
+    "aigc-batch26-blue.png"
+  ],
+  "unchanged_observed_account_points": 4387.65,
+  "new_supplier_tasks": 0,
+  "supplier_asset_calls": 0,
+  "generation_clicks": 0,
+  "user_projects_modified": 0,
+  "final_error_logs": [],
+  "preflight_limits": [
+    "Chrome localhost session was a guest; a direct model-query URL showed404 and standalone hit login protection. These were not acceptance evidence.",
+    "IAB retained an authorized local session; no identity injection. Modern and standalone complete pages loaded normally.",
+    "First standalone card click opened synthetic preview. Only the subsequent cross click counts as removal.",
+    "Home popover has transition delays. Early immediate snapshots and locator timeouts were not classified as product defects. Final menu and screenshot were observed.",
+    "PC preview restarted once for404 diagnosis; corrected a missing CLI path during startup. Platform and tenant processes preserved.",
+    "A late direct query reload briefly displayed a different option set before settling back to requested Grok. Cause not isolated; transient state excluded from passed observations and retained for follow-up."
+  ],
+  "source_web_commits": [
+    "a69c9436",
+    "0fb67bc9",
+    "d364eaa9"
+  ]
+}

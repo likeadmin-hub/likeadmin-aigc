@@ -117,8 +117,9 @@ final class MicroVideoWorker
             if(!empty($receipt['videos'])&&$billing==='settled')$response=$receipt;
             elseif(Db::name('ai_consumption_log')->where('id',$attempt['consumption_id'])->value('run_status')==='reserved'){
                 MicroVideoStore::table('attempt')->where('id',$attempt['id'])->update(['status'=>'submitting','update_time'=>time()]);
-                $response=$runtime::submit((int)$attempt['consumption_id'],$request);
-            }else $response=$runtime::refresh((int)$attempt['consumption_id']);
+                $response=\app\common\service\power\MarketGenerationRuntime::consumption((int)$attempt['consumption_id'],(int)$task['tenant_id'],(int)$task['user_id'])->submit((int)$attempt['consumption_id'],$request,(int)$task['tenant_id'],(int)$task['user_id']);
+            }else $response=\app\common\service\power\MarketGenerationRuntime::consumption((int)$attempt['consumption_id'],(int)$task['tenant_id'],(int)$task['user_id'])->refresh((int)$attempt['consumption_id'],(int)$task['tenant_id'],(int)$task['user_id']);
+            $response=\app\common\service\ai\GenerationTaskResultService::withoutView($response);
             $consumption=Db::name('ai_consumption_log')->where('id',$attempt['consumption_id'])->find();
             // A retained provider receipt is not deliverable until settlement commits.
             if(($consumption['billing_status']??'')!=='settled')$response['videos']=[];

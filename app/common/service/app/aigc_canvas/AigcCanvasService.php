@@ -3,6 +3,8 @@
 namespace app\common\service\app\aigc_canvas;
 
 use app\common\service\power\MarketGenerationControls;
+use app\common\service\power\MarketGenerationRuntime;
+use app\common\service\ai\GenerationTaskResultService;
 
 use app\common\enum\FileEnum;
 use app\common\model\app\TenantAppConfig;
@@ -33,6 +35,117 @@ use think\facade\Db;
 class AigcCanvasService
 {
     public const APP_CODE = 'aigc_canvas';
+
+    /** Publish a local terminal receipt without polling or submitting to a provider. */
+    public static function syncManagedConsumption(array $consumption, int $runId): void
+    {
+        $owner = ['tenant_id' => (int)$consumption['tenant_id'], 'user_id' => (int)$consumption['user_id']];
+        $identity = $owner + ['id' => $runId, 'source_task_id' => (int)$consumption['id'], 'delete_time' => 0];
+        $run = AigcCanvasRun::where($identity)->find();
+        $status = (string)($consumption['run_status'] ?? '');
+        if (!$run || ($consumption['app_code'] ?? '') !== self::APP_CODE
+            || !in_array($run['run_type'], ['image', 'video', 'music'], true)
+            || !in_array($status, ['success', 'failed', 'canceled', 'cancelled'], true)) return;
+        $status = $status === 'cancelled' ? 'canceled' : $status;
+        $kind = $run['run_type'] === 'music' ? 'audio' : $run['run_type'];
+        $summary = array_replace(self::normalizeRunPayload($consumption['response_summary'] ?? []), ['status' => $status]);
+        if ($status !== 'success' && empty($summary['error'])) $summary['error'] = (string)($consumption['error_message'] ?? '');
+        $result = match ($kind) {
+            'image' => self::formatMarketImageResult((int)$consumption['id'], [], $summary),
+            'video' => self::formatMarketVideoResult((int)$consumption['id'], [], $summary),
+            'audio' => self::formatMarketMusicResult((int)$consumption['id'], [], $summary),
+        };
+        // A direct caller may arrive before transfer_result. Never publish a raw supplier URL.
+        $stored = Db::name('ai_task_result_asset')->where($owner + ['consumption_id' => (int)$consumption['id'],
+            'asset_type' => $kind, 'transfer_status' => 'stored'])->select()->toArray();
+        $byUri = array_column($stored, null, 'local_uri');
+        if ($status === 'success') {
+            if (empty($result['results'])) return;
+            foreach ($result['results'] as &$item) {
+                $asset = $byUri[(string)($item[$kind . '_uri'] ?? '')] ?? null;
+                if (!$asset) return;
+                // Summaries may retain an expired url alias alongside the hydrated URI.
+                // Delivery identity and domain always come from the owned storage receipt.
+                foreach (['storage_scope', 'storage_engine', 'storage_domain'] as $key) $item[$key] = (string)$asset[$key];
+                $url = FileService::getFileUrlByStorage($asset['local_uri'], $item['storage_scope'], $item['storage_engine'], $item['storage_domain']);
+                $item['url'] = $item[$kind . '_url'] = $url;
+                if ($kind !== 'image') $item['file_url'] = $url;
+            }
+            unset($item);
+            $result[match ($kind) {'image' => 'images', 'video' => 'videos', 'audio' => 'items'}] = $result['results'];
+            if ($kind === 'audio') $result['audios'] = $result['results'];
+        }
+        $result = self::sanitizeRunPayload($result);
+        Db::transaction(function () use ($identity, $owner, $run, $consumption, $result, $status, $kind): void {
+            $project = AigcCanvasProject::where($owner + ['id' => (int)$run['project_id'], 'delete_time' => 0])->lock(true)->find();
+            $current = AigcCanvasRun::where($identity)->lock(true)->find();
+            if (!$current || (in_array($current['status'], ['success', 'failed', 'canceled'], true) && $current['status'] !== $status)) return;
+            $finish = (int)$current['finish_time'] ?: ((int)($consumption['finish_time'] ?? 0) ?: time());
+            $patch = ['status' => $status, 'result_json' => $result, 'error' => (string)($result['error'] ?? ''), 'finish_time' => $finish];
+            if ($current['status'] !== $status || (array)$current['result_json'] !== $result
+                || (string)$current['error'] !== $patch['error'] || (int)$current['finish_time'] !== $finish) {
+                $current->save($patch + ['update_time' => time()]);
+            }
+            if (!$project) return;
+            $nodes = self::normalizeRunPayload($project['nodes_json']);
+            foreach ($nodes as &$node) {
+                if ((string)($node['id'] ?? '') !== (string)$current['node_id'] || ($node['type'] ?? '') !== $kind) continue;
+                $metadata = (array)($node['metadata'] ?? []);
+                if ((string)($metadata['taskId'] ?? '') !== (string)$consumption['id']
+                    || !in_array($metadata['status'] ?? '', ['running', 'queued', 'pending'], true)) return;
+                if ($status === 'success') {
+                    $collection = is_array($metadata['mediaItems'] ?? null) ? $metadata['mediaItems'] : [];
+                    if (!isset($metadata['mediaItems'])) {
+                        $previous = (string)($metadata['url'] ?? $metadata[$kind . '_url'] ?? ($kind === 'image' ? ($metadata['image'] ?? '') : ''));
+                        if ($previous !== '' && !preg_match('~^(?:blob|data|javascript|file):~i', $previous)) {
+                            $collection[] = ['id' => 'legacy-' . $kind, 'type' => $kind, 'url' => $previous,
+                                'assetUri' => (string)($metadata['uri'] ?? $previous), 'mediaSource' => 'generated'];
+                        }
+                    }
+                    foreach ($result['results'] as $item) {
+                        $uri = (string)$item[$kind . '_uri'];
+                        $media = ['id' => 'result-' . $kind . '-' . substr(hash('sha256', $item['url']), 0, 12),
+                            'type' => $kind, 'url' => $item['url'], 'assetUri' => $uri, 'mediaSource' => 'generated'];
+                        foreach (['storage_scope', 'storage_engine', 'storage_domain', 'width', 'height', 'duration'] as $key) {
+                            if (isset($item[$key])) $media[$key] = $item[$key];
+                        }
+                        if (!empty($item['mime_type'])) $media['mimeType'] = $item['mime_type'];
+                        if (!empty($item['file_size'])) $media['fileSize'] = (int)$item['file_size'];
+                        $found = false;
+                        foreach ($collection as &$old) {
+                            if (($old['url'] ?? '') !== $media['url']) continue;
+                            $media['id'] = $old['id']; $old = array_replace($old, $media); $found = true; break;
+                        }
+                        unset($old);
+                        if (!$found) $collection[] = $media;
+                        if (!isset($active)) $active = $media;
+                    }
+                    // Match the collection editor: old preview aliases and dimensions must not shadow the new active item.
+                    foreach (['image', 'image_url', 'video_url', 'audio_url', 'file_url', 'output_url', 'download_url', 'media_url',
+                        'video', 'audio_uri', 'preview_url', 'localPreviewUrl', 'poster', 'poster_url', 'cover_url', 'cover', 'thumbnail'] as $key) $metadata[$key] = '';
+                    foreach (['width', 'height', 'imageWidth', 'imageHeight', 'videoWidth', 'videoHeight'] as $key) $metadata[$key] = 0;
+                    $metadata = array_replace($metadata, ['mediaItems' => $collection, 'activeMediaId' => $active['id'],
+                        'url' => $active['url'], $kind . '_url' => $active['url'], 'uri' => $active['assetUri'],
+                        'assetUri' => $active['assetUri'], 'mediaSource' => 'generated', 'generatedAt' => $finish * 1000,
+                        'fileId' => '', 'file_id' => '', 'fileName' => '', 'filename' => '',
+                        'mimeType' => $active['mimeType'] ?? '', 'mime_type' => $active['mimeType'] ?? '',
+                        'fileSize' => $active['fileSize'] ?? 0, 'file_size' => $active['fileSize'] ?? 0,
+                        'poster' => '', 'poster_url' => '', 'cover_url' => '', 'thumbnail' => '',
+                        'storage_scope' => $active['storage_scope'] ?? '', 'storage_engine' => $active['storage_engine'] ?? '',
+                        'storage_domain' => $active['storage_domain'] ?? '', 'mediaWidth' => $active['width'] ?? 0,
+                        'mediaHeight' => $active['height'] ?? 0, 'width' => $active['width'] ?? 0, 'height' => $active['height'] ?? 0,
+                        'mediaDuration' => $active['duration'] ?? 0]);
+                    if ($kind === 'image') $metadata['image'] = $active['url'];
+                    if ($kind !== 'audio') {$metadata[$kind . 'Width'] = $active['width'] ?? 0; $metadata[$kind . 'Height'] = $active['height'] ?? 0;}
+                }
+                $node['metadata'] = array_replace($metadata, ['status' => $status, 'pending' => false,
+                    'errorDetails' => (string)($result['error'] ?? '')]);
+                if ((int)($consumption['app_task_id'] ?? 0) > 0) $node['metadata']['generationTaskRef'] = 'app_task:' . (int)$consumption['app_task_id'];
+                $project->save(['nodes_json' => $nodes, 'update_time' => time()]);
+                return;
+            }
+        });
+    }
     private const LEGACY_TEXT_REPLACEMENTS = [
         "\u{74A7}\u{52EA}\u{9A87}\u{7459}\u{55DB}\u{E576}" => '资产视频',
         '璧勪骇鍥剧墖' => '资产图片',
@@ -293,7 +406,9 @@ class AigcCanvasService
             throw new Exception('此项目包含多个画布，请刷新页面后再保存');
         }
         $data = [
-            'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
+            'nodes_json' => self::preserveTerminalGenerationMetadata(
+                self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
+                self::normalizeList($project['nodes_json'] ?? [])),
             'edges_json' => CanvasProjectCompatibility::normalizeEdges(self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? []))),
             'viewport_json' => $incomingViewport,
             'thumbnail' => self::normalizeThumbnail(
@@ -323,8 +438,39 @@ class AigcCanvasService
         if ($requestId !== '') $incomingViewport['saveReceipt'] = ['id'=>$requestId,'hash'=>$fingerprint,'revision'=>$incomingViewport['saveRevision'],'agentRevision'=>$incomingViewport['agentRevision']];
         $data['viewport_json'] = $incomingViewport;
         $project->save($data);
+        $removedPages = array_values(array_diff(array_column($storedViewport['pages'] ?? [['id'=>'canvas_1']], 'id'), array_column($incomingViewport['pages'] ?? [['id'=>'canvas_1']], 'id')));
+        if ($removedPages) \app\common\service\app\aigc_llm\agent\AgentExecutionService::cancelProject($tenantId, (int)$project['user_id'], $id, $removedPages);
         return self::formatProject($project->toArray(), true);
         });
+    }
+
+    /** A late autosave may contain the accepted pending node. Keep this attempt's durable result, while retaining all user edits. */
+    private static function preserveTerminalGenerationMetadata(array $incoming, array $stored): array
+    {
+        $byId = [];
+        foreach ($stored as $node) $byId[(string)($node['id'] ?? '')] = $node;
+        $resultFields = ['status','pending','errorDetails','generationTaskRef','mediaItems','activeMediaId','url','uri','assetUri',
+            'mediaSource','generatedAt','image','image_url','video_url','audio_url','file_url','output_url','download_url','media_url',
+            'video','audio_uri','preview_url','localPreviewUrl','poster','poster_url','cover_url','cover','thumbnail',
+            'fileId','file_id','fileName','filename','mimeType','mime_type','fileSize','file_size',
+            'storage_scope','storage_engine','storage_domain','width','height','imageWidth','imageHeight','videoWidth','videoHeight',
+            'mediaWidth','mediaHeight','mediaDuration'];
+        foreach ($incoming as &$node) {
+            $old = $byId[(string)($node['id'] ?? '')] ?? [];
+            $m = (array)($node['metadata'] ?? []); $previous = (array)($old['metadata'] ?? []);
+            if (($node['type'] ?? '') !== ($old['type'] ?? '')
+                || !in_array($previous['status'] ?? '', ['success','failed','canceled'], true)
+                || !in_array($m['status'] ?? '', ['running','queued','pending','processing'], true)
+                || empty($m['taskId']) || (string)$m['taskId'] !== (string)($previous['taskId'] ?? '')
+                || (string)($m['generationStartedAt'] ?? '') !== (string)($previous['generationStartedAt'] ?? '')
+                || (!empty($m['generationTaskRef']) && !empty($previous['generationTaskRef']) && $m['generationTaskRef'] !== $previous['generationTaskRef'])) continue;
+            foreach ($resultFields as $field) {
+                if (array_key_exists($field, $previous)) $m[$field] = $previous[$field];
+            }
+            $node['metadata'] = $m;
+        }
+        unset($node);
+        return $incoming;
     }
 
     private static function sameProjectSaveContent(array $stored, array $incoming): bool
@@ -683,26 +829,12 @@ class AigcCanvasService
     private static function generateMarketImage(int $tenantId, int $userId, AigcCanvasRun $run, array $params): array
     {
         $request = self::normalizeImageParams($params, $tenantId, $userId);
-        if (is_array($params['provider_params'] ?? null)) {
-            $request['provider_params'] = (array)$params['provider_params'];
-        }
-        $runtime = MarketNanoBananaAppRuntimeService::isSelection($params)
-            ? MarketNanoBananaAppRuntimeService::class
-            : MarketImageModelRuntimeService::class;
-        $reserve = $runtime::reserve(
-            $tenantId,
-            $userId,
-            'generate',
-            (string)$run['id'],
-            $params,
-            $request,
-            (int)$request['quantity'],
-            self::APP_CODE,
-            'aigc_canvas_run'
-        );
-        $runtime::linkBusinessTask((int)$reserve['app_task_id'], (int)$run['id']);
-        $result = $runtime::submit((int)$reserve['consumption_id'], $request);
-        return self::formatMarketImageResult((int)$reserve['consumption_id'], $reserve, $result);
+        if (is_array($params['provider_params'] ?? null)) $request['provider_params'] = (array)$params['provider_params'];
+        $runtime = MarketGenerationRuntime::selection('image', $params);
+        $reserve = $runtime->reserve($tenantId,$userId,self::APP_CODE,'generate','aigc_canvas_run',(string)$run['id'],$request,(int)$request['quantity']);
+        $runtime->bind((int)$reserve['app_task_id'],(int)$run['id'],$tenantId,$userId);
+        $result = $runtime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
+        return self::formatMarketImageResult((int)$reserve['consumption_id'],$reserve,$result);
     }
 
     private static function imageMarketAttemptInputs(int $tenantId, array $params, bool $modelSelectionExplicit = false): array
@@ -875,7 +1007,7 @@ class AigcCanvasService
         }
         $snapshot = (array)($reserve['market_snapshot'] ?? []);
         $status = (string)($result['status'] ?? (empty($items) ? 'running' : 'success'));
-        return [
+        return GenerationTaskResultService::carry([
             'task_id' => $consumptionId,
             'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
@@ -885,7 +1017,7 @@ class AigcCanvasService
             'market_sku_id' => (int)($snapshot['sku_id'] ?? 0),
             'images' => $items,
             'results' => $items,
-        ];
+        ], $result);
     }
 
     private static function marketImageErrorMessage(string $message): string
@@ -944,23 +1076,12 @@ class AigcCanvasService
     private static function generateMarketVideo(int $tenantId, int $userId, AigcCanvasRun $run, array $params): array
     {
         $request = self::normalizeVideoParams($params, $tenantId, $userId);
-        if (is_array($params['provider_params'] ?? null)) {
-            $request['provider_params'] = (array)$params['provider_params'];
-        }
-        $runtime = self::marketVideoRuntime($params);
-        $reserve = $runtime::reserve(
-            $tenantId,
-            $userId,
-            self::APP_CODE,
-            'video_generate',
-            'aigc_canvas_run',
-            (string)$run['id'],
-            $params,
-            $request
-        );
-        $runtime::linkBusinessTask((int)$reserve['app_task_id'], (int)$run['id']);
-        $result = $runtime::submit((int)$reserve['consumption_id'], $request);
-        return self::formatMarketVideoResult((int)$reserve['consumption_id'], $reserve, $result);
+        if (is_array($params['provider_params'] ?? null)) $request['provider_params'] = (array)$params['provider_params'];
+        $runtime = MarketGenerationRuntime::selection('video', $params);
+        $reserve = $runtime->reserve($tenantId,$userId,self::APP_CODE,'video_generate','aigc_canvas_run',(string)$run['id'],$request);
+        $runtime->bind((int)$reserve['app_task_id'],(int)$run['id'],$tenantId,$userId);
+        $result = $runtime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
+        return self::formatMarketVideoResult((int)$reserve['consumption_id'],$reserve,$result);
     }
 
     private static function formatMarketVideoResult(int $consumptionId, array $reserve, array $result): array
@@ -984,7 +1105,7 @@ class AigcCanvasService
         }
         $snapshot = (array)($reserve['market_snapshot'] ?? []);
         $status = (string)($result['status'] ?? (empty($items) ? 'running' : 'success'));
-        return [
+        return GenerationTaskResultService::carry([
             'task_id' => $consumptionId,
             'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
@@ -994,28 +1115,18 @@ class AigcCanvasService
             'market_sku_id' => (int)($snapshot['sku_id'] ?? 0),
             'videos' => $items,
             'results' => $items,
-        ];
+        ], $result);
     }
 
     private static function generateMarketMusic(int $tenantId, int $userId, AigcCanvasRun $run, array $params): array
     {
         $request = self::normalizeMusicParams($params);
-        if (is_array($params['provider_params'] ?? null)) {
-            $request['provider_params'] = (array)$params['provider_params'];
-        }
-        $reserve = MarketMusicAppRuntimeService::reserve(
-            $tenantId,
-            $userId,
-            (string)$run['id'],
-            $params,
-            $request,
-            self::APP_CODE,
-            'music_generate',
-            'aigc_canvas_run'
-        );
-        MarketMusicAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$run['id']);
-        $result = MarketMusicAppRuntimeService::submit((int)$reserve['consumption_id'], $request);
-        return self::formatMarketMusicResult((int)$reserve['consumption_id'], $reserve, $result);
+        if (is_array($params['provider_params'] ?? null)) $request['provider_params'] = (array)$params['provider_params'];
+        $runtime = MarketGenerationRuntime::selection('audio', $params + ['resource_type'=>'app_api','upstream_app_code'=>'music_generation']);
+        $reserve = $runtime->reserve($tenantId,$userId,self::APP_CODE,'music_generate','aigc_canvas_run',(string)$run['id'],$request);
+        $runtime->bind((int)$reserve['app_task_id'],(int)$run['id'],$tenantId,$userId);
+        $result = $runtime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
+        return self::formatMarketMusicResult((int)$reserve['consumption_id'],$reserve,$result);
     }
 
     private static function formatMarketMusicResult(int $consumptionId, array $reserve, array $result): array
@@ -1039,7 +1150,7 @@ class AigcCanvasService
         }
         $snapshot = (array)($reserve['market_snapshot'] ?? []);
         $status = (string)($result['status'] ?? (empty($items) ? 'running' : 'success'));
-        return [
+        return GenerationTaskResultService::carry([
             'task_id' => $consumptionId,
             'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
@@ -1050,7 +1161,7 @@ class AigcCanvasService
             'items' => $items,
             'audios' => $items,
             'results' => $items,
-        ];
+        ], $result);
     }
 
     public static function generateText(int $tenantId, int $userId, array $params): array
@@ -1265,11 +1376,9 @@ class AigcCanvasService
         }
         $consumption = $query->findOrEmpty();
         if ($consumption->isEmpty()) {
-            return [];
+            throw new Exception('任务不存在或无权访问');
         }
-        $result = (string)$consumption['protocol'] === 'application_api'
-            ? MarketNanoBananaAppRuntimeService::refresh($consumptionId)
-            : MarketImageModelRuntimeService::refresh($consumptionId);
+        $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketImageResult($consumptionId, [
             'market_snapshot' => (array)$consumption['price_snapshot'],
         ], $result + [
@@ -1292,9 +1401,9 @@ class AigcCanvasService
         }
         $consumption = $query->findOrEmpty();
         if ($consumption->isEmpty()) {
-            return [];
+            throw new Exception('任务不存在或无权访问');
         }
-        $result = MarketMusicAppRuntimeService::refresh($consumptionId);
+        $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketMusicResult($consumptionId, [
             'market_snapshot' => (array)$consumption['price_snapshot'],
         ], $result + [
@@ -1316,11 +1425,10 @@ class AigcCanvasService
         }
         $consumption = $query->findOrEmpty();
         if ($consumption->isEmpty()) {
-            return [];
+            throw new Exception('任务不存在或无权访问');
         }
         $snapshot = (array)$consumption['price_snapshot'];
-        $runtime = self::marketVideoRuntime($snapshot);
-        $result = $runtime::refresh($consumptionId);
+        $result = MarketGenerationRuntime::consumption($consumptionId,$tenantId,(int)$consumption['user_id'])->refresh($consumptionId,$tenantId,(int)$consumption['user_id']);
         return self::formatMarketVideoResult($consumptionId, [
             'market_snapshot' => $snapshot,
         ], $result + [
@@ -2366,11 +2474,15 @@ class AigcCanvasService
             if ($url === '') {
                 continue;
             }
-            $key = $type . '|' . $url . '|' . (string)($asset['field'] ?? '');
-            if (isset($seen[$key])) {
-                continue;
+            $slot = \app\common\service\ai\ReferenceMaterialSlot::id($asset);
+            $role = trim((string)($asset['role'] ?? '')) ?: 'reference_' . $type;
+            $key = $type . '|' . $url . '|' . (string)($asset['field'] ?? '') . '|' . $role;
+            foreach ($seen[$key] ?? [] as $index) {
+                if (\app\common\service\ai\ReferenceMaterialSlot::distinct($asset, $result[$index])) continue;
+                if ($slot !== '') $result[$index]['reference_slot_id'] = $slot;
+                continue 2;
             }
-            $seen[$key] = true;
+            $seen[$key][] = count($result);
             $result[] = $asset;
         }
         return $result;
@@ -2432,7 +2544,7 @@ class AigcCanvasService
         $referenceImages = self::normalizeReferenceImages($params, $tenantId, $userId, $persistInlineImages);
         $referenceAssets = self::normalizeReferenceAssets(array_merge($params, [
             'reference_images' => $referenceImages,
-        ]), PHP_INT_MAX);
+        ]));
         return array_replace(array_intersect_key($params, array_flip(['material_mode', 'seed', 'audio', 'audio_setting', 'watermark', 'aigc_watermark', 'is_rec', 'wm_position', 'wm_url', 'camera_fixed', 'prompt_extend', 'draft', 'frames', 'fps', 'motion_bucket_id', 'cfg_scale', 'enhance_prompt', 'service_tier', 'tools', 'metadata', 'payload', 'meta_data'])), [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
@@ -2524,44 +2636,10 @@ class AigcCanvasService
         return $normalized;
     }
 
-    private static function normalizeReferenceAssets(array $params, int $max = 15): array
+    private static function normalizeReferenceAssets(array $params): array
     {
-        $assets = [];
-        foreach ((array)($params['reference_assets'] ?? []) as $asset) {
-            if (is_array($asset)) {
-                $normalized = self::normalizeReferenceAssetItem($asset);
-                if ($normalized !== []) {
-                    $assets[] = $normalized;
-                }
-            }
-        }
-        foreach (['image' => 'reference_image', 'first_frame_image' => 'first_frame_image', 'last_frame_image' => 'last_frame_image'] as $key => $role) {
-            $value = trim((string)($params[$key] ?? ''));
-            if ($value !== '') {
-                $normalized = self::normalizeReferenceAssetItem([
-                    'type' => 'image',
-                    'uri' => $value,
-                    'url' => $value,
-                    'role' => $role,
-                ]);
-                if ($normalized !== []) {
-                    $assets[] = $normalized;
-                }
-            }
-        }
-        foreach (['video_urls' => 'video', 'audio_urls' => 'audio'] as $key => $type) {
-            foreach ((array)($params[$key] ?? []) as $url) {
-                $normalized = self::normalizeReferenceAssetItem([
-                    'type' => $type,
-                    'uri' => $url,
-                    'url' => $url,
-                ]);
-                if ($normalized !== []) {
-                    $assets[] = $normalized;
-                }
-            }
-        }
-        return array_slice(self::uniqueReferenceAssets($assets), 0, $max);
+        // Share durable URLs, occurrence identity and bounds with video admission.
+        return \app\common\service\app\aigc_video\AigcVideoReferenceAssetService::normalizeForMarket($params);
     }
 
     private static function normalizeReferenceAssetItem(array $asset): array
@@ -3068,6 +3146,7 @@ class AigcCanvasService
 
     private static function sanitizeRunPayload(array $payload): array
     {
+        $payload=GenerationTaskResultService::withoutView($payload);
         $result = self::truncateRunPayload($payload);
         foreach (['reference_images', 'image_urls'] as $key) {
             if (isset($payload[$key]) && is_array($payload[$key])) {

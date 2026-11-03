@@ -5,6 +5,7 @@ namespace app\common\service\ai;
 use app\common\model\ai\AiAppTask;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiTaskJob;
+use app\common\model\ai\AiTaskResultAsset;
 use think\facade\Db;
 
 /** Durable task queue; pre-submit continuation has its own explicit job type. */
@@ -14,6 +15,7 @@ class AiTaskJobService
     public const TYPE_IMAGE_SUBMIT_RETRY = 'image_submit_retry';
     // A distinct type keeps pre-upgrade workers from treating music exports as generation.
     public const TYPE_MUSIC_OPERATION = 'music_operation';
+    public const TYPE_SMART_CLIP = 'native_smart_clip';
     public const TYPE_PROCESS_RESULT = 'process_result';
     public const TYPE_TRANSFER_RESULT = 'transfer_result';
     public const TYPE_SETTLE = 'settle';
@@ -24,6 +26,11 @@ class AiTaskJobService
     {
         return self::enqueue(self::TYPE_QUERY_RESULT, $consumptionId, 0, [], $priority, $wake);
     }
+    public static function enqueueSmartClip(int $appTaskId): int
+    {
+        return self::enqueue(self::TYPE_SMART_CLIP,0,0,['app_task_id'=>$appTaskId],0,false,'native_smart_clip:'.$appTaskId);
+    }
+
     public static function enqueueMusicOperation(int $consumptionId): int
     {
         return self::enqueue(self::TYPE_MUSIC_OPERATION,$consumptionId);
@@ -84,7 +91,8 @@ class AiTaskJobService
 
     public static function enqueueTransfer(int $assetId, bool $forced = false): int
     {
-        return self::enqueue(self::TYPE_TRANSFER_RESULT, 0, $assetId, ['forced' => $forced], $forced ? 100 : 0, true);
+        $asset=AiTaskResultAsset::findOrEmpty($assetId);if($asset->isEmpty())return 0;
+        return self::enqueue(self::TYPE_TRANSFER_RESULT, (int)$asset['consumption_id'], $assetId, ['forced' => $forced], $forced ? 100 : 0, true,self::TYPE_TRANSFER_RESULT.':'.$assetId);
     }
 
     public static function enqueueAdminAction(int $operationItemId, string $key): int
@@ -97,16 +105,25 @@ class AiTaskJobService
         $now = time();
         $key = $customKey !== '' ? $customKey : $type . ':' . ($consumptionId ?: $assetId);
         return Db::transaction(function () use ($type, $consumptionId, $assetId, $payload, $priority, $wake, $key, $now) {
-            $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
-            if ($job->isEmpty()) {
-                $job = AiTaskJob::create([
-                    'app_task_id' => $consumptionId > 0 ? (int)(AiConsumptionLog::where('id', $consumptionId)->value('app_task_id') ?: 0) : 0,
+            // Two transfers can finish together. Lock an existing parent before locking
+            // the absent queue key, whose shared gap locks cannot serialize two inserts.
+            $appTaskId = $consumptionId > 0
+                ? (int)(AiConsumptionLog::where('id', $consumptionId)->lock(true)->value('app_task_id') ?: 0)
+                : 0;
+            if($type===self::TYPE_SMART_CLIP){
+                $native=AiAppTask::where(['id'=>(int)($payload['app_task_id']??0),'app_code'=>'smart_clip','business_table'=>'smart_clip_task'])->lock(true)->findOrEmpty();
+                if($native->isEmpty())throw new \InvalidArgumentException('剪辑作业缺少统一任务');
+                $appTaskId=(int)$native['id'];
+            }
+            // Insert before locking the identity. Missing-key gap locks can deadlock distinct jobs as well.
+            $created = Db::name('ai_task_job')->extra('IGNORE')->insert([
+                    'app_task_id' => $appTaskId,
                     'consumption_id' => $consumptionId,
                     'result_asset_id' => $assetId,
                     'job_type' => $type,
                     'status' => 'pending',
                     'priority' => $priority,
-                    'payload' => $payload,
+                    'payload' => json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
                     'attempts' => 0,
                     'max_attempts' => 0,
                     'next_run_time' => $now,
@@ -118,6 +135,9 @@ class AiTaskJobService
                     'update_time' => $now,
                     'finish_time' => 0,
                 ]);
+            $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
+            if ($job->isEmpty()) throw new \RuntimeException('结果作业创建失败');
+            if ($created) {
                 AiTaskLifecycleEventService::record($consumptionId, 'job_enqueued', 'pending', [
                     'job_id' => (int)$job['id'],
                     'job_type' => $type,
@@ -125,7 +145,12 @@ class AiTaskJobService
                 ]);
                 return (int)$job['id'];
             }
-            if ($wake && !in_array((string)$job['status'], ['success', 'dead'], true)) {
+            if($type===self::TYPE_TRANSFER_RESULT&&$consumptionId>0){
+                $linked=$appTaskId;
+                if((int)$job['consumption_id']!==$consumptionId||(int)$job['app_task_id']!==$linked)$job->save(['consumption_id'=>$consumptionId,'app_task_id'=>$linked]);
+            }
+            $liveTransfer=$type===self::TYPE_TRANSFER_RESULT&&$job['status']==='running'&&(int)$job['lease_expire_time']>$now;
+            if ($wake && !$liveTransfer && !in_array((string)$job['status'], ['success', 'dead'], true)) {
                 $job->save([
                     'status' => 'pending',
                     'priority' => max((int)$job['priority'], $priority),
@@ -158,7 +183,7 @@ class AiTaskJobService
                     })->whereOr(function ($expired) use ($now) {
                         $expired->where('status', 'running')->where('lease_expire_time', '<=', $now);
                     });
-                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_IMAGE_SUBMIT_RETRY, self::TYPE_MUSIC_OPERATION, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
+                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_IMAGE_SUBMIT_RETRY, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
                     ->when($appCode !== '', function ($query) use ($appCode) {
                         $query->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
                     })
@@ -239,8 +264,9 @@ class AiTaskJobService
         if ($type === self::TYPE_QUERY_RESULT) {
             return self::queryResult((int)$job['consumption_id'], (int)$job['attempts']);
         }
+        if ($type === self::TYPE_SMART_CLIP) return \app\common\service\app\smart_clip\SmartClipTaskRuntime::run((int)$job['app_task_id']);
         if ($type === self::TYPE_IMAGE_SUBMIT_RETRY) {
-            return \app\common\service\power\MarketImageModelRuntimeService::resumeDeferredSubmit((int)$job['consumption_id'],(array)$job['payload']);
+            return \app\common\service\power\MarketImageModelRuntimeService::resumeDeferredSubmit((int)$job['consumption_id'], (array)$job['payload']);
         }
         if ($type === self::TYPE_MUSIC_OPERATION) {
             \app\common\service\power\MarketMusicOperationRuntimeService::refresh((int)$job['consumption_id']);
@@ -270,10 +296,12 @@ class AiTaskJobService
 
     public static function succeed(array $job): void
     {
-        AiTaskJob::where(['id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token']])->update([
+        if ((string)$job['lease_token'] === '') return;
+        $updated = AiTaskJob::where(['id' => (int)$job['id'], 'status' => 'running', 'lease_token' => (string)$job['lease_token']])->update([
             'status' => 'success', 'lease_token' => '', 'lease_expire_time' => 0,
             'last_error' => '', 'finish_time' => time(), 'update_time' => time(),
         ]);
+        if (!$updated) return;
         AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_success', 'success', [
             'job_id' => (int)$job['id'],
             'job_type' => (string)$job['job_type'],
@@ -284,12 +312,14 @@ class AiTaskJobService
     {
         $attempts = max(1, (int)$job['attempts']);
         $delay = min(300, max(2, 2 ** min(8, $attempts)));
-        AiTaskJob::where(['id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token']])->update([
+        if ((string)$job['lease_token'] === '') return;
+        $updated = AiTaskJob::where(['id' => (int)$job['id'], 'status' => 'running', 'lease_token' => (string)$job['lease_token']])->update([
             'status' => 'retrying', 'lease_token' => '', 'lease_expire_time' => 0,
             'next_run_time' => time() + $delay,
             'last_error' => mb_substr($error->getMessage(), 0, 1000),
             'update_time' => time(),
         ]);
+        if (!$updated) return;
         AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_retry', 'retrying', [
             'job_id' => (int)$job['id'],
             'job_type' => (string)$job['job_type'],
@@ -302,10 +332,12 @@ class AiTaskJobService
     public static function reschedule(array $job, int $delay = 5): int
     {
         $delay = self::rescheduleDelay($job, $delay);
-        AiTaskJob::where(['id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token']])->update([
+        if ((string)$job['lease_token'] === '') return $delay;
+        $updated = AiTaskJob::where(['id' => (int)$job['id'], 'status' => 'running', 'lease_token' => (string)$job['lease_token']])->update([
             'status' => 'pending', 'lease_token' => '', 'lease_expire_time' => 0,
             'next_run_time' => time() + max(1, $delay), 'update_time' => time(),
         ]);
+        if (!$updated) return $delay;
         AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_waiting', 'pending', [
             'job_id' => (int)$job['id'],
             'job_type' => (string)$job['job_type'],
@@ -358,7 +390,7 @@ class AiTaskJobService
 
     private static function rescheduleDelay(array $job, int $delay): int
     {
-        if (!in_array((string)($job['job_type'] ?? ''), [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_PROCESS_RESULT], true)) {
+        if (!in_array((string)($job['job_type'] ?? ''), [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT], true)) {
             return max(1, $delay);
         }
 

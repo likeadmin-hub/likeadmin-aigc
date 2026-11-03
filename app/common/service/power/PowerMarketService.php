@@ -94,7 +94,7 @@ class PowerMarketService
                     $sale = $price['sale_points'];
                     if ($sale < max(0, (float)($sku['upstream_price'] ?? 0))) throw new Exception('租户成本价不能低于上游结算价');
                     MarketPriceRuleService::manual(0, $productId, $skuId, $sale);
-                    $data['sale_points'] = $sale;
+                    $data['sale_points'] = MarketPricePolicy::databaseValue($sale);
                 }
                 PowerMarketSku::where('id', $skuId)->update($data);
             }
@@ -229,7 +229,8 @@ class PowerMarketService
         });
     }
 
-    public static function syncFromUpstream(): array
+    /** Model-only maintenance leaves application products and pricing untouched. */
+    public static function syncFromUpstream(bool $modelsOnly = false): array
     {
         $requests = [];
         $models = [];
@@ -240,10 +241,11 @@ class PowerMarketService
             try {
                 $remoteModels = self::withUpstreamRetry(fn() => UpstreamPricingService::queryModels($modelType, true));
                 $syncedModelTypes[] = $modelType;
-                if ($remoteModels === []) {
-                    $emptyModelTypes[] = $modelType;
-                }
+                $acceptedModels = 0;
                 foreach ($remoteModels as $model) {
+                    $declaredType = self::syncModelType($model, ['model_type' => $modelType]);
+                    if ($declaredType === '') continue;
+                    $acceptedModels++;
                     $model = self::mergeDeveloperDocModelDetail($model);
                     $code = trim((string)($model['model_code'] ?? $model['code'] ?? ''));
                     if ($code === '') {
@@ -251,9 +253,10 @@ class PowerMarketService
                     }
                     $channel = trim((string)($model['channel_code'] ?? ''));
                     $models[$code . '|' . $channel] = array_merge($model, [
-                        'type_code' => trim((string)($model['type_code'] ?? '')) ?: $modelType,
+                        'type_code' => $declaredType,
                     ]);
                 }
+                if ($acceptedModels === 0) $emptyModelTypes[] = $modelType;
             } catch (\Throwable $e) {
                 // A single upstream type must not prevent other model types from reaching the market.
                 $typeErrors[$modelType] = '同步失败';
@@ -309,7 +312,7 @@ class PowerMarketService
 
         $appsSynced = false;
         try {
-            foreach (self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps()) as $app) {
+            foreach ($modelsOnly ? [] : self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps()) as $app) {
                 $appCode = trim((string)($app['code'] ?? ''));
                 if ($appCode === '') {
                     continue;
@@ -334,7 +337,7 @@ class PowerMarketService
                     ];
                 }
             }
-            $appsSynced = true;
+            $appsSynced = !$modelsOnly;
         } catch (\Throwable $e) {
             $typeErrors['app_api'] = '同步失败';
         }
@@ -388,6 +391,17 @@ class PowerMarketService
         }
         foreach ($items as &$item) {
             $item['market_metadata'] = $metadataByLocalKey[(string)($item['local_key'] ?? '')] ?? [];
+            if (($item['type'] ?? '') === self::TYPE_MODEL) {
+                $metadata=$item['market_metadata'];
+                $bound=MarketGenerationSourceIdentity::bind((array)($metadata['upstream_metadata'] ?? []),(array)($item['resource'] ?? []));
+                $bound=self::mergeDeveloperDocModelDetail($bound);
+                $metadata['upstream_metadata']=$bound;
+                foreach (['params_schema','default_params','max_reference_images','max_reference_audios','max_reference_videos'] as $field) {
+                    if (!self::metadataValuePresent($metadata[$field] ?? null) && self::metadataValuePresent($bound[$field] ?? null)) $metadata[$field]=$bound[$field];
+                }
+                foreach (['developer_doc_slug','developer_doc_content','api_doc'] as $field) if (self::metadataValuePresent($bound[$field] ?? null)) $metadata[$field]=$bound[$field];
+                $item['market_metadata']=$metadata;
+            }
         }
         unset($item);
         $items = self::deduplicatePricingItems($items);
@@ -531,6 +545,7 @@ class PowerMarketService
             'supports_vision', 'supports_reasoning',
             'max_reference_images', 'max_reference_audios', 'max_reference_videos',
             'max_reference_assets',
+            'generation_protocol',
         ] as $field) {
             foreach ([$api, $app, $apiCapabilities, $appCapabilities] as $source) {
                 if (array_key_exists($field, $source) && self::metadataValuePresent($source[$field])) {
@@ -563,7 +578,7 @@ class PowerMarketService
         foreach ($rows as $row) {
             if (!is_array($row) || ($row['code'] ?? '') !== ($api['code'] ?? '') || empty($api['code'])) continue;
             if (!empty($api['id']) && !empty($row['id']) && (int)$api['id'] !== (int)$row['id']) continue;
-            foreach (['params_schema', 'default_params', 'api_doc', 'endpoint_path', 'method', 'call_type'] as $field) {
+            foreach (['params_schema', 'default_params', 'api_doc', 'endpoint_path', 'method', 'call_type', 'generation_protocol'] as $field) {
                 if (!self::metadataValuePresent($api[$field] ?? null) && self::metadataValuePresent($row[$field] ?? null)) $api[$field] = $row[$field];
             }
             if (self::metadataValuePresent($row['params_schema'] ?? null)) $api['request_schema_source'] = 'app_detail';
@@ -593,7 +608,13 @@ class PowerMarketService
         if ($appCode === '' || $apiCode === '') {
             return $api;
         }
-        $detail = self::developerDocDetailForAppApi($appCode, $apiCode, (int)($api['id'] ?? $api['api_id'] ?? 0));
+        $apiId=MarketGenerationSourceIdentity::appApiId($api);
+        $hasId=isset($api['id']) || isset($api['api_id']) || isset($api['ai_app_api_id']);
+        if ($hasId && $apiId===0) return $api;
+        $detail = self::developerDocDetailForAppApi($appCode, $apiCode, $apiId);
+        $identity=['app_code'=>$appCode,'api_code'=>$apiCode];
+        if ($hasId) $identity['api_id']=$apiId;
+        if (!MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail)) return $api;
         $pricing = self::arrayValue($detail['api_pricing'] ?? []);
         $doc = self::arrayValue($detail['doc'] ?? []);
         if ($pricing === [] && $doc === []) {
@@ -627,6 +648,7 @@ class PowerMarketService
     private static function mergeDeveloperDocModelDetail(array $model): array
     {
         $detail = self::developerDocDetailForModel($model);
+        if (!MarketGenerationSourceIdentity::matchesDetail($model,$detail)) return $model;
         $pricing = self::arrayValue($detail['model_pricing'] ?? []);
         $doc = self::arrayValue($detail['doc'] ?? []);
         if ($pricing === [] && $doc === []) {
@@ -653,45 +675,83 @@ class PowerMarketService
         return $model;
     }
 
-    private static function developerDocDetailForAppApi(string $appCode, string $apiCode, int $apiId = 0): array
+    private static function developerDocDetailForAppApi(string $appCode, string $apiCode, $apiId = 0, ?string &$lookupStrategy = null): array
     {
         static $cache = [];
-        $slug = $apiId > 0 ? (self::developerDocSlugMaps()['app_api'][$apiId] ?? '') : '';
-        if ($slug === '') {
-            $slug = str_replace('_', '-', strtolower($appCode)) . '-' . str_replace('_', '-', strtolower($apiCode));
+        $id=MarketGenerationSourceIdentity::appApiId(['id'=>$apiId]);
+        $lookupStrategy='missing_application_document_binding';
+        if ($appCode==='' || $apiCode==='') return [];
+        if ($apiId!==0 && $id===0) { $lookupStrategy='invalid_app_api_id';return []; }
+        $identity=['app_code'=>$appCode,'api_code'=>$apiCode];
+        if ($id>0) $identity['api_id']=$id;
+        $key=json_encode(['app_api',$appCode,$apiCode,$id],JSON_THROW_ON_ERROR);
+        if (array_key_exists($key,$cache)) {
+            $lookupStrategy=$cache[$key]['strategy'];
+            $detail=$cache[$key]['detail'];
+            return MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail) ? $detail : [];
         }
-        if (array_key_exists($slug, $cache)) {
-            return $cache[$slug];
+        $mismatch=false;
+        if ($id>0) {
+            try { $detail=UpstreamPricingService::queryDeveloperDocDetailByAppApiId($id); }
+            catch (\Throwable) { $detail=[]; }
+            if (MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail)) {
+                $lookupStrategy='app_api_id';$cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
+            }
+            $mismatch=$detail!==[];
         }
-        try {
-            $detail = UpstreamPricingService::queryDeveloperDocDetail($slug);
-            $cache[$slug] = is_array($detail) ? $detail : [];
-        } catch (\Throwable) {
-            $cache[$slug] = [];
+        $slug=$id>0 ? (self::developerDocSlugMaps()['app_api'][$id] ?? '') : '';
+        $strategy='document_tree';
+        if ($slug==='') {
+            $slug=str_replace('_','-',strtolower($appCode)).'-'.str_replace('_','-',strtolower($apiCode));
+            $strategy='api_slug';
         }
-        return $cache[$slug];
+        try { $detail=UpstreamPricingService::queryDeveloperDocDetail($slug); }
+        catch (\Throwable) { $detail=[]; }
+        if (MarketGenerationSourceIdentity::matchesApplicationDetail($identity,$detail)) {
+            $lookupStrategy=$strategy.($id>0?'_after_app_api_id':'');
+            $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
+        }
+        $lookupStrategy=($mismatch || $detail!==[]) ? 'application_identity_mismatch' : 'application_document_unavailable';
+        $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>[]];
+        return [];
     }
 
-    private static function developerDocDetailForModel(array $model): array
+    private static function developerDocDetailForModel(array $model, ?string &$lookupStrategy = null): array
     {
         static $cache = [];
-        $pricing = self::arrayValue($model['pricing'] ?? []);
-        $pricingV2 = self::arrayValue($pricing['pricing_v2'] ?? []);
-        $modelId = (int)($model['ai_model_id'] ?? $model['model_id'] ?? $pricingV2['resource_id'] ?? 0);
-        $slug = $modelId > 0 ? (self::developerDocSlugMaps()['model'][$modelId] ?? '') : '';
-        if ($slug === '') {
-            return [];
+        $modelId = MarketGenerationSourceIdentity::modelId($model);
+        $code=(string)($model['model_code'] ?? $model['code'] ?? '');
+        $lookupStrategy='missing_model_document_binding';
+        // A local product's id or a guessed slug must never supply the upstream ID.
+        if ($modelId<=0 || $code==='') return [];
+        if (!MarketGenerationSourceIdentity::hasConsistentModelIdentity($model)) {
+            $lookupStrategy='conflicting_model_document_binding';return [];
         }
-        if (array_key_exists($slug, $cache)) {
-            return $cache[$slug];
+        $key=json_encode(['model',$modelId,$code,(string)($model['channel_code']??'')],JSON_THROW_ON_ERROR);
+        if (array_key_exists($key,$cache)) {
+            $lookupStrategy=$cache[$key]['strategy'];
+            $detail=$cache[$key]['detail'];
+            return MarketGenerationSourceIdentity::matchesDetail($model,$detail) ? $detail : [];
         }
-        try {
-            $detail = UpstreamPricingService::queryDeveloperDocDetail($slug);
-            $cache[$slug] = is_array($detail) ? $detail : [];
-        } catch (\Throwable) {
-            $cache[$slug] = [];
+        try { $detail=UpstreamPricingService::queryDeveloperDocDetailByModelId($modelId); }
+        catch (\Throwable) { $detail=[]; }
+        if (MarketGenerationSourceIdentity::matchesDetail($model,$detail)) {
+            $lookupStrategy='model_id';$cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
         }
-        return $cache[$slug];
+        $mismatch=$detail!==[];
+        $slug=self::developerDocSlugMaps()['model'][$modelId] ?? '';
+        if ($slug!=='') {
+            try { $detail=UpstreamPricingService::queryDeveloperDocDetail($slug); }
+            catch (\Throwable) { $detail=[]; }
+            if (MarketGenerationSourceIdentity::matchesDetail($model,$detail)) {
+                $lookupStrategy='document_tree_after_model_id';
+                $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>$detail];return $detail;
+            }
+            $mismatch=$mismatch || $detail!==[];
+        }
+        $lookupStrategy=$mismatch ? 'model_identity_mismatch' : 'model_document_unavailable';
+        $cache[$key]=['strategy'=>$lookupStrategy,'detail'=>[]];
+        return [];
     }
 
     private static function developerDocSlugMaps(): array
@@ -936,6 +996,8 @@ class PowerMarketService
             return [];
         }
         $model = self::arrayValue($request['catalog_model'] ?? []);
+        $modelType = self::syncModelType($model, self::arrayValue($request['market_metadata'] ?? []));
+        if ($modelType === '') return [];
         $pricing = self::arrayValue($model['pricing'] ?? []);
         $pricingV2 = self::arrayValue($pricing['pricing_v2'] ?? []);
         $skuItems = array_values(array_filter((array)($pricingV2['items'] ?? []), 'is_array'));
@@ -955,7 +1017,7 @@ class PowerMarketService
                 'model_name' => trim((string)($model['model_name'] ?? $model['name'] ?? $modelCode)),
                 'channel_code' => '',
                 'channel_name' => '',
-                'type_code' => self::normalizeModelType((string)($model['type_code'] ?? 'text')),
+                'type_code' => $modelType,
                 'type_name' => trim((string)($model['type_name'] ?? '')),
                 'call_type' => $model['call_type'] ?? null,
                 'supports_vision' => !empty($model['supports_vision']),
@@ -1008,6 +1070,7 @@ class PowerMarketService
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
             $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
             $modelType = self::normalizeModelType((string)($product['model_type'] ?? 'text'));
+            $metadata['model_type'] = $modelType;
             $requests[] = [
                 'local_key' => 'model:' . $model . ':' . $channel,
                 'type' => self::TYPE_MODEL,
@@ -1224,6 +1287,9 @@ class PowerMarketService
             return null;
         }
         $isModel = $type === self::TYPE_MODEL;
+        $metadata = (array)($item['market_metadata'] ?? []);
+        $modelType = $isModel ? self::syncModelType($resource, $metadata) : '';
+        if ($isModel && $modelType === '') return null;
         $code = trim((string)($isModel ? ($resource['model_code'] ?? '') : ($resource['app_code'] ?? '')));
         $apiCode = $isModel ? '' : trim((string)($resource['api_code'] ?? ''));
         if ($code === '' || (!$isModel && $apiCode === '')) {
@@ -1233,7 +1299,6 @@ class PowerMarketService
         $resourceKey = $isModel
             ? 'model:' . $code . ':' . $channelCode
             : 'app_api:' . $code . ':' . $apiCode;
-        $metadata = (array)($item['market_metadata'] ?? []);
         $name = $isModel
             ? trim((string)($resource['model_name'] ?? $metadata['model_name'] ?? $code))
             : trim((string)($resource['app_name'] ?? $metadata['app_name'] ?? $code)) . ' / ' . trim((string)($resource['api_name'] ?? $apiCode));
@@ -1252,7 +1317,7 @@ class PowerMarketService
             'upstream_api_code' => $apiCode,
             'upstream_model_code' => $isModel ? $code : '',
             'upstream_channel_code' => $channelCode,
-            'model_type' => $isModel ? self::normalizeModelType((string)($metadata['model_type'] ?? 'text')) : '',
+            'model_type' => $modelType,
             'source_payload' => self::productSnapshot($item),
             'status' => $available ? 1 : 0,
             'update_time' => time(),
@@ -1294,8 +1359,10 @@ class PowerMarketService
             'locked_params' => self::arrayValue($sku['locked_params'] ?? []),
             'selectable_params' => self::arrayValue($sku['selectable_params'] ?? []),
             'usage_unit' => $usageUnit,
-            'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)),
-            'upstream_price' => max(0, (float)($price['points'] ?? 0)),
+            // PDO string conversion must not discard the sixth decimal of a
+            // large unit/price before the DECIMAL column receives it.
+            'usage_unit_size' => MarketPricePolicy::databaseValue(max(1, (float)($sku['usage_unit_size'] ?? 1))),
+            'upstream_price' => MarketPricePolicy::databaseValue(max(0, (float)($price['points'] ?? 0))),
             'price_hash' => sha1(json_encode($sku, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
             'source_payload' => self::skuSnapshot($sku),
             'status' => 1,
@@ -1326,6 +1393,21 @@ class PowerMarketService
     {
         $type = strtolower(trim($type));
         return in_array($type, ['text', 'image', 'video'], true) ? $type : 'text';
+    }
+
+    /** Only supported model categories enter price synchronization. An explicit
+     * upstream reclassification overrides stale local catalogue metadata. The
+     * request's known type remains a fallback for old responses without a type. */
+    private static function syncModelType(array $resource, array $metadata = []): string
+    {
+        foreach ([$resource['type_code'] ?? null, $metadata['upstream_metadata']['type_code'] ?? null, $metadata['model_type'] ?? null] as $raw) {
+            if ($raw === null || $raw === '') continue;
+            if (!is_string($raw)) return '';
+            $type = strtolower(trim($raw));
+            if ($type === '') continue;
+            return in_array($type, ['text', 'image', 'video'], true) ? $type : '';
+        }
+        return '';
     }
 
     /** @param array<string, mixed> $model */
@@ -1596,7 +1678,7 @@ class PowerMarketService
 
     private static function skuSnapshot(array $sku): array
     {
-        return [
+        $snapshot = [
             'sku_key' => (string)($sku['sku_key'] ?? ''),
             'title' => (string)($sku['title'] ?? ''),
             'billing_mode' => (string)($sku['billing_mode'] ?? ''),
@@ -1608,6 +1690,10 @@ class PowerMarketService
             'meter_summary' => (string)($sku['meter_summary'] ?? ''),
             'pricing_rule_key' => (string)($sku['pricing_rule_key'] ?? ''),
         ];
+        // Preserve presence, including invalid declarations, so quote admission
+        // fails closed rather than silently falling back to a different meter.
+        if (array_key_exists('meter_contract', $sku)) $snapshot['meter_contract'] = $sku['meter_contract'];
+        return $snapshot;
     }
 
     /**

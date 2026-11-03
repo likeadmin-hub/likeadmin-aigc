@@ -1,0 +1,551 @@
+{
+  "version": 1,
+  "scope": "Public SKU IDs retained in shared quality/ratio candidates only. No inference of supported combinations or complete model acceptance.",
+  "resources": [
+    {
+      "channel": "market_image_model:305",
+      "resource_type": "model",
+      "sku_ids": [
+        466,
+        467,
+        468,
+        469,
+        470,
+        471
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:304",
+      "resource_type": "model",
+      "sku_ids": [
+        463,
+        464,
+        465
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:303",
+      "resource_type": "model",
+      "sku_ids": [
+        457,
+        458,
+        459,
+        460,
+        461,
+        462
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:302",
+      "resource_type": "model",
+      "sku_ids": [
+        453,
+        454,
+        455,
+        456
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:301",
+      "resource_type": "model",
+      "sku_ids": [
+        447,
+        448,
+        449,
+        450,
+        451,
+        452
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:300",
+      "resource_type": "model",
+      "sku_ids": [
+        441,
+        442,
+        443,
+        444,
+        445,
+        446
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:299",
+      "resource_type": "model",
+      "sku_ids": [
+        439,
+        440
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:298",
+      "resource_type": "model",
+      "sku_ids": [
+        435,
+        436,
+        437,
+        438
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:297",
+      "resource_type": "model",
+      "sku_ids": [
+        431,
+        432,
+        433,
+        434
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:296",
+      "resource_type": "model",
+      "sku_ids": [
+        427,
+        428,
+        429,
+        430
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:295",
+      "resource_type": "model",
+      "sku_ids": [
+        426
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:294",
+      "resource_type": "model",
+      "sku_ids": [
+        420,
+        421,
+        422,
+        423,
+        424,
+        425
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:293",
+      "resource_type": "model",
+      "sku_ids": [
+        419
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:292",
+      "resource_type": "model",
+      "sku_ids": [
+        418
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:291",
+      "resource_type": "model",
+      "sku_ids": [
+        416,
+        417
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:290",
+      "resource_type": "model",
+      "sku_ids": [
+        413,
+        414,
+        415
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:289",
+      "resource_type": "model",
+      "sku_ids": [
+        411,
+        412
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:288",
+      "resource_type": "model",
+      "sku_ids": [
+        407,
+        408,
+        409,
+        410
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:287",
+      "resource_type": "model",
+      "sku_ids": [
+        405,
+        406
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:286",
+      "resource_type": "model",
+      "sku_ids": [
+        404
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:285",
+      "resource_type": "model",
+      "sku_ids": [
+        400,
+        401,
+        402,
+        403
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:284",
+      "resource_type": "model",
+      "sku_ids": [
+        396,
+        397,
+        398,
+        399
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:283",
+      "resource_type": "model",
+      "sku_ids": [
+        394,
+        395
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:282",
+      "resource_type": "model",
+      "sku_ids": [
+        391,
+        392,
+        393
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:281",
+      "resource_type": "model",
+      "sku_ids": [
+        390
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:280",
+      "resource_type": "model",
+      "sku_ids": [
+        388,
+        389
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:279",
+      "resource_type": "model",
+      "sku_ids": [
+        386,
+        387
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:278",
+      "resource_type": "model",
+      "sku_ids": [
+        385
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:277",
+      "resource_type": "model",
+      "sku_ids": [
+        383,
+        384
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:276",
+      "resource_type": "model",
+      "sku_ids": [
+        381,
+        382
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:275",
+      "resource_type": "model",
+      "sku_ids": [
+        380
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:274",
+      "resource_type": "model",
+      "sku_ids": [
+        371,
+        372,
+        373,
+        374,
+        375,
+        376,
+        377,
+        378,
+        379
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:273",
+      "resource_type": "model",
+      "sku_ids": [
+        362,
+        363,
+        364,
+        365,
+        366,
+        367,
+        368,
+        369,
+        370
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:272",
+      "resource_type": "model",
+      "sku_ids": [
+        361
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:271",
+      "resource_type": "model",
+      "sku_ids": [
+        360
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:270",
+      "resource_type": "model",
+      "sku_ids": [
+        359
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:234",
+      "resource_type": "model",
+      "sku_ids": [
+        318
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:169",
+      "resource_type": "model",
+      "sku_ids": [
+        250,
+        251,
+        252
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:168",
+      "resource_type": "model",
+      "sku_ids": [
+        247,
+        248,
+        249
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:167",
+      "resource_type": "model",
+      "sku_ids": [
+        244,
+        245,
+        246
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:93",
+      "resource_type": "model",
+      "sku_ids": [
+        103
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:92",
+      "resource_type": "model",
+      "sku_ids": [
+        102
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:91",
+      "resource_type": "model",
+      "sku_ids": [
+        99,
+        100,
+        101
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:90",
+      "resource_type": "model",
+      "sku_ids": [
+        96,
+        97,
+        98
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:89",
+      "resource_type": "model",
+      "sku_ids": [
+        93,
+        94,
+        95
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:88",
+      "resource_type": "model",
+      "sku_ids": [
+        90,
+        91,
+        92
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:87",
+      "resource_type": "model",
+      "sku_ids": [
+        88,
+        89
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_image_model:86",
+      "resource_type": "model",
+      "sku_ids": [
+        86,
+        87
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmE=",
+      "resource_type": "app_api",
+      "sku_ids": [
+        143
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+      "resource_type": "app_api",
+      "sku_ids": [
+        144
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl",
+      "resource_type": "app_api",
+      "sku_ids": [
+        145
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs",
+      "resource_type": "app_api",
+      "sku_ids": [
+        148
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "resource_type": "app_api",
+      "sku_ids": [
+        149,
+        150,
+        151
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw=",
+      "resource_type": "app_api",
+      "sku_ids": [
+        147
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv",
+      "resource_type": "app_api",
+      "sku_ids": [
+        146
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+      "resource_type": "app_api",
+      "sku_ids": [
+        152,
+        153,
+        154
+      ],
+      "status": "public_sku_candidates_preserved_only"
+    }
+  ]
+}

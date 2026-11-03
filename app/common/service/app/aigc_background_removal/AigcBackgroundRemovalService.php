@@ -16,6 +16,7 @@ use app\common\service\app\AppSalePriceService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_image\ImageAppTaskSync;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\Driver as StorageDriver;
@@ -146,14 +147,15 @@ class AigcBackgroundRemovalService
         }
         $task = self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate);
         self::syncTaskFromImageTask($task);
-        return [
+        $generationDetail = self::taskDetail($tenantId, (int)$task['id'], $userId);
+        return \app\common\service\ai\GenerationTaskResultService::carry([
             'task_id' => (int)$task['id'],
             'image_task_id' => $imageTaskId,
             'status' => (string)($task['status'] ?: 'running'),
             'error' => (string)($task['error'] ?? ''),
-            'results' => self::taskDetail($tenantId, (int)$task['id'], $userId)['results'] ?? [],
+            'results' => $generationDetail['results'] ?? [],
             'estimate' => $estimate,
-        ];
+        ], $generationDetail);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
@@ -189,7 +191,7 @@ class AigcBackgroundRemovalService
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::appendTaskResults($tenantId, $userId, $rows);
         return [
-            'lists' => array_map([self::class, 'formatTaskRow'], $rows),
+            'lists' => \app\common\service\ai\GenerationTaskResultService::appendRelatedList(array_map([self::class, 'formatTaskRow'], $rows),'image'),
             'count' => $count,
             'page_no' => $pageNo,
             'page_size' => $pageSize,
@@ -208,7 +210,7 @@ class AigcBackgroundRemovalService
             throw new Exception('任务不存在');
         }
         $rows = self::appendTaskResults($tenantId, $userId, [$task->toArray()]);
-        return self::formatTaskRow($rows[0] ?? []);
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated(self::formatTaskRow($rows[0] ?? []),'image',self::taskImageIds($task->toArray()),(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
@@ -437,11 +439,10 @@ class AigcBackgroundRemovalService
         $errors = array_values(array_filter(array_map(static fn($row) => trim((string)($row['error'] ?? '')), $imageTasks)));
         $finishTimes = array_filter(array_map(static fn($row) => (int)($row['finish_time'] ?? 0), $imageTasks));
         $task->error = implode('；', array_unique($errors));
-        $task->finish_time = in_array((string)$task->status, ['success', 'failed', 'canceled'], true) ? max($finishTimes ?: [time()]) : 0;
+        $task->finish_time = ImageAppTaskSync::finishTime($task, $finishTimes, ['success', 'failed', 'canceled']);
         $task->tenant_cost_points = number_format(array_sum(array_map(static fn($row) => (float)($row['tenant_cost_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->user_charge_points = number_format(array_sum(array_map(static fn($row) => (float)($row['user_charge_points'] ?? 0), $imageTasks)), 2, '.', '');
-        $task->update_time = time();
-        $task->save();
+        ImageAppTaskSync::saveChangedFacts($task);
         self::syncResultsFromImageTask($task);
     }
 
@@ -471,15 +472,7 @@ class AigcBackgroundRemovalService
                     continue;
                 }
                 try {
-                    $sourceUrl = (string)($result['image_url'] ?? $result['url'] ?? '');
-                    if ($sourceUrl === '' && (string)($result['image_uri'] ?? '') !== '') {
-                        $sourceUrl = FileService::getFileUrlByStorage(
-                            (string)$result['image_uri'],
-                            (string)($result['storage_scope'] ?? ''),
-                            (string)($result['storage_engine'] ?? ''),
-                            (string)($result['storage_domain'] ?? '')
-                        );
-                    }
+                    $sourceUrl = self::resultImageSource($result);
                     $stored = self::persistTransparentPng($sourceUrl, $tenantId, $userId);
                     AigcBackgroundRemovalResult::create([
                         'tenant_id' => $tenantId,
@@ -498,7 +491,11 @@ class AigcBackgroundRemovalService
                         'delete_time' => 0,
                         'create_time' => time(),
                     ]);
-                } catch (\Throwable) {
+                } catch (\Throwable $error) {
+                    \think\facade\Log::error('Background removal result storage failed: ' . json_encode([
+                        'tenant_id' => $tenantId, 'task_id' => (int)$task['id'],
+                        'image_result_id' => $imageResultId, 'error' => $error->getMessage(),
+                    ], JSON_UNESCAPED_UNICODE));
                     $refundError = self::refundImageBillings($task, self::TRANSPARENT_RESULT_ERROR);
                     $task->save([
                         'status' => 'failed',
@@ -634,6 +631,17 @@ class AigcBackgroundRemovalService
         ]);
     }
 
+    /** Read owned managed local results directly; display domains are not a second storage source. */
+    private static function resultImageSource(array $result): string
+    {
+        $uri=trim((string)($result['image_uri']??''));
+        if (($result['storage_engine']??'')==='local' && in_array($result['storage_scope']??'', ['platform','tenant'],true)
+            && $uri!=='' && !preg_match('~^[a-z][a-z0-9+.-]*:|[\\x00-\\x1f\\x7f?#]~i',$uri)) return ltrim($uri,'/');
+        $url=(string)($result['image_url']??$result['url']??'');
+        return $url!=='' || $uri==='' ? $url : FileService::getFileUrlByStorage($uri,
+            (string)($result['storage_scope']??''),(string)($result['storage_engine']??''),(string)($result['storage_domain']??''));
+    }
+
     private static function readImageContent(string $url): string
     {
         if (str_starts_with($url, 'data:image/')) {
@@ -655,8 +663,10 @@ class AigcBackgroundRemovalService
             $content = \app\common\service\open_platform\OpenCallContext::active()?\app\common\service\open_platform\OpenSafeHttp::get($url,20*1024*1024)['body']:@file_get_contents($url, false, $context, 0, 20 * 1024 * 1024);
             return is_string($content) ? $content : '';
         }
-        $path = public_path() . ltrim($url, '/');
-        if (is_file($path) && filesize($path) <= 20 * 1024 * 1024) {
+        $root=realpath(public_path());
+        $path = realpath(public_path() . ltrim($url, '/'));
+        if ($root!==false && $path!==false && str_starts_with($path,$root.DIRECTORY_SEPARATOR)
+            && is_file($path) && filesize($path) <= 20 * 1024 * 1024) {
             return (string)@file_get_contents($path);
         }
         return '';
@@ -855,6 +865,7 @@ class AigcBackgroundRemovalService
         $storageEngine = (string)($config['default'] ?? 'local');
         $storageDomain = StorageConfigService::getEffectiveDomain($tenantId);
         TenantFile::create([
+            'tenant_id' => $tenantId,
             'cid' => 0,
             'type' => FileEnum::IMAGE_TYPE,
             'name' => basename($uri),

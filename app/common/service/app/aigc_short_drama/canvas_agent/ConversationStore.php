@@ -59,7 +59,15 @@ final class ConversationStore
         // was supplied. Explicit model/Skill choices are part of send identity.
         if ($selectionIdentity!==[]) $identity['selection']=self::canonical($selectionIdentity);
         $hash=hash('sha256',self::json($identity));
-        return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$key,$content,$ids,$revision,$hash,$resolvedSnapshot,$attachments): array {
+        // Before workflow_auto was part of admission, existing runs stored the
+        // same identity without it. Accept that original hash on replay only;
+        // all new runs persist the complete identity and reject flag changes.
+        $legacyHash=null;
+        if (array_key_exists('workflow_auto',$selectionIdentity)) {
+            $legacy=$identity;unset($legacy['selection']['workflow_auto']);
+            $legacyHash=hash('sha256',self::json($legacy));
+        }
+        return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$key,$content,$ids,$revision,$hash,$legacyHash,$resolvedSnapshot,$attachments): array {
             // Fixed lock order: canvas -> thread -> run. Replay precedes busy/CAS
             // checks, so a retry remains stable after subsequent canvas edits.
             $document=self::canvas($tenant,$user,$canvas,true);
@@ -67,7 +75,7 @@ final class ConversationStore
             $conversation=self::thread($scope,$thread,true);
             $existing=Db::name(self::PREFIX.'run')->where($scope+['request_key'=>$key])->lock(true)->find();
             if ($existing) {
-                if (!hash_equals($existing['request_hash'],$hash)) throw new RuntimeException('IDEMPOTENCY_CONFLICT');
+                if (!hash_equals($existing['request_hash'],$hash) && ($legacyHash===null || !hash_equals($existing['request_hash'],$legacyHash))) throw new RuntimeException('IDEMPOTENCY_CONFLICT');
                 if ((int)$existing['delete_time']!==0) throw new RuntimeException('RUN_NOT_FOUND');
                 return json_decode($existing['ack_json'],true,512,JSON_THROW_ON_ERROR);
             }

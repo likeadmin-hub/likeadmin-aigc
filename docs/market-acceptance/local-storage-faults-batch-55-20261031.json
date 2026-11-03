@@ -1,0 +1,810 @@
+{
+  "batch": 55,
+  "date": "2026-10-31",
+  "source_server_commit": "305cc1695",
+  "implementation_commits": [
+    "f3242047e",
+    "c98dc961d"
+  ],
+  "source_web_commit": "1f52cb5f38ac67ba6283c2c59562748809266811",
+  "scope": "Managed local result storage only: actual SIGKILL during a real partial file write, unfinished same-key writer contention, blocked-writer crash takeover and late open after peer publish. Test-only filesystem barrier and exception-observing native MySQL subclass; no supplier or paid generation. Separate normal HTTP upload/project checks.",
+  "before": [
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "kill_before_atomic_publish",
+      "status": "reproduced_failure",
+      "scope": "Production video worker over disposable tables/private real files. Wrapper pauses first write after32 native bytes.",
+      "report": {
+        "kind": "video",
+        "mode": "kill",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": true,
+        "partial_regular_file_bytes": 32,
+        "killed_mid_storage_write": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "failure_class": "RuntimeException",
+        "failure": "Incomplete storage bytes exposed at canonical URI"
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "contend_before_atomic_publish",
+      "status": "reproduced_failure",
+      "scope": "Production video worker over disposable tables/private real files. Wrapper pauses first write after32 native bytes.",
+      "report": {
+        "kind": "video",
+        "mode": "contend",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": true,
+        "partial_regular_file_bytes": 32,
+        "contender_waited_on_same_key_lock": false,
+        "business_pending_while_first_writing": false,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "failure_class": "RuntimeException",
+        "failure": "Incomplete storage bytes exposed at canonical URI"
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "late-open_before_atomic_publish",
+      "status": "reproduced_failure",
+      "scope": "Production video worker over disposable tables/private real files. Wrapper pauses first write after32 native bytes.",
+      "report": {
+        "kind": "video",
+        "mode": "late-open",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "late_partial_regular_file_bytes": 32,
+        "late_writer_killed_after_partial_write": true,
+        "winner_file_inode_mtime_preserved": false,
+        "winner_asset_unchanged": true,
+        "winner_business_unchanged": true,
+        "stored_checksum_valid": false,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "failure_class": "RuntimeException",
+        "failure": "stored_checksum_valid failed"
+      }
+    }
+  ],
+  "queue_before": [
+    {
+      "entry": "shared_result_queue",
+      "scenario": "concurrent_missing_process_job_gap_lock",
+      "status": "reproduced_failure",
+      "scope": "Observed after atomic local file fix but before consumption-row enqueue serialization. Both real workers finish storage and try to create one absent process_result job.",
+      "report": {
+        "kind": "video",
+        "mode": "contend",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "contender_waited_on_same_key_lock": true,
+        "business_pending_while_first_writing": true,
+        "failure_class": "RuntimeException",
+        "failure": "First writer did not finish"
+      },
+      "original_exception_observed_in_owned_connector_log": {
+        "sqlstate": "40001",
+        "mysql_code": 1213,
+        "message": "Deadlock found when trying to get lock; try restarting transaction",
+        "statement": "INSERT ai_task_job",
+        "service": "AiTaskJobService::enqueue -> AiTaskResultAssetService::transfer -> enqueueProcessResult",
+        "masked_rollback_sqlstate": "42000",
+        "masked_rollback_mysql_code": 1305,
+        "masked_message": "SAVEPOINT trans2 does not exist"
+      },
+      "diagnostic_log_sha256": "8c2a21630a41e6a8ba207e1ada01d50b06f38b63244bb6d88c7719b399f78e89"
+    }
+  ],
+  "worker_scenarios": [
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "video_kill",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "video",
+        "mode": "kill",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "killed_mid_storage_write": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "video_contend",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "video",
+        "mode": "contend",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "contender_waited_on_same_key_lock": true,
+        "business_pending_while_first_writing": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "video_contend-kill",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "video",
+        "mode": "contend-kill",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "contender_waited_on_same_key_lock": true,
+        "business_pending_while_first_writing": true,
+        "killed_mid_storage_write": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "video_late-open",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "video",
+        "mode": "late-open",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "late_writer_skipped_completed_file": true,
+        "winner_file_inode_mtime_preserved": true,
+        "winner_asset_unchanged": true,
+        "winner_business_unchanged": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "audio_kill",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "audio",
+        "mode": "kill",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "killed_mid_storage_write": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "audio_contend",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "audio",
+        "mode": "contend",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "contender_waited_on_same_key_lock": true,
+        "business_pending_while_first_writing": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "audio_contend-kill",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "audio",
+        "mode": "contend-kill",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "contender_waited_on_same_key_lock": true,
+        "business_pending_while_first_writing": true,
+        "killed_mid_storage_write": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "shared_managed_local_storage",
+      "scenario": "audio_late-open",
+      "status": "local_storage_fault_recovery_verified",
+      "scope": "Production video/music business workers; 10s natural lease expiry. Files/locks/rename are real, barriers only schedule a selected file open/write. Not a cloud/multi-host/power-loss certification.",
+      "report": {
+        "kind": "audio",
+        "mode": "late-open",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "late_writer_skipped_completed_file": true,
+        "winner_file_inode_mtime_preserved": true,
+        "winner_asset_unchanged": true,
+        "winner_business_unchanged": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    }
+  ],
+  "recovery_regression": [
+    {
+      "entry": "shared_result_worker",
+      "scenario": "image_prior_recovery",
+      "status": "local_worker_business_recovery_verified",
+      "scope": "Existing fixture rerun after both storage and queue fixes. Image kill after publish before SQL receipt; same/changed video late downloads after completed takeover.",
+      "report": {
+        "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "legacy_pending_job_relinked": true,
+        "actual_worker_command": true,
+        "killed_after_upload_before_receipt_commit": true,
+        "complete_local_bytes_not_rewritten": true,
+        "late_projection_failure_retained_stored_asset": true,
+        "natural_lease_expiry_recovered": true,
+        "repeat_restart_idempotent": true,
+        "managed_uri_matches_business_result": true,
+        "file_rows": 1,
+        "stored_bytes_sha256": "5e3d382db4dd83d59aa5742793ad6b7903409e865c83bcbc54835049f043bc15",
+        "storage_scope": "platform",
+        "storage_engine": "local",
+        "result_dimensions": [
+          1,
+          1
+        ],
+        "claimed_attempts": 3
+      }
+    },
+    {
+      "entry": "shared_result_worker",
+      "scenario": "same_prior_recovery",
+      "status": "local_worker_business_recovery_verified",
+      "scope": "Existing fixture rerun after both storage and queue fixes. Image kill after publish before SQL receipt; same/changed video late downloads after completed takeover.",
+      "report": {
+        "mode": "same",
+        "scope": "Disposable prefix, two production workers and owned loopback source only",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "requests": 2,
+        "lease_takeover_attempts": 2,
+        "late_payload_changed": false,
+        "winner_asset_unchanged": true,
+        "business_result_unchanged": true,
+        "asset_business_uri_match": true,
+        "physical_files": 1,
+        "file_records": 1,
+        "business_results": 1,
+        "stale_completion_events": 0,
+        "winner_checksum_preserved": true,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "shared_result_worker",
+      "scenario": "changed_prior_recovery",
+      "status": "local_worker_business_recovery_verified",
+      "scope": "Existing fixture rerun after both storage and queue fixes. Image kill after publish before SQL receipt; same/changed video late downloads after completed takeover.",
+      "report": {
+        "mode": "changed",
+        "scope": "Disposable prefix, two production workers and owned loopback source only",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "requests": 2,
+        "lease_takeover_attempts": 2,
+        "late_payload_changed": true,
+        "winner_asset_unchanged": true,
+        "business_result_unchanged": true,
+        "asset_business_uri_match": true,
+        "physical_files": 1,
+        "file_records": 1,
+        "business_results": 1,
+        "stale_completion_events": 0,
+        "winner_checksum_preserved": true,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true
+      }
+    }
+  ],
+  "browser_projects": [
+    {
+      "entry": "canvas",
+      "project_id": 902,
+      "scenario": "normal_login_http_worker_export_upload_save_close_reopen",
+      "status": "http_graph_state_preserved",
+      "scope": "Separate normal SaaS upload path, not the same HTTP generation task or worker project update. No raw browser wire DTO capture.",
+      "nodes": 2,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "before_sha256": "a8bc1ffb3da159049c64d040f320d9cfced8ddeb1fde3521fa319f712217d89c",
+      "after_sha256": "a8bc1ffb3da159049c64d040f320d9cfced8ddeb1fde3521fa319f712217d89c"
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 545,
+      "scenario": "normal_login_http_worker_export_upload_save_close_reopen",
+      "status": "http_graph_state_preserved",
+      "scope": "Separate normal SaaS upload path, not the same HTTP generation task or worker project update. No raw browser wire DTO capture.",
+      "nodes": 2,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "before_sha256": "c0e1f3c8ae2b9aaf4bd10729540cf25c8a42f9f0fd1fc581961cdec8230b2192",
+      "after_sha256": "c0e1f3c8ae2b9aaf4bd10729540cf25c8a42f9f0fd1fc581961cdec8230b2192"
+    }
+  ],
+  "browser_media": {
+    "canvas": [
+      {
+        "duration": 1,
+        "error": null,
+        "height": 32,
+        "readyState": 4,
+        "tag": "VIDEO",
+        "width": 32
+      },
+      {
+        "duration": 1,
+        "error": null,
+        "height": null,
+        "readyState": 4,
+        "tag": "AUDIO",
+        "width": null
+      }
+    ],
+    "short_drama": [
+      {
+        "duration": 1,
+        "error": null,
+        "height": 32,
+        "readyState": 4,
+        "tag": "VIDEO",
+        "width": 32
+      },
+      {
+        "duration": 1,
+        "error": null,
+        "height": null,
+        "readyState": 4,
+        "tag": "AUDIO",
+        "width": null
+      }
+    ]
+  },
+  "normal_upload_storage": {
+    "canvas": [
+      {
+        "file_name": "market-batch55-worker-result-video.mp4",
+        "uri_sha256": "52d4b8295f94bad858f9ce0fc848d667e291986bd45902a84f6b843b010c7f95",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "market-batch55-worker-result-audio.wav",
+        "uri_sha256": "c8801195f10534bc96eb6629b004daafd2945e54c350fb46cc441436576cb44f",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "short_drama": [
+      {
+        "file_name": "market-batch55-worker-result-video.mp4",
+        "uri_sha256": "927a7d36a60d505c003fe97155770b9c22244744614bbd868ec5d40d4f46fbe5",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "market-batch55-worker-result-audio.wav",
+        "uri_sha256": "22f02cf4ee13c9479abaadbcf77eb7e78582cf17c45f10fc5842a5cdbf3a2b7c",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "fixture_cleanup": {
+      "remaining_owned_prefix_tables": 0,
+      "remaining_private_roots": 0,
+      "remaining_storage_test_roots": 0
+    }
+  },
+  "visible_points_before_after": "4372.96",
+  "validation": {
+    "phpunit_tests": 867,
+    "assertions": 6392,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "new_tests": 33,
+    "added_assertions": 203,
+    "new_real_file_scenarios": 30,
+    "new_db_scenarios_rolled_back": 3,
+    "new_worker_scenarios": 8,
+    "prior_worker_regressions": 3,
+    "php_lints": 8,
+    "native_pricing_rollback": "passed",
+    "index_boundary_tests": 2,
+    "web_source_changed": false,
+    "pc_tests_rerun": false,
+    "test_memory_limit_mb": 256,
+    "peak_memory_mb": "164.80",
+    "filesystem_functions": {
+      "flock": true,
+      "rename": true
+    },
+    "fixture_correction": "The exception-observing MySQL subclass initially inherited a builder class name derived from its custom type; it now explicitly uses the native MySQL builder. Not a product fault.",
+    "sql_diagnostic_limit": "SHOW ENGINE INNODB STATUS was denied PROCESS privilege. No privilege change requested or made; original error traced using the isolated connector observer instead."
+  },
+  "retention": {
+    "video": {
+      "equal_to_batch54": true,
+      "sha256": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b"
+    },
+    "image": {
+      "equal_to_batch54": true,
+      "sha256": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc"
+    },
+    "app": {
+      "equal_to_batch54": true,
+      "sha256": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1"
+    },
+    "frozen": {
+      "equal_to_batch54": true,
+      "sha256": "5332bdb9fab4d7f648ef10e8d3a8d72b321fc9bb96b615e8e0c3f9ce8c0e633f"
+    },
+    "price": {
+      "equal_to_batch54": true,
+      "sha256": "6beace6501cde4638983d37d535c880c1b86f051bcbe02e8ddc3dd05232dad44"
+    },
+    "meter": {
+      "equal_to_batch54": true,
+      "sha256": "2b37dafd443b9e34997e84b68f982887c9ebb626688b667e64d4b90b1a41d355"
+    }
+  },
+  "current_prices": {
+    "scope": "READ ONLY comparison of old/new unit-price policy for tenant1 and platform over current saved SKU data; no repricing or task update",
+    "skus_checked": 848,
+    "level_comparisons": 1696,
+    "current_bounded_meter_versions": {
+      "2": 0,
+      "3": 0
+    },
+    "differences": []
+  },
+  "blocked_meter_admission": [
+    {
+      "channel": "market_image_model:275",
+      "sku_id": 380,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "image_to_image",
+      "source_payload_hash": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_image_model:277",
+      "sku_id": 383,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "text_to_image",
+      "source_payload_hash": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 210,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 211,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 212,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 213,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 214,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 215,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    }
+  ],
+  "contract_changes": {
+    "route_permission_manifest_sql_schema": false,
+    "managed_local_storage": "New driver method for immutable managed keys only. Stable same-key flock, hidden sibling staging, verified size/SHA256 and atomic rename; reuse valid completed or staged bytes. Stage mode0600; completed output0644. Empty lock inode retained to keep waiters serialized. Ordinary upload and cloud driver paths retained.",
+    "queue": "Existing consumption row locked before absent job key, serializing same-consumption enqueue. Existing priority/wake/lease/terminal semantics otherwise retained.",
+    "billing_or_price_snapshot": false,
+    "old_real_files_or_results_rewritten": false
+  },
+  "upstream_review": {
+    "refreshed_this_batch": false,
+    "last_verified": "2026-10-31T18:38:45+08:00",
+    "source": "bounded-image-submission-batch-50-20261031.json",
+    "missing_complete_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17
+  },
+  "remaining": [
+    "18 complete model contracts,14 opaque models/17 paths and remaining13 application option coverage",
+    "Qwen pixel SKU380/383 and Seedance Token SKU210-215 authoritative bounds/receipt basis",
+    "Nano unmapped nested inputs/native image count/bare b64_json/supplier asset IDs",
+    "Actual cloud managed transfers, real supplier receipts and signed source URL expiry",
+    "Shared filesystem across hosts, mixed-version workers, filesystem/DB-process/host/power failure and durable fsync semantics; long-term staging/lock retention and more audio business branches",
+    "Same normal HTTP generation task to worker project-node update; activated bounded meters, long-term storage and complete tool/model/mode/SKU cross acceptance"
+  ],
+  "delivery_exclusions": [
+    "Only server source/tests/docs; web unchanged; no build/runtime/media delivery",
+    "Only own normal HTTP projects902/545 and4 synthetic uploads retained; original user projects untouched",
+    "Owned disposable SQL/file/cache/temp roots and child workers cleaned",
+    "3971 server public and3 web local flags,proxy settings and pre-existing services preserved"
+  ],
+  "screenshot_scope": "Both graph equality checkpoints used the same closed-assistant state. Short-drama screenshot was explicitly fitted then zoomed50% after equality verification; screenshots are not another graph-equality checkpoint.",
+  "cleanup": {
+    "owned_worker_processes": 0,
+    "remaining_owned_prefix_tables": 0,
+    "remaining_private_roots": 0,
+    "remaining_storage_test_roots": 0
+  }
+}

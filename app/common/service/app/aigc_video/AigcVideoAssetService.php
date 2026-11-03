@@ -27,8 +27,9 @@ class AigcVideoAssetService
             throw new Exception('生成视频文件损坏或格式不支持');
         }
         $config = $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId);
+        $facts = self::measuredFacts($path);
         $uri = self::uploadLocalFile($path, $tenantId, $userId, $config);
-        return [
+        return $facts + [
             'uri' => $uri, 'width' => 0, 'height' => 0, 'stored' => true,
             'storage_scope' => (string)($config['scope'] ?? 'tenant'),
             'storage_engine' => (string)($config['default'] ?? 'local'),
@@ -36,20 +37,20 @@ class AigcVideoAssetService
         ];
     }
 
-    public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
+    public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
     {
         if (str_starts_with($url, 'data:video/')) {
-            return self::persistDataUri($url, $tenantId, $userId, $storageConfig);
+            return self::persistDataUri($url, $tenantId, $userId, $storageConfig, $resultAssetId);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             try {
-                return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
+                return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig, $resultAssetId);
             } catch (\Throwable $first) {
                 $publicUrl = self::publicObjectUrl($url);
                 if ($publicUrl === '') {
                     throw $first;
                 }
-                return self::persistRemoteUrl($publicUrl, $tenantId, $userId, $storageConfig);
+                return self::persistRemoteUrl($publicUrl, $tenantId, $userId, $storageConfig, $resultAssetId);
             }
         }
         if (!self::isAllowedLocalVideoUri($url)) {
@@ -78,22 +79,10 @@ class AigcVideoAssetService
             . (string)$parts['path'];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
     {
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 25,
-                'follow_location' => 1,
-                'ignore_errors' => true,
-                'header' => "User-Agent: LikeAdminAigcVideo/1.0\r\n",
-            ],
-        ]);
-        $openDownload=\app\common\service\open_platform\OpenCallContext::active()?\app\common\service\open_platform\OpenSafeHttp::get($url,268435456):null;
-        $content = $openDownload!==null?$openDownload['body']:@file_get_contents($url, false, $context);
-        if ($content === false || $content === '') {
-            throw new Exception('生成视频下载失败');
-        }
-        $headers = $openDownload!==null?array_merge(['HTTP/1.1 '.$openDownload['status']],array_map(fn($name,$value)=>$name.': '.$value,array_keys($openDownload['headers']),array_values($openDownload['headers']))):($http_response_header ?? []);
+        [$content, $headers] = self::downloadRemoteContent($url);
+        if ($content === '') throw new Exception('生成视频下载失败');
         $httpCode = self::lastHttpStatusCode($headers);
         if ($httpCode >= 400) {
             throw new Exception('生成视频下载失败，远程地址返回HTTP ' . $httpCode);
@@ -102,10 +91,93 @@ class AigcVideoAssetService
         if (self::isTextResponse($contentType, $content)) {
             throw new Exception('生成视频下载失败，远程地址返回的不是视频文件');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType), $storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType), $storageConfig, $resultAssetId);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig): array
+    /**
+     * Ordinary workers use ext-curl framing validation. 25 seconds is now a total request deadline
+     * (including redirects), replacing the old stream per-read timeout. No environment proxy is used.
+     */
+    private static function downloadRemoteContent(string $url, int $timeout = 25, int $maxBytes = 268435456): array
+    {
+        if ($timeout < 1 || $timeout > 25 || $maxBytes < 1 || $maxBytes > 268435456) throw new \InvalidArgumentException('下载限制无效');
+        if (\app\common\service\open_platform\OpenCallContext::active()) {
+            $wire=\app\common\service\open_platform\OpenSafeHttp::get($url,$maxBytes,$timeout);
+            $headers=['HTTP/1.1 '.$wire['status']];
+            foreach ($wire['headers'] as $name=>$value) $headers[]=$name.': '.$value;
+            return [$wire['body'],$headers];
+        }
+        $curl=curl_init($url);
+        if ($curl === false) throw new Exception('生成视频下载失败');
+        $headers=[]; $body=''; $status=0; $collectHeaders=false; $expected=null; $oversize=false;
+        try {
+            curl_setopt_array($curl,[
+                CURLOPT_FOLLOWLOCATION=>true, CURLOPT_MAXREDIRS=>20,
+                CURLOPT_PROTOCOLS=>CURLPROTO_HTTP|CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS=>CURLPROTO_HTTP|CURLPROTO_HTTPS,
+                CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2,
+                CURLOPT_PROXY=>'', CURLOPT_NOPROXY=>'*', CURLOPT_CONNECTTIMEOUT=>$timeout, CURLOPT_TIMEOUT=>$timeout,
+                CURLOPT_USERAGENT=>'LikeAdminAigcVideo/1.0', CURLOPT_RETURNTRANSFER=>false,
+                CURLOPT_HEADERFUNCTION=>static function($handle,string $line)use(&$headers,&$body,&$status,&$collectHeaders,&$expected,&$oversize,$maxBytes):int {
+                    $length=strlen($line);
+                    if(preg_match('~^HTTP/\S+\s+(\d{3})~i',$line,$match)){
+                        // A final response's trailers cannot open a new header block.
+                        if(!$collectHeaders && $status>=200 && !($status>=300&&$status<400)) return $length;
+                        $status=(int)$match[1]; $headers=[]; $body=''; $expected=null; $collectHeaders=true;
+                    }
+                    if(!$collectHeaders)return $length;
+                    if(trim($line)===''){
+                        $collectHeaders=false;
+                        if($status>=200&&$status<300){
+                            $expected=self::contentLengthFromHeaders($headers);
+                            if($expected!==null&&$expected>$maxBytes){$oversize=true;return 0;}
+                        }
+                    }else $headers[]=rtrim($line,"\r\n");
+                    return $length;
+                },
+                CURLOPT_WRITEFUNCTION=>static function($handle,string $chunk)use(&$body,&$status,&$oversize,$maxBytes):int {
+                    // Redirect bodies are not part of the final media, even when their declared length is huge.
+                    if($status>=300&&$status<400)return strlen($chunk);
+                    if(strlen($body)+strlen($chunk)>$maxBytes){$oversize=true;return 0;}
+                    $body.=$chunk;return strlen($chunk);
+                },
+            ]);
+            $ok=curl_exec($curl);$errno=curl_errno($curl);$http=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);
+            if($ok===false){
+                $body='';
+                if($oversize)throw new Exception('生成视频下载失败，文件过大');
+                if($errno===CURLE_OPERATION_TIMEDOUT)throw new Exception('生成视频下载超时');
+                if($errno===CURLE_PARTIAL_FILE)throw new Exception('生成视频下载不完整');
+                throw new Exception('生成视频下载读取失败');
+            }
+            if($status!==$http)throw new Exception('生成视频下载读取失败');
+            if($expected!==null&&strlen($body)!==$expected)throw new Exception('生成视频下载不完整');
+            return [$body,$headers];
+        } finally { curl_close($curl); }
+    }
+
+    /** Null means HTTP framing does not supply a length, including decoded chunked bodies. */
+    private static function contentLengthFromHeaders(array $headers): ?int
+    {
+        $length=null; $chunked=false;
+        foreach ($headers as $header) {
+            if (stripos((string)$header,'Transfer-Encoding:')===0 && preg_match('/(?:^|,)\s*chunked\s*(?:,|$)/i',substr((string)$header,18))) $chunked=true;
+            if (stripos((string)$header,'Content-Length:')!==0) continue;
+            foreach (explode(',',substr((string)$header,15)) as $raw) {
+                $raw=trim($raw);
+                if (!preg_match('/^[0-9]+$/D',$raw)) throw new Exception('生成视频下载响应长度无效');
+                $normalized=ltrim($raw,'0'); if ($normalized==='') $normalized='0';
+                $max=(string)PHP_INT_MAX;
+                if (strlen($normalized)>strlen($max) || (strlen($normalized)===strlen($max) && strcmp($normalized,$max)>0)) throw new Exception('生成视频下载响应长度无效');
+                $value=(int)$normalized;
+                if ($length!==null && $length!==$value) throw new Exception('生成视频下载响应长度冲突');
+                $length=$value;
+            }
+        }
+        if ($chunked && $length!==null) throw new Exception('生成视频下载响应长度冲突');
+        return $chunked?null:$length;
+    }
+
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig, int $resultAssetId = 0): array
     {
         if (!preg_match('/^data:video\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成视频格式错误');
@@ -115,10 +187,10 @@ class AigcVideoAssetService
             throw new Exception('生成视频解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $storageConfig);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $storageConfig, $resultAssetId);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, ?array $storageConfig): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, ?array $storageConfig, int $resultAssetId = 0): array
     {
         $detectedExt = self::detectVideoExtension($content);
         if ($detectedExt === '') {
@@ -134,11 +206,13 @@ class AigcVideoAssetService
         file_put_contents($tmpPath, $content);
         try {
             $config = $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId);
+            $facts = self::measuredFacts($tmpPath);
+            if ($resultAssetId > 0) return \app\common\service\ai\AiTaskManagedFileService::persist($tmpPath, $resultAssetId, $tenantId, $userId, $config, $facts);
             $uri = self::uploadLocalFile($tmpPath, $tenantId, $userId, $config);
         } finally {
             @unlink($tmpPath);
         }
-        return [
+        return $facts + [
             'uri' => $uri,
             'width' => 0,
             'height' => 0,
@@ -147,6 +221,18 @@ class AigcVideoAssetService
             'storage_domain' => StorageConfigService::getStorageDomain($config),
             'stored' => true,
         ];
+    }
+
+    private static function measuredFacts(string $path): array
+    {
+        try {
+            return array_intersect_key(\app\common\service\power\MarketGenerationMedia::localFacts($path), array_flip(['duration','width','height']))
+                + ['file_size'=>(int)filesize($path), 'mime_type'=>(string)mime_content_type($path)];
+        } catch (\Throwable) {
+            // Storage can finish even when probing is temporarily unavailable;
+            // actual-duration billing remains pending until a verified measurement exists.
+            return ['width'=>0,'height'=>0];
+        }
     }
 
     private static function uploadLocalFile(string $filePath, int $tenantId, int $userId, array $config): string

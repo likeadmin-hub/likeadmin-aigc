@@ -1,0 +1,18 @@
+{
+    "observed_at": "2026-10-29T22:04:09+08:00",
+    "scope": "Exact model/channel GET pricing identity only; no price values, sync, writes or generation",
+    "local_resource": {
+        "model_id": 96,
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI",
+        "type_code": "image"
+    },
+    "platform_resource": {
+        "model_id": 96,
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI",
+        "type_code": "image"
+    },
+    "platform_available": true,
+    "platform_document_slug": null
+}

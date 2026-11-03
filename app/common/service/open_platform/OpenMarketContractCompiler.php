@@ -142,9 +142,11 @@ final class OpenMarketContractCompiler
                     $candidateSources['input'] = $definition['trace'];
                 } elseif ($protocolInputs) $issues[] = self::block('schema_missing', '该协议尚无已审核的请求结构');
                 try{OpenSkuConsistency::assert($sku);}catch(OpenException $e){$issues[]=self::block('pricing_spec_mismatch',$e->getMessage());}
-                if (\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)) $issues[] = self::block('actual_usage_boundary_required','Token SKU 已存在，透传执行仍需真实用量结算与可信受理额度');
+                $nativeToken=$nativeMedia?OpenNativeMarketPricing::boundedTokenBinding($product,$sku):null;
+                $nativePixel=$nativeMedia?OpenNativeMarketPricing::pixelBinding($product,$sku):null;
+                if (\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)) {if(!$nativeToken)$issues[] = self::block('actual_usage_boundary_required','Token SKU 已存在，透传执行仍需真实用量结算与可信受理额度');}
                 elseif (!$nativeMedia && !$character && (($sku['usage_unit'] ?? '') !== 'per_call' || (float)($sku['usage_unit_size'] ?? 0) !== 1.)) $issues[] = self::block('billing_adapter_required', '当前业务尚未接入原生数量适配');
-                elseif ($nativeMedia && !in_array($sku['usage_unit']??'',['per_call','input_second','output_second','second','seconds','sec'],true)) $issues[] = self::block('billing_adapter_required','原生媒体单位尚未适配');
+                elseif ($nativeMedia && !$nativePixel && !in_array($sku['usage_unit']??'',['per_call','input_second','output_second','second','seconds','sec'],true)) $issues[] = self::block('billing_adapter_required','原生媒体单位尚未适配');
                 if (empty($sku['sale_status'])) $issues[] = self::block('sku_not_sellable', 'SKU 已下架');
                 if (($signatures[OpenPolicy::fingerprint($locked)] ?? 0) > 1) $issues[] = self::block('ambiguous_sku', '多个 SKU 锁定相同维度，需可靠选择器');
                 foreach ($locked as $field => $value) {
@@ -161,6 +163,14 @@ final class OpenMarketContractCompiler
                     $config['description']='stream=true 请求 SSE，stream=false 或省略时按上游非流式约定执行。以实际响应 Content-Type 为准，事件、工具调用、推理内容及错误格式保持原样。X-Open-Request-Id 用于本站调用记录。';
                 }
                 if($nativeMedia){$config['native_pricing']=OpenNativeMarketPricing::ADAPTER;$config['success_statuses']=['success','completed','succeeded','partial_success','partial_failed'];$config['billing_description']='按原生媒体 SKU 及实际成功数量/用量结算，受理参数仅用于价格映射，原协议不改写';}
+                if($nativePixel){
+                    $config['billing'][0]=array_replace($config['billing'][0],['basis'=>'usage','max_units'=>$nativePixel['maximum_images']*$nativePixel['maximum_pixels_per_image']/1000000,'usage_path'=>$nativePixel['result_path'],'native_meter'=>$nativePixel]);
+                    $config['billing_description']='按正式像素上限预占，服务端实测成功输出像素后按冻结单价结算；缺测量保留待核对';
+                }
+                if($nativeToken){
+                    $config['billing'][0]=array_replace($config['billing'][0],['basis'=>'usage','max_units'=>$nativeToken['maximum_quantity'],'usage_path'=>$nativeToken['usage_path'],'native_meter'=>$nativeToken]);
+                    $config['billing_description']='按已核验 SKU 的最大 Token 费用预占，实际用量按冻结单价结算；缺回执或超上限等待核对';
+                }
                 if($character){$config['native_pricing']=OpenCharacterInputPricing::ADAPTER;$config+=$characterConfiguration;$config['billing_description']='按实际输入 UTF-8 字符数量及已冻结商城 SKU 单位售价计费；当前只支持供应商默认音色，查询不重复扣款';}
                 if ($candidateSources) $config['compiler'] = ['schema_sources' => $candidateSources];
                 if ($responseDefinition) $config['query_responses'] = OpenMarketResponse::retailSchemas($responseDefinition['query_responses']);

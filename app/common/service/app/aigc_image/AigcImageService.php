@@ -23,6 +23,9 @@ use app\common\model\ai\AiConsumptionLog;
 use Exception;
 use think\facade\Db;
 
+use app\common\service\power\MarketGenerationRuntime;
+use app\common\service\ai\GenerationTaskResultService;
+
 class AigcImageService
 {
     public const APP_CODE = 'aigc_image';
@@ -70,13 +73,13 @@ class AigcImageService
             ]));
         }
         if ((string)($selection['channel']['provider'] ?? '') === 'power_market_app_api') {
-            $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, array_merge($params, [
+            $quote = MarketGenerationRuntime::selection('image',array_merge($params, [
                 'channel' => (string)$selection['channel']['code'],
                 'quality' => (string)($spec['quality'] ?? ''),
                 'ratio' => (string)($spec['ratio'] ?? ''),
                 'variant' => (string)($spec['variant'] ?? $params['variant'] ?? ''),
                 'market_sku_id' => (int)($spec['market_sku_id'] ?? $params['market_sku_id'] ?? 0),
-            ]), (int)($estimate['quantity'] ?? 1));
+            ]))->quote($tenantId,(int)($estimate['quantity'] ?? 1));
             $estimate['follow_market_prices'] = (bool)($quote['follow_market_prices'] ?? false);
             $estimate['platform_unit_cost'] = $quote['tenant_unit_points'];
             $estimate['tenant_unit_price'] = $quote['user_unit_points'];
@@ -102,7 +105,7 @@ class AigcImageService
     public static function estimateMarketModel(int $tenantId, array $params, array $billingOverride = []): array
     {
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
-        $quote = MarketImageModelRuntimeService::quote($tenantId, $params, $quantity, $billingOverride);
+        $quote = MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride);
         return [
             'quantity' => $quantity,
             'platform_unit_cost' => (float)$quote['tenant_unit_points'],
@@ -166,7 +169,7 @@ class AigcImageService
         $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? []), $tenantId, $userId);
         self::checkSensitiveWords($tenantId, $prompt);
         $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
-        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)MarketImageModelRuntimeService::quote($tenantId,$params,$quantity,$billingOverride)['market_snapshot'],$params)) throw new Exception('请输入提示词');
+        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride)['market_snapshot'],$params)) throw new Exception('请输入提示词');
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $claim = AigcImageSubmission::claim([
@@ -188,16 +191,14 @@ class AigcImageService
         if ($onTaskCreated) $onTaskCreated($task);
         try {
             $request = array_merge($params, ['quantity' => $quantity, 'reference_images' => $referenceImages]);
-            $reserve = MarketImageModelRuntimeService::reserve(
-                $tenantId, $userId, 'generate', (string)$task['id'], $request, $request, $quantity,
-                $appCode, 'aigc_image_task', $billingOverride
-            );
+            $sharedRuntime = MarketGenerationRuntime::selection('image',$request);
+            $reserve = $sharedRuntime->reserve($tenantId,$userId,$appCode,'generate','aigc_image_task',(string)$task['id'],$request,$quantity,$billingOverride);
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'update_time' => time()]);
-            MarketImageModelRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = MarketImageModelRuntimeService::submit((int)$reserve['consumption_id'], $request);
+            $sharedRuntime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $sharedRuntime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
             $task->save(['provider_task_id' => (string)($result['provider_task_id'] ?? ''), 'update_time' => time()]);
             self::syncMarketTaskResult($tenantId, (int)$task['id'], $userId);
-            return ['task_id' => (int)$task['id'], 'results' => self::existingResultRows($tenantId, $userId, (int)$task['id']), 'status' => (string)($result['status'] ?? 'running')];
+            return GenerationTaskResultService::carry(['task_id' => (int)$task['id'], 'results' => self::existingResultRows($tenantId, $userId, (int)$task['id']), 'status' => (string)($result['status'] ?? 'running')], $result);
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save(['status' => 'failed', 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
@@ -398,7 +399,7 @@ class AigcImageService
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
         ]);
-        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, $request, $quantity, $billingOverride);
+        $quote = MarketGenerationRuntime::selection('image',$request)->quote($tenantId,$quantity,$billingOverride);
         $providerParams = [
             'variant' => (string)($request['variant'] ?? ''),
             'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
@@ -433,30 +434,20 @@ class AigcImageService
 
         if ($onTaskCreated) $onTaskCreated($task);
         try {
-            $reserve = MarketNanoBananaAppRuntimeService::reserve(
-                $tenantId,
-                $userId,
-                'generate',
-                (string)$task['id'],
-                $request,
-                $request,
-                $quantity,
-                self::APP_CODE,
-                'aigc_image_task',
-                $billingOverride
-            );
+            $sharedRuntime = MarketGenerationRuntime::selection('image',$request);
+            $reserve = $sharedRuntime->reserve($tenantId,$userId,self::APP_CODE,'generate','aigc_image_task',(string)$task['id'],$request,$quantity,$billingOverride);
             $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'update_time' => time()]);
-            MarketNanoBananaAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
-            $result = MarketNanoBananaAppRuntimeService::submit((int)$reserve['consumption_id'], $request);
+            $sharedRuntime->bind((int)$reserve['app_task_id'],(int)$task['id'],$tenantId,$userId);
+            $result = $sharedRuntime->submit((int)$reserve['consumption_id'],$request,$tenantId,$userId);
             $task->save([
                 'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
                 'update_time' => time(),
             ]);
-            return [
+            return GenerationTaskResultService::carry([
                 'task_id' => (int)$task['id'],
                 'results' => [],
                 'status' => (string)($result['status'] ?? 'running'),
-            ];
+            ], $result);
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
             $task->save([
@@ -504,6 +495,7 @@ class AigcImageService
             ->where('t.tenant_id', $tenantId)
             ->where('t.delete_time', 0)
             ->order('t.id', 'desc');
+        if (($params['creation_scope'] ?? '') === 'own') \app\common\service\ai\GenerationWorkSourceService::ownOnly($query, self::APP_CODE, 't');
         if ($userId > 0) {
             $query->where('t.user_id', $userId);
         }
@@ -589,9 +581,10 @@ class AigcImageService
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
         }
+        $rows = \app\common\service\ai\GenerationWorkSourceService::appendRows($rows, self::APP_CODE);
         if ($usePage) {
             return [
-                'lists' => $rows,
+                'lists' => GenerationTaskResultService::appendNativeList($rows),
                 'count' => $count,
                 'page_no' => $pageNo,
                 'page_size' => $pageSize,
@@ -602,7 +595,7 @@ class AigcImageService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
+        if(ImageAppTaskSync::providerRefreshAllowed())self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
 
         $query = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
@@ -615,7 +608,7 @@ class AigcImageService
         $data = $task->toArray();
         self::appendTaskModelDisplay($data);
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
-        return $data;
+        return GenerationTaskResultService::appendBusiness($data,(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function refreshPendingTasks(int $limit = 20): int
@@ -700,6 +693,7 @@ class AigcImageService
             'width' => (int)($image['width'] ?? 0),
             'height' => (int)($image['height'] ?? 0),
             'provider_task_id' => (string)($consumption['upstream_task_id'] ?? ''),
+            'storage_scope'=>$image['storage_scope']??null,'storage_engine'=>$image['storage_engine']??null,'storage_domain'=>$image['storage_domain']??null,
         ], array_filter((array)($summary['images'] ?? []), 'is_array'));
         if ($images === []) return;
         $count = max(1, count($images));
@@ -751,13 +745,14 @@ class AigcImageService
         ]);
     }
 
-    public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = '', string $style = ''): array
+    public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = '', string $style = '', bool $ownOnly = false): array
     {
         if ($status === '' || $status === 'running') {
             self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         }
 
         $query = AigcImageTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
+        if ($ownOnly) \app\common\service\ai\GenerationWorkSourceService::ownOnly($query, self::APP_CODE);
         if ($userId > 0) {
             $query->where('user_id', $userId);
         }
@@ -803,7 +798,7 @@ class AigcImageService
             $task['width'] = (int)($first['width'] ?? 0);
             $task['height'] = (int)($first['height'] ?? 0);
         }
-        return $tasks;
+        return \app\common\service\ai\GenerationWorkSourceService::appendRows($tasks, self::APP_CODE);
     }
 
     public static function deleteResult(int $tenantId, int $resultId, int $userId = 0): void
@@ -1497,9 +1492,9 @@ class AigcImageService
                     'quality' => $selection['spec']['quality'],
                     'ratio' => $selection['spec']['ratio'],
                     'image_uri' => $image['uri'],
-                    'storage_scope' => $storage['scope'],
-                    'storage_engine' => $storage['default'],
-                    'storage_domain' => StorageConfigService::getEffectiveDomain($tenantId),
+                    'storage_scope' => $image['storage_scope']??$storage['scope'],
+                    'storage_engine' => $image['storage_engine']??$storage['default'],
+                    'storage_domain' => $image['storage_domain']??StorageConfigService::getEffectiveDomain($tenantId),
                     'width' => $image['width'] ?? 0,
                     'height' => $image['height'] ?? 0,
                     'tenant_cost_points' => $estimate['platform_unit_cost'],

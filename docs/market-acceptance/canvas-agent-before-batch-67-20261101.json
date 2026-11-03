@@ -1,0 +1,42 @@
+{
+  "batch": 67,
+  "date": "2026-11-01",
+  "scope": "Private HTTP/SQL/supplier reproductions only; no real SKU certification or paid requests",
+  "observations": [
+    {
+      "scenario": "drama_auto_intent_not_in_request_hash",
+      "status": "reproduced_failure",
+      "source_server_commit": "7fa49b4e9",
+      "detail": "同一键改变 workflow_auto 仍返回原受理",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "agent_deadlock_loser_returns_before_winner_commits",
+      "status": "reproduced_failure",
+      "source_server_commit": "56fa9beec",
+      "detail": "30组同键并发中18组有一个请求返回错误；最终30个任务，无重复任务",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "chinese_text_misidentified_as_dos_code",
+      "status": "reproduced_failure",
+      "source_server_commit": "ecd6ba481",
+      "detail": "严格UTF-8中文长文被libmagic误判为application/x-dosexec而拒绝",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "local_upload_metadata_read_after_move",
+      "status": "reproduced_failure",
+      "source_server_commit": "8dfbce429",
+      "detail": "原生本地上传移动临时文件后再取MIME/大小，触发FileException",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "speech_canonical_result_drops_native_metadata",
+      "status": "reproduced_failure",
+      "source_server_commit": "3dc0f053f",
+      "detail": "MP3已存储且原生作品成功，共享结果缺MIME和文件大小",
+      "real_sku_certification": false
+    }
+  ]
+}

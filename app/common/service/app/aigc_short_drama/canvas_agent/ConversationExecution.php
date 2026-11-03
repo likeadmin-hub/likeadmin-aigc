@@ -85,6 +85,15 @@ final class ConversationExecution
             $currentThreadSettings=(array)json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR);
             $activatedWorkflow=[];
             $workflowContinued=false;
+            if (!$proposals && !empty($currentThreadSettings['workflow_state']['revision_request']['binding']['task_id'])) {
+                $bound=ConversationProductionRevision::task($tenant,$user,$currentThreadSettings['workflow_state']['revision_request']['binding']['task_id']);
+                $dialogue=ConversationProductionRevision::dialogueState($currentThreadSettings['workflow_state'],$bound,$text,$runId);
+                if ($dialogue!==null) {
+                    $currentThreadSettings['workflow_state']=$dialogue;
+                    $workflow=[];
+                    $workflowContinued=true;
+                }
+            }
             if ($workflowTurn) {
                 $routing=(array)($context['intent_routing']??[]);
                 if ($workflow || $intentDecision || ($routing['kind']??'')!=='active_workflow') throw new RuntimeException('INVALID_AGENT_INTENT');

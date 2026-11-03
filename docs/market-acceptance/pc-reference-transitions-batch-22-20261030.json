@@ -1,0 +1,762 @@
+{
+  "version": 1,
+  "observed_at": "2026-10-30T16:54:40+08:00",
+  "tenant_id": 1,
+  "scope": "7 observed PC scenarios reconstructed with production creationQuotePayload and generation request object expressions, exact current resource catalogue, and synthetic files uploaded normally in this batch. Video SKU selection expression also evaluated. Scalar UI context and image ratio SKU row supplied by the finite fixture; this is not a capture of browser request bodies or browser SKU. Supplier generation, task creation, reserve and charge were never invoked. READ ONLY transaction rolled back.",
+  "summary": {
+    "page_price_quote_preparation_frozen_equal": 14
+  },
+  "source_web_commit": "197f4817",
+  "quote_submission_pairs": [
+    {
+      "channel": "market_video_app:full_video:103",
+      "scenario": "two_images_uploaded",
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "slots_equal": true,
+      "status": "quote_and_submission_preparation_equal"
+    },
+    {
+      "channel": "market_video_app:full_video:103",
+      "scenario": "replace_second_image",
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "slots_equal": true,
+      "status": "quote_and_submission_preparation_equal"
+    },
+    {
+      "channel": "market_video_app:full_video:103",
+      "scenario": "remove_first_image",
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "slots_equal": true,
+      "status": "quote_and_submission_preparation_equal"
+    },
+    {
+      "channel": "market_video_app:full_video:103",
+      "scenario": "image_video_audio",
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "slots_equal": true,
+      "status": "quote_and_submission_preparation_equal"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_2k",
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "slots_equal": true,
+      "status": "quote_and_submission_preparation_equal"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_4k",
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "slots_equal": true,
+      "status": "quote_and_submission_preparation_equal"
+    },
+    {
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "remove_middle_image_4k",
+      "native_equal": true,
+      "meter_equal": true,
+      "sku_equal": true,
+      "price_equal": true,
+      "slots_equal": true,
+      "status": "quote_and_submission_preparation_equal"
+    }
+  ],
+  "cases": [
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "two_images_uploaded",
+      "path": "quote",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "8940ccd98e24f43bb49ca4e5f472ed976b49eb8766d91b9f88d5603144050f70",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "image_reference",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "512f0bba9841daa9af27bddd24840645fd60ad99470e62b0c9fbf8c5c5838035"
+    },
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "two_images_uploaded",
+      "path": "submit_preparation_only",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "8940ccd98e24f43bb49ca4e5f472ed976b49eb8766d91b9f88d5603144050f70",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "image_reference",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "41669316f0f74057a83baafe4fbf08949e98cfbc242e2a87b0b6d079734ceb3b"
+    },
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "replace_second_image",
+      "path": "quote",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "a22b4fe036191cdfa18bce3b46d8d5b975d099f247ce7be949ab71c9114498d1",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "image_reference",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "a4e61e64884cdc4f73830bc17fc7dd374c673637f911d7299c24b5011e6f24b5"
+    },
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "replace_second_image",
+      "path": "submit_preparation_only",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "a22b4fe036191cdfa18bce3b46d8d5b975d099f247ce7be949ab71c9114498d1",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "image_reference",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "71577a9a8c0680b675a005fbaee1c1c6be3963e6131fc0e8918c355c6fd4bb26"
+    },
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "remove_first_image",
+      "path": "quote",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "1ec13b626ce0a4c0f0815811687a49267861862d994975d9efb764e341c44aab",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "image_reference",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "ace76a7a12eac9dee63b67e643478577f62621fe6abc2816788811ab6cb65bc4"
+    },
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "remove_first_image",
+      "path": "submit_preparation_only",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "1ec13b626ce0a4c0f0815811687a49267861862d994975d9efb764e341c44aab",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "image_reference",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "b400e36bee705ccd463af754015768db9e0748e76d75a8082387a0d1b4021a81"
+    },
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "image_video_audio",
+      "path": "quote",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "228084dd006eacf22db4bb4dd75178e0145b8cb37adf93f9bf18bd430d3c30ba",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "video_edit",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "c983bc20e149699cbe2cba25202f0217dd3c19b2f051ea9770e57b8ddea740c3"
+    },
+    {
+      "kind": "video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "image_video_audio",
+      "path": "submit_preparation_only",
+      "selected_sku": 131,
+      "observed_page_points": 200,
+      "requested_counts": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 131,
+      "points": 200,
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "meter_context": [],
+      "native_controls": {
+        "resolution": "4K",
+        "model": "full-video",
+        "duration": 5,
+        "ratio": "1:1"
+      },
+      "prepared_hash": "228084dd006eacf22db4bb4dd75178e0145b8cb37adf93f9bf18bd430d3c30ba",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_video_app:full_video:103",
+        "name": "全能视频生成",
+        "market_product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "duration": 5,
+        "quantity": 1,
+        "generation_method": "video_edit",
+        "mode": "pro"
+      },
+      "declaration_projection_fingerprint": "57fda8b3eb04d67d214d62c0b3460aca962bd296b85727c457adb2a4fa5b2c31",
+      "case_key": "aadc0af20b1acefbd5553e7430184572f672076429c0d5ad37b4f11e105968b4"
+    },
+    {
+      "kind": "image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_2k",
+      "path": "quote",
+      "selected_sku": 150,
+      "observed_page_points": 40.91,
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 150,
+      "points": 40.91,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "nano-banana-2:official",
+        "resolution": "2K",
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "11aec2a44952acc8bf00ddc9be9dfa29c2d1be9c137b53c36fdc6ba547c7c77b",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "name": "Nano Banana 2 Official",
+        "market_product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "2k",
+        "quantity": 1
+      },
+      "declaration_projection_fingerprint": "5d75b343f225a01191e59d21bb77831dff8d1a85c0d51009b96ebb9a0c211c8e",
+      "case_key": "3469c9cdf46fa5d24d6ffe6c583bf3eab78987e2a969f951e96e725bb609a3ac"
+    },
+    {
+      "kind": "image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_2k",
+      "path": "submit_preparation_only",
+      "selected_sku": 150,
+      "observed_page_points": 40.91,
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 150,
+      "points": 40.91,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "nano-banana-2:official",
+        "resolution": "2K",
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "11aec2a44952acc8bf00ddc9be9dfa29c2d1be9c137b53c36fdc6ba547c7c77b",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "name": "Nano Banana 2 Official",
+        "market_product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "2k",
+        "quantity": 1
+      },
+      "declaration_projection_fingerprint": "5d75b343f225a01191e59d21bb77831dff8d1a85c0d51009b96ebb9a0c211c8e",
+      "case_key": "086bf52fdf726743b19b8e65b950f629a82fa5c2db384e0c567eb18c4cf303c6"
+    },
+    {
+      "kind": "image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_4k",
+      "path": "quote",
+      "selected_sku": 151,
+      "observed_page_points": 48.64,
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 151,
+      "points": 48.64,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "nano-banana-2:official",
+        "resolution": "4K",
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "28aa161ec8ad71be6cf3389c89444c96d376fca47de8608d3ae34240d4635e2e",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "name": "Nano Banana 2 Official",
+        "market_product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "quantity": 1
+      },
+      "declaration_projection_fingerprint": "5d75b343f225a01191e59d21bb77831dff8d1a85c0d51009b96ebb9a0c211c8e",
+      "case_key": "81ff00a3b12533f4b38547616a7878558bafc58dca018e7933b2a3be30b1793d"
+    },
+    {
+      "kind": "image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_4k",
+      "path": "submit_preparation_only",
+      "selected_sku": 151,
+      "observed_page_points": 48.64,
+      "requested_counts": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 151,
+      "points": 48.64,
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "nano-banana-2:official",
+        "resolution": "4K",
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "28aa161ec8ad71be6cf3389c89444c96d376fca47de8608d3ae34240d4635e2e",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "name": "Nano Banana 2 Official",
+        "market_product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "quantity": 1
+      },
+      "declaration_projection_fingerprint": "5d75b343f225a01191e59d21bb77831dff8d1a85c0d51009b96ebb9a0c211c8e",
+      "case_key": "6e65ec6c990fe5d752511db75120c6d17b390d41ea8fca7d199a6456cdd0126a"
+    },
+    {
+      "kind": "image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "remove_middle_image_4k",
+      "path": "quote",
+      "selected_sku": 151,
+      "observed_page_points": 48.64,
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 151,
+      "points": 48.64,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "nano-banana-2:official",
+        "resolution": "4K",
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "86ec67ecc140db8482de0f123cadde2716bd33f1279223b1ff659cddd02aff88",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "name": "Nano Banana 2 Official",
+        "market_product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "quantity": 1
+      },
+      "declaration_projection_fingerprint": "5d75b343f225a01191e59d21bb77831dff8d1a85c0d51009b96ebb9a0c211c8e",
+      "case_key": "f454a78a3f88d4998f887cc107b7b2753d5582c837fbe0291614a872be574d63"
+    },
+    {
+      "kind": "image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "remove_middle_image_4k",
+      "path": "submit_preparation_only",
+      "selected_sku": 151,
+      "observed_page_points": 48.64,
+      "requested_counts": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "status": "page_price_quote_preparation_frozen_equal",
+      "sku_id": 151,
+      "points": 48.64,
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "meter_context": [],
+      "native_controls": {
+        "model": "nano-banana-2:official",
+        "resolution": "4K",
+        "aspect_ratio": "1:1"
+      },
+      "prepared_hash": "86ec67ecc140db8482de0f123cadde2716bd33f1279223b1ff659cddd02aff88",
+      "frozen_native_and_meter_equal": true,
+      "identity": {
+        "value": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "name": "Nano Banana 2 Official",
+        "market_product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "controls": {
+        "ratio": "1:1",
+        "quality": "4k",
+        "quantity": 1
+      },
+      "declaration_projection_fingerprint": "5d75b343f225a01191e59d21bb77831dff8d1a85c0d51009b96ebb9a0c211c8e",
+      "case_key": "f336ddff13e9a4640b5f6948af71ad5e8ad29ce43ff22649921eba4fb92b9d33"
+    }
+  ],
+  "full_contract_or_all_sku_acceptance": false,
+  "upstream_generation": "not_tested_no_new_paid_authorization"
+}

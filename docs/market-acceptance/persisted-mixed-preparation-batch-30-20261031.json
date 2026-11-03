@@ -1,0 +1,64 @@
+{
+  "batch": 30,
+  "date": "2026-10-31",
+  "source_web_commit": "5a2371d8c1e677a799b33cb6748839813e971a26",
+  "source_server_commit": "df9dee35dcdeff14e529dfa5603245dc6b9bfe9c",
+  "scope": "Read-only replay after real HTTP save, using production short-drama node options/runPayload on persisted synthetic nodes and current tenant declarations. Actual owned graph resolution, preview quote, admission and native/frozen preparation. Not captured browser wire and not paid execution.",
+  "cases": [
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:357",
+      "sku_id": 806,
+      "requested_method": "omni_reference",
+      "scenario": "saved_http_mixed_graph_owned_assets_audio_false_preparation",
+      "requested_parameters": {
+        "ratio": "16:9",
+        "resolution": "1080P",
+        "duration": 5,
+        "generation_method": "omni_reference",
+        "generationParameters": {
+          "market_video_model:357": {
+            "audio": false
+          }
+        }
+      },
+      "status": "quote_admission_frozen_slots_equal",
+      "quote_sku_id": 806,
+      "points": 635,
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "native_controls": {
+        "resolution": "1080P",
+        "aspect_ratio": "16:9",
+        "duration": 5,
+        "audio": false
+      },
+      "native_hash": "14106383f6e14bcecafde55f91c71854a6d167b1fcdc617d685aa5f2ccc16c35",
+      "frozen_native_and_meter_equal": true,
+      "scope": "Only this saved graph and current SKU; material preservation checked after owned/storage resolution, no raw-URI/public-URL false equivalence."
+    }
+  ],
+  "side_effect_checks": {
+    "new_canvas_runs": 0,
+    "new_short_drama_runs": 0,
+    "short_drama_quote_tokens": 0
+  },
+  "validation": {
+    "pc_tests": 540,
+    "pc_passed": 540,
+    "phpunit_tests": 210,
+    "phpunit_assertions": 947,
+    "phpunit_passed": 210,
+    "skipped": 0,
+    "sfc_script_template_style": 2,
+    "typescript_modules": 3
+  },
+  "excluded_attempts": [
+    "Initial helper imports and numeric/string fixture ID mismatch were corrected before accepting replay.",
+    "CLI phpunit first used a missing vendor runner, then a CLI configuration with putenv disabled; the established phar with process-local flags passed without changing FPM or persistent configuration.",
+    "Raw business reference URI compared directly with native public URL caused an invalid probe assertion; authoritative admission-normalized references are the comparison boundary."
+  ]
+}

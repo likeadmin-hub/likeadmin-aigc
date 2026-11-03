@@ -1,0 +1,6367 @@
+{
+  "batch": 36,
+  "date": "2026-10-31",
+  "source_web_commit": "5881a8012dd12dc4f262f30827b769fe3977cbe8",
+  "source_server_commit": "44deeca1558d6a9c3a8ae92e20faf12cd5414221",
+  "scope": "Current published declarations only: 60 video models and 5 video app APIs, 139 modes per independent canvas catalogue. Retain meaningful sound/quality/speed controls; hide optional technical and material extras. No SKU, complete contract, HTTP E2E or provider certification is inferred.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "models_per_entry": 65,
+  "mode_observations": 278,
+  "catalogue_sha256": "1a1647071c5e0d42aaa08cb8a965678c2ff36a48634b6f9240c2fe8df31bc921",
+  "policy": {
+    "always": [
+      "model",
+      "generation_method",
+      "prompt",
+      "ratio",
+      "resolution",
+      "duration"
+    ],
+    "conditional": [
+      "frames",
+      "reference image/video/audio",
+      "meaningful sound",
+      "quality/speed tiers"
+    ],
+    "optional_extras": "Hidden, use reliable declared defaults or omit; old persisted metadata retained; old optional group bindings are detached only in outgoing regular requests.",
+    "required_materials": "Keep required inputs and structured clip/frame inputs needed by selected uploads; never invent missing clip bounds, subjects or role IDs."
+  },
+  "cases": [
+    {
+      "entry": "canvas",
+      "product_id": 359,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:359",
+      "material_mode": "image_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 359,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:359",
+      "material_mode": "reference_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:358",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:358",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:358",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "video_list",
+        "character_ids"
+      ],
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:357",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:357",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:357",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "reference_file_urls",
+        "reference_link_urls"
+      ],
+      "channel": "market_video_model:357",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:356",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:356",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:356",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "reference_file_urls",
+        "reference_link_urls"
+      ],
+      "channel": "market_video_model:356",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "reference_to_video:3",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 354,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:354",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "image_to_video:last",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "reference_to_video:3",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "generate_multi_clip_switch",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "template_id",
+          "declared_default": null
+        },
+        {
+          "key": "generate_multi_clip_switch",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "first_last_frame:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [
+        "image_references"
+      ],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "reference_to_video:4",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 349,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:349",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 349,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:349",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 349,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:349",
+      "material_mode": "reference_to_video:2",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 348,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:348",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 348,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:348",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 347,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "align_audio",
+          "declared_default": true
+        },
+        {
+          "key": "open_scenedet",
+          "declared_default": false
+        },
+        {
+          "key": "separate_vocal",
+          "declared_default": false
+        },
+        {
+          "key": "align_audio_reverse",
+          "declared_default": false
+        },
+        {
+          "key": "templ_start_seconds",
+          "declared_default": 0
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:347",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 346,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": -1
+        },
+        {
+          "key": "pe_fast_mode",
+          "declared_default": false
+        },
+        {
+          "key": "output_resolution",
+          "declared_default": "1080"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:346",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":last",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 344,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "video_list",
+        "character_ids"
+      ],
+      "channel": "market_video_model:344",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 343,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:343",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 343,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:343",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 343,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:343",
+      "material_mode": "reference_to_video:2",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 342,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio_setting"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:342",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "image_to_video:continuation",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "reference_to_video:4",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 340,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio_setting"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:340",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 337,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "character_orientation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:337",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 336,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:336",
+      "material_mode": "image_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 336,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:336",
+      "material_mode": "reference_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 335,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode",
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "kling_elements"
+      ],
+      "channel": "market_video_model:335",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 335,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode",
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "kling_elements"
+      ],
+      "channel": "market_video_model:335",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 335,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode",
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "kling_elements"
+      ],
+      "channel": "market_video_model:335",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 334,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [
+        "character_orientation"
+      ],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:334",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 333,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:333",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 333,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:333",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 333,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:333",
+      "material_mode": "reference_to_video:2",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 332,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:332",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 332,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:332",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 331,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:331",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 330,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:330",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 330,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "task_id",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:330",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 329,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:329",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 328,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:328",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 325,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:325",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 325,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:325",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 325,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:325",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 324,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:324",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 324,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:324",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 323,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:323",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 322,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:322",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 321,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:321",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 321,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:321",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 321,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:321",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 320,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:320",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 320,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:320",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 320,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:320",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 319,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:319",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 318,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:318",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 317,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:317",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 316,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "shift",
+          "declared_default": 5
+        },
+        {
+          "key": "num_frames",
+          "declared_default": 80
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "guidance_scale",
+          "declared_default": 3.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "frames_per_second",
+          "declared_default": 16
+        },
+        {
+          "key": "num_inference_steps",
+          "declared_default": 27
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:316",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 315,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:315",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 314,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": -1
+        },
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:314",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 314,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": -1
+        },
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:314",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 313,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:313",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 313,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:313",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 313,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:313",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 312,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:312",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 312,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:312",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 311,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:311",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 310,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:310",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 310,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:310",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 309,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "acceleration",
+          "declared_default": "none"
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:309",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 309,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "acceleration",
+          "declared_default": "none"
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:309",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:last",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "keep_original_sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "voices",
+        "elements"
+      ],
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 307,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "enable_watermark",
+          "declared_default": true
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:307",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 306,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:306",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 306,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:306",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 235,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": 0
+        },
+        {
+          "key": "is_rec",
+          "declared_default": true
+        },
+        {
+          "key": "watermark",
+          "declared_default": true
+        },
+        {
+          "key": "wm_position",
+          "declared_default": 3
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:235",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 98,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:98",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 97,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:97",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 96,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:96",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 95,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:95",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 94,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "parameters.audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "parameters.watermark",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:94",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 140,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "tools",
+          "declared_default": null
+        },
+        {
+          "key": "frames",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:seedance:140",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 133,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "metadata.audio_setting"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": null
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:wan:133",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 108,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:grok_video:108",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 105,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:happy_horse:105",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "canvas",
+      "product_id": 103,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "aigc_watermark",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:full_video:103",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 98,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:98",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 359,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:359",
+      "material_mode": "image_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 359,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:359",
+      "material_mode": "reference_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:358",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:358",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:358",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 358,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "video_list",
+        "character_ids"
+      ],
+      "channel": "market_video_model:358",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:357",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:357",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:357",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 357,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "reference_file_urls",
+        "reference_link_urls"
+      ],
+      "channel": "market_video_model:357",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:356",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:356",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:356",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 356,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "reference_file_urls",
+        "reference_link_urls"
+      ],
+      "channel": "market_video_model:356",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 355,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "prefer_multi_shots",
+          "declared_default": null
+        },
+        {
+          "key": "customize_multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:355",
+      "material_mode": "reference_to_video:3",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 354,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "elements"
+      ],
+      "channel": "market_video_model:354",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "image_to_video:last",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 353,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:353",
+      "material_mode": "reference_to_video:3",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "generate_multi_clip_switch",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "template_id",
+          "declared_default": null
+        },
+        {
+          "key": "generate_multi_clip_switch",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "first_last_frame:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 352,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [
+        "image_references"
+      ],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:352",
+      "material_mode": "reference_to_video:4",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 351,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "output_format",
+          "declared_default": "mp4"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:351",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 350,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:350",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 349,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:349",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 349,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:349",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 349,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:349",
+      "material_mode": "reference_to_video:2",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 348,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:348",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 348,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:348",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 347,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "align_audio",
+          "declared_default": true
+        },
+        {
+          "key": "open_scenedet",
+          "declared_default": false
+        },
+        {
+          "key": "separate_vocal",
+          "declared_default": false
+        },
+        {
+          "key": "align_audio_reverse",
+          "declared_default": false
+        },
+        {
+          "key": "templ_start_seconds",
+          "declared_default": 0
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:347",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 346,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": -1
+        },
+        {
+          "key": "pe_fast_mode",
+          "declared_default": false
+        },
+        {
+          "key": "output_resolution",
+          "declared_default": "1080"
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:346",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":last",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 345,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "enable_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "keyframes"
+      ],
+      "channel": "market_video_model:345",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 344,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "video_list",
+        "character_ids"
+      ],
+      "channel": "market_video_model:344",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 343,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:343",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 343,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:343",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 343,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:343",
+      "material_mode": "reference_to_video:2",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 342,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio_setting"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:342",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "image_to_video:continuation",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 341,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:341",
+      "material_mode": "reference_to_video:4",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 340,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio_setting"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": true
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:340",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 339,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:339",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 338,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "web_search",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "return_last_frame",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:338",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 337,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "character_orientation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:337",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 336,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:336",
+      "material_mode": "image_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 336,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:336",
+      "material_mode": "reference_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 335,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode",
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "kling_elements"
+      ],
+      "channel": "market_video_model:335",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 335,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode",
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "kling_elements"
+      ],
+      "channel": "market_video_model:335",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 335,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode",
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "kling_elements"
+      ],
+      "channel": "market_video_model:335",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 334,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [
+        "character_orientation"
+      ],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:334",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 333,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:333",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 333,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:333",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 333,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "multi_shots",
+          "declared_default": false
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:333",
+      "material_mode": "reference_to_video:2",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 332,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:332",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 332,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:332",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 331,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:331",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 330,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:330",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 330,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "mode"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "task_id",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:330",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 329,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:329",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 328,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:328",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 327,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:327",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":text",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 326,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "model_version"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "enable_fallback",
+          "declared_default": false
+        },
+        {
+          "key": "enable_translation",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:326",
+      "material_mode": ":reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 325,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:325",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 325,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:325",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 325,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:325",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 324,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:324",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 324,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:324",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 323,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:323",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 322,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:322",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 321,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:321",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 321,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:321",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 321,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:321",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 320,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:320",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 320,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:320",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 320,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_optimizer",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:320",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 319,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:319",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 318,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:318",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 317,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:317",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 316,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "shift",
+          "declared_default": 5
+        },
+        {
+          "key": "num_frames",
+          "declared_default": 80
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "guidance_scale",
+          "declared_default": 3.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        },
+        {
+          "key": "frames_per_second",
+          "declared_default": 16
+        },
+        {
+          "key": "num_inference_steps",
+          "declared_default": 27
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:316",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 315,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "watermark",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:315",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 314,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": -1
+        },
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:314",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 314,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": -1
+        },
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:314",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 313,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:313",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 313,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:313",
+      "material_mode": "image_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 313,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_safety_checker",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:313",
+      "material_mode": "image_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 312,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:312",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 312,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:312",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 311,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:311",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 310,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:310",
+      "material_mode": ":first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 310,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "cfg_scale",
+          "declared_default": 0.5
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:310",
+      "material_mode": ":pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 309,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "acceleration",
+          "declared_default": "none"
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:309",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 309,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "acceleration",
+          "declared_default": "none"
+        },
+        {
+          "key": "nsfw_checker",
+          "declared_default": null
+        },
+        {
+          "key": "enable_prompt_expansion",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:309",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:reference",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:first",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:last",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:308",
+      "material_mode": "keyframe_to_video:pair",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 308,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "keep_original_sound"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [
+        "voices",
+        "elements"
+      ],
+      "channel": "market_video_model:308",
+      "material_mode": "reference_to_video:4",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 307,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "enable_watermark",
+          "declared_default": true
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:307",
+      "material_mode": "default:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 306,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:306",
+      "material_mode": "text_to_video:0",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 306,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "generate_audio_switch"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:306",
+      "material_mode": "image_to_video:1",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 235,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": 0
+        },
+        {
+          "key": "is_rec",
+          "declared_default": true
+        },
+        {
+          "key": "watermark",
+          "declared_default": true
+        },
+        {
+          "key": "wm_position",
+          "declared_default": 3
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:235",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 97,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:97",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 96,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:96",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 95,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:95",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 94,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "parameters.audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "parameters.watermark",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_model:94",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 140,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "draft",
+        "generate_audio"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "tools",
+          "declared_default": null
+        },
+        {
+          "key": "frames",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "camera_fixed",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:seedance:140",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 133,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [
+        "metadata.audio_setting"
+      ],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": null
+        },
+        {
+          "key": "prompt_extend",
+          "declared_default": null
+        },
+        {
+          "key": "negative_prompt",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:wan:133",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 108,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:grok_video:108",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 105,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "seed",
+          "declared_default": null
+        },
+        {
+          "key": "watermark",
+          "declared_default": null
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:happy_horse:105",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    },
+    {
+      "entry": "short_drama",
+      "product_id": 103,
+      "status": "presentation_checked_payload_unchanged",
+      "creator_controls": [],
+      "required_inputs": [],
+      "automatic_fields": [
+        {
+          "key": "aigc_watermark",
+          "declared_default": false
+        }
+      ],
+      "required_material_editors": [],
+      "hidden_optional_materials": [],
+      "channel": "market_video_app:full_video:103",
+      "material_mode": "legacy",
+      "scenario": "published_video_regular_creator_policy"
+    }
+  ]
+}

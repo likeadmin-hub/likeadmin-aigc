@@ -94,6 +94,21 @@ class CanvasSeriesProductionTest extends TestCase
         self::assertStringContainsString('甲：这是信。乙：谢谢。',$video[0]['prompt']);
         self::assertSame(['storyboard:ep10_shot1'],$video[0]['reference_keys']);
     }
+    public function testSceneReuseAcceptsCurrentAssetsAndLegacyStoryboardOrigins(): void {
+        $p=['artifact'=>'scene','key'=>'scene_studio','prompt'=>'白色摄影棚'];
+        $sig=Reuse::signatures([$p],$this->state(),['image_model'=>['id'=>'gpt']])[0];
+        foreach(['assets','storyboard']as$stage){
+            $node=['type'=>'image','metadata'=>['status'=>'success','image'=>'/owned.png','asset_id'=>1,'prompt'=>$p['prompt'],
+                'workflow_asset_signature'=>$sig,'workflow_artifact'=>'scene','workflow_key'=>$stage.':'.$p['key']]];
+            self::assertTrue(Reuse::matches($node,$sig,$p));
+            foreach(['workflow_key'=>'assets:scene_other','workflow_artifact'=>'subject','status'=>'running','asset_id'=>0,
+                'prompt'=>'修改后的摄影棚','workflow_asset_signature'=>'changed']as$key=>$value){
+                $changed=$node;$changed['metadata'][$key]=$value;self::assertFalse(Reuse::matches($changed,$sig,$p));
+            }
+            $node['metadata']['workflow_key']='video_nodes:'.$p['key'];self::assertFalse(Reuse::matches($node,$sig,$p));
+        }
+    }
+
     public function testReuseRejectsWrongEntityChangedPromptMissingReceiptOrPendingResult(): void {
         $p=['artifact'=>'subject','key'=>Visuals::key('subject','a'),'prompt'=>'黑外套'];
         $sig=Reuse::signatures([$p],$this->state(),['image_model'=>['id'=>'gpt']])[0];

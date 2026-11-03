@@ -1,0 +1,90 @@
+{
+  "batch": 42,
+  "date": "2026-10-31",
+  "source_server_commit": "8c967969259a26c00bc1f6ba0ae88f5f70b9bc7d",
+  "source_web_commit": "6e4957ab7b542ffa23223245bc1d5e24935635a0",
+  "paid_generation": false,
+  "live_model_sync_executed": false,
+  "original_task_writes": false,
+  "provider_task_or_asset_endpoint_invoked": false,
+  "scope": "Actual production-source projections before correction; four missing-URI failures and two wrong source-range observations. Normal-login canvas871 reproduced the missing video URL. No paid generation.",
+  "cases": [
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": ":reference",
+      "source_request_hash": "3f1571d986e265dbd38e6eae7943159912e3336fcde97372a0129d6ee200771c",
+      "requested_sku": 809,
+      "status": "reproduced_failure",
+      "observed_status": "preparation_rejected",
+      "message": "请填写必填参数：video_list[0].url"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": ":reference",
+      "source_request_hash": "df19804de6388372f447317240a17435f204bc153c78415dff9783f3905bef9b",
+      "status": "reproduced_failure",
+      "observed_status": "preparation_rejected",
+      "message": "请填写必填参数：video_list[0].url"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "scenario": "replace_automatic_video_source",
+      "material_mode": ":reference",
+      "source_request_hash": "4cdcd6131d2632fd9aec76cf98b4105fae5d096cf1f56d0459b78f1d614530fa",
+      "requested_sku": 809,
+      "status": "reproduced_failure",
+      "observed_status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "native_clip_ranges": [
+        {
+          "start": 1,
+          "ends": 5
+        }
+      ],
+      "failure": "A 2s replacement inherited a 1-5s range from the 6s source. Preparation accepted it; no provider execution was attempted."
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "scenario": "replace_automatic_video_source",
+      "material_mode": ":reference",
+      "source_request_hash": "d420abcb173ca60b5801fdc89c21e1d4e3634511fa8cb61103c19775c35ee271",
+      "status": "reproduced_failure",
+      "observed_status": "quote_admission_frozen_slots_equal",
+      "sku_id": 809,
+      "native_clip_ranges": [
+        {
+          "start": 1,
+          "ends": 5
+        }
+      ],
+      "failure": "A 2s replacement inherited a 1-5s range from the 6s source. Preparation accepted it; no provider execution was attempted."
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "5637decfd9bc29244cdde753fea716b13749e2c5d33e4551ebbe4c9cee23b438",
+      "requested_sku": 493,
+      "status": "reproduced_failure",
+      "observed_status": "preparation_rejected",
+      "message": "请填写必填参数：voices[0].audio_url"
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "scenario": "remove_then_add_automatic_material",
+      "material_mode": "reference_to_video:4",
+      "source_request_hash": "a59e5bafccab5040a105461f293aa80f60bf94fd1e571be7be2ee8206cd0da5e",
+      "status": "reproduced_failure",
+      "observed_status": "preparation_rejected",
+      "message": "请填写必填参数：voices[0].audio_url"
+    }
+  ]
+}

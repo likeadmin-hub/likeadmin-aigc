@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `result_json` mediumtext,
   `input_asset_ids` text,
   `output_asset_ids` text,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `billing_status` varchar(30) NOT NULL DEFAULT 'none',
   `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00,
   `user_charge_points` decimal(10,2) NOT NULL DEFAULT 0.00,

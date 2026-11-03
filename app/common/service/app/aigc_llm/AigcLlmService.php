@@ -313,7 +313,7 @@ class AigcLlmService
         ]);
     }
 
-    public static function streamChat(int $tenantId, int $userId, array $params): void
+    private static function prepareChat(int $tenantId, int $userId, array $params): array
     {
         $content = trim((string)($params['content'] ?? ''));
         $regenerateMessageId = (int)($params['regenerate_message_id'] ?? 0);
@@ -329,7 +329,7 @@ class AigcLlmService
         $sessionId = (int)($params['session_id'] ?? 0);
         $time = time();
 
-        $context = Db::transaction(function () use ($tenantId, $userId, $sessionId, &$content, $model, $config, $regenerateMessageId, $time) {
+        return Db::transaction(function () use ($tenantId, $userId, $sessionId, &$content, $model, $config, $regenerateMessageId, $time) {
             $session = $sessionId > 0
                 ? self::findUserSession($tenantId, $userId, $sessionId, true)
                 : AigcLlmSession::create([
@@ -442,6 +442,20 @@ class AigcLlmService
             ];
         });
 
+    }
+
+    public static function streamChat(int $tenantId, int $userId, array $params): void
+    {
+        $key = (string)($params['request_id'] ?? request()->header('x-generation-request-key', ''));
+        $context = null;
+        if ($key !== '') {
+            $receipt = ChatSubmission::admit($tenantId, $userId, $key, $params, function () use ($tenantId, $userId, $params, &$context) {
+                return $context = self::prepareChat($tenantId, $userId, $params);
+            });
+            if ($context === null) { ChatSubmission::follow($tenantId, $userId, $receipt, static fn($event, $data) => self::emitEvent($event, $data)); return; }
+            self::emitEvent('receipt', $receipt);
+        } else $context = self::prepareChat($tenantId, $userId, $params);
+        $content = (string)$context['history'][count($context['history']) - 1]['content'];
         $session = $context['session'];
         $assistantMessage = $context['assistant_message'];
         self::emitEvent('session', [
@@ -457,6 +471,8 @@ class AigcLlmService
 
         $output = '';
         $stopped = false;
+        $lastProgress = 0.;
+        $result = [];
         try {
             $result = MarketTextModelRuntimeService::generate($tenantId, $userId, [
                 'app_code' => self::APP_CODE,
@@ -471,7 +487,7 @@ class AigcLlmService
                 ], $context['history']),
                 'system_prompt' => (string)($context['config']['config_json']['system_prompt'] ?? ''),
                 'model_selection' => ['id' => (string)($context['model']['market_product_id'] ?? '')],
-            ], function (string $event, array $data) use ($tenantId, $assistantMessage, &$stopped): void {
+            ], function (string $event, array $data) use ($tenantId, $assistantMessage, &$stopped, &$output, &$lastProgress): void {
                 if ($event !== 'delta') {
                     return;
                 }
@@ -481,6 +497,11 @@ class AigcLlmService
                 }
                 $delta = (string)($data['delta'] ?? '');
                 if ($delta !== '') {
+                    $output .= $delta;
+                    if (microtime(true) - $lastProgress >= 0.25) {
+                        AigcLlmMessage::where(['tenant_id'=>$tenantId,'id'=>$assistantMessage['id'],'status'=>self::MESSAGE_STREAMING])->update(['content'=>$output,'update_time'=>time()]);
+                        $lastProgress = microtime(true);
+                    }
                     self::emitEvent('delta', ['message_id' => (int)$assistantMessage['id'], 'delta' => $delta]);
                 }
             });
@@ -496,19 +517,17 @@ class AigcLlmService
                 'charge_points' => $billing['billing']['user_charge_points'],
             ]);
         } catch (Throwable $e) {
+            $pending = $e instanceof \app\common\service\power\TextSettlementPending;
+            if ($pending) $result = array_replace($e->result, ['consumption_id'=>$e->consumptionId, 'usage'=>$e->usage, 'billing'=>['billing_status'=>'settlement_failed']]);
+            if (isset($result['content'])) $output = (string)$result['content'];
+            $receiptUsage = (array)($result['usage'] ?? []);
+            $receiptUsage += ['billing'=>(array)($result['billing'] ?? ['billing_status'=>'none']), 'provider'=>'power_market', 'consumption_id'=>(int)($result['consumption_id'] ?? 0), 'app_task_id'=>(int)($result['app_task_id'] ?? 0), 'error'=>$e->getMessage()];
             self::finishAssistantMessage($tenantId, (int)$assistantMessage['id'], [
-                'content' => $output,
-                'status' => self::MESSAGE_ERROR,
-                'finish_reason' => 'error',
-                'token_usage_json' => [
-                    'billing_status' => 'none',
-                    'provider' => 'power_market',
-                    'error' => $e->getMessage(),
-                ],
+                'content' => $output, 'status' => self::MESSAGE_ERROR, 'finish_reason' => 'error', 'token_usage_json' => $receiptUsage,
             ]);
             self::finishSession((int)$session['id'], $tenantId);
             self::emitEvent('error', [
-                'message' => $e->getMessage(),
+                'message' => $e->getMessage(), 'message_id'=>(int)$assistantMessage['id'], 'terminal'=>!$pending,
             ]);
         }
     }

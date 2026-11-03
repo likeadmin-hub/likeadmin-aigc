@@ -221,8 +221,9 @@ final class MicroVideoMedia
 
     private static function localPath(string $uri): string
     {
-        $root = realpath(dirname(__DIR__, 5) . '/public/uploads');
-        $path = realpath(dirname(__DIR__, 5) . '/public/' . self::canonicalUri($uri));
+        $public = rtrim(app()->getRootPath(), '/\\') . '/public/';
+        $root = realpath($public . 'uploads');
+        $path = realpath($public . self::canonicalUri($uri));
         if (!$root || !$path || !str_starts_with($path, $root . DIRECTORY_SEPARATOR) || !is_file($path)) throw new RuntimeException('本地素材不可用');
         return $path;
     }

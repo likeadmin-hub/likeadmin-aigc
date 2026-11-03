@@ -1,0 +1,1381 @@
+{
+  "batch": 75,
+  "date": "2026-11-01",
+  "scope": "Full agreed software-scope review and finite closure of existing model/tool paths. Synthetic normal-login HTTP, actual mobile creator DTOs, owned production workers and configured OSS fault recovery. No real provider task generation/query/assets, deployment or full real-SKU certification.",
+  "source_server_commit": "de27a50d7b4368ed1184f2dbdbc338e22b67f71c",
+  "source_web_commit": "4aca4e1c2119beba3def4803868c578b1067bac9",
+  "runtime_local_develop_server_commit": "feed263aa3d6b6294b9395abeff41e3fe32bea79",
+  "runtime_local_develop_web_commit": "19b488da17ed0ed6607f25785728580b6f5fd87e",
+  "runtime_note": "The 14-tool final HTTP run used server 0308d313f and web 843b7775, already integrated in local develop. Later changes only add cloud test instrumentation and current test fixtures. Dedicated PC build precedes mobile-only changes; final H5/MP build includes mobile scope and fitting fixes.",
+  "contract_changes": {
+    "public_api": false,
+    "database_migration": false,
+    "permissions_manifest_menus": false,
+    "billing_policy": false,
+    "task_result_version": false,
+    "new_tools_or_controls": false,
+    "late_mobile_scope_response": "Old account/tenant responses and delayed retries are rejected before consumer delivery or logout."
+  },
+  "http_run": {
+    "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+    "external_generation_calls": 0,
+    "production_wallet_writes": 0,
+    "normal_password_login": true,
+    "concurrent_admission": {
+      "operations": {
+        "app.aigc_canvas.generate/video": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_image.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_product_image.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_product_suite.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      },
+      "lost_response_replayed": true
+    },
+    "accepted_task_ref": "app_task:1",
+    "authenticated_submission": true,
+    "worker_completed_without_browser_poll": true,
+    "managed_result_checksum": true,
+    "stale_autosave_preserved_result_and_user_edit": true,
+    "logout_login_reopen": true,
+    "local_supplier_submissions": 1,
+    "tasks": 1,
+    "consumptions": 1,
+    "result_assets": 1,
+    "billing_events": [
+      "reserve",
+      "submit",
+      "job_enqueued",
+      "settle",
+      "worker_claim",
+      "job_run",
+      "query_start",
+      "job_enqueued",
+      "job_woken",
+      "query_finish",
+      "job_enqueued",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_woken",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_success"
+    ],
+    "fixture_user_balance": 99,
+    "fixture_tenant_balance": 99,
+    "image_http": {
+      "native_managed_result_checksum": true,
+      "single_application_parent_and_child_success": true,
+      "suite_first_child_does_not_finish_parent": true,
+      "suite_two_children_two_results": true,
+      "native_price": 1,
+      "application_retail_price_per_child": 3,
+      "fixture_user_delta": 10,
+      "fixture_tenant_delta": 4
+    },
+    "total_local_supplier_submissions": 33,
+    "total_fixture_user_balance": 13,
+    "total_fixture_tenant_balance": 67,
+    "tool_matrix": {
+      "product_image": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "product_suite": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "style_transfer": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "photo_restore": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "model_wear": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "background_removal": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "image_translate": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "one_click_cleanup": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "product_multi_angle": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "fashion_lookbook": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "outpaint": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "local_redraw": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      },
+      "product_promo_video": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 1,
+        "explicit_new_intent_key_and_same_key_replay": true,
+        "cross_application_duplicate_scope_preserved": true
+      },
+      "fitting": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 1
+      },
+      "mobile_tools": {
+        "tools": {
+          "aigc_product_image": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              2,
+              3
+            ],
+            "accepted_response_lost_same_request_replayed": true
+          },
+          "aigc_product_suite": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              2,
+              3
+            ]
+          },
+          "aigc_style_transfer": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_photo_restore": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_model_wear": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_background_removal": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_image_translate": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_one_click_cleanup": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_product_multi_angle": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_fashion_lookbook": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_outpaint": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_local_redraw": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          },
+          "aigc_product_promo_video": {
+            "dto_from_actual_creator": true,
+            "requests": 8,
+            "attempts": 3,
+            "task_ids": [
+              1,
+              1,
+              2
+            ]
+          },
+          "aigc_fitting": {
+            "dto_from_actual_creator": true,
+            "requests": 7,
+            "attempts": 2,
+            "task_ids": [
+              1,
+              2
+            ]
+          }
+        },
+        "request_count": 137,
+        "lost_response_replayed": true,
+        "normal_login_h5_mp_wrappers": true,
+        "scope": "Existing creator SFC DTO + original wrappers/backend workers/history; membership/frontend shell not certified; loopback suppliers only"
+      }
+    },
+    "unfinished_jobs_completed_on_restart": 0,
+    "worker_restart_preserved_completed_rows": true,
+    "total_reserve_events": 33,
+    "total_settle_events": 33,
+    "total_refund_events": 0,
+    "total_tasks": 33,
+    "total_result_assets": 33,
+    "total_consumptions": 33,
+    "total_consumption_billing_statuses": {
+      "settled": 33
+    },
+    "private_tables_and_files_removed": true
+  },
+  "configured_oss": {
+    "image": {
+      "normal": {
+        "kind": "image",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "a91d3274b4d30574a54498968c175a5c1734bebf9cc354ad1138d936329f0096",
+        "readback_sha256": "5e3d382db4dd83d59aa5742793ad6b7903409e865c83bcbc54835049f043bc15",
+        "readback_bytes": 68,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "image/png",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      },
+      "crash_after_upload": {
+        "kind": "image",
+        "mode": "crash-after-upload",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "killed_after_cloud_upload_before_receipt_commit": true,
+        "cloud_bytes_verified_before_kill": true,
+        "uncommitted_receipt_invisible": true,
+        "consumption_changed_fields": [
+          "response_summary",
+          "update_time"
+        ],
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "6de623bebeb0200e559a0b5f08e4689ea1ed20e1506ca159bca1d8098ffc54ba",
+        "readback_sha256": "5e3d382db4dd83d59aa5742793ad6b7903409e865c83bcbc54835049f043bc15",
+        "readback_bytes": 68,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "image/png",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "frozen_billing_and_request_unchanged": true,
+        "managed_consumption_projection": true,
+        "transfer_attempts": 2,
+        "natural_lease_expiry_recovered": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      }
+    },
+    "video": {
+      "normal": {
+        "kind": "video",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "73a4db0151dc986e949118b521ef12b0567eccf01f95ed6caa350c4cfdc0a5c9",
+        "readback_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "readback_bytes": 1838,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "video/mp4",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      },
+      "crash_after_upload": {
+        "kind": "video",
+        "mode": "crash-after-upload",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "killed_after_cloud_upload_before_receipt_commit": true,
+        "cloud_bytes_verified_before_kill": true,
+        "uncommitted_receipt_invisible": true,
+        "consumption_changed_fields": [
+          "response_summary",
+          "update_time"
+        ],
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "4b190295a72e3de360dd28cdf69e7da02e826775d4e4c3abd515cdee7a491f66",
+        "readback_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "readback_bytes": 1838,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "video/mp4",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "frozen_billing_and_request_unchanged": true,
+        "managed_consumption_projection": true,
+        "transfer_attempts": 2,
+        "natural_lease_expiry_recovered": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      }
+    },
+    "audio": {
+      "normal": {
+        "kind": "audio",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "f0a8b8353d0c8ca3db81057c569720dcd24575466828a81760f82c1b0650cde2",
+        "readback_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "readback_bytes": 16078,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "audio/wav",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      },
+      "crash_after_upload": {
+        "kind": "audio",
+        "mode": "crash-after-upload",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "killed_after_cloud_upload_before_receipt_commit": true,
+        "cloud_bytes_verified_before_kill": true,
+        "uncommitted_receipt_invisible": true,
+        "consumption_changed_fields": [
+          "response_summary",
+          "update_time"
+        ],
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "ace671acf219b1533517649d938ab5c2e7876628e75235e735fd2489f05854d8",
+        "readback_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "readback_bytes": 16078,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "audio/wav",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "frozen_billing_and_request_unchanged": true,
+        "managed_consumption_projection": true,
+        "transfer_attempts": 2,
+        "natural_lease_expiry_recovered": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      }
+    }
+  },
+  "local_fault_regressions": {
+    "video_contend_kill": {
+      "kind": "video",
+      "mode": "contend-kill",
+      "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+      "provider_calls": 0,
+      "actual_wallet_mutations": 0,
+      "transfer_job_app_linked": true,
+      "pending_checkpoint_before_storage": true,
+      "file_records_before_storage": 0,
+      "canonical_exists_while_first_paused": false,
+      "partial_regular_file_bytes": 32,
+      "contender_waited_on_same_key_lock": true,
+      "business_pending_while_first_writing": true,
+      "killed_mid_storage_write": true,
+      "stored_checksum_valid": true,
+      "asset_business_uri_match": true,
+      "result_assets": 1,
+      "physical_canonical_files": 1,
+      "partial_files_remaining": 0,
+      "file_records": 1,
+      "business_results": 1,
+      "transfer_attempts": 2,
+      "frozen_price_preserved": true,
+      "parent_success": true,
+      "wallets_unchanged": true,
+      "repeat_restart_preserved_rows": true,
+      "sql_errors": 0
+    },
+    "audio_late_open": {
+      "kind": "audio",
+      "mode": "late-open",
+      "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+      "provider_calls": 0,
+      "actual_wallet_mutations": 0,
+      "transfer_job_app_linked": true,
+      "pending_checkpoint_before_storage": true,
+      "file_records_before_storage": 0,
+      "canonical_exists_while_first_paused": false,
+      "late_writer_skipped_completed_file": true,
+      "winner_file_inode_mtime_preserved": true,
+      "winner_asset_unchanged": true,
+      "winner_business_unchanged": true,
+      "stored_checksum_valid": true,
+      "asset_business_uri_match": true,
+      "result_assets": 1,
+      "physical_canonical_files": 1,
+      "partial_files_remaining": 0,
+      "file_records": 1,
+      "business_results": 1,
+      "transfer_attempts": 2,
+      "frozen_price_preserved": true,
+      "parent_success": true,
+      "wallets_unchanged": true,
+      "repeat_restart_preserved_rows": true,
+      "sql_errors": 0
+    }
+  },
+  "source_tests": {
+    "generation_phpunit": {
+      "tests": 1509,
+      "assertions": 33612,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "note": "All 10 explicit local rollback flags enabled. Initial 382 skipped checks are not counted as passed until this separate full run."
+    },
+    "mobile_scope_regressions": {
+      "tests": 29,
+      "failures": 0
+    },
+    "mobile_result_fitting_regressions": {
+      "tests": 7,
+      "failures": 0
+    },
+    "current_canvas_reference_fixtures": {
+      "tests": 26,
+      "failures": 0
+    },
+    "other_current_fixture_regressions": {
+      "tests": 34,
+      "failures": 0
+    },
+    "old_compiled_checks": {
+      "methods": 6,
+      "assertions": 26846,
+      "failures": 0
+    },
+    "php_syntax_files": 7,
+    "h5_build": true,
+    "mp_build": true,
+    "mp_module_count": 450,
+    "mp_subpackages": 30,
+    "mp_templates": 309,
+    "mp_theme_hosts": 109,
+    "mp_decoration_widgets": 7,
+    "native_text_billing_recovery_cli": true,
+    "export_container_integrity_cli": true
+  },
+  "broad_diagnostics": {
+    "pc": {
+      "tests": 2432,
+      "passed": 2429,
+      "failed": 3,
+      "skipped": 0,
+      "remaining": [
+        "inspiration-brand-compat expects removed hardcoded Grok identifiers in page source",
+        "short-drama-appearance scanner does not honor fallback var(--sd-ui-fill-hover,var(--pc-theme-surface-soft))",
+        "tool-introduction-locale lacks two pre-existing copywriting translations in en/zh-TW"
+      ]
+    },
+    "mobile": {
+      "tests": 376,
+      "passed": 368,
+      "failed": 7,
+      "skipped": 1,
+      "remaining": [
+        "decoration-content: two static inventory expectations omit existing cw-tool-collection",
+        "decoration-navigation: existing copywriting entry does not use page-content wrapper expected by this test",
+        "mobile-invite-link: two fixtures register onLoad while page refresh uses onShow",
+        "point-alert-home: two expectations require an absent home button in existing content page"
+      ],
+      "skipped_follow_up": "The optional compiled H5 storage test was separately run with MICRO_TRANSFER_H5=/tmp/b75-h5-build and passed; this does not rewrite the broad run count."
+    },
+    "note": "Broad repository diagnostics are not all green. These failures are outside the model adaptation changes; no new product features were added to force a green total. An initial PC invocation from web root had an additional relative-CWD failure; the recorded final PC run uses pc/."
+  },
+  "browser_observations": {
+    "normal_login": "User completed existing x.cn sign-in",
+    "viewport": "390x844",
+    "formal_h5_pages": [
+      "video creator",
+      "video history 44 records",
+      "video history reuse restored prompt",
+      "image creator/config quote",
+      "fitting creator/config",
+      "fitting history with two results",
+      "music creator/config quote"
+    ],
+    "formal_h5_errors": [
+      "z-paging-reload-error",
+      "z-paging-complete-error"
+    ],
+    "formal_h5_error_note": "Both were captured on initial video entry. No additional errors appeared during history/reuse/image/fitting/music navigation. No offsetWidth error reproduced on these served pages; prior dev-server resize issue is not declared fixed.",
+    "formal_h5_build": "Existing served /mobile/assets build; source-only delivery does not update it.",
+    "pc_source_dev": {
+      "legacy_smart_clip_final_url": "http://localhost:3000/ai/tools/smart_clip?tenant_id=1",
+      "micro_video_url": "http://localhost:3000/ai/micro-video?tenant_id=1",
+      "console_error_or_warning_count": 0
+    },
+    "real_generation_or_export_clicked": false,
+    "screenshot": "/Users/panda/.codex/visualizations/2026/11/01/01a1956f-2110-7961-94a2-e70cae1c54f3/b75-formal-h5-music.png"
+  },
+  "audit": {
+    "before_tasks": {
+      "scope": "Read-only original user task rows and wallet; hashes only",
+      "tables": {
+        "aigc_image_task": {
+          "count": 85,
+          "sha256": "052d964094d42e6457857eed3be12fe49b304e60b770b7be9ad954599b8f80ad",
+          "statuses": {
+            "success": 76,
+            "failed": 9
+          }
+        },
+        "aigc_video_task": {
+          "count": 44,
+          "sha256": "697275539f3f9d91d6eb2cc6d8ea09436981491c3819b97f5e2370da3140cf80",
+          "statuses": {
+            "failed": 9,
+            "success": 35
+          }
+        },
+        "aigc_music_task": {
+          "count": 2,
+          "sha256": "e733e34690e86be136d0aee91f1bffaaf636f31129beef1a4e810d3f01cc636e",
+          "statuses": {
+            "failed": 1,
+            "success": 1
+          }
+        },
+        "aigc_product_image_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_product_suite_task": {
+          "count": 1,
+          "sha256": "5c7b86649505cfe8f8fc118f2db2b93f532155703a6626cebb5239f0fc07ac64",
+          "statuses": {
+            "success": 1
+          }
+        },
+        "aigc_style_transfer_task": {
+          "count": 2,
+          "sha256": "6f92d119942d545c4a82d4db765d0599c42dafe6117491ada6d370215de93782",
+          "statuses": {
+            "failed": 1,
+            "success": 1
+          }
+        },
+        "aigc_photo_restore_task": {
+          "count": 1,
+          "sha256": "35cd6ad71e5de214507cb302c5791b6cd750fc61eb0ad957096de34d8c9e9c3d",
+          "statuses": {
+            "success": 1
+          }
+        },
+        "aigc_model_wear_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_background_removal_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_image_translate_task": {
+          "count": 1,
+          "sha256": "4463e7d48af54a66a9e34b83b7ea2a286a22554f4bdc22bb7a6f4ef6c8eb2001",
+          "statuses": {
+            "success": 1
+          }
+        },
+        "aigc_one_click_cleanup_task": {
+          "count": 2,
+          "sha256": "138938b0c27b6caa6652f921b2eb1f2ba0eb600d59d819b7356ec3d7cd93b1c0",
+          "statuses": {
+            "failed": 1,
+            "success": 1
+          }
+        },
+        "aigc_product_multi_angle_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_fashion_lookbook_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_outpaint_task": {
+          "count": 3,
+          "sha256": "abd9a37f7004a87f538329d7f16eab2653926e8d69750e534c8b4247f482b6e5",
+          "statuses": {
+            "failed": 1,
+            "success": 2
+          }
+        },
+        "aigc_local_redraw_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_fitting_task": {
+          "count": 2,
+          "sha256": "8e66136e78f4a6a9f0c73d32b5de3a68510b412c2b62586442a13d0e5eabd60b",
+          "statuses": {
+            "success": 2
+          }
+        },
+        "aigc_product_promo_video_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        }
+      },
+      "balance": 4372.96
+    },
+    "after_tasks": {
+      "scope": "Read-only original user task rows and wallet; hashes only",
+      "tables": {
+        "aigc_image_task": {
+          "count": 85,
+          "sha256": "052d964094d42e6457857eed3be12fe49b304e60b770b7be9ad954599b8f80ad",
+          "statuses": {
+            "success": 76,
+            "failed": 9
+          }
+        },
+        "aigc_video_task": {
+          "count": 44,
+          "sha256": "697275539f3f9d91d6eb2cc6d8ea09436981491c3819b97f5e2370da3140cf80",
+          "statuses": {
+            "failed": 9,
+            "success": 35
+          }
+        },
+        "aigc_music_task": {
+          "count": 2,
+          "sha256": "e733e34690e86be136d0aee91f1bffaaf636f31129beef1a4e810d3f01cc636e",
+          "statuses": {
+            "failed": 1,
+            "success": 1
+          }
+        },
+        "aigc_product_image_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_product_suite_task": {
+          "count": 1,
+          "sha256": "5c7b86649505cfe8f8fc118f2db2b93f532155703a6626cebb5239f0fc07ac64",
+          "statuses": {
+            "success": 1
+          }
+        },
+        "aigc_style_transfer_task": {
+          "count": 2,
+          "sha256": "6f92d119942d545c4a82d4db765d0599c42dafe6117491ada6d370215de93782",
+          "statuses": {
+            "failed": 1,
+            "success": 1
+          }
+        },
+        "aigc_photo_restore_task": {
+          "count": 1,
+          "sha256": "35cd6ad71e5de214507cb302c5791b6cd750fc61eb0ad957096de34d8c9e9c3d",
+          "statuses": {
+            "success": 1
+          }
+        },
+        "aigc_model_wear_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_background_removal_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_image_translate_task": {
+          "count": 1,
+          "sha256": "4463e7d48af54a66a9e34b83b7ea2a286a22554f4bdc22bb7a6f4ef6c8eb2001",
+          "statuses": {
+            "success": 1
+          }
+        },
+        "aigc_one_click_cleanup_task": {
+          "count": 2,
+          "sha256": "138938b0c27b6caa6652f921b2eb1f2ba0eb600d59d819b7356ec3d7cd93b1c0",
+          "statuses": {
+            "failed": 1,
+            "success": 1
+          }
+        },
+        "aigc_product_multi_angle_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_fashion_lookbook_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_outpaint_task": {
+          "count": 3,
+          "sha256": "abd9a37f7004a87f538329d7f16eab2653926e8d69750e534c8b4247f482b6e5",
+          "statuses": {
+            "failed": 1,
+            "success": 2
+          }
+        },
+        "aigc_local_redraw_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        },
+        "aigc_fitting_task": {
+          "count": 2,
+          "sha256": "8e66136e78f4a6a9f0c73d32b5de3a68510b412c2b62586442a13d0e5eabd60b",
+          "statuses": {
+            "success": 2
+          }
+        },
+        "aigc_product_promo_video_task": {
+          "count": 0,
+          "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "statuses": []
+        }
+      },
+      "balance": 4332.54
+    },
+    "task_table_rows_unchanged": true,
+    "before_llm": {
+      "scope": "Read-only original owner LLM/Agent rows; hashes only",
+      "tables": {
+        "aigc_llm_session": {
+          "count": 46,
+          "sha256": "1cee17556f1f33fcbc5a78cb4a0c0cd5a3db553e4358016584bbc3af70ccf4fe"
+        },
+        "aigc_llm_message": {
+          "count": 212,
+          "sha256": "e5799d2f60214f77449c2734ad4626a89732363fdad0e7bffb21ff60b5d1753e"
+        },
+        "aigc_llm_usage": {
+          "count": 4,
+          "sha256": "36c09c08eec37931534381c97e6d29fc7d894be71b527a040d6377b6e3cbb933"
+        },
+        "aigc_llm_agent_run": {
+          "count": 100,
+          "sha256": "808da5208e08d94d43f5d39a7895b4b60ed4102cce1cc8c6e58eaee5258a2795"
+        },
+        "aigc_llm_agent_step": {
+          "count": 25,
+          "sha256": "278505db13d1d73b6cb00f673fff3c156d672868ac52aa8d8ecb240f7819301c"
+        },
+        "aigc_llm_agent_event": {
+          "count": 3600,
+          "sha256": "418f210d1e6c53ccc4b972bf033fd82a3f1330b41878956cb18cf27689ea7ce5"
+        },
+        "aigc_llm_agent_artifact": {
+          "count": 16,
+          "sha256": "7e0835da4057fbf9f69f00be94c2bd50ddf9f48fc10aea75bbd1b3d4531fa5ac"
+        },
+        "aigc_llm_agent_preference": {
+          "count": 50,
+          "sha256": "54662204532ad54d640b2d9da3561790ec868cc959e21a69cfcd3b428fbf9a34"
+        }
+      }
+    },
+    "after_llm": {
+      "scope": "Read-only original owner LLM/Agent rows; hashes only",
+      "tables": {
+        "aigc_llm_session": {
+          "count": 47,
+          "sha256": "9279cd77b0f8677f6a08719a35820156b49c3f905ace69773f83d9490f25063d"
+        },
+        "aigc_llm_message": {
+          "count": 214,
+          "sha256": "b02c6b920bd4905283c55aa26571a0fbd260cc8c6b8669b0abd2410b9ea4b988"
+        },
+        "aigc_llm_usage": {
+          "count": 4,
+          "sha256": "36c09c08eec37931534381c97e6d29fc7d894be71b527a040d6377b6e3cbb933"
+        },
+        "aigc_llm_agent_run": {
+          "count": 101,
+          "sha256": "b413c182733ec221887656fa4d4a8c1e4a6f2eacbab789c638becd57004a7904"
+        },
+        "aigc_llm_agent_step": {
+          "count": 25,
+          "sha256": "278505db13d1d73b6cb00f673fff3c156d672868ac52aa8d8ecb240f7819301c"
+        },
+        "aigc_llm_agent_event": {
+          "count": 3623,
+          "sha256": "8c3424b2f83e67da74922bcc35aedd9f78c340fbf095662f999d291a9e6ad607"
+        },
+        "aigc_llm_agent_artifact": {
+          "count": 16,
+          "sha256": "7e0835da4057fbf9f69f00be94c2bd50ddf9f48fc10aea75bbd1b3d4531fa5ac"
+        },
+        "aigc_llm_agent_preference": {
+          "count": 50,
+          "sha256": "991c00f0c6d989ebcc903a37989ae7d07f22ded3d94732731fdccc543391ea3a"
+        }
+      }
+    },
+    "original_llm_full_hash_unchanged": false,
+    "balance_before": 4372.96,
+    "balance_after": 4332.54,
+    "user_confirmed_activity": {
+      "time_shanghai": "2026-11-01T13:09:00+08:00",
+      "kind": "one manual Agent chat",
+      "session_id": 1673,
+      "run_id": 2591,
+      "balance_charge": 40.42,
+      "confirmation": "User explicitly replied 是，我手动操作的",
+      "new_rows": {
+        "session": 1,
+        "message": 2,
+        "run": 1,
+        "event": 23
+      },
+      "preference_changed": true,
+      "action": "preserved; no record/ledger repair or deletion"
+    },
+    "cleanup": {
+      "owned_private_tables": 0,
+      "owned_private_roots": 0,
+      "original_daemon_1667_alive": true
+    }
+  },
+  "observations": [
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_product_image",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_product_suite",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_style_transfer",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_photo_restore",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_model_wear",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_background_removal",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_image_translate",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_one_click_cleanup",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_product_multi_angle",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_fashion_lookbook",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_outpaint",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_local_redraw",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 3
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_product_promo_video",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 1,
+        "explicit_new_intent_key_and_same_key_replay": true,
+        "cross_application_duplicate_scope_preserved": true
+      }
+    },
+    {
+      "status": "http_terminal_rows_preserved",
+      "entry": "existing_mobile_creator_h5_mp",
+      "app_code": "aigc_fitting",
+      "material_mode": "owned_native_valid_fixture",
+      "scenario": "actual_creator_dto_quote_submit_worker_settle_managed_result_history_new_attempt",
+      "scope": "Normal owned login and original production wrappers/services; loopback suppliers only. H5/MP host execution, not a physical device or real SKU certification.",
+      "assertions": {
+        "normal_http_estimate_submit": true,
+        "managed_result_and_business_writeback": true,
+        "parent_finished_without_http_detail": true,
+        "list_detail_same_owned_children": true,
+        "history_rebuilt_new_attempt": true,
+        "history_parameters_and_results_preserved": true,
+        "both_attempts_settled_quoted_amount_once": true,
+        "user_price": 1
+      }
+    },
+    {
+      "status": "worker_recovery_verified",
+      "entry": "production_result_worker",
+      "material_mode": "image",
+      "scenario": "oss_upload_completed_receipt_transaction_interrupted_natural_lease_takeover",
+      "scope": "One configured OSS account; private synthetic tenant/user objects, original worker; no provider generation."
+    },
+    {
+      "status": "worker_recovery_verified",
+      "entry": "production_result_worker",
+      "material_mode": "video",
+      "scenario": "oss_upload_completed_receipt_transaction_interrupted_natural_lease_takeover",
+      "scope": "One configured OSS account; private synthetic tenant/user objects, original worker; no provider generation."
+    },
+    {
+      "status": "worker_recovery_verified",
+      "entry": "production_result_worker",
+      "material_mode": "audio",
+      "scenario": "oss_upload_completed_receipt_transaction_interrupted_natural_lease_takeover",
+      "scope": "One configured OSS account; private synthetic tenant/user objects, original worker; no provider generation."
+    },
+    {
+      "status": "scoped_tests_passed",
+      "entry": "generation_source",
+      "scenario": "all_opt_in_generation_rollback_tests",
+      "tests": 1509,
+      "assertions": 33612,
+      "skipped": 0,
+      "failures": 0
+    },
+    {
+      "status": "isolated_compiled_checks_passed",
+      "entry": "pc_generated_routes",
+      "scenario": "five_historical_compiled_failures_resolved_against_current_isolated_output",
+      "methods": 6,
+      "assertions": 26846
+    },
+    {
+      "status": "normal_shell_read_only_verified",
+      "entry": "formal_h5",
+      "scenario": "user_normal_login_video_history_reuse_image_fitting_history_music",
+      "scope": "Existing served build, no generation/export/delete. Not the new source build; two existing z-paging errors retained."
+    },
+    {
+      "status": "normal_shell_read_only_verified",
+      "entry": "pc_local_source_dev",
+      "scenario": "legacy_smart_clip_redirect_and_micro_video_mount",
+      "console_errors": 0,
+      "console_warnings": 0
+    }
+  ],
+  "log_sha256": {
+    "b75-auth-before.log": "2a177ba97f22675c6e3c9f5f71f2fc7ab9ab5327696fcdceec5ac3a3b8d05d0d",
+    "b75-auth-after.log": "ed145a90c3643d37ca263ce6e66a7570a37ffbc4c0b1b99503be0f3897edce5d",
+    "b75-fitting-regression.log": "237e9eb4d05b374ff5d36bd9d41ea6367d8f5a6ee0900b4c3da21ff97a3cac21",
+    "b75-canvas-fixtures.log": "5c191cf801d87151eb18bc24b6c8dd7c729c7db4cd6d6db976f891ea30d3c87d",
+    "b75-generation-full.log": "fd2fca3cc643610c11125666324c1f42041559a6fd0816c2f76fc3ba6644d460",
+    "b75-old-compiled-checks.log": "2ce739e56f9fd82e45b53c50450c01d2d356a26cf1f3cf53d228ed5820a18dc1",
+    "b75-pc-final-cwd.log": "4290902e8d4c741e63c0120e33012c4ddbe92553891dd3e1094deade82b3201f",
+    "b75-mobile-final.log": "d8ed08b44d9912393428481bda1809c913b2b1b0b2faeb1b33c7655e2ea9dc95",
+    "b75-mobile-storage-compiled.log": "a7effc451f163c9298662e692ea3f86b745fc7eed3bbe45fd8bc8dc9e75d94de",
+    "b75-h5-build.log": "f59d5b163ac5ad008503b3e2bd4e4af256d0f8389ad02446b046bccd96326cd3",
+    "b75-mp-build.log": "972b0783029c22124f1ee828b16690e77bc976d2b6e61db700379cf6d540b694",
+    "b75-mp-imports.log": "836584724d2059eeec9a73890f98eb3f0130d7dd1ec7d1d39451bede656ce5c9",
+    "b75-mp-render.log": "ec74d0c42e6e70a4f853fe33b750cd1d5327dbdead20510848cd5541203f713d",
+    "b75-text-recovery.log": "7940dec89dfe04e038617daf179c41bd8efc15f20a52092fb933fce7b92f02e9",
+    "b75-export-integrity.log": "7646eb94d5feeda7c1e92b373af17627013826ca2983859a2721d2165cf5ff5d"
+  },
+  "limits": [
+    "No real provider generation, task query, retry, asset registration or market sync.",
+    "No physical WeChat/native App/cross-device certification.",
+    "Configured OSS receipt-boundary interruption is not an upstream-upload-network/DB-server/host-power-loss or mixed-version cluster test.",
+    "Formal contract and real SKU metering gaps remain; last upstream observation is batch 50.",
+    "No deployed build or permanent daemon restarted."
+  ]
+}

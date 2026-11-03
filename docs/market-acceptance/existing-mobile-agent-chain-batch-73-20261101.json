@@ -1,0 +1,369 @@
+{
+  "batch": 73,
+  "date": "2026-11-01",
+  "scope": "Existing mobile Agent workflow repair and regression only. Unpushed capability expansion withdrawn per user; original authenticated HTTP/worker/history, loopback synthetic suppliers and actual compiled H5 with synthetic bootstrap shell. No real SKU certification.",
+  "source_server_commit": "45044a2cef6af18f3e244477ebd92607ce3eb01f",
+  "regression_source_server_commit": "a6e8f763084970b56a3dcf89ce7e07a543f12567",
+  "runtime_local_develop_server_commit": "ec1150ab69ef9d7dc55194269f50087df7318cf7",
+  "source_web_commit": "d11d6f0b6690e923d97292196b104003d8e81790",
+  "runtime_local_develop_web_commit": "813de0629effbc350ba7b8313a15f88abc098118",
+  "latest_user_scope": {
+    "retain_previously_delivered_h5_entry": true,
+    "stop_new_tools_and_extra_mobile_controls": true,
+    "withdrawn_unpushed_ui": [
+      "generation preferences",
+      "subject library selector",
+      "document download controls"
+    ],
+    "canceled_expansion_not_counted_as_acceptance": true,
+    "old_batch72_remaining_pc_interactions_superseded_by_this_scope": true,
+    "h5_existing_tools_only_needed_mapping_and_result_adaptation": true,
+    "no_reimplementation_or_copy_of_all_pc_features": true
+  },
+  "contract_changes": {
+    "public_api": false,
+    "migration": false,
+    "menus_or_app_entry": false,
+    "billing_policy": false,
+    "task_result_version": false,
+    "server_business_net_change": false
+  },
+  "http_run": {
+    "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+    "external_generation_calls": 0,
+    "production_wallet_writes": 0,
+    "normal_password_login": true,
+    "concurrent_admission": {
+      "operations": {
+        "app.aigc_canvas.generate/video": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_image.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_product_image.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "app.aigc_product_suite.generate/index": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      },
+      "lost_response_replayed": true
+    },
+    "accepted_task_ref": "app_task:1",
+    "authenticated_submission": true,
+    "worker_completed_without_browser_poll": true,
+    "managed_result_checksum": true,
+    "stale_autosave_preserved_result_and_user_edit": true,
+    "logout_login_reopen": true,
+    "local_supplier_submissions": 1,
+    "tasks": 1,
+    "consumptions": 1,
+    "result_assets": 1,
+    "billing_events": [
+      "reserve",
+      "submit",
+      "job_enqueued",
+      "settle",
+      "worker_claim",
+      "job_run",
+      "query_start",
+      "job_enqueued",
+      "job_woken",
+      "query_finish",
+      "job_enqueued",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_woken",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_success"
+    ],
+    "fixture_user_balance": 99,
+    "fixture_tenant_balance": 99,
+    "image_http": {
+      "native_managed_result_checksum": true,
+      "single_application_parent_and_child_success": true,
+      "suite_first_child_does_not_finish_parent": true,
+      "suite_two_children_two_results": true,
+      "native_price": 1,
+      "application_retail_price_per_child": 3,
+      "fixture_user_delta": 10,
+      "fixture_tenant_delta": 4
+    },
+    "total_local_supplier_submissions": 11,
+    "total_fixture_user_balance": 84.6,
+    "total_fixture_tenant_balance": 90.6,
+    "agent_matrix": {
+      "mobile_actions": {
+        "history_run_id": 4,
+        "normal_multipart_upload_two_types": true,
+        "actual_mobile_asset_controller_and_api": true,
+        "uncertain_submit_reuses_run_and_attachment_ids": true,
+        "changed_text_and_materials_while_uncertain_do_not_dispatch": true,
+        "edit_requote_lost_response_stale_approval_checked": true,
+        "invalid_quantity_before_generation_rejected": true,
+        "failed_media_refunded_before_explicit_retry": true,
+        "retry_lost_response_and_replay_one_new_step": true,
+        "confirmed_retry_unique_native_task_and_managed_result": true,
+        "history_managed_references_no_reupload": true,
+        "old_attempts_and_result_history_preserved": true,
+        "foreign_asset_reuse_rejected": true,
+        "upload_requests": 2,
+        "lost_response_types": 3,
+        "requests": 126,
+        "actual_h5_upload_edit_failure_refund_retry_confirm_result_history": {
+          "normal_password_login": true,
+          "compiled_h5_mobile_viewport": "390x844",
+          "original_png_txt_file_chooser_upload": true,
+          "declared_plan_edit_requote": true,
+          "synthetic_explicit_failure_refund_retry_confirmation": true,
+          "original_worker_result_writeback": true,
+          "history_same_managed_materials_new_run": true,
+          "existing_entry_preserved_new_settings_subject_document_controls_absent": true,
+          "page_errors": 0,
+          "scope": "Synthetic bootstrap/theme/profile/membership shell; original login, Agent, uploads, queue, billing and result APIs. No browser token injection, no physical device certification."
+        },
+        "mixed_upload_original_mime_storage_preserved": true,
+        "references_reach_native_preparation": true,
+        "failed_and_successful_attempts_billing_frozen": true,
+        "managed_inputs_reused_without_reupload": true,
+        "old_history_steps_and_consumption_unchanged": true,
+        "refunded_media_submissions": 2,
+        "scope": "Private normal-login H5/MP wrappers, original multipart/plan/queue/result APIs; loopback suppliers only"
+      },
+      "text_reservations": 8,
+      "text_settlements": 8
+    },
+    "unfinished_jobs_completed_on_restart": 0,
+    "worker_restart_preserved_completed_rows": true,
+    "total_reserve_events": 19,
+    "total_settle_events": 17,
+    "total_refund_events": 2,
+    "total_tasks": 19,
+    "total_result_assets": 9,
+    "total_consumptions": 19,
+    "total_consumption_billing_statuses": {
+      "refunded": 2,
+      "settled": 17
+    },
+    "private_tables_and_files_removed": true
+  },
+  "host_mobile_report": {
+    "history_run_id": 4,
+    "normal_multipart_upload_two_types": true,
+    "actual_mobile_asset_controller_and_api": true,
+    "uncertain_submit_reuses_run_and_attachment_ids": true,
+    "changed_text_and_materials_while_uncertain_do_not_dispatch": true,
+    "edit_requote_lost_response_stale_approval_checked": true,
+    "invalid_quantity_before_generation_rejected": true,
+    "failed_media_refunded_before_explicit_retry": true,
+    "retry_lost_response_and_replay_one_new_step": true,
+    "confirmed_retry_unique_native_task_and_managed_result": true,
+    "history_managed_references_no_reupload": true,
+    "old_attempts_and_result_history_preserved": true,
+    "foreign_asset_reuse_rejected": true,
+    "upload_requests": 2,
+    "lost_response_types": 3,
+    "requests": 126
+  },
+  "production_finding": {
+    "trigger": "Original Agent submit is accepted but its response is lost; reloaded draft is changed before resolving the first intention.",
+    "before": "Regression aa21d97e observed two api.submit calls after changing text, expected one. This is a synthetic controller reproduction, not proof of a production double charge.",
+    "fix": "Before sending, read owner-scoped pending signature; changed content or attachment identities stay blocked until original retry/history recovery or explicit new conversation. Original request ID and frozen preferences remain.",
+    "reproduction_log_sha256": "d617ef08e3eb75ce437266f30d0ccd4715ad7788e29bbe2d5702d860e025005b"
+  },
+  "validation": {
+    "frontend_tests": {
+      "focused": 47,
+      "related": 46,
+      "total": 93,
+      "failed": 0
+    },
+    "backend_cli_suites": [
+      "HomeAgentUploadedDocumentTest",
+      "HomeAgentMessageAttachmentsTest",
+      "HomeAgentRequestOriginTest",
+      "HomeAgentRetryReceiptTest",
+      "HomeAgentPlanManagementTest",
+      "HomeAgentBillingRecoveryTest"
+    ],
+    "backend_cli_all_passed_rollback": true,
+    "h5_build": true,
+    "mp_weixin_build": true,
+    "mp_modules": 450,
+    "mp_subpackages": 30,
+    "mp_templates": 309,
+    "themed_hosts": 109,
+    "decoration_widgets": 7,
+    "page_errors": 0,
+    "actual_h5_scope": "390x844; normal password login; real file chooser; original Agent/business APIs, workers and billing; synthetic site/profile/theme/membership shell; no browser token injection. MP is build only."
+  },
+  "original_row_audits": {
+    "task_tables": 17,
+    "task_rows": 143,
+    "llm_agent_tables": 8,
+    "llm_agent_rows": 4053,
+    "real_wallet": 4372.96,
+    "before_after_exact_equal": true,
+    "tasks_audit_sha256": "fc3ef2bd14412d912071cb0ddce15af67a9cd232e27d6fe932219e6e950676f3",
+    "agent_audit_sha256": "e54aa80fbce9367a2590cd9f2424ddbd3e5ef443a50acdf30dd9b8bd19d36611",
+    "private_tables_and_roots": 0,
+    "original_daemon_1667_alive": true
+  },
+  "withdrawn_trial": {
+    "reason": "User disallowed new tools and chose to keep already delivered H5 entry but stop further expansion.",
+    "trial_fixture_ended_by_explicit_scope_stop": true,
+    "private_cleanup_verified": true,
+    "not_a_production_failure_or_accepted_feature": true,
+    "source_changes_reverted_before_delivery": true
+  },
+  "issue_observations": [
+    {
+      "scenario": "changed_intent_after_uncertain_submission_before_fix",
+      "status": "reproduced_failure",
+      "scope": "Synthetic shared controller reproduction; two submit calls, no real generation or wallet mutation."
+    }
+  ],
+  "observations": [
+    {
+      "scenario": "normal_login_existing_h5_entry_preserved",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "real_h5_png_txt_upload",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "declared_plan_edit_and_requote",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "explicit_failure_refund_before_retry",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "old_attempt_and_new_confirmation_preserved",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "worker_managed_result_writeback",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "history_same_ids_no_upload_new_intent",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "uncertain_changed_text_no_dispatch",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "uncertain_removed_material_no_dispatch",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "same_body_same_request_and_frozen_preferences",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "explicit_new_conversation_new_identity",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "lost_edit_and_retry_replay_idempotent",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "foreign_material_reuse_rejected",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "old_steps_and_consumption_frozen",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "completed_worker_idle_restart_preserves_rows",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "h5_mp_build_package_templates",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "original_tables_wallet_and_cleanup_unchanged",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    },
+    {
+      "scenario": "no_new_mobile_tools_or_extra_controls_delivered",
+      "status": "isolated_existing_agent_chain_checked",
+      "scope": "Bounded private HTTP, existing H5 UI, regression or original-row audit. No real SKU binding.",
+      "real_sku_certification": false
+    }
+  ],
+  "not_verified": [
+    "18完整合同、14模型17不透明路径、13应用选项；Qwen275/277像素SKU380/383、Seedance140 Token SKU210–215、Nano嵌套输入/张数/裸b64_json/供应商资产ID继续待正式依据，最后正式上游观察仍为批次50。",
+    "无完整回执/usage/供应商ID的同步文字强杀后权威核对；不自动重发或猜Token。",
+    "物理跨设备、微信真机/原生App、正式租户完整H5外壳、视频/音频/PDF/DOCX从现有移动上传到各专用工具全部组合、其它工具草稿跨设备仍未逐项认证。",
+    "真实供应商质量、全型号模式SKU、更多云端多机/导出删除故障；旧两条H5 resize、五项编译入口失败及剪辑/微视频警告继续保留。"
+  ],
+  "browser_screenshots": [
+    "b73-existing-retry.png",
+    "b73-existing-material-reuse.png",
+    "b73-existing-history-result.png"
+  ],
+  "delivery_boundary": {
+    "branch": "feature/short-drama-next-optimization",
+    "remote_develop_merge": "previous explicit deferral retained; configured refs fetched; local develop integration only",
+    "server_skip_worktree": 3971,
+    "web_skip_worktree": 3,
+    "external_generation_calls": 0,
+    "real_wallet_writes": 0,
+    "real_daemon_restart": false,
+    "publish_or_deploy": false
+  }
+}

@@ -1,0 +1,921 @@
+{
+  "batch": 36,
+  "date": "2026-10-31",
+  "source_web_commit": "5c8831f58c1b56b43a91f2b275258326409777a5",
+  "source_server_commit": "44deeca1558d6a9c3a8ae92e20faf12cd5414221",
+  "scope": "Historical stages before final regular-creator policy. Raw optional-contract checks and explicit legacy group/character/mixed-field compatibility only, using actual two-page source projections plus readonly estimate/admission/frozen preparation. This does not assert the final regular UI sends optional subjects, IDs or voice groups. No captured HTTP DTO or supplier lifecycle.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "cases": [
+    {
+      "entry": "canvas",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "4bda283995c15f6c416dad0d2d65a675c325e612555201f17fdef98ea48d1b30",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_omitted",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4K",
+        "quality": "4k",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "fb86b5094e11f70f8ca73ffff62bc1a4a2dd8ef2bdeba3b1443b5bab20590ffb",
+      "native_array_counts": {
+        "elements": 0
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "short_drama",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "4bda283995c15f6c416dad0d2d65a675c325e612555201f17fdef98ea48d1b30",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_omitted",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "fb86b5094e11f70f8ca73ffff62bc1a4a2dd8ef2bdeba3b1443b5bab20590ffb",
+      "native_array_counts": {
+        "elements": 0
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "canvas",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "4bda283995c15f6c416dad0d2d65a675c325e612555201f17fdef98ea48d1b30",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_explicit_empty",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4K",
+        "quality": "4k",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "fb86b5094e11f70f8ca73ffff62bc1a4a2dd8ef2bdeba3b1443b5bab20590ffb",
+      "native_array_counts": {
+        "elements": 0
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "short_drama",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "4bda283995c15f6c416dad0d2d65a675c325e612555201f17fdef98ea48d1b30",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_explicit_empty",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "fb86b5094e11f70f8ca73ffff62bc1a4a2dd8ef2bdeba3b1443b5bab20590ffb",
+      "native_array_counts": {
+        "elements": 0
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "canvas",
+      "status": "preparation_rejected",
+      "message": "请填写必填参数：elements[0].name",
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_empty_subject",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4K",
+        "quality": "4k",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "short_drama",
+      "status": "preparation_rejected",
+      "message": "请填写必填参数：elements[0].name",
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_empty_subject",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "canvas",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "7bb8279bb49b52e70978d7b68bfbd4e2b8822b579192e5eac2b7e54ac44e8aef",
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_subject_without_audio",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4K",
+        "quality": "4k",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "7c8cda4d5a11628746a0c9205e2049c1e6b68696f32b527ab6f88782fb56671a",
+      "native_array_counts": {
+        "elements": 1
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "short_drama",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "7bb8279bb49b52e70978d7b68bfbd4e2b8822b579192e5eac2b7e54ac44e8aef",
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_subject_without_audio",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "7c8cda4d5a11628746a0c9205e2049c1e6b68696f32b527ab6f88782fb56671a",
+      "native_array_counts": {
+        "elements": 1
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "canvas",
+      "status": "preparation_rejected",
+      "message": "请填写必填参数：elements[0].element_input_urls",
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_subject_missing_media",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4K",
+        "quality": "4k",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "short_drama",
+      "status": "preparation_rejected",
+      "message": "请填写必填参数：elements[0].element_input_urls",
+      "channel": "market_video_model:355",
+      "scenario": "raw_optional_contract_subject_missing_media",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video:0",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6"
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "094ad07cab9d470ba3819871f055e908b426e170914434f3efb12fd9e0e29555",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "scenario": "raw_mixed_fields_baseline",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080P",
+        "quality": "1080p",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "dc045a1784d5dc4d91282cd1bbd186a1cbc803b73b8bef7a2544f923d664106e",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "094ad07cab9d470ba3819871f055e908b426e170914434f3efb12fd9e0e29555",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "scenario": "raw_mixed_fields_baseline",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "dc045a1784d5dc4d91282cd1bbd186a1cbc803b73b8bef7a2544f923d664106e",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "3d51785d5efacc9b20961bdb63a05becaa9c5d96c188e0ab9a82a70120f2018c",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "scenario": "raw_mixed_fields_replace_subject_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080P",
+        "quality": "1080p",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "2cfda02daf20da9091133749a6e2d1333a2b58993de63e29a3e41da095daab45",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "3d51785d5efacc9b20961bdb63a05becaa9c5d96c188e0ab9a82a70120f2018c",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "scenario": "raw_mixed_fields_replace_subject_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "2cfda02daf20da9091133749a6e2d1333a2b58993de63e29a3e41da095daab45",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "1c436fcb087e5edbb5b2a659435cef3e16da4a7154d33cf5aceee865a7b27ce0",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "scenario": "raw_mixed_fields_replace_independent_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080P",
+        "quality": "1080p",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "209bb76e043d3495bf475a6a61565b5a11c61be6fa98204c65d04068e3ca4487",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "1c436fcb087e5edbb5b2a659435cef3e16da4a7154d33cf5aceee865a7b27ce0",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 2
+      },
+      "scenario": "raw_mixed_fields_replace_independent_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "209bb76e043d3495bf475a6a61565b5a11c61be6fa98204c65d04068e3ca4487",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "3ccc908e439d3e3a8927116bb147f909c5c5c4d1fb07f4590908d324dae2df4f",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "scenario": "raw_mixed_fields_delete_subject_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080P",
+        "quality": "1080p",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "f0d0ce8a902f5dd4f027f592fada3ff0c998b13a8b0cca1631fc5bd333820f71",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 491,
+      "admission_sku_id": 491,
+      "points": 1111,
+      "frozen_equal": true,
+      "native_hash": "3ccc908e439d3e3a8927116bb147f909c5c5c4d1fb07f4590908d324dae2df4f",
+      "native_slots": {
+        "image": 2,
+        "video": 1,
+        "audio": 1
+      },
+      "scenario": "raw_mixed_fields_delete_subject_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "keep_original_sound",
+        "elements",
+        "voices"
+      ],
+      "native_group_values_sha256": "f0d0ce8a902f5dd4f027f592fada3ff0c998b13a8b0cca1631fc5bd333820f71",
+      "native_array_counts": {
+        "elements": 2,
+        "voices": 1
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "status": "preparation_rejected",
+      "message": "请填写必填参数：voices[0].audio_url",
+      "scenario": "raw_mixed_fields_delete_independent_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080P",
+        "quality": "1080p",
+        "ratio": "16:9",
+        "duration": 5
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "status": "preparation_rejected",
+      "message": "请填写必填参数：voices[0].audio_url",
+      "scenario": "raw_mixed_fields_delete_independent_voice",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:308",
+      "status": "preparation_rejected",
+      "message": "每个主体必须二选一：2–4张 image_urls，或1个 video_url。视频主体只能为 character；voice_url 仅可绑定人物主体，且不占独立声音名额。",
+      "scenario": "raw_mixed_fields_delete_subject_images",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080P",
+        "quality": "1080p",
+        "ratio": "16:9",
+        "duration": 5
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:308",
+      "status": "preparation_rejected",
+      "message": "每个主体必须二选一：2–4张 image_urls，或1个 video_url。视频主体只能为 character；voice_url 仅可绑定人物主体，且不占独立声音名额。",
+      "scenario": "raw_mixed_fields_delete_subject_images",
+      "requested_method": "omni_reference",
+      "material_mode": "reference_to_video:4",
+      "requested_parameters": {
+        "resolution": "1080p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:355",
+      "status": "expected_local_rejection",
+      "message": "同一素材有多个分组用途，请恢复常规设置后继续",
+      "scenario": "prior_policy_project_saved_custom",
+      "requested_method": null,
+      "material_mode": null,
+      "requested_parameters": {}
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:344",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 705,
+      "admission_sku_id": 705,
+      "points": 666,
+      "frozen_equal": true,
+      "native_hash": "8328558d8fcc36f0c487f8c4516891ab0869b2784199a1f486fd1314830202f8",
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_saved_custom",
+      "requested_method": "omni_reference",
+      "material_mode": "default:0",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [
+        "character_ids",
+        "seed"
+      ],
+      "native_group_values_sha256": "bc74a574586f9383316f9bddc7e6851c16cdfc165129d0f183e5b955eb98f577",
+      "native_array_counts": {
+        "character_ids": 3
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 810,
+      "admission_sku_id": 810,
+      "points": 666,
+      "frozen_equal": true,
+      "native_hash": "b672fe24125fe97e94f2bb262880f21aed03a1095e4b5303c7c0a88c29a5fc56",
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_saved_custom",
+      "requested_method": "omni_reference",
+      "material_mode": ":reference",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [
+        "character_ids",
+        "seed"
+      ],
+      "native_group_values_sha256": "bc74a574586f9383316f9bddc7e6851c16cdfc165129d0f183e5b955eb98f577",
+      "native_array_counts": {
+        "character_ids": 3
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:355",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 782,
+      "admission_sku_id": 782,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "71a572a2abff70a0c078f7ee390b6006b392d4b18ff6a5d2ced3d4a006231d9f",
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_saved_custom",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "ee76c9104642496248cc87d418fe3124265487b3f23623bcaff650bcb21c2082",
+      "native_array_counts": {
+        "elements": 2
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:344",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 708,
+      "admission_sku_id": 708,
+      "points": 583,
+      "frozen_equal": true,
+      "native_hash": "4b58b537ec24399866a8a8a160a591980b551a7b6b0d66884de4a2d7189b891d",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_saved_custom",
+      "requested_method": "omni_reference",
+      "material_mode": "omni_reference",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [
+        "character_ids"
+      ],
+      "native_group_values_sha256": "cf82bd88b24c78d8534be39959d46cfeac99a3c0e35c8b4ddfcc21fc99c12510",
+      "native_array_counts": {
+        "character_ids": 3
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:355",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 795,
+      "admission_sku_id": 795,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "e655fa43f01ec2c7573e292a706fea0864126e5deabedc38701a78d30b2148cc",
+      "native_slots": {
+        "image": 3,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_regular",
+      "requested_method": "omni_reference",
+      "material_mode": "omni_reference",
+      "requested_parameters": {
+        "resolution": "4K",
+        "quality": "4k",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "audio",
+        "elements"
+      ],
+      "native_group_values_sha256": "fb86b5094e11f70f8ca73ffff62bc1a4a2dd8ef2bdeba3b1443b5bab20590ffb",
+      "native_array_counts": {
+        "elements": 0
+      }
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:344",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 705,
+      "admission_sku_id": 705,
+      "points": 666,
+      "frozen_equal": true,
+      "native_hash": "78b63a1ff97b432e3f8fbbf266e2b472eed4e5ecca05934b90134d3ee7906519",
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_regular",
+      "requested_method": "omni_reference",
+      "material_mode": "default:0",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [
+        "seed"
+      ],
+      "native_group_values_sha256": "bd0488843468e63c62bb6d1df790f0a83de90616c0906e9dbd3275d3b4100d97",
+      "native_array_counts": {}
+    },
+    {
+      "entry": "canvas",
+      "channel": "market_video_model:358",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 810,
+      "admission_sku_id": 810,
+      "points": 666,
+      "frozen_equal": true,
+      "native_hash": "deabd51b8307d1d58225c97d99b639305785626ad0e9dc7b496dd6a8fc22188a",
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_regular",
+      "requested_method": "omni_reference",
+      "material_mode": ":reference",
+      "requested_parameters": {
+        "resolution": "720P",
+        "quality": "720p",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [
+        "seed"
+      ],
+      "native_group_values_sha256": "bd0488843468e63c62bb6d1df790f0a83de90616c0906e9dbd3275d3b4100d97",
+      "native_array_counts": {}
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:355",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 783,
+      "admission_sku_id": 783,
+      "points": 1330,
+      "frozen_equal": true,
+      "native_hash": "4879c7f443dc4f332094a940da5d8e72dde1cd50bf256a1ec128a3f9b4c904ff",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_regular",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 5
+      },
+      "native_group_keys": [
+        "elements",
+        "audio"
+      ],
+      "native_group_values_sha256": "0118469ed6facd75e44ec3d23117dfdb0990a3f72e67bfdb010b5598d47d92a4",
+      "native_array_counts": {
+        "elements": 0
+      }
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:344",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 708,
+      "admission_sku_id": 708,
+      "points": 583,
+      "frozen_equal": true,
+      "native_hash": "15d9abacba84a0ab168ecb0c5bf6a79d5f5ed4f561112192ad6a00d229c4337b",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_regular",
+      "requested_method": "omni_reference",
+      "material_mode": "omni_reference",
+      "requested_parameters": {
+        "resolution": "4k",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [],
+      "native_group_values_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "native_array_counts": {}
+    },
+    {
+      "entry": "short_drama",
+      "channel": "market_video_model:358",
+      "status": "quote_admission_frozen_slots_equal",
+      "sku_id": 825,
+      "admission_sku_id": 825,
+      "points": 250,
+      "frozen_equal": true,
+      "native_hash": "108f872ee4caca57e793fc2ab642dc99cc3d15f99038588ecebca9568e4af1e3",
+      "native_slots": {
+        "image": 0,
+        "video": 0,
+        "audio": 0
+      },
+      "scenario": "prior_policy_project_regular",
+      "requested_method": "text_to_video",
+      "material_mode": "text_to_video",
+      "requested_parameters": {
+        "resolution": "360p",
+        "quality": "",
+        "ratio": "16:9",
+        "duration": 4
+      },
+      "native_group_keys": [],
+      "native_group_values_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "native_array_counts": {}
+    }
+  ]
+}

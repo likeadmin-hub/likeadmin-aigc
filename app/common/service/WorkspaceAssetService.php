@@ -239,11 +239,21 @@ final class WorkspaceAssetService
         $fields = ['id','task_id','title','prompt','script_text','status','create_time','width','height','duration','ratio','aspect_ratio','resolution','quality','model_name','model_id','channel_name','channel','style','asset_type','mime_type','project_id'];
         $raw = array_intersect_key(array_replace($task ?: [], $record), array_flip($fields));
         $metadata = array_replace($task ?: [], $record);
-        $displayFields = array_flip(['ratio','aspect_ratio','resolution','quality','model_name','model_label','model_id','image_model_id','channel_name','channel_code','model','width','height']);
+        $displayFields = array_flip(['ratio','aspect_ratio','resolution','quality','model_name','model_label','model_id','image_model_id','channel_name','channel_code','model','submitted_model_label','width','height','duration','quantity','generate_audio','background','generation_method','mode','seed','output_format']);
         foreach (['params','provider_params_json','request_snapshot','image_params'] as $field) {
             $value = $metadata[$field] ?? [];
             if (is_string($value)) $value = json_decode($value, true) ?: [];
             if (is_array($value)) $raw[$field] = array_intersect_key(array_replace(is_array($value['params'] ?? null) ? $value['params'] : [], $value), $displayFields);
+        }
+        $referenceRoots=[$metadata];
+        foreach (['params','provider_params_json','request_snapshot','image_params','video_params'] as $field) {
+            $value=WorkspaceAssetReferenceService::object($metadata[$field] ?? []);
+            $referenceRoots[]=$value;$referenceRoots[]=WorkspaceAssetReferenceService::object($value['params'] ?? []);
+        }
+        $raw['reference_assets']=WorkspaceAssetReferenceService::resolveGroups($tenant,$user,[WorkspaceAssetReferenceService::inputs($referenceRoots)])[0];
+        if (in_array($source,['image','video'],true)) {
+            $originTask = $task ?: $record;
+            $raw['creation_source'] = \app\common\service\ai\GenerationWorkSourceService::appendRows([$originTask],$prefix)[0]['creation_source'];
         }
         $raw['result_id'] = $kind === 'result' ? (int)$id : 0;
         $raw['task_id'] = $kind === 'task' ? (int)$id : ($record['task_id'] ?? 0);
@@ -253,7 +263,12 @@ final class WorkspaceAssetService
         if (in_array($source, ['short_drama', 'canvas'], true)) {
             $raw['url'] = self::url($record, 'uri');
             $meta = json_decode($record['meta_json'] ?? '{}', true) ?: [];
-            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id']));
+            $raw['meta'] = array_intersect_key($meta, array_flip(['title','message','visible_prompt','prompt','model','ratio','source','source_app_code','media_source','node_type','source_subject_id','model_name','submitted_model_label','resolution','quality','duration','quantity','generate_audio','background','consumption_id','reused_from_asset_id','canvas_run_id']));
+            if ($source === 'short_drama') {
+                $raw['uri'] = $record['uri'];
+                $raw = WorkspaceShortDramaAssetService::appendRows($tenant,$user,[$raw])[0];
+                unset($raw['uri']);
+            }
         }
         return ['source' => $source, 'ref' => $ref, 'raw' => $raw];
     }

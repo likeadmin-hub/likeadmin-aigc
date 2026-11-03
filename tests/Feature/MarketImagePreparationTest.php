@@ -83,10 +83,34 @@ class MarketImagePreparationTest extends TestCase
         $method->invoke(null, $this->market(), array_replace($this->request(), ['quality' => '8k']));
     }
 
-    public function testMeterContextUsesPreciselyThePreparedSubmission(): void
+    public function testRepeatedImageUsesArePreservedByTheLegacyImageCodec(): void
+    {
+        $request=$this->request();
+        $request['reference_images']=['https://fixture.invalid/same.png','https://fixture.invalid/same.png'];
+        $market=$this->market();$market['sku']['source_payload']=self::imageMeters()[1][0];
+        $quoted=(new ReflectionMethod(Images::class,'meterMarket'))->invoke(null,$market,$request);
+        $snapshot=(new ReflectionMethod(Images::class,'snapshot'))->invoke(null,$quoted);
+        $prepared=Images::prepareRequest($snapshot,$request);
+        self::assertSame($request['reference_images'],$prepared->nativeInput['image_urls']);
+        self::assertSame(2,$prepared->meterContext['reference_images']);
+        self::assertCount(2,$request['reference_images']);
+    }
+
+    public function testOldFrozenImageCodecKeepsItsOriginalDeduplication(): void
+    {
+        $snapshot=$this->snapshot();$snapshot['image_reference_slot_revision']=1;
+        $request=$this->request();$request['reference_images']=array_fill(0,2,'https://fixture.invalid/same.png');
+        $payload=new ReflectionMethod(Images::class,'payload');
+        self::assertCount(2,$payload->invoke(null,$snapshot,$request,'')['image_urls']);
+        unset($snapshot['image_reference_slot_revision']);
+        self::assertSame(['https://fixture.invalid/same.png'],$payload->invoke(null,$snapshot,$request,'')['image_urls']);
+    }
+
+    /** @dataProvider imageMeters */
+    public function testMeterContextUsesPreciselyThePreparedSubmission(array $source): void
     {
         $market = $this->market();
-        $market['sku']['source_payload'] = ['meter_summary' => '生成张数 + 超过1的参考图片张数×1/2，总点数向上取整'];
+        $market['sku']['source_payload'] = $source;
         $request = $this->request();
         $request['reference_images'][] = 'https://fixture.invalid/second.png';
         $quoted = (new ReflectionMethod(Images::class, 'meterMarket'))->invoke(null, $market, $request);
@@ -96,6 +120,15 @@ class MarketImagePreparationTest extends TestCase
         self::assertSame(2, $submitted->meterContext['reference_images']);
         self::assertSame(5.0, MarketGenerationMeter::price(3, 1, $snapshot));
         self::assertSame('4K', $submitted->nativeInput['image_size']);
+    }
+
+    public static function imageMeters(): array
+    {
+        return [
+            [['meter_summary' => '生成张数 + 超过1的参考图片张数×1/2，总点数向上取整']],
+            [['meter_contract' => ['version'=>1, 'basis'=>'image', 'rounding'=>'ceil',
+                'reference_images'=>['free'=>1, 'numerator'=>1, 'denominator'=>2]]]],
+        ];
     }
 
     /** @dataProvider invalidInput */

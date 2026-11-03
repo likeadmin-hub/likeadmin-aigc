@@ -4,20 +4,46 @@ require dirname(__DIR__) . '/runtime-loader.php';
 (new AigcRuntimeApp(dirname(__DIR__)))->initialize();
 
 use app\common\model\power\PowerMarketProduct;
+use app\common\model\power\PowerMarketSku;
 use app\common\service\app\aigc_canvas\CanvasModelRouterService;
 use app\common\service\power\MarketGenerationCatalogService;
+use app\common\service\power\MarketGenerationCompatibilityAudit as Audit;
 use app\common\service\power\MarketGenerationMaterials;
 use app\common\service\power\MarketGenerationSchema;
 use app\common\service\power\MarketImageModelRuntimeService;
+use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketVideoRuntimeService;
+use think\facade\Db;
 
-$args = getopt('', ['tenant-id:']);
+$args = getopt('', ['tenant-id:', 'probe-requests', 'structured-probes']);
 $tenantRaw = (string)($args['tenant-id'] ?? '');
 if (!preg_match('/^[1-9][0-9]*$/', $tenantRaw)) {
-    fwrite(STDERR, "Usage: php tools/audit-tool-market-compatibility.php --tenant-id=TENANT_ID\n");
+    fwrite(STDERR, "Usage: php tools/audit-tool-market-compatibility.php --tenant-id=TENANT_ID [--probe-requests] [--structured-probes]\n");
     exit(1);
 }
 $tenantId = (int)$tenantRaw;
+$structured = array_key_exists('structured-probes', $args);
+$probe = array_key_exists('probe-requests', $args) || $structured;
+$captured = json_decode((string)file_get_contents(dirname(__DIR__).'/tests/fixtures/canvas-generation-market-contracts.json'), true, 512, JSON_THROW_ON_ERROR);
+$samples = [];
+foreach ((array)($captured['contracts'] ?? []) as $sample) {
+    $key = ($sample['type'] ?? '').':'.($sample['resource_type'] ?? '').':';
+    $key .= ($sample['resource_type'] ?? '') === 'model' ? ($sample['model_code'] ?? '').':'.($sample['channel_code'] ?? '') : ($sample['app_code'] ?? '');
+    $samples[$key] = MarketGenerationSchema::array($sample['params_schema'] ?? []);
+}
+$observations=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-legacy-declaration-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+$legacyReviews=[];
+$guidance=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-legacy-published-guidance-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+$platformFlow=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-platform-contract-flow-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+$catalogueFlow=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-platform-catalogue-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+$structureReview=json_decode(file_get_contents(dirname(__DIR__).'/tests/fixtures/market-image-structure-review-20261029.json'),true,512,JSON_THROW_ON_ERROR);
+foreach (\app\common\service\power\MarketGenerationContractReview::ledger($captured,$observations,$guidance,$platformFlow,$catalogueFlow,$structureReview)['entries'] as $review) {
+    $legacyReviews[$review['generation_type'].':model:'.$review['model_code'].':'.$review['channel_code']]=$review;
+}
+// Enforce the read-only promise even if a catalogue dependency later adds writes.
+Db::execute('SET TRANSACTION READ ONLY');
+Db::startTrans();
+try {
 $path = getenv('MARKET_GENERATION_CONTRACTS_PATH') ?: dirname(__DIR__) . '/resources/market/generation-contracts.json';
 $contractFile = is_readable($path) ? json_decode((string)file_get_contents($path), true) : null;
 $contractModels = is_array($contractFile['models'] ?? null) ? $contractFile['models'] : null;
@@ -37,6 +63,9 @@ $report = [
     'tenant_id' => $tenantId,
     'generated_at' => date(DATE_ATOM),
     'scope' => 'tenant catalog and local metadata only; model visibility and fingerprint do not prove end-to-end compatibility',
+    'request_probes' => $probe ? 'one synthetic request per mode/scenario and visible SKU; no quote, media inspection, uploads or upstream calls' : 'disabled',
+    'structured_probes' => $structured ? 'finite synthetic recipes; expected results exclude SKU restrictions and measured media' : 'disabled',
+    'sku_rejection_diagnostics' => $structured ? 'pure compiler control without SKU locks after a positive fixture is rejected; no quote or submission' : 'disabled',
     'models' => [],
     'unavailable_applications' => [],
 ];
@@ -49,15 +78,21 @@ foreach (['image', 'video'] as $type) {
         $id = (string)($option['id'] ?? '');
         $productId = (int)($option['market_product_id'] ?? 0);
         $resource = (string)($option['resource_type'] ?? '');
+        $product = PowerMarketProduct::where('id', $productId)->find();
+        $runtime = $type === 'image' ? MarketImageModelRuntimeService::class : MarketVideoRuntimeService::class;
+        $metadata = $product ? (new ReflectionMethod($runtime, 'metadata'))->invoke(null, $product->toArray()) : [];
         $contractStatus = 'unverified_app_adapter';
+        $reviewedContract=null;
         if ($resource === 'model') {
             $contractStatus = 'unknown';
-            $product = PowerMarketProduct::where('id', $productId)->find();
-            if ($product && $contractModels !== null) {
+            $selectedContract=\app\common\service\power\MarketGenerationReviewedContract::selected($metadata);
+            if ($selectedContract!==null) {
+                $contractStatus='matched_reviewed_contract';
+                $reviewedContract=array_intersect_key($selectedContract,array_flip(['revision','generation_type','model_code','channel_code',
+                    'public_model_code','generation_protocol','declaration_fingerprint','contract_digest','sku_pricing','live_generation']));
+            } elseif ($product && $contractModels !== null) {
                 // Use the same merged metadata as the respective runtime. Reflection is
                 // restricted to this developer tool and never invokes submission.
-                $runtime = $type === 'image' ? MarketImageModelRuntimeService::class : MarketVideoRuntimeService::class;
-                $metadata = (new ReflectionMethod($runtime, 'metadata'))->invoke(null, $product->toArray());
                 $code = (string)($metadata['upstream_metadata']['model_code'] ?? '');
                 if ($code === '') $contractStatus = 'missing_model_code';
                 elseif (!isset($contractModels[$code])) $contractStatus = 'missing_local_contract';
@@ -98,24 +133,84 @@ foreach (['image', 'video'] as $type) {
                 'native_mode' => (string)($mode['native_mode'] ?? ''), 'materials' => $materials];
         }
         $dramaDefaultGroup = $type === 'video' || $resource === 'model';
+        $skuIds = array_values(array_map(static fn($sku) => (int)($sku['market_sku_id'] ?? 0), (array)($option['skus'] ?? [])));
+        $skuRows = $skuIds === [] ? [] : PowerMarketSku::where('product_id', $productId)->whereIn('id', $skuIds)->select()->toArray();
+        $skuMatrix = [];
+        foreach ($skuRows as $sku) {
+            $row = Audit::sku($type, $resource, $sku, (string)($product['upstream_app_code'] ?? ''));
+            $protocolSnapshot=['model_code'=>(string)($option['model_code'] ?? $product['upstream_model_code'] ?? ''),
+                'channel_code'=>(string)($product['upstream_channel_code'] ?? ''), 'market_metadata'=>$metadata,
+                'locked_params'=>MarketGenerationSchema::array($sku['locked_params'] ?? [])];
+            try { $row['request_protocol_adapter']=$resource === 'model'
+                ? \app\common\service\power\MarketGenerationAdapterRegistry::modelProtocol($type,$protocolSnapshot)
+                : \app\common\service\power\MarketGenerationAdapterRegistry::applicationProtocol((string)($product['upstream_app_code'] ?? ''),$protocolSnapshot); }
+            catch (\InvalidArgumentException) { $row['request_protocol_adapter']='unregistered_or_invalid'; }
+            if ($probe && $product) {
+                $snapshot = ['resource_type'=>$resource, 'model_code'=>(string)($option['model_code'] ?? $product['upstream_model_code']),
+                    'channel_code'=>(string)$product['upstream_channel_code'], 'app_code'=>(string)$product['upstream_app_code'],
+                    'api_code'=>(string)$product['upstream_api_code'], 'sku_id'=>(int)$sku['id'], 'sku_key'=>(string)$sku['sku_key'],
+                    'market_metadata'=>$metadata, 'params_schema'=>$metadata['params_schema'] ?? [],
+                    'locked_params'=>MarketGenerationSchema::array($sku['locked_params'] ?? []),
+                    'max_reference_images'=>(int)($option['max_reference_images'] ?? 0)];
+                $compile = match (true) {
+                    $type === 'video' => static fn($frozen,$request) => MarketVideoRuntimeService::prepareRequest($frozen, $request)->nativeInput,
+                    $resource === 'model' => static fn($frozen,$request) => MarketImageModelRuntimeService::prepareRequest($frozen, $request, $tenantId)->nativeInput,
+                    ($product['upstream_app_code'] ?? '') === 'nano_banana' => static fn($frozen,$request) => MarketNanoBananaAppRuntimeService::prepareRequest($frozen, $request, '', $tenantId)->nativeInput,
+                    default => null,
+                };
+                $row['request_cases'] = $compile === null ? [['status'=>'unregistered_probe']] : array_map(
+                    static fn($case) => $structured ? Audit::probeWithSkuDiagnostics($case,$snapshot,$compile)
+                        : Audit::probe($case, static fn($request)=>$compile($snapshot,$request), $snapshot['locked_params']),
+                    Audit::cases($type, $option, $structured ? $metadata : null)
+                );
+            }
+            $skuMatrix[] = $row;
+        }
+        $sampleKey = $type.':'.$resource.':'.($resource === 'model'
+            ? (string)($option['model_code'] ?? $product['upstream_model_code'] ?? '').':'.(string)($product['upstream_channel_code'] ?? '')
+            : (string)($product['upstream_app_code'] ?? ''));
+        $contractEvidence=$legacyReviews[$sampleKey] ?? null;
+        if ($contractEvidence !== null) $contractEvidence['current_parameters_match_recorded']=hash_equals(
+            $contractEvidence['parameter_fingerprint'],Audit::fingerprint(MarketGenerationSchema::array($metadata['params_schema'] ?? [])));
+        if ($resource === 'app_api') {
+            $documents=array_values(array_filter((array)($guidance['application_entries'] ?? []),static fn($d)=>
+                $d['generation_type'] === $type && $d['app_code'] === ($product['upstream_app_code'] ?? '')
+                && $d['api_code'] === ($product['upstream_api_code'] ?? '')));
+            if ($documents !== []) $contractEvidence=['evidence_status'=>'published_guidance_reviewed','resource_type'=>'app_api',
+                'published_guidance'=>$documents,'guidance_observed_at'=>$guidance['observed_at'],'native_contract_importable'=>false,
+                'sku_pricing'=>'unverified','live_generation'=>'unverified'];
+        }
         $report['models'][] = [
             'generation_type' => $type, 'id' => $id, 'product_id' => $productId,
             'resource_type' => $resource, 'name' => (string)($option['name'] ?? ''),
+            'model_code' => (string)($option['model_code'] ?? $product['upstream_model_code'] ?? ''),
+            'channel_code' => (string)($product['upstream_channel_code'] ?? ''),
+            'app_code' => (string)($product['upstream_app_code'] ?? ''),
+            'api_code' => (string)($product['upstream_api_code'] ?? ''),
+            'declaration_fingerprint' => Audit::fingerprint($schema),
             'native_contract' => $contractStatus,
+            'reviewed_contract' => $reviewedContract,
+            'contract_evidence' => $contractEvidence,
             'tool_catalog_visibility' => [
                 'standalone_' . $type => 'listed',
                 'canvas' => in_array($id, $canvasIds[$type], true) ? 'listed' : 'not_listed_or_unknown',
                 'short_drama' => $dramaDefaultGroup ? 'listed_in_model_group' : 'not_in_default_model_group',
             ],
             'scenario_compatibility' => 'unverified',
+            'scenario_matrix' => Audit::scenarios($type, $option, $metadata),
+            'declaration_review' => Audit::review($schema, $samples[$sampleKey] ?? null),
+            'sku_matrix' => $skuMatrix,
             'parameters' => $fields,
             'material_modes' => $modes,
             'reference_limits' => array_intersect_key($option, array_flip(['max_reference_images', 'max_reference_videos', 'max_reference_audios', 'max_reference_assets'])),
             'ratio_options' => $option['ratio_options'] ?? [],
             'duration_options' => $option['duration_options'] ?? [],
             'resolution_options' => $option['resolution_options'] ?? [],
-            'sku_ids' => array_values(array_map(static fn($sku) => (int)($sku['market_sku_id'] ?? 0), (array)($option['skus'] ?? []))),
+            'sku_ids' => $skuIds,
         ];
     }
 }
 echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
+} finally {
+    Db::rollback();
+}

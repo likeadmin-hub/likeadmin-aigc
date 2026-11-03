@@ -1,0 +1,2216 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-01",
+  "scope": "Executable completion register for B01/B02. Historical identities and unmet authoritative requirements only; not an official gateway contract, activation catalogue, price declaration or fresh upstream observation.",
+  "authority_status": "planning_register_not_a_formal_contract",
+  "execution_plan_file": "docs/market-full-completion-execution-plan-20261101.md",
+  "runbook_file": "docs/market-completion-authoritative-review-runbook-20261101.md",
+  "owner_agent": "contracts_recovery",
+  "coordinator_agent": "/root",
+  "task_ids": [
+    "B01",
+    "B02",
+    "B03",
+    "C01",
+    "C02",
+    "C03",
+    "C04"
+  ],
+  "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+  "status_semantics": {
+    "waiting_authoritative_contract": "The existing implementation is not granted new capability. Exact authoritative gateway/request/meter evidence is still missing; this register cannot remove admission barriers.",
+    "missing_fields": "Review requirements, not invented provider wire-field names. A partially present schema does not satisfy the named completeness requirement."
+  },
+  "sources": [
+    {
+      "id": "batch50",
+      "file": "docs/market-acceptance/bounded-image-submission-batch-50-20261031.json",
+      "sha256": "5667c51ee4d668e4b64a3517d52fa372db256ddc58e7024a308c4e53a55a366a",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "authority": "historical_observation_not_a_complete_contract"
+    },
+    {
+      "id": "baseline",
+      "file": "docs/market-acceptance/tenant-1-baseline-20261030.json",
+      "sha256": "919c49d439b23a055d5ffac8ba59c4851e7407aad72f6665fdc60718b1432c02",
+      "last_upstream_observed_at": "2026-10-30T01:16:40+08:00",
+      "authority": "historical_observation_not_a_complete_contract"
+    },
+    {
+      "id": "formal_export_request",
+      "file": "docs/market-provider-contract-export-request.md",
+      "sha256": "cf41f04a6ccd46662c9917c9dc63725b0419a1b5c32d10ee2b0f850da6866d3a",
+      "last_upstream_observed_at": null,
+      "authority": "historical_observation_not_a_complete_contract"
+    },
+    {
+      "id": "reviewed_loading_rules",
+      "file": "docs/market-reviewed-generation-contracts.md",
+      "sha256": "a2adbaec4fc313993f3b6e2392afca39d056137db695528a90f464bef81672ac",
+      "last_upstream_observed_at": null,
+      "authority": "historical_observation_not_a_complete_contract"
+    },
+    {
+      "id": "batch75_scope",
+      "file": "docs/market-acceptance/full-scope-completion-batch-75-20261101.md",
+      "sha256": "a1d9f203c060eeecad9c43f8e3f59bf0130630e14e05f6e45ce7e852bb10500c",
+      "last_upstream_observed_at": null,
+      "authority": "historical_observation_not_a_complete_contract"
+    }
+  ],
+  "counts": {
+    "exact_model_contracts": 18,
+    "image_model_contracts": 12,
+    "video_model_contracts": 6,
+    "opaque_model_subset": 14,
+    "expanded_opaque_paths": 17,
+    "application_apis": 6,
+    "historical_application_options": 13,
+    "pixel_meter_skus": 2,
+    "token_meter_skus": 6,
+    "total_meter_skus": 8,
+    "counts_are_distinct_layers_not_an_additive_model_total": true
+  },
+  "common_required_contract_fields": [
+    "exact_resource_identity_and_contract_gateway_revision",
+    "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+    "all_material_modes_roles_quotas_and_type_constraints",
+    "conditional_required_exclusive_total_quota_rules",
+    "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+    "verified_result_receipt_structure_and_owned_material_id_rules",
+    "synthetic_minimal_valid_and_boundary_rejection_examples"
+  ],
+  "models": [
+    {
+      "id": "model:image:Google:nano-banana-2.1",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "nano-banana-2.1",
+        "channel_code": "Google"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:234",
+        "product_id": 234,
+        "resource_type": "model",
+        "model_code": "nano-banana-2.1",
+        "channel_code": "Google",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_array_items_mode_and_quantity_differences",
+        "nano_native_quantity_and_nested_mapping_if_supported"
+      ],
+      "platform_expanded_schema_opaque_paths": [],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/0"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:OpenAIYI:gpt-image-2.5",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5",
+        "channel_code": "OpenAIYI"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:169",
+        "product_id": 169,
+        "resource_type": "model",
+        "model_code": "gpt-image-2.5",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/1"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:OpenAIYI:gpt-image-2.5-flare",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-flare",
+        "channel_code": "OpenAIYI"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:168",
+        "product_id": 168,
+        "resource_type": "model",
+        "model_code": "gpt-image-2.5-flare",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/2"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:OpenAIYI:gpt-image-2.5-sunburst",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-sunburst",
+        "channel_code": "OpenAIYI"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:167",
+        "product_id": 167,
+        "resource_type": "model",
+        "model_code": "gpt-image-2.5-sunburst",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/3"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:Google:nano-banana-2",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "nano-banana-2",
+        "channel_code": "Google"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:93",
+        "product_id": 93,
+        "resource_type": "model",
+        "model_code": "nano-banana-2",
+        "channel_code": "Google",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_array_items_mode_and_quantity_differences",
+        "nano_native_quantity_and_nested_mapping_if_supported"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/4"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:Google:nano-banana-pro",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "nano-banana-pro",
+        "channel_code": "Google"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:92",
+        "product_id": 92,
+        "resource_type": "model",
+        "model_code": "nano-banana-pro",
+        "channel_code": "Google",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_array_items_mode_and_quantity_differences",
+        "nano_native_quantity_and_nested_mapping_if_supported"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/5"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:OpenaiM:gpt-image-2",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenaiM"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:91",
+        "product_id": 91,
+        "resource_type": "model",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenaiM",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/6"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:OpenAIYI:gpt-image-2",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:90",
+        "product_id": 90,
+        "resource_type": "model",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/7"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:openaiD:gpt-image-2-fast",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2-fast",
+        "channel_code": "openaiD"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:89",
+        "product_id": 89,
+        "resource_type": "model",
+        "model_code": "gpt-image-2-fast",
+        "channel_code": "openaiD",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_exact_channel_modes_conditions_and_material_rules_even_without_expanded_opaque_path"
+      ],
+      "platform_expanded_schema_opaque_paths": [],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/8"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:OpenaiM:gpt-image-2-pro",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "gpt-image-2-pro",
+        "channel_code": "OpenaiM"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:88",
+        "product_id": 88,
+        "resource_type": "model",
+        "model_code": "gpt-image-2-pro",
+        "channel_code": "OpenaiM",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/9"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:dashscope_compatible:qwen-image-3.0-pro",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0-pro",
+        "channel_code": "dashscope_compatible"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:87",
+        "product_id": 87,
+        "resource_type": "model",
+        "model_code": "qwen-image-3.0-pro",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_input_parameters_and_cross_field_conditions"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "input",
+        "parameters"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/10"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:image:dashscope_compatible:qwen-image-3.0",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0",
+        "channel_code": "dashscope_compatible"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "image",
+        "id": "market_image_model:86",
+        "product_id": 86,
+        "resource_type": "model",
+        "model_code": "qwen-image-3.0",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_input_parameters_and_cross_field_conditions"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "input",
+        "parameters"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/11"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:video:q4_video:q4-preview-video",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "q4-preview-video",
+        "channel_code": "q4_video"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "video",
+        "id": "market_video_model:235",
+        "product_id": 235,
+        "resource_type": "model",
+        "model_code": "q4-preview-video",
+        "channel_code": "q4_video",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_modes_and_gateway_version_conditions"
+      ],
+      "platform_expanded_schema_opaque_paths": [],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/12"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:video:minimax:h3-video",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "h3-video",
+        "channel_code": "minimax"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "video",
+        "id": "market_video_model:98",
+        "product_id": 98,
+        "resource_type": "model",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "first_last_frame_pair_rules_text_item_count_and_native_content_merge_policy"
+      ],
+      "platform_expanded_schema_opaque_paths": [],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/13"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:video:xAIQ:grok-video",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "grok-video",
+        "channel_code": "xAIQ"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "video",
+        "id": "market_video_model:97",
+        "product_id": 97,
+        "resource_type": "model",
+        "model_code": "grok-video",
+        "channel_code": "xAIQ",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/14"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:video:xAIQ:veo3.1-fast",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "veo3.1-fast",
+        "channel_code": "xAIQ"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "video",
+        "id": "market_video_model:96",
+        "product_id": 96,
+        "resource_type": "model",
+        "model_code": "veo3.1-fast",
+        "channel_code": "xAIQ",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/15"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:video:xAIQ:veo3.1-pro",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "veo3.1-pro",
+        "channel_code": "xAIQ"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "video",
+        "id": "market_video_model:95",
+        "product_id": 95,
+        "resource_type": "model",
+        "model_code": "veo3.1-pro",
+        "channel_code": "xAIQ",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "image_urls_items_limits_and_exact_channel_modes"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "image_urls[]"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/16"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "model:video:dashscope_compatible:wan3.0-video",
+      "identity": {
+        "resource_type": "model",
+        "generation_type": "video",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible"
+      },
+      "historical_baseline_identity": {
+        "generation_type": "video",
+        "id": "market_video_model:94",
+        "product_id": 94,
+        "resource_type": "model",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "app_code": "",
+        "api_code": ""
+      },
+      "status": "waiting_authoritative_contract",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_input_parameters_and_cross_field_conditions"
+      ],
+      "platform_expanded_schema_opaque_paths": [
+        "input",
+        "parameters"
+      ],
+      "complete_contract_still_required_when_opaque_paths_empty": true,
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_catalogue/models/17"
+        },
+        {
+          "source_id": "formal_export_request",
+          "section": "待补齐的 18 个模型身份"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    }
+  ],
+  "applications": [
+    {
+      "id": "app_api:nano_banana:submit",
+      "identity": {
+        "resource_type": "app_api",
+        "generation_type": "image",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "historical_product_ids": [
+        110
+      ],
+      "option_refs": [
+        "option:nano_banana:submit:nano-banana",
+        "option:nano_banana:submit:nano-banana-2",
+        "option:nano_banana:submit:nano-banana-2-lite",
+        "option:nano_banana:submit:nano-banana-2-lite:official",
+        "option:nano_banana:submit:nano-banana-2:official",
+        "option:nano_banana:submit:nano-banana:official",
+        "option:nano_banana:submit:nano-banana-pro",
+        "option:nano_banana:submit:nano-banana-pro:official"
+      ],
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "nano_native_quantity_nested_input_params_parameters_bare_b64_json_and_supplier_asset_id_mapping_if_supported"
+      ],
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "historical_document_read_state": "unavailable_or_identity_mismatch",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_documents/applications/0"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_ids": [
+            "market_nano_banana:110:bmFuby1iYW5hbmE=",
+            "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+            "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl",
+            "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs",
+            "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+            "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw=",
+            "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv",
+            "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs"
+          ]
+        }
+      ],
+      "model_reviewed_catalogue_import_applicable": false,
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "app_api:seedance:create",
+      "identity": {
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "historical_product_ids": [
+        140
+      ],
+      "option_refs": [
+        "option:seedance:create:seedance"
+      ],
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_tools_content_media_and_audio_video_objects_if_supported"
+      ],
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "historical_document_read_state": "read",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_documents/applications/1"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_ids": [
+            "market_video_app:seedance:140"
+          ]
+        }
+      ],
+      "model_reviewed_catalogue_import_applicable": false,
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "app_api:wan:create",
+      "identity": {
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "app_code": "wan",
+        "api_code": "create"
+      },
+      "historical_product_ids": [
+        133
+      ],
+      "option_refs": [
+        "option:wan:create:wan"
+      ],
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_tools_content_media_and_audio_video_objects_if_supported"
+      ],
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "historical_document_read_state": "read",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_documents/applications/2"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_ids": [
+            "market_video_app:wan:133"
+          ]
+        }
+      ],
+      "model_reviewed_catalogue_import_applicable": false,
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "app_api:grok_video:submit",
+      "identity": {
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "historical_product_ids": [
+        108
+      ],
+      "option_refs": [
+        "option:grok_video:submit:grok_video"
+      ],
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_tools_content_media_and_audio_video_objects_if_supported"
+      ],
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "historical_document_read_state": "unavailable_or_identity_mismatch",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_documents/applications/3"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_ids": [
+            "market_video_app:grok_video:108"
+          ]
+        }
+      ],
+      "model_reviewed_catalogue_import_applicable": false,
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "app_api:happy_horse:submit",
+      "identity": {
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "app_code": "happy_horse",
+        "api_code": "submit"
+      },
+      "historical_product_ids": [
+        105
+      ],
+      "option_refs": [
+        "option:happy_horse:submit:happy_horse"
+      ],
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_tools_content_media_and_audio_video_objects_if_supported"
+      ],
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "historical_document_read_state": "read",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_documents/applications/4"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_ids": [
+            "market_video_app:happy_horse:105"
+          ]
+        }
+      ],
+      "model_reviewed_catalogue_import_applicable": false,
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    },
+    {
+      "id": "app_api:full_video:submit",
+      "identity": {
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "historical_product_ids": [
+        103
+      ],
+      "option_refs": [
+        "option:full_video:submit:full_video"
+      ],
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "exact_resource_identity_and_contract_gateway_revision",
+        "complete_gateway_request_schema_including_nested_items_and_null_false_zero_rules",
+        "all_material_modes_roles_quotas_and_type_constraints",
+        "conditional_required_exclusive_total_quota_rules",
+        "sku_mode_dimensions_pricing_quantity_usage_and_failure_rules",
+        "verified_result_receipt_structure_and_owned_material_id_rules",
+        "synthetic_minimal_valid_and_boundary_rejection_examples",
+        "complete_tools_content_media_and_audio_video_objects_if_supported"
+      ],
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "historical_document_read_state": "read",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/upstream_documents/applications/5"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_ids": [
+            "market_video_app:full_video:103"
+          ]
+        }
+      ],
+      "model_reviewed_catalogue_import_applicable": false,
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false
+    }
+  ],
+  "application_options": [
+    {
+      "id": "option:nano_banana:submit:nano-banana",
+      "display_name": "Nano Banana",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmE=",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmE="
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:nano_banana:submit:nano-banana-2",
+      "display_name": "Nano Banana 2",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMg==",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmEtMg=="
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:nano_banana:submit:nano-banana-2-lite",
+      "display_name": "Nano Banana 2 Lite",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2-lite",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRl"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:nano_banana:submit:nano-banana-2-lite:official",
+      "display_name": "Nano Banana 2 Lite Official",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2-lite:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmEtMi1saXRlOm9mZmljaWFs"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:nano_banana:submit:nano-banana-2:official",
+      "display_name": "Nano Banana 2 Official",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-2:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA=="
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:nano_banana:submit:nano-banana:official",
+      "display_name": "Nano Banana Official",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw=",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmE6b2ZmaWNpYWw="
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:nano_banana:submit:nano-banana-pro",
+      "display_name": "Nano Banana Pro",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-pro",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJv"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:nano_banana:submit:nano-banana-pro:official",
+      "display_name": "Nano Banana Pro Official",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs",
+        "product_id": 110,
+        "resource_type": "app_api",
+        "model_code": "nano-banana-pro:official",
+        "channel_code": "",
+        "app_code": "nano_banana",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:nano_banana:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_nano_banana:110:bmFuby1iYW5hbmEtcHJvOm9mZmljaWFs"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:seedance:create:seedance",
+      "display_name": "Seedance 2.0",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:seedance:140",
+        "product_id": 140,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "application_contract_ref": "app_api:seedance:create",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:seedance:140"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:wan:create:wan",
+      "display_name": "Wan 视频生成",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:wan:133",
+        "product_id": 133,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "wan",
+        "api_code": "create"
+      },
+      "application_contract_ref": "app_api:wan:create",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:wan:133"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:grok_video:submit:grok_video",
+      "display_name": "Grok 视频生成",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:grok_video:108",
+        "product_id": 108,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "grok_video",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:grok_video:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:grok_video:108"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:happy_horse:submit:happy_horse",
+      "display_name": "Happy Horse",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:happy_horse:105",
+        "product_id": 105,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "happy_horse",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:happy_horse:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:happy_horse:105"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    },
+    {
+      "id": "option:full_video:submit:full_video",
+      "display_name": "全能视频生成",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:full_video:103",
+        "product_id": 103,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "full_video",
+        "api_code": "submit"
+      },
+      "application_contract_ref": "app_api:full_video:submit",
+      "status": "waiting_authoritative_contract",
+      "existing_support": "partial_existing_support_not_zero_implementation",
+      "missing_fields": [
+        "variant_specific_sku_material_and_conditional_limits_with_version_binding"
+      ],
+      "source_refs": [
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:full_video:103"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B01",
+        "B02",
+        "C01"
+      ]
+    }
+  ],
+  "meter_skus": [
+    {
+      "id": "meter_sku:275:380",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:275",
+        "product_id": 275,
+        "resource_type": "model",
+        "model_code": "official-33-c0b38c6fcb29f739b0",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "sku_id": 380,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "megapixel",
+      "material_mode": "image_to_image",
+      "resolution": null,
+      "application_contract_ref": null,
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact original official model/native binding; do not bind to dashscope_compatible qwen-image-3.0 or qwen-image-3.0-pro",
+      "missing_fields": [
+        "trusted_size_mapping_or_per_sku_maximum_pixels_per_image_covering_all_allowed_requests",
+        "maximum_output_images_including_auto_size_or_auto_quantity_policy",
+        "complete_result_list_url_slot_and_failure_transfer_rules",
+        "server_measured_dimensions_and_exact_unit_size_rounding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_verified_pixels",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/0"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_image_model:275"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "matched",
+      "request_contract_work_remaining": "Recheck this exact original native binding at execution; baseline native contract already matched. The explicit retained blocker here is the authoritative pixel meter, not one of the 18 unrelated missing model contracts."
+    },
+    {
+      "id": "meter_sku:277:383",
+      "identity": {
+        "generation_type": "image",
+        "id": "market_image_model:277",
+        "product_id": 277,
+        "resource_type": "model",
+        "model_code": "official-33-f3baf6c03742072d3a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "sku_id": 383,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "megapixel",
+      "material_mode": "text_to_image",
+      "resolution": null,
+      "application_contract_ref": null,
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact original official model/native binding; do not bind to dashscope_compatible qwen-image-3.0 or qwen-image-3.0-pro",
+      "missing_fields": [
+        "trusted_size_mapping_or_per_sku_maximum_pixels_per_image_covering_all_allowed_requests",
+        "maximum_output_images_including_auto_size_or_auto_quantity_policy",
+        "complete_result_list_url_slot_and_failure_transfer_rules",
+        "server_measured_dimensions_and_exact_unit_size_rounding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_verified_pixels",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/1"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_image_model:277"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "matched",
+      "request_contract_work_remaining": "Recheck this exact original native binding at execution; baseline native contract already matched. The explicit retained blocker here is the authoritative pixel meter, not one of the 18 unrelated missing model contracts."
+    },
+    {
+      "id": "meter_sku:140:210",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:seedance:140",
+        "product_id": 140,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "sku_id": 210,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "token",
+      "material_mode": "with_video",
+      "resolution": "480p",
+      "application_contract_ref": "app_api:seedance:create",
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact seedance/create product140 contract and matching with_video/without_video variant",
+      "missing_fields": [
+        "trusted_per_sku_maximum_billable_tokens_or_complete_provable_upper_bound_formula",
+        "exact_usage_receipt_path_and_missing_or_excess_usage_policy",
+        "with_video_without_video_and_all_allowed_variant_coverage",
+        "exact_usage_unit_size_rounding_and_frozen_pricing_binding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_token_budget",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/2"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:seedance:140"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "unverified_app_adapter",
+      "request_contract_work_remaining": "Obtain or review the exact seedance/create application mode/variant contract independently of the Token meter."
+    },
+    {
+      "id": "meter_sku:140:211",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:seedance:140",
+        "product_id": 140,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "sku_id": 211,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "token",
+      "material_mode": "without_video",
+      "resolution": "480p",
+      "application_contract_ref": "app_api:seedance:create",
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact seedance/create product140 contract and matching with_video/without_video variant",
+      "missing_fields": [
+        "trusted_per_sku_maximum_billable_tokens_or_complete_provable_upper_bound_formula",
+        "exact_usage_receipt_path_and_missing_or_excess_usage_policy",
+        "with_video_without_video_and_all_allowed_variant_coverage",
+        "exact_usage_unit_size_rounding_and_frozen_pricing_binding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_token_budget",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/3"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:seedance:140"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "unverified_app_adapter",
+      "request_contract_work_remaining": "Obtain or review the exact seedance/create application mode/variant contract independently of the Token meter."
+    },
+    {
+      "id": "meter_sku:140:212",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:seedance:140",
+        "product_id": 140,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "sku_id": 212,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "token",
+      "material_mode": "with_video",
+      "resolution": "720p",
+      "application_contract_ref": "app_api:seedance:create",
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact seedance/create product140 contract and matching with_video/without_video variant",
+      "missing_fields": [
+        "trusted_per_sku_maximum_billable_tokens_or_complete_provable_upper_bound_formula",
+        "exact_usage_receipt_path_and_missing_or_excess_usage_policy",
+        "with_video_without_video_and_all_allowed_variant_coverage",
+        "exact_usage_unit_size_rounding_and_frozen_pricing_binding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_token_budget",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/4"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:seedance:140"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "unverified_app_adapter",
+      "request_contract_work_remaining": "Obtain or review the exact seedance/create application mode/variant contract independently of the Token meter."
+    },
+    {
+      "id": "meter_sku:140:213",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:seedance:140",
+        "product_id": 140,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "sku_id": 213,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "token",
+      "material_mode": "without_video",
+      "resolution": "720p",
+      "application_contract_ref": "app_api:seedance:create",
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact seedance/create product140 contract and matching with_video/without_video variant",
+      "missing_fields": [
+        "trusted_per_sku_maximum_billable_tokens_or_complete_provable_upper_bound_formula",
+        "exact_usage_receipt_path_and_missing_or_excess_usage_policy",
+        "with_video_without_video_and_all_allowed_variant_coverage",
+        "exact_usage_unit_size_rounding_and_frozen_pricing_binding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_token_budget",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/5"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:seedance:140"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "unverified_app_adapter",
+      "request_contract_work_remaining": "Obtain or review the exact seedance/create application mode/variant contract independently of the Token meter."
+    },
+    {
+      "id": "meter_sku:140:214",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:seedance:140",
+        "product_id": 140,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "sku_id": 214,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "token",
+      "material_mode": "with_video",
+      "resolution": "1080p",
+      "application_contract_ref": "app_api:seedance:create",
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact seedance/create product140 contract and matching with_video/without_video variant",
+      "missing_fields": [
+        "trusted_per_sku_maximum_billable_tokens_or_complete_provable_upper_bound_formula",
+        "exact_usage_receipt_path_and_missing_or_excess_usage_policy",
+        "with_video_without_video_and_all_allowed_variant_coverage",
+        "exact_usage_unit_size_rounding_and_frozen_pricing_binding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_token_budget",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/6"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:seedance:140"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "unverified_app_adapter",
+      "request_contract_work_remaining": "Obtain or review the exact seedance/create application mode/variant contract independently of the Token meter."
+    },
+    {
+      "id": "meter_sku:140:215",
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_app:seedance:140",
+        "product_id": 140,
+        "resource_type": "app_api",
+        "model_code": "",
+        "channel_code": "",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "sku_id": 215,
+      "status": "waiting_authoritative_contract",
+      "meter_basis": "token",
+      "material_mode": "without_video",
+      "resolution": "1080p",
+      "application_contract_ref": "app_api:seedance:create",
+      "model_contract_ref": null,
+      "request_contract_identity_requirement": "Exact seedance/create product140 contract and matching with_video/without_video variant",
+      "missing_fields": [
+        "trusted_per_sku_maximum_billable_tokens_or_complete_provable_upper_bound_formula",
+        "exact_usage_receipt_path_and_missing_or_excess_usage_policy",
+        "with_video_without_video_and_all_allowed_variant_coverage",
+        "exact_usage_unit_size_rounding_and_frozen_pricing_binding"
+      ],
+      "independent_and_gates": [
+        "exact_request_contract_and_resource_identity",
+        "authoritative_sku_meter_bound_and_receipt",
+        "matching_native_published_billing_binding_when_native_api_is_used",
+        "offline_boundary_and_frozen_history_regressions"
+      ],
+      "historical_source_payload_sha256": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "historical_meter_contract_present": false,
+      "historical_rejection_status": "blocked_missing_token_budget",
+      "last_upstream_observed_at": "2026-10-31T18:38:45+08:00",
+      "source_refs": [
+        {
+          "source_id": "batch50",
+          "json_pointer": "/current_blocked_skus/7"
+        },
+        {
+          "source_id": "baseline",
+          "resource_identity_id": "market_video_app:seedance:140"
+        }
+      ],
+      "subsequent_task_ids": [
+        "B02",
+        "C01",
+        "C04"
+      ],
+      "activation_authorized_by_register": false,
+      "historical_request_contract_observation": "unverified_app_adapter",
+      "request_contract_work_remaining": "Obtain or review the exact seedance/create application mode/variant contract independently of the Token meter."
+    }
+  ],
+  "relationship_rules": [
+    "A model key is resource_type + generation_type + exact model_code + exact channel_code; case and channel differences are significant.",
+    "The 14 opaque models and 17 paths are a subset of the 18 model records, not additional models.",
+    "The 13 historical application options point to exactly 6 API records; eight nano_banana variants share one API but retain independent variant/SKU restrictions.",
+    "Same public model names in nano_banana options and Google model resources do not authorize shared contracts or automatic links.",
+    "Official Qwen pixel resources275/277 use the historical official-33 identities recorded on their meter rows. They are not the two dashscope_compatible Qwen3 models in the 18-model list.",
+    "All six Seedance Token rows point to app_api:seedance:create product140. They are not six additional model identities.",
+    "Request contract, SKU meter contract and applicable native published billing binding are independent AND conditions; satisfying one does not grant another.",
+    "No price, maximum_quantity, maximum_pixels_per_image, maximum_images, provider asset ID or input mapping is invented in this register."
+  ],
+  "software_readiness": {
+    "model_review_tools": [
+      "tools/market/prepare-generation-contract-candidates.php",
+      "tools/market/compile-reviewed-generation-contracts.php"
+    ],
+    "model_reviewed_catalogue_default": "resources/market/reviewed-generation-contracts.json",
+    "default_reviewed_catalogue_in_checkout": "absent_at_read_only_inspection",
+    "runtime_environment_override_checked": false,
+    "request_contract_loading": "app/common/service/power/MarketGenerationReviewedContract.php",
+    "meter_version2_implementation": "app/common/service/power/MarketGenerationMeter.php",
+    "meter_version3_implementation": "app/common/service/power/MarketGenerationPixelMeter.php",
+    "existing_software_readiness_does_not_prove_real_contracts_or_live_generation": true
+  },
+  "review_findings": {
+    "new_authoritative_contract_artifacts_found": false,
+    "eligible_real_resource_unblocks_found": false,
+    "real_provider_or_market_operations_performed": false,
+    "runtime_or_database_checked": false,
+    "limitations": "Only repository sources and existing observations were read. Historical observations are not current live status.",
+    "cross_channel_dependency_error_avoided": true
+  },
+  "next_actions": {
+    "B01": "Receive and independently review exact versioned model/API materials. Follow the local-candidate path only for model entries; application declarations remain on their existing API-specific path.",
+    "B02": "Bind each authoritative SKU meter separately and run offline admission/reserve/settle/failure/duplicate/frozen-history checks before any separately authorized activation.",
+    "B03": "Use the runbook for read-only receipt/usage triage and authority matching; never estimate or mutate real ledgers in this task.",
+    "C01": "Real provider execution remains waiting for exact allowed operations, owned test account, budget and explicit execution window.",
+    "C02": "Physical device evidence requires actual devices and approved test endpoint; host wrappers/builds do not satisfy it.",
+    "C03": "Use owned disposable fault environments and precise injection points; do not touch daemon1667/live DB/host.",
+    "C04": "Owner deployment and actual version loading remain separate from source-only delivery."
+  }
+}

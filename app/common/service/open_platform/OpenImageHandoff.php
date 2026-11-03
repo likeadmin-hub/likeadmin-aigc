@@ -7,7 +7,20 @@ final class OpenImageHandoff
 {
     public static function callback(int $tenant,int $user,string $app,callable $attach,bool $multiple=false): ?callable
     {
-        $id=OpenCallContext::id();if($id==='')return null;
+        $id=OpenCallContext::id();
+        if($id==='') {
+            $key=\app\common\service\ai\GenerationSubmission::key();
+            if($key==='')return null;
+            return static function(AigcImageTask $image)use($tenant,$user,$app,$attach,$key,$multiple): void {
+                if(\app\common\service\ai\GenerationSubmission::key()!==$key||(int)$image['tenant_id']!==$tenant||(int)$image['user_id']!==$user)throw new \RuntimeException('图片任务归属不一致');
+                Db::transaction(static function()use($tenant,$user,$app,$attach,$image,$multiple){
+                    $parent=$attach($image);
+                    if(!is_object($parent)||$parent->getName()!==$app.'_task'||(int)$parent['tenant_id']!==$tenant||(int)$parent['user_id']!==$user||
+                        (!$multiple&&(int)$parent['image_task_id']!==(int)$image['id'])||
+                        ($multiple&&!in_array((int)$image['id'],(array)$parent['image_task_ids'],true)))throw new \RuntimeException('图片业务任务关联无效');
+                });
+            };
+        }
         return static function(AigcImageTask $image)use($tenant,$user,$app,$attach,$id,$multiple): void {
             if(OpenCallContext::id()!==$id||(int)$image['tenant_id']!==$tenant||(int)$image['user_id']!==$user)throw new OpenException('task_ownership_invalid','图片任务归属不一致',409);
             Db::transaction(static function()use($tenant,$user,$app,$attach,$id,$image,$multiple){

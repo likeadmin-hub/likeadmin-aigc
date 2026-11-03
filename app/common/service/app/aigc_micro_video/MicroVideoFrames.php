@@ -20,15 +20,15 @@ final class MicroVideoFrames
         MicroVideoService::available($tenant);$id=(int)($p['id']??0);$task=MicroVideoStore::owned($tenant,$user,$id);self::editable($task,$p);$mode=(string)($p['generation_mode']??'');if(!in_array($mode,['reference','start_end'],true))throw new InvalidArgumentException('生成方式无效');
         $c=MicroVideoSettings::get($tenant);$params=MicroVideoStore::json($task['params_json']);$model=MicroVideoStore::json($task['model_snapshot']);
         if(empty(MicroVideoStore::json($task['config_snapshot'])['frame_feature_version']))throw new InvalidArgumentException('历史作品保留原参考图生成方式');
-        $values=['generation_mode'=>$mode,'frame_status'=>$mode==='reference'?'off':'idle'];$definitions=[];
+        $values=['generation_mode'=>$mode,'frame_status'=>$mode==='reference'?'off':'idle'];$frameLimit=0;
         if($mode==='start_end'){
             if(empty($c['frames_enabled'])||empty($model['supports_first_last_frame'])||empty($model['start_end_specs']))throw new InvalidArgumentException('当前模型暂不支持首尾帧');
             $frameModel=(string)($p['frame_model_id']??$task['frame_model_id']?:$c['default_frame_model_id']);MicroVideoPolicy::allowedModel($frameModel,$c['frame_model_ids']);$m=MicroVideoFrameCatalog::model($tenant,$frameModel);
             $quality=(string)($p['frame_quality']??$task['frame_quality']?:$c['default_frame_quality']);MicroVideoFrameCatalog::selection($m,$quality,$params['ratio']);
-            $definitions=MicroVideoFramePolicy::definitions($task,MicroVideoStore::segments($id),(int)$m['max_reference_images']);$values+=['frame_model_id'=>$frameModel,'frame_quality'=>$quality];
+            $frameLimit=(int)$m['max_reference_images'];$values+=['frame_model_id'=>$frameModel,'frame_quality'=>$quality];
         }
-        Db::transaction(function()use($tenant,$user,$id,$p,$values,$definitions){$task=MicroVideoStore::owned($tenant,$user,$id,true);self::editable($task,$p);$rows=self::rows($id);$changed=$task['generation_mode']!==$values['generation_mode']||($values['generation_mode']==='start_end'&&($task['frame_model_id']!==$values['frame_model_id']||$task['frame_quality']!==$values['frame_quality']));if(!$changed&&$rows)return;
-            if($values['generation_mode']==='start_end'){if(!$rows)foreach($definitions as $d)self::insert($task,$d,1);elseif($task['frame_model_id']!==$values['frame_model_id']||$task['frame_quality']!==$values['frame_quality'])self::invalidate($task,0,$definitions);self::bind($id);}
+        Db::transaction(function()use($tenant,$user,$id,$p,$values,$frameLimit){$task=MicroVideoStore::owned($tenant,$user,$id,true);self::editable($task,$p);$rows=self::rows($id);$changed=$task['generation_mode']!==$values['generation_mode']||($values['generation_mode']==='start_end'&&($task['frame_model_id']!==$values['frame_model_id']||$task['frame_quality']!==$values['frame_quality']));if(!$changed&&$rows)return;
+            if($values['generation_mode']==='start_end'){$definitions=MicroVideoFramePolicy::configurationDefinitions($task,MicroVideoStore::segments($id),$rows,$frameLimit);if(!$rows)foreach($definitions as $d)self::insert($task,$d,1);elseif($task['frame_model_id']!==$values['frame_model_id']||$task['frame_quality']!==$values['frame_quality'])self::invalidate($task,0,$definitions);self::bind($id);}
             if($changed)MicroVideoStore::table('frame')->where(['task_id'=>$id,'is_latest'=>1])->update(['confirmed'=>0,'update_time'=>time()]);
             self::bump($task,$values);
         });return MicroVideoService::detail($tenant,$user,$id);

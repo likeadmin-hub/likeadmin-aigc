@@ -10,6 +10,7 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppSalePriceService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_image\ImageAppTaskSync;
 use app\common\service\FileService;
 use app\common\service\membership\MembershipService;
 use app\common\service\point\PointService;
@@ -258,14 +259,14 @@ class AigcFittingService
         if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::complete($tenantId, $userId);
         $task = self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate, $imageTaskIds);
         self::syncTaskFromImageTask($task);
-        return [
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated([
             'task_id' => (int)$task['id'],
             'image_task_id' => $imageTaskId,
             'image_task_ids' => $imageTaskIds,
             'status' => (string)($task['status'] ?: 'running'),
             'results' => $imageResults,
             'estimate' => $estimate,
-        ];
+        ],'image',$imageTaskIds,$tenantId,$userId);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
@@ -309,7 +310,7 @@ class AigcFittingService
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::appendTaskResults($tenantId, $userId, $rows);
         return [
-            'lists' => array_map([self::class, 'formatTaskRow'], $rows),
+            'lists' => \app\common\service\ai\GenerationTaskResultService::appendRelatedList(array_map([self::class, 'formatTaskRow'], $rows),'image'),
             'count' => $count,
             'page_no' => $pageNo,
             'page_size' => $pageSize,
@@ -328,7 +329,7 @@ class AigcFittingService
             throw new Exception('任务不存在');
         }
         $rows = self::appendTaskResults($tenantId, $userId, [$task->toArray()]);
-        return self::formatTaskRow($rows[0] ?? []);
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated(self::formatTaskRow($rows[0] ?? []),'image',self::taskImageIds($task->toArray()),(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
@@ -676,11 +677,10 @@ class AigcFittingService
         $errors = array_values(array_filter(array_map(static fn($row) => trim((string)($row['error'] ?? '')), $imageTasks)));
         if ($interrupted) $errors[] = '批次提交中断，仅保留已受理的 ' . count($imageTaskIds) . '/' . $expectedCount . ' 张任务';
         $task->error = implode('；', array_unique($errors));
-        $task->finish_time = in_array((string)$task->status, ['success', 'partial_success', 'failed', 'canceled'], true) ? max($finishTimes ?: [time()]) : 0;
+        $task->finish_time = ImageAppTaskSync::finishTime($task, $finishTimes, ['success', 'partial_success', 'failed', 'canceled']);
         $task->tenant_cost_points = number_format(array_sum(array_map(static fn($row) => (float)($row['tenant_cost_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->user_charge_points = number_format(array_sum(array_map(static fn($row) => (float)($row['user_charge_points'] ?? 0), $imageTasks)), 2, '.', '');
-        $task->update_time = time();
-        $task->save();
+        ImageAppTaskSync::saveChangedFacts($task);
     }
 
     private static function refreshMappedTasks(int $tenantId, int $userId = 0, int $taskId = 0): void

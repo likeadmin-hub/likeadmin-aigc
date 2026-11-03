@@ -9,7 +9,9 @@ final class Q4VideoContract
     public const OPTIONS = ['is_rec','audio','seed','watermark','wm_position','wm_url','payload','meta_data','callback_url'];
     public static function matches(array $model): bool
     {
-        return strtolower((string)($model['upstream_model_code'] ?? $model['model_code'] ?? '')) === 'q4-preview-video';
+        if (($model['resource_type'] ?? '') === 'app_api') return false;
+        try { return MarketGenerationAdapterRegistry::modelProtocol('video', $model) === 'q4_video_v1'; }
+        catch (InvalidArgumentException) { return false; } // Admission rejects unknown declarations; catalogue classification remains isolated.
     }
     public static function metadata(array $model, array $meta): array
     {
@@ -80,7 +82,7 @@ final class Q4VideoContract
         $request['duration']=$duration?:5; self::validate($request,$assets);
         $resolution=['540p'=>'540p','720p'=>'720p','1080p'=>'1080p','2k'=>'2K','4k'=>'4K'][strtolower($quality?:'720p')]??'';
         if($resolution==='')throw new InvalidArgumentException('Q4 不支持所选分辨率');
-        $out=array_merge($context,self::options($request),['model'=>'q4-preview-video','images'=>array_values($assets['image']),'prompt'=>(string)($request['prompt']??''),'duration'=>$request['duration'],'resolution'=>$resolution,'idempotency_key'=>$idempotency]);
+        $out=array_merge($context,self::options($request),['model'=>(string)($snapshot['model_code']??'q4-preview-video'),'images'=>array_values($assets['image']),'prompt'=>(string)($request['prompt']??''),'duration'=>$request['duration'],'resolution'=>$resolution,'idempotency_key'=>$idempotency]);
         if(!empty($snapshot['channel_code']))$out['channel']=$snapshot['channel_code'];
         if(strlen(json_encode($out,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))>=20*1024*1024)throw new InvalidArgumentException('Q4 请求体必须小于 20 MB，请使用图片 URL');
         return $out;

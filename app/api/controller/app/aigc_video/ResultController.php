@@ -13,7 +13,8 @@ class ResultController extends BaseApiController
             (int)$this->request->tenantId,
             $this->userId,
             0,
-            (string)$this->request->get('status', '')
+            (string)$this->request->get('status', ''),
+            $this->request->get('creation_scope', 'own') !== 'all'
         ));
     }
 

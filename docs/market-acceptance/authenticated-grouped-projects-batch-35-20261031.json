@@ -1,0 +1,93 @@
+{
+  "batch": 35,
+  "date": "2026-10-31",
+  "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6",
+  "source_server_commit": "4ad894afc9d87689ee342505b4fc8a05531e78a0",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "scope": "New isolated synthetic projects via existing authenticated HTTP UI. Ordinary canvas uses supported synthetic clipboard import; short-drama authored from blank using existing owned synthetic gallery media. Explicit target-canvas local asset registration only, never provider assets. Original projects untouched. Save/read/reopen with visible local blocking and explicit group repair.",
+  "local_reuse_registration": "One current-canvas local asset identity, reused by independent semantic slots; source file and original asset unchanged.",
+  "original_app_parent_rows": 10,
+  "original_core_image_rows": 80,
+  "original_rows_equal_batch34": true,
+  "short_final_clean_console": true,
+  "cases": [
+    {
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "authenticated_http_repaired_project_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 855,
+      "nodes": 1,
+      "edges": 0,
+      "group_rows": 1,
+      "reference_uses": 2,
+      "run_rows": 0,
+      "saved_nodes_sha256": "6ab6d854b5f5b3bda957d0bbdfd48632e5685ebf77d9fac1a2691495ca0d51b1",
+      "page_quote_points": 1330,
+      "selected_controls": {
+        "resolution": "4K",
+        "sound": true,
+        "duration": 5,
+        "ratio": "16:9"
+      },
+      "scope": "Real existing logged-in HTTP UI and owned SQL readback. Page quote observed; no HTTP request DTO/SKU captured or inferred."
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "canvas",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "authenticated_http_ambiguity_saved_reopened",
+      "status": "expected_local_rejection",
+      "saved_nodes_sha256": "b0d78883bb9273a1b3b512568ba432b974857f74e7a34572b87479d87fdd2ddb",
+      "reference_uses": 2,
+      "conflict_retained": true,
+      "run_rows": 0,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Expected local block. No new SKU inferred. Short-drama final preview error is visible without scheduling a quote or throwing its watcher."
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "authenticated_http_repaired_project_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 495,
+      "nodes": 1,
+      "edges": 0,
+      "group_rows": 1,
+      "reference_uses": 1,
+      "run_rows": 0,
+      "saved_nodes_sha256": "f1f708738d8b9389ae9a9934576d66bd67950af7962f4d4a7527dab402fd1127",
+      "page_quote_points": 1330,
+      "selected_controls": {
+        "resolution": "4K",
+        "sound": true,
+        "duration": 5,
+        "ratio": "16:9"
+      },
+      "scope": "Real existing logged-in HTTP UI and owned SQL readback. Page quote observed; no HTTP request DTO/SKU captured or inferred."
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "short_drama",
+      "requested_method": "text_to_video",
+      "material_mode": ":text",
+      "scenario": "authenticated_http_ambiguity_saved_reopened",
+      "status": "expected_local_rejection",
+      "saved_nodes_sha256": "11fc770a1436225aaadbc4cb33e58f7f2a7f0d82985d32254c076e87cebdd15c",
+      "reference_uses": 1,
+      "conflict_retained": true,
+      "run_rows": 0,
+      "message": "同一素材有多个分组用途，请重新选择分组中的素材或恢复默认设置",
+      "scope": "Expected local block. No new SKU inferred. Short-drama final preview error is visible without scheduling a quote or throwing its watcher."
+    }
+  ]
+}

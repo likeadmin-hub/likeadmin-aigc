@@ -71,7 +71,12 @@ final class AgentDocumentReader
             $text = @file_get_contents($path, false, null, 0, self::MAX_BYTES + 1);
             if (!is_string($text) || strlen($text) > self::MAX_BYTES) throw new \InvalidArgumentException('文档读取失败或超过大小限制');
             $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($text);
-            if (!in_array($mime, ['text/plain','text/csv','text/markdown','text/x-markdown','application/csv','application/octet-stream'], true)) throw new \InvalidArgumentException('文件不是可读取的纯文本文档');
+            // libmagic can treat an initial Chinese UTF-8 byte E9 as a DOS
+            // jump opcode. Accept this false positive only for strict UTF-8
+            // beginning with a non-ASCII character and no binary controls.
+            $unicodeText=$mime==='application/x-dosexec' && ord($text[0])>=0x80
+                && mb_check_encoding($text,'UTF-8') && !preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/',$text);
+            if (!$unicodeText && !in_array($mime, ['text/plain','text/csv','text/markdown','text/x-markdown','application/csv','application/octet-stream'], true)) throw new \InvalidArgumentException('文件不是可读取的纯文本文档');
             if (str_starts_with($text, "\xFF\xFE")) $text = mb_convert_encoding(substr($text, 2), 'UTF-8', 'UTF-16LE');
             elseif (str_starts_with($text, "\xFE\xFF")) $text = mb_convert_encoding(substr($text, 2), 'UTF-8', 'UTF-16BE');
             elseif (!mb_check_encoding($text, 'UTF-8')) {

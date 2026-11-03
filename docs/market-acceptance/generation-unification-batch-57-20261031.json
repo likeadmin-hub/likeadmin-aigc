@@ -1,0 +1,213 @@
+{
+  "batch": 57,
+  "date": "2026-10-31",
+  "scope": "Shared runtime and version 1 task results; authenticated isolated HTTP with loopback supplier replacement. No real supplier generation/query, no production charges, no all-model completion claim.",
+  "source_server_commit": "cb6dd967e7e9aa6dd677259a9e80549a1be59489",
+  "source_web_commit": "e0638409d1f8345909bfa145b8be2c79bdb7d2f7",
+  "http_fixture": {
+    "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+    "external_generation_calls": 0,
+    "production_wallet_writes": 0,
+    "normal_password_login": true,
+    "accepted_task_ref": "app_task:1",
+    "authenticated_submission": true,
+    "worker_completed_without_browser_poll": true,
+    "managed_result_checksum": true,
+    "stale_autosave_preserved_result_and_user_edit": true,
+    "logout_login_reopen": true,
+    "local_supplier_submissions": 1,
+    "tasks": 1,
+    "consumptions": 1,
+    "result_assets": 1,
+    "billing_events": [
+      "reserve",
+      "submit",
+      "job_enqueued",
+      "settle",
+      "worker_claim",
+      "job_run",
+      "query_start",
+      "job_enqueued",
+      "job_woken",
+      "query_finish",
+      "job_enqueued",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_woken",
+      "job_success",
+      "worker_claim",
+      "job_run",
+      "job_success"
+    ],
+    "fixture_user_balance": 99,
+    "fixture_tenant_balance": 99,
+    "short_drama": {
+      "http_quote_confirm_submit": true,
+      "same_key_replay_no_second_submit_or_charge": true,
+      "frozen_catalogue_change_survived": true,
+      "worker_result_and_normal_login_reopen": true,
+      "task_ref": "app_task:2"
+    },
+    "http_foreign_owner_reads_rejected": 3,
+    "total_local_supplier_submissions": 6,
+    "total_reserve_events": 6,
+    "total_settle_events": 6,
+    "total_fixture_user_balance": 88,
+    "total_fixture_tenant_balance": 94,
+    "image_http": {
+      "native_managed_result_checksum": true,
+      "single_application_parent_and_child_success": true,
+      "suite_first_child_does_not_finish_parent": true,
+      "suite_two_children_two_results": true,
+      "native_price": 1,
+      "application_retail_price_per_child": 3,
+      "fixture_user_delta": 10,
+      "fixture_tenant_delta": 4
+    },
+    "unfinished_jobs_completed_on_restart": 0,
+    "worker_restart_preserved_completed_rows": true,
+    "total_tasks": 6,
+    "total_result_assets": 6,
+    "private_tables_and_files_removed": true
+  },
+  "browser_projects": [
+    {
+      "entry": "canvas",
+      "project_id": 1343,
+      "node_count": 1,
+      "generation_runs": 0,
+      "model": "Kling 3.0 Omni",
+      "visible_mode": "text_to_video",
+      "visible_quality": "4K",
+      "visible_duration": 5,
+      "visible_ratio": "16:9",
+      "visible_audio_default": false,
+      "optional_subject_and_role_id_visible": false,
+      "same_nodes": true,
+      "same_edges": true,
+      "same_viewport": true,
+      "status": "http_graph_state_preserved",
+      "market_product_id": 355,
+      "market_sku_id": 783,
+      "tenant_id": 1,
+      "model_type": "video",
+      "resource_type": "model",
+      "generation_method": "text_to_video",
+      "channel": "market_video_model:355",
+      "material_mode": "text_to_video",
+      "scenario": "http_save_close_reopen_config_only_no_generation",
+      "controls": {
+        "generation_method": "text_to_video",
+        "quality": "4k",
+        "duration": 5,
+        "ratio": "16:9",
+        "generate_audio": false
+      },
+      "sku_id": 783,
+      "scope": "Configuration persistence and visible controls only; no generation, lifecycle or whole-entry acceptance"
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 554,
+      "node_count": 1,
+      "generation_runs": 0,
+      "model": "Kling 3.0 Omni",
+      "visible_mode": "text_to_video",
+      "visible_quality": "4K",
+      "visible_duration": 5,
+      "visible_ratio": "16:9",
+      "visible_audio_default": false,
+      "optional_subject_and_role_id_visible": false,
+      "same_nodes": true,
+      "same_edges": true,
+      "same_viewport": true,
+      "status": "http_graph_state_preserved",
+      "market_product_id": 355,
+      "sku_identity_captured": false,
+      "tenant_id": 1,
+      "model_type": "video",
+      "resource_type": "model",
+      "generation_method": "text_to_video",
+      "channel": "market_video_model:355",
+      "material_mode": "text_to_video",
+      "scenario": "http_save_close_reopen_config_only_no_generation",
+      "controls": {
+        "generation_method": "text_to_video",
+        "quality": "4k",
+        "duration": 5,
+        "ratio": "16:9",
+        "generate_audio": false
+      },
+      "scope": "Configuration persistence and visible controls only; no generation, lifecycle or whole-entry acceptance"
+    }
+  ],
+  "concurrent_user_edit": "User confirmed manually operating project 1343; after control was returned, final before/after snapshots were recaptured. No automated model drift finding.",
+  "production_user_balance_before_and_after": 4372.96,
+  "legacy_data_parity": {
+    "video": true,
+    "image": true,
+    "app": true,
+    "frozen": true,
+    "price": true,
+    "meter": true
+  },
+  "validation": {
+    "phpunit": {
+      "tests": 1033,
+      "assertions": 7685,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "excluded_packaging_check": "WatermarkRemovalAppContractTest::testFrontendRuntimeAssetsArePackagedAndLoadedByBothShells; local preserved compiled hashes are stale and outside source-only delivery"
+    },
+    "frontend_tests": 274,
+    "frontend_failures": 0,
+    "vue_sfc_compile": 24,
+    "shared_typescript_strict": true,
+    "changed_php_lint": 40,
+    "music_market_workflow": "complete rollback; transport and audio persistence replaced",
+    "native_pricing_workflow": "complete rollback; no transport"
+  },
+  "retained_blockers": {
+    "full_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17,
+    "application_options": 13,
+    "qwen_pixel_product_ids": [
+      275,
+      277
+    ],
+    "qwen_pixel_sku_ids": [
+      380,
+      383
+    ],
+    "seedance_token_product_id": 140,
+    "seedance_token_sku_ids": [
+      210,
+      211,
+      212,
+      213,
+      214,
+      215
+    ]
+  },
+  "not_verified": [
+    "real paid supplier HTTP generation",
+    "all tools/models/modes/SKUs",
+    "all specialized voice/music/dedicated-provider operations",
+    "mixed-version persistent workers",
+    "pending-job restart in the final fixture (pending count was zero); only idle terminal stability is claimed here"
+  ],
+  "source_only": true,
+  "runtime_preserved": {
+    "server_public_flags": 3971,
+    "web_local_flags": 3,
+    "existing_worker_restarted": false
+  },
+  "browser_screenshots": [
+    "/Users/panda/.codex/visualizations/2026/10/30/01a18c5a-529f-7781-97be-a101d579cb0b/unification/creation-options.jpg",
+    "/Users/panda/.codex/visualizations/2026/10/30/01a18c5a-529f-7781-97be-a101d579cb0b/unification/canvas-http-reopened.jpg",
+    "/Users/panda/.codex/visualizations/2026/10/30/01a18c5a-529f-7781-97be-a101d579cb0b/unification/short-drama-http-reopened.jpg"
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "batch": 31,
+  "date": "2026-10-31",
+  "source_web_commit": "bde7402a880e6b859a52539f5d4a30c522f0ea31",
+  "source_server_commit": "a411b23fe545720d72676cc1102bacd97cce9651",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "scope": "Persisted terminal task reconstruction using its frozen pricing declaration in an enforced read-only SQL transaction. No quote/admission, retry, reserve, old transport DTO capture, supplier execution or actual current-catalogue mutation.",
+  "cases": [
+    {
+      "channel": "market_video_model:98",
+      "sku_id": 119,
+      "entry": "pc_create",
+      "requested_method": "start_end",
+      "scenario": "persisted_terminal_task_business_input_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "controls": {
+        "ratio": "9:16",
+        "resolution": "768P",
+        "duration": 5
+      },
+      "native_slots": {
+        "image": 2,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "85b55d4da05c6e0e3590b33a3d7ab5fceda19340524aa4a95e6ef48313992449",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "snapshot_has_metadata": false,
+      "default_sensitivity": null,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "task_unchanged_during_read_only_replay": true
+    },
+    {
+      "channel": "market_video_model:94",
+      "sku_id": 104,
+      "entry": "pc_create",
+      "requested_method": "omni_reference",
+      "scenario": "persisted_terminal_task_business_input_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "controls": [],
+      "native_slots": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "native_hash": "5be6a65964ed2012545f8af79aa485d8f1d79ddd8122465e535f58f852244ea0",
+      "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "snapshot_has_metadata": false,
+      "default_sensitivity": null,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "task_unchanged_during_read_only_replay": true
+    },
+    {
+      "channel": "market_video_model:357",
+      "sku_id": 808,
+      "entry": "pc_create",
+      "requested_method": "image_to_video",
+      "scenario": "persisted_terminal_task_business_input_frozen_json_reopen",
+      "status": "frozen_history_replay_equal",
+      "controls": {
+        "resolution": "480P",
+        "aspect_ratio": "adaptive",
+        "duration": 3,
+        "audio": true
+      },
+      "native_slots": {
+        "image": 1,
+        "video": 0,
+        "audio": 0
+      },
+      "native_hash": "9a6dc32f1f06e3c3e696bda4513e6c34439f71f9410ba42a7176d836e058fc61",
+      "meter_hash": "e6f26db8063021722155e687a935899084cb252b79395ed3a2e3e4fba5a957f9",
+      "snapshot_has_metadata": true,
+      "default_sensitivity": {
+        "frozen_audio": true,
+        "changed_copy_audio": false,
+        "frozen_snapshot_unchanged": true
+      },
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "task_unchanged_during_read_only_replay": true
+    }
+  ],
+  "limitations": [
+    "The two older snapshots contain no market_metadata or billing_meter; JSON replay equality does not certify a full native contract or modern metering.",
+    "The default sensitivity check changes only an in-memory declaration copy for product357/SKU808; no production catalogue or price is changed.",
+    "Native hashes are comparisons of the current local reconstruction, not hashes of historical supplier wire requests."
+  ],
+  "direct_original_task_mutations": false,
+  "initial_http_automatic_terminal_updates_observed": true
+}

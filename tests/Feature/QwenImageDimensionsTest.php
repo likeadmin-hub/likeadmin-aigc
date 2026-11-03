@@ -107,7 +107,7 @@ class QwenImageDimensionsTest extends TestCase
 
     public function testShortDramaForwardsOnlyQwenDimensionOverrides(): void
     {
-        $method = new ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'withQwenImageDimensions');
+        $method = new ReflectionMethod(Images::class, 'withDimensionSelection');
         $method->setAccessible(true);
         $base = ['prompt' => 'fixture', 'ratio' => '16:9', 'quality' => '1k'];
         $request = ['params' => ['size' => '1024*1024', 'resolution' => '1k'],

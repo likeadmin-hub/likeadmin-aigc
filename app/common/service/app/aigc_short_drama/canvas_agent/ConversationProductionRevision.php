@@ -38,6 +38,7 @@ final class ConversationProductionRevision
     {
         if (empty($base['task_id']) || empty($base['stamp']) || mb_strlen($message)>2000) throw new RuntimeException('WORKFLOW_REVISION_UNAVAILABLE');
         $state['revision_request']=['stage'=>$stage,'content'=>$message,'base'=>$base,'return_stage'=>$state['stage_state'],
+            'return_plan'=>$state['stage_plan'] ?? [],'return_image_plan'=>$state['image_plan'] ?? [],'return_plan_hash'=>$state['plan_hash'] ?? '',
             'mode'=>'replace','artifact_memory'=>$state['artifact_memory']];
         $state['stage_state']=['key'=>$stage,'status'=>'ready','completed'=>$state['stage_state']['completed']??[]];
         $state['stage_plan']=[];$state['image_plan']=[];$state['plan_hash']='';
@@ -67,8 +68,7 @@ final class ConversationProductionRevision
         // A local edit must resolve to stable IDs. Never turn an ambiguous edit into a whole rewrite.
         if ($revision['stage']==='episode') {
             $target=ShortDramaRevisionScope::shotTarget($revision['content'],$plan);
-            $rewrite=preg_match('/(?:重写|重做|重新创作|整体修改).{0,8}(?:本集|整集|剧本)|(?:本集|整集|剧本).{0,8}(?:重写|重做)/u',$revision['content']);
-            if (!$target && !$rewrite) throw new RuntimeException('WORKFLOW_REVISION_TARGET_REQUIRED');
+            // Natural multi-object edits are planned and accepted by the shared revision engine.
             $revision['target']=$target;
         }
         $binding=AigcShortDramaService::message($tenant,$user,['project_id'=>(int)$source['project_id'],'task_id'=>$source['task_id'],
@@ -91,5 +91,25 @@ final class ConversationProductionRevision
         $key=$revision['stage']==='episode'?'episode_'.ConversationSeries::episode($state):$revision['stage'];
         $state['series']['task_history'][$key][]=$state['series']['tasks'][$key];
         $state['series']['tasks'][$key]=$binding;
+    }
+
+    /** Preserve the old graph/confirmation card when the editor only answers or asks a question. */
+    public static function dialogueState(array $state,array $task,string $text,int $run): ?array
+    {
+        $revision=$state['revision_request'] ?? [];
+        if (($revision['binding']['task_id'] ?? '')!==($task['task_id'] ?? '') || (int)($revision['binding']['run_id'] ?? 0)!==$run || ($task['status'] ?? '')!=='success') return null;
+        $result=json_decode((string)$task['result_json'],true) ?: [];
+        $reply=$result['revision_response'] ?? [];
+        if (!in_array($reply['action'] ?? '',['answer','clarify'],true) || ($reply['edited'] ?? true)!==false || ($reply['message'] ?? '')!==$text) return null;
+        $key=$revision['stage']==='episode'?'episode_'.ConversationSeries::episode($state):$revision['stage'];
+        $state['series']['tasks'][$key]=$revision['binding'];
+        $state['stage_state']=$revision['return_stage'];
+        $state['stage_plan']=$revision['return_plan'] ?? [];
+        $state['image_plan']=$revision['return_image_plan'] ?? [];
+        $state['plan_hash']=$revision['return_plan_hash'] ?? '';
+        $state['artifact_memory']=$revision['artifact_memory'];
+        unset($state['revision_request']);
+        $state['state_revision']++;
+        return $state;
     }
 }

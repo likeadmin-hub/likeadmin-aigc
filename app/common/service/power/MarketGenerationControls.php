@@ -41,7 +41,8 @@ final class MarketGenerationControls
         if ($type === 'text' && (int)($model['max_output_tokens'] ?? 0) > 0) {
             $properties['max_tokens'] = ['type' => 'integer', 'minimum' => 1, 'maximum' => (int)$model['max_output_tokens']];
         }
-        $definitions = [];
+        $appModel = $type === 'video' ? MarketGenerationApplicationProtocol::seedanceModelControl($model) : null;
+        $definitions = $appModel === null ? [] : [$appModel];
         foreach (['' => $properties, 'parameters.' => self::children($properties['parameters'] ?? []), 'input.' => self::children($properties['input'] ?? []), 'metadata.' => self::children($properties['metadata'] ?? [])] as $prefix => $fields) {
             foreach ($fields as $key => $definition) {
                 if (!isset(self::FIELDS[$key]) || !is_array($definition)) continue;

@@ -1,7 +1,7 @@
 {
   "code": "aigc_copywriting",
   "name": "智能文案",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "require_core": ">=1.0.0",
   "description": "内置12项文案工具，支持租户DIY和用户自选模型流式生成。",
   "category": "system",
@@ -55,5 +55,5 @@
       }
     }
   ],
-  "changelog": "1. 新增智能文案与12项默认功能。\n2. 支持页面样式DIY和实时生成。"
+  "changelog": "1. 更新12类文案创作的内置封面。\n2. 支持租户自行替换封面，并保留已有自定义配置。\n3. 支持删除智能文案历史作品。"
 }

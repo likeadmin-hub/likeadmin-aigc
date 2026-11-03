@@ -136,5 +136,17 @@
     "name": "智能文案草稿预览",
     "api_path": "app.aigc_copywriting.page/previewToken",
     "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_copywriting:config:detail:tenant_admin",
+    "name": "查看基础配置",
+    "api_path": "app.aigc_copywriting.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_copywriting:config:setup:tenant_admin",
+    "name": "保存基础配置",
+    "api_path": "app.aigc_copywriting.config/setup",
+    "api_method": "POST"
   }
 ]

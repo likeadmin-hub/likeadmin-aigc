@@ -1,0 +1,391 @@
+{
+  "batch": 32,
+  "date": "2026-10-31",
+  "source_web_commit": "0d4316ea4b0372f60fdc9e88cd06668abfb03a7e",
+  "source_server_commit": "46c3a959a61658c4f41454f1bf892cc004b390ce",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "direct_task_writes": false,
+  "scope": "Isolated browser shell using actual production shared SFCs and payload helpers, synthetic two-group declaration, HTTP DTO to enforced read-only real PHP native/frozen preparation. No normal app backend authentication/DTO certification, supplier execution, real model/SKU coverage or billing lifecycle.",
+  "cases": [
+    {
+      "entry": "pc_create",
+      "scenario": "complete_groups",
+      "status": "frozen_history_replay_equal",
+      "result": {
+        "status": "frozen_history_replay_equal",
+        "frozen_equal": true,
+        "native_hash": "769183fa742badfc62b903bf53a7741b7e3fbc7a0a6b2f07273b9b5d77b57f85"
+      },
+      "uses": [
+        {
+          "type": "image",
+          "field": "group_a",
+          "slot": "group_a:image"
+        },
+        {
+          "type": "video",
+          "field": "group_a",
+          "slot": "group_a:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_a",
+          "slot": "group_a:audio"
+        },
+        {
+          "type": "image",
+          "field": "group_b",
+          "slot": "group_b:image"
+        },
+        {
+          "type": "video",
+          "field": "group_b",
+          "slot": "group_b:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_b",
+          "slot": "group_b:audio"
+        }
+      ],
+      "group_state": {
+        "group_a": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ],
+        "group_b": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ]
+      }
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "edit_one_group_retains_other_uses",
+      "status": "frozen_history_replay_equal",
+      "result": {
+        "status": "frozen_history_replay_equal",
+        "frozen_equal": true,
+        "native_hash": "99521ec78aa9cd88af4dae0693cd3fc36c101eea405afe2226c337f0a27032d5"
+      },
+      "uses": [
+        {
+          "type": "image",
+          "field": "group_a",
+          "slot": "group_a:image"
+        },
+        {
+          "type": "video",
+          "field": "group_a",
+          "slot": "group_a:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_a",
+          "slot": "group_a:audio"
+        },
+        {
+          "type": "image",
+          "field": "group_b",
+          "slot": "group_b:image"
+        },
+        {
+          "type": "video",
+          "field": "group_b",
+          "slot": "group_b:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_b",
+          "slot": "group_b:audio"
+        }
+      ],
+      "group_state": {
+        "group_a": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ],
+        "group_b": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ]
+      }
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "missing_required_audio",
+      "status": "expected_contract_rejection",
+      "result": {
+        "status": "expected_contract_rejection",
+        "message": "请填写必填参数：group_a[0].audio_url"
+      },
+      "uses": [
+        {
+          "type": "image",
+          "field": "group_a",
+          "slot": "group_a:image"
+        },
+        {
+          "type": "video",
+          "field": "group_a",
+          "slot": "group_a:video"
+        },
+        {
+          "type": "image",
+          "field": "group_b",
+          "slot": "group_b:image"
+        },
+        {
+          "type": "video",
+          "field": "group_b",
+          "slot": "group_b:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_b",
+          "slot": "group_b:audio"
+        }
+      ],
+      "group_state": {
+        "group_a": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": false,
+            "enabled": false,
+            "start_time": 0
+          }
+        ],
+        "group_b": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ]
+      }
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "missing_required_group",
+      "status": "expected_contract_rejection",
+      "result": {
+        "status": "expected_contract_rejection",
+        "message": "素材数量不符合当前方式要求：group_a"
+      },
+      "uses": [
+        {
+          "type": "image",
+          "slot": "group_a:image"
+        },
+        {
+          "type": "video",
+          "slot": "group_a:video"
+        },
+        {
+          "type": "audio",
+          "slot": "group_a:audio"
+        },
+        {
+          "type": "image",
+          "field": "group_b",
+          "slot": "group_b:image"
+        },
+        {
+          "type": "video",
+          "field": "group_b",
+          "slot": "group_b:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_b",
+          "slot": "group_b:audio"
+        }
+      ],
+      "group_state": {
+        "group_b": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ]
+      }
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "missing_required_name",
+      "status": "expected_contract_rejection",
+      "result": {
+        "status": "expected_contract_rejection",
+        "message": "请填写必填参数：group_a[0].name"
+      },
+      "uses": [
+        {
+          "type": "image",
+          "field": "group_a",
+          "slot": "group_a:image"
+        },
+        {
+          "type": "video",
+          "field": "group_a",
+          "slot": "group_a:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_a",
+          "slot": "group_a:audio"
+        },
+        {
+          "type": "image",
+          "field": "group_b",
+          "slot": "group_b:image"
+        },
+        {
+          "type": "video",
+          "field": "group_b",
+          "slot": "group_b:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_b",
+          "slot": "group_b:audio"
+        }
+      ],
+      "group_state": {
+        "group_a": [
+          {
+            "name_present": false,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ],
+        "group_b": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ]
+      }
+    },
+    {
+      "entry": "pc_create",
+      "scenario": "json_reopen_restores_all_groups",
+      "status": "frozen_history_replay_equal",
+      "result": {
+        "status": "frozen_history_replay_equal",
+        "frozen_equal": true,
+        "native_hash": "769183fa742badfc62b903bf53a7741b7e3fbc7a0a6b2f07273b9b5d77b57f85"
+      },
+      "uses": [
+        {
+          "type": "image",
+          "field": "group_a",
+          "slot": "group_a:image"
+        },
+        {
+          "type": "video",
+          "field": "group_a",
+          "slot": "group_a:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_a",
+          "slot": "group_a:audio"
+        },
+        {
+          "type": "image",
+          "field": "group_b",
+          "slot": "group_b:image"
+        },
+        {
+          "type": "video",
+          "field": "group_b",
+          "slot": "group_b:video"
+        },
+        {
+          "type": "audio",
+          "field": "group_b",
+          "slot": "group_b:audio"
+        }
+      ],
+      "group_state": {
+        "group_a": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ],
+        "group_b": [
+          {
+            "name_present": true,
+            "image_count": 1,
+            "video_present": true,
+            "audio_present": true,
+            "enabled": false,
+            "start_time": 0
+          }
+        ]
+      }
+    }
+  ],
+  "baseline_and_reopened_native_hash_equal": true,
+  "final_page_errors_or_warnings": 0,
+  "validation": {
+    "pc_tests": 552,
+    "phpunit_tests": 253,
+    "phpunit_assertions": 1079,
+    "sfc_compiles": 2,
+    "typescript_modules": 2
+  },
+  "excluded_attempts": [
+    "Two PC harness failures lacked the new image restoration guard dependency; harness corrected and all checks rerun.",
+    "Initial synthetic group schema omitted URI formats and image default fixture used a legacy schema field default instead of default_params; corrected, rejection paths asserted and full suite passed.",
+    "Initial fill changed visible text without committing the native change event. Excluded; real keyboard edits plus blur were verified in the business input and native hash.",
+    "Temporary fixture-only metadata event logs were removed before final clean page validation."
+  ]
+}

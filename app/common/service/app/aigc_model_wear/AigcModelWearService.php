@@ -10,6 +10,7 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppSalePriceService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_image\ImageAppTaskSync;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
@@ -149,14 +150,15 @@ class AigcModelWearService
         }
         $task = self::upsertTaskFromImageTask($tenantId, $userId, $imageTaskId, $prepared, $estimate);
         self::syncTaskFromImageTask($task);
-        return [
+        $generationDetail = self::taskDetail($tenantId, (int)$task['id'], $userId);
+        return \app\common\service\ai\GenerationTaskResultService::carry([
             'task_id' => (int)$task['id'],
             'image_task_id' => $imageTaskId,
             'status' => (string)($task['status'] ?: 'running'),
             'error' => (string)($task['error'] ?? ''),
-            'results' => self::taskDetail($tenantId, (int)$task['id'], $userId)['results'] ?? [],
+            'results' => $generationDetail['results'] ?? [],
             'estimate' => $estimate,
-        ];
+        ], $generationDetail);
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
@@ -192,7 +194,7 @@ class AigcModelWearService
         $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::appendTaskResults($tenantId, $userId, $rows);
         return [
-            'lists' => array_map([self::class, 'formatTaskRow'], $rows),
+            'lists' => \app\common\service\ai\GenerationTaskResultService::appendRelatedList(array_map([self::class, 'formatTaskRow'], $rows),'image'),
             'count' => $count,
             'page_no' => $pageNo,
             'page_size' => $pageSize,
@@ -211,7 +213,7 @@ class AigcModelWearService
             throw new Exception('任务不存在');
         }
         $rows = self::appendTaskResults($tenantId, $userId, [$task->toArray()]);
-        return self::formatTaskRow($rows[0] ?? []);
+        return \app\common\service\ai\GenerationTaskResultService::appendRelated(self::formatTaskRow($rows[0] ?? []),'image',self::taskImageIds($task->toArray()),(int)$task['tenant_id'],(int)$task['user_id']);
     }
 
     public static function resultLists(int $tenantId, int $userId, array $params = []): array
@@ -435,11 +437,10 @@ class AigcModelWearService
         $errors = array_values(array_filter(array_map(static fn($row) => trim((string)($row['error'] ?? '')), $imageTasks)));
         $finishTimes = array_filter(array_map(static fn($row) => (int)($row['finish_time'] ?? 0), $imageTasks));
         $task->error = implode('；', array_unique($errors));
-        $task->finish_time = in_array((string)$task->status, ['success', 'failed', 'canceled'], true) ? max($finishTimes ?: [time()]) : 0;
+        $task->finish_time = ImageAppTaskSync::finishTime($task, $finishTimes, ['success', 'failed', 'canceled']);
         $task->tenant_cost_points = number_format(array_sum(array_map(static fn($row) => (float)($row['tenant_cost_points'] ?? 0), $imageTasks)), 2, '.', '');
         $task->user_charge_points = number_format(array_sum(array_map(static fn($row) => (float)($row['user_charge_points'] ?? 0), $imageTasks)), 2, '.', '');
-        $task->update_time = time();
-        $task->save();
+        ImageAppTaskSync::saveChangedFacts($task);
         self::syncResultsFromImageTask($task);
     }
 

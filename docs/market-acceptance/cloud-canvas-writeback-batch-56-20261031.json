@@ -1,0 +1,680 @@
+{
+  "batch": 56,
+  "date": "2026-10-31",
+  "source_server_commit": "5a7b9323d",
+  "implementation_commits": [
+    "18afc5777",
+    "94e38f3a5",
+    "54cab23c3",
+    "b2a7dc9e3",
+    "6d449fd0b",
+    "5a7b9323d"
+  ],
+  "source_web_commit": "1f52cb5f38ac67ba6283c2c59562748809266811",
+  "scope": "Configured tenant Aliyun normal managed transfer and disposable post-provider receipt -> production result worker -> owned run -> persisted canvas node. Separately normal authenticated HTTP parameter selection/save/close/reopen. No generation submission or supplier calls. These are not one authenticated supplier-generation E2E.",
+  "before": [
+    {
+      "entry": "canvas",
+      "scenario": "managed_asset_stored_but_canvas_adapter_noop",
+      "status": "reproduced_failure",
+      "report": {
+        "entry": "canvas",
+        "kind": "video",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "failure_class": "RuntimeException",
+        "failure": "Worker did not persist generated result into project node",
+        "run_at_failure": {
+          "id": 1,
+          "tenant_id": 1834817573,
+          "user_id": 1903717746,
+          "project_id": 1,
+          "node_id": "1",
+          "run_type": "video",
+          "source_app_code": "aigc_canvas",
+          "source_task_id": 1,
+          "status": "running",
+          "prompt": "Synthetic colored block or silence",
+          "params_json": "{\"fixture\":\"accepted-post-receipt\",\"parameters\":{\"audio\":false,\"quality\":\"fixture\",\"duration\":1}}",
+          "result_json": "{}",
+          "error": null,
+          "duration_ms": 0,
+          "create_time": 1793450049,
+          "update_time": 1793450049,
+          "finish_time": 0,
+          "delete_time": 0
+        },
+        "nodes_at_failure": [
+          {
+            "id": "1",
+            "type": "video",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "width": 320,
+            "height": 320,
+            "metadata": {
+              "prompt": "Synthetic colored block or silence",
+              "channel": "offline-fixture",
+              "taskId": "1",
+              "status": "running",
+              "pending": true,
+              "generationStartedAt": 1793450049000,
+              "mediaItems": []
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "cloud_native_scenarios": [
+    {
+      "entry": "native_image",
+      "scenario": "configured_cloud_managed_normal_result",
+      "status": "cloud_storage_readback_verified",
+      "report": {
+        "kind": "image",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "c5159b26eaea11f9b0ac48b3aca574eaf313f0676ee5b777c945a697a15dbbcd",
+        "readback_sha256": "5e3d382db4dd83d59aa5742793ad6b7903409e865c83bcbc54835049f043bc15",
+        "readback_bytes": 68,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "image/png",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      }
+    },
+    {
+      "entry": "native_video",
+      "scenario": "configured_cloud_managed_normal_result",
+      "status": "cloud_storage_readback_verified",
+      "report": {
+        "kind": "video",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "c19e81344d03ac531ba2f14ebce13a5546b5ba7819b5e85c40789031a498a9ef",
+        "readback_sha256": "ab76595b991b8b6fe612b5dfc4b01d7aa13cd468c00b5361abe236b00f64d8b7",
+        "readback_bytes": 1838,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "video/mp4",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      }
+    },
+    {
+      "entry": "native_audio",
+      "scenario": "configured_cloud_managed_normal_result",
+      "status": "cloud_storage_readback_verified",
+      "report": {
+        "kind": "audio",
+        "scope": "Configured OSS, owned synthetic objects, disposable SQL and production result worker only",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab",
+        "object_uri_sha256": "86caf319d6845725e0a764c9c030784b416d47882970f4851287933e2f9a1278",
+        "readback_sha256": "c7a3389b4615e0096109107b29e4681e98b86e54cdfef129ed45c32e2bda62d6",
+        "readback_bytes": 16078,
+        "file_records": 1,
+        "result_assets": 1,
+        "business_results": 1,
+        "receipt_mime": "audio/wav",
+        "ownership_and_storage_match": true,
+        "terminal_replay_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1,
+        "owned_cloud_objects_created": 1
+      }
+    }
+  ],
+  "local_project_scenarios": [
+    {
+      "entry": "canvas",
+      "scenario": "image_post_receipt_local_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "canvas",
+        "kind": "image",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "canvas",
+      "scenario": "video_post_receipt_local_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "canvas",
+        "kind": "video",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "canvas",
+      "scenario": "audio_post_receipt_local_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "canvas",
+        "kind": "audio",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "image_post_receipt_local_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "short_drama",
+        "kind": "image",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "video_post_receipt_local_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "short_drama",
+        "kind": "video",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "audio_post_receipt_local_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "short_drama",
+        "kind": "audio",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true
+      }
+    }
+  ],
+  "cloud_project_scenarios": [
+    {
+      "entry": "canvas",
+      "scenario": "image_post_receipt_cloud_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "canvas",
+        "kind": "image",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "storage_engine": "aliyun",
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1
+      }
+    },
+    {
+      "entry": "canvas",
+      "scenario": "video_post_receipt_cloud_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "canvas",
+        "kind": "video",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "storage_engine": "aliyun",
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1
+      }
+    },
+    {
+      "entry": "canvas",
+      "scenario": "audio_post_receipt_cloud_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "canvas",
+        "kind": "audio",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "storage_engine": "aliyun",
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1
+      }
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "image_post_receipt_cloud_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "short_drama",
+        "kind": "image",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "storage_engine": "aliyun",
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1
+      }
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "video_post_receipt_cloud_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "short_drama",
+        "kind": "video",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "storage_engine": "aliyun",
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1
+      }
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "audio_post_receipt_cloud_project_writeback",
+      "status": "post_receipt_project_writeback_verified",
+      "report": {
+        "entry": "short_drama",
+        "kind": "audio",
+        "scope": "Disposable complete production post-receipt chain. No authenticated generation HTTP submission or supplier call.",
+        "provider_ai_calls": 0,
+        "actual_wallet_mutations": 0,
+        "worker_restart_preserved_rows": true,
+        "node_projected": true,
+        "run_success": true,
+        "node_result_uri_matches_asset": true,
+        "stored_checksum_valid": true,
+        "storage_engine": "aliyun",
+        "file_records": 1,
+        "result_assets": 1,
+        "frozen_input_and_price_preserved": true,
+        "edges_unchanged": true,
+        "viewport_unchanged": true,
+        "wallets_unchanged": true,
+        "owned_cloud_objects_deleted": 1
+      }
+    }
+  ],
+  "browser_projects": [
+    {
+      "entry": "canvas",
+      "scenario": "kling_sound_config_saved_closed_http_reopened",
+      "status": "http_graph_state_preserved",
+      "project_id": 943,
+      "tenant_id": 1,
+      "nodes": 1,
+      "generation_runs": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "generation_parameters": {
+        "market_video_model:355": {
+          "audio": true
+        }
+      },
+      "material_mode": "text_to_video",
+      "optional_subjects_and_role_ids_visible": false,
+      "audio_visible": true,
+      "resolution_visible": "4K",
+      "duration_visible": 5,
+      "ratio_visible": "16:9",
+      "identity": {
+        "id": "market_video_model:355"
+      },
+      "sku_id": 782
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "kling_sound_config_saved_closed_http_reopened",
+      "status": "http_graph_state_preserved",
+      "project_id": 546,
+      "tenant_id": 1,
+      "nodes": 1,
+      "generation_runs": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "generation_parameters": {
+        "market_video_model:355": {
+          "audio": true
+        }
+      },
+      "material_mode": "text_to_video",
+      "optional_subjects_and_role_ids_visible": false,
+      "audio_visible": true,
+      "resolution_visible": "4K",
+      "duration_visible": 5,
+      "ratio_visible": "16:9",
+      "exact_sku_not_captured": true
+    }
+  ],
+  "validation": {
+    "phpunit": {
+      "tests": 912,
+      "assertions": 6992,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "added_tests": 45,
+      "added_assertions": 600
+    },
+    "web_parameter_tests": {
+      "tests": 121,
+      "failures": 0,
+      "skipped": 0
+    },
+    "php_lint_files": 6,
+    "native_price_rollback": "passed",
+    "no_frontend_source_changes": true,
+    "evidence_index_boundary_tests": 2,
+    "intermediate_preview_cleanup_regression": "Caught and fixed before delivery: legacy audio=false was mistaken for a media alias; all 45 projection cases now preserve generation controls."
+  },
+  "retention": {
+    "video": {
+      "unchanged": true,
+      "sha256": "1ee789beadaaab2460a7b3002220263a1dbc5f05212df546b262396299f1c358"
+    },
+    "image": {
+      "unchanged": true,
+      "sha256": "a35253a5c97f60beefec1ef39699f90751e8f280c8473917ff4a365e453f0687"
+    },
+    "app": {
+      "unchanged": true,
+      "sha256": "9313b3a4b71a5d0589b6812b6d64e7f99b6b607d3a219f6648afdacffd926f9f"
+    },
+    "frozen": {
+      "unchanged": true,
+      "sha256": "a0c9c4cf5d9a192c16246257c8b2eae96a975ec24c431ee60bd110e1dc849544"
+    }
+  },
+  "current_prices": {
+    "scope": "READ ONLY comparison of old/new unit-price policy for tenant1 and platform over current saved SKU data; no repricing or task update",
+    "skus_checked": 848,
+    "level_comparisons": 1696,
+    "current_bounded_meter_versions": {
+      "2": 0,
+      "3": 0
+    },
+    "differences": []
+  },
+  "blocked_meter_admission": [
+    {
+      "channel": "market_image_model:275",
+      "sku_id": 380,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "image_to_image",
+      "source_payload_hash": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_image_model:277",
+      "sku_id": 383,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "text_to_image",
+      "source_payload_hash": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 210,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 211,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 212,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 213,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 214,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 215,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    }
+  ],
+  "contract_changes": {
+    "api_schema": false,
+    "migration": false,
+    "permission": false,
+    "manifest": false,
+    "billing_contract": false,
+    "status_values": false,
+    "behavior": "Existing terminal receipt now projects into a matching active owned ordinary-canvas node and run. No provider polling."
+  },
+  "upstream_review": {
+    "refreshed_this_batch": false,
+    "formal_observation_carried_from_batch": 50,
+    "observed_at": "2026-10-31 18:38:45+08:00"
+  },
+  "visible_points_before_after": "4372.96 -> 4372.96",
+  "provider_ai_calls": 0,
+  "actual_wallet_mutations": 0,
+  "cleanup": {
+    "owned_sql_tables": 0,
+    "private_fixture_roots": 0,
+    "owned_worker_processes": 0
+  },
+  "completion_metric_boundary": "fully_accepted_entry_cells=0 is a compatibility placeholder, not computed completion, outstanding cells or estimated effort; computed=false is now explicit.",
+  "remaining": [
+    "18 full contracts, 14 models / 17 opaque paths and 13 application-option remaining coverage need authoritative review; retain blocked claims.",
+    "Qwen products275/277 pixel SKUs380/383 and Seedance140 Token SKUs210-215 remain disabled pending formal upper bounds / usage receipts.",
+    "Nano unmapped nested inputs, native quantity, bare b64_json and supplier asset IDs remain disabled.",
+    "Authenticated HTTP generation-submit -> real provider -> worker -> node E2E was not run. Only saved matching active taskId nodes are eligible for ordinary-canvas projection; superseded, canceled, replaced, deleted or unmatched nodes are protected.",
+    "Real remote supplier files and expiring URLs, cloud interruptions/concurrency, shared multi-host storage, mixed-version workers, DB/host/power faults and fsync durability remain unverified.",
+    "Long-term staging/lock retention, remaining audio/business protocol branches, all-tool per-model/mode/SKU cross-validation remain open."
+  ],
+  "delivery_exclusions": [
+    "cloud credentials",
+    "synthetic media",
+    "private SQL/cache/files",
+    "frontend output",
+    "server/public output",
+    "release packages",
+    "develop push"
+  ],
+  "screenshot_scope": "Three PC entries show the same Kling3.0Omni text-mode regular audio field, default false, selectable true; optional subjects/role IDs absent. Two new HTTP projects save and reopen configured state with zero runs. Screenshots are parameter validation, not generated-output UI proof."
+}

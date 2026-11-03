@@ -26,7 +26,8 @@ final class MicroVideoCatalog
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
             if((int)($model['status']??1)!==1||(int)($model['max_reference_images']??0)<1)continue;
             $modes=(array)($model['generation_modes']??$model['input_modes']??[]);$method='';
-            foreach(['image_reference','omni_reference','image_to_video'] as $m)if(in_array($m,$modes,true)){$method=$m;break;}
+            if (!empty($model['material_modes'])) $method=\app\common\service\power\MarketGenerationMaterials::singleImageMethod($model);
+            else foreach(['image_reference','omni_reference','image_to_video'] as $m)if(in_array($m,$modes,true)){$method=$m;break;}
             if($method===''){if($legacy)$method='image_reference';else continue;}
             $hasFrames=!empty($model['supports_first_last_frame'])&&in_array('start_end',$modes,true);if(!$legacy&&$mode!=='reference'&&!$hasFrames)continue;
             $specs=[];$frameSpecs=[];$validatedPairs=[];
@@ -103,7 +104,9 @@ final class MicroVideoCatalog
         // through tenant storage for every SKU/mode check. This is never fetched.
         $asset=['type'=>'image','uri'=>'https://pricing-only.invalid/aigc_micro_video/reference.png','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image'];
         $assets=[$asset];if($selection['generation_method']==='start_end'){$assets=[array_replace($asset,['role'=>'first_frame_image']),array_replace($asset,['role'=>'last_frame_image'])];}
-        $q=self::runtime($spec)::quote($tenant,$selection+['reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets]);
+        // Discovery has no planned segment text yet. Satisfy the schema only in
+        // this read-only quote; never freeze or submit the pricing placeholder.
+        $q=self::runtime($spec)::quote($tenant,$selection+['prompt'=>'Video segment pricing','reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets]);
         if(($q['settlement_mode']??'reserved')!=='reserved')throw new InvalidArgumentException('此规格按实际用量结算，暂不支持分段预报价');
         $selection['market_sku_id']=(int)$q['market_sku_id'];
         return ['selection'=>$selection,'tenant_cost_points'=>(float)$q['tenant_cost_points'],'user_charge_points'=>(float)$q['user_charge_points'],'market_sku_id'=>(int)$q['market_sku_id']];

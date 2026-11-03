@@ -6,8 +6,29 @@ use InvalidArgumentException;
 /** Material fields are native contracts, not interchangeable URL aliases. */
 final class MarketGenerationMaterials
 {
+    /** Choose a concrete mode this single-image business input can satisfy. Broad aliases are not a substitute. */
+    public static function singleImageMethod(array $option): string
+    {
+        $methods=[];
+        foreach ((array)($option['material_modes']??[]) as $mode) {
+            if (!is_array($mode)) continue;
+            $hasImage=false;$requiredImages=0;$unsupported=false;
+            foreach ((array)($mode['fields']??[]) as $field) {
+                $minimum=max((int)($field['minimum']??0),!empty($field['required'])?1:0);
+                if (($field['kind']??'')==='image') {$hasImage=true;$requiredImages+=$minimum;}
+                elseif ($minimum>0) $unsupported=true;
+            }
+            if ($hasImage && !$unsupported && $requiredImages<=1) $methods[]=(string)($mode['method']??'');
+        }
+        foreach (['image_reference','image_to_video','omni_reference','text_to_video'] as $method)
+            if (in_array($method,$methods,true)) return $method;
+        return '';
+    }
+
     public static function contract(array $metadata): array
     {
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if ($reviewed!==null) return $reviewed['material_capabilities'];
         return MarketGenerationSchema::array($metadata['material_capabilities'] ?? $metadata['upstream_metadata']['material_capabilities'] ?? []);
     }
 
@@ -21,11 +42,12 @@ final class MarketGenerationMaterials
     private static function buildModes(array $metadata): array
     {
         $result = [];
+        $reviewed=MarketGenerationReviewedContract::selected($metadata)!==null;
         $declared = (array)(self::contract($metadata)['modes'] ?? []);
         $expanded = [];
         foreach ($declared as $mode) {
             if (!is_array($mode)) continue;
-            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f)=>is_array($f) && !str_contains((string)($f['field'] ?? ''), '.')));
+            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f)=>is_array($f) && ($reviewed || !str_contains((string)($f['field'] ?? ''), '.'))));
             $frames = array_values(array_filter($fields, static fn($f)=>in_array($f['role'] ?? '', ['first','last'],true)));
             if (empty($mode['view_key']) && count($frames) === 2 && !array_filter($frames, static fn($f)=>!empty($f['required']))) {
                 $base = array_values(array_filter($fields, static fn($f)=>!in_array($f['role'] ?? '', ['first','last'],true)));
@@ -40,7 +62,7 @@ final class MarketGenerationMaterials
         }
         foreach ($expanded as $index => $mode) {
             if (!is_array($mode)) continue;
-            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f) => is_array($f) && !str_contains((string)($f['field'] ?? ''), '.')));
+            $fields = array_values(array_filter((array)($mode['fields'] ?? []), static fn($f) => is_array($f) && ($reviewed || !str_contains((string)($f['field'] ?? ''), '.'))));
             $roles = array_column($fields, 'role');
             $kinds = array_unique(array_column($fields, 'kind'));
             $code = (string)($mode['code'] ?? '');
@@ -55,7 +77,10 @@ final class MarketGenerationMaterials
             else $method = match ($kinds[0] ?? '') { 'video'=>'video_edit', 'audio'=>'audio_reference', default=>'image_reference' };
             $fingerprint = json_encode([$code, $method, $fields]);
             if (isset($result[$fingerprint])) continue;
-            $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields, 'parameter_schema'=>MarketGenerationNativeContract::schema($metadata, $code)]);
+            $automatic=MarketGenerationCreatorMaterials::policies($metadata,$code,$fields);
+            foreach($fields as&$field)if(isset($automatic[$field['field']]))$field['creator_automatic']=$automatic[$field['field']]['kind'];unset($field);
+            $schema = MarketVideoRatioPolicy::modeSchema($metadata, $mode, MarketGenerationNativeContract::schema($metadata, $code));
+            $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields, 'parameter_schema'=>$schema]);
         }
         return array_values($result);
     }
@@ -73,6 +98,8 @@ final class MarketGenerationMaterials
 
     public static function select(array $metadata, array $request): ?array
     {
+        $request=MarketOwnedPlatformContractRules::normalizeH3MetadataRequest($metadata,$request);
+        $request=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$request);
         $modes = self::modes($metadata);
         if ($modes === []) return null;
         $method = (string)($request['generation_method'] ?? '');
@@ -82,12 +109,13 @@ final class MarketGenerationMaterials
         if ($candidates === []) throw new InvalidArgumentException('当前模型不支持所选生成方式');
         $assets = self::assets($request);
         $values = MarketGenerationSchema::array($request['provider_params'] ?? []);
+        $strictRoles=MarketGenerationReviewedContract::selected($metadata)!==null;
         $best = null; $score = -PHP_INT_MAX;
         foreach ($candidates as $mode) {
             $current = 0;
             foreach ($mode['fields'] as $field) {
-                $matched = self::matching($assets, $field, $mode['method']);
-                if (!empty($values[$field['field']])) $current += 8;
+                $matched = self::matching($assets, $field, $mode['method'],$strictRoles);
+                if (MarketGenerationMaterialPath::count($values,$field)>0) $current += 8;
                 elseif ($matched !== []) $current += 4;
                 elseif (!empty($field['required'])) $current -= 20;
             }
@@ -97,6 +125,23 @@ final class MarketGenerationMaterials
         return $best;
     }
 
+    /** Classify only unambiguous top-level fields from the selected frozen declaration.
+     * Generic file names and URL suffixes alone do not establish a media kind.
+     * Nested/opaque contracts still require their existing protocol-specific support.
+     */
+    public static function nativeMediaKinds(array $metadata, array $request): array
+    {
+        $kinds=[];$ambiguous=[];
+        foreach ((self::select($metadata,$request)['fields']??[]) as $field) {
+            $name=$field['field']??null;$kind=$field['kind']??null;
+            if (!is_string($name) || !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/D',$name)
+                || !in_array($kind,['image','video','audio'],true)) continue;
+            if (isset($kinds[$name]) && $kinds[$name]!==$kind) $ambiguous[$name]=true;
+            $kinds[$name]=$kind;
+        }
+        return array_diff_key($kinds,$ambiguous);
+    }
+
     public static function assets(array $request): array
     {
         $assets = [];
@@ -104,7 +149,7 @@ final class MarketGenerationMaterials
             if (!is_array($asset)) continue;
             $url = (string)($asset['url'] ?? $asset['uri'] ?? '');
             if ($url === '') continue;
-            $assets[] = $asset + ['url'=>$url, 'type'=>'image', 'role'=>'reference_image'];
+            $assets[] = $asset + ['url'=>$url, 'type'=>'image', 'role'=>'reference_'.($asset['type']??'image')];
         }
         foreach ($assets === [] ? (array)($request['reference_images'] ?? []) : [] as $url) {
             if (is_string($url) && $url !== '') $assets[] = ['url'=>$url,'type'=>'image','role'=>'reference_image'];
@@ -112,15 +157,64 @@ final class MarketGenerationMaterials
         return $assets;
     }
 
-    private static function matching(array $assets, array $field, string $method): array
+    /** UI ordinals refer to uploaded uses; native ordinals refer to encoded fields.
+     * Match both the declared use and the actual serialized position, not URL alone.
+     * This changes only the transient native prompt, never saved project content.
+     */
+    public static function compileReferencePrompt(array $metadata,array $mode,array $request,array $params): array
+    {
+        if(!str_contains((string)($params['prompt']??''),'@'))return $params;
+        $rules=MarketGenerationNativeContract::rules($metadata,(string)($mode['native_mode']??''));
+        if(!array_filter($rules,static fn($r)=>($r['kind']??'')==='kling4'&&($r['check']??'')==='prompt'))return $params;
+        $assets=self::assets($request);$counts=['image'=>0,'video'=>0,'audio'=>0];$labels=['image'=>'图片','video'=>'视频','audio'=>'音频'];$tokens=[];$matches=[];
+        foreach($assets as$i=>$asset){$kind=$asset['type'];if(isset($labels[$kind]))$tokens[$i]=$labels[$kind].++$counts[$kind];}
+        $references=MarketGenerationKlingRules::references($params);
+        $strict=MarketGenerationReviewedContract::selected($metadata)!==null;
+        foreach($mode['fields']??[]as$field){
+            if(!in_array($field['kind']??'',['image','video','audio'],true))continue;
+            $rows=$references[$field['field']]??[];
+            foreach(self::matching($assets,$field,(string)$mode['method'],$strict)as$position=>$asset){
+                $index=array_search($asset,$assets,true);$reference=$rows[$position]??null;
+                if($index!==false&&$reference!==null&&($reference['url']??null)===$asset['url'])$matches[$index][]=$reference['name'];
+            }
+        }
+        $aliases=[];foreach($matches as$i=>$names){$names=array_values(array_unique($names));if(count($names)===1&&isset($tokens[$i]))$aliases[$tokens[$i]]=$names[0];}
+        return MarketGenerationKlingRules::compilePrompt($params,$aliases);
+    }
+
+    /** Preparation must reject material a legacy adapter would silently discard. */
+    public static function assertPreserved(array $request, array $native, ?callable $canonicalUrl = null): void
+    {
+        $expected = array_count_values(array_map(static fn($a)=>trim((string)($canonicalUrl !== null ? $canonicalUrl($a) : $a['url'])), self::assets($request)));
+        if ($expected === []) return;
+        $actual = [];
+        $walk = static function (array $values) use (&$walk, &$actual): void {
+            foreach ($values as $key=>$value) {
+                if (in_array($key, ['prompt','text','negative_prompt','description','callback_url','webhook'], true)) continue;
+                if (is_array($value)) $walk($value);
+                elseif (is_string($value) && preg_match('~^(?:https?://|data:|asset://)~i', trim($value))) {
+                    $url = trim($value); $actual[$url] = ($actual[$url] ?? 0) + 1;
+                }
+            }
+        };
+        $walk($native);
+        foreach ($expected as $url=>$count) if (($actual[$url] ?? 0) < $count) {
+            throw new InvalidArgumentException('所选模型或生成方式不支持部分参考素材，请调整素材或切换模型');
+        }
+    }
+
+    private static function matching(array $assets, array $field, string $method,bool $strictRoles=false): array
     {
         $role = (string)($field['role'] ?? 'reference');
         $kind = (string)($field['kind'] ?? 'image');
         $name = (string)($field['field'] ?? '');
         $images = array_values(array_filter($assets, static fn($a) => ($a['type'] ?? 'image') === 'image'));
-        return array_values(array_filter($assets, static function ($asset) use ($role,$kind,$name,$images,$method): bool {
-            if (isset($asset['field']) && $asset['field'] !== '') return $asset['field'] === $name;
+        return array_values(array_filter($assets, static function ($asset) use ($role,$kind,$name,$images,$method,$strictRoles): bool {
             if (($asset['type'] ?? 'image') !== $kind) return false;
+            if (isset($asset['field']) && $asset['field'] !== '') {
+                if($asset['field']!==$name)return false;
+                if(!$strictRoles)return true;
+            }
             $assetRole = (string)($asset['role'] ?? 'reference_' . $kind);
             if ($role === 'first') return $assetRole === 'first_frame_image' || ($method === 'image_to_video' && count($images) === 1 && $assetRole === 'reference_image');
             if ($role === 'last') return $assetRole === 'last_frame_image' || ($method === 'last_frame' && count($images) === 1 && $assetRole === 'reference_image');
@@ -140,6 +234,8 @@ final class MarketGenerationMaterials
         $result = [];
         foreach ($mode['fields'] as $field) {
             $name = $field['field'];
+            // Nested image bodies are built by their registered encoder and checked afterwards.
+            if (str_contains($name,'.')) continue;
             if (array_key_exists($name, $params) && $params[$name] !== '' && $params[$name] !== []) { $result[$name] = $params[$name]; continue; }
             $matched = self::matching($assets, $field, $mode['method']);
             if ($matched === []) continue;
@@ -170,36 +266,131 @@ final class MarketGenerationMaterials
 
     public static function billingInputs(array $metadata, array $request): array
     {
+        $request=MarketOwnedPlatformContractRules::normalizeH3MetadataRequest($metadata,$request);
+        $request=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$request);
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if($reviewed!==null&&$reviewed['generation_protocol']!=='native_v1'){
+            self::assertSingleMaterialSource($metadata,$request);
+            $mode=self::select($metadata,$request);$values=(array)($request['provider_params']??[]);$assets=self::assets($request);$video=false;$image=false;
+            foreach((array)($mode['fields']??[])as$field){
+                $present=MarketGenerationMaterialPath::count($values,$field)>0 || self::matching($assets,$field,$mode['method'],true)!==[];
+                if($present&&$field['kind']==='video')$video=true;
+                if($present&&$field['kind']==='image'&&in_array($field['role']??'',['first','frames'],true))$image=true;
+            }
+            return ['_billing_video_input'=>$video,'_billing_image_input'=>$image];
+        }
         $values=self::serialize($metadata,$request);
         $video=false;
         foreach (['reference_video_urls','video_urls','video_url','video_list','first_clip_url'] as $key) if (!empty($values[$key])) $video=true;
         foreach ((array)($values['elements'] ?? []) as $subject) if (!empty($subject['video_url'])) $video=true;
+        if(MarketGenerationMediaInputs::visualUrls($values)!==[]&&MarketGenerationMedia::inputs($values)['video']!==[])$video=true;
         return ['_billing_video_input'=>$video,'_billing_image_input'=>!empty($values['image_url'])];
     }
 
     public static function validate(array $metadata, array $request, array $payload): void
     {
+        $request=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata,$request);
+        self::assertSingleMaterialSource($metadata,$request);
         $mode = self::select($metadata, $request);
         if ($mode === null) return;
         $overrides=(array)($metadata['_local_capability_overrides'] ?? []);
         if (($overrides['supports_first_last_frame'] ?? null)===false && $mode['method']==='start_end') throw new InvalidArgumentException('当前模型已停用首尾帧方式');
         $counts=['image'=>0,'video'=>0,'audio'=>0];
-        foreach ($mode['fields'] as $field) if (isset($counts[$field['kind'] ?? ''])) { $value=$payload[$field['field']] ?? null; $counts[$field['kind']]+=is_array($value)?count($value):(($value!==null && $value!=='')?1:0); }
+        foreach ($mode['fields'] as $field) if (isset($counts[$field['kind'] ?? ''])) $counts[$field['kind']]+=MarketGenerationMaterialPath::count($payload,$field);
+        // Count encoded groups for local overrides, including requests using native parameters alone.
+        if($overrides!==[])foreach($mode['fields']as$field){
+            if(!in_array($field['kind']??'',['subject','character','mixed'],true))continue;
+            foreach(MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[]))as$value){
+                $media=MarketGenerationMedia::inputs([$field['field']=>$value]);
+                foreach(array_keys($counts)as$kind)$counts[$kind]+=count($media[$kind]);
+            }
+        }
         if (($overrides['supports_reference_images'] ?? null)===false && $counts['image']>0) throw new InvalidArgumentException('当前模型已停用图片参考');
         foreach (['image'=>'max_reference_images','video'=>'max_reference_videos','audio'=>'max_reference_audios'] as $kind=>$key) if (array_key_exists($key,$overrides) && $counts[$kind]>(int)$overrides[$key]) throw new InvalidArgumentException('素材数量超过当前模型上限');
         foreach ($mode['fields'] as $field) {
-            $value = $payload[$field['field']] ?? null;
-            $count = is_array($value) ? count($value) : (($value !== null && $value !== '') ? 1 : 0);
+            if (in_array($field['kind'] ?? '', ['file','link'], true)) {
+                foreach (MarketGenerationMaterialPath::values($payload,(string)$field['field'],(array)($field['item_match'] ?? [])) as $value) {
+                    foreach (is_array($value) ? $value : [$value] as $url) {
+                        if (!is_string($url)) throw new InvalidArgumentException('参考文件或链接地址格式不正确');
+                        self::assertDocumentUrlForRequest($metadata,$request,$field,$url);
+                    }
+                }
+            }
+            $count = MarketGenerationMaterialPath::count($payload,$field);
+            $provider=(array)($request['provider_params']??[]);
+            if(MarketGenerationReviewedContract::selected($metadata)!==null&&str_contains($field['field'],'.')&&MarketGenerationMaterialPath::count($provider,$field)>0
+                && MarketGenerationMaterialPath::values($provider,$field['field'],(array)($field['item_match']??[]))!==MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[])))
+                throw new InvalidArgumentException('当前协议无法完整保留此原生素材参数，请使用统一素材输入');
+            if(in_array($field['kind']??'',['file','link'],true)&&MarketGenerationReviewedContract::selected($metadata)!==null){
+                foreach(MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[]))as$value)
+                    foreach(is_array($value)?$value:[$value]as$url)self::assertDocumentUrlForRequest($metadata,$request,$field,(string)$url);
+            }
             $minimum = !empty($field['required']) ? max(1, (int)($field['minimum'] ?? 0)) : 0;
             $maximum = $field['maximum'] ?? null;
             if ($count < $minimum || ($maximum !== null && $count > (int)$maximum)) throw new InvalidArgumentException('素材数量不符合当前方式要求：' . $field['field']);
         }
-        $declared = array_column($mode['fields'], 'field');
+        $declared = array_map([MarketGenerationMaterialPath::class,'signature'],$mode['fields']);
         foreach (self::modes($metadata) as $other) foreach ($other['fields'] as $field) {
-            if (!in_array($field['field'], $declared, true) && !empty($payload[$field['field']])) throw new InvalidArgumentException('当前生成方式不支持此素材：' . $field['field']);
+            if (!in_array(MarketGenerationMaterialPath::signature($field), $declared, true) && MarketGenerationMaterialPath::count($payload,$field)>0) throw new InvalidArgumentException('当前生成方式不支持此素材：' . $field['field']);
         }
+        $groups=[];foreach($mode['fields']as$field)if(!empty($field['item_match']))$groups[$field['field']]=($groups[$field['field']]??0)+MarketGenerationMaterialPath::count($payload,$field);
+        foreach($groups as$path=>$count)if($count!==MarketGenerationMaterialPath::count($payload,['field'=>$path]))throw new InvalidArgumentException('当前生成方式包含未声明的素材分类');
         foreach (self::assets($request) as $asset) {
-            if (!array_filter($mode['fields'], static fn($field) => self::matching([$asset], $field, $mode['method']) !== [])) throw new InvalidArgumentException('当前生成方式不支持已添加的素材角色');
+            $strictRoles=MarketGenerationReviewedContract::selected($metadata)!==null;
+            if (!array_filter($mode['fields'], static fn($field) => self::matching([$asset], $field, $mode['method'],$strictRoles) !== [] || self::structuredAssetMatches($metadata,$mode,$field,$asset,$payload))) throw new InvalidArgumentException('当前生成方式不支持已添加的素材角色');
         }
+    }
+
+    /** Explicit grouping must bind the uploaded URL to a declared media slot in the actual native body. */
+    private static function structuredAssetMatches(array $metadata,array $mode,array $field,array $asset,array $payload): bool
+    {
+        if(($asset['field']??'')!==$field['field'] || !in_array($field['kind']??'',['subject','character','mixed'],true))return false;
+        $schema=MarketGenerationNativeContract::schema($metadata,(string)($mode['native_mode']??''));
+        if($schema===[])$schema=MarketGenerationSchema::array($metadata['params_schema']??[]);
+        $definitions=MarketGenerationMaterialPath::definitions($schema,$field['field'],(array)($field['item_match']??[]));
+        $values=MarketGenerationMaterialPath::values($payload,$field['field'],(array)($field['item_match']??[]));
+        foreach($definitions as$definition)foreach($values as$value)if(self::structuredUrlMatches($definition,$value,$asset))return true;
+        return false;
+    }
+
+    private static function structuredUrlMatches(array $schema,$value,array $asset,string $kind=''): bool
+    {
+        if(($schema['type']??'')==='array'&&is_array($value)){
+            foreach($value as$child)if(self::structuredUrlMatches((array)($schema['items']??[]),$child,$asset,$kind))return true;
+        }elseif(($schema['type']??'')==='object'&&is_array($value)){
+            foreach((array)($schema['properties']??[])as$key=>$child){
+                if(!array_key_exists($key,$value))continue;
+                $next=$key==='element_input_urls'?'visual':(preg_match('/video|clip/i',$key)?'video':(preg_match('/audio|voice/i',$key)?'audio':(preg_match('/image|frame/i',$key)?'image':$kind)));
+                if(self::structuredUrlMatches((array)$child,$value[$key],$asset,$next))return true;
+            }
+        }elseif(($schema['type']??'')==='string'&&$kind!==''&&is_string($value)
+            &&(($schema['format']??'')==='uri'||preg_match('/https?|oss|asset|data:/i',(string)($schema['pattern']??'')))){
+            return $value===($asset['url']??$asset['uri']??'')&&($kind===($asset['type']??'image')||($kind==='visual'&&in_array($asset['type']??'image',['image','video'],true)));
+        }
+        return false;
+    }
+
+    /** Only native URLs declared by the exact new Wan source contract can use its documented OSS scheme. */
+    private static function assertDocumentUrlForRequest(array $metadata,array $request,array $field,string $url): void
+    {
+        if(preg_match('~^oss://~i',$url)&&($field['field']??'')==='input.media.*.url'
+            &&in_array($field['kind']??'',['file','link'],true)&&($field['item_match']['type']??null)===$field['kind']){
+            $contract=MarketGenerationReviewedContract::selected($metadata);
+            if($contract!==null&&MarketOwnedPlatformContractRules::applies(['model_code'=>$contract['model_code'],
+                'channel_code'=>$contract['channel_code'],'market_metadata'=>$metadata],'wan_video_media_v1')){
+                foreach((array)($request['provider_params']['input']['media']??[])as$item)
+                    if(is_array($item)&&($item['type']??null)===$field['kind']&&($item['url']??null)===$url)return;
+            }
+        }
+        MarketGenerationMaterialEncoding::assertDocumentUrl($url);
+    }
+
+    private static function assertSingleMaterialSource(array $metadata,array $request): void
+    {
+        $reviewed=MarketGenerationReviewedContract::selected($metadata);
+        if($reviewed===null||$reviewed['generation_protocol']==='native_v1'||self::assets($request)===[])return;
+        $provider=(array)($request['provider_params']??[]);
+        foreach(self::modes($metadata)as$mode)foreach($mode['fields']as$field)
+            if(MarketGenerationMaterialPath::count($provider,$field)>0)throw new InvalidArgumentException('请勿同时使用业务素材和原生参数提供同一请求的素材');
     }
 }

@@ -197,7 +197,12 @@ class AigcImageChannelService
 
     public static function resolveSelection(int $tenantId, array $params): array
     {
-        $channels = self::effectiveChannels($tenantId, true);
+        return self::resolveFromChannels(self::effectiveChannels($tenantId, true),$params);
+    }
+
+    /** Resolve only within a trusted catalogue; live availability is read by the caller. */
+    private static function resolveFromChannels(array $channels,array $params): array
+    {
         if (empty($channels)) {
             throw new Exception('暂无可用生图通道');
         }
@@ -243,7 +248,12 @@ class AigcImageChannelService
                 if ($ratio === '') {
                     $ratio = self::firstUsableRatio($qualityItem['ratios'] ?? []);
                 }
-                foreach ($qualityItem['ratios'] as $ratioItem) {
+                $ratioRows=$qualityItem['ratios'];
+                $requestedSku=(int)($params['market_sku_id']??$params['sku_id']??0);
+                if($requestedSku>0)$ratioRows=array_merge(
+                    array_values(array_filter($ratioRows,static fn($row)=>(int)($row['market_sku_id']??0)===$requestedSku)),
+                    array_values(array_filter($ratioRows,static fn($row)=>(int)($row['market_sku_id']??0)!==$requestedSku)));
+                foreach ($ratioRows as $ratioItem) {
                     if (
                         $ratioItem['value'] === $ratio
                         && ($variant === '' || strtolower(trim((string)($ratioItem['variant'] ?? ''))) === $variant)
@@ -716,6 +726,9 @@ class AigcImageChannelService
                         if (!isset($channel['qualities'][$quality])) {
                             $channel['qualities'][$quality] = [
                             'value' => $quality,
+                            // Older consumers read value || quality. Keep an empty
+                            // dimension sentinel without losing its priced ratios.
+                            'quality' => $quality,
                             'label' => (string)$spec['quality_label'],
                             'ratios' => [],
                             ];

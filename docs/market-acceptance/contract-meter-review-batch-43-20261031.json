@@ -1,0 +1,2069 @@
+{
+  "batch": 43,
+  "date": "2026-10-31",
+  "source_server_commit": "9907c38d5",
+  "source_web_commit": "1f7eaac80252928cfb7e28f8b2deb3efef5fa5eb",
+  "scope": "Current exact-identity GET metadata/doc review, three non-generating pricing metadata lookups, eight READ ONLY admission blocks, and synthetic bounded Token contract tests. No actual source contract gaps are marked closed. No supplier submit/query/assets, paid generation or live market synchronization.",
+  "upstream_catalogue": {
+    "tenant_id": 1,
+    "observed_at": "2026-10-31T16:54:41+08:00",
+    "scope": "Platform GET detail versus saved machine metadata for missing/changed local native contracts; no sync, task, quote, upload or point writes",
+    "source": "configured market GET /api/v1/models?type=image|video&detail=1; exact model/channel identity",
+    "known_document_fallback": "disabled",
+    "catalogue_reads": {
+      "image": {
+        "status": "read",
+        "rows": 49
+      },
+      "video": {
+        "status": "read",
+        "rows": 46
+      }
+    },
+    "models": [
+      {
+        "generation_type": "image",
+        "model_code": "nano-banana-2.1",
+        "channel_code": "Google",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [],
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-flare",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-sunburst",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "nano-banana-2",
+        "channel_code": "Google",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "nano-banana-pro",
+        "channel_code": "Google",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenaiM",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2-fast",
+        "channel_code": "openaiD",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [],
+        "saved_schema_opaque_paths": [],
+        "platform_expanded_schema_opaque_paths": [],
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2-pro",
+        "channel_code": "OpenaiM",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0-pro",
+        "channel_code": "dashscope_compatible",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0",
+        "channel_code": "dashscope_compatible",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "q4-preview-video",
+        "channel_code": "q4_video",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [],
+        "saved_schema_opaque_paths": [],
+        "platform_expanded_schema_opaque_paths": [],
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [],
+        "saved_schema_opaque_paths": [],
+        "platform_expanded_schema_opaque_paths": [],
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "grok-video",
+        "channel_code": "xAIQ",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "veo3.1-fast",
+        "channel_code": "xAIQ",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "veo3.1-pro",
+        "channel_code": "xAIQ",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "catalogue_declaration_available": true,
+        "source_projection": "model_catalogue_detail"
+      }
+    ],
+    "applications": []
+  },
+  "upstream_documents": {
+    "tenant_id": 1,
+    "observed_at": "2026-10-31T16:54:41+08:00",
+    "scope": "Platform GET detail versus saved machine metadata for missing/changed local native contracts; no sync, task, quote, upload or point writes",
+    "source": "configured market developerDocTree/developerDocDetail GET APIs with prior verified slugs; exact response identity required",
+    "known_document_fallback": "previously verified published slugs; identity rechecked on every response",
+    "catalogue_reads": [],
+    "models": [
+      {
+        "generation_type": "image",
+        "model_code": "nano-banana-2.1",
+        "channel_code": "Google",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-flare",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2.5-sunburst",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "nano-banana-2",
+        "channel_code": "Google",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "nano-banana-pro",
+        "channel_code": "Google",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenaiM",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2",
+        "channel_code": "OpenAIYI",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "document_tree",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2-fast",
+        "channel_code": "openaiD",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "gpt-image-2-pro",
+        "channel_code": "OpenaiM",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0-pro",
+        "channel_code": "dashscope_compatible",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree",
+        "platform_detail_available": true,
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "published_doc_slug": "model-100",
+        "read_state": "read"
+      },
+      {
+        "generation_type": "image",
+        "model_code": "qwen-image-3.0",
+        "channel_code": "dashscope_compatible",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree",
+        "platform_detail_available": true,
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "published_doc_slug": "model-102",
+        "read_state": "read"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "q4-preview-video",
+        "channel_code": "q4_video",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree",
+        "platform_detail_available": true,
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [],
+        "saved_schema_opaque_paths": [],
+        "platform_expanded_schema_opaque_paths": [],
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "published_doc_slug": "model-q4-preview-video",
+        "read_state": "read"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "h3-video",
+        "channel_code": "minimax",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree",
+        "platform_detail_available": true,
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [],
+        "saved_schema_opaque_paths": [],
+        "platform_expanded_schema_opaque_paths": [],
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "published_doc_slug": "model-h3-video",
+        "read_state": "read"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "grok-video",
+        "channel_code": "xAIQ",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "veo3.1-fast",
+        "channel_code": "xAIQ",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "veo3.1-pro",
+        "channel_code": "xAIQ",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": false,
+        "lookup_strategy": "known_slug_unavailable",
+        "platform_detail_available": false,
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "read_state": "unavailable_or_unpublished"
+      },
+      {
+        "generation_type": "video",
+        "model_code": "wan3.0-video",
+        "channel_code": "dashscope_compatible",
+        "local_native_snapshot": "missing_or_changed",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree",
+        "platform_detail_available": true,
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [
+          "params_schema"
+        ],
+        "platform_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "input",
+          "parameters"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "published_doc_slug": "model-101",
+        "read_state": "read"
+      }
+    ],
+    "applications": [
+      {
+        "app_code": "nano_banana",
+        "api_code": "submit",
+        "resource_type": "app_api",
+        "generation_type": "image",
+        "platform_identity_verified": false,
+        "lookup_strategy": "document_tree_or_api_slug",
+        "read_state": "unavailable_or_identity_mismatch",
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "api_declaration_available": false,
+        "source_projection": "application_doc_detail"
+      },
+      {
+        "app_code": "seedance",
+        "api_code": "create",
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree_or_api_slug",
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [],
+        "platform_schema_opaque_paths": [
+          "tools[]",
+          "content[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "tools[]",
+          "content[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "tools[]",
+          "content[].audio_url",
+          "content[].image_url",
+          "content[].video_url"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "tools[]",
+          "content[].audio_url",
+          "content[].image_url",
+          "content[].video_url"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "api_declaration_available": true,
+        "source_projection": "application_doc_detail"
+      },
+      {
+        "app_code": "wan",
+        "api_code": "create",
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree_or_api_slug",
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [],
+        "platform_schema_opaque_paths": [
+          "metadata",
+          "image_urls[]",
+          "video_urls[]",
+          "image_with_roles[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "metadata",
+          "image_urls[]",
+          "video_urls[]",
+          "image_with_roles[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "image_urls[]",
+          "video_urls[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]",
+          "video_urls[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "api_declaration_available": true,
+        "source_projection": "application_doc_detail"
+      },
+      {
+        "app_code": "grok_video",
+        "api_code": "submit",
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "platform_identity_verified": false,
+        "lookup_strategy": "document_tree_or_api_slug",
+        "read_state": "unavailable_or_identity_mismatch",
+        "platform_contract_fields": [],
+        "saved_upstream_contract_fields": [],
+        "platform_schema_opaque_paths": null,
+        "saved_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_expanded_schema_opaque_paths": null,
+        "saved_expanded_schema_opaque_paths": [
+          "image_urls[]"
+        ],
+        "platform_schema_matches_saved": null,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": false,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "api_declaration_available": false,
+        "source_projection": "application_doc_detail"
+      },
+      {
+        "app_code": "happy_horse",
+        "api_code": "submit",
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "platform_identity_verified": true,
+        "lookup_strategy": "verified_prior_slug",
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [],
+        "platform_schema_opaque_paths": [
+          "media[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "media[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [],
+        "saved_expanded_schema_opaque_paths": [],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "api_declaration_available": true,
+        "source_projection": "application_doc_detail"
+      },
+      {
+        "app_code": "full_video",
+        "api_code": "submit",
+        "resource_type": "app_api",
+        "generation_type": "video",
+        "platform_identity_verified": true,
+        "lookup_strategy": "document_tree_or_api_slug",
+        "read_state": "read",
+        "platform_contract_fields": [
+          "params_schema"
+        ],
+        "saved_upstream_contract_fields": [],
+        "platform_schema_opaque_paths": [
+          "content[]"
+        ],
+        "saved_schema_opaque_paths": [
+          "content[]"
+        ],
+        "platform_expanded_schema_opaque_paths": [
+          "content[]"
+        ],
+        "saved_expanded_schema_opaque_paths": [
+          "content[]"
+        ],
+        "platform_schema_matches_saved": true,
+        "platform_material_mode_count": 0,
+        "saved_material_mode_count": 0,
+        "published_document_available": true,
+        "runtime_readiness": "unverified",
+        "sku_pricing": "unverified",
+        "live_generation": "unverified",
+        "api_declaration_available": true,
+        "source_projection": "application_doc_detail"
+      }
+    ]
+  },
+  "price_metadata_lookups": [
+    {
+      "request_identity": {
+        "type": "model",
+        "model": "qwen-image",
+        "channel": "official"
+      },
+      "status": "metadata_read",
+      "available": true,
+      "response_keys": [
+        "type",
+        "available",
+        "resource",
+        "pricing",
+        "price_view",
+        "pricing_source",
+        "pricing_v2"
+      ],
+      "pricing_fingerprint": "c364849f72ac7e5ea886e1ef091d9351a67f9cadd342d0bf26a559d66c575d55",
+      "scope": "Non-generating pricing/batch metadata lookup; no estimated usage or hard budget returned."
+    },
+    {
+      "request_identity": {
+        "type": "model",
+        "model": "qwen-image-edit",
+        "channel": "official"
+      },
+      "status": "metadata_read",
+      "available": true,
+      "response_keys": [
+        "type",
+        "available",
+        "resource",
+        "pricing",
+        "price_view",
+        "pricing_source",
+        "pricing_v2"
+      ],
+      "pricing_fingerprint": "1773b4e042fd4ca4a4b00cc88cec363a3cf9c7cedbf1938a6b564e58d8d60c00",
+      "scope": "Non-generating pricing/batch metadata lookup; no estimated usage or hard budget returned."
+    },
+    {
+      "request_identity": {
+        "type": "app_api",
+        "app_code": "seedance",
+        "api_code": "create"
+      },
+      "status": "metadata_read",
+      "available": true,
+      "response_keys": [
+        "type",
+        "available",
+        "resource",
+        "pricing",
+        "price_view",
+        "pricing_source",
+        "pricing_v2"
+      ],
+      "pricing_fingerprint": "517f7b50d272b03e742ddf3f9ac5102464594d91a6e10266255113f003a9d3fa",
+      "scope": "Non-generating pricing/batch metadata lookup; no estimated usage or hard budget returned."
+    }
+  ],
+  "current_blocked_skus": [
+    {
+      "channel": "market_image_model:275",
+      "sku_id": 380,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "image_to_image",
+      "source_payload_hash": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_image_model:277",
+      "sku_id": 383,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "text_to_image",
+      "source_payload_hash": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 210,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 211,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 212,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 213,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 214,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 215,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    }
+  ],
+  "synthetic_contract_tests": [
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testBoundAndReceiptPathSurviveFrozenJsonAndDoNotFollowLaterConfiguration",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #0",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #1",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #2",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #3",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #4",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #5",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #6",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #7",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #8",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #9",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #10",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #11",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #12",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #13",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #14",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testUntrustedIncompleteOrWrongUnitDeclarationsDoNotOpenBilling with data set #15",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #0",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #1",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #2",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #3",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #4",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #5",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #6",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #7",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testMissingOrInvalidReceiptCannotUseAnUnrelatedNumber with data set #8",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testTinyPositiveUsageCannotLoseItsReservationAtAccountPrecision",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testOverBoundReceiptIsAnErrorInsteadOfASecondCharge",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testLegacyTokenReceiptAndSnapshotSemanticsStaySeparate",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testLocalRollbackReservationReceiptsRefundAndIdempotency with data set #0",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testLocalRollbackReservationReceiptsRefundAndIdempotency with data set #1",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testLocalRollbackReservationReceiptsRefundAndIdempotency with data set #2",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testLocalRollbackReservationReceiptsRefundAndIdempotency with data set #3",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testLocalRollbackReservationReceiptsRefundAndIdempotency with data set #4",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_rollback_checked",
+      "test_class": "Tests\\Feature\\MarketBoundedTokenBillingTest",
+      "scenario": "testLocalRollbackReservationReceiptsRefundAndIdempotency with data set #5",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testIdenticalFieldNamesDoNotConcealChangedNestedConstraints",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testExamplesCannotCompleteAnOpaqueContract",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testMissingModesOrDefaultFalseFlagsRemainUnknown",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testRecognizedMeterDoesNotClaimPricingOrScenarioVerification",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testProbeUsesTheActualPureCompilerAndDetectsDroppedMaterials",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testComplexMaterialNeedsAnExplicitFixtureAndErrorsAreRedacted",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testNativeAnimationContractWithoutPromptDoesNotCreateFalsePromptLoss",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    },
+    {
+      "status": "synthetic_contract_checked",
+      "test_class": "Tests\\Feature\\MarketGenerationCompatibilityAuditTest",
+      "scenario": "testReadOnlyCurrentReviewBindsDeclarationsWithoutGrantingCapabilities",
+      "entry": "isolated_shared_service",
+      "scope": "Synthetic version2 Token meter; no binding to a real resource or SKU, and no provider call."
+    }
+  ],
+  "validation": {
+    "focused_tests": 43,
+    "focused_assertions": 279,
+    "existing_tests": 285,
+    "existing_assertions": 1470,
+    "additional_focused_tests": 31,
+    "additional_focused_assertions": 81,
+    "pc_tests": 645,
+    "php_lint_files": 4
+  },
+  "frozen_regressions": [
+    {
+      "task_id": 62,
+      "task_duration": 3,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 357,
+      "sku_id": 808,
+      "channel": "market_video_model:357",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": true,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": {
+          "frozen_audio": true,
+          "changed_copy_audio": false,
+          "frozen_snapshot_unchanged": true
+        },
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "480P",
+          "aspect_ratio": "adaptive",
+          "duration": 3,
+          "audio": true
+        },
+        "native_hash": "9a6dc32f1f06e3c3e696bda4513e6c34439f71f9410ba42a7176d836e058fc61",
+        "meter_hash": "e6f26db8063021722155e687a935899084cb252b79395ed3a2e3e4fba5a957f9"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_token_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 15,
+      "task_duration": 1,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 97,
+      "sku_id": 113,
+      "channel": "market_video_model:97",
+      "method": "image_reference",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 2,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "quality": "720p",
+          "duration": 6
+        },
+        "native_hash": "0cbb807054d6e62a67559c4f3d9a12f44ae04895bf203844452eebc323c0fd3d",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_token_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 36,
+      "task_duration": 6,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 103,
+      "sku_id": 128,
+      "channel": "market_video_app:full_video:103",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "768P",
+          "duration": 6,
+          "ratio": "16:9"
+        },
+        "native_hash": "fa9a9f0056bdd8846bd527bf78e5084448bac45f6a4030cd52804e515b760f00",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_token_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 42,
+      "task_duration": 6,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 108,
+      "sku_id": 137,
+      "channel": "market_video_app:grok_video:108",
+      "method": "image_to_video",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "resolution": "480p",
+          "duration": 6,
+          "aspect_ratio": "2:3"
+        },
+        "native_hash": "045be7187c459de1b7c5f16c13cdeb1db811df3521a6e251da24b5d740d495a2",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_token_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    },
+    {
+      "task_id": 61,
+      "task_duration": 10,
+      "duration_source": "persisted_consumption_request_summary",
+      "product_id": 235,
+      "sku_id": 321,
+      "channel": "market_video_model:235",
+      "method": "",
+      "task_unchanged": true,
+      "snapshot_has_metadata": false,
+      "scope": "Read-only persisted terminal task business-input reconstruction; no historical wire DTO, current admission, transport or provider execution.",
+      "result": {
+        "default_sensitivity": null,
+        "frozen_native_and_meter_equal": true,
+        "slots": {
+          "image": 1,
+          "video": 0,
+          "audio": 0
+        },
+        "controls": {
+          "audio": true,
+          "duration": 10,
+          "resolution": "720p"
+        },
+        "native_hash": "cb07b56ed326116768163036dff869faef44d8bca2748dcca2a7e7156071a1c7",
+        "meter_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "entry": "persisted_task_readonly",
+      "scenario": "bounded_token_change_legacy_frozen_regression",
+      "status": "frozen_history_replay_equal"
+    }
+  ],
+  "original_task_retention": [
+    {
+      "kind": "video",
+      "rows": 44,
+      "tables": 1,
+      "baseline_batch": 42,
+      "full_rows_equal": true,
+      "baseline_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b",
+      "current_hash": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b"
+    },
+    {
+      "kind": "image",
+      "rows": 81,
+      "tables": 1,
+      "baseline_batch": 42,
+      "full_rows_equal": true,
+      "baseline_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc",
+      "current_hash": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc"
+    },
+    {
+      "kind": "app",
+      "rows": 10,
+      "tables": 14,
+      "baseline_batch": 42,
+      "full_rows_equal": true,
+      "baseline_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1",
+      "current_hash": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1"
+    }
+  ],
+  "paid_generation": false,
+  "active_model_contracts_added": 0,
+  "active_meter_contracts_added": 0,
+  "actual_remaining": {
+    "missing_complete_model_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17,
+    "historical_application_options_not_fully_accepted": 13,
+    "pixel_skus": [
+      380,
+      383
+    ],
+    "token_skus": [
+      210,
+      211,
+      212,
+      213,
+      214,
+      215
+    ]
+  },
+  "limitations": [
+    "Version2 meter support is a SaaS-owned finite format for a verified SKU-wide maximum, not a claim that the current upstream publishes this format or a maximum.",
+    "The current18 legacy model declarations have no complete authoritative mode/condition contract; readable catalogues and non-opaque top-level fields alone do not certify completeness.",
+    "Pixel size aliases have no verified width/height map and receipt contract; no dimensions are inferred from similarly named supplier APIs.",
+    "Raw native passthrough Token execution is still explicitly gated separately; this batch covers shared video model/application preparation and reservation.",
+    "No uniform per-tool UI acceptance was started; frontend tests are regression checks only."
+  ]
+}

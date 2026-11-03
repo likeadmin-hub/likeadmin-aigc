@@ -19,6 +19,23 @@ final class OfflineMicroImageQuoteRuntime
 
 final class MicroVideoImageQuoteRequestTest extends TestCase
 {
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testCatalogueQuoteSuppliesOnlyTheMissingPromptWithoutFreezingIt(): void
+    {
+        class_alias(OfflineMicroImageQuoteRuntime::class, 'app\\common\\service\\power\\MarketImageModelRuntimeService');
+        $selection = ['model_id' => 'fixed', 'market_sku_id' => 12];
+        $references = ['reference_images' => ['https://owned.invalid/role.png']];
+        $quote = MicroVideoFrameCatalog::quote(1, $selection, $references);
+        self::assertSame($selection, $quote['selection']);
+        self::assertSame(3., $quote['user_charge_points']);
+        $authored = MicroVideoFrameCatalog::quote(1, $selection, $references + ['prompt' => '不同价格']);
+        self::assertSame(4., $authored['user_charge_points']);
+        self::assertArrayNotHasKey('prompt', $authored['selection']);
+    }
+
     public function testWorkerAndInitialQuoteUseTheSameAuthorizedInputBuilder(): void
     {
         $job=['selection'=>['model_id'=>'fixture','market_sku_id'=>12,'quality'=>'2K','ratio'=>'9:16'],

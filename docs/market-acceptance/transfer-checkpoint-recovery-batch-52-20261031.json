@@ -1,0 +1,549 @@
+{
+  "batch": 52,
+  "date": "2026-10-31",
+  "source_server_commit": "3265dd543641b13ac558a58e68ce8f455ace2e9c",
+  "source_web_commit": "1f52cb5f",
+  "managed_checkpoint_commit": "334b8736b",
+  "upload_node_recovery_commit": "f0995261",
+  "scope": "Durable local result-file/checkpoint recovery, measured-media type checks, actual post-upload worker kill and late projection fault, plus separate authenticated HTTP upload-only projects. No supplier submission/query/assets, paid generation, real contract activation or market sync.",
+  "before": [
+    {
+      "entry": "shared_result_worker",
+      "scenario": "stored_asset_late_projection_failure",
+      "status": "reproduced_failure",
+      "source_commit": "749846728",
+      "failure": "Late projection error regressed an already stored asset",
+      "scope": "Owned disposable SQL/file fixture; injected consumption summary update failure after asset stored; not a real generation failure."
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 534,
+      "scenario": "batch_upload_document_replacement_with_layout_change",
+      "status": "reproduced_failure",
+      "source_web_commit": "1f7eaac8",
+      "nodes": 3,
+      "missing_durable_media_nodes": 2,
+      "run_rows": 0,
+      "scope": "Normal logged-in upload. Video URI persisted, image/audio URI updates were lost after merged node replacement. Project renamed as repair-before reproduction and retained."
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 535,
+      "scenario": "viewport_reopen_assistant_width_translation",
+      "status": "reproduced_failure",
+      "source_web_commit": "f0995261",
+      "before": {
+        "x": 1301.77734375,
+        "y": 572.16796875,
+        "k": 0.5
+      },
+      "after": {
+        "x": 1495.77734375,
+        "y": 572.16796875,
+        "k": 0.5
+      },
+      "nodes_and_edges_equal": true,
+      "scope": "Normal reload and return to the same closed assistant state. Absolute x increased194; scale stayed0.5. Corrected by optional stage dimensions in viewport snapshot."
+    }
+  ],
+  "worker_recovery": {
+    "scope": "Disposable SQL prefix and private local file/cache roots. Production result worker command, no HTTP authentication or supplier submission/query.",
+    "provider_calls": 0,
+    "actual_wallet_mutations": 0,
+    "transfer_job_app_linked": true,
+    "legacy_pending_job_relinked": true,
+    "actual_worker_command": true,
+    "killed_after_upload_before_receipt_commit": true,
+    "complete_local_bytes_not_rewritten": true,
+    "late_projection_failure_retained_stored_asset": true,
+    "natural_lease_expiry_recovered": true,
+    "repeat_restart_idempotent": true,
+    "managed_uri_matches_business_result": true,
+    "file_rows": 1,
+    "stored_bytes_sha256": "5e3d382db4dd83d59aa5742793ad6b7903409e865c83bcbc54835049f043bc15",
+    "storage_scope": "platform",
+    "storage_engine": "local",
+    "result_dimensions": [
+      1,
+      1
+    ],
+    "claimed_attempts": 3
+  },
+  "browser_projects": [
+    {
+      "entry": "canvas",
+      "project_id": 893,
+      "scenario": "normal_login_http_synthetic_media_save_close_reopen_and_viewport_restore",
+      "status": "http_graph_state_preserved",
+      "scope": "Upload-only image/video/audio nodes; no generation model/SKU acceptance and no raw HTTP wire capture. Short-drama viewport compared at matching assistant panel state after size-aware snapshot fix.",
+      "nodes": 4,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "graph_before_sha256": "14060dad3a6ee865d8c601485f5409f67034b82021acb65ebb00a5840eb210f7",
+      "graph_after_sha256": "14060dad3a6ee865d8c601485f5409f67034b82021acb65ebb00a5840eb210f7",
+      "files": [
+        {
+          "title": "b52-synthetic-blue.mp4",
+          "media_type": "video",
+          "uri_sha256": "9b91c74ad3f09871027a63f6618f26ccdef44ff74a1a7d4737915fa599339cbc",
+          "asset_id_present": false
+        },
+        {
+          "title": "b52-synthetic-silence.wav",
+          "media_type": "audio",
+          "uri_sha256": "d7ab9285a166a84045cd8d5ab86fb58f348d86347d6023cca63e6377c1331391",
+          "asset_id_present": false
+        },
+        {
+          "title": "b52-managed-image.png",
+          "media_type": "image",
+          "uri_sha256": "57035a7a9602adeed0de05518cdf5dd89fb8a708676601a22479173dba9d678f",
+          "asset_id_present": false
+        },
+        {
+          "title": "b52-managed-crc-image.png",
+          "media_type": "image",
+          "uri_sha256": "fd7c462435d902294e0e5ff8aba76ae40aa95d70be0513dab03315e0523d2bff",
+          "asset_id_present": false
+        }
+      ]
+    },
+    {
+      "entry": "short_drama",
+      "project_id": 535,
+      "scenario": "normal_login_http_synthetic_media_save_close_reopen_and_viewport_restore",
+      "status": "http_graph_state_preserved",
+      "scope": "Upload-only image/video/audio nodes; no generation model/SKU acceptance and no raw HTTP wire capture. Short-drama viewport compared at matching assistant panel state after size-aware snapshot fix.",
+      "nodes": 4,
+      "edges": 0,
+      "run_rows": 0,
+      "nodes_equal": true,
+      "edges_equal": true,
+      "viewport_equal": true,
+      "graph_before_sha256": "6433b736d485be5a79919b8ecdf0acde1273cb35771f02ece3377a15fff3e153",
+      "graph_after_sha256": "6433b736d485be5a79919b8ecdf0acde1273cb35771f02ece3377a15fff3e153",
+      "files": [
+        {
+          "title": "b52-synthetic-blue.mp4",
+          "media_type": "video",
+          "uri_sha256": "4c103566d5393c15394632379de8497adca28d7b492d2e897d5df81db704370b",
+          "asset_id_present": true
+        },
+        {
+          "title": "b52-synthetic-silence.wav",
+          "media_type": "audio",
+          "uri_sha256": "12bc33284db9fc1e95647c1326aa992a0414ab780239e88a0351b59e200c973c",
+          "asset_id_present": true
+        },
+        {
+          "title": "b52-managed-image.png",
+          "media_type": "image",
+          "uri_sha256": "f27a61472ac7111ed3763d703199375ebb787757291cc4daa2d3e7af407c6491",
+          "asset_id_present": true
+        },
+        {
+          "title": "b52-managed-crc-image.png",
+          "media_type": "image",
+          "uri_sha256": "c4a18b319b8fef0082cfa6e7e54828670389db5f9aad235ad221ad23355c13ea",
+          "asset_id_present": true
+        }
+      ]
+    }
+  ],
+  "browser_media": {
+    "canvas": [
+      {
+        "duration": 1,
+        "error": null,
+        "height": 32,
+        "ready": 4,
+        "tag": "VIDEO",
+        "width": 32
+      },
+      {
+        "duration": 1,
+        "error": null,
+        "height": null,
+        "ready": 4,
+        "tag": "AUDIO",
+        "width": null
+      },
+      {
+        "complete": true,
+        "height": 1,
+        "tag": "IMG",
+        "width": 1
+      },
+      {
+        "complete": true,
+        "height": 1,
+        "tag": "IMG",
+        "width": 1
+      }
+    ],
+    "short_drama": [
+      {
+        "complete": true,
+        "height": 32,
+        "tag": "IMG",
+        "width": 32
+      },
+      {
+        "duration": 1,
+        "error": null,
+        "height": 32,
+        "ready": 4,
+        "tag": "VIDEO",
+        "width": 32
+      },
+      {
+        "duration": 1,
+        "error": null,
+        "height": null,
+        "ready": 4,
+        "tag": "AUDIO",
+        "width": null
+      },
+      {
+        "complete": true,
+        "height": 1,
+        "tag": "IMG",
+        "width": 1
+      },
+      {
+        "complete": true,
+        "height": 1,
+        "tag": "IMG",
+        "width": 1
+      }
+    ]
+  },
+  "upload_storage_receipts": {
+    "canvas": [
+      {
+        "file_name": "b52-synthetic-blue.mp4",
+        "uri_sha256": "8fbe7e6ee8362acb82592fec01cd70d3f4e1782eee4914244dfba6e8e7b1b7c2",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b52-synthetic-silence.wav",
+        "uri_sha256": "25d20a7cb5dd3ca7088a6f1ce31817adff5e0c7a05a04c43ca59f0bb7241abff",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b52-managed-image.png",
+        "uri_sha256": "dc8b40b6db2b1daf08a11520c7ef1ba538252ec6b7e1c5a1f4105b340972e1f1",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b52-managed-crc-image.png",
+        "uri_sha256": "e623cfb32c0e7c016ac95af3fbb830f8d89ff7da42a809b00dd4f7da8bb5c957",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "short_drama": [
+      {
+        "file_name": "b52-synthetic-blue.mp4",
+        "uri_sha256": "4c103566d5393c15394632379de8497adca28d7b492d2e897d5df81db704370b",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b52-synthetic-silence.wav",
+        "uri_sha256": "12bc33284db9fc1e95647c1326aa992a0414ab780239e88a0351b59e200c973c",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b52-managed-image.png",
+        "uri_sha256": "f27a61472ac7111ed3763d703199375ebb787757291cc4daa2d3e7af407c6491",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      },
+      {
+        "file_name": "b52-managed-crc-image.png",
+        "uri_sha256": "c4a18b319b8fef0082cfa6e7e54828670389db5f9aad235ad221ad23355c13ea",
+        "tenant_matches": true,
+        "user_matches": true,
+        "storage_scope": "tenant",
+        "storage_engine": "aliyun",
+        "storage_domain_sha256": "8cfd5f5c84faa59259221496ec90a0e35e224e566b9a5fc0f4e3c0e5a82155ab"
+      }
+    ],
+    "fixture_cleanup": {
+      "remaining_owned_prefix_tables": 0,
+      "remaining_private_roots": 0,
+      "remaining_storage_test_roots": 0
+    }
+  },
+  "regression": {
+    "phpunit_tests": 759,
+    "assertions": 5691,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "new_tests": 26,
+    "new_assertions": 199,
+    "new_db_scenarios_rolled_back": 26,
+    "pc_tests": 163,
+    "new_pc_tests": 13,
+    "vue_script_template_compile": 1,
+    "php_lints": 9,
+    "native_pricing_rollback": "passed",
+    "index_boundary_tests": 2,
+    "peak_memory_mb": "164.80",
+    "php_test_memory_limit_mb": 256,
+    "full_web_build": false,
+    "fixture_corrections": "Model before-insert barrier was bypassed by BaseModel; moved to SQL after-insert before transaction commit. Compiler uses installed Vue entry and TS template options. Corrected synthetic PNG IDAT CRC; no historical real result rewrite."
+  },
+  "actual_container_examples": [
+    {
+      "type": "video",
+      "extension": "mp4",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "video",
+      "extension": "webm",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "video",
+      "extension": "mov",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "video",
+      "extension": "m4v",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "audio",
+      "extension": "mp3",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "audio",
+      "extension": "wav",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "audio",
+      "extension": "ogg",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "audio",
+      "extension": "flac",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "audio",
+      "extension": "aac",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "audio",
+      "extension": "m4a",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    },
+    {
+      "type": "audio",
+      "extension": "opus",
+      "status": "local_managed_bytes_and_owner_verified",
+      "scope": "Generated color/silence fixture; inline data URI through production asset service and real local driver, DB rollback. Not a supplier download or full codec corruption matrix."
+    }
+  ],
+  "retention": {
+    "video": {
+      "equal_to_batch51": true,
+      "sha256": "158472082f5a12df6d3e4623e7c268519e5d23b02b676c26ca70bddfe154d48b"
+    },
+    "image": {
+      "equal_to_batch51": true,
+      "sha256": "fdd0f02c0f648e427a55ab0013d8906d5aaef02051b3c559bf0d093af8930efc"
+    },
+    "app": {
+      "equal_to_batch51": true,
+      "sha256": "1769102024d64f645f39f6c4c07b051c42ddfe4837055b60b97e4a9d13918ed1"
+    },
+    "frozen": {
+      "equal_to_batch51": true,
+      "sha256": "5332bdb9fab4d7f648ef10e8d3a8d72b321fc9bb96b615e8e0c3f9ce8c0e633f"
+    },
+    "price": {
+      "equal_to_batch51": true,
+      "sha256": "6beace6501cde4638983d37d535c880c1b86f051bcbe02e8ddc3dd05232dad44"
+    },
+    "meter": {
+      "equal_to_batch51": true,
+      "sha256": "2b37dafd443b9e34997e84b68f982887c9ebb626688b667e64d4b90b1a41d355"
+    }
+  },
+  "current_prices": {
+    "scope": "READ ONLY comparison of old/new unit-price policy for tenant1 and platform over current saved SKU data; no repricing or task update",
+    "skus_checked": 848,
+    "level_comparisons": 1696,
+    "current_bounded_meter_versions": {
+      "2": 0,
+      "3": 0
+    },
+    "differences": []
+  },
+  "blocked_real_meter_admission": [
+    {
+      "channel": "market_image_model:275",
+      "sku_id": 380,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "image_to_image",
+      "source_payload_hash": "3559e49335e873d48e83f8bd9d9984e076b4b72b3d477b6e9ab6c8f0794cb3c7",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_image_model:277",
+      "sku_id": 383,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "text_to_image",
+      "source_payload_hash": "ed9477fb9102aea209736727f756dd33933d04f90a4bb16fe3df3b38332e5da9",
+      "meter_contract_present": false,
+      "status": "blocked_missing_verified_pixels",
+      "message": "该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 210,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "6c03769ca1091e2e5131d9a3e1d6344554eb78f97f64362e15cbf896401b387e",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 211,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "1caa14d0a836fadcbc639e898f597dd4a7207c0fb854a649d83dfff458121412",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 212,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "3d69c808ea0d2de866017e74997ca624393913a384a30aed01baf7e5721c7477",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 213,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "837dfc949f8137dd4fc092069b6c645b1ae5501d287dc1dad87545c5a4dd1434",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 214,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "with_video",
+      "source_payload_hash": "315824398357523d2c325b2026581301f33c5f270f1463bb2b6e21035e70ac92",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    },
+    {
+      "channel": "market_video_app:seedance:140",
+      "sku_id": 215,
+      "entry": "shared_meter_admission",
+      "scenario": "current_missing_authoritative_meter_basis",
+      "material_mode": "without_video",
+      "source_payload_hash": "e1172b382c762d87435e8ec2b16354bc259442241f58c41d7b758fd1afd648ef",
+      "meter_contract_present": false,
+      "status": "blocked_missing_token_budget",
+      "message": "当前视频规格缺少可信的实际用量额度边界"
+    }
+  ],
+  "visible_points_before_after": "4372.96",
+  "upstream_review": {
+    "refreshed_this_batch": false,
+    "last_observed": "2026-10-31T18:38:45+08:00",
+    "source": "bounded-image-submission-batch-50-20261031.json",
+    "missing_complete_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17
+  },
+  "contract_changes": [
+    "Existing storage_meta gets internal version1 transfer_checkpoint; optional internal resultAssetId added after existing asset service arguments.",
+    "Short-drama viewport JSON adds optional stage_width/stage_height; legacy x/y/k remain supported. No route, permission, manifest or SQL schema change."
+  ],
+  "remaining": [
+    "18 complete model contracts, 14 opaque model schemas/17 paths and remaining13 application option coverage",
+    "Qwen pixel SKU380/383 and Seedance Token SKU210-215 authoritative caps and receipts",
+    "Nano unmapped nested inputs, native image count, bare b64_json and supplier asset IDs",
+    "Actual cloud result transfer and remote supplier URL expiry; planned cloud path without durable receipt cannot be trusted",
+    "Actual video/audio task worker business writeback, kill during file upload, DB/host outage and parallel transfer writers",
+    "One normal HTTP generation task to worker update of its project node, real activated new meters and all tool/mode/SKU acceptance"
+  ],
+  "delivery_exclusions": [
+    "Only source, tests and documentation; generated media/build/runtime files excluded",
+    "No real tasks, wallets, model prices/listings or original user projects operated",
+    "Owned HTTP projects893/534/535 and synthetic uploads retained for review; random worker namespaces cleaned",
+    "3971 server public and3 web local flags and existing services preserved"
+  ],
+  "screenshot_scope": "Final screenshot used normal fit-to-screen after the equality checkpoint; do not compare that explicitly adjusted view against the saved50percent checkpoint."
+}

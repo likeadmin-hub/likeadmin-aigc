@@ -9,7 +9,8 @@ Db::startTrans();$receiptPath='';
 try {
     $tool=Store::table('tool')->where('tenant_id',$tenant)->find();$page=Store::table('page')->where('tool_id',$tool['id'])->find();
     $user=(int)Db::name('user')->where('tenant_id',$tenant)->value('id');
-    $model=Runtime::resolveModel($tenant,'175');
+    $models=Runtime::textOptions($tenant);check(count($models)>0,'text model fixture required');
+    $model=Runtime::resolveModel($tenant,(string)$models[0]['id']);
     $id=Store::insert('task',['tenant_id'=>$tenant,'user_id'=>$user,'tool_id'=>$tool['id'],'version_id'=>$page['published_version_id'],'idempotency_key'=>'recovery_'.bin2hex(random_bytes(8)),'request_hash'=>str_repeat('a',64),'input_snapshot'=>'{}','prompt_snapshot'=>'{}','model_snapshot'=>'{}','execution_fingerprint'=>str_repeat('b',64),'status'=>'running','submission_state'=>'uncertain']);
     $make=new ReflectionMethod(Runtime::class,'createConsumption');$make->setAccessible(true);
     $ctx=$make->invoke(null,$tenant,$user,$model,'copywriting_generate',[],['tenant_cost_points'=>0,'user_charge_points'=>0],0,'aigc_copywriting','aigc_copywriting_task',$id);

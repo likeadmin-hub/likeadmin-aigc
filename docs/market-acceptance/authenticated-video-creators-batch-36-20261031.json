@@ -1,0 +1,131 @@
+{
+  "batch": 36,
+  "date": "2026-10-31",
+  "source_web_commit": "5881a8012dd12dc4f262f30827b769fe3977cbe8",
+  "source_server_commit": "44deeca1558d6a9c3a8ae92e20faf12cd5414221",
+  "scope": "Existing normal login HTTP; new isolated synthetic projects only. Ordinary synthetic clipboard import and short-drama authored through UI. Legacy optional groups/IDs saved under earlier policy then regular reset; final policy retains meaningful sound/quality controls and ignores optional extras. Page quote observation has no captured SKU, never inferred from price.",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_task_writes": false,
+  "original_project_writes": false,
+  "new_uploads": 0,
+  "original_app_parent_rows": 10,
+  "original_core_image_rows": 80,
+  "original_rows_unchanged": true,
+  "regular_project_node_json_equal_after_independent_reopen": true,
+  "local_reuse_registration": "One owned synthetic current-canvas local asset; no provider registration or new upload.",
+  "cases": [
+    {
+      "channel": "market_video_model:355",
+      "entry": "canvas",
+      "scenario": "authenticated_regular_http_save_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 857,
+      "nodes": 3,
+      "edges": 0,
+      "run_rows": 0,
+      "saved_node_sha256": "93a9201ad74f7732adf49ec0ae81fb2334f7490828fc22e1c45f3c46bea36d63",
+      "page_quote_points": 1330,
+      "sku_capture": "not captured from HTTP; readonly projection evidence is separate",
+      "source_scope": "Final ordinary344/358 and short355 page views; three-model complete authored/reopened state also observed at 5c8831f before final policy. No original project or task writes."
+    },
+    {
+      "channel": "market_video_model:344",
+      "entry": "canvas",
+      "scenario": "authenticated_regular_http_save_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 857,
+      "nodes": 3,
+      "edges": 0,
+      "run_rows": 0,
+      "saved_node_sha256": "614d349e7a55c7242ea58c0559389c427ec2ecb5218f8a25c05c5bb1050ac0c9",
+      "page_quote_points": 666,
+      "sku_capture": "not captured from HTTP; readonly projection evidence is separate",
+      "source_scope": "Final ordinary344/358 and short355 page views; three-model complete authored/reopened state also observed at 5c8831f before final policy. No original project or task writes."
+    },
+    {
+      "channel": "market_video_model:358",
+      "entry": "canvas",
+      "scenario": "authenticated_regular_http_save_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 857,
+      "nodes": 3,
+      "edges": 0,
+      "run_rows": 0,
+      "saved_node_sha256": "7d3f79e411391befed70ac61fdd41b89619b82d1e5440bad2fd442fc9d6f8f35",
+      "page_quote_points": 666,
+      "sku_capture": "not captured from HTTP; readonly projection evidence is separate",
+      "source_scope": "Final ordinary344/358 and short355 page views; three-model complete authored/reopened state also observed at 5c8831f before final policy. No original project or task writes."
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "short_drama",
+      "scenario": "authenticated_regular_http_save_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 498,
+      "nodes": 3,
+      "edges": 0,
+      "run_rows": 0,
+      "saved_node_sha256": "5ac269ee6270a3af40d9777927f6cc2a4130d834e306d6a0998d7026b3d46351",
+      "page_quote_points": 1330,
+      "sku_capture": "not captured from HTTP; readonly projection evidence is separate",
+      "source_scope": "Final ordinary344/358 and short355 page views; three-model complete authored/reopened state also observed at 5c8831f before final policy. No original project or task writes."
+    },
+    {
+      "channel": "market_video_model:344",
+      "entry": "short_drama",
+      "scenario": "authenticated_regular_http_save_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 498,
+      "nodes": 3,
+      "edges": 0,
+      "run_rows": 0,
+      "saved_node_sha256": "94cd3a93a20622ca0448d7cfb1f20947e9ce3468b16fd1626df61e2780aa8870",
+      "page_quote_points": 583,
+      "sku_capture": "not captured from HTTP; readonly projection evidence is separate",
+      "source_scope": "Final ordinary344/358 and short355 page views; three-model complete authored/reopened state also observed at 5c8831f before final policy. No original project or task writes."
+    },
+    {
+      "channel": "market_video_model:358",
+      "entry": "short_drama",
+      "scenario": "authenticated_regular_http_save_reopen",
+      "status": "http_graph_state_preserved",
+      "synthetic_project_id": 498,
+      "nodes": 3,
+      "edges": 0,
+      "run_rows": 0,
+      "saved_node_sha256": "4186f03ea8c394c20e4524100f524971d4208f34e0540002d028a1b003c4fcd6",
+      "page_quote_points": 250,
+      "sku_capture": "not captured from HTTP; readonly projection evidence is separate",
+      "source_scope": "Final ordinary344/358 and short355 page views; three-model complete authored/reopened state also observed at 5c8831f before final policy. No original project or task writes."
+    },
+    {
+      "channel": "market_video_model:335",
+      "entry": "pc_create",
+      "requested_method": "text_to_video",
+      "scenario": "authenticated_sound_quality_controls_retained",
+      "status": "presentation_checked_payload_unchanged",
+      "controls": {
+        "mode": "pro",
+        "sound": false,
+        "duration": 3,
+        "ratio": "16:9"
+      },
+      "page_quote_points": 216,
+      "optional_subject_editor_visible": false,
+      "paid_submit": false,
+      "console_errors_or_warnings": []
+    }
+  ],
+  "legacy_short_project": {
+    "synthetic_project_id": 497,
+    "source_web_commit": "7c53d4eb5275040ee9ae3c03008d4d90496b89f6",
+    "scope": "Two authored saved legacy nodes:355 subjects and344 synthetic IDs. User viewed this project; editing stopped. Third empty335 node is not a passed358 scenario. No whole-project final-state equality or provider role existence claim."
+  },
+  "clip_verification": {
+    "source_web_commit": "5881a8012dd12dc4f262f30827b769fe3977cbe8",
+    "scope": "Generic nested URL selector incorrectly inherited image kind. Fixed declared media-kind propagation; actual existing synthetic role-video option reselected, explicit start0/ends1 entered with keyboard, saved and independently reopened. A single transient empty clip state was observed; automatic selection-loss causality was not reproduced or claimed. Final node JSON remained equal.",
+    "source_mutation": "synthetic project857 only",
+    "new_uploads": 0
+  }
+}

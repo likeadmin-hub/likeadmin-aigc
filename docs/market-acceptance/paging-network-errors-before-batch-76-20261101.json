@@ -1,0 +1,103 @@
+{
+  "batch": 76,
+  "date": "2026-11-01",
+  "scope": "Preserved actual old-SFC rejection and failed-state reproductions against the same installed z-paging2.7.6. Only local in-memory git show source; no old checkout, API or provider traffic.",
+  "source_web_commit": "16c13f04",
+  "observations": [
+    {
+      "status": "reproduced_failure",
+      "entry": "existing_mobile_news",
+      "scenario": "unhandled_reload_complete_or_missing_failed_state_before_fix",
+      "report": {
+        "kind": "news",
+        "source_ref": "16c13f04",
+        "library_version": "2.7.6",
+        "failure": {
+          "is_load_failed": true,
+          "loading_status": 3,
+          "reload_button_available": true,
+          "unhandled": [
+            "z-paging-reload-error",
+            "z-paging-complete-error"
+          ],
+          "controller_errors": []
+        },
+        "retry": {
+          "is_load_failed": false,
+          "rows": 2,
+          "api_reads": 2
+        },
+        "unhandled": [
+          "z-paging-reload-error",
+          "z-paging-complete-error"
+        ],
+        "controller_errors": [],
+        "diagnostics": [
+          "报错=> controlled read failure"
+        ]
+      }
+    },
+    {
+      "status": "reproduced_failure",
+      "entry": "existing_mobile_search",
+      "scenario": "unhandled_reload_complete_or_missing_failed_state_before_fix",
+      "report": {
+        "kind": "search",
+        "source_ref": "16c13f04",
+        "library_version": "2.7.6",
+        "failure": {
+          "is_load_failed": true,
+          "loading_status": 3,
+          "reload_button_available": true,
+          "unhandled": [
+            "z-paging-reload-error",
+            "z-paging-complete-error"
+          ],
+          "controller_errors": []
+        },
+        "retry": {
+          "is_load_failed": false,
+          "rows": 2,
+          "api_reads": 2
+        },
+        "unhandled": [
+          "z-paging-reload-error",
+          "z-paging-complete-error"
+        ],
+        "controller_errors": [],
+        "diagnostics": [
+          "报错=> controlled read failure"
+        ]
+      }
+    },
+    {
+      "status": "reproduced_failure",
+      "entry": "existing_mobile_collection",
+      "scenario": "unhandled_reload_complete_or_missing_failed_state_before_fix",
+      "report": {
+        "kind": "collection",
+        "source_ref": "16c13f04",
+        "library_version": "2.7.6",
+        "failure": {
+          "is_load_failed": false,
+          "loading_status": 0,
+          "reload_button_available": false,
+          "unhandled": [],
+          "controller_errors": [
+            "controlled read failure"
+          ]
+        },
+        "retry": {
+          "is_load_failed": false,
+          "rows": 2,
+          "api_reads": 2
+        },
+        "unhandled": [],
+        "controller_errors": [
+          "controlled read failure"
+        ],
+        "diagnostics": []
+      }
+    }
+  ]
+}

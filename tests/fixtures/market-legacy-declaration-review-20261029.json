@@ -1,0 +1,225 @@
+{
+    "scope": "Published parameter declarations only; fingerprints grant no capability or SKU/price/provider verification.",
+    "model_catalogue_observed_at": "2026-10-29T18:42:39+08:00",
+    "application_details_recorded_at": "2026-10-29T18:45:46+08:00",
+    "model_source": "GET /api/v1/models?type={image|video}&detail=1",
+    "application_source": "GET /api/v1/apps/{app_code}",
+    "entries": [
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "nano-banana-2.1",
+            "channel_code": "Google",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "864c9a8bf73956e974f403325dac3c08bc9f15059a86fb981d73741641e7a601",
+            "current_parameter_fingerprint": "864c9a8bf73956e974f403325dac3c08bc9f15059a86fb981d73741641e7a601"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "gpt-image-2.5-sunburst",
+            "channel_code": "OpenAIYI",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "e2e07a4af2efec219ac91a297db658c1471a0a19b52fd808c5b9044c1a29873a",
+            "current_parameter_fingerprint": "e2e07a4af2efec219ac91a297db658c1471a0a19b52fd808c5b9044c1a29873a"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "gpt-image-2.5-flare",
+            "channel_code": "OpenAIYI",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "b6e3248784f1908f3d15a7c4d9584f6db5e3526a769d26b8da0c1e1eb6a6ad13",
+            "current_parameter_fingerprint": "b6e3248784f1908f3d15a7c4d9584f6db5e3526a769d26b8da0c1e1eb6a6ad13"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "gpt-image-2.5",
+            "channel_code": "OpenAIYI",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4",
+            "current_parameter_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "qwen-image-3.0",
+            "channel_code": "dashscope_compatible",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d",
+            "current_parameter_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "qwen-image-3.0-pro",
+            "channel_code": "dashscope_compatible",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d",
+            "current_parameter_fingerprint": "573942a73e3339e6a63afe7ccd8667634f7dc1ca71912c90ef8c56e915b79d1d"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "gpt-image-2-pro",
+            "channel_code": "OpenaiM",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "deaa079d368b5681c1c24ab2cbb9638ea27eb0f25759ab4a1a22be6a94b2ebb1",
+            "current_parameter_fingerprint": "deaa079d368b5681c1c24ab2cbb9638ea27eb0f25759ab4a1a22be6a94b2ebb1"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "gpt-image-2-fast",
+            "channel_code": "openaiD",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "44ccb0d87464e260598fb73a0960a190c2df9ca5c4c1e548954c9dea559f7dba",
+            "current_parameter_fingerprint": "44ccb0d87464e260598fb73a0960a190c2df9ca5c4c1e548954c9dea559f7dba"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenAIYI",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4",
+            "current_parameter_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenaiM",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "05310bc24ecb6069788bba47039164d8357b5c1017d8aa8d6e99573799c48934",
+            "current_parameter_fingerprint": "05310bc24ecb6069788bba47039164d8357b5c1017d8aa8d6e99573799c48934"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "nano-banana-pro",
+            "channel_code": "Google",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "7812a7275c4b38ae7294f293ffbca27e8c2bf9e72104ace538aeeedd9a311b5b",
+            "current_parameter_fingerprint": "7812a7275c4b38ae7294f293ffbca27e8c2bf9e72104ace538aeeedd9a311b5b"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "model",
+            "model_code": "nano-banana-2",
+            "channel_code": "Google",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "7812a7275c4b38ae7294f293ffbca27e8c2bf9e72104ace538aeeedd9a311b5b",
+            "current_parameter_fingerprint": "7812a7275c4b38ae7294f293ffbca27e8c2bf9e72104ace538aeeedd9a311b5b"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "model",
+            "model_code": "wan3.0-video",
+            "channel_code": "dashscope_compatible",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "1f7b90fc5cb91aaebfbd5ea83687de3ab79ee0c84c89bc2c1d849cdd2d2f631f",
+            "current_parameter_fingerprint": "1f7b90fc5cb91aaebfbd5ea83687de3ab79ee0c84c89bc2c1d849cdd2d2f631f"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "model",
+            "model_code": "veo3.1-pro",
+            "channel_code": "xAIQ",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "aca6f8e829382369732c9d54a38a01e65292187aa2c90bf6b1f6cd86b82ed049",
+            "current_parameter_fingerprint": "aca6f8e829382369732c9d54a38a01e65292187aa2c90bf6b1f6cd86b82ed049"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "model",
+            "model_code": "veo3.1-fast",
+            "channel_code": "xAIQ",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "aca6f8e829382369732c9d54a38a01e65292187aa2c90bf6b1f6cd86b82ed049",
+            "current_parameter_fingerprint": "aca6f8e829382369732c9d54a38a01e65292187aa2c90bf6b1f6cd86b82ed049"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "model",
+            "model_code": "grok-video",
+            "channel_code": "xAIQ",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "c26454957f58b8fb0a707b84ae6f9e6a9b2bf1fd14d4c7a9c21ef1beab71600f",
+            "current_parameter_fingerprint": "c26454957f58b8fb0a707b84ae6f9e6a9b2bf1fd14d4c7a9c21ef1beab71600f"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "model",
+            "model_code": "q4-preview-video",
+            "channel_code": "q4_video",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "36cfd36887a1c2f239210fe0efdb36127c5e084bef0865c70da8b0b677daa572",
+            "current_parameter_fingerprint": "36cfd36887a1c2f239210fe0efdb36127c5e084bef0865c70da8b0b677daa572"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "model",
+            "model_code": "h3-video",
+            "channel_code": "minimax",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "bc990385ba679881c0bfac47b246cc769a8462e4817b7b7dcf874ce1698ade0c",
+            "current_parameter_fingerprint": "bc990385ba679881c0bfac47b246cc769a8462e4817b7b7dcf874ce1698ade0c"
+        },
+        {
+            "generation_type": "image",
+            "resource_type": "app_api",
+            "app_code": "nano_banana",
+            "api_code": "submit",
+            "catalogue_options": 8,
+            "captured_parameter_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39",
+            "current_parameter_fingerprint": "6d3257d5691b9b8536325d79813d45c02b08857467d4f589ac689744b6293c39"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "app_api",
+            "app_code": "seedance",
+            "api_code": "create",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "587ff09fe946c247c0fe637c3495667a8c889562fe2d2cca9fa3f962a7de3342",
+            "current_parameter_fingerprint": "587ff09fe946c247c0fe637c3495667a8c889562fe2d2cca9fa3f962a7de3342"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "app_api",
+            "app_code": "wan",
+            "api_code": "create",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "2b42683c17602de30516b040c1bdbabe65d16c22a8b030f7e268797b207826f0",
+            "current_parameter_fingerprint": "2b42683c17602de30516b040c1bdbabe65d16c22a8b030f7e268797b207826f0"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "app_api",
+            "app_code": "grok_video",
+            "api_code": "submit",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "5614d25b83d4ffaa8b930746c837d7ffd2aaaf4021d070b9aca02ce86b28ab3e",
+            "current_parameter_fingerprint": "5614d25b83d4ffaa8b930746c837d7ffd2aaaf4021d070b9aca02ce86b28ab3e"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "app_api",
+            "app_code": "happy_horse",
+            "api_code": "submit",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "05cf0c2d8846dcaf87f5a2f303980bc2e7c935197447738732a29a14f115ece3",
+            "current_parameter_fingerprint": "05cf0c2d8846dcaf87f5a2f303980bc2e7c935197447738732a29a14f115ece3"
+        },
+        {
+            "generation_type": "video",
+            "resource_type": "app_api",
+            "app_code": "full_video",
+            "api_code": "submit",
+            "catalogue_options": 1,
+            "captured_parameter_fingerprint": "b2b353a75add22d408ca28c0c503521b76ac0711a2087c70e5b9bf60bf94a72e",
+            "current_parameter_fingerprint": "b2b353a75add22d408ca28c0c503521b76ac0711a2087c70e5b9bf60bf94a72e"
+        }
+    ]
+}

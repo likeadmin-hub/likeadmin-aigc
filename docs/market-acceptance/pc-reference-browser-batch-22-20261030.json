@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "observed_at": "2026-10-30T16:54:40+08:00",
+  "tenant_id": 1,
+  "scope": "Authenticated actual PC creation and homepage. Synthetic images/video/audio uploaded through normal SaaS upload APIs and configured storage, not supplier asset APIs. No private source material or original user project modified. No generate button clicked. Price is an estimate. Browser request bodies and exact browser SKU were not captured. Earlier observations preceded only the final upload busy guard, with source commits recorded per item.",
+  "observations": [
+    {
+      "entry": "pc_video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "before_replace_second",
+      "source_web_commit": "570ba26b",
+      "status": "reproduced_failure",
+      "material_counts": {
+        "image": 2
+      },
+      "missing_token": "@图片2",
+      "page_points": 200,
+      "screenshot_local": "/tmp/market-batch22-before-replacement.jpg"
+    },
+    {
+      "entry": "pc_video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "two_images_uploaded",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 2
+      },
+      "quality_label": "4K",
+      "ratio": "1:1",
+      "duration_seconds": 5,
+      "page_points": 200,
+      "prompt_tokens": [
+        "@图片1",
+        "@图片2"
+      ]
+    },
+    {
+      "entry": "pc_video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "replace_second_image",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 2
+      },
+      "quality_label": "4K",
+      "ratio": "1:1",
+      "duration_seconds": 5,
+      "page_points": 200,
+      "prompt_tokens": [
+        "@图片2",
+        "@图片1"
+      ],
+      "screenshot_local": "/tmp/market-batch22-replacement-fixed.jpg"
+    },
+    {
+      "entry": "pc_video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "remove_first_image",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 1
+      },
+      "page_points": 200,
+      "prompt_tokens": [
+        "@图片1"
+      ],
+      "screenshot_local": "/tmp/market-batch22-reference-removed.jpg"
+    },
+    {
+      "entry": "pc_video",
+      "channel": "market_video_app:full_video:103",
+      "scenario": "image_video_audio",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 1,
+        "video": 1,
+        "audio": 1
+      },
+      "quality_label": "4K",
+      "ratio": "1:1",
+      "duration_seconds": 5,
+      "method_label": "视频编辑",
+      "page_points": 200,
+      "prompt_tokens": [
+        "@图片1",
+        "@视频1",
+        "@音频1"
+      ],
+      "screenshot_local": "/tmp/market-batch22-pc-mixed-materials.jpg"
+    },
+    {
+      "entry": "pc_image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_2k",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 3
+      },
+      "quality_label": "2k",
+      "ratio": "1:1",
+      "quantity": 1,
+      "page_points": 40.91,
+      "prompt_tokens": [
+        "@图片1",
+        "@图片2",
+        "@图片3"
+      ]
+    },
+    {
+      "entry": "pc_image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "three_images_4k",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 3
+      },
+      "quality_label": "4k",
+      "ratio": "1:1",
+      "quantity": 1,
+      "page_points": 48.64,
+      "prompt_tokens": [
+        "@图片1",
+        "@图片2",
+        "@图片3"
+      ],
+      "screenshot_local": "/tmp/market-batch22-pc-image-three.jpg"
+    },
+    {
+      "entry": "pc_image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "remove_middle_image_4k",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 2
+      },
+      "quality_label": "4k",
+      "ratio": "1:1",
+      "quantity": 1,
+      "page_points": 48.64,
+      "prompt_tokens": [
+        "@图片1",
+        "@图片2"
+      ],
+      "screenshot_local": "/tmp/market-batch22-pc-image-removed.jpg"
+    },
+    {
+      "entry": "home_image",
+      "channel": "market_image_model:305",
+      "scenario": "two_images_uploaded",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 2
+      },
+      "page_points": 10,
+      "upload_controls_disabled_while_pending": true
+    },
+    {
+      "entry": "home_image",
+      "channel": "market_image_model:305",
+      "scenario": "remove_first_image",
+      "source_web_commit": "8d333975",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 1
+      },
+      "page_points": 10,
+      "prompt_tokens": [
+        "@图片1"
+      ],
+      "screenshot_local": "/tmp/market-batch22-home-image-removed.jpg"
+    },
+    {
+      "entry": "pc_image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "upload_transaction_pending",
+      "source_web_commit": "197f4817",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 3
+      },
+      "add_disabled": true,
+      "all_remove_buttons_disabled": true,
+      "generation_disabled": true,
+      "screenshot_local": "/tmp/market-batch22-upload-actions-disabled.jpg"
+    },
+    {
+      "entry": "pc_image",
+      "channel": "market_nano_banana:110:bmFuby1iYW5hbmEtMjpvZmZpY2lhbA==",
+      "scenario": "upload_transaction_settled",
+      "source_web_commit": "197f4817",
+      "status": "observed_pass",
+      "material_counts": {
+        "image": 3
+      },
+      "quality_label": "2k",
+      "ratio": "1:1",
+      "quantity": 1,
+      "page_points": 40.91,
+      "prompt_tokens": [
+        "@图片1",
+        "@图片2",
+        "@图片3"
+      ],
+      "add_enabled": true,
+      "all_remove_buttons_enabled": true,
+      "screenshot_local": "/tmp/market-batch22-upload-actions-restored.jpg"
+    }
+  ],
+  "new_supplier_tasks": 0,
+  "new_generation_charge": 0,
+  "full_entrance_acceptance": false
+}

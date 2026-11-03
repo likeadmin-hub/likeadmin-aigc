@@ -3,30 +3,32 @@
 namespace Tests\Feature;
 
 use PHPUnit\Framework\TestCase;
+use Tests\Support\CompiledAssets;
 
+/** Source-only wiring guards; behavior is exercised by the PC reference tests. */
 class CanvasLocalUploadMentionContractTest extends TestCase
 {
     public function testLocalReferenceImagesAreIncludedInMentionOptions(): void
     {
-        $source = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/native/CanvasNode.vue');
-        self::assertStringContainsString('props.node.metadata.referenceImages', $source);
-        self::assertStringContainsString('local-${props.node.id}-image-${index}', $source);
-        self::assertStringContainsString('source: item.asset_id ? \'asset\' : \'local\'', $source);
-        self::assertStringContainsString('referenceImages', $this->canvasBundle());
+        $page = CompiledAssets::source('pc/pages/app/aigc_canvas/project/[id].vue');
+        $catalogue = CompiledAssets::source('pc/apps/aigc_canvas/components/native/projectReferenceCatalog.ts');
+        foreach (['referenceImages', 'referenceVideos', 'referenceAudios', 'project-upload-'] as $field) {
+            self::assertStringContainsString($field, $catalogue);
+        }
+        self::assertStringContainsString('projectUploadReferences(nodes.value).forEach', $page);
+        self::assertStringContainsString("source: 'local'", $page);
+        self::assertStringContainsString(':mention-options="nodePresentations.get(node).mentions"', $page);
     }
 
     public function testUploadedImageMentionsReceiveThePermanentUrl(): void
     {
-        $source = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/native/CanvasNode.vue');
-        self::assertStringContainsString('mentions:', $source);
-        self::assertStringContainsString('referenceImages,', $source);
-        self::assertStringContainsString('fromUrl', $source);
-        self::assertStringContainsString('toUrl', $source);
-        self::assertStringContainsString('reference_assets:', $this->canvasBundle());
-    }
-
-    private function canvasBundle(): string
-    {
-        return (string)\Tests\Support\CompiledAssets::pcPage('app/aigc_canvas/project/[id]');
+        $source = CompiledAssets::source('pc/apps/aigc_canvas/components/native/CanvasNode.vue');
+        $references = CompiledAssets::source('pc/apps/aigc_canvas/components/native/inputReferences.ts');
+        $catalogue = CompiledAssets::source('pc/apps/aigc_canvas/components/native/projectReferenceCatalog.ts');
+        self::assertStringContainsString('replaceCanvasReference(item,toUrl)', $source);
+        self::assertStringContainsString('!requestedRole || item.role === requestedRole', $source);
+        self::assertStringContainsString('uri:url', $references);
+        self::assertStringContainsString('[reference?.uri,reference?.url]', $catalogue);
+        self::assertStringContainsString('isPersistentMediaUrl(value)', $catalogue);
     }
 }

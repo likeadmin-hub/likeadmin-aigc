@@ -9,29 +9,16 @@ final class ShortDramaStoryWorkflow
 {
     public const VARIANT = 'story_outline_v2';
 
-    /** Missing on historical tasks means the original review flow. */
+    /** Editorial review is opt-in for this explicit action, never inherited from a saved task. */
     public static function qualityReviewEnabled(array $request): bool
     {
-        if (ShortDramaReviewOutcome::enabled($request)) {
-            return filter_var($request['quality_review_enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        }
-        // Canvas production and revision receipts predate the opt-out. Apply
-        // the same policy when those saved tasks are resumed or advanced.
-        if (in_array($request['_prompt_snapshot']['canvas_creative_policy']['version'] ?? '', ['2026-10-10.1', '2026-10-10.2'], true)) return false;
-        $submission = (string)($request['_submission_key'] ?? $request['submission_key'] ?? '');
-        if (str_starts_with($submission, 'canvas-production:')
-            || str_starts_with($submission, 'canvas-revision:')) {
-            return false;
-        }
-        return !array_key_exists('quality_review_enabled', $request)
-            || filter_var($request['quality_review_enabled'], FILTER_VALIDATE_BOOLEAN);
+        return !empty($request['_continuity_review_only']);
     }
 
-    /** Automatic generation inherits the series setting; an explicit review remains enabled. */
+    /** A historical series opt-in must not schedule automatic reviews in new episodes. */
     public static function inheritQualityReview(array $episodeRequest, array $outlineRequest): array
     {
-        $episodeRequest['quality_review_enabled'] = (ShortDramaReviewOutcome::enabled($episodeRequest)
-            && !empty($episodeRequest['_continuity_review_only'])) || self::qualityReviewEnabled($outlineRequest);
+        $episodeRequest['quality_review_enabled'] = self::qualityReviewEnabled($episodeRequest);
         return $episodeRequest;
     }
 

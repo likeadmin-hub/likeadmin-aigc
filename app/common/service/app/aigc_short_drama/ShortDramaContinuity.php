@@ -118,14 +118,19 @@ final class ShortDramaContinuity
                 || $upstreamChanged);
             // An explicit regeneration may be pending while its previous
             // successful version remains viewable. Do not block that attempt.
-            $required = ($ledger['review_policy_version'] ?? 0) >= 1 && ($ledger['audit_status'] ?? '') !== 'skipped';
-            $row['needs_review'] = ($qualityReviewEnabled || $required)
+            $required = $qualityReviewEnabled && ($ledger['review_policy_version'] ?? 0) >= 1 && ($ledger['audit_status'] ?? '') !== 'skipped';
+            $row['needs_review'] = $qualityReviewEnabled
                 && ($outdated || ($ledger['audit_status'] ?? '') === 'pending_review' || ($required && ($ledger['audit_status'] ?? '') !== 'verified'))
                 && ($row['status'] ?? '') === 'success';
             $row['review_reason'] = !$row['needs_review'] ? '' : ($outdated
                 ? '本集或前集剧情已修改，需复核连续性；原剧本和素材已保留'
                 : '连续性审校尚未完成，需继续复核；原剧本和素材已保留');
-            if (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            if (!$qualityReviewEnabled && ($ledger['audit_status'] ?? '') === 'pending_review' && !empty($plan['storyboard'])) {
+                // Carry the saved narrative forward without promoting it to verified facts.
+                $ledger = ShortDramaReviewOutcome::unreviewed($plan, [])['_continuity'];
+                $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            }
+            elseif (!$outdated && $ledger) $row['continuity_json'] = json_encode($ledger, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
             elseif (!$qualityReviewEnabled && ($ledger['source_memory']['version'] ?? 0) === 1) {
                 // The edited source can refresh unverified memory without promoting stale audit state.
                 $saved['source_memory'] = $ledger['source_memory'];

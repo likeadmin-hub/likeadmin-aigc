@@ -162,6 +162,7 @@ class AiTaskRecordService
         }
 
         $unifiedParams = $params;
+        $unifiedParams['exclude_native_smart_clip']=true;
         if (trim((string)($params['app_code'] ?? '')) !== '') {
             $unifiedParams['app_codes'] = self::matchingAppCodes((string)$params['app_code']);
         }

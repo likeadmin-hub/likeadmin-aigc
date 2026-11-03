@@ -225,11 +225,12 @@ class ShortDramaEpisodeService
         }
         $row['queue_state'] = $row['status'];
         $row['review_status'] = '';
+        $row['needs_review'] = false;
+        $row['review_reason'] = '';
         if ($row['ready'] && $row['status'] === 'failed') {
             $row['status'] = 'success';
-            $row['needs_review'] = true;
             $row['review_status'] = 'failed';
-            $row['review_reason'] = '复核未完成，原剧本仍可查看：' . (string)($row['error'] ?? '请继续复核');
+            $row['error'] = '本次处理未完成，原剧本仍可查看：' . (string)($row['error'] ?? '请继续处理');
         }
         // A running episode can finish after the user pauses the series. Its
         // completed plan is already durable and must remain viewable; only
@@ -266,7 +267,11 @@ class ShortDramaEpisodeService
     public static function nextInitialEpisode(array $rows): ?array
     {
         usort($rows, static fn($a, $b) => (int)$a['episode_number'] <=> (int)$b['episode_number']);
-        foreach ($rows as $row) if ($row['status'] !== 'success' || !empty($row['needs_review'])) return $row;
+        foreach ($rows as $row) {
+            // A failed optional edit/check does not invalidate an already completed episode.
+            if (!empty($row['completed_once']) && $row['status'] === 'failed') continue;
+            if ($row['status'] !== 'success' || !empty($row['needs_review'])) return $row;
+        }
         return null;
     }
 
@@ -274,12 +279,8 @@ class ShortDramaEpisodeService
     private static function withContinuityStatus(int $tenantId, int $userId, array $rows): array
     {
         if ($rows === []) return [];
-        $outlineRequest = self::outlineRequest($tenantId, $userId, $rows[0]);
-        if ($outlineRequest === null) {
-            $snapshot = self::decode($rows[0]['series_json'] ?? '');
-            $outlineRequest = is_array($snapshot['request'] ?? null) ? $snapshot['request'] : null;
-        }
-        $qualityReviewEnabled = $outlineRequest === null || ShortDramaStoryWorkflow::qualityReviewEnabled($outlineRequest);
+        // Listing/dispatch never schedules editorial review, including historical opt-ins.
+        $qualityReviewEnabled = false;
         $ids = array_values(array_filter(array_column($rows, 'production_project_id')));
         $versions = $ids ? Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'is_current' => 1, 'delete_time' => 0])
             ->whereIn('project_id', $ids)->field('project_id,continuity_json')->select()->toArray() : [];
@@ -517,7 +518,7 @@ class ShortDramaEpisodeService
         $previous = [];
         foreach ($siblings as $row) {
             if ((int)$row['episode_number'] >= (int)$episode['episode_number']) break;
-            if ($row['status'] !== 'success' || !empty($row['needs_review'])) throw new Exception('请先完成前面剧集的复核，再继续本集');
+            if ($row['status'] !== 'success' && empty($row['completed_once'])) throw new Exception('请先完成前面的剧集，再继续本集');
             $previous[] = self::decode($row['continuity_json']);
         }
         $request['series_context']['continuity'] = ShortDramaContinuity::context($previous, true, ShortDramaSourceMemory::enabled($request));

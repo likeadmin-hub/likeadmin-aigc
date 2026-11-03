@@ -1,0 +1,114 @@
+{
+  "batch": 33,
+  "date": "2026-10-31",
+  "source_web_commit": "3c176f74b343f66dad5a4e39b91bd9bc1931335c",
+  "source_server_commit": "2840719e7920e2b10d175eb1b9c0adaf4540f961",
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "original_project_writes": false,
+  "original_task_writes": false,
+  "scope": "Isolated HTTP shell mounts actual production CanvasNode/ShortDramaCanvasNode and shared material SFCs, invokes extracted actual page coordination functions, then actual runtime prepare in enforced read-only SQL. Synthetic declaration and synthetic URLs only. This is not normal authenticated published grouped-model E2E, a market SKU, an upload/asset lifecycle or a provider execution.",
+  "cases": [
+    {
+      "entry": "canvas",
+      "scenario": "old-json",
+      "status": "frozen_history_replay_equal",
+      "frozen_equal": true,
+      "native_hash": "23b6ce989dd73d013490db08eb07f7b501a1f58fea26715f275bcecee46d45d6",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "canvas",
+      "scenario": "replacement-json-reopen",
+      "status": "frozen_history_replay_equal",
+      "frozen_equal": true,
+      "native_hash": "b14e424abd5c2a9b66b80abf879791beadbe91c80b0a9bbf306fa38bb71cc6c8",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "canvas",
+      "scenario": "remove-图片",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：group_a[0].images",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "canvas",
+      "scenario": "remove-视频",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：group_a[0].video_url",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "canvas",
+      "scenario": "remove-音频",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：group_a[0].audio_url",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "old-json",
+      "status": "frozen_history_replay_equal",
+      "frozen_equal": true,
+      "native_hash": "23b6ce989dd73d013490db08eb07f7b501a1f58fea26715f275bcecee46d45d6",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "replacement-json-reopen",
+      "status": "frozen_history_replay_equal",
+      "frozen_equal": true,
+      "native_hash": "b14e424abd5c2a9b66b80abf879791beadbe91c80b0a9bbf306fa38bb71cc6c8",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "remove-图片",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：group_a[0].images",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "remove-视频",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：group_a[0].video_url",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "remove-音频",
+      "status": "expected_contract_rejection",
+      "message": "请填写必填参数：group_a[0].audio_url",
+      "requested_method": "omni_reference",
+      "declaration": "synthetic two required structured groups, same media reused in independent fields"
+    }
+  ],
+  "browser_summary": {
+    "passed": 4,
+    "expected_required_rejections": 6,
+    "group_b_unchanged_when_group_a_replaced": true,
+    "false_and_zero_preserved": true
+  },
+  "sql_roundtrip": {
+    "status": "unit_contract_pass",
+    "entries": [
+      "canvas",
+      "short_drama"
+    ],
+    "nested_groups_preserved": true,
+    "owned_synthetic_documents_only": true,
+    "complete_rollback": true
+  },
+  "screenshot": "Local temporary /tmp/market-batch33-groups-final.png, not delivered as source"
+}

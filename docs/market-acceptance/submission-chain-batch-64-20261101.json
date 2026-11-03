@@ -1,0 +1,2250 @@
+{
+  "batch": 64,
+  "date": "2026-11-01",
+  "scope": "Private authenticated multi-process HTTP admissions through original runtime, billing, production result workers and historical new attempts. Synthetic loopback supplier only; no real generation/query or wallet changes.",
+  "source_server_commit": "681518e07a6db1d92fd0f92ae6bdc7da48d1a7a2",
+  "combined_source_server_commit": "df1adeb0acf92c535daa10d6e792a5037b1faa5d",
+  "regression_source_server_commit": "0b99c41267625cb1a31cf3697a3691609c7e48e5",
+  "source_web_commit": "2e3f84f463456beafde7c38f00bb2b26efb1c67f",
+  "pre_account_switch_retention_source_web_commit": "f50cd29909ecc5a0db20436cd8c13cbc9aa93903",
+  "http_runs": {
+    "combined": {
+      "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+      "external_generation_calls": 0,
+      "production_wallet_writes": 0,
+      "normal_password_login": true,
+      "concurrent_admission": {
+        "operations": {
+          "app.aigc_canvas.generate/video": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_short_drama.canvas/run": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_image.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_image.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_suite.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_digital_human.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_micro_video.plan/create": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_micro_video.frame/generate": {
+            "attempts": 8,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_micro_video.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.voice_clone/create": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.asset/upload_upstream": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.persona/upstream": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.export/wav": {
+            "attempts": 3,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.export/midi": {
+            "attempts": 4,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.export/mp4": {
+            "attempts": 3,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.export/vox": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.export/timing": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.smart_clip.generate/index": {
+            "attempts": 8,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.lyrics/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.mashup_lyrics/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music.generate/index": {
+            "attempts": 8,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          }
+        },
+        "lost_response_replayed": true
+      },
+      "accepted_task_ref": "app_task:1",
+      "authenticated_submission": true,
+      "worker_completed_without_browser_poll": true,
+      "managed_result_checksum": true,
+      "stale_autosave_preserved_result_and_user_edit": true,
+      "logout_login_reopen": true,
+      "local_supplier_submissions": 1,
+      "tasks": 1,
+      "consumptions": 1,
+      "result_assets": 1,
+      "billing_events": [
+        "reserve",
+        "submit",
+        "job_enqueued",
+        "settle",
+        "worker_claim",
+        "job_run",
+        "query_start",
+        "job_enqueued",
+        "job_woken",
+        "query_finish",
+        "job_enqueued",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_woken",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_success"
+      ],
+      "fixture_user_balance": 99,
+      "fixture_tenant_balance": 99,
+      "short_drama": {
+        "http_quote_confirm_submit": true,
+        "same_key_replay_no_second_submit_or_charge": true,
+        "frozen_catalogue_change_survived": true,
+        "worker_result_and_normal_login_reopen": true,
+        "task_ref": "app_task:2"
+      },
+      "http_foreign_owner_reads_rejected": 3,
+      "total_local_supplier_submissions": 17,
+      "total_reserve_events": 23,
+      "total_settle_events": 23,
+      "total_fixture_user_balance": 45.9,
+      "total_fixture_tenant_balance": 51.9,
+      "image_http": {
+        "native_managed_result_checksum": true,
+        "single_application_parent_and_child_success": true,
+        "suite_first_child_does_not_finish_parent": true,
+        "suite_two_children_two_results": true,
+        "native_price": 1,
+        "application_retail_price_per_child": 3,
+        "fixture_user_delta": 10,
+        "fixture_tenant_delta": 4
+      },
+      "deep_matrix": {
+        "phase": "complete",
+        "avatar_text": {
+          "normal_http_tts_query_audio_storage_lipsync_worker_result": true,
+          "same_body_no_second_tts": true,
+          "history_detail_preserves_text_and_voice": true
+        },
+        "text_settlements": 2,
+        "micro_planning": {
+          "unseeded_analysis_and_script_native_transport": true,
+          "usage_settlement_and_saved_receipts": true,
+          "two_validated_timeline_segments": true
+        },
+        "frame_recovery": {
+          "middle_edit_preserves_prefix_invalidates_tail": true,
+          "tail_edit_preserves_prefix": true,
+          "first_edit_invalidates_all_dependents": true,
+          "model_change_preserves_edited_inputs": true,
+          "stale_revision_rejected": true,
+          "individual_regeneration_and_same_key_replay": true,
+          "model_replacement_regenerates_three_versions": true,
+          "manual_boundary_file_upload": "No existing upload/replace endpoint; not introduced by this test"
+        },
+        "micro_media_result_counts": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "micro_frames": {
+          "three_ordered_anchors_two_video_segments_actual_merge": true,
+          "frame_and_video_confirmation_replay": true,
+          "reopen_keeps_generation_identities": true,
+          "actual_duration": 1.788,
+          "legacy_missing_handoff_recovered_without_submission_or_billing": true
+        },
+        "music_clone": {
+          "normal_http_owned_upload_authorization_voice_id_and_native_history": true,
+          "cross_owner_submission_rejected": true
+        },
+        "music_exports": {
+          "wav": {
+            "http_submit_native_worker_detail_replay": true,
+            "owned_download_checksum": true
+          },
+          "midi": {
+            "http_submit_native_worker_detail_replay": true,
+            "owned_download_checksum": true
+          },
+          "mp4": {
+            "http_submit_native_worker_detail_replay": true,
+            "owned_download_checksum": true
+          },
+          "vox": {
+            "http_submit_native_worker_detail_replay": true,
+            "owned_download_checksum": false
+          },
+          "timing": {
+            "http_submit_native_worker_detail_replay": true,
+            "owned_download_checksum": false
+          }
+        },
+        "supplier_call_counts": {
+          "tts": 1,
+          "text": 2,
+          "music_voice_clone": 1,
+          "music_upload_audio": 1,
+          "music_persona": 1,
+          "music_wav": 1,
+          "music_midi": 1,
+          "music_mp4": 1,
+          "music_vox": 1,
+          "music_timing": 1
+        },
+        "music_operation_count": 8,
+        "settlement_totals": {
+          "consumptions": 27,
+          "settled": 27,
+          "actual_user": 30.1,
+          "actual_tenant": 24.1,
+          "protocols": {
+            "video_generate": 4,
+            "image_generate": 12,
+            "application_api": 9,
+            "openai_chat": 2
+          }
+        }
+      },
+      "recovery_matrix": {
+        "phase": "complete",
+        "smart_clip": {
+          "realman_broadcast": {
+            "canonical_ref": "app_task:28",
+            "normal_login_http": true,
+            "completed_without_http_polling": true,
+            "same_task_same_key_and_single_native_bill": true,
+            "shared_and_native_video_checksum": true,
+            "kill_and_natural_lease_reclaim": false,
+            "download_failure_restart_and_disabled_channel": false
+          },
+          "broadcast_mixcut": {
+            "canonical_ref": "app_task:29",
+            "normal_login_http": true,
+            "completed_without_http_polling": true,
+            "same_task_same_key_and_single_native_bill": true,
+            "shared_and_native_video_checksum": true,
+            "kill_and_natural_lease_reclaim": true,
+            "download_failure_restart_and_disabled_channel": false
+          },
+          "news_mixcut": {
+            "canonical_ref": "app_task:30",
+            "normal_login_http": true,
+            "completed_without_http_polling": true,
+            "same_task_same_key_and_single_native_bill": true,
+            "shared_and_native_video_checksum": true,
+            "kill_and_natural_lease_reclaim": false,
+            "download_failure_restart_and_disabled_channel": true
+          }
+        },
+        "smart_clip_accounting": {
+          "native_tasks": 6,
+          "completed": 4,
+          "failed_uncharged": 1,
+          "deleted_unqueried_uncharged": 1,
+          "native_results": 4,
+          "canonical_assets": 4,
+          "supplier_submissions": 5,
+          "legacy_admitted_without_resubmit": 1,
+          "canonical_foreign_and_deleted_reads_rejected": true,
+          "idle_restart_full_rows_stable": true
+        },
+        "music_text": {
+          "lyrics": {
+            "normal_login_http": true,
+            "native_task_and_settlement": true
+          },
+          "mashup_lyrics": {
+            "normal_login_http": true,
+            "native_task_and_settlement": true
+          },
+          "style": {
+            "existing_bearer_gateway": true,
+            "native_task_and_settlement": true
+          }
+        },
+        "export_recovery": {
+          "wav": {
+            "held_reserve_then_original_task_storage_recovery": true,
+            "owned_download_checksum": true
+          },
+          "mp4": {
+            "held_reserve_then_original_task_storage_recovery": true,
+            "owned_download_checksum": true
+          },
+          "midi": {
+            "known_failure_refund_and_new_explicit_attempt": true,
+            "owned_download_checksum": true
+          }
+        },
+        "final_accounting": {
+          "consumptions": 34,
+          "billing_statuses": {
+            "settled": 33,
+            "refunded": 1
+          },
+          "native_clip_bills": 4,
+          "actual_user": 44.1,
+          "actual_tenant": 38.1,
+          "native_clip_tasks": 6,
+          "native_clip_results": 4
+        },
+        "supplier_call_counts": {
+          "tts": 1,
+          "text": 2,
+          "music_voice_clone": 1,
+          "music_upload_audio": 1,
+          "music_persona": 1,
+          "music_wav": 2,
+          "music_midi": 3,
+          "music_mp4": 2,
+          "music_vox": 1,
+          "music_timing": 1,
+          "clip_realman_broadcast": 2,
+          "clip_broadcast_mixcut": 1,
+          "clip_news_mixcut": 2,
+          "music_lyrics": 1,
+          "music_mashup_lyrics": 1,
+          "music_style": 1
+        }
+      },
+      "song_matrix": {
+        "phase": "complete",
+        "original_generation": {
+          "normal_login_quote_submit_same_key_background_two_songs": true,
+          "two_native_and_canonical_audio_checksums": true,
+          "one_settlement_per_generation": true,
+          "accepted_price_and_shelf_freeze": true
+        },
+        "song_exports": {
+          "wav": {
+            "actual_generated_source": true,
+            "authenticated_download_checksum": true
+          },
+          "midi": {
+            "actual_generated_source": true,
+            "authenticated_download_checksum": true
+          },
+          "mp4": {
+            "actual_generated_source": true,
+            "authenticated_download_checksum": true
+          }
+        },
+        "persona_chain": {
+          "actual_generated_song_to_owned_persona_to_custom_vocal_generation": true
+        },
+        "upload_chain": {
+          "normal_multipart_owned_file_and_music_asset": true,
+          "registered_audio_id_reused_in_original_generation": true,
+          "clone_from_actual_upload_retains_pending_capability": true
+        },
+        "generation_submissions": 4,
+        "history_chain": {
+          "native_inputs_to_explicit_new_attempt": true,
+          "stable_read_only_terminal_rows": true
+        }
+      },
+      "unfinished_jobs_completed_on_restart": 0,
+      "worker_restart_preserved_completed_rows": true,
+      "total_tasks": 50,
+      "total_result_assets": 29,
+      "total_consumptions": 44,
+      "total_consumption_billing_statuses": {
+        "refunded": 1,
+        "settled": 43
+      },
+      "private_tables_and_files_removed": true
+    },
+    "image_tools": {
+      "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+      "external_generation_calls": 0,
+      "production_wallet_writes": 0,
+      "normal_password_login": true,
+      "concurrent_admission": {
+        "operations": {
+          "app.aigc_canvas.generate/video": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_image.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_image.generate/index": {
+            "attempts": 3,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_suite.generate/index": {
+            "attempts": 3,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_style_transfer.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_photo_restore.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_model_wear.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_background_removal.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_image_translate.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_one_click_cleanup.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_multi_angle.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_fashion_lookbook.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_outpaint.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_local_redraw.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_promo_video.generate/index": {
+            "attempts": 3,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_fitting.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          }
+        },
+        "lost_response_replayed": true
+      },
+      "accepted_task_ref": "app_task:1",
+      "authenticated_submission": true,
+      "worker_completed_without_browser_poll": true,
+      "managed_result_checksum": true,
+      "stale_autosave_preserved_result_and_user_edit": true,
+      "logout_login_reopen": true,
+      "local_supplier_submissions": 1,
+      "tasks": 1,
+      "consumptions": 1,
+      "result_assets": 1,
+      "billing_events": [
+        "reserve",
+        "submit",
+        "job_enqueued",
+        "settle",
+        "worker_claim",
+        "job_run",
+        "query_start",
+        "job_enqueued",
+        "job_woken",
+        "query_finish",
+        "job_enqueued",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_woken",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_success"
+      ],
+      "fixture_user_balance": 99,
+      "fixture_tenant_balance": 99,
+      "image_http": {
+        "native_managed_result_checksum": true,
+        "single_application_parent_and_child_success": true,
+        "suite_first_child_does_not_finish_parent": true,
+        "suite_two_children_two_results": true,
+        "native_price": 1,
+        "application_retail_price_per_child": 3,
+        "fixture_user_delta": 10,
+        "fixture_tenant_delta": 4
+      },
+      "total_local_supplier_submissions": 33,
+      "total_fixture_user_balance": 13,
+      "total_fixture_tenant_balance": 67,
+      "tool_matrix": {
+        "product_image": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "product_suite": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "style_transfer": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "photo_restore": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "model_wear": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "background_removal": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "image_translate": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "one_click_cleanup": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "product_multi_angle": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "fashion_lookbook": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "outpaint": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "local_redraw": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 3
+        },
+        "product_promo_video": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 1,
+          "explicit_new_intent_key_and_same_key_replay": true,
+          "cross_application_duplicate_scope_preserved": true
+        },
+        "fitting": {
+          "normal_http_estimate_submit": true,
+          "managed_result_and_business_writeback": true,
+          "parent_finished_without_http_detail": true,
+          "list_detail_same_owned_children": true,
+          "history_rebuilt_new_attempt": true,
+          "history_parameters_and_results_preserved": true,
+          "both_attempts_settled_quoted_amount_once": true,
+          "user_price": 1
+        }
+      },
+      "unfinished_jobs_completed_on_restart": 0,
+      "worker_restart_preserved_completed_rows": true,
+      "total_reserve_events": 33,
+      "total_settle_events": 33,
+      "total_tasks": 33,
+      "total_result_assets": 33,
+      "total_consumptions": 33,
+      "total_consumption_billing_statuses": {
+        "settled": 33
+      },
+      "private_tables_and_files_removed": true
+    },
+    "stages_immediate_history": {
+      "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+      "external_generation_calls": 0,
+      "production_wallet_writes": 0,
+      "normal_password_login": true,
+      "concurrent_admission": {
+        "operations": {
+          "app.aigc_canvas.generate/video": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_short_drama.canvas/run": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_image.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_image.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_suite.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music_cover.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_music_cover.task/retry": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_digital_human.generate/index": {
+            "attempts": 3,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_micro_video.plan/create": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_micro_video.generate/index": {
+            "attempts": 2,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          }
+        },
+        "lost_response_replayed": true
+      },
+      "accepted_task_ref": "app_task:1",
+      "authenticated_submission": true,
+      "worker_completed_without_browser_poll": true,
+      "managed_result_checksum": true,
+      "stale_autosave_preserved_result_and_user_edit": true,
+      "logout_login_reopen": true,
+      "local_supplier_submissions": 1,
+      "tasks": 1,
+      "consumptions": 1,
+      "result_assets": 1,
+      "billing_events": [
+        "reserve",
+        "submit",
+        "job_enqueued",
+        "settle",
+        "worker_claim",
+        "job_run",
+        "query_start",
+        "job_enqueued",
+        "job_woken",
+        "query_finish",
+        "job_enqueued",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_woken",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_success"
+      ],
+      "fixture_user_balance": 99,
+      "fixture_tenant_balance": 99,
+      "short_drama": {
+        "http_quote_confirm_submit": true,
+        "same_key_replay_no_second_submit_or_charge": true,
+        "frozen_catalogue_change_survived": true,
+        "worker_result_and_normal_login_reopen": true,
+        "task_ref": "app_task:2"
+      },
+      "http_foreign_owner_reads_rejected": 3,
+      "total_local_supplier_submissions": 12,
+      "total_reserve_events": 12,
+      "total_settle_events": 12,
+      "total_fixture_user_balance": 82,
+      "total_fixture_tenant_balance": 88,
+      "image_http": {
+        "native_managed_result_checksum": true,
+        "single_application_parent_and_child_success": true,
+        "suite_first_child_does_not_finish_parent": true,
+        "suite_two_children_two_results": true,
+        "native_price": 1,
+        "application_retail_price_per_child": 3,
+        "fixture_user_delta": 10,
+        "fixture_tenant_delta": 4
+      },
+      "stage_matrix": {
+        "music_cover": {
+          "http_submit_worker_writeback_history_retry": true,
+          "canonical_result": true,
+          "terminal_read_unchanged": true,
+          "accepted_price_survives_private_shelf_change": true
+        },
+        "digital_human_audio": {
+          "normal_http_audio_driven_worker_result_and_reuse": true,
+          "new_driver_intent_preserved": true,
+          "text_tts_not_executed": true
+        },
+        "micro_video": {
+          "http_create_confirm_duplicate_worker_two_segments_merge_reopen": true,
+          "planning_receipt_seeded_not_llm": true,
+          "frame_generation_disabled": true,
+          "actual_duration": 2.022,
+          "read_only_prompt_not_persisted": true,
+          "admitted_prices_survive_private_shelf_change": true
+        }
+      },
+      "unfinished_jobs_completed_on_restart": 0,
+      "worker_restart_preserved_completed_rows": true,
+      "total_tasks": 12,
+      "total_result_assets": 12,
+      "total_consumptions": 12,
+      "total_consumption_billing_statuses": {
+        "settled": 12
+      },
+      "private_tables_and_files_removed": true
+    },
+    "distinct_intentions": {
+      "scope": "Private schemas and fake account; real HTTP login, generation and worker; loopback supplier replacement",
+      "external_generation_calls": 0,
+      "production_wallet_writes": 0,
+      "normal_password_login": true,
+      "concurrent_admission": {
+        "operations": {
+          "app.aigc_canvas.generate/video": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_image.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_image.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          },
+          "app.aigc_product_suite.generate/index": {
+            "attempts": 1,
+            "overlap_observed": true,
+            "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+          }
+        },
+        "lost_response_replayed": true
+      },
+      "accepted_task_ref": "app_task:1",
+      "authenticated_submission": true,
+      "worker_completed_without_browser_poll": true,
+      "managed_result_checksum": true,
+      "stale_autosave_preserved_result_and_user_edit": true,
+      "logout_login_reopen": true,
+      "local_supplier_submissions": 1,
+      "tasks": 1,
+      "consumptions": 1,
+      "result_assets": 1,
+      "billing_events": [
+        "reserve",
+        "submit",
+        "job_enqueued",
+        "settle",
+        "worker_claim",
+        "job_run",
+        "query_start",
+        "job_enqueued",
+        "job_woken",
+        "query_finish",
+        "job_enqueued",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_woken",
+        "job_success",
+        "worker_claim",
+        "job_run",
+        "job_success"
+      ],
+      "fixture_user_balance": 99,
+      "fixture_tenant_balance": 99,
+      "image_http": {
+        "native_managed_result_checksum": true,
+        "single_application_parent_and_child_success": true,
+        "suite_first_child_does_not_finish_parent": true,
+        "suite_two_children_two_results": true,
+        "native_price": 1,
+        "application_retail_price_per_child": 3,
+        "fixture_user_delta": 10,
+        "fixture_tenant_delta": 4
+      },
+      "total_local_supplier_submissions": 12,
+      "total_fixture_user_balance": 79,
+      "total_fixture_tenant_balance": 84,
+      "distinct_matrix": {
+        "legacy_body_key_parallel_http_admission": true,
+        "same_raw_key_different_authenticated_owner": true,
+        "parallel_native_history_frozen_acceptance_and_old_rows": true,
+        "parallel_canvas_selected_writeback_late_old_callback_and_history": true,
+        "parallel_clip_same_content_independent_bills_and_results": true,
+        "deleted_original_http_retry_not_redispatched": true
+      },
+      "unfinished_jobs_completed_on_restart": 0,
+      "worker_restart_preserved_completed_rows": true,
+      "total_reserve_events": 12,
+      "total_settle_events": 12,
+      "total_tasks": 14,
+      "total_result_assets": 14,
+      "total_consumptions": 12,
+      "total_consumption_billing_statuses": {
+        "settled": 12
+      },
+      "private_tables_and_files_removed": true
+    }
+  },
+  "normal_matrix_distinct_operations": 35,
+  "extra_native_video_operation": "app.aigc_video.generate/index",
+  "verified_mutation_operations": 36,
+  "observations": [
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_background_removal.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "canvas",
+      "scenario": "app.aigc_canvas.generate/video_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "image_tools": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "distinct_intentions": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_digital_human.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 3,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_fashion_lookbook.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_fitting.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_image.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "image_tools": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "distinct_intentions": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_image_translate.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_local_redraw.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_micro_video.frame/generate_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 8,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_micro_video.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_micro_video.plan/create_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_model_wear.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.asset/upload_upstream_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.export/midi_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 4,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.export/mp4_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 3,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.export/timing_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.export/vox_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.export/wav_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 3,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 8,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.lyrics/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.mashup_lyrics/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.persona/upstream_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music.voice_clone/create_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music_cover.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "stages_immediate_history": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_music_cover.task/retry_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "stages_immediate_history": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_one_click_cleanup.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_outpaint.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_photo_restore.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_product_image.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "image_tools": {
+          "attempts": 3,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "distinct_intentions": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_product_multi_angle.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_product_promo_video.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 3,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_product_suite.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "image_tools": {
+          "attempts": 3,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "distinct_intentions": {
+          "attempts": 1,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "short_drama",
+      "scenario": "app.aigc_short_drama.canvas/run_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        },
+        "stages_immediate_history": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.aigc_style_transfer.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "image_tools": {
+          "attempts": 2,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "app.smart_clip.generate/index_same_key_parallel_and_replay",
+      "status": "synthetic_submission_chain_verified",
+      "identity": {
+        "id": "private_fixture:submission"
+      },
+      "checks": {
+        "combined": {
+          "attempts": 8,
+          "overlap_observed": true,
+          "same_receipt_replay_conflict_no_extra_tasks_or_supplier_calls": true
+        }
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "legacy_body_key_parallel_http_admission",
+      "status": "synthetic_distinct_intent_chain_verified",
+      "identity": {
+        "id": "private_fixture:distinct"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "same_raw_key_different_authenticated_owner",
+      "status": "synthetic_distinct_intent_chain_verified",
+      "identity": {
+        "id": "private_fixture:distinct"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "parallel_native_history_frozen_acceptance_and_old_rows",
+      "status": "synthetic_distinct_intent_chain_verified",
+      "identity": {
+        "id": "private_fixture:distinct"
+      },
+      "check": true
+    },
+    {
+      "entry": "canvas",
+      "scenario": "parallel_canvas_selected_writeback_late_old_callback_and_history",
+      "status": "synthetic_distinct_intent_chain_verified",
+      "identity": {
+        "id": "private_fixture:distinct"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "parallel_clip_same_content_independent_bills_and_results",
+      "status": "synthetic_distinct_intent_chain_verified",
+      "identity": {
+        "id": "private_fixture:distinct"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "deleted_original_http_retry_not_redispatched",
+      "status": "synthetic_distinct_intent_chain_verified",
+      "identity": {
+        "id": "private_fixture:distinct"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "same_key_same_receipt_once",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "changed_payload_refused",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "new_key_new_owned_task",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "same_key_foreign_owner_isolated",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "deleted_task_not_recreated",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "local_refusal_revalidated_then_accepted_once",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "unknown_not_redispatched_context_restored",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "old_inflight_receipt_never_auto_expires",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "first_and_replay_share_one_serialization",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "missing_schema_fails_before_generation",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "owned_legacy_video_key_preserved_other_owner_separated",
+      "status": "synthetic_admission_state_verified",
+      "identity": {
+        "id": "private_fixture:admission-state"
+      },
+      "check": true
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "queue_regression_transfer-same",
+      "status": "synthetic_worker_storage_verified",
+      "identity": {
+        "id": "private_fixture:result-queue"
+      },
+      "checks": {
+        "mode": "same",
+        "scope": "Disposable prefix, two production workers and owned loopback source only",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "requests": 2,
+        "lease_takeover_attempts": 2,
+        "late_payload_changed": false,
+        "winner_asset_unchanged": true,
+        "business_result_unchanged": true,
+        "asset_business_uri_match": true,
+        "physical_files": 1,
+        "file_records": 1,
+        "business_results": 1,
+        "stale_completion_events": 0,
+        "winner_checksum_preserved": true,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "queue_regression_transfer-changed",
+      "status": "synthetic_worker_storage_verified",
+      "identity": {
+        "id": "private_fixture:result-queue"
+      },
+      "checks": {
+        "mode": "changed",
+        "scope": "Disposable prefix, two production workers and owned loopback source only",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "requests": 2,
+        "lease_takeover_attempts": 2,
+        "late_payload_changed": true,
+        "winner_asset_unchanged": true,
+        "business_result_unchanged": true,
+        "asset_business_uri_match": true,
+        "physical_files": 1,
+        "file_records": 1,
+        "business_results": 1,
+        "stale_completion_events": 0,
+        "winner_checksum_preserved": true,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "queue_regression_storage-contend",
+      "status": "synthetic_worker_storage_verified",
+      "identity": {
+        "id": "private_fixture:result-queue"
+      },
+      "checks": {
+        "kind": "video",
+        "mode": "contend",
+        "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+        "provider_calls": 0,
+        "actual_wallet_mutations": 0,
+        "transfer_job_app_linked": true,
+        "pending_checkpoint_before_storage": true,
+        "file_records_before_storage": 0,
+        "canonical_exists_while_first_paused": false,
+        "partial_regular_file_bytes": 32,
+        "contender_waited_on_same_key_lock": true,
+        "business_pending_while_first_writing": true,
+        "stored_checksum_valid": true,
+        "asset_business_uri_match": true,
+        "result_assets": 1,
+        "physical_canonical_files": 1,
+        "partial_files_remaining": 0,
+        "file_records": 1,
+        "business_results": 1,
+        "transfer_attempts": 2,
+        "frozen_price_preserved": true,
+        "parent_success": true,
+        "wallets_unchanged": true,
+        "repeat_restart_preserved_rows": true,
+        "sql_errors": 0
+      }
+    },
+    {
+      "entry": "pc_studio",
+      "scenario": "video_old_history_prompt_model_768p_4s_1_1_restore",
+      "status": "browser_controls_checked",
+      "identity": {
+        "id": "browser_controls_only"
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "suite_four_result_history_refresh_empty_form_disabled",
+      "status": "browser_controls_checked",
+      "identity": {
+        "id": "browser_controls_only"
+      }
+    },
+    {
+      "entry": "standalone_app",
+      "scenario": "receipt_schema_install_upgrade_parity_and_idempotency",
+      "status": "local_schema_verified",
+      "identity": {
+        "id": "core_schema_only"
+      },
+      "new_empty_original_table": true,
+      "original_receipt_rows": 0
+    }
+  ],
+  "admission_state_fixture": {
+    "scope": "Private SQL tasks and receipt state only; no provider or billing calls",
+    "supplier_calls": 0,
+    "production_wallet_writes": 0,
+    "same_key_same_receipt_once": true,
+    "changed_payload_refused": true,
+    "new_key_new_owned_task": true,
+    "same_key_foreign_owner_isolated": true,
+    "deleted_task_not_recreated": true,
+    "local_refusal_revalidated_then_accepted_once": true,
+    "unknown_not_redispatched_context_restored": true,
+    "old_inflight_receipt_never_auto_expires": true,
+    "first_and_replay_share_one_serialization": true,
+    "missing_schema_fails_before_generation": true,
+    "owned_legacy_video_key_preserved_other_owner_separated": true,
+    "private_task_rows": 6,
+    "private_receipt_rows": 6,
+    "private_tables_and_files_removed": true
+  },
+  "queue_regressions": {
+    "transfer-same": {
+      "mode": "same",
+      "scope": "Disposable prefix, two production workers and owned loopback source only",
+      "provider_calls": 0,
+      "actual_wallet_mutations": 0,
+      "transfer_job_app_linked": true,
+      "requests": 2,
+      "lease_takeover_attempts": 2,
+      "late_payload_changed": false,
+      "winner_asset_unchanged": true,
+      "business_result_unchanged": true,
+      "asset_business_uri_match": true,
+      "physical_files": 1,
+      "file_records": 1,
+      "business_results": 1,
+      "stale_completion_events": 0,
+      "winner_checksum_preserved": true,
+      "frozen_price_preserved": true,
+      "parent_success": true,
+      "wallets_unchanged": true
+    },
+    "transfer-changed": {
+      "mode": "changed",
+      "scope": "Disposable prefix, two production workers and owned loopback source only",
+      "provider_calls": 0,
+      "actual_wallet_mutations": 0,
+      "transfer_job_app_linked": true,
+      "requests": 2,
+      "lease_takeover_attempts": 2,
+      "late_payload_changed": true,
+      "winner_asset_unchanged": true,
+      "business_result_unchanged": true,
+      "asset_business_uri_match": true,
+      "physical_files": 1,
+      "file_records": 1,
+      "business_results": 1,
+      "stale_completion_events": 0,
+      "winner_checksum_preserved": true,
+      "frozen_price_preserved": true,
+      "parent_success": true,
+      "wallets_unchanged": true
+    },
+    "storage-contend": {
+      "kind": "video",
+      "mode": "contend",
+      "scope": "Production workers; test-only stream barrier over real local bytes/locks/rename, disposable SQL/private roots. No provider or real user task.",
+      "provider_calls": 0,
+      "actual_wallet_mutations": 0,
+      "transfer_job_app_linked": true,
+      "pending_checkpoint_before_storage": true,
+      "file_records_before_storage": 0,
+      "canonical_exists_while_first_paused": false,
+      "partial_regular_file_bytes": 32,
+      "contender_waited_on_same_key_lock": true,
+      "business_pending_while_first_writing": true,
+      "stored_checksum_valid": true,
+      "asset_business_uri_match": true,
+      "result_assets": 1,
+      "physical_canonical_files": 1,
+      "partial_files_remaining": 0,
+      "file_records": 1,
+      "business_results": 1,
+      "transfer_attempts": 2,
+      "frozen_price_preserved": true,
+      "parent_success": true,
+      "wallets_unchanged": true,
+      "repeat_restart_preserved_rows": true,
+      "sql_errors": 0
+    }
+  },
+  "validation": {
+    "phpunit_tests": 1166,
+    "phpunit_assertions": 8541,
+    "frontend_tests": 503,
+    "php_syntax_files": 20,
+    "pure_submission_helper_strict_typescript": true,
+    "acceptance_index_boundary_tests": 2,
+    "failures": 0,
+    "compiled_checks": "Six excluded: one prior passing output check not rerun and five existing compiled manifest failures retained. No rebuild."
+  },
+  "original_audits": {
+    "original": {
+      "before": {
+        "scope": "Read-only original user task rows and wallet; hashes only",
+        "tables": {
+          "aigc_image_task": {
+            "count": 85,
+            "sha256": "052d964094d42e6457857eed3be12fe49b304e60b770b7be9ad954599b8f80ad"
+          },
+          "aigc_video_task": {
+            "count": 44,
+            "sha256": "697275539f3f9d91d6eb2cc6d8ea09436981491c3819b97f5e2370da3140cf80"
+          },
+          "aigc_music_task": {
+            "count": 2,
+            "sha256": "e733e34690e86be136d0aee91f1bffaaf636f31129beef1a4e810d3f01cc636e"
+          },
+          "aigc_product_image_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_product_suite_task": {
+            "count": 1,
+            "sha256": "5c7b86649505cfe8f8fc118f2db2b93f532155703a6626cebb5239f0fc07ac64"
+          },
+          "aigc_style_transfer_task": {
+            "count": 2,
+            "sha256": "6f92d119942d545c4a82d4db765d0599c42dafe6117491ada6d370215de93782"
+          },
+          "aigc_photo_restore_task": {
+            "count": 1,
+            "sha256": "35cd6ad71e5de214507cb302c5791b6cd750fc61eb0ad957096de34d8c9e9c3d"
+          },
+          "aigc_model_wear_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_background_removal_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_image_translate_task": {
+            "count": 1,
+            "sha256": "4463e7d48af54a66a9e34b83b7ea2a286a22554f4bdc22bb7a6f4ef6c8eb2001"
+          },
+          "aigc_one_click_cleanup_task": {
+            "count": 2,
+            "sha256": "138938b0c27b6caa6652f921b2eb1f2ba0eb600d59d819b7356ec3d7cd93b1c0"
+          },
+          "aigc_product_multi_angle_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_fashion_lookbook_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_outpaint_task": {
+            "count": 3,
+            "sha256": "abd9a37f7004a87f538329d7f16eab2653926e8d69750e534c8b4247f482b6e5"
+          },
+          "aigc_local_redraw_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_fitting_task": {
+            "count": 2,
+            "sha256": "8e66136e78f4a6a9f0c73d32b5de3a68510b412c2b62586442a13d0e5eabd60b"
+          },
+          "aigc_product_promo_video_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        },
+        "balance": 4372.96
+      },
+      "after": {
+        "scope": "Read-only original user task rows and wallet; hashes only",
+        "tables": {
+          "aigc_image_task": {
+            "count": 85,
+            "sha256": "052d964094d42e6457857eed3be12fe49b304e60b770b7be9ad954599b8f80ad"
+          },
+          "aigc_video_task": {
+            "count": 44,
+            "sha256": "697275539f3f9d91d6eb2cc6d8ea09436981491c3819b97f5e2370da3140cf80"
+          },
+          "aigc_music_task": {
+            "count": 2,
+            "sha256": "e733e34690e86be136d0aee91f1bffaaf636f31129beef1a4e810d3f01cc636e"
+          },
+          "aigc_product_image_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_product_suite_task": {
+            "count": 1,
+            "sha256": "5c7b86649505cfe8f8fc118f2db2b93f532155703a6626cebb5239f0fc07ac64"
+          },
+          "aigc_style_transfer_task": {
+            "count": 2,
+            "sha256": "6f92d119942d545c4a82d4db765d0599c42dafe6117491ada6d370215de93782"
+          },
+          "aigc_photo_restore_task": {
+            "count": 1,
+            "sha256": "35cd6ad71e5de214507cb302c5791b6cd750fc61eb0ad957096de34d8c9e9c3d"
+          },
+          "aigc_model_wear_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_background_removal_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_image_translate_task": {
+            "count": 1,
+            "sha256": "4463e7d48af54a66a9e34b83b7ea2a286a22554f4bdc22bb7a6f4ef6c8eb2001"
+          },
+          "aigc_one_click_cleanup_task": {
+            "count": 2,
+            "sha256": "138938b0c27b6caa6652f921b2eb1f2ba0eb600d59d819b7356ec3d7cd93b1c0"
+          },
+          "aigc_product_multi_angle_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_fashion_lookbook_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_outpaint_task": {
+            "count": 3,
+            "sha256": "abd9a37f7004a87f538329d7f16eab2653926e8d69750e534c8b4247f482b6e5"
+          },
+          "aigc_local_redraw_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          "aigc_fitting_task": {
+            "count": 2,
+            "sha256": "8e66136e78f4a6a9f0c73d32b5de3a68510b412c2b62586442a13d0e5eabd60b"
+          },
+          "aigc_product_promo_video_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        },
+        "balance": 4372.96
+      }
+    },
+    "aux": {
+      "before": {
+        "scope": "Read-only original user task rows and wallet; hashes only",
+        "tables": {
+          "aigc_music_cover_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "statuses": []
+          },
+          "aigc_digital_human_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "statuses": []
+          },
+          "aigc_micro_video_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "statuses": []
+          }
+        },
+        "balance": 4372.96
+      },
+      "after": {
+        "scope": "Read-only original user task rows and wallet; hashes only",
+        "tables": {
+          "aigc_music_cover_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "statuses": []
+          },
+          "aigc_digital_human_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "statuses": []
+          },
+          "aigc_micro_video_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "statuses": []
+          }
+        },
+        "balance": 4372.96
+      }
+    },
+    "native": {
+      "before": {
+        "scope": "Read-only original user task rows and wallet; hashes only",
+        "tables": {
+          "smart_clip_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        },
+        "balance": 4372.96
+      },
+      "after": {
+        "scope": "Read-only original user task rows and wallet; hashes only",
+        "tables": {
+          "smart_clip_task": {
+            "count": 0,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        },
+        "balance": 4372.96
+      }
+    }
+  },
+  "original_task_rows_unchanged": true,
+  "production_balance_before_and_after": 4372.96,
+  "source_only": true,
+  "runtime_preserved": {
+    "server_skip_worktree": 3971,
+    "web_skip_worktree": 3,
+    "original_projects_not_edited": true,
+    "existing_worker_pid_1667_not_restarted": true
+  },
+  "retained_blockers": {
+    "full_contracts": 18,
+    "opaque_models": 14,
+    "opaque_paths": 17,
+    "application_options": 13,
+    "pixel_products": [
+      275,
+      277
+    ],
+    "pixel_skus": [
+      380,
+      383
+    ],
+    "seedance_token_product": 140,
+    "seedance_token_skus": [
+      210,
+      211,
+      212,
+      213,
+      214,
+      215
+    ],
+    "nano_unconfirmed": [
+      "nested inputs",
+      "image count",
+      "bare b64_json",
+      "supplier asset IDs"
+    ]
+  },
+  "upstream_refresh": "Not performed; last formal upstream observation remains batch50. No real prices, shelf, catalogue or reviewed contracts changed.",
+  "contract_changes": {
+    "new_optional_header": "X-Generation-Request-Key",
+    "new_optional_response_envelope": "generation_submission",
+    "response_states": [
+      "accepted",
+      "rejected",
+      "submitting",
+      "uncertain"
+    ],
+    "new_core_table": "ai_generation_submission",
+    "upgrade": "upgrade/20261101_generation_submission.sql",
+    "install_sql_matches_upgrade": true,
+    "local_migration_applied_twice": true,
+    "original_receipt_rows": 0,
+    "api_paths_changed": false,
+    "native_ids_or_version1_result_changed": false,
+    "new_billing_ledger": false
+  },
+  "boundary_notes": [
+    "Four HTTP runs are independent, not a single summed scenario: 33 image-tool tasks/33 assets; 50 combined tasks/29 assets; 12 immediate-history stage tasks/12 assets; 14 independent-intention tasks/14 assets.",
+    "Combined 50 tasks include 44 consumption-backed tasks (43 settled, 1 refunded) and six native clipping tasks. Four native clipping bills are separate. The 23 reserve/settle event pairs are media/text/original-song events, not the total count of every native music operation.",
+    "Distinct-intention run includes twelve settled consumptions and two native clipping tasks/bills, fourteen assets. Primary fake balance is 79, tenant 84; the other authenticated owner has a separate settled video consumption. No original account is used.",
+    "Two actual PHP HTTP servers share one owned fixture. The first canvas response is deliberately lost through a 150ms client timeout; a retry retrieves the same receipt. Supplier delay is test-router-only and normal services/auth/SQL/storage/worker implementations remain in use.",
+    "Same-key concurrent returns, later replay and changed-body rejection preserve task/consumption/asset/supplier counts. Different raw keys remain independent. Registered legacy body keys enter the same admission; keyless legacy clients keep their previous behavior.",
+    "Native video request identities now include the authenticated user. An owned legacy reservation keeps its exact legacy identity; mismatched task/consumption owners are rejected. No historical reservation is re-keyed.",
+    "Two canvas intentions share a node; the selected receipt owns result writeback and edited prompt. Replaying the old terminal callback preserves the full project row. Both historical attempts remain present.",
+    "Audio-avatar new history attempt runs immediately with a new key; no aging or rewriting of the old task is used in final evidence.",
+    "Local precheck rejection can be reclaimed only while no task links exist. Accepted, uncertain and old in-flight admissions are not re-entered or expired into another generation. SQL state fixtures do not claim provider crash recovery.",
+    "Receipt JSON is serialized once for both first response and replay. It is an admission receipt, not an alternative current task-result API. Consumers retain their native history/query and version-1 owned result view.",
+    "New image parent links precede supplier transport. Queue and native clipping identity allocation insert by unique key before locking an existing row; no database lock spans provider HTTP.",
+    "Client scope is a hash of the current login session. Profile loading does not change it; account switch before dispatch refuses locally without acknowledging or clearing a previous unconfirmed key. Installed-hook regression preserves that key. Unconfirmed keys survive same-session reload. Cross-device/new-login recovery is not certified.",
+    "Actual browser checks cover controls, old-history form restoration and refreshing existing suite results. No real generate/export/delete was clicked. Generated-result evidence comes from private normal-login HTTP and production workers.",
+    "Existing real worker PID1667 was preserved. Local empty migration was applied; remote deployment, worker code reload, app/system releases and compiled packages were not performed."
+  ],
+  "fixture_corrections_not_product_findings": [
+    "Use curl_multi_info_read result codes for the intentional lost-response check; curl_errno alone was not the multi-handle completion result.",
+    "Existing stage fixtures now distinguish explicit retry keys from explicit new-attempt keys. Final avatar history check no longer ages the old row.",
+    "Canvas run/lists returns a list directly. Native video task deletion uses existing result/delete with task_id; no invented task/delete route was added.",
+    "The micro workbench HTTP unit harness loads the new admission dependency so it still tests actual business-error normalization."
+  ],
+  "not_verified": [
+    "Real supplier generation/effects/paid semantics and the full real model/mode/voice/quality/SKU/terminal matrix; formal blockers remain unchanged.",
+    "All keyless legacy clients, H5/UniApp and dedicated Agent/text-stream/workbench concurrency combinations, cross-device or new-login unconfirmed admission recovery.",
+    "Unknown provider acceptance without an ID or authoritative legacy route, every cloud/multi-host/mixed-version/database/host/power-loss interruption combination.",
+    "Manual boundary upload replacement (no endpoint), direct voice-clone generation, every export format/error and all individual-result deletion/replay intersections.",
+    "Five old compiled entry failures, existing clipping definePageMeta and micro resume-listener warnings, and actual deployment/real-daemon reload."
+  ],
+  "browser_screenshots": [
+    "admission-chain-audit/suite-history-refresh.png"
+  ]
+}

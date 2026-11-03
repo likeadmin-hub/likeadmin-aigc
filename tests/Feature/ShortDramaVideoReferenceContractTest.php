@@ -609,11 +609,12 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         $projectRoot = dirname(__DIR__, 2);
         $source = (string) \Tests\Support\CompiledAssets::source('pc/components/short-drama/StoryboardCreationWorkbench.vue');
 
-        self::assertStringContainsString("type VideoGenerationMethod = 'omni_reference' | 'image_to_video' | 'multi_frame' | 'start_end'", $source);
-        self::assertStringContainsString("['omni_reference', 'image_to_video', 'multi_frame', 'start_end']", $source);
-        self::assertStringContainsString("const supportsSingleFirstFrame = videoModelSupportsGenerationMethod(model, 'image_to_video')", $source);
-        self::assertStringContainsString("generationMethod: (supportsSingleFirstFrame ? 'image_to_video' : 'omni_reference')", $source);
-        self::assertSame(2, substr_count($source, "['start_end', 'image_to_video'].includes(budget?.generationMethod || '') ? firstFrameId : 0"));
+        self::assertStringContainsString("type VideoGenerationMethod = 'omni_reference' | 'image_reference' | 'image_to_video' | 'multi_frame' | 'start_end'", $source);
+        self::assertStringContainsString('shortDramaVideoReferenceMethod(model, Math.min(ordered.length, limit))', $source);
+        self::assertStringContainsString("generationMethod: 'image_to_video' as const", $source);
+        // This is the selected storyboard image's logical anchor. The server
+        // determines whether it is a frame slot or an ordinary reference image.
+        self::assertSame(2, substr_count($source, 'first_frame_asset_id: isVideoMode ? firstFrameId : 0'));
     }
 
     private function invoke(string $class, string $method, mixed ...$arguments): mixed

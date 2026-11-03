@@ -49,6 +49,7 @@ class AiUsageReconcile extends Command
             AiConsumptionLog::where('id', (int)$row['id'])->update(['refresh_requested_at' => time(), 'update_time' => time()]);
             $count++;
         }
+        $clip=\app\common\service\app\smart_clip\SmartClipTaskRuntime::sweep($limit);
         $legacy = AigcShortDramaService::refreshLegacyGenerationTasks($limit);
         $drained = AiTaskJobService::drain(
             'reconcile:' . (gethostname() ?: 'host') . ':' . getmypid(),
@@ -56,7 +57,7 @@ class AiUsageReconcile extends Command
             $limit
         );
         $purged = \app\common\service\ai\AiUsageService::purgeExpiredPayloads();
-        $output->writeln('enqueued: ' . $count . ', legacy_refreshed: ' . $legacy . ', queue_processed: ' . $drained['processed'] . ', queue_waiting: ' . $drained['waiting'] . ', queue_retried: ' . $drained['retried'] . ', purged_payloads: ' . $purged);
+        $output->writeln('clip_enqueued: ' . $clip . ', enqueued: ' . $count . ', legacy_refreshed: ' . $legacy . ', queue_processed: ' . $drained['processed'] . ', queue_waiting: ' . $drained['waiting'] . ', queue_retried: ' . $drained['retried'] . ', purged_payloads: ' . $purged);
         return 0;
     }
 }

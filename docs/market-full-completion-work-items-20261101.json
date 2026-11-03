@@ -1,0 +1,499 @@
+{
+  "date": "2026-11-01",
+  "branch": "feature/short-drama-next-optimization",
+  "scope": "Active scope: necessary core model adaptation only; Q4 current tool first, other models by evidenced differences. Enhanced/full historical acceptance is deferred by user.",
+  "coordinator": "/root",
+  "agents": {
+    "pc_acceptance": "Local application codecs, immutable snapshot versioning and Full Video fee binding design",
+    "mobile_acceptance": "Independent shared-contract review and owned standalone MySQL/source-expiry fixture tooling",
+    "contracts_recovery": "Local AIGC source-backed contracts, strict direct/routing evidence and Fast compatibility; API platform/source read only"
+  },
+  "write_policy": "Coordinator alone switches branches, stages, commits, integrates local develop and pushes feature. One exclusive web writer; server documentation may proceed independently. No worktrees or real-provider/deployment authorization inferred.",
+  "remaining_execution_inputs": {
+    "single_owner_intake": "docs/market-full-completion-owner-intake-20261101.md",
+    "contract_and_authoritative_receipts": "docs/market-completion-owner-contract-inputs-20261101.md",
+    "real_provider_and_infrastructure": "docs/market-completion-provider-infra-checklist-20261101.md",
+    "devices_deployment_old_logs": "docs/market-completion-device-deployment-checklist-20261101.md",
+    "no_repeat_approval_for_existing_local_read_only_and_owned_fixture_scope": true,
+    "real_ledger_repair_is_optional_out_of_original_scope": true,
+    "full_real_matrix_not_representative_smoke_only": true
+  },
+  "latest_continuation": {
+    "batch": 82,
+    "evidence_file": "docs/market-core-adaptation-progress-20261101.md",
+    "summary": "Q4 current local quote and prepare pass with no reviewed pin. Four actual PC request restoration/defaulting regressions reproduced and fixed in Q4 scope; 97 focused tests pass. Identical real-SFC estimate/generate intents pass actual local estimate/prepare/frozen replay; no dispatch. Live source preview ready at 350 points, user owns later manual generation. H3/Wan missing original-path baselines both pass local quote/prepare; reuse other existing evidence. Enhanced acceptance deferred, no full-tool rerun.",
+    "server_application_commit": "980c887221714a6530ec58e7d6925ba5b02e618c",
+    "web_commit": "6c7def507017da9d1b5e23ce62e6d5e0d9a84dd6",
+    "provider_calls": 0,
+    "actual_task_writes": 0,
+    "original_rows_unchanged": true,
+    "provider_result_verified": false
+  },
+  "tasks": [
+    {
+      "id": "A01",
+      "owner": "pc_acceptance",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Three existing PC failures repaired without restoring hardcoded model identities or weakening CSS fallback validation",
+      "acceptance": "Original failing tests and affected video controls pass; current identifiers, input immutability and legacy cover aliases preserved",
+      "feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+      "evidence": {
+        "focused_tests": 22,
+        "pc_files": 331,
+        "pc_tests": 2433,
+        "passed": 2433,
+        "failed": 0,
+        "skipped": 0,
+        "logs": [
+          "/tmp/b76-pc-focused.log",
+          "/tmp/b76-pc-final.log"
+        ]
+      },
+      "runtime_develop_commit": "25ec992789519acdc417ea79c8f7134adc4d0619",
+      "evidence_file": "docs/market-acceptance/coordinated-frontend-closure-batch-76-20261101.json"
+    },
+    {
+      "id": "A02",
+      "owner": "mobile_acceptance",
+      "status": "verified",
+      "depends_on": [
+        "A01"
+      ],
+      "output": "Seven mobile failures individually classified and minimally repaired; existing lifecycle/menu/navigation contracts preserved",
+      "acceptance": "Original failures and affected H5/MP lifecycle, tenant and navigation checks pass; no new tools",
+      "feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+      "runtime_develop_commit": "25ec992789519acdc417ea79c8f7134adc4d0619",
+      "evidence_file": "docs/market-acceptance/coordinated-frontend-closure-batch-76-20261101.json",
+      "evidence": {
+        "focused_passed": 70,
+        "final_mobile_passed": 397,
+        "failed": 0,
+        "skipped": 0,
+        "h5_mp_builds": true
+      }
+    },
+    {
+      "id": "A03-source",
+      "owner": "mobile_acceptance",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Exact H5 source/build fingerprint, paging/resize reproduction and current-source fix or precise deployment-retest dependency",
+      "acceptance": "Actual current-source Promise rejection/retry tests pass; no global error masking/vendor patch. Unattributed old-only logs handed off with exact scope; not declared fixed.",
+      "completion_scope": "Only current-source reproducible repair and explicit old-build handoff. Old deployed-video/resize observations remain A03-deployed-retest.",
+      "feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+      "evidence_file": "docs/market-acceptance/coordinated-frontend-closure-batch-76-20261101.json",
+      "pre_fix_evidence": "docs/market-acceptance/paging-network-errors-before-batch-76-20261101.json",
+      "evidence": {
+        "current_passed": 9,
+        "old_sfc_expected_failures": 3,
+        "old_deployed_video_and_resize_not_declared_fixed": true
+      }
+    },
+    {
+      "id": "A04",
+      "owner": "/root",
+      "status": "verified",
+      "depends_on": [
+        "A01",
+        "A02",
+        "A03-source"
+      ],
+      "output": "Integrated source-only commits, appropriate regressions/builds, immutable evidence and feature pushes",
+      "acceptance": "Actual results and residual failures recorded; no generated output or local proxy changes delivered; owned fixtures removed",
+      "delivered_payload": {
+        "server_feature_commit": "670781245cc80cb68840a79a4d0e4278b86b637f",
+        "web_feature_commit": "df5c63d6dfe89314e54a48b3a3e55a1171ef74fb",
+        "remote": "configured origin Gitee in each repository; exact feature refs read back after successful pushes",
+        "note": "These are delivered source/evidence payload heads. Later documentation-only status commits may extend server feature without changing runtime-tested source."
+      },
+      "verification": {
+        "pc_passed": 2433,
+        "mobile_passed": 397,
+        "h5_mp_builds_passed": true,
+        "cloud_transport_cases_passed": 6,
+        "index_boundary_tests_passed": 2,
+        "index_byte_reproducible": true,
+        "prior_132_sources_and_all_observations_preserved": true,
+        "source_only_files_server": 14,
+        "source_only_files_web": 36,
+        "skip_worktree_preserved_server": 3971,
+        "skip_worktree_preserved_web": 3,
+        "original_task_llm_and_balance_audit_equal": true,
+        "owned_fixture_cleanup_complete": true,
+        "permanent_daemon_1667_restarted": false,
+        "remote_develop_unchanged_server": "feedc6778b5bd2227db4dc75929d46a8545b1f77",
+        "remote_develop_unchanged_web": "0b0233cb8584faab2cf3385c88c1b8e3bb0e3d02"
+      }
+    },
+    {
+      "id": "B01",
+      "owner": "contracts_recovery",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Deduplicated formal contract/gateway/mode/receipt input register and existing import/audit commands",
+      "acceptance": "18 precise model contracts, 14/17 subset and 13 options/6 APIs correctly distinguished; no invented authority",
+      "completion_scope": "Preparation only: deduplicated register and executable review/import steps; real authoritative contracts remain waiting_external in B01-input.",
+      "evidence_files": [
+        "docs/market-completion-contract-register-20261101.json",
+        "docs/market-completion-authoritative-review-runbook-20261101.md"
+      ]
+    },
+    {
+      "id": "B01-input",
+      "owner": "contracts_recovery + /root",
+      "status": "in_progress",
+      "depends_on": [
+        "B01"
+      ],
+      "output": "Versioned authoritative schemas, conditions, SKU bounds and receipts for missing resources",
+      "acceptance": "Each resource binds exact identity/channel/API/version/SKU and complete conditional rules; source provenance retained",
+      "source_received": "Fixed source plus read-only 18 models, 9 channels, 6 apps and forced-route flags; nine offline candidates compiled and replayed, none activated.",
+      "remaining": "Published strategy1/version2 graph and full fallback/AceData closure for 9 forced-route models; deployed source version remains unverified. Exact model states in batch80.",
+      "current_read_only_inputs": {
+        "models": 18,
+        "channels": 9,
+        "applications": 6,
+        "local_application_skus": 37,
+        "historical_application_options": 13,
+        "configured_catalogue_gets": 10,
+        "configuration_writes": 0,
+        "provider_calls": 0,
+        "forced_smart_route_models": 9
+      },
+      "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json"
+    },
+    {
+      "id": "B02",
+      "owner": "contracts_recovery + /root",
+      "status": "waiting_external",
+      "depends_on": [
+        "B01"
+      ],
+      "output": "Offline verified Qwen pixel, Seedance token and Nano/H3 input contracts and necessary shared-layer adaptations",
+      "acceptance": "SKU380/383 and210-215 precheck/reserve/usage/boundaries/old-freeze tests pass; missing evidence stays blocked; no live configuration auto-enable",
+      "resource_gate": "Evaluate each exact resource independently; do not wait for all 18 model/6 API inputs. All applicable subitems must eventually pass for B02 itself to complete.",
+      "meter_gates": [
+        {
+          "register_id": "meter_sku:275:380",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:277:383",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:210",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:211",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:212",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:213",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:214",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        },
+        {
+          "register_id": "meter_sku:140:215",
+          "required": [
+            "current_exact_request_contract_binding",
+            "authoritative_sku_meter_bound",
+            "complete_usage_or_output_receipt"
+          ],
+          "independent_of_unrelated_missing_model_contracts": true
+        }
+      ],
+      "special_input_gates": [
+        "Nano model/app nested/quantity/bare_b64/asset-ID: only the corresponding exact model/channel or app/API contract.",
+        "H3 native content merge: only model:video:minimax:h3-video exact rules."
+      ],
+      "source_review": "Two official Qwen source mappings/sizes and six Seedance usage paths identified; actual fee upper bounds and missing-usage guarantees remain unresolved. See market-owned-platform-meter-review-20261101.md."
+    },
+    {
+      "id": "B03",
+      "owner": "contracts_recovery",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Read-only authoritative reconciliation runbook and evidence requirements for unknown synchronous text acceptance",
+      "acceptance": "Complete trusted receipts recover through existing path; no-receipt/no-usage/no-ID tasks never resent, guessed or automatically refunded",
+      "completion_scope": "Preparation only: read-only audit and authoritative reconciliation runbook; actual unresolved records remain B03-evidence.",
+      "current_read_only_observation": {
+        "text_checked": 215,
+        "text_pending_usage": 41,
+        "text_settlement_failed": 2,
+        "local_receipts_missing": 43,
+        "nonempty_upstream_reference_field": 43,
+        "health_review_run_count": 1,
+        "health_stt_consumption_count": 1,
+        "stt_reserved_points": 40,
+        "run_to_stt_link": "verified_same_owned_parent_run; count as one STT business case, not two faults",
+        "real_mutations": 0
+      },
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
+    },
+    {
+      "id": "B03-evidence",
+      "owner": "owner/upstream-provider",
+      "status": "waiting_external",
+      "depends_on": [
+        "B03"
+      ],
+      "output": "Uniquely correlated authoritative provider receipt/bill for each actual unknown task",
+      "acceptance": "Every settled classification has explicit evidence; unknown cases remain needs_review; real ledger edits separately reviewed",
+      "applicability": "Only actual unknown records in the scoped read-only audit; zero records may be marked not_applicable with audit evidence, not inferred.",
+      "latest_observation": "43 original response IDs: 41 chat completion and2 response; actual platform routes not proven. Normal safe UI cannot exact-filter these IDs; raw authoritative receipt still missing.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
+    },
+    {
+      "id": "B03-stt-evidence",
+      "owner": "owner/upstream-provider",
+      "status": "waiting_external",
+      "depends_on": [
+        "B03"
+      ],
+      "output": "Authoritative original receipt for the existing owned STT needs_review consumption and its same parent run",
+      "acceptance": "Ownership-checked consumption→app_task→step→run link already verified; retain reserved 40 points, no retranscription/refund/requeue without explicitly reviewed real execution. This is a per_call STT case, separate from 43 text usage/settlement records.",
+      "latest_observation": "Original request sends no unique consumption/step correlation and both response IDs are empty; requires existing uniquely associated gateway exchange evidence. Do not match by time/material.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
+    },
+    {
+      "id": "C01",
+      "owner": "pc_acceptance + /root + owner",
+      "status": "owner_manual_test",
+      "depends_on": [
+        "A04",
+        "B01"
+      ],
+      "output": "Bounded real-provider task-to-result/ledger/history evidence for every applicable exact resource/SKU/mode in the reviewed frozen execution matrix; representative families are smoke checks only",
+      "acceptance": "Every applicable frozen-matrix row evidenced or explicitly withdrawn by user; exact operations/resource/version/SKU, per-call and total budget, private inputs and stop/cleanup rules explicitly authorized before execution. No representative-only full completion.",
+      "resource_gate": "Each chosen resource needs its own reviewed request contract; special metering resources additionally depend on B02. Do not globally block already reviewed protocol families on unrelated missing contracts.",
+      "execution_permitted": false,
+      "current_boundary_note": "User will test real generation manually later. Agent does not submit/query/retry/cancel provider tasks or request renewed paid approval."
+    },
+    {
+      "id": "C02",
+      "owner": "mobile_acceptance + owner",
+      "status": "waiting_environment",
+      "depends_on": [
+        "A04"
+      ],
+      "output": "Physical WeChat/native App and independent-device normal-login/lifecycle/history evidence",
+      "acceptance": "Real device/build/session/tenant provenance recorded; paid actions subject to C01; no token injection or new cross-device draft feature",
+      "local_read_only_observation": "Platform WeChat config, tenant0/1 authorizers/versions/artifact/template records absent; tenant1 key-mode credential row has no keys. 8 managed directories self-consistent, official public/mp-weixin lacks metadata; no proven experience build. Not a physical-device pass.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
+    },
+    {
+      "id": "C03-preparation",
+      "owner": "contracts_recovery",
+      "status": "verified",
+      "depends_on": [
+        "B01",
+        "B03"
+      ],
+      "output": "Per-mechanism owned-environment fault matrix with exact injection, recovery, invariants and cleanup",
+      "acceptance": "OSS interruption/expired sources/multi-node/mixed-version/DB-host/persistence-retention distinguished; no production fault injection",
+      "completion_scope": "Per-mechanism environment/injection/recovery/cleanup plan prepared; actual dedicated environment execution remains C03.",
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
+    },
+    {
+      "id": "C03",
+      "owner": "pc_acceptance + /root + owner",
+      "status": "waiting_environment",
+      "depends_on": [
+        "C03-preparation",
+        "A04"
+      ],
+      "output": "Missing deep recovery scenarios executed only in a dedicated owned environment",
+      "acceptance": "One current managed/business result, immutable billing/frozen identity, terminal safety and complete owned cleanup; each scenario separately evidenced",
+      "local_isolated_attempt": {
+        "batch": 80,
+        "status": "failed_not_accepted",
+        "stage": "worker_boundary",
+        "cleanup_verified": true,
+        "original_data_preserved": true,
+        "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json"
+      },
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
+    },
+    {
+      "id": "C03-local",
+      "owner": "/root",
+      "status": "verified",
+      "depends_on": [],
+      "output": "Three media kinds x not-sent/lost-success-response OSS transport boundaries using owned objects and original workers",
+      "acceptance": "Deterministic test-only curl boundary; cloud presence before retry matches injection, original retry recovers stable key, SHA and one result/file row match, billing/request frozen and owned objects deleted",
+      "scope_note": "Does not certify an actual network outage, distributed node, mixed binary, database/host/power loss.",
+      "feature_commit": "737e64baa30207bb42c91f7545f853ae000575c5",
+      "runtime_develop_commit": "1231b800aebebea3b139c96e04c59d3b9cbf82da",
+      "evidence_file": "docs/market-acceptance/coordinated-backend-preparation-batch-76-20261101.json",
+      "cases": 6,
+      "active_in_current_core_scope": false,
+      "priority_note": "Historical/enhanced scope deferred by latest user request; never a prerequisite for current Q4 core adaptation."
+    },
+    {
+      "id": "C04",
+      "owner": "owner",
+      "status": "waiting_owner_execution",
+      "depends_on": [
+        "A04"
+      ],
+      "output": "Owner-controlled source deployment/version loading followed by applicable acceptance",
+      "acceptance": "Deployed source/static/worker versions verified; migration and rollback reviewed; assistants do not publish packages or restart permanent daemon"
+    },
+    {
+      "id": "A03-deployed-retest",
+      "owner": "/root + owner",
+      "status": "waiting_owner_execution",
+      "depends_on": [
+        "C04"
+      ],
+      "output": "Matching deployed/source resource and legacy video/resize trigger verification",
+      "acceptance": "Record deployed source/static/worker versions and actual trigger/error/failed-load-retry observations. Generic current paging repair does not establish old-video attribution. Unreproduced triggers remain inconclusive and waiting; only an explicit user withdrawal of that exact old-environment scope can remove it, not acceptance of partial coverage."
+    },
+    {
+      "id": "FINAL",
+      "owner": "/root",
+      "status": "planned",
+      "depends_on": [
+        "A04",
+        "B02",
+        "B03-evidence",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "B03-stt-evidence",
+        "B01-input",
+        "A03-deployed-retest"
+      ],
+      "output": "Full plan completion report or exact outstanding dependencies with evidence and owners",
+      "acceptance": "No external wait, skipped case, synthetic result or source-only delivery mislabeled as full real-world completion",
+      "scope_note": "Original full-plan completion sentinel retained as history. Active core progress is separate in active_scope/latest_continuation; enhanced dependencies do not block Q4 source repair."
+    }
+  ],
+  "continuation_history": [
+    {
+      "batch": 77,
+      "user_response": "Does not know which technical inputs to provide; no new paid/real-task/ledger/deployment permissions granted.",
+      "intake_responsibility": "Agents prepare technical material, exact matrix, SHA, synthetic media and version evidence; owner only decides spending limits, device helper and deployment operator.",
+      "support_message": "docs/market-completion-support-message-20261101.md",
+      "planning_inventory": "docs/market-acceptance/execution-planning-inventory-batch-77-20261101.json",
+      "scope_preservation": "107 current local options / 542 SKU do not exclude the 14 historical resources / 25 SKU absent now; union121/567 retained, not certified as live active catalogue.",
+      "source_403_follow_up": {
+        "status": "verified_local_only",
+        "cases": 6,
+        "source_feature_commit": "21c3e0a2ef0aa81416bcb2f32066a584575bc5a5",
+        "runtime_local_develop_commit": "9a13987421d328d9e7da949082334eca1e71c0a1",
+        "evidence": "docs/market-acceptance/source-403-recovery-batch-77-20261101.json",
+        "does_not_close_real_signature_network_or_dedicated_infra": true
+      }
+    },
+    {
+      "batch": 78,
+      "user_response": "Platform is user-maintained; supplied yc_open/platform-api-saas source repository. Agents extract technical material; no new paid/task/asset/ledger/deployment authorization.",
+      "source_repository": {
+        "url": "https://gitee.com/yc_open/platform-api-saas.git",
+        "develop": "b5887e1c153111edd4515beb0635e6b66d9978b6",
+        "master": "c57897b9d6e9555224dd298a4124f0c7da3673be",
+        "deployed_commit": "unverified",
+        "read_mode": "Git objects only, no checkout/worktree or execution of upstream code"
+      },
+      "documentation_lookup_fix": {
+        "feature_commit": "2d623735495e9318de3d52c37b270e9d0fd83f28",
+        "runtime_local_develop_commit": "a7b7203bb1928f0811098f6b342f1960071efe9e",
+        "tests_passed": 139,
+        "assertions": 814,
+        "native_catalogue_cli_passed": true,
+        "php_syntax_files": 7
+      },
+      "source_reviews": [
+        "docs/market-owned-platform-source-review-20261101.md",
+        "docs/market-owned-platform-meter-review-20261101.md"
+      ],
+      "formal_admission_grants": 0,
+      "scope_note": "18 historic complete-rule review items now have source evidence to review, not 18 models with no documents. Exact remaining conditions/DB mappings/deployment and independent 8 SKU meter guarantees stay explicit."
+    },
+    {
+      "batch": 80,
+      "evidence_file": "docs/market-acceptance/safety-and-adaptation-batch-80-20261101.json",
+      "summary": "Local business source passes 1180 backend tests; PC143/mobile423 and H5/MP pass. Nine offline model candidates ready, nine forced-route candidates blocked. API platform unchanged. Isolated recovery worker-boundary fails; cleaned and not accepted. Original hashes and balance unchanged.",
+      "full_plan_complete": false,
+      "scope_expansion_stopped_for_safety_checkpoint": true,
+      "api_platform_read_only": true,
+      "server_business_commit": "99d9ad7fcb6215cd90a8f70ae5a69c89740bc592",
+      "server_checkpoint_commit": "96f4c6f33efc0c2f89015c89d3ce6f6eaa4a5ab2",
+      "web_commit": "4a18a1ebb64e13e55dcf4f20aa684845254da9b3"
+    }
+  ],
+  "api_platform_boundary": {
+    "user_instruction": "不能动api的任何东西，只能读取信息",
+    "state": "read_only",
+    "applies_to": [
+      "api.likeadmin.cn",
+      "platform.xhadmin.cn",
+      "yc_open/platform-api-saas"
+    ],
+    "local_aigc_source_and_isolated_fixtures_continue": true,
+    "platform_mutations_permitted": false,
+    "real_supplier_operations_permitted": false,
+    "reference": "docs/market-api-read-only-boundary-20261101.md"
+  },
+  "active_scope": {
+    "user_instruction": "只做必须的；先现有工具一条模型链，再按差异；增强验收先放一边；API平台只读；真实生成用户后续手动测试",
+    "entry": "docs/market-core-adaptation-progress-20261101.md",
+    "first_model": "q4-preview-video/q4_video product235",
+    "provider_execution_by_agent": false,
+    "manual_provider_test_owner": "user",
+    "all_tool_recheck_requested": false
+  }
+}

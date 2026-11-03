@@ -1,0 +1,2296 @@
+{
+  "observed_at": "2026-10-30T04:08:12+08:00",
+  "observations": [
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 2
+      },
+      "points": 90,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 2
+      },
+      "points": 270,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 2
+      },
+      "points": 50,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 2
+      },
+      "points": 150,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 6
+      },
+      "points": 90,
+      "image_slots": 6,
+      "meter_context_images": 6,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 6
+      },
+      "points": 270,
+      "image_slots": 6,
+      "meter_context_images": 6,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 6
+      },
+      "points": 50,
+      "image_slots": 6,
+      "meter_context_images": 6,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 6
+      },
+      "points": 150,
+      "image_slots": 6,
+      "meter_context_images": 6,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 90,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 270,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 50,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 150,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 90,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 270,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 50,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":first",
+      "generation_method": "image_to_video",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 150,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 90,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 270,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 50,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 3
+      },
+      "points": 150,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 90,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 270,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 50,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":last",
+      "generation_method": "last_frame",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 7
+      },
+      "points": 150,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 4
+      },
+      "points": 90,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 4
+      },
+      "points": 270,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 4
+      },
+      "points": 50,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "keyframe_one",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 1,
+        "timestamps": [
+          1
+        ],
+        "loop": false,
+        "image_slots": 4
+      },
+      "points": 150,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 8
+      },
+      "points": 90,
+      "image_slots": 8,
+      "meter_context_images": 8,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 717,
+      "sku_id": 717,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 8
+      },
+      "points": 270,
+      "image_slots": 8,
+      "meter_context_images": 8,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 5,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 8
+      },
+      "points": 50,
+      "image_slots": 8,
+      "meter_context_images": 8,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "scenario": "four_keyframes_loop",
+      "requested_sku_id": 718,
+      "sku_id": 718,
+      "resolution": "480P",
+      "duration": 15,
+      "expected": {
+        "keyframes": 4,
+        "timestamps": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "loop": true,
+        "image_slots": 8
+      },
+      "points": 150,
+      "image_slots": 8,
+      "meter_context_images": 8,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_false",
+      "requested_sku_id": 783,
+      "sku_id": 783,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 1330,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_false",
+      "requested_sku_id": 783,
+      "sku_id": 783,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 3990,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_false",
+      "requested_sku_id": 785,
+      "sku_id": 785,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 360,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_false",
+      "requested_sku_id": 785,
+      "sku_id": 785,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 1080,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_false",
+      "requested_sku_id": 787,
+      "sku_id": 787,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 280,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_false",
+      "requested_sku_id": 787,
+      "sku_id": 787,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 840,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_false",
+      "requested_sku_id": 783,
+      "sku_id": 783,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 1330,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_false",
+      "requested_sku_id": 783,
+      "sku_id": 783,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 3990,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_false",
+      "requested_sku_id": 785,
+      "sku_id": 785,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 360,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_false",
+      "requested_sku_id": 785,
+      "sku_id": 785,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 1080,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_false",
+      "requested_sku_id": 787,
+      "sku_id": 787,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 280,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_false",
+      "requested_sku_id": 787,
+      "sku_id": 787,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 840,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_true",
+      "requested_sku_id": 782,
+      "sku_id": 782,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 1330,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_true",
+      "requested_sku_id": 782,
+      "sku_id": 782,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 3990,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_true",
+      "requested_sku_id": 784,
+      "sku_id": 784,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 460,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_true",
+      "requested_sku_id": 784,
+      "sku_id": 784,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 1380,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_true",
+      "requested_sku_id": 786,
+      "sku_id": 786,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 360,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_text_true",
+      "requested_sku_id": 786,
+      "sku_id": 786,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "Synthetic texture",
+        "image_slots": 2
+      },
+      "points": 1080,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_true",
+      "requested_sku_id": 782,
+      "sku_id": 782,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 1330,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_true",
+      "requested_sku_id": 782,
+      "sku_id": 782,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 3990,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_true",
+      "requested_sku_id": 784,
+      "sku_id": 784,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 460,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_true",
+      "requested_sku_id": 784,
+      "sku_id": 784,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 1380,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_true",
+      "requested_sku_id": 786,
+      "sku_id": 786,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 360,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "subjects_url_text_true",
+      "requested_sku_id": 786,
+      "sku_id": 786,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "description": "https://example.invalid/synthetic-description",
+        "image_slots": 2
+      },
+      "points": 1080,
+      "image_slots": 2,
+      "meter_context_images": 2,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 1330,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 3990,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 360,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 1080,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 280,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 840,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 1330,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 3990,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 360,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 1080,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 280,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 3
+      },
+      "points": 840,
+      "image_slots": 3,
+      "meter_context_images": 3,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 1330,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 3990,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 360,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 1080,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 280,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_defaults",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": [],
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 840,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 1330,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 789,
+      "sku_id": 789,
+      "resolution": "4K",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 3990,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 360,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 1080,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 5,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 280,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:pair",
+      "generation_method": "start_end",
+      "scenario": "subject_time_boundary",
+      "requested_sku_id": 793,
+      "sku_id": 793,
+      "resolution": "720P",
+      "duration": 15,
+      "expected": {
+        "groups": 2,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 840,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "scenario": "seven_subjects",
+      "requested_sku_id": 785,
+      "sku_id": 785,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 7,
+        "description": "Synthetic texture",
+        "image_slots": 7
+      },
+      "points": 360,
+      "image_slots": 7,
+      "meter_context_images": 7,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "scenario": "three_subjects",
+      "requested_sku_id": 791,
+      "sku_id": 791,
+      "resolution": "1080P",
+      "duration": 5,
+      "expected": {
+        "groups": 3,
+        "times": {
+          "start_time": 0,
+          "end_time": 3000
+        },
+        "description": "Synthetic texture",
+        "image_slots": 4
+      },
+      "points": 360,
+      "image_slots": 4,
+      "meter_context_images": 4,
+      "meter_context_equal_to_quote": true,
+      "frozen_replay_equal": true,
+      "status": "frontend_quote_native_preparation_meter_equal"
+    }
+  ],
+  "failed_cases": [],
+  "negative_cases": [
+    {
+      "scenario": "five_keyframes",
+      "status": "expected_rejection",
+      "error_fingerprint": "31cba153e26715f1c2d301773d6a3bb70b4f5997a5e1ce59fa4364a7eb2df8f8",
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "base_sku_id": 718,
+      "resolution": "480P",
+      "duration": 15
+    },
+    {
+      "scenario": "zero_keyframe_time",
+      "status": "expected_rejection",
+      "error_fingerprint": "65b65d846348e5f86534fc473b06b11ed700a4e5d8ee8b83ce79f02e8f10aa26",
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "base_sku_id": 718,
+      "resolution": "480P",
+      "duration": 15
+    },
+    {
+      "scenario": "missing_keyframe_time",
+      "status": "expected_rejection",
+      "error_fingerprint": "827575f10520fe1ba968fae49259b3b91a2487171bc16f97d8326202a7259ad9",
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "base_sku_id": 718,
+      "resolution": "480P",
+      "duration": 15
+    },
+    {
+      "scenario": "fractional_keyframe_time",
+      "status": "expected_rejection",
+      "error_fingerprint": "f3af7202ed6c63aafb32025926a1838f3f2b788488d3e07f263b41688d7de040",
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "base_sku_id": 718,
+      "resolution": "480P",
+      "duration": 15
+    },
+    {
+      "scenario": "keyframe_at_output_end",
+      "status": "expected_rejection",
+      "error_fingerprint": "65b65d846348e5f86534fc473b06b11ed700a4e5d8ee8b83ce79f02e8f10aa26",
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":pair",
+      "generation_method": "start_end",
+      "base_sku_id": 718,
+      "resolution": "480P",
+      "duration": 15
+    },
+    {
+      "scenario": "eight_subjects",
+      "status": "expected_rejection",
+      "error_fingerprint": "30734239be1a1d6e4ddb0ac980e3f603fa6c7e732ba7d5ef5d080fd04710f754",
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "base_sku_id": 785,
+      "resolution": "1080P",
+      "duration": 5
+    },
+    {
+      "scenario": "end_below_minimum",
+      "status": "expected_rejection",
+      "error_fingerprint": "926845298395dc8b336dcde3b60a74ae4535c041070df3ac2f06b00d88f91dc6",
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "base_sku_id": 793,
+      "resolution": "720P",
+      "duration": 15
+    },
+    {
+      "scenario": "negative_start",
+      "status": "expected_rejection",
+      "error_fingerprint": "68b51f3964c9f6f973f03f30b96db434e24fcb6011d698b322b66a7553c921e6",
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "base_sku_id": 793,
+      "resolution": "720P",
+      "duration": 15
+    },
+    {
+      "scenario": "fractional_end",
+      "status": "expected_rejection",
+      "error_fingerprint": "536f48c077a5ba93e9719fa69b65ceccf38046b0b3fb35a175f657bf7df1886c",
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "base_sku_id": 793,
+      "resolution": "720P",
+      "duration": 15
+    },
+    {
+      "scenario": "five_images_in_subject",
+      "status": "expected_rejection",
+      "error_fingerprint": "a5fb51dd50acdde3cb0ba43d2fac820a2002e0d4c94d0401296c52f39b11d276",
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "base_sku_id": 793,
+      "resolution": "720P",
+      "duration": 15
+    },
+    {
+      "scenario": "missing_subject_description",
+      "status": "expected_rejection",
+      "error_fingerprint": "8562b1d18e59401858b934f9125bb86d38661c689a5f7ed3683768cc10cfb80a",
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "base_sku_id": 785,
+      "resolution": "1080P",
+      "duration": 5
+    }
+  ],
+  "batch": 9,
+  "baseline": "tenant-1-baseline-20261030.json",
+  "baseline_identity_observed_at": "2026-10-30T01:16:40+08:00",
+  "identity_bindings": {
+    "market_video_model:345": {
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:345",
+        "product_id": 345,
+        "resource_type": "model",
+        "model_code": "official-33-1ff7be16b905640b3a",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "baseline_declaration_fingerprint": "b484fa98564b64ef207911f9a5fa790dca891f8b08f4fec48b3165af68f428ba"
+    },
+    "market_video_model:355": {
+      "identity": {
+        "generation_type": "video",
+        "id": "market_video_model:355",
+        "product_id": 355,
+        "resource_type": "model",
+        "model_code": "official-33-b3e3713fe0a132855f",
+        "channel_code": "official",
+        "app_code": "",
+        "api_code": ""
+      },
+      "baseline_declaration_fingerprint": "17928631d3c05680fe5d07091d27b26272dc2ae4ab7e02b89367b162bdcd57c9"
+    }
+  },
+  "catalogue_source": "Read-only creationConfig(1) at 2026-10-30T03:51:34+08:00; seven public channels read, two exercised. Baseline declaration fingerprints retain their original observation time.",
+  "public_projection_sha256": {
+    "market_video_model:345": "07e60428eee6459004fae7e6ffc5df74bff39bed22c3b4d5935f48b9a7a22afc",
+    "market_video_model:355": "75c78b3b8f6a4c3d2b8163877e8ddd96e1473eb88c7ae9e267f639bfe35fffbc"
+  },
+  "source_commits": {
+    "server_business": "dc7f8f4a8",
+    "web": "f0d13220"
+  },
+  "resolved_findings": [
+    {
+      "finding": "url_text_removed_from_structured_material_projection",
+      "before": {
+        "resource": "market_video_model:355",
+        "scenario": "url_text_description",
+        "description_present_in_editor": true,
+        "description_present_in_provider_projection": false,
+        "source_head": "77069c6d"
+      },
+      "after": "Name/description/text URLs remain text; only declared URI slots bind or prune uploads. Real browser estimate restored."
+    },
+    {
+      "finding": "loop_url_missing_from_media_counter",
+      "diagnostic_scope": "One Grok image_reference/720P/5s/four_keyframes_loop case failed encoded_image_count_mismatch before server change. All 16 loop recipes pass afterward.",
+      "historical_context": "Existing frozen meter context is not recalculated; Grok current output-duration price does not establish a historical undercharge."
+    }
+  ],
+  "browser_observations": [
+    {
+      "channel": "market_video_model:345",
+      "entry": "pc_studio",
+      "material_mode": ":reference",
+      "generation_method": "image_reference",
+      "resolution": "720P",
+      "duration": 15,
+      "keyframes": 1,
+      "timestamp_s": 2,
+      "image_uploads": 2,
+      "points": 270,
+      "screenshot": "/tmp/market-batch9-grok-keyframe.png"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "resolution": "720P",
+      "duration": 15,
+      "subject_groups": 2,
+      "points": 840,
+      "stage": "Before repair, ordinary text descriptions"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "generation_method": "text_to_video",
+      "subject_groups": 2,
+      "stage": "Before repair, replace one description by synthetic URL text",
+      "status": "quote_not_ready",
+      "projection_evidence": "Description is present in editor, absent from production provider projection"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "text_to_video:0",
+      "generation_method": "text_to_video",
+      "resolution": "4K",
+      "duration": 5,
+      "subject_groups": 1,
+      "description": "Synthetic URL text retained",
+      "points": 1330,
+      "screenshot": "/tmp/market-batch9-kling-url-description.png"
+    },
+    {
+      "channel": "market_video_model:355",
+      "entry": "pc_studio",
+      "material_mode": "image_to_video:first",
+      "generation_method": "image_to_video",
+      "resolution": "4K",
+      "duration": 5,
+      "subject_groups": 1,
+      "start_time": 0,
+      "end_time": 3000,
+      "points": 1330,
+      "action": "Upload second synthetic image; mode becomes image_to_video; enter time values",
+      "screenshot": "/tmp/market-batch9-kling-subject-time.png"
+    }
+  ],
+  "browser_scope": "Exact browser SKU not read and not inferred from price. Time values verified through visible controls/accessibility and DOM input values; saved form crop does not include those inputs, so not full visual coverage. No Generate click.",
+  "validation": {
+    "pc_tests": 144,
+    "phpunit_tests": 233,
+    "phpunit_assertions": 1001,
+    "skips": 0,
+    "finite_combinations": 82,
+    "negative_rejections": 11,
+    "transactions": "Read-only current-config/estimate/preparation; PHPUnit reservation/refund/idempotency/cancellation fixtures fully rolled back.",
+    "known_static_failures_from_batch08": 4,
+    "static_failures_retested_in_this_batch": false,
+    "live_generation": "not_performed"
+  },
+  "acceptance": "Finite checkpoint evidence only; no full model or cross-entry certification. Zero keyframe time is an expected rejection under existing native rules, not a newly granted capability.",
+  "remaining": {
+    "full_legacy_contracts": 18,
+    "opaque_structures": 14,
+    "application_options_uncovered": 13,
+    "pixel_skus": 2,
+    "seedance_token_skus": 6,
+    "keyframe_loop_browser": "Not tested in browser; preparation only.",
+    "other_entries": "Home, standalone tools, short drama and canvas full matrix remain incomplete.",
+    "material_rule_guidance": "Published mode rules include constraints not yet explicitly shown in shared material editor; verify consumer guidance without guessing new rules.",
+    "known_static_test_maintenance": 4
+  }
+}

@@ -1,0 +1,271 @@
+{
+    "observed_at": "2026-10-29T22:21:15+08:00",
+    "scope": "Partial image array type evidence only; no inferred material limits, native contracts, capabilities or activation",
+    "source": "configured market published model detail; unbound OpenAIYI identity uses the separately verified saved catalogue declaration",
+    "entries": [
+        {
+            "generation_type": "image",
+            "model_code": "nano-banana-2.1",
+            "channel_code": "Google",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "m-nano-banana-2-1",
+            "doc_content_sha256": "607a05f03f49ba5c1fe7ea43768f1f33f10f6b101e5f4ebc92afd5ff3c6b31c8",
+            "raw_parameter_fingerprint": "801c88d3f7f628d9f8b52fcb9253d6297aa16fc14362f6e75f52a4bfd2b48ea7",
+            "fields": [
+                {
+                    "path": "urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "example": [
+                            "https://example.com/reference.jpg"
+                        ],
+                        "children": {
+                            "item": {
+                                "type": "string",
+                                "example": "https://example.com/reference.jpg",
+                                "description": "An HTTP(S) URL of a reference image, which must be readable during task processing."
+                            }
+                        },
+                        "description": "An array of reference image URL strings, used for reference image editing. Each item must be an accessible HTTP(S) image address, used together with prompt to describe the editing target, and does not affect the default per-use price."
+                    },
+                    "declared_items": {
+                        "type": "string",
+                        "example": "https://example.com/reference.jpg",
+                        "description": "An HTTP(S) URL of a reference image, which must be readable during task processing."
+                    },
+                    "reviewed_item_type": "string",
+                    "basis": "explicit_children_item",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5",
+            "channel_code": "OpenAIYI",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "model-gpt-image-2-5",
+            "doc_content_sha256": "135488ad42adfde9665af0bfb7c833b768c497add9b6679b2400987e4490fad0",
+            "raw_parameter_fingerprint": "a5d8f02c9bb7503821ab2225e6ba04a8b8d1c0a5394ce2839b20d24792b21c28",
+            "fields": [
+                {
+                    "path": "image_urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "example": [
+                            "https://example.com/reference.jpg"
+                        ],
+                        "description": "Reference image array; when provided, it becomes image-to-image. Each item is a publicly accessible image URL. When passed together with aspect_ratio, the output follows that aspect ratio; when aspect_ratio is not passed, the output can vary with the reference image."
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5-flare",
+            "channel_code": "OpenAIYI",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "model-gpt-image-2-5-flare",
+            "doc_content_sha256": "2f6bffae6f8fa07bcd77fb6aa9af40cba583ed33caeaca87265f1264d7ee17d5",
+            "raw_parameter_fingerprint": "2e472421e887ea79c0819966af86e2612a6d3058114bb4a090902c7891b86160",
+            "fields": [
+                {
+                    "path": "image_urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "example": [
+                            "https://example.com/reference.jpg"
+                        ],
+                        "description": "Reference image array; when provided, it becomes image-to-image. Each item is a publicly accessible image URL. When passed together with aspect_ratio, the output follows that aspect ratio; when aspect_ratio is not passed, the output can vary with the reference image."
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2.5-sunburst",
+            "channel_code": "OpenAIYI",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "model-gpt-image-2-5-sunburst",
+            "doc_content_sha256": "7dd49b609b086078add0bfe2f7f540c1d4efe01ad244c5d93fec1b2748edbaa0",
+            "raw_parameter_fingerprint": "f43ac76971838c532ed730a673723018cde6c71c0bb3fb0f12306a1b859aaf26",
+            "fields": [
+                {
+                    "path": "image_urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "example": [
+                            "https://example.com/reference.jpg"
+                        ],
+                        "description": "Reference image array; when provided, it becomes image-to-image. Each item is a publicly accessible image URL. When passed together with aspect_ratio, the output follows that aspect ratio; when aspect_ratio is not passed, the output can vary with the reference image."
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "nano-banana-2",
+            "channel_code": "Google",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "m-nano-banana-2-google",
+            "doc_content_sha256": "1dac592c48fedadef81761d71fc322a4af9f4bbc3ba7a6a9922990445e3d3b62",
+            "raw_parameter_fingerprint": "a84bfb45418d24be8ec88f1bcf000dc2170e3af99153940e946dea3ea99b9e6f",
+            "fields": [
+                {
+                    "path": "urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "description": "List of reference image URLs (used for image-to-image). Each item is an image URL string."
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "nano-banana-pro",
+            "channel_code": "Google",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "m-nano-banana-pro-google",
+            "doc_content_sha256": "28719cca6ab510efaf6cf3a4a357e84dedd2959b541725cc37697b40860f8893",
+            "raw_parameter_fingerprint": "a84bfb45418d24be8ec88f1bcf000dc2170e3af99153940e946dea3ea99b9e6f",
+            "fields": [
+                {
+                    "path": "urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "description": "List of reference image URLs (used for image-to-image). Each item is an image URL string."
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenaiM",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "m-gpt-image-2-openaim",
+            "doc_content_sha256": "fb8046020a732c0426d55c825f673fedbd48fcb4fcba5f54c2d280bf4c350161",
+            "raw_parameter_fingerprint": "5f0093e2ac0b448958d7cb43b81641de4f4fdd6566fc8b835ffc27f0c27a66c2",
+            "fields": [
+                {
+                    "path": "image_urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "example": [
+                            "https://example.com/reference.jpg"
+                        ],
+                        "description": "Reference image array; for image-to-image generation. Up to 16 items. Each item can be a publicly accessible URL or a data URI in the format data:image/...;base64,..., and can be mixed. When passed together with aspect_ratio, images are generated according to the aspect ratio; if aspect_ratio is not passed, the output may follow the reference images."
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2",
+            "channel_code": "OpenAIYI",
+            "platform_detail_identity_verified": false,
+            "doc_slug": null,
+            "doc_content_sha256": null,
+            "raw_parameter_fingerprint": "7c752f1f36ff976367aedd6b40cd57398295bc21ccb148a946194b9a086448a4",
+            "fields": [
+                {
+                    "path": "image_urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "example": [
+                            "https://example.com/reference.jpg"
+                        ],
+                        "description": "参考图数组；传入后为图生图。每项为公网可访问的图片 URL。与 aspect_ratio 同传时按该画幅出图；未传 aspect_ratio 时输出可随参考图。"
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        },
+        {
+            "generation_type": "image",
+            "model_code": "gpt-image-2-pro",
+            "channel_code": "OpenaiM",
+            "platform_detail_identity_verified": true,
+            "doc_slug": "m-gpt-image-2-pro-openaim",
+            "doc_content_sha256": "6c0096c1262e95a14392d33d038a34a6a39067ad31c07adb048725f4f7d274ac",
+            "raw_parameter_fingerprint": "2fa1bb1719ac93947a6a2d4cf5326b58aab4a06783cf811af549ec446ecd4055",
+            "fields": [
+                {
+                    "path": "image_urls",
+                    "raw_definition": {
+                        "type": "array",
+                        "example": [
+                            "https://example.com/reference.jpg"
+                        ],
+                        "description": "Reference image array; when provided, enables image-to-image. Up to 16 items. Each item is a publicly accessible image URL, or a data URI in the form data:image/...;base64,... ."
+                    },
+                    "declared_items": null,
+                    "reviewed_item_type": "string",
+                    "basis": "published_parameter_description",
+                    "requires_independent_contract_review": true
+                }
+            ],
+            "expanded_opaque_paths": [
+                "image_urls[]"
+            ],
+            "native_contract_status": "incomplete_not_activated"
+        }
+    ]
+}

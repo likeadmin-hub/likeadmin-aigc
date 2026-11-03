@@ -159,6 +159,7 @@ final class GenerationIntentService
     /** Called after provider I/O, never while holding graph or intent locks. */
     public static function accepted(int $tenant, int $user, int $id, string $token, int $fence, string $providerTaskId, array $result, bool $synchronous=false): void
     {
+        $result=\app\common\service\ai\GenerationTaskResultService::withoutView($result);
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$providerTaskId,$result,$synchronous): void {
             $row=self::owned($tenant,$user,$id);
             self::assertClaimIdentity($row,$token,$fence);
@@ -353,7 +354,7 @@ final class GenerationIntentService
     }
     private static function nodeInputSignature(array $node): string {
         $metadata=(array)($node['metadata']??[]);
-        $ignored=['status','progress','error','errorDetails','canvasRunId','active_generation_id','projected_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'];
+        $ignored=['generationTaskRef','status','progress','error','errorDetails','canvasRunId','active_generation_id','projected_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'];
         // Video reads may overlay completed results before a layout-only save.
         // The result fields do not change the video request or its references.
         if (($node['type']??'')==='video') $ignored=array_merge($ignored,['pending','url','video_url','uri','asset_id','storage_scope','storage_engine','storage_domain']);

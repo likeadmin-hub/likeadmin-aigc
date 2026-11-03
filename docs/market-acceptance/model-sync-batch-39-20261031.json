@@ -1,0 +1,143 @@
+{
+  "batch": 39,
+  "date": "2026-10-31",
+  "source_server_commit": "9673290fb69a6cc5fcdcdfbe875c93df25fbbbd4",
+  "source_web_commit": "d9de49b02eb9d2b8478433d0a1177c098705e5c1",
+  "scope": "Authorized actual model-only catalogue and upstream price synchronization, compared by stored upstream code/channel and SKU identity. Commercial identity is not merged by name or numeric upstream ID. Applications and existing sale controls are preserved. This is not generation or whole-entry acceptance.",
+  "executed_at_local": "2026-10-31T15:21:57+08:00",
+  "completed_at_local": "2026-10-31T15:22:10+08:00",
+  "models_only": true,
+  "live_model_sync_executed": true,
+  "applications_sync_executed": false,
+  "paid_generation": false,
+  "provider_task_or_asset_calls": false,
+  "catalogue_rows": {
+    "text": 92,
+    "image": 49,
+    "video": 46,
+    "other": 32
+  },
+  "before_market_hash": "9c43e6875b924d6e7116511d00edbc7b4609fb9e79eac6b9168d071ec228fae0",
+  "after_market_hash": "c31c1343175c37e42a7fb37951d5ad8d69837055458effe7f0a1ddfba255279a",
+  "raw_summary": {
+    "started_at": "2026-10-31T15:21:57+08:00",
+    "finished_at": "2026-10-31T15:22:10+08:00",
+    "scope": "models_only",
+    "paid_generation": false,
+    "result": {
+      "products": 187,
+      "skus": 600,
+      "unavailable": 0,
+      "retired": 0,
+      "synced_at": "2026-10-31 15:22:10",
+      "synced_model_types": [
+        "text",
+        "image",
+        "video"
+      ],
+      "type_errors": [],
+      "failed_pricing_batches": [],
+      "partial_success": false
+    }
+  },
+  "audit": {
+    "active_models_by_type": {
+      "text": 92,
+      "image": 49,
+      "video": 46
+    },
+    "active_model_skus": 600,
+    "upstream_sku_prices_exact": true,
+    "application_products_and_skus_exactly_preserved": true,
+    "existing_sale_prices_and_switches_preserved": true,
+    "new_text_models": 35,
+    "new_text_skus_default_off": true,
+    "retired_models_by_type": {
+      "text": 34,
+      "video": 14
+    },
+    "retired_video_models": [
+      {
+        "id": 317,
+        "name": "Infinitalk视频生成"
+      },
+      {
+        "id": 347,
+        "name": "Volcengine 视频对口型"
+      },
+      {
+        "id": 334,
+        "name": "Kling-2.6 motion-control"
+      },
+      {
+        "id": 323,
+        "name": "Wan 动画替换"
+      },
+      {
+        "id": 340,
+        "name": "Wan 2.7 - 视频编辑"
+      },
+      {
+        "id": 342,
+        "name": "HappyHorse-视频编辑"
+      },
+      {
+        "id": 337,
+        "name": "Kling-3.0 motion-control"
+      },
+      {
+        "id": 346,
+        "name": "OmniHuman 1.5"
+      },
+      {
+        "id": 322,
+        "name": "Wan 动画移动"
+      },
+      {
+        "id": 316,
+        "name": "Wan 2.2 A14B Turbo 语音转视频"
+      },
+      {
+        "id": 307,
+        "name": "OmniHuman 2.0"
+      },
+      {
+        "id": 319,
+        "name": "Kling AI Avatar Pro"
+      },
+      {
+        "id": 318,
+        "name": "Kling AI Avatar Standard"
+      },
+      {
+        "id": 354,
+        "name": "Kling 3.0 Omni Transformation"
+      }
+    ],
+    "active_other_models": 0
+  },
+  "retirement_counter_note": "Raw retired counter counts explicit empty-catalog unavailability. Verified before/after SQL delta retires 48 previously active model records (34 text,14 video).",
+  "new_text_record_note": "35 new local code records; some replace older codes with the same display name. They are not asserted to be 35 newly introduced capabilities. New text SKU sale switches remain off.",
+  "current_pc_catalogue": {
+    "image_entries": 56,
+    "video_entries": 51,
+    "video_models": 46,
+    "video_app_apis": 5,
+    "retired_video_ids_absent_from_both_canvas_catalogues": true
+  },
+  "wan27_video_edit": {
+    "product_id": 340,
+    "old_local_type": "video",
+    "old_local_updated_at": "2026-10-26 09:24:39",
+    "current_upstream_type": "other",
+    "before_sync_active": true,
+    "after_sync_active": false,
+    "hard_deleted": false
+  },
+  "exclusions": [
+    "No recurring automation was created.",
+    "No application API catalogue or sale-price sync.",
+    "Existing active video-category models may still have video-edit material modes; category filtering is not a name blacklist.",
+    "No provider generation/reservation/settlement/retry."
+  ]
+}

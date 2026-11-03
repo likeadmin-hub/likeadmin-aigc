@@ -3944,7 +3944,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `model` varchar(100) NOT NULL DEFAULT '' COMMENT '模型',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '供应商任务ID',
   `model_json` text COMMENT '市场模型快照',
-  `pricing_snapshot` text COMMENT '市场价格快照',
+  `pricing_snapshot` mediumtext COMMENT '市场价格快照',
   `status` varchar(30) NOT NULL DEFAULT 'pending',
   `error` text,
   `create_time` int unsigned NOT NULL DEFAULT 0,
@@ -4291,7 +4291,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `idempotency_key` varchar(100) DEFAULT NULL,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
   `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
@@ -6680,7 +6680,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_promo_video_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `billing_status` varchar(30) NOT NULL DEFAULT 'none',
   `idempotency_key` varchar(100) DEFAULT NULL,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
@@ -6831,7 +6831,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_action_transfer_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `idempotency_key` varchar(100) DEFAULT NULL,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
   `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
@@ -7380,7 +7380,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_person_replacement_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `idempotency_key` varchar(100) DEFAULT NULL,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
   `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
@@ -7696,7 +7696,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_script_task` (
   `prompt` text,
   `request_json` mediumtext,
   `config_snapshot` text,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `result_json` mediumtext,
   `error` varchar(500) NOT NULL DEFAULT '',
   `operator_error` text,
@@ -7974,7 +7974,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `result_json` mediumtext,
   `input_asset_ids` text,
   `output_asset_ids` text,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `billing_status` varchar(30) NOT NULL DEFAULT 'none',
   `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00,
   `user_charge_points` decimal(10,2) NOT NULL DEFAULT 0.00,
@@ -8296,7 +8296,7 @@ CREATE TABLE IF NOT EXISTS `la_ai_consumption_log` (
   `id` int unsigned NOT NULL AUTO_INCREMENT, `consume_no` varchar(48) NOT NULL DEFAULT '', `app_task_id` int unsigned NOT NULL DEFAULT 0, `tenant_id` int unsigned NOT NULL DEFAULT 0, `user_id` int unsigned NOT NULL DEFAULT 0,
   `app_code` varchar(80) NOT NULL DEFAULT '', `action_code` varchar(80) NOT NULL DEFAULT '', `resource_type` varchar(20) NOT NULL DEFAULT '', `product_id` int unsigned NOT NULL DEFAULT 0, `sku_id` int unsigned NOT NULL DEFAULT 0,
   `model_code` varchar(160) NOT NULL DEFAULT '', `api_code` varchar(120) NOT NULL DEFAULT '', `protocol` varchar(60) NOT NULL DEFAULT '', `provider` varchar(80) NOT NULL DEFAULT '', `upstream_request_id` varchar(160) NOT NULL DEFAULT '', `upstream_task_id` varchar(160) NOT NULL DEFAULT '',
-  `quantity` decimal(16,6) NOT NULL DEFAULT 0.000000, `usage_unit` varchar(40) NOT NULL DEFAULT '', `usage_snapshot` text, `price_snapshot` text, `request_summary` text, `response_summary` longtext,
+  `quantity` decimal(16,6) NOT NULL DEFAULT 0.000000, `usage_unit` varchar(40) NOT NULL DEFAULT '', `usage_snapshot` text, `price_snapshot` mediumtext, `request_summary` text, `response_summary` longtext,
   `run_status` varchar(30) NOT NULL DEFAULT 'pending', `billing_status` varchar(30) NOT NULL DEFAULT 'none', `reserved_tenant_cost` decimal(16,6) NOT NULL DEFAULT 0.000000, `reserved_user_price` decimal(16,6) NOT NULL DEFAULT 0.000000, `actual_tenant_cost` decimal(16,6) NOT NULL DEFAULT 0.000000, `actual_user_price` decimal(16,6) NOT NULL DEFAULT 0.000000,
   `tenant_point_sn` varchar(64) NOT NULL DEFAULT '', `user_point_sn` varchar(64) NOT NULL DEFAULT '', `error_code` varchar(64) NOT NULL DEFAULT '', `error_message` varchar(1000) NOT NULL DEFAULT '', `refresh_requested_at` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0, `finish_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`), UNIQUE KEY `uk_consume_no` (`consume_no`), KEY `idx_app_task` (`app_task_id`), KEY `idx_tenant_time` (`tenant_id`,`create_time`), KEY `idx_tenant_status` (`tenant_id`,`run_status`,`billing_status`), KEY `idx_upstream_task` (`upstream_task_id`), KEY `idx_product_sku` (`product_id`,`sku_id`), KEY `idx_ops_tenant_billing_finish` (`tenant_id`,`billing_status`,`finish_time`), KEY `idx_ops_billing_finish` (`billing_status`,`finish_time`)
@@ -9939,7 +9939,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_music_cover_task` (
   `provider_task_id` varchar(160) NOT NULL DEFAULT '',
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `source_asset_id` int unsigned NOT NULL DEFAULT 0,
   `source_uri` varchar(500) NOT NULL DEFAULT '',
   `source_url` varchar(1000) NOT NULL DEFAULT '',
@@ -10100,7 +10100,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_music_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
   `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
   `market_error_code` varchar(80) NOT NULL DEFAULT '',
@@ -10364,7 +10364,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_watermark_removal_task` (
   `provider_task_id` varchar(160) NOT NULL DEFAULT '',
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `source_url` varchar(1000) NOT NULL DEFAULT '',
   `request_snapshot` text,
   `tenant_cost_points` decimal(12,2) NOT NULL DEFAULT 0.00,
@@ -10401,7 +10401,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_pic_lipsync_task` (
   `provider_task_id` varchar(160) NOT NULL DEFAULT '',
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `source_url` varchar(1000) NOT NULL DEFAULT '',
   `title` varchar(160) NOT NULL DEFAULT '',
   `quality` varchar(20) NOT NULL DEFAULT 'standard',
@@ -10560,7 +10560,7 @@ CREATE TABLE IF NOT EXISTS `la_image_human_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `idempotency_key` varchar(100) DEFAULT NULL,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
   `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
@@ -14245,10 +14245,29 @@ CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_page` (`id` bigint unsigned NOT 
 
 CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_version` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `page_id` bigint NOT NULL, `version_no` int NOT NULL, `document_json` longtext NOT NULL, `schema_hash` char(64) NOT NULL, `publisher_id` bigint NOT NULL DEFAULT 0, `publish_targets` varchar(255) NOT NULL, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `page_version` (`page_id`,`version_no`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_task` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` bigint NOT NULL, `tool_id` bigint NOT NULL, `version_id` bigint NOT NULL, `source_task_id` bigint NOT NULL DEFAULT 0, `idempotency_key` varchar(100) NOT NULL, `request_hash` char(64) NOT NULL, `input_snapshot` longtext NOT NULL, `prompt_snapshot` longtext NOT NULL, `model_snapshot` longtext NOT NULL, `execution_fingerprint` char(64) NOT NULL, `status` varchar(24) NOT NULL DEFAULT 'pending', `submission_state` varchar(24) NOT NULL DEFAULT 'not_sent', `billing_state` varchar(24) NOT NULL DEFAULT 'none', `result_text` longtext, `error` varchar(1000) NOT NULL DEFAULT '', `cancel_requested` tinyint NOT NULL DEFAULT 0, `app_task_id` bigint NOT NULL DEFAULT 0, `consumption_id` bigint NOT NULL DEFAULT 0, `provider_request_id` varchar(255) NOT NULL DEFAULT '', `lease_owner` varchar(100) NOT NULL DEFAULT '', `lease_until` int NOT NULL DEFAULT 0, `last_seq` bigint NOT NULL DEFAULT 0, `started_at` int NOT NULL DEFAULT 0, `finished_at` int NOT NULL DEFAULT 0, `review_state` varchar(24) NOT NULL DEFAULT '', `review_note` varchar(1000) NOT NULL DEFAULT '', `reviewer_id` bigint NOT NULL DEFAULT 0, `reviewed_at` int NOT NULL DEFAULT 0, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `request_key` (`tenant_id`,`user_id`,`idempotency_key`), KEY `claim` (`status`,`lease_until`,`id`), KEY `history` (`tenant_id`,`user_id`,`tool_id`,`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_task` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `user_id` bigint NOT NULL, `tool_id` bigint NOT NULL, `version_id` bigint NOT NULL, `source_task_id` bigint NOT NULL DEFAULT 0, `idempotency_key` varchar(100) NOT NULL, `request_hash` char(64) NOT NULL, `input_snapshot` longtext NOT NULL, `prompt_snapshot` longtext NOT NULL, `model_snapshot` longtext NOT NULL, `execution_fingerprint` char(64) NOT NULL, `status` varchar(24) NOT NULL DEFAULT 'pending', `submission_state` varchar(24) NOT NULL DEFAULT 'not_sent', `billing_state` varchar(24) NOT NULL DEFAULT 'none', `result_text` longtext, `error` varchar(1000) NOT NULL DEFAULT '', `cancel_requested` tinyint NOT NULL DEFAULT 0, `app_task_id` bigint NOT NULL DEFAULT 0, `consumption_id` bigint NOT NULL DEFAULT 0, `provider_request_id` varchar(255) NOT NULL DEFAULT '', `lease_owner` varchar(100) NOT NULL DEFAULT '', `lease_until` int NOT NULL DEFAULT 0, `last_seq` bigint NOT NULL DEFAULT 0, `started_at` int NOT NULL DEFAULT 0, `finished_at` int NOT NULL DEFAULT 0, `review_state` varchar(24) NOT NULL DEFAULT '', `review_note` varchar(1000) NOT NULL DEFAULT '', `reviewer_id` bigint NOT NULL DEFAULT 0, `reviewed_at` int NOT NULL DEFAULT 0, `delete_time` int NOT NULL DEFAULT 0, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `request_key` (`tenant_id`,`user_id`,`idempotency_key`), KEY `claim` (`status`,`lease_until`,`id`), KEY `history` (`tenant_id`,`user_id`,`tool_id`,`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_task_event` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `task_id` bigint NOT NULL, `seq` bigint NOT NULL, `event_type` varchar(24) NOT NULL, `payload` longtext NOT NULL, `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `task_seq` (`task_id`,`seq`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `la_aigc_copywriting_audit` (`id` bigint unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL, `actor_id` bigint NOT NULL, `action` varchar(40) NOT NULL, `target_type` varchar(32) NOT NULL, `target_id` bigint NOT NULL, `before_hash` varchar(64) NOT NULL DEFAULT '', `after_hash` varchar(64) NOT NULL DEFAULT '', `create_time` int NOT NULL DEFAULT 0, `update_time` int NOT NULL DEFAULT 0, PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO `la_app` (`code`,`name`,`category`,`client_tags`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`) VALUES ('aigc_copywriting','智能文案','system','tenant,pc,uniapp',1,95,'1.0.0','installed','allow') ON DUPLICATE KEY UPDATE `is_builtin`=1,`status`='installed',`expire_policy`='allow';
+
+-- Core user-site submission receipts. Never create another generation or billing task.
+CREATE TABLE IF NOT EXISTS `la_ai_generation_submission` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `operation` varchar(160) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `key_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `payload_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `owner_token` char(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'submitting',
+  `task_links` mediumtext NOT NULL,
+  `response_json` mediumtext NOT NULL,
+  `create_time` int unsigned NOT NULL,
+  `update_time` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_owned_request` (`tenant_id`,`user_id`,`operation`,`key_hash`),
+  KEY `idx_owner_time` (`tenant_id`,`user_id`,`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户生成提交回执';

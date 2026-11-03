@@ -8,6 +8,35 @@ use PHPUnit\Framework\TestCase;
 use think\facade\Db;
 final class MarketImageDeferredSubmitTest extends TestCase
 {
+    public function testOrdinaryTokenAndPixelSubmissionsAreClaimedExactlyOnce(): void
+    {
+        if (getenv('IMAGE_RETRY_TEST') !== 'local-existing') self::markTestSkipped('Explicit local rollback only; no supplier I/O');
+        (new \think\App())->initialize();
+        self::assertSame('127.0.0.1', config('database.connections.mysql.hostname'));
+        $meter = \app\common\service\power\MarketGenerationMeter::class;
+        $snapshots = [
+            [],
+            ['billing_meter' => $meter::tokenContract(['usage_unit' => 'token', 'usage_unit_size' => 1000, 'source_payload' => ['meter_contract' => ['version' => 2, 'basis' => 'token', 'rounding' => 'ceil_2', 'maximum_quantity' => 1000, 'usage_path' => 'data.usage.total_tokens']]])],
+            ['billing_meter' => $meter::contract(['usage_unit' => 'megapixel', 'source_payload' => ['meter_contract' => ['version' => 3, 'basis' => 'megapixel', 'rounding' => 'ceil_2', 'maximum_pixels_per_image' => 1000000, 'maximum_images' => 2, 'result_path' => 'data.image_urls', 'result_item_url' => '']]])],
+        ];
+        $claim = new \ReflectionMethod(Images::class, 'claimSubmission');
+        Db::startTrans();
+        try {
+            foreach ($snapshots as $snapshot) {
+                $key = 'claim-' . bin2hex(random_bytes(12));
+                $task = AiAppTask::create(['tenant_id' => 1999999758, 'user_id' => 0, 'task_no' => $key, 'app_code' => 'aigc_image', 'action_code' => 'generate', 'business_table' => 'aigc_image_task', 'status' => 'running', 'idempotency_key' => $key]);
+                $c = AiConsumptionLog::create(['tenant_id' => 1999999758, 'user_id' => 0, 'app_task_id' => $task['id'], 'consume_no' => $key, 'app_code' => 'aigc_image', 'action_code' => 'generate', 'resource_type' => 'model', 'run_status' => 'reserved', 'billing_status' => 'reserved', 'reserved_user_price' => 0, 'reserved_tenant_cost' => 0, 'price_snapshot' => $snapshot]);
+                self::assertTrue($claim->invoke(null, (int)$c['id'], $snapshot, false, false));
+                self::assertSame('submitting', AiConsumptionLog::find($c['id'])['run_status']);
+                self::assertFalse($claim->invoke(null, (int)$c['id'], $snapshot, false, false));
+                self::assertSame('reserved', AiConsumptionLog::find($c['id'])['billing_status']);
+                self::assertSame($snapshot, AiConsumptionLog::find($c['id'])['price_snapshot']);
+            }
+        } finally {
+            Db::rollback();
+        }
+    }
+
     public function testRepeatedProvenUnacceptedErrorsKeepOneReservationAndFrozenJob():void
     {
         if(getenv('IMAGE_RETRY_TEST')!=='local-existing')self::markTestSkipped('Explicit local rollback only; no supplier I/O');

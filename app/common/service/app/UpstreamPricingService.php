@@ -46,8 +46,9 @@ class UpstreamPricingService
         ]));
     }
 
-    public static function queryModels(string $type = '', bool $detail = false): array
+    public static function queryModels(string $type = '', bool $detail = false, int $timeout = self::TIMEOUT): array
     {
+        if ($timeout<1 || $timeout>60) throw new Exception('模型目录读取超时须为 1 至 60 秒');
         $params = [];
         $type = trim($type);
         if ($type !== '') {
@@ -56,7 +57,7 @@ class UpstreamPricingService
         if ($detail) {
             $params['detail'] = 1;
         }
-        $response = self::request('GET', '/api/v1/models', $params);
+        $response = self::request('GET', '/api/v1/models', $params, $timeout);
         $rows = $response['data'] ?? $response['items'] ?? $response['models'] ?? $response;
         return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
     }
@@ -89,6 +90,33 @@ class UpstreamPricingService
             'slug' => $slug,
             'terminal' => 4,
         ]);
+    }
+
+    /** Published documentation only; an ID is never an instruction to execute a model/application. */
+    public static function queryDeveloperDocDetailByModelId($modelId): array
+    {
+        return self::request('GET', '/api/user_center/developerDocDetail', [
+            'model_id' => self::documentId($modelId),
+            'terminal' => 4,
+        ]);
+    }
+
+    public static function queryDeveloperDocDetailByAppApiId($appApiId): array
+    {
+        return self::request('GET', '/api/user_center/developerDocDetail', [
+            'app_api_id' => self::documentId($appApiId),
+            'terminal' => 4,
+        ]);
+    }
+
+    private static function documentId($value): int
+    {
+        // Do not let PHP's scalar coercion turn true, decimals or suffixed IDs into another resource.
+        if ((!is_int($value) && (!is_string($value) || !preg_match('/^[1-9][0-9]*$/D', $value)))
+            || ($id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) === false) {
+            throw new \InvalidArgumentException('平台文档资源 ID 必须为正整数');
+        }
+        return $id;
     }
 
     public static function queryDeveloperDocTree(): array
@@ -194,7 +222,7 @@ class UpstreamPricingService
         return $payload;
     }
 
-    private static function request(string $method, string $path, array $payload = []): array
+    private static function request(string $method, string $path, array $payload = [], int $timeout = self::TIMEOUT): array
     {
         $source = UpdateSourceClient::getSource();
         $origin = self::sourceOrigin($source);
@@ -216,7 +244,8 @@ class UpstreamPricingService
             CURLOPT_URL => $method === 'GET' && $payload ? $url . '?' . http_build_query($payload) : $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => self::TIMEOUT,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_ENCODING => '',
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source),
             CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0,

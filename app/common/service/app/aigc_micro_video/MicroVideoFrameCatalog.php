@@ -27,7 +27,9 @@ final class MicroVideoFrameCatalog
     public static function selection(array $model,string $quality,string $ratio): array{foreach($model['specs'] as $s)if($s['quality']===$quality&&$s['ratio']===$ratio)return ['model_id'=>$model['id'],'market_sku_id'=>$s['market_sku_id'],'quality'=>$quality,'ratio'=>$ratio];throw new InvalidArgumentException('图片模型不支持当前画质或视频比例');}
     public static function quote(int $tenant,array $selection,array $request=[],bool $hasFutureReference=false): array
     {
-        $q=R::quote($tenant,array_replace($request,$selection),1);
+        // The real worker prompt wins; a read-only catalogue quote may omit it.
+        // Return only the owned selection so this fallback is never frozen for execution.
+        $q=R::quote($tenant,array_replace(['prompt'=>'Image boundary pricing'],$request,$selection),1);
         if(($q['settlement_mode']??'reserved')!=='reserved')throw new InvalidArgumentException('图片规格不支持预报价');
         if($hasFutureReference&&isset($q['market_snapshot']['billing_meter']['image_denominator']))throw new InvalidArgumentException('上一张连续性锚图尚未生成，当前模型按参考图计费，请先逐张生成并重新估价');
         return ['selection'=>$selection,'market_sku_id'=>(int)$selection['market_sku_id'],'tenant_cost_points'=>(float)$q['tenant_cost_points'],'user_charge_points'=>(float)$q['user_charge_points']];

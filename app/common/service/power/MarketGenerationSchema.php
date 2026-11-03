@@ -24,7 +24,7 @@ final class MarketGenerationSchema
         $raw = $definition['enum'] ?? $definition['options'] ?? $definition['values'] ?? [];
         if (is_string($raw)) {
             $decoded = json_decode($raw, true);
-            $raw = is_array($decoded) ? $decoded : (preg_match('/-?\d+(?:\.\d+)?\s*(?:s|秒)?\s*[-–—~至到]\s*\d+/iu', $raw) ? [] : preg_split('/\s*(?:\/|\||,|，)\s*/u', trim($raw, "[] \t\n\r")));
+            $raw = is_array($decoded) ? $decoded : (preg_match('/-?\d+(?:\.\d+)?\s*(?:s|秒)?\s*[-–—~～至到]\s*\d+/iu', $raw) ? [] : preg_split('/\s*(?:\/|\||,|，)\s*/u', trim($raw, "[] \t\n\r")));
         }
         $values = [];
         foreach ((array)$raw as $item) {
@@ -36,6 +36,14 @@ final class MarketGenerationSchema
         return $values;
     }
 
+    /** A size enum can be a ratio selector rather than an independent output resolution. */
+    public static function isAspectRatioDefinition(array $definition): bool
+    {
+        $choices=self::choices($definition);
+        return $choices!==[]&&array_filter($choices,static fn($v)=>preg_match('/^\d+:\d+$/D',(string)$v))!==[]
+            && array_filter($choices,static fn($v)=>!preg_match('/^(?:\d+:\d+|auto|adaptive|original)$/iD',(string)$v))===[];
+    }
+
     public static function durationChoices(array $definition): array
     {
         $values = self::choices($definition);
@@ -44,7 +52,7 @@ final class MarketGenerationSchema
         $min = $definition['minimum'] ?? $definition['min'] ?? null;
         $max = $definition['maximum'] ?? $definition['max'] ?? null;
         $description = (is_scalar($definition['description'] ?? null) ? (string)$definition['description'] : '') . ' ' . (is_string($definition['options'] ?? null) ? $definition['options'] : '');
-        if (($min === null || $max === null) && preg_match('/(?:\[\s*(\d+)\s*,\s*(\d+)\s*\]|(\d+)\s*(?:s|秒)?\s*(?:-|–|—|~|至|到)\s*(\d+)\s*(?:s|秒)?)/iu', $description, $m)) {
+        if (($min === null || $max === null) && preg_match('/(?:\[\s*(\d+)\s*,\s*(\d+)\s*\]|(\d+)\s*(?:s|秒)?\s*(?:-|–|—|~|～|至|到)\s*(\d+)\s*(?:s|秒)?)/iu', $description, $m)) {
             $min = $m[1] !== '' ? (int)$m[1] : (int)$m[3];
             $max = $m[2] !== '' ? (int)$m[2] : (int)$m[4];
         }
@@ -119,7 +127,14 @@ final class MarketGenerationSchema
         } elseif (in_array($type, ['integer','number'], true) && is_numeric($value)) {
             if ($type !== 'integer' || (float)$value === (float)(int)$value) $value = $type === 'integer' ? (int)$value : (float)$value;
         } elseif ($type === 'string' && is_scalar($value)) $value = is_bool($value) ? ($value ? 'true' : 'false') : (string)$value;
-        elseif ($type === 'object' && is_array($value)) $value = self::normalize($definition, $value);
+        elseif ($type === 'object' && is_array($value)) {
+            // Closed nested inputs must reject unknown children before
+            // normalization can erase them. Root branch filtering is separate.
+            if (($definition['additionalProperties'] ?? true) === false) {
+                foreach ($value as $key=>$_) if (!isset($definition['properties'][$key])) throw new InvalidArgumentException('当前参数组合不支持：'.$path.'.'.$key);
+            }
+            $value = self::normalize($definition, $value);
+        }
         elseif ($type === 'array' && is_array($value)) $value = array_map(static fn($v) => self::value((array)($definition['items'] ?? []), $v, $path . '[]'), array_values($value));
         $options = self::choices($definition);
         foreach ($options as $option) {
@@ -190,6 +205,8 @@ final class MarketGenerationSchema
             'boolean' => is_bool($value), 'array' => is_array($value) && array_is_list($value), 'object' => is_array($value) || is_object($value), default => true,
         };
         if (!$valid) throw new InvalidArgumentException('参数格式不正确：' . $path);
+        $range = self::numericOptionRange($definition);
+        if ($range !== null && ($value < $range['min'] || $value > $range['max'] || ($range['integer'] && (float)$value !== (float)(int)$value))) throw new InvalidArgumentException('参数超出范围：' . $path);
         $options = self::choices($definition);
         if ($options !== [] && !in_array($value, $options, true) && !in_array((string)(is_scalar($value) ? $value : ''), array_map('strval', $options), true)) throw new InvalidArgumentException('参数选项不支持：' . $path);
         if (is_numeric($value) && in_array($type, ['integer','number'], true)) {
@@ -204,5 +221,14 @@ final class MarketGenerationSchema
             foreach ($value as $index => $item) self::validateValue((array)($definition['items'] ?? []), $item, $path . '[' . $index . ']');
         }
         if (is_array($value) && $type === 'object') self::validate($definition, $value, '', $path . '.');
+    }
+
+    /** Parse a declared numeric range, never a sample or arbitrary prose rule. */
+    private static function numericOptionRange(array $definition): ?array
+    {
+        if (!in_array($definition['type'] ?? '', ['integer','number'], true)) return null;
+        $raw = $definition['enum'] ?? $definition['options'] ?? $definition['values'] ?? null;
+        if (!is_string($raw) || !preg_match('/^\s*(-?\d+(?:\.\d+)?)\s*(?:s|秒)?\s*[-–—~～至到]\s*(-?\d+(?:\.\d+)?)\s*(?:s|秒)?\s*(?:(?:的)?\s*(整数))?\s*$/iu', $raw, $m)) return null;
+        return ['min'=>(float)$m[1], 'max'=>(float)$m[2], 'integer'=>($definition['type'] ?? '') === 'integer' || !empty($m[3])];
     }
 }

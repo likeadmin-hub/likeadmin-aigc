@@ -1,0 +1,105 @@
+# 共享生成调用与任务结果合同（版本1）
+
+本次实现对应[实施方案](market-generation-unification-plan-20261031.md)及[批次57证据](market-acceptance/batch-57-20261031.md)。保留现有应用路由、权限、业务任务ID和父任务编排；新增响应字段为可选增补。`api_schema.json` 目前声明的是路由／方法／权限，没有响应字段结构；本次无新路由、表结构、菜单、权限或应用安装／版本发布。
+
+## 服务端调用
+
+`MarketGenerationRuntime::selection(type, selection)` 以现有 `MarketGenerationAdapterRegistry` 为唯一适配器路由。工具仍负责形成最终提示词、素材和可信业务关联；共享层委托既有请求准备、合同验证、计量、预占、提交、查询和取消服务，不建立第二套任务或扣费。
+
+```php
+$runtime = MarketGenerationRuntime::selection('video', $selection);
+$quote = $runtime->quote($tenantId);
+$reservation = $runtime->reserve($tenantId, $userId, $appCode, $action,
+    $businessTable, (string)$businessId, $request);
+$runtime->bind($reservation['app_task_id'], $businessId, $tenantId, $userId);
+$accepted = $runtime->submit($reservation['consumption_id'], $request, $tenantId, $userId);
+// 后续恢复按受理消费的冻结快照路由，先验证任务及消费的租户和用户。
+$frozen = MarketGenerationRuntime::consumption($consumptionId, $tenantId, $userId);
+$result = $frozen->refresh($consumptionId, $tenantId, $userId);
+```
+
+图片张数必须为正整数；图片数字人等以输入秒数计费的适配器保留小数。应用售价覆盖、音乐已确认报价快照只由服务端业务策略提供；适配器不支持时明确拒绝，不能丢弃覆盖、截断数量或回退到另一规格。Nano 的专用历史修复调用及非市场渠道保留原约定。
+
+调用幂等仍由既有消费业务键、短剧意图／报价确认、应用父子任务及专用工作流承担。共享层不把来自任意入口的相似提示词自动判成同一次任务；普通画布现有提交路由没有新增通用客户端请求键合同，不能据此宣称所有业务HTTP重复点击／丢包情形均已统一。
+
+## 用户结果响应
+
+单次生成可增补 `generation_task`；复合或多阶段工具增补 `generation_tasks` 与 `generation_task_refs`，父任务的 `status`、零售价、组成结果和确认步骤保留。
+
+批次64另在正常登录生成／辅助／重试请求的外层增加可选 `X-Generation-Request-Key`。原正文请求键也可受理；按本人、租户、操作及键唯一记录，参数哈希不同则拒绝，重放不会再次执行生成。响应封套可增补 `generation_submission`（state与replayed），不改变 `data` 内的原生ID或版本1任务结构。缓存是原受理回执，当前进度／媒体仍从本人任务接口读取。没有键的旧客户端保留原约定，不能据此宣称全部客户端均防重。
+
+回执先持久化后执行；业务／队列事务不跨供应商HTTP。只有没有建立任务的本地拒绝可以重新校验；已受理、不明受理、过期在途及已删任务不自动重新生成。PC在同一登录会话保留未确认键并合并在途Promise，账户变化停止派发。不同新键允许同内容分别生成。视频新业务键加入用户边界，已存在本人旧预占保持原标识；原生剪辑与共享队列以唯一键原子插入后锁已有记录。新增核心表及安装／升级SQL，不引入平行计费；部署须先迁移并加载新worker源码。具体证据与未认证范围见[批次64](market-acceptance/batch-64-20261101.md)。
+
+| 字段 | 语义 |
+| --- | --- |
+| `schema_version` | 固定1；未来不兼容变更须新版本 |
+| `task_ref` / `app_task_id` | `app_task:<AiAppTask.id>`；不能由业务任务、消费、上游或资产ID猜测 |
+| `status` / `execution_status` | 可展示状态／底层应用任务原始状态；生成、结算或强制转存未完成时延迟展示成功 |
+| `stage` | `queued`、`confirmation`、`generating`、`settling`、`transferring`、`ready`、`failed`、`canceled` |
+| `polling_required` | 是否继续按原应用查询接口读取；部分完成父任务也可能仍需轮询 |
+| `billing_status` / `delivery_status` | 本地持久记录投影；不在读取中重新计费 |
+| `result_contract` | `managed_assets` 或兼容的 `legacy_business` |
+| `results` | 仅明确的输出资产；包含独立 `result_asset_id`、媒体类型、URI／展示URL、scope／engine／domain、尺寸／时长／MIME等 |
+| `error` | 规范化错误；不返回请求、密钥、冻结成本或供应商原始载荷 |
+| `created_at` / `finished_at` | Unix秒；兼容模型日期访问器返回字符串的情况 |
+
+`GenerationTaskResultService::read/readMany` 只读本人本租户的持久任务、消费及资产，不查询供应商。列表采用批量投影；不加载大体积请求、计价快照或内联媒体正文。转存要求仍按原业务合同判断，去水印的既有可选转存规则保留。
+
+已受理后，结果投影暂时不可用不能进入上层退款／重新提交分支：已知身份返回 `reconciling` 的待恢复视图，复合视图用 `generation_tasks_pending=true`，旧格式包装器保留该标志。旧记录缺少合法统一关联时可退回明确的旧业务接口，不制造新的统一任务身份。
+
+前端 `components/ai-generation/generationTask.ts` 统一验证身份、结果和轮询。子任务成功不能完成仍在编排的父任务；新受管结果不从输入／参考URL或供应商旧别名寻找替代结果。画布只持久化轻量 `generationTaskRef`，不把实时视图写入冻结回执或意图输入签名，新尝试清除旧引用。
+
+## 已接入与保留边界
+
+| 入口 | 共享部分 | 保留部分 |
+| --- | --- | --- |
+| 原生图片／视频、普通画布 | 报价与生成运行；版本1任务；三媒体后台结果写回 | 各自业务任务／历史API；原生图片特殊修复 |
+| 短剧画布 | 间接复用原生运行与任务视图；共享轮询／结果读取 | 报价确认、请求意图、图版本、当前节点及旧任务保护；后台扫描 |
+| 商品图、风格化、修复、试衣、去背景、翻译、清除、套图、多角度、写真、扩图、局部重绘、服装试穿、宣传视频 | 原生生成与售价覆盖；有序子任务视图 | 父任务、模块、批次、业务结果归属；发型沿用原生图片 |
+| 音乐、图片数字人、去水印 | 对应已支持市场运行与受理／详情／列表任务视图 | 歌曲操作及歌词、音色和素材专用协议 |
+| 音乐翻唱 | 共享应用运行、受理／详情／列表视图、已结算受管音频后台业务写回 | 原歌曲与目标音色素材、历史新尝试及业务结果表 |
+| 数字人、微视频 | 市场生成步骤复用运行；公开只读步骤视图；微视频终态唤醒 | 头像／音色／TTS、分段、首尾帧、确认、合成和父状态 |
+| 专用剪辑、全驱数字人、文字流及非市场供应商 | 保留既有业务接口 | 不强塞入图片／视频市场生成合同；本次未重写这些专用协议 |
+
+普通画布自动保存只合并同节点／类型／taskId／开始时间／一致统一引用的已完成结果字段，保留用户的提示词、模型、声音、质量和布局修改；换任务、手动替换、删除和原有版本冲突规则保留。
+
+正式合同和像素／Token证据缺口仍按原准入阻塞，不因本次接口增补启用。真实上游收费调用、全工具逐型号／模式／SKU交叉、混合版本常驻worker与更多专用操作不在本次隔离替身验收结论内。既有常驻worker未重启，验证使用本批拥有的独立新进程。
+
+
+## 批次58工具复核增补
+
+新图片快照增加内部 `image_reference_slot_revision=1`，在旧模型编码器逐位置解析重复图片，旧冻结不升级；素材分类不明的附加计费仍拒绝。视频模型本地内容防重按已有显式请求键及应用归属匹配，新键不并入旧尝试，同键仍复用；无显式键保留原防重规则。这没有为普通画布新增通用客户端请求键。宣传视频优先具体单图素材声明。工具定时器统一读取完成条件，历史空输入和音乐普通选项／引用按保存值恢复。详见[批次58范围与证据](market-acceptance/batch-58-20261031.md)。
+
+## 批次59多阶段工具增补
+
+翻唱加入相同运行和结果合同，生产结果worker按拥有的关联投影父结果；数字人重复受理保留统一步骤身份，内部JSON保存音频／文字驱动意图。微视频发现档位和确认前只读报价使用不进入执行快照的提示词占位，单图方式与宣传视频共享具体声明选择；原业务的分段确认与合成仍保留。40个组合替身任务通过，微视频真实规划／首尾帧、文字TTS和音乐专用操作未冒认认证。详见[批次59范围与证据](market-acceptance/batch-59-20261101.md)。
+
+## 批次60阶段结果增补
+
+数字人内部受理JSON保存request_duration，TTS实测结果不改变防重身份。微视频帧图完成后由相同结果作业登记统一资产，保留已测媒体信息；业务详情可为旧的已结算、缺登记图片排入本地恢复，既有微视频查询、方案／帧图确认和合成协议保持。帧图报价占位不进入执行选择。文字TTS、原生规划流、三帧两视频、音乐克隆及8项辅助操作正常登录隔离链通过；22条消费结算与12份媒体资产分别统计。真实供应商、完整矩阵与正式依据保持独立。[批次60证据及边界](market-acceptance/batch-60-20261101.md)。
+
+## 批次61原生恢复增补
+
+剪辑新受理任务在内部provider_payload保存accepted_selection白名单，查询优先复用；暂态查询／转存保留running，恢复完成清除提示，明确供应商失败保持终态。旧缺快照任务保留动态解析。剪辑仍使用原生详情／列表轮询与完成扣费，不冒认为版本1共享worker受管任务。微视频换图片模型／画质时在原锁内保留编辑提示词／引用并校验新上限，版本失效／重新确认协议保持。音乐风格按已有Bearer网关，WAV／MP4原任务恢复、MIDI失败退款与显式新尝试通过。[批次61证据及剩余](market-acceptance/batch-61-20261101.md)。
+
+## 批次62原生剪辑统一结果
+
+原生剪辑在提交前同事务关联ai_app_task及native_smart_clip持久作业。版本1视图仍用app_task引用，原生task_id不变；对应资产consumption_id=0，只通过已核对归属／账务／发布状态的原生桥接读取，不虚构消费或二次结算。共享转存支持该类已关联资产，避免给0消费投普通process_result作业。HTTP详情／列表不查询供应商；已受理ID由worker／发现和reconcile继续跟踪。前端共用generationTaskStatus／PollingRequired及typed result，仅就绪后展示／下载。未知无ID不自动重发，新worker加载要求及具体证据见[批次62](market-acceptance/batch-62-20261101.md)。
+
+## 批次63图片父任务后台投影与原歌链路
+
+图片共享结果作业完成本地原生写回后，统一核对消费、子任务、已安装应用父任务及全部同组子任务归属，再在父锁内复用原业务聚合。局部只读作用域禁止聚合过程中查询供应商，异常退出恢复作用域。十三类图片父任务及透明PNG转换不再依赖详情HTTP访问，原有父状态、售价和结果身份保持；去背景显式登记文件租户。没有增加API或改动版本1。原歌生成到实际歌曲导出／Persona、multipart上传登记后引用生成及历史新尝试通过正常登录HTTP与生产worker，克隆直接生成仍拒绝。见[批次63范围与剩余](market-acceptance/batch-63-20261101.md)。
+
+## 批次65移动端消费
+
+PC与移动端共用web/shared的提交和任务纯合同，原PC路径作为兼容导出。移动端保持既有API正文形态，通过原可选受理头取得同一回执；批量意图为各原生请求提供稳定独立键，整批受理后结束，不创建另一套任务或账务。数组及分页lists保留业务外壳，统一状态等待转存，结果只取合法受管媒体且保留可唯一匹配的原生结果ID，result_asset_id不替代原生ID。无API、schema版本、迁移、权限或计价变更。[证据与边界](market-acceptance/batch-65-20261101.md)。
+
+## 批次66专用Agent／文字流
+
+Agent保留request_id／run／step／artifact和只读run.snapshot协议；新run私有preferences含完整提交指纹，旧无指纹记录保持原合同。原文字流的可选request_id（或既有受理头）在业务内共享回执表，原生消息先于供应商调用建立；仅首个受理者生成，重试只跟随本人本地消息。新增receipt绑定session／assistant身份、snapshot替换回复内容、pending表示仍在生成／待核对；error.terminal=false不结束待核对意图。原session／message／delta／done／error及业务ID保持。客户端保留原提交session直到终态，避免首次session事件后改变重试正文。缺上游usage／最终回执不自动结算、回退或重发。部署需已应用批次64核心表迁移；本批无新增API或权限。[范围与证据](market-acceptance/batch-66-20261101.md)。
+
+文字客户端的新会话意图使用可选client_conversation_id作不透明关联，原生request_id仍按每次消息意图独立。重放恢复保存的会话意图及原session，用户明确新对话不会误用旧未确认会话。仅收到usage而无正文的错误也保留费用证据，不自动回退重试。
+
+## 批次67专用受理与结果事实
+
+短剧新受理身份包含规范化workflow_auto，旧无此字段的保存hash仍按原合同重放；原request_key／消息／run／图补丁协议不变。首页／画布Agent并发事务失败后只限时读取同一拥有者的已提交run，不重入提交。OpenAssets在原生上传移动临时文件前保存MIME／大小；共享受管结果可读取原生mime／size别名，显式mime_type／file_size优先，计价和旧任务不随新默认改写。原生STT／TTS继续原预占／结算，不虚构通用市场事件或二次扣费。无新增API路径、权限、表、迁移或schema版本。[范围、验证及保留项](market-acceptance/batch-67-20261101.md)。

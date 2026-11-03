@@ -14,6 +14,9 @@ class MarketApplicationApiRuntimeService
         if ($adapter === MarketGenericImageAppRuntimeService::class) {
             return $adapter::options($tenantId, $upstreamAppCode);
         }
+        if ($adapter === MarketVideoAppRuntimeService::class) {
+            return array_values(array_filter($adapter::options($tenantId), static fn(array $option): bool => ($option['app_code'] ?? '') === $upstreamAppCode));
+        }
         return $adapter::options($tenantId);
     }
 
@@ -26,7 +29,8 @@ class MarketApplicationApiRuntimeService
     public static function quote(int $tenantId, array $selection, int $quantity = 1): array
     {
         $adapter = self::adapterForSelection($selection);
-        return $adapter === MarketMusicAppRuntimeService::class
+        if ($adapter === MarketVideoAppRuntimeService::class && $quantity !== 1) throw new \InvalidArgumentException('视频应用每次仅支持提交一个生成请求');
+        return in_array($adapter, [MarketMusicAppRuntimeService::class, MarketVideoAppRuntimeService::class], true)
             ? $adapter::quote($tenantId, $selection)
             : $adapter::quote($tenantId, $selection, $quantity);
     }
@@ -44,6 +48,11 @@ class MarketApplicationApiRuntimeService
     ): array
     {
         $adapter = self::adapterForSelection($selection);
+        if ($adapter === MarketVideoAppRuntimeService::class) {
+            if ($quantity !== 1) throw new \InvalidArgumentException('视频应用每次仅支持提交一个生成请求');
+            return $adapter::reserve($tenantId, $userId, $appCode !== '' ? $appCode : 'aigc_video', $action,
+                $businessTable !== '' ? $businessTable : 'aigc_short_drama_generation_task', $businessTaskId, $selection, $request);
+        }
         if ($adapter === MarketMusicAppRuntimeService::class) {
             return $adapter::reserve(
                 $tenantId,
@@ -71,34 +80,7 @@ class MarketApplicationApiRuntimeService
 
     public static function adapterForSelection(array $selection): string
     {
-        if (($selection['runtime_adapter'] ?? '') === 'music_operation' && ($selection['upstream_app_code'] ?? $selection['app_code'] ?? '') === 'music_generation') return MarketMusicOperationRuntimeService::class;
-        $value = (string)($selection['upstream_app_code'] ?? $selection['app_code'] ?? $selection['application_code'] ?? '');
-        if ($value === 'nano_banana' || MarketNanoBananaAppRuntimeService::isSelection($selection)) {
-            return MarketNanoBananaAppRuntimeService::class;
-        }
-        if ($value === MarketLipsyncAppRuntimeService::UPSTREAM_APP_CODE) return MarketLipsyncAppRuntimeService::class;
-        if ($value === MarketPicLipsyncAppRuntimeService::UPSTREAM_APP_CODE) {
-            return MarketPicLipsyncAppRuntimeService::class;
-        }
-        if ($value === 'music_generation') {
-            return MarketMusicAppRuntimeService::class;
-        }
-        if ($value === 'file_qa') {
-            return MarketFileQaAppRuntimeService::class;
-        }
-        if ($value === MarketSeedSvcAppRuntimeService::UPSTREAM_APP_CODE) {
-            return MarketSeedSvcAppRuntimeService::class;
-        }
-        if ($value === MarketGeoAppRuntimeService::UPSTREAM_APP_CODE || MarketGeoAppRuntimeService::isSelection($selection)) {
-            return MarketGeoAppRuntimeService::class;
-        }
-        if ($value === MarketGenericImageAppRuntimeService::UPSTREAM_APP_CODE) {
-            return MarketGenericImageAppRuntimeService::class;
-        }
-        if ((string)($selection['runtime_adapter'] ?? '') === 'generic_image') {
-            return MarketGenericImageAppRuntimeService::class;
-        }
-        throw new Exception('No market application API adapter is registered for this selection');
+        return MarketGenerationAdapterRegistry::application($selection);
     }
 
     public static function adapterForConsumption(int $consumptionId): string

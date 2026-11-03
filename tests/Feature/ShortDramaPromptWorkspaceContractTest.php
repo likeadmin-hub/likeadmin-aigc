@@ -115,10 +115,9 @@ class ShortDramaPromptWorkspaceContractTest extends TestCase
         self::assertSame(6, $promptMenu['sort']);
         self::assertSame('apps/aigc_short_drama/prompt', $promptMenu['component']);
 
-        $tenantRoot = dirname($root) . '/tenant';
-        $router = (string)file_get_contents($tenantRoot . '/src/router/index.ts');
+        $router = \Tests\Support\CompiledAssets::source('tenant/src/router/index.ts');
         self::assertStringContainsString("import.meta.glob('/src/views/**/*.vue')", $router);
-        $promptPage = (string)file_get_contents($tenantRoot . '/src/views/apps/aigc_short_drama/prompt.vue');
+        $promptPage = \Tests\Support\CompiledAssets::source('tenant/src/views/apps/aigc_short_drama/prompt.vue');
         self::assertStringContainsString('getShortDramaPromptWorkspace()', $promptPage);
         self::assertStringContainsString('workspace.groups', $promptPage);
         self::assertStringContainsString('saveShortDramaPrompts({', $promptPage);

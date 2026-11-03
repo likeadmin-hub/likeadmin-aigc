@@ -15,6 +15,7 @@ final class AgentExecutionService
     public static function submit(int $tenant,int $user,array $params): array
     {
         AgentStore::access($tenant,$user);
+        $submissionHash=\app\common\service\ai\GenerationSubmission::fingerprint($params);
         $content=trim((string)($params['content']??''));$requestId=(string)($params['request_id']??'');
         if($content===''||mb_strlen($content)>10000)throw new \InvalidArgumentException('请输入1至10000字的请求');
         if(!preg_match('/^[a-zA-Z0-9_-]{16,96}$/D',$requestId))throw new \InvalidArgumentException('请求标识无效');
@@ -22,6 +23,7 @@ final class AgentExecutionService
         $preferences=isset($params['preferences'])?AgentStore::validatePreferences((array)$params['preferences']):AgentStore::preferences($tenant,$user);
 
         $preferences['_workspace']=AgentWorkspaceScope::current();
+        $preferences['_request_origin']=AgentRequestOrigin::normalize(request()->domain(true));
         $attachments=array_values(array_unique(array_map('strval',(array)($params['attachments']??[]))));
         if(count($attachments)>8)throw new \InvalidArgumentException('最多引用8个素材');
         $subjectIds=array_values(array_unique(array_map('intval',(array)($params['subject_ids']??[]))));
@@ -36,7 +38,7 @@ final class AgentExecutionService
         if($projectReferences)$identity[]=['project_references'=>$projectReferences];
         $hash=hash('sha256',AgentStore::encode($identity));
         $existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();
-        if($existing){if($existing['payload_hash']!==$hash)throw new \InvalidArgumentException('同一请求标识不能提交不同内容');return self::detail($tenant,$user,(int)$existing['id']);}
+        if($existing){if($existing['payload_hash']!==$hash)throw new \InvalidArgumentException('同一请求标识不能提交不同内容');self::assertSubmission($existing,$submissionHash);return self::detail($tenant,$user,(int)$existing['id']);}
         if(AgentWorkspaceScope::app()==='aigc_canvas'&&$subjectIds)throw new \InvalidArgumentException('请先将短剧主体导入当前项目，再从 @ 中引用');
         if(AgentWorkspaceScope::app()!=='aigc_canvas'&&$projectReferences)throw new \InvalidArgumentException('项目引用只能用于当前画布');
         $assets=[];foreach($attachments as $id)$assets[]=OpenAssets::detail($tenant,$user,$id);
@@ -50,6 +52,7 @@ final class AgentExecutionService
         }
         // Freeze server-owned audio routing for new runs; never rewrite an existing plan.
         $preferences=AgentCapabilityCatalog::withAudioDefaults($tenant,$preferences);
+        $preferences['_submission_hash']=$submissionHash;
         try{$id=Db::transaction(function()use($tenant,$user,$sessionId,$content,$assets,$preferences,$requestId,$hash){
             if(!AgentWorkspaceScope::activeRunWorkspace(['tenant_id'=>$tenant,'user_id'=>$user,'preferences'=>$preferences],true))throw new \InvalidArgumentException('项目或页面已删除');
             if($sessionId){$session=AigcLlmSession::where(['tenant_id'=>$tenant,'user_id'=>$user,'id'=>$sessionId,'delete_time'=>0])->lock(true)->findOrEmpty();if($session->isEmpty())throw new \InvalidArgumentException('会话不存在');}
@@ -68,8 +71,28 @@ final class AgentExecutionService
             $answer=AigcLlmMessage::create($base+['role'=>'assistant','content'=>'','status'=>'streaming','seq'=>$seq+2,'parent_user_message_id'=>$message['id']]);
             $session->save(['status'=>'streaming','last_message_at'=>time(),'update_time'=>time(),'model_code'=>$preferences['models']['text'],'message_count'=>(int)$session['message_count']+2]);
             return AgentStore::table('run')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'session_id'=>$session['id'],'message_id'=>$answer['id'],'request_id'=>$requestId,'payload_hash'=>$hash,'content'=>$content,'preferences'=>AgentStore::encode($preferences),'attachments'=>AgentStore::encode($assets),'status'=>'queued','phase'=>'chat','reply'=>'','create_time'=>time(),'update_time'=>time()]);
-        });}catch(\Throwable $e){$existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->find();if(!$existing||$existing['payload_hash']!==$hash)throw $e;$id=(int)$existing['id'];}
+        });}catch(\Throwable $e){
+            $driver=$e instanceof \think\db\exception\PDOException?(int)($e->getData()['PDO Error Info']['Driver Error Code']??0):0;
+            $deadline=microtime(true)+(in_array($driver,[1062,1205,1213],true)?0.5:0);
+            do {
+                // A losing transaction may roll back before the winner commits.
+                // Read only the original owned receipt; never repeat admission
+                // writes or provider work. A current read also avoids an older
+                // snapshot when a canvas-entry transaction surrounds this call.
+                $existing=AgentStore::owner('run',$tenant,$user)->where('request_id',$requestId)->lock(true)->find();
+                if($existing||microtime(true)>=$deadline)break;
+                usleep(20000);
+            }while(true);
+            if(!$existing||$existing['payload_hash']!==$hash)throw $e;
+            self::assertSubmission($existing,$submissionHash);$id=(int)$existing['id'];
+        }
         return self::detail($tenant,$user,(int)$id);
+    }
+    private static function assertSubmission(array $run,string $hash): void
+    {
+        // Old runs retain their original identity contract; new runs freeze all submitted preferences too.
+        $saved=AgentStore::json($run['preferences'])['_submission_hash']??'';
+        if($saved!==''&&!hash_equals($saved,$hash))throw new \InvalidArgumentException('同一请求标识不能更改运行模式或参数，请新建请求');
     }
     public static function detail(int $tenant,int $user,int $id): array
     {
@@ -148,14 +171,18 @@ final class AgentExecutionService
         self::requestStop($tenant,$user,$id);
         return self::detail($tenant,$user,$id);
     }
-    public static function cancelProject(int $tenant,int $user,int $project): void
+    public static function cancelProject(int $tenant,int $user,int $project,?array $pages=null): void
     {
         // Native canvas projects may exist before the shared conversation schema is installed.
         foreach(['aigc_llm_session','aigc_llm_agent_run'] as $table){
             if(!Db::query('SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[config('database.connections.mysql.prefix').$table]))return;
         }
         if(!isset(Db::name('aigc_llm_session')->getFields()['workspace_key']))return;
-        $sessions=Db::name('aigc_llm_session')->where(['tenant_id'=>$tenant,'user_id'=>$user])->whereLike('workspace_key','canvas:'.$project.':%')->column('id');
+        if($pages===[])return;
+        $query=Db::name('aigc_llm_session')->where(['tenant_id'=>$tenant,'user_id'=>$user]);
+        if($pages===null)$query->whereLike('workspace_key','canvas:'.$project.':%');
+        else $query->whereIn('workspace_key',array_map(static fn($page)=>'canvas:'.$project.':'.$page,$pages));
+        $sessions=$query->column('id');
         if(!$sessions)return;
         $ids=AgentStore::owner('run',$tenant,$user)->whereIn('session_id',$sessions)->whereNotIn('status',AgentStore::TERMINAL)->column('id');
         foreach($ids as $id)self::requestStop($tenant,$user,(int)$id);
@@ -213,7 +240,7 @@ final class AgentExecutionService
         if(!$run)return 0;
         return AgentWorkspaceScope::within(AgentWorkspaceScope::fromRun($run),static function()use($run){
         $original=app()->request;$request=new \app\Request();
-        $request->withServer($original->server());$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
+        $request->withServer(AgentRequestOrigin::server($original->server(),AgentRequestOrigin::fromRun($run)));$request->tenantId=(int)$run['tenant_id'];$request->userId=(int)$run['user_id'];$request->userInfo=['user_id'=>(int)$run['user_id'],'tenant_id'=>(int)$run['tenant_id']];
         app()->instance('request',$request);
         try{
             if(!AgentWorkspaceScope::activeRunWorkspace($run)){

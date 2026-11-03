@@ -32,19 +32,16 @@ class CanvasModelRouterService
                 $params['quantity'] = max(1, (int)($params['quantity'] ?? $params['count'] ?? 1));
                 $params = self::applyImageMarketSelection($tenantId, $params);
                 $selection = self::marketSelectionFromParams($params);
-                $quote = MarketNanoBananaAppRuntimeService::isSelection($selection)
-                    ? MarketNanoBananaAppRuntimeService::quote($tenantId, $selection, (int)($params['quantity'] ?? 1))
-                    : MarketImageModelRuntimeService::quote($tenantId, $selection, (int)($params['quantity'] ?? 1));
+                $quote = \app\common\service\power\MarketGenerationRuntime::selection('image',$selection)->quote($tenantId,(int)($params['quantity'] ?? 1));
                 return self::formatQuote((string)($quote['price_source'] ?? 'power_market_sku'), $quote, $params);
             }
             if ($toolCode === 'generate_video') {
                 $params = self::applyVideoMarketSelection($tenantId, $params);
-                $runtime = self::videoMarketRuntime($params);
-                $quote = $runtime::quote($tenantId, self::marketSelectionFromParams($params));
+                $quote = \app\common\service\power\MarketGenerationRuntime::selection('video',self::marketSelectionFromParams($params))->quote($tenantId);
                 return self::formatQuote('power_market_video', $quote, $params);
             }
             if ($toolCode === 'generate_music') {
-                $quote = MarketMusicAppRuntimeService::quote($tenantId, self::marketSelectionFromParams($params));
+                $quote = \app\common\service\power\MarketGenerationRuntime::selection('audio',self::marketSelectionFromParams($params)+['resource_type'=>'app_api','upstream_app_code'=>'music_generation'])->quote($tenantId);
                 return self::formatQuote('power_market_app_api', $quote, $params);
             }
         } catch (\Throwable $e) {
@@ -380,14 +377,7 @@ class CanvasModelRouterService
 
     private static function videoMarketRuntime(array $selection): string
     {
-        $value = implode('|', array_map('strval', [
-            $selection['resource_type'] ?? '',
-            $selection['model_id'] ?? '',
-            $selection['channel'] ?? '',
-        ]));
-        return str_contains($value, 'app_api') || str_contains($value, 'market_video_app:')
-            ? MarketVideoAppRuntimeService::class
-            : MarketVideoModelRuntimeService::class;
+        return \app\common\service\power\MarketGenerationAdapterRegistry::runtime('video', $selection);
     }
 
     private static function marketOption(string $value, array $market): array

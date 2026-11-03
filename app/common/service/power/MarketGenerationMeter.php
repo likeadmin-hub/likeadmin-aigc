@@ -11,7 +11,13 @@ final class MarketGenerationMeter
         $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
         $summary = trim((string)($source['meter_summary'] ?? $sku['meter_summary'] ?? ''));
         $unit = strtolower((string)($sku['usage_unit'] ?? ''));
-        $contract = ['version'=>1, 'summary'=>$summary, 'unit'=>$unit, 'round_up'=>false, 'basis'=>''];
+        // A malformed explicit declaration must never fall back to a cheaper
+        // legacy unit or a human-readable summary. Only this finite grammar is executable.
+        if (array_key_exists('meter_contract', $source) || array_key_exists('meter_contract', $sku)) {
+            return self::structured(array_key_exists('meter_contract', $source) ? $source['meter_contract'] : $sku['meter_contract'], $summary, $unit);
+        }
+        $contract = ['version'=>1, 'summary'=>$summary, 'unit'=>$unit, 'round_up'=>false, 'basis'=>'',
+            'source'=>$summary === '' ? 'legacy_unit' : 'legacy_summary'];
         $suffix = '，总点数向上取整';
         if ($summary !== '') {
             if (!str_ends_with($summary, $suffix)) throw new InvalidArgumentException('模型计费规则尚未适配，请同步并核验模型价格');
@@ -37,28 +43,90 @@ final class MarketGenerationMeter
         return $contract;
     }
 
-    public static function context(array $contract, array $native): array
+    public static function isExplicit(array $contract): bool
     {
-        $images = [];
-        $video = [];
-        $walk = static function ($value, string $kind = '') use (&$walk, &$images, &$video): void {
-            if (is_array($value)) {
-                foreach ($value as $key=>$child) {
-                    $next = is_int($key) ? $kind : (preg_match('/video|clip/i',(string)$key) ? 'video' : (preg_match('/image|frame/i',(string)$key) ? 'image' : $kind));
-                    $walk($child, $next);
-                }
-            } elseif (is_string($value)) {
-                if ($kind === 'image' && preg_match('~^(https?://|data:image/)~i', $value)) $images[] = $value;
-                if ($kind === 'video' && preg_match('~^https?://~i', $value)) $video[] = $value;
+        return ($contract['source'] ?? '') === 'structured' || ($contract['summary'] ?? '') !== '';
+    }
+
+    public static function hasDeclaration(array $sku): bool
+    {
+        $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
+        return array_key_exists('meter_contract', $source) || array_key_exists('meter_contract', $sku)
+            || trim((string)($source['meter_summary'] ?? $sku['meter_summary'] ?? '')) !== '';
+    }
+
+    /** Adapters without shared meter settlement must reject new declarations. */
+    public static function assertLegacyPricing(array $sku): void
+    {
+        $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
+        if (array_key_exists('meter_contract', $source) || array_key_exists('meter_contract', $sku)) {
+            throw new InvalidArgumentException('该应用尚未接入结构化计费，请核验应用计费适配');
+        }
+    }
+
+    private static function structured($value, string $summary, string $unit): array
+    {
+        $invalid = static fn() => new InvalidArgumentException('模型结构化计费规则无效或尚未适配，请同步并核验模型价格');
+        if (is_array($value) && ($value['version'] ?? null)===3) return MarketGenerationPixelMeter::contract($value,$summary,$unit);
+        // Version 2 is a trusted SKU-wide hard bound, not a browser budget or
+        // an estimate inferred from resolution, seconds or a model name.
+        if (is_array($value) && ($value['version'] ?? null) === 2) {
+            if (array_diff(array_keys($value), ['version','basis','rounding','maximum_quantity','usage_path']) !== []
+                || ($value['basis'] ?? null) !== 'token' || !str_contains($unit, 'token')
+                || !in_array($value['rounding'] ?? null, ['ceil','ceil_2'], true)
+                || !is_int($value['maximum_quantity'] ?? null) || $value['maximum_quantity'] < 1 || $value['maximum_quantity'] > 1000000000000
+                || !in_array($value['usage_path'] ?? null, ['usage.total_tokens','data.usage.total_tokens','result.usage.total_tokens','data.result.usage.total_tokens'], true)) throw $invalid();
+            return ['version'=>2,'source'=>'structured','summary'=>$summary,'unit'=>$unit,'basis'=>'token',
+                'round_up'=>true,'rounding_scale'=>$value['rounding']==='ceil_2'?2:0,'maximum_quantity'=>$value['maximum_quantity'],'usage_path'=>$value['usage_path']];
+        }
+        if (!is_array($value) || array_diff(array_keys($value), ['version','basis','rounding','reference_images']) !== []
+            || ($value['version'] ?? null) !== 1
+            || !in_array($value['basis'] ?? null, ['call','image','output','input','output_plus_video','output_plus_max_video','megapixel'], true)
+            || !in_array($value['rounding'] ?? null, ['ceil','half_up_6'], true)) throw $invalid();
+        $contract = ['version'=>1, 'source'=>'structured', 'summary'=>$summary, 'unit'=>$unit,
+            'basis'=>$value['basis'], 'round_up'=>$value['rounding'] === 'ceil'];
+        if (array_key_exists('reference_images', $value)) {
+            $term = $value['reference_images'];
+            if (!in_array($value['basis'], ['image','output_plus_video'], true) || !is_array($term)
+                || array_diff(array_keys($term), ['free','numerator','denominator']) !== []
+                || count($term) !== 3) throw $invalid();
+            foreach (['free','numerator','denominator'] as $field) {
+                if (!is_int($term[$field] ?? null) || $term[$field] < ($field === 'denominator' ? 1 : 0)
+                    || $term[$field] > 1000000) throw $invalid();
             }
-        };
-        $walk($native);
+            $contract += ['free_images'=>$term['free'], 'image_numerator'=>$term['numerator'], 'image_denominator'=>$term['denominator']];
+        }
+        return $contract;
+    }
+
+    public static function tokenContract(array $sku): array
+    {
+        if (!self::hasDeclaration($sku)) throw new InvalidArgumentException('该模型缺少提交前的 Token 费用上限，暂不能报价或提交');
+        $contract=self::contract($sku);
+        $size=$sku['usage_unit_size'] ?? null;
+        if (!self::boundedToken($contract) || !is_numeric($size) || !is_finite((float)$size) || (float)$size<1)
+            throw new InvalidArgumentException('该模型缺少有效的 Token 费用上限或计费单位，暂不能报价或提交');
+        return $contract;
+    }
+
+    public static function boundedToken(array $contract): bool
+    {
+        return ($contract['version'] ?? null)===2 && ($contract['basis'] ?? null)==='token'
+            && is_int($contract['maximum_quantity'] ?? null) && $contract['maximum_quantity']>0;
+    }
+
+    public static function context(array $contract, array $native, ?callable $measure = null, ?callable $visualProbe = null, array $declaredKinds = []): array
+    {
+        $media=MarketGenerationMedia::inputs($native,$visualProbe,$declaredKinds);$images=$media['image'];$video=$media['video'];
         // Count submitted slots, including repeated URLs; canonical native input has no UI aliases.
         $context = ['reference_images'=>count($images), 'reference_video_seconds'=>0];
         if (in_array($contract['basis'], ['output_plus_video','output_plus_max_video'], true) && $video !== []) {
-            $context['reference_video_seconds'] = MarketGenerationMedia::seconds(['video_urls'=>$video]);
+            $seconds=$measure!==null?$measure(['video_urls'=>$video]):MarketGenerationMedia::seconds(['video_urls'=>$video]);
+            if((!is_int($seconds)&&!is_float($seconds))||!is_finite((float)$seconds)||$seconds<=0)throw new InvalidArgumentException('参考视频实测时长无效');
+            $context['reference_video_seconds']=(float)$seconds;
         }
         if ($contract['basis'] === 'megapixel') {
+            if (MarketGenerationPixelMeter::applies($contract)) return $context;
             // Resolution labels and browser metadata do not prove billed pixel dimensions.
             throw new InvalidArgumentException('该模型按实际像素计费，当前缺少可核验的像素报价，请选择按张计费规格');
         }
@@ -68,6 +136,11 @@ final class MarketGenerationMeter
     public static function price(float $price, float $quantity, array $snapshot): float
     {
         $meter = $snapshot['billing_meter'] ?? null;
+        if ($meter && MarketGenerationPixelMeter::applies($meter)
+            && (!is_finite($quantity)||$quantity<=0||$quantity>MarketGenerationPixelMeter::upperBound($meter,$meter['maximum_images'])))
+            throw new InvalidArgumentException('像素计费数量超过合同上限或无效');
+        if ($meter && self::boundedToken($meter) && (!is_finite($quantity) || $quantity<1 || floor($quantity)!==$quantity || $quantity>$meter['maximum_quantity']))
+            throw new InvalidArgumentException('Token 计费数量超过合同上限或无效');
         $size = max(1, (float)($snapshot['usage_unit_size'] ?? 1));
         if (!$meter) return round($price * $quantity / $size, 6); // Historical snapshot semantics stay immutable.
         $context = (array)($snapshot['meter_context'] ?? []);
@@ -82,10 +155,23 @@ final class MarketGenerationMeter
             $extra = bcdiv(bcmul($unitPrice, (string)($count * $meter['image_numerator']), 12), (string)$meter['image_denominator'], 12);
             $amount = bcadd($amount, $extra, 12);
         }
-        $amount = bcdiv($amount, number_format($size, 6, '.', ''), 12);
+        $divisor=number_format($size,6,'.','');
+        if ($meter['round_up'] && (self::boundedToken($meter)||MarketGenerationPixelMeter::applies($meter))) {
+            // Divide only to an integer account unit, then compare the exact
+            // remainder. Truncating the ratio to 12 decimals first can erase a
+            // positive charge or a remainder just above a cent/whole point.
+            $scale=$meter['rounding_scale'] ?? 0;$factor=$scale===2?'100':'1';
+            $numerator=bcmul($amount,$factor,12);
+            $integer=bcdiv($numerator,$divisor,0);
+            if(bccomp($numerator,bcmul($integer,$divisor,12),12)>0)$integer=bcadd($integer,'1',0);
+            return (float)bcdiv($integer,$factor,$scale);
+        }
+        $amount = bcdiv($amount, $divisor, 12);
         if ($meter['round_up']) {
-            $integer = bcadd($amount, '0', 0);
-            return (float)(bccomp($amount, $integer, 12) > 0 ? bcadd($integer, '1', 0) : $integer);
+            // Historical version1 rounding remains unchanged.
+            $scale=$meter['rounding_scale'] ?? 0;
+            $integer = bcadd($amount, '0', $scale);
+            return (float)(bccomp($amount, $integer, 12) > 0 ? bcadd($integer, $scale===2?'0.01':'1', $scale) : $integer);
         }
         return (float)bcadd($amount, '0.0000005', 6);
     }

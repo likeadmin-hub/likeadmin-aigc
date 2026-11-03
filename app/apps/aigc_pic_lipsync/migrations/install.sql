@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_pic_lipsync_task` (
   `provider_task_id` varchar(160) NOT NULL DEFAULT '',
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` text,
+  `pricing_snapshot` mediumtext,
   `source_url` varchar(1000) NOT NULL DEFAULT '',
   `title` varchar(160) NOT NULL DEFAULT '',
   `quality` varchar(20) NOT NULL DEFAULT 'standard',

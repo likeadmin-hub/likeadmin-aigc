@@ -1,12 +1,26 @@
 <?php
 /** No transport/execution: pure binder plus rollback-only native SKU and point fixtures. */
-require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
+require dirname(__DIR__,2).'/vendor/autoload.php';
 use think\facade\Db;
 use app\common\service\open_platform\{OpenNativeMarketPricing as N,OpenMarketBilling as B,OpenMarketContractCompiler as Compiler,OpenStore as S,OpenCallContext as C,OpenException,OpenVerification};
 use app\common\model\power\{PowerMarketProduct as Product,PowerMarketSku as Sku,TenantPowerMarketSkuPrice as Retail};
 use app\common\service\power\{MarketUsageSettlementService as Usage,MarketVideoRuntimeService as Video};
+$nativeFailureHandler=static function(\Throwable $error): void {
+ fwrite(STDERR,'FAIL native-market-price error_type='.($error instanceof OpenException?$error->errorType:get_class($error)).' file='.basename($error->getFile()).' line='.$error->getLine().PHP_EOL);
+ exit(1);
+};
+set_exception_handler($nativeFailureHandler);
+try{(new think\App())->initialize();}catch(\Throwable $error){$nativeFailureHandler($error);}
+// Think initialization installs its own handler; restore strict CLI failure.
+set_exception_handler($nativeFailureHandler);
 function checkNative($ok,$why){if(!$ok)throw new RuntimeException($why);}
-function rejectNative(callable $call,string $type){try{$call();throw new RuntimeException('Expected '.$type);}catch(OpenException $e){checkNative($e->errorType===$type,'Unexpected rejection: '.$e->errorType);}}
+function rejectNative(callable $call,string $type){
+ $line=(int)(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,1)[0]['line']??0);
+ try{$call();}
+ catch(OpenException $e){fwrite(STDERR,'CHECK rejectNative line='.$line.' expected='.$type.' actual='.$e->errorType.PHP_EOL);checkNative($e->errorType===$type,'Unexpected rejection type');return;}
+ catch(\Throwable $error){fwrite(STDERR,'CHECK rejectNative line='.$line.' expected='.$type.' actual='.get_class($error).PHP_EOL);throw $error;}
+ fwrite(STDERR,'CHECK rejectNative line='.$line.' expected='.$type.' actual=no_rejection'.PHP_EOL);throw new RuntimeException('Expected rejection was not observed');
+}
 $product=['id'=>900001,'resource_type'=>'model','model_type'=>'image','upstream_model_code'=>'fixture-image','upstream_channel_code'=>'fixture-channel'];
 $raw=json_decode('{"model":"fixture-image","channel":"fixture-channel","input":{"messages":[{"content":[{"image":"https://example.com/owned.png"},{"text":"unchanged"}]}]},"parameters":{"n":2,"size":"1024*1024","quality":"1k"}}',true);
 $before=S::encode($raw);$binding=N::bind($product,$raw,900002);checkNative(S::encode($raw)===$before&&$binding['selection']['quantity']===2&&count($binding['selection']['reference_images'])===1,'Structured pricing mapping changed wire JSON or reference modality');
@@ -64,10 +78,31 @@ Db::startTrans();try{
  $budget=N::capture(1,$p->toArray(),$params,(int)$s['id']);checkNative($budget['user']===10.&&$budget['tenant']===6.&&S::encode($params)===$wire,'Native quote lost tenant retail, n or raw payload');
  $file='of_'.bin2hex(random_bytes(16));S::table('file')->insert(['tenant_id'=>1,'user_id'=>1,'file_id'=>$file,'uri'=>'uploads/native_fixture.png','name'=>'native fixture','mime'=>'image/png','size'=>1,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'']+S::timestamp());rejectNative(fn()=>N::capture(1,$p->toArray(),['reference_images'=>[$file]],(int)$s['id']),'local_material_mapping_required');
  rejectNative(fn()=>N::capture(1,$p->toArray(),['parameters'=>['quality'=>'2k','n'=>2]],(int)$s['id']),'invalid_sku');
- $split=Sku::create(array_replace($skuBase,['product_id'=>$p['id'],'sku_key'=>'opf_native_split_'.$tag,'usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>7,'locked_params'=>['resolution'=>'2k'],'status'=>1,'sale_status'=>1]));
+ // Independent quality/resolution needs its own exact declaration. The first
+ // fixture requires parameters.quality and cannot validate this different wire.
+ $splitMeta=$meta;$splitMeta['params_schema']['quality']=['type'=>'string','enum'=>['high'],'required'=>true];
+ $splitMeta['params_schema']['parameters']['children']=['resolution'=>['type'=>'string','enum'=>['1k','2k'],'required'=>true],'n'=>['type'=>'integer','minimum'=>1,'maximum'=>3]];
+ $splitProduct=Product::create(array_replace($base,['name'=>'Independent quality fixture','product_code'=>'opf_native_split_'.$tag,'upstream_resource_key'=>'opf_native_split_'.$tag,'upstream_model_code'=>'fixture-image','upstream_channel_code'=>'fixture-channel','source_payload'=>['market_metadata'=>$splitMeta]]));
+ $split=Sku::create(array_replace($skuBase,['product_id'=>$splitProduct['id'],'sku_key'=>'opf_native_split_'.$tag,'usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>7,'locked_params'=>['resolution'=>'2k'],'status'=>1,'sale_status'=>1]));
  $split->save(['upstream_price'=>7]);
- $splitRaw=['model'=>'fixture-image','quality'=>'high','parameters'=>['resolution'=>'2k','n'=>2]];$splitWire=S::encode($splitRaw);$splitBudget=N::capture(1,$p->toArray(),$splitRaw,(int)$split['id']);checkNative($splitBudget['user']===14.&&$splitBudget['tenant']===14.&&S::encode($splitRaw)===$splitWire,'Independent quality/resolution failed actual native admission or changed wire');
- rejectNative(fn()=>N::capture(1,$p->toArray(),['quality'=>'high','resolution'=>'1k'],(int)$split['id']),'invalid_sku');
+ $splitRaw=['model'=>'fixture-image','quality'=>'high','parameters'=>['resolution'=>'2k','n'=>2]];$splitWire=S::encode($splitRaw);$splitBudget=N::capture(1,$splitProduct->toArray(),$splitRaw,(int)$split['id']);checkNative($splitBudget['user']===14.&&$splitBudget['tenant']===14.&&S::encode($splitRaw)===$splitWire,'Independent quality/resolution failed actual native admission or changed wire');
+ rejectNative(fn()=>N::capture(1,$splitProduct->toArray(),['quality'=>'high','resolution'=>'1k'],(int)$split['id']),'invalid_sku');
+ $pixelSource=['meter_contract'=>['version'=>3,'basis'=>'megapixel','rounding'=>'ceil_2','maximum_pixels_per_image'=>1000000,'maximum_images'=>3,'result_path'=>'data.image_urls','result_item_url'=>'']];
+ // An opaque nested count under the flat encoder is deliberately rejected
+ // before publication checks. Keep the legacy nested per-call contract intact.
+ $nestedPixel=Sku::create(array_replace($skuBase,['product_id'=>$p['id'],'sku_key'=>'opf_native_pixel_nested_'.$tag,'usage_unit'=>'business_unit','usage_unit_size'=>1,'sale_points'=>3,'locked_params'=>['quality'=>'1k'],'status'=>1,'sale_status'=>1,'source_payload'=>$pixelSource]));
+ rejectNative(fn()=>N::capture(1,$p->toArray(),$params,(int)$nestedPixel['id']),'invalid_sku');
+ // This distinct declaration proves the existing finite flat count mapping;
+ // do not invent a structured protocol for the preceding nested fixture.
+ $pixelMeta=$meta;$pixelMeta['params_schema']=['model'=>['type'=>'string'],'channel'=>['type'=>'string'],'quality'=>['type'=>'string','enum'=>['1k','2k'],'required'=>true],'n'=>['type'=>'integer','minimum'=>1,'maximum'=>3]];
+ $pixelParams=['model'=>'fixture-image','channel'=>'fixture-channel','quality'=>'1k','n'=>2];$pixelWire=S::encode($pixelParams);
+ $pixelMeta['developer_doc_content']="```json\n".S::encode($pixelParams)."\n```\n```json\n".S::encode(['code'=>1,'data'=>['task_id'=>'known-pixel-task','result'=>['image_urls'=>[]]]])."\n```";
+ $pixelProduct=Product::create(array_replace($base,['name'=>'Finite flat pixel fixture','product_code'=>'opf_native_pixel_flat_'.$tag,'upstream_resource_key'=>'opf_native_pixel_flat_'.$tag,'upstream_model_code'=>'fixture-image','upstream_channel_code'=>'fixture-channel','source_payload'=>['market_metadata'=>$pixelMeta]]));
+ $pixel=Sku::create(array_replace($skuBase,['product_id'=>$pixelProduct['id'],'sku_key'=>'opf_native_pixel_flat_'.$tag,'usage_unit'=>'business_unit','usage_unit_size'=>1,'sale_points'=>3,'locked_params'=>['quality'=>'1k'],'status'=>1,'sale_status'=>1,'source_payload'=>$pixelSource]));
+ rejectNative(fn()=>N::capture(1,$pixelProduct->toArray(),$pixelParams,(int)$pixel['id']),'native_usage_boundary_required');
+ $pixelBinding=N::pixelBinding($pixelProduct->toArray(),$pixel->toArray());$pixelBudget=N::capture(1,$pixelProduct->toArray(),$pixelParams,(int)$pixel['id'],['basis'=>'usage','max_units'=>3,'usage_path'=>'data.image_urls','native_meter'=>$pixelBinding]);
+ checkNative($pixelBudget['snapshot']['native_media']['submitted_units']===2.&&$pixelBudget['snapshot']['native_media']['submitted_images']===2&&($pixelBudget['snapshot']['native_media']['market_snapshot']['billing_meter']['version']??null)===3&&S::encode($pixelParams)===$pixelWire,'Bounded flat pixel admission did not preserve its explicit count, meter or wire');
+ checkNative(S::encode($params)===$wire,'The flat pixel fixture modified the legacy nested wire');
  $call=Sku::create(array_replace($skuBase,['product_id'=>$p['id'],'sku_key'=>'opf_native_call_'.$tag,'usage_unit'=>'per_call','usage_unit_size'=>1,'sale_points'=>3,'locked_params'=>['quality'=>'1k'],'status'=>1,'sale_status'=>1,'source_payload'=>['usage_unit'=>'per_call','meter_summary'=>'按次，总点数向上取整']]));
  $callBudget=N::capture(1,$p->toArray(),$params,(int)$call['id']);
  checkNative($callBudget['user']===3.&&$callBudget['snapshot']['native_media']['submitted_units']===1.,'Explicit per-call image meter multiplied output slots or created false partial-success units');
@@ -85,6 +120,6 @@ Db::startTrans();try{
  B::reserve($row,$budget);$known=['code'=>1,'msg'=>'success','data'=>['task_id'=>'task_source_fixture','status'=>'completed','type'=>'image','call_type'=>'async','result'=>['results'=>[['url'=>'https://example.com/a','type'=>'image','transfer_status'=>'success'],['url'=>'https://example.com/b','type'=>'image','transfer_status'=>'failed']]],'usage'=>['input_tokens'=>0,'output_tokens'=>0,'total_tokens'=>0,'points_cost'=>1.23]]];
  Retail::where('sku_id',$s['id'])->update(['sale_points'=>999]);B::settle($row,$known);$done=S::table('request')->where('id',$row['id'])->find();checkNative($done['status']==='partial_success'&&$done['billing_status']==='settled'&&(float)$done['actual_user']===5.&&(float)$done['actual_tenant']===3.,'Actual count or frozen price changed settlement');OpenVerification::assertLedger($done);
  $logs=Db::name('user_account_log')->where('source_sn',$rid)->count();B::settle($row,$known);checkNative(Db::name('user_account_log')->where('source_sn',$rid)->count()===$logs,'Repeated completion charged again');
- echo "PASS native raw root/parameters/params binding, conflicts, modality and unchanged wire, existing retail SKU/n, fallback fence, native measured/per-call quantities, missing usage, frozen partial settlement/ledger/idempotency; rollback only, no transport\n";
 }finally{C::leave();Db::rollback();}
 checkNative($wallets()===$walletBefore,'Native fixture changed wallet after rollback');
+echo "PASS native raw root/parameters/params binding, conflicts, unchanged wire, legacy nested per-call and guarded flat pixel count, exact published meter boundary, frozen partial settlement/ledger/idempotency; rollback and wallets verified, no transport\n";

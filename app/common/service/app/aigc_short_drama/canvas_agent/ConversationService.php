@@ -109,7 +109,7 @@ final class ConversationService
             }
             return ['settings'=>$settings,'skill'=>$skill,'workflow'=>$workflow['workflow'],
                 'thread_settings'=>$workflow['thread_settings'],'intent_routing'=>$intentRouting];
-        },['preferences'=>$preferences,'skill_id'=>$skillId,'skill_version'=>$skillVersion]);
+        },['preferences'=>$preferences,'skill_id'=>$skillId,'skill_version'=>$skillVersion,'workflow_auto'=>$workflowAuto]);
     }
 
     /** `/skill_key` is a convenience selector for a published, tenant-visible

@@ -29,12 +29,24 @@ class ShortDramaVideoAudioContractTest extends TestCase
         self::assertSame($prompt, $this->invoke('applyShortDramaVideoAudioPreference', $prompt, true));
     }
 
-    public function testStoryboardAudioSwitchDefaultsToEnabled(): void
+    public function testDeclaredAudioDefaultsAndExplicitChoicesReachTheSharedNativeRequest(): void
     {
-        $source = (string) \Tests\Support\CompiledAssets::source('pc/components/short-drama/StoryboardCreationWorkbench.vue');
-
-        self::assertStringContainsString('const videoGenerateAudio = ref(true)', $source);
-        self::assertStringContainsString('const batchVideoGenerateAudio = ref(true)', $source);
+        // The retired fixed workbench toggles no longer define every model's
+        // default. Exercise both declared defaults and an explicit override.
+        foreach ([false, true] as $default) {
+            $metadata = ['params_schema' => ['properties' => [
+                'prompt' => ['type' => 'string'], 'duration' => ['type' => 'integer'],
+                'generate_audio' => ['type' => 'boolean', 'default' => $default],
+            ], 'required' => ['prompt', 'duration']],
+                'material_capabilities' => ['modes' => [['code' => 'text_to_video', 'method' => 'text_to_video', 'fields' => []]]]];
+            $snapshot = ['resource_type' => 'model', 'market_metadata' => $metadata, 'locked_params' => []];
+            $request = ['prompt' => 'Synthetic audio fixture', 'duration' => 5, 'generation_method' => 'text_to_video'];
+            $native = \app\common\service\power\MarketGenerationRequest::payload($snapshot, $request);
+            self::assertSame($default, $native['generate_audio']);
+            $native = \app\common\service\power\MarketGenerationRequest::payload($snapshot,
+                $request + ['provider_params' => ['generate_audio' => !$default]]);
+            self::assertSame(!$default, $native['generate_audio']);
+        }
     }
 
     public function testAudioGenerationDefaultsToEnabledButAnExplicitDisableWins(): void

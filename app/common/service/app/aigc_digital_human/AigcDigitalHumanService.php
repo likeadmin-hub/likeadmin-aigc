@@ -931,7 +931,7 @@ class AigcDigitalHumanService
         Db::startTrans();
         try {
             self::lockSubmitOwner($userId);
-            $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, $duplicateCriteria);
+            $duplicateTask = \app\common\service\ai\GenerationSubmission::key() !== '' ? null : self::findRecentDuplicateTask($tenantId, $userId, $duplicateCriteria);
             if ($duplicateTask) {
                 Db::commit();
                 return self::buildDuplicateGenerateResponse($duplicateTask, $tenantId, $userId);
@@ -958,7 +958,7 @@ class AigcDigitalHumanService
                 'provider_stage' => $audioDriven ? 'lipsync_submitted' : 'created',
                 'tts_task_id' => '',
                 'tts_audio_uri' => $driverAudioUri,
-                'provider_payload_json' => ['market_selection'=>$selection, 'market_estimate'=>$estimate],
+                'provider_payload_json' => ['market_selection'=>$selection, 'market_estimate'=>$estimate,'drive_mode'=>$audioDriven?'audio':'text','request_duration'=>$duration],
                 'status' => 'running',
                 'progress' => $audioDriven ? 45 : 5,
                 'error' => '',
@@ -983,13 +983,13 @@ class AigcDigitalHumanService
         if ($provider instanceof XhadminAigcDigitalHumanProvider) {
             self::advanceRunningTaskSafely($task, $request, $selection, $estimate, $provider);
             $latest = AigcDigitalHumanTask::where(['tenant_id' => $tenantId, 'id' => (int)$task['id']])->findOrEmpty();
-            return [
+            return \app\common\service\ai\GenerationTaskResultService::carry([
                 'task_id' => (int)$task['id'],
                 'status' => (string)($latest['status'] ?? $task['status']),
                 'provider_stage' => (string)($latest['provider_stage'] ?? $task['provider_stage'] ?? ''),
                 'results' => [],
                 'error' => (string)($latest['error'] ?? $task['error'] ?? ''),
-            ];
+            ],\app\common\service\ai\GenerationTaskResultService::appendWorkflowList([['id'=>(int)$task['id'],'tenant_id'=>$tenantId,'user_id'=>$userId]],'aigc_digital_human_task')[0]);
         }
 
         $result = $provider->generate($request);
@@ -1021,12 +1021,16 @@ class AigcDigitalHumanService
             ->where('channel', $criteria['channel'])
             ->where('quality', $criteria['quality'])
             ->where('ratio', $criteria['ratio'])
-            ->where('duration', (int)$criteria['duration'])
             ->where('create_time', '>=', time() - self::DUPLICATE_WINDOW_SECONDS)
             ->order('id', 'desc')
             ->limit(5)
             ->select();
         foreach ($rows as $row) {
+            // TTS replaces the displayed duration with measured audio length.
+            // Match the accepted input, not that later business-result projection.
+            $saved = (array)$row['provider_payload_json'];
+            $requestedDuration = $saved['request_duration'] ?? $saved['market_estimate']['duration'] ?? $row['duration'];
+            if ((int)$requestedDuration !== (int)$criteria['duration']) continue;
             if (isset($criteria['tts_audio_uri']) && (string)($criteria['tts_audio_uri'] ?? '') !== '' && (string)$row['tts_audio_uri'] !== (string)$criteria['tts_audio_uri']) {
                 continue;
             }
@@ -1067,7 +1071,7 @@ class AigcDigitalHumanService
         if ($status === 'success') {
             $response['results'] = self::resultLists($tenantId, $userId, (int)$latest['id']);
         }
-        return $response;
+        return \app\common\service\ai\GenerationTaskResultService::carry($response,\app\common\service\ai\GenerationTaskResultService::appendWorkflowList([['id'=>(int)$latest['id'],'tenant_id'=>$tenantId,'user_id'=>$userId]],'aigc_digital_human_task')[0]);
     }
 
     public static function assistScript(int $tenantId, int $userId, array $params): array
@@ -1175,6 +1179,7 @@ class AigcDigitalHumanService
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
         }
+        $rows=\app\common\service\ai\GenerationTaskResultService::appendWorkflowList($rows,'aigc_digital_human_task');
         if ($usePage) {
             return [
                 'lists' => $rows,
@@ -1236,7 +1241,7 @@ class AigcDigitalHumanService
         $data = $task->toArray();
         $data['duration'] = self::displayDurationForTask($data);
         $data['results'] = self::taskResults($tenantId, $userId, $taskId);
-        return $data;
+        return \app\common\service\ai\GenerationTaskResultService::appendWorkflowList([$data],'aigc_digital_human_task')[0];
     }
 
     public static function platformTaskLogDetail(int $taskId): array
@@ -2085,15 +2090,17 @@ class AigcDigitalHumanService
             if (!$consumptionId) {
                 $seconds = self::detectAudioDurationFromUri((string)$task['tts_audio_uri'], (int)$task['tenant_id']);
                 if ($seconds <= 0) throw new Exception('无法确认驱动音频时长，请重新上传音频');
-                $reserve = $runtime::reserve((int)$task['tenant_id'],(int)$task['user_id'],'generate',(string)$task['id'],
-                    $selection['channel'],$payload,$seconds,self::APP_CODE,'aigc_digital_human_task');
+                $shared=\app\common\service\power\MarketGenerationRuntime::selection('application',$selection['channel']);
+                $reserve=$shared->reserve((int)$task['tenant_id'],(int)$task['user_id'],self::APP_CODE,'generate','aigc_digital_human_task',(string)$task['id'],$payload,$seconds);
                 $consumptionId = (int)$reserve['consumption_id'];
-                $runtime::linkBusinessTask((int)$reserve['app_task_id'],(int)$task['id']);
+                $shared->bind((int)$reserve['app_task_id'],(int)$task['id'],(int)$task['tenant_id'],(int)$task['user_id']);
                 $task->save(['provider_stage'=>'market_lipsync','duration'=>$seconds,
                     'provider_payload_json'=>self::mergeProviderPayload($task,['market_consumption_id'=>$consumptionId,'market_reservation'=>$reserve]),'update_time'=>time()]);
             }
             $consumption = \app\common\model\ai\AiConsumptionLog::findOrEmpty($consumptionId);
-            $result = (string)$consumption['run_status'] === 'reserved' ? $runtime::submit($consumptionId,$payload) : $runtime::refresh($consumptionId);
+            $shared=\app\common\service\power\MarketGenerationRuntime::consumption($consumptionId,(int)$task['tenant_id'],(int)$task['user_id']);
+            $result = (string)$consumption['run_status'] === 'reserved' ? $shared->submit($consumptionId,$payload,(int)$task['tenant_id'],(int)$task['user_id']) : $shared->refresh($consumptionId,(int)$task['tenant_id'],(int)$task['user_id']);
+            $result=\app\common\service\ai\GenerationTaskResultService::withoutView($result);
             $task->save(['provider_task_id'=>(string)($result['provider_task_id'] ?? $task['provider_task_id']),'update_time'=>time()]);
             if (in_array($result['status'] ?? '', ['failed','canceled','cancelled'],true)) {
                 self::failTask($task,'lipsync_failed',(string)($result['error'] ?? '视频合成失败')); return;

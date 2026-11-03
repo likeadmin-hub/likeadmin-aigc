@@ -61,12 +61,11 @@ class MarketApplicationFoundationContractTest extends TestCase
 
     public function testGenericCreateApiDoesNotSilentlyBecomeMusicAdapter(): void
     {
-        $this->expectException(Exception::class);
-        MarketApplicationApiRuntimeService::adapterForSelection([
+        self::assertSame(\app\common\service\power\MarketVideoAppRuntimeService::class, MarketApplicationApiRuntimeService::adapterForSelection([
             'resource_type' => 'app_api',
             'upstream_app_code' => 'full_video',
             'api_code' => 'create',
-        ]);
+        ]));
     }
 
     public function testCatalogExposesOnlyTheThreeGenerationTypes(): void
@@ -76,22 +75,13 @@ class MarketApplicationFoundationContractTest extends TestCase
 
     public function testImageModelSelectorsKeepTheirSupportedMarketSources(): void
     {
-        $root = dirname(__DIR__, 2);
-        $sources = [
-            (string)file_get_contents($root . '/app/common/service/app/aigc_image/AigcImageChannelService.php'),
-            (string)file_get_contents($root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'),
-        ];
-
-        foreach ($sources as $source) {
-            self::assertStringNotContainsString('MarketNanoBananaAppRuntimeService::options', $source);
-            self::assertStringContainsString('MarketImageModelRuntimeService::', $source);
+        $selectors = ['market_image_model:93' => \app\common\service\power\MarketImageModelRuntimeService::class,
+            'market_nano_banana:1:' . base64_encode('nano-banana-2') => \app\common\service\power\MarketNanoBananaAppRuntimeService::class];
+        foreach ($selectors as $selector => $runtime) {
+            $normalized = \app\common\service\app\aigc_image\AigcImageChannelService::normalizeRuntimeChannelCode($selector);
+            self::assertSame($selector, $normalized);
+            self::assertSame($runtime, \app\common\service\power\MarketGenerationAdapterRegistry::runtime('image', ['channel' => $normalized]));
         }
-
-        // The native canvas supports both model SKUs and Nano Banana app SKUs.
-        // The retired Agent selector had a different, model-only contract.
-        $canvas = (string)file_get_contents($root . '/app/common/service/app/aigc_canvas/CanvasModelRouterService.php');
-        self::assertStringContainsString('MarketImageModelRuntimeService::options', $canvas);
-        self::assertStringContainsString('MarketNanoBananaAppRuntimeService::options', $canvas);
     }
 
     public function testTextFallbackOnlyAcceptsExplicitUnavailableModelErrors(): void
@@ -155,6 +145,34 @@ class MarketApplicationFoundationContractTest extends TestCase
         ]);
 
         self::assertSame([], $item);
+    }
+
+    public function testReclassifiedFactoryModelsNeverBecomeTextPriceProducts(): void
+    {
+        foreach (['audio', 'video_tool', 'motion_control', 'other', 'embedding'] as $category) {
+            $model = ['model_code'=>'synthetic-model','type_code'=>$category,'pricing'=>['pricing_v2'=>[
+                'resource_type'=>'factory_model','resource_id'=>1,'items'=>[['sku_key'=>'synthetic','usage_unit'=>'second','price'=>['points'=>1]]]
+            ]]];
+            self::assertSame([], $this->invoke(PowerMarketService::class, 'catalogPricingItem', [
+                'type'=>'model','model'=>'synthetic-model','channel'=>'','catalog_model'=>$model,'market_metadata'=>['model_type'=>'video']
+            ]));
+            // Rejection happens before any database access, including legacy
+            // pricing/batch responses carrying stale local video metadata.
+            self::assertNull($this->invoke(PowerMarketService::class, 'upsertProduct', 'model',
+                ['model_code'=>'synthetic-model','type_code'=>$category], ['market_metadata'=>['model_type'=>'video']]));
+        }
+    }
+
+    public function testSyncTypeRespectsPublishedClassificationAndKnownLegacyRequestContext(): void
+    {
+        foreach (['text','image','video'] as $type) {
+            self::assertSame($type, $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>strtoupper($type)], ['model_type'=>'text']));
+            self::assertSame($type, $this->invoke(PowerMarketService::class, 'syncModelType', [], ['model_type'=>$type]));
+        }
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', [], []));
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', [], ['upstream_metadata'=>['type_code'=>'other'],'model_type'=>'video']));
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>['video']], ['model_type'=>'video']));
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'other'], ['upstream_metadata'=>['type_code'=>'video'],'model_type'=>'video']));
     }
 
     public function testApplicationCategoryIsFlattenedAndReturnedForImageVideoAndAudioApps(): void

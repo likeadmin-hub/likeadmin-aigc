@@ -1,0 +1,50 @@
+{
+  "batch": 31,
+  "date": "2026-10-31",
+  "source_web_commit": "bde7402a880e6b859a52539f5d4a30c522f0ea31",
+  "source_server_commit": "a411b23fe545720d72676cc1102bacd97cce9651",
+  "paid_generation": false,
+  "direct_original_task_mutations": false,
+  "scope": "Final new normal authenticated history page, three old-task re-edits and reload; complete task-row hashes compared in independent read-only PHP processes. This does not certify billing/asset table immutability or provider execution.",
+  "cases": [
+    {
+      "channel": "market_video_model:98",
+      "sku_id": 119,
+      "entry": "pc_create",
+      "requested_method": "start_end",
+      "scenario": "terminal_history_http_read_task_row_stability",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "c2e2b1dfb0d456d3e4ea990e05bd0f63053d7735acbfa96cb2ebac08abd91565",
+      "task_hash_after": "c2e2b1dfb0d456d3e4ea990e05bd0f63053d7735acbfa96cb2ebac08abd91565",
+      "task_hash_equal": true,
+      "scope": "Normal authenticated history list triggers terminal reconciliation. Old code unconditionally saved update_time and re-dated failed finish_time; final code writes only changed facts and preserves completed failure time. Task IDs, text, media and raw rows omitted."
+    },
+    {
+      "channel": "market_video_model:94",
+      "sku_id": 104,
+      "entry": "pc_create",
+      "requested_method": "omni_reference",
+      "scenario": "terminal_history_http_read_task_row_stability",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "6e598c3b8f8c83aa6befa41f7089b42a3fbe79eb7cad39875b549e7d818f11e5",
+      "task_hash_after": "6e598c3b8f8c83aa6befa41f7089b42a3fbe79eb7cad39875b549e7d818f11e5",
+      "task_hash_equal": true,
+      "scope": "Normal authenticated history list triggers terminal reconciliation. Old code unconditionally saved update_time and re-dated failed finish_time; final code writes only changed facts and preserves completed failure time. Task IDs, text, media and raw rows omitted."
+    },
+    {
+      "channel": "market_video_model:357",
+      "sku_id": 808,
+      "entry": "pc_create",
+      "requested_method": "image_to_video",
+      "scenario": "terminal_history_http_read_task_row_stability",
+      "status": "http_terminal_rows_preserved",
+      "task_hash_before": "d112f7515195a93dbae5e75ef20b29eda4d78ff365fcb2577a200d7127f45843",
+      "task_hash_after": "d112f7515195a93dbae5e75ef20b29eda4d78ff365fcb2577a200d7127f45843",
+      "task_hash_equal": true,
+      "scope": "Normal authenticated history list triggers terminal reconciliation. Old code unconditionally saved update_time and re-dated failed finish_time; final code writes only changed facts and preserves completed failure time. Task IDs, text, media and raw rows omitted."
+    }
+  ],
+  "terminal_rows_observed": 44,
+  "unchanged_task_rows": 44,
+  "manual_timestamp_restore": false
+}

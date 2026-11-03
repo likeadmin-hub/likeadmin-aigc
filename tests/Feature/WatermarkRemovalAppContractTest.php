@@ -78,9 +78,11 @@ class WatermarkRemovalAppContractTest extends TestCase
         self::assertStringContainsString("UPSTREAM_API_CODE = 'remove'", $runtime);
         self::assertStringContainsString("'/api/v1/apps/'", $runtime);
         self::assertStringContainsString("return ['url' => " . '$url' . "]", $runtime);
-        self::assertStringContainsString("AppAccessService::assertTenantCanUse", $service);
-        self::assertStringContainsString('MarketGenericImageAppRuntimeService::reserve', $service);
-        self::assertStringContainsString('MarketGenericImageAppRuntimeService::submit', $service);
+        self::assertStringContainsString("AppAccessService::assertTenantAvailable", $service);
+        self::assertStringContainsString('AppAccessService::assertTenantCanUse', file_get_contents($this->root.'/app/api/http/middleware/AppAccessMiddleware.php'));
+        self::assertStringContainsString("MarketGenerationRuntime::selection('application',", $service);
+        self::assertStringContainsString('sharedRuntime->reserve', $service);
+        self::assertStringContainsString('sharedRuntime->submit', $service);
     }
 
     public function testRuntimeAdapterIsNotConfusedWithOtherApplicationAdapters(): void

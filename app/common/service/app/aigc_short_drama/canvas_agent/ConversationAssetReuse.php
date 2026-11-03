@@ -51,10 +51,13 @@ final class ConversationAssetReuse
     public static function matches(array $node,string $signature,array $proposal): bool
     {
         $meta=(array)($node['metadata']??[]);
+        // Current series create scenes in assets; older flows create them in storyboard.
+        $stages=($proposal['artifact']??'')==='scene'?['assets','storyboard']:['assets'];
+        $keys=array_map(static fn($stage)=>$stage.':'.($proposal['key']??''),$stages);
         return trim((string)($meta['prompt']??''))===trim((string)($proposal['prompt']??'')) && ($node['type']??'')==='image' && ($meta['status']??'')==='success' && !empty($meta['image'])
             && (int)($meta['asset_id']??0)>0 && hash_equals($signature,(string)($meta['workflow_asset_signature']??''))
             && ($meta['workflow_artifact']??'')===($proposal['artifact']??'')
-            && ($meta['workflow_key']??'')===($proposal['artifact']==='scene'?'storyboard:':'assets:').($proposal['key']??'');
+            && in_array($meta['workflow_key']??'',$keys,true);
     }
     public static function source(int $tenant,int $user,array $reuse,array $proposal): array
     {
