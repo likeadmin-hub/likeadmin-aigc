@@ -16389,6 +16389,7 @@ class AigcShortDramaService
 
     private static function prepareMarketShortDramaVideoParams(int $tenantId, array $params, array $shot, array $timing = []): array
     {
+        $params = ShortDramaVideoModelParameters::normalize($tenantId, $params);
         $selection = self::marketVideoSelection($params);
         $durationMode = strtolower((string)($params['duration_mode'] ?? 'smart')) === 'manual' ? 'manual' : 'smart';
         $smartRequestedDuration = (int)($params['requested_duration'] ?? 0);
@@ -16841,7 +16842,7 @@ class AigcShortDramaService
         if (!$generateAudio) {
             $negativePrompt = self::joinPromptParts([$negativePrompt, '背景音乐、环境音、音效、人声、对白、旁白']);
         }
-        return ReferenceMentionPromptService::compile([
+        return ReferenceMentionPromptService::compile(array_replace(ShortDramaVideoModelParameters::carry($params), [
             'prompt' => $prompt,
             'negative_prompt' => $negativePrompt,
             'model_id' => (string)$params['model_id'], 'video_model_id' => (string)$params['model_id'],
@@ -16856,7 +16857,7 @@ class AigcShortDramaService
             'selected_mentions' => is_array($params['selected_mentions'] ?? null)
                 ? (array)$params['selected_mentions']
                 : (array)(is_array($params['params'] ?? null) ? ($params['params']['selected_mentions'] ?? []) : []),
-        ]);
+        ]));
     }
 
     private static function shouldGenerateShortDramaVideoAudio(array $params): bool
