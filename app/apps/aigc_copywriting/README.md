@@ -68,3 +68,7 @@ php tests/copywriting/recovery.php
 
 ### 基础配置与封面
 租户基础配置复用 AppDisplayConfigService 和 tenant_app_config；不新增业务表。菜单、保存权限和 API 声明随应用目录同步。新安装和新租户走 DefaultAppService；已有环境可执行 `php think copywriting:repair --apply --tenant=<id>` 同步注册与菜单，不改租户展示设置。用户端仅暴露展示字段白名单。功能封面继续使用既有 icon 字段，后台保留素材实际访问地址，避免将本地文件替换为当前云存储默认域名。
+
+12 类功能封面内置于 `public/resource/image/copywriting/*.webp`，均为 768×768 无标题图，单张约 22–43 KB。新租户自动使用这些封面；已有租户初始化时仅替换对应的旧内置 PNG/SVG、通用默认图及未自定义的空封面，不覆盖上传图片、外部图片地址或主动清空的封面。旧 PNG/SVG 保留，以兼容已保存的历史引用。
+
+租户可在「智能文案 → 功能管理 → 设置 → 功能封面」从图库选择或上传替换，保存后用于类型列表和工作台；修改仅对当前租户生效，无需重新发布页面。应用整体封面仍在「基础配置」独立设置。「恢复内置默认到草稿」只恢复页面模板，不重置功能封面。
