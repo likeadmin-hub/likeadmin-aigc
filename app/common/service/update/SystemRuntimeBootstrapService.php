@@ -66,16 +66,15 @@ class SystemRuntimeBootstrapService
         $next=json_decode((string)file_get_contents($inner.'/update.json'),true,512,JSON_THROW_ON_ERROR);
         if(($next['base_version']??'')!=='1.0.390' || ($next['version']??'')!=='1.0.391' || !isset($next['composer_runtime']))throw new RuntimeException('完整自举 payload 版本或依赖声明无效');
         require_once __DIR__.'/ProjectUpdateProcessGate.php';
-        ProjectUpdateProcessGate::assertDrained(root_path());
         $root=rtrim(root_path(),'/');$manager=new ComposerRuntimeUpdateService($root,'',dirname(__DIR__,4).'/scripts/composer-runtime-runner.php');
-        $binding=['package_id'=>$packageId,'task_id'=>$taskId,'context'=>$context,'kind'=>'system','archive_sha256'=>(string)$package['sha256']];
+        $binding=['package_id'=>$packageId,'task_id'=>$taskId,'context'=>$context,'kind'=>'system','archive_sha256'=>(string)$package['sha256'],'restart_required'=>true];
         $encoded=json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         $result=$manager->apply($inner,$next,[
             'immutable_code'=>true,'bootstrap_context'=>$binding,
             'sql'=>fn(string $generation)=>$manager->bootstrapChild(['--bootstrap-prepare',$generation,$inner,$encoded]),
             'files'=>fn()=> $this->copySharedFiles($inner,$next),
             'finalize'=>fn(string $generation)=>['prepared'=>true],
-            'marker'=>fn()=> ProjectUpdateProcessGate::assertDrained(root_path()),
+            'marker'=>static function():void{},
             'complete'=>fn(string $generation)=>$manager->bootstrapChild(['--bootstrap-complete',$generation,$inner,$encoded])['completion'],
         ]);
         return ['passed'=>true,'completion'=>$result['completion']];
@@ -95,7 +94,6 @@ class SystemRuntimeBootstrapService
 
     public function copySharedFiles(string $extract, array $manifest): void
     {
-        ProjectUpdateProcessGate::assertUpdateAllowed(root_path(),ProjectUpdateProcessGate::inspectUpdate(root_path(),$extract,$manifest));
         foreach((array)($manifest['full_replace_dirs']??[]) as $directory){
             if(!in_array($directory,['public/admin','public/platform','public/pc','public/_nuxt','public/media','public/mobile','public/mp-weixin','public/static'],true))throw new RuntimeException('自举覆盖目录无效');
             $this->remove(root_path().$directory);

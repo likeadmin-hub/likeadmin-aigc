@@ -220,7 +220,17 @@ if ($case === 'metadata-failure') {
     Db::execute("CREATE TRIGGER fixture_metadata_failure BEFORE UPDATE ON la_update_task FOR EACH ROW BEGIN IF NEW.action='apply' AND NEW.status='success' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture final metadata failure'; END IF; END");
 }
 $failure = null;
-try { $result = $service->apply($id); } catch (Throwable $e) { $failure = $e; }
+$liveWorker=null;$workerPipes=[];
+if($canonical && $case==='success'){
+    // Fake only an idle command identity + old reader lease, never run a queue.
+    $code='$site=dirname($argv[1]);$lease=fopen($site."/runtime/site-update.lock","c+");flock($lease,LOCK_SH);file_put_contents($site."/idle-worker-ready","1");while(!is_file($site."/idle-worker-exit"))usleep(10000);';
+    $liveWorker=proc_open([PHP_BINARY,'-r',$code,$site.'/think','ai:task-worker'],[0=>['file','/dev/null','r'],1=>['pipe','w'],2=>['pipe','w']],$workerPipes);
+    $deadline=microtime(true)+5;while(!is_file($site.'/idle-worker-ready')&&microtime(true)<$deadline)usleep(10000);
+    verify(is_file($site.'/idle-worker-ready'),'Idle worker lease did not start');
+    verify(($preflight['process_impact']['requires_stop']??true)===false && ($preflight['process_impact']['requires_restart']??false)===true,'System preflight still requires worker stop');
+}
+try { $result = $service->apply($id);if(is_resource($liveWorker))verify(proc_get_status($liveWorker)['running'],'Update terminated live worker'); } catch (Throwable $e) { $failure = $e; }
+finally{if(is_resource($liveWorker)){file_put_contents($site.'/idle-worker-exit','1');foreach($workerPipes as $pipe)fclose($pipe);proc_close($liveWorker);}}
 if ($case==='recovery412') {
     verify($failure && str_contains($failure->getMessage(),'新迁移不支持会话变量或动态 SQL'),'Original release did not reproduce OPC failure: '.($failure?->getMessage()??''));
     $failed=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply','status'=>'failed'])->order('id','desc')->find();
@@ -253,6 +263,9 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
     else verify($failure === null, 'Real apply failed: ' . ($failure?->getMessage() ?? ''));
     verify(Db::name('update_package')->where('id',$id)->value('status') === 'applied', 'Success package status not persisted');
     verify(Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->value('status') === 'success', 'Success task status not persisted');
+    $completion=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply'])->value('result_json');
+    $completion=is_string($completion)?json_decode($completion,true):$completion;
+    verify(($completion['restart_required']??false)===true,'Committed update lost its restart reminder');
     if($canonical||$migration){if($canonical)verify(!file_exists($site.'/.composer-runtime'),'Canonical update created snapshots');if(!getenv('FIXTURE_OFFICIAL_ARCHIVE'))verify(str_contains(file_get_contents($site.'/app/FixtureVersion.php'),'new'),'Canonical code not updated');}
     else {verify(file_get_contents($site . '/.composer-runtime/current.json') !== $pointer, 'Success pointer did not switch');verify(file_get_contents($site.'/app/FixtureVersion.php')===$original['app/FixtureVersion.php'],'Immutable apply changed canonical baseline code');}
     freshFixtureGeneration($site,$canonical||$migration);

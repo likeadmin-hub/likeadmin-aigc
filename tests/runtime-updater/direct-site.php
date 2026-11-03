@@ -55,8 +55,8 @@ put($site.'/public/admin/index.html','old shell');put($site.'/public/admin/obsol
 $front=$work.'/frontend';package($front,['files/public/admin/index.html'=>'new shell','files/public/admin/new.js'=>'new']);
 try{$d->apply($front,['version'=>'1.0.408','full_replace_dirs'=>['public/admin']],['watch_paths'=>['public/admin/index.html'],'complete'=>fn()=>throw new RuntimeException('reject'),'confirm'=>fn()=>null]);}catch(Throwable $e){}
 check(file_get_contents($site.'/public/admin/index.html')==='old shell'&&is_file($site.'/public/admin/obsolete.js')&&!file_exists($site.'/public/admin/new.js'),'Full frontend rollback overlapped its watched shell');
-$reader=Direct::acquireReader($site);$blocked=false;try{$d->apply($second,['version'=>'1.0.408'],[]);}catch(Throwable $e){$blocked=true;}finally{fclose($reader);}
-check($blocked,'Writer ignored an active canonical reader');
+$reader=Direct::acquireReader($site);try{$d->apply($second,['version'=>'1.0.408'],[]);}finally{fclose($reader);}
+check(file_get_contents($site.'/app/value.php')==='next','Ordinary reader vetoed an upgrade');
 
 $evil=$work.'/evil';package($evil,['files/.env'=>'stolen']);$rejected=false;try{$d->apply($evil,['version'=>'1.0.409'],[]);}catch(Throwable $e){$rejected=true;}
 check($rejected&&file_get_contents($site.'/.env')==='protected','Protected path was overwritten');
