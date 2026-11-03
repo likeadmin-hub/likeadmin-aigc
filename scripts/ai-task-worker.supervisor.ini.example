@@ -1,0 +1,18 @@
+; Replace both /absolute/site paths with the installed server root.
+; Baota's default 10 second, parent-only stop can orphan in-flight workers.
+[program:aigc-task-worker]
+command=/bin/sh /absolute/site/scripts/start-ai-task-worker.sh
+directory=/absolute/site
+user=root
+numprocs=1
+autostart=true
+autorestart=true
+startsecs=3
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=3600
+redirect_stderr=true
+stdout_logfile=/absolute/site/runtime/log/ai-task-supervisor.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=3

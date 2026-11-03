@@ -105,12 +105,19 @@ start_virtual_maintenance() {
     virtual_pid=$!
 }
 cleanup() {
-    trap - TERM INT EXIT
-    [ -z "$monitor_sleep" ] || kill -TERM "$monitor_sleep" 2>/dev/null || true
+    # Supervisor or an operator may send TERM again while a durable operation
+    # drains. Keep ownership of every child until it has actually exited.
+    trap '' TERM INT
+    trap - EXIT
+    if [ -n "$monitor_sleep" ]; then
+        kill -TERM "$monitor_sleep" 2>/dev/null || true
+        wait "$monitor_sleep" 2>/dev/null || true
+    fi
     [ -z "$virtual_pid" ] || kill -TERM "$virtual_pid" 2>/dev/null || true
     for pid in $pids; do kill -TERM "$pid" 2>/dev/null || true; done
     for pid in $pids; do wait "$pid" 2>/dev/null || true; done
     [ -z "$virtual_pid" ] || wait "$virtual_pid" 2>/dev/null || true
+    if [ "$(cat "$PID_FILE" 2>/dev/null || true)" = "$$" ]; then rm -f "$PID_FILE"; fi
 }
 trap 'exit 143' TERM
 trap 'exit 130' INT
