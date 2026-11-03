@@ -43,6 +43,7 @@ final class VirtualPayConfigService
     }
     public static function enabledFor(array $config,string $platform): bool
     {
+        $platform=VirtualPayPolicy::paymentPlatform($platform);
         $platforms=self::enabledPlatforms($config);
         // Old clients omit platform. Keep their existing virtual-only restriction until updated.
         return !in_array($platform,['ios','android'],true)?!empty($platforms):in_array($platform,$platforms,true);
@@ -52,7 +53,7 @@ final class VirtualPayConfigService
         VirtualPayPolicy::environment($env);$i=self::identity($tenant);
         $c=Db::name('virtual_pay_config')->where(['tenant_id'=>$tenant,'app_id'=>$i['app_id'],'env'=>$env,'enabled'=>1])->find();
         if(!$c)throw new \RuntimeException('当前小程序尚未启用虚拟支付');
-        if($platform!==null&&!in_array($platform,self::enabledPlatforms($c),true))throw new \RuntimeException('当前设备尚未启用虚拟支付，请重新选择支付方式');
+        if($platform!==null&&!in_array(VirtualPayPolicy::paymentPlatform($platform),self::enabledPlatforms($c),true))throw new \RuntimeException('当前设备尚未启用虚拟支付，请重新选择支付方式');
         return self::version($tenant,(int)$c['version_id']);
     }
     public static function detail(int $tenant,int $env): array
