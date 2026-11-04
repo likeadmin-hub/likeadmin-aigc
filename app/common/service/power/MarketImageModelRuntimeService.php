@@ -114,6 +114,10 @@ class MarketImageModelRuntimeService
                     'resolution' => $quality,
                     'ratio_options' => self::ratioOptions($locked, $meta, (string)($product['upstream_model_code'] ?? '')),
                     'locked_params' => $locked,
+                    'unavailable_parameters' => self::unavailableParameters(
+                        $meta['upstream_metadata']['model_code'] ?? $product['upstream_model_code'],
+                        $locked['resolution'] ?? $quality
+                    ),
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
                     'tenant_unit_price' => self::points((float)$market['tenant_price']),
                     'usage_unit' => (string)$sku['usage_unit'],
@@ -287,11 +291,17 @@ class MarketImageModelRuntimeService
     private static function applyBackgroundConstraint(array $snapshot, array $payload): array
     {
         $model = $snapshot['market_metadata']['upstream_metadata']['model_code'] ?? $snapshot['model_code'] ?? '';
-        // The official GPT Image 2 contract only accepts background at 1K.
-        if ($model === 'gpt-image-2-official' && in_array(strtoupper((string)($payload['resolution'] ?? '')), ['2K', '4K'], true)) {
-            unset($payload['background']);
+        foreach (self::unavailableParameters($model, $payload['resolution'] ?? '') as $field) {
+            unset($payload[$field]);
         }
         return $payload;
+    }
+
+    private static function unavailableParameters(string $model, mixed $resolution): array
+    {
+        // The official GPT Image 2 contract only accepts background at 1K.
+        return $model === 'gpt-image-2-official' && is_string($resolution) && in_array(strtoupper($resolution), ['2K', '4K'], true)
+            ? ['background'] : [];
     }
 
     private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
