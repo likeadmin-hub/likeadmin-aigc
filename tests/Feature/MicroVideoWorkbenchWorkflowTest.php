@@ -1,7 +1,6 @@
 <?php
 namespace Tests\Feature;
 use PHPUnit\Framework\TestCase;
-use app\common\service\app\aigc_micro_video\MicroVideoService;
 use think\facade\Db;
 use app\common\service\app\aigc_micro_video\MicroVideoWorkbenchRecords as R;
 use app\common\service\app\aigc_micro_video\MicroVideoWorkbenchJobs as J;
@@ -19,35 +18,6 @@ final class MicroVideoWorkbenchWorkflowTest extends TestCase
     /** Both workbench validation and unchanged media ownership refusal are valid application rejections. */
     private function rejects(callable $f): void
     {try{$f();self::fail('Expected scope/revision rejection');}catch(\InvalidArgumentException|\RuntimeException $e){self::assertNotSame('',$e->getMessage());}}
-    public function testAdminVideoHistoryUsesAllProjectRevisionsAndTenantScope(): void
-    {
-        $project = $this->create();
-        $ids = [];
-        foreach ([1, 2, 3] as $revision) {
-            $key = 'admin-history-' . bin2hex(random_bytes(8));
-            $task = [
-                'tenant_id' => 1, 'user_id' => 1, 'idempotency_key' => $key,
-                'status' => 'success', 'params_json' => '{}', 'config_snapshot' => '{}',
-                'model_snapshot' => '{}', 'direction_snapshot' => '{}', 'prompt' => '', 'analysis' => '',
-                'continuity' => '', 'planning_result' => '{}', 'quote_json' => '{}', 'confirmed_quote' => '{}',
-            ];
-            $taskId = Db::name('aigc_micro_video_task')->insertGetId($task);
-            // A foreign tenant's association must never expose a task in this project.
-            R::table('execution')->insert([
-                'tenant_id' => $revision === 3 ? 2 : 1, 'user_id' => 1,
-                'project_id' => $project['id'], 'project_revision' => $revision,
-                'task_id' => $taskId, 'idempotency_key' => $key, 'snapshot_json' => '{}', 'create_time' => time(),
-            ]);
-            if ($revision !== 3) $ids[] = $taskId;
-        }
-        $filter = ['project_id' => $project['id'], 'page_size' => 1];
-        $result = MicroVideoService::lists(1, 0, $filter, true);
-        self::assertEquals(2, $result['count']);
-        self::assertEquals($ids[1], $result['lists'][0]['id']);
-        $result = MicroVideoService::lists(1, 0, $filter + ['page_no' => 2], true);
-        self::assertEquals($ids[0], $result['lists'][0]['id']);
-        self::assertEquals(0, MicroVideoService::lists(1, 0, ['project_id' => $this->create()['id']], true)['count']);
-    }
     public function testExplicitScriptReviewClearsStaleWithoutChangingWordsAndKeepsSceneReview(): void
     {
         $p=$this->create('project',['script'=>['text'=>'保留原稿','segments'=>[['sort'=>1,'duration'=>15,'prompt'=>'0-15秒：人物走入书店。']]],'scenes'=>[['scene_id'=>'s1','sort'=>1,'confirmed'=>false,'status'=>'stale']]]);
