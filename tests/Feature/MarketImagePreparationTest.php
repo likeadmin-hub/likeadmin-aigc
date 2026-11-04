@@ -87,6 +87,7 @@ class MarketImagePreparationTest extends TestCase
     public function testBackgroundFollowsTheResolvedModelAndSku(string $publicModel, string $resolution, ?string $chosen, ?string $expected): void
     {
         $snapshot = $this->snapshot();
+        $snapshot['channel_code'] = 'official';
         $snapshot['market_metadata']['upstream_metadata'] = ['model_code' => $publicModel];
         $snapshot['market_metadata']['material_capabilities'] = ['modes' => [['code' => 'text_to_image', 'fields' => []]]];
         $snapshot['market_metadata']['params_schema'] = [
@@ -112,8 +113,22 @@ class MarketImagePreparationTest extends TestCase
             '1K explicit' => ['gpt-image-2-official', '1K', 'transparent', 'transparent'],
             '2K default' => ['gpt-image-2-official', '2K', null, null],
             '4K explicit' => ['gpt-image-2-official', '4K', 'opaque', null],
-            'other model' => ['gpt-image-2-5-flare', '2K', 'transparent', 'transparent'],
+            'Flare 2K' => ['gpt-image-2-5-flare', '2K', 'transparent', null],
+            'Sunburst 4K' => ['gpt-image-2-5-sunburst', '4K', null, null],
+            'other model' => ['gpt-image-1.5', '2K', 'transparent', 'transparent'],
         ];
+    }
+
+    public function testHighResolutionRatioRestrictionIncludesFrozenRequestsAndIsScopedToOfficialChannel(): void
+    {
+        $snapshot = $this->snapshot();
+        $snapshot['market_metadata']['upstream_metadata'] = ['model_code' => 'gpt-image-2-5-flare'];
+        $payload = ['resolution' => '4K', 'aspect_ratio' => '27:16', 'background' => 'transparent'];
+        $guard = new ReflectionMethod(Images::class, 'applyImageConstraints');
+        self::assertSame($payload, $guard->invoke(null, $snapshot, $payload));
+        $snapshot['channel_code'] = 'official';
+        $this->expectException(InvalidArgumentException::class);
+        $guard->invoke(null, $snapshot, $payload);
     }
 
     public function testRepeatedImageUsesArePreservedByTheLegacyImageCodec(): void

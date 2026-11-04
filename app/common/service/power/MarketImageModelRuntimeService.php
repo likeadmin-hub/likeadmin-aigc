@@ -101,6 +101,8 @@ class MarketImageModelRuntimeService
             $meta = self::metadata($product);
             $platformSkuCount = $catalogueSkus[(int)$product['id']]['platform_count'] ?? 0;
             $skus = [];
+            $officialModel = ($product['upstream_channel_code'] ?? '') === 'official'
+                ? ($meta['upstream_metadata']['model_code'] ?? $product['upstream_model_code']) : '';
             foreach ($catalogueSkus[(int)$product['id']]['available'] ?? [] as $market) {
                 $sku = $market['sku'];
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
@@ -112,12 +114,12 @@ class MarketImageModelRuntimeService
                     'quality' => $quality,
                     'quality_options' => self::skuQualityChoices($sku, $meta, $product),
                     'resolution' => $quality,
-                    'ratio_options' => self::ratioOptions($locked, $meta, (string)($product['upstream_model_code'] ?? '')),
+                    'ratio_options' => array_values(array_diff(
+                        self::ratioOptions($locked, $meta, (string)$product['upstream_model_code']),
+                        self::excludedRatios($officialModel, $locked['resolution'] ?? $quality)
+                    )),
                     'locked_params' => $locked,
-                    'unavailable_parameters' => self::unavailableParameters(
-                        $meta['upstream_metadata']['model_code'] ?? $product['upstream_model_code'],
-                        $locked['resolution'] ?? $quality
-                    ),
+                    'unavailable_parameters' => self::excludedRatios($officialModel, $locked['resolution'] ?? $quality) ? ['background'] : [],
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
                     'tenant_unit_price' => self::points((float)$market['tenant_price']),
                     'usage_unit' => (string)$sku['usage_unit'],
@@ -265,7 +267,7 @@ class MarketImageModelRuntimeService
             ? MarketGenerationMaterials::nativeMediaKinds($metadata,$request):[];
         $payload = self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt);
         $prepared = PreparedMarketGeneration::model(
-            self::applyBackgroundConstraint($snapshot, $payload),
+            self::applyImageConstraints($snapshot, $payload),
             $snapshot['billing_meter'] ?? null, [], $declaredKinds
         );
         $pixelMeter=(array)($snapshot['billing_meter']??[]);
@@ -288,20 +290,32 @@ class MarketImageModelRuntimeService
         return $prepared;
     }
 
-    private static function applyBackgroundConstraint(array $snapshot, array $payload): array
+    private static function applyImageConstraints(array $snapshot, array $payload): array
     {
+        if (($snapshot['channel_code'] ?? '') !== 'official') return $payload;
         $model = $snapshot['market_metadata']['upstream_metadata']['model_code'] ?? $snapshot['model_code'] ?? '';
-        foreach (self::unavailableParameters($model, $payload['resolution'] ?? '') as $field) {
-            unset($payload[$field]);
+        $resolution = $payload['resolution'] ?? $snapshot['locked_params']['resolution'] ?? '';
+        $excluded = self::excludedRatios($model, $resolution);
+        if ($excluded !== []) {
+            unset($payload['background']);
+            if (in_array($payload['aspect_ratio'] ?? '', $excluded, true)) {
+                throw new \InvalidArgumentException($resolution . ' 不支持所选图片比例 ' . $payload['aspect_ratio']);
+            }
         }
         return $payload;
     }
 
-    private static function unavailableParameters(string $model, mixed $resolution): array
+    /** Both generation modes of each official GPT model share these resolution restrictions. */
+    private static function excludedRatios(string $model, string $resolution): array
     {
-        // The official GPT Image 2 contract only accepts background at 1K.
-        return $model === 'gpt-image-2-official' && is_string($resolution) && in_array(strtoupper($resolution), ['2K', '4K'], true)
-            ? ['background'] : [];
+        $tier = strtoupper($resolution);
+        if (!in_array($tier, ['2K', '4K'], true)) return [];
+        return match ($model) {
+            'gpt-image-2-official' => $tier === '2K'
+                ? ['5:4', '4:5', '3:1', '1:3', '9:21'] : ['3:1', '1:3', '9:21'],
+            'gpt-image-2-5-flare', 'gpt-image-2-5-sunburst' => ['27:16', '16:27', '9:8', '8:9'],
+            default => [],
+        };
     }
 
     private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
@@ -428,7 +442,7 @@ class MarketImageModelRuntimeService
             }
             $payload = $frozenNative === null
                 ? self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput
-                : self::applyBackgroundConstraint($price, $frozenNative);
+                : self::applyImageConstraints($price, $frozenNative);
             if(self::requiresMeterReceipt($price)){$plan=MarketGenerationAdapterRegistry::transport($price,'submit');$submitUrl=self::origin().$plan['path'];}
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
