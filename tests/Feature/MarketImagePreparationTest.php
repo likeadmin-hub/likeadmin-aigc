@@ -119,6 +119,30 @@ class MarketImagePreparationTest extends TestCase
         ];
     }
 
+    public function testFrozenSubmissionsOmitBackgroundInBothTaskEnvelopeFormats(): void
+    {
+        $guard = new ReflectionMethod(Images::class, 'applyImageConstraints');
+        foreach (['gpt-image-2-official', 'gpt-image-2-5-flare', 'gpt-image-2-5-sunburst'] as $model) {
+            foreach (['text_to_image', 'image_to_image'] as $mode) {
+                foreach (['1K', '2K', '4K'] as $resolution) {
+                    $snapshot = $this->snapshot();
+                    $snapshot['channel_code'] = 'official';
+                    $snapshot['market_metadata']['upstream_metadata'] = ['model_code'=>$model];
+                    $native = ['resolution'=>$resolution, 'generation_type'=>$mode, 'background'=>'transparent'];
+                    foreach ([$native, ['background'=>'opaque', 'params'=>$native]] as $payload) {
+                        $out = json_decode(json_encode($guard->invoke(null, $snapshot, $payload), JSON_THROW_ON_ERROR), true);
+                        if ($resolution === '1K') {
+                            self::assertSame($payload, $out);
+                        } else {
+                            self::assertArrayNotHasKey('background', $out);
+                            self::assertArrayNotHasKey('background', $out['params'] ?? []);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public function testHighResolutionRatioRestrictionIncludesFrozenRequestsAndIsScopedToOfficialChannel(): void
     {
         $snapshot = $this->snapshot();
