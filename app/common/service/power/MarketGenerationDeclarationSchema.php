@@ -30,7 +30,19 @@ final class MarketGenerationDeclarationSchema
                 $definition['items']=$item;unset($definition['children']);
             } elseif ($type==='object' && !array_is_list($children) && count(array_filter($children,'is_array'))===count($children)) {
                 $properties=[];foreach($children as $name=>$child)$properties[$name]=self::node($child);
-                if (isset($definition['properties']) && self::expand($definition['properties'])!==$properties) throw new InvalidArgumentException('对象子结构声明冲突');
+                if (isset($definition['properties'])) {
+                    $declared = self::expand($definition['properties']);
+                    $required = (array)($definition['required'] ?? []);
+                    foreach ($properties as $name => &$child) {
+                        // The catalogue repeats JSON Schema's parent-level required list as child flags.
+                        if (is_bool($child['required'] ?? null) && isset($declared[$name]) && !isset($declared[$name]['required'])
+                            && $child['required'] === in_array($name, $required, true)) {
+                            unset($child['required']);
+                        }
+                    }
+                    unset($child);
+                    if ($declared !== $properties) throw new InvalidArgumentException('对象子结构声明冲突');
+                }
                 $definition['properties']=$properties;unset($definition['children']);
             }
         }

@@ -83,6 +83,78 @@ class MarketImagePreparationTest extends TestCase
         $method->invoke(null, $this->market(), array_replace($this->request(), ['quality' => '8k']));
     }
 
+    /** @dataProvider backgroundCases */
+    public function testBackgroundFollowsTheResolvedModelAndSku(string $publicModel, string $resolution, ?string $chosen, ?string $expected): void
+    {
+        $snapshot = $this->snapshot();
+        $snapshot['channel_code'] = 'official';
+        $snapshot['market_metadata']['upstream_metadata'] = ['model_code' => $publicModel];
+        $snapshot['market_metadata']['material_capabilities'] = ['modes' => [['code' => 'text_to_image', 'fields' => []]]];
+        $snapshot['market_metadata']['params_schema'] = [
+            'prompt' => ['type' => 'string', 'required' => true],
+            'resolution' => ['type' => 'string', 'enum' => ['1K', '2K', '4K']],
+            'background' => ['type' => 'string', 'default' => 'opaque', 'enum' => ['opaque', 'transparent', 'auto']],
+        ];
+        $snapshot['locked_params'] = ['resolution' => $resolution];
+        $request = ['prompt' => 'A paper boat', 'provider_params' => $chosen === null ? [] : ['background' => $chosen]];
+        $body = Images::prepareRequest($snapshot, $request)->nativeInput;
+        self::assertSame($resolution, $body['resolution']);
+        if ($expected === null) {
+            self::assertArrayNotHasKey('background', $body);
+        } else {
+            self::assertSame($expected, $body['background']);
+        }
+    }
+
+    public static function backgroundCases(): array
+    {
+        return [
+            '1K default' => ['gpt-image-2-official', '1K', null, 'opaque'],
+            '1K explicit' => ['gpt-image-2-official', '1K', 'transparent', 'transparent'],
+            '2K default' => ['gpt-image-2-official', '2K', null, null],
+            '4K explicit' => ['gpt-image-2-official', '4K', 'opaque', null],
+            'Flare 2K' => ['gpt-image-2-5-flare', '2K', 'transparent', null],
+            'Sunburst 4K' => ['gpt-image-2-5-sunburst', '4K', null, null],
+            'other model' => ['gpt-image-1.5', '2K', 'transparent', 'transparent'],
+        ];
+    }
+
+    public function testFrozenSubmissionsOmitBackgroundInBothTaskEnvelopeFormats(): void
+    {
+        $guard = new ReflectionMethod(Images::class, 'applyImageConstraints');
+        foreach (['gpt-image-2-official', 'gpt-image-2-5-flare', 'gpt-image-2-5-sunburst'] as $model) {
+            foreach (['text_to_image', 'image_to_image'] as $mode) {
+                foreach (['1K', '2K', '4K'] as $resolution) {
+                    $snapshot = $this->snapshot();
+                    $snapshot['channel_code'] = 'official';
+                    $snapshot['market_metadata']['upstream_metadata'] = ['model_code'=>$model];
+                    $native = ['resolution'=>$resolution, 'generation_type'=>$mode, 'background'=>'transparent'];
+                    foreach ([$native, ['background'=>'opaque', 'params'=>$native]] as $payload) {
+                        $out = json_decode(json_encode($guard->invoke(null, $snapshot, $payload), JSON_THROW_ON_ERROR), true);
+                        if ($resolution === '1K') {
+                            self::assertSame($payload, $out);
+                        } else {
+                            self::assertArrayNotHasKey('background', $out);
+                            self::assertArrayNotHasKey('background', $out['params'] ?? []);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public function testHighResolutionRatioRestrictionIncludesFrozenRequestsAndIsScopedToOfficialChannel(): void
+    {
+        $snapshot = $this->snapshot();
+        $snapshot['market_metadata']['upstream_metadata'] = ['model_code' => 'gpt-image-2-5-flare'];
+        $payload = ['resolution' => '4K', 'aspect_ratio' => '27:16', 'background' => 'transparent'];
+        $guard = new ReflectionMethod(Images::class, 'applyImageConstraints');
+        self::assertSame($payload, $guard->invoke(null, $snapshot, $payload));
+        $snapshot['channel_code'] = 'official';
+        $this->expectException(InvalidArgumentException::class);
+        $guard->invoke(null, $snapshot, $payload);
+    }
+
     public function testRepeatedImageUsesArePreservedByTheLegacyImageCodec(): void
     {
         $request=$this->request();

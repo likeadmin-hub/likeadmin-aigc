@@ -1,0 +1,49 @@
+--- a/server/app/common/service/ai/official/OfficialRequestService.php
++++ b/server/app/common/service/ai/official/OfficialRequestService.php
+@@ -26,8 +26,26 @@
+                 $out[$key]=$def['default'];
+             }
+         }
++        if (self::excludedImageRatios($profile['source_model'], $out['resolution'] ?? '') !== []) {
++            unset($out['background']);
++        }
++        if (in_array($profile['source_model'], ['wan/2-7-image', 'wan/2-7-image-pro'], true)
++            && (!empty($out['input_urls']) || !empty($out['enable_sequential']))) {
++            unset($out['thinking_mode']);
++        }
+         if(str_starts_with($profile['source_model'],'pixverse-v6-max/')&&isset($out['quality'])&&is_string($out['quality']))$out['quality']=strtolower($out['quality']);
+         return $out;
++    }
++    public static function excludedImageRatios(string $source, mixed $resolution): array
++    {
++        if (!in_array($resolution, ['2K', '4K'], true)) return [];
++        return match ($source) {
++            'gpt-image-2-text-to-image', 'gpt-image-2-image-to-image' => $resolution === '2K'
++                ? ['5:4', '4:5', '3:1', '1:3', '9:21'] : ['3:1', '1:3', '9:21'],
++            'gpt-image-2-5-flare-text-to-image', 'gpt-image-2-5-flare-image-to-image',
++            'gpt-image-2-5-sunburst-text-to-image', 'gpt-image-2-5-sunburst-image-to-image' => ['27:16', '16:27', '9:8', '8:9'],
++            default => [],
++        };
+     }
+     public static function build(array $profile,array $params):array
+     {
+--- a/server/app/common/service/ai/official/OfficialMaterialContractService.php
++++ b/server/app/common/service/ai/official/OfficialMaterialContractService.php
+@@ -152,6 +152,17 @@
+     public static function errors(array $p,array $input,?callable $probe=null,array $facts=[]):array
+     {
+         $errors=[];
++        $source = $p['source_model'];
++        if (in_array($input['aspect_ratio'] ?? '', OfficialRequestService::excludedImageRatios($source, $input['resolution'] ?? ''), true)) {
++            $errors[] = '当前分辨率不支持所选图片比例';
++        }
++        if ($source === 'wan/2-7-image-pro' && ($input['resolution'] ?? '') === '4K'
++            && (!empty($input['input_urls']) || !empty($input['enable_sequential']))) {
++            $errors[] = '4K 仅支持无参考图的单图生成';
++        }
++        if ($source === 'grok-imagine/image-to-video' && ($input['mode'] ?? '') === 'spicy' && !empty($input['image_urls'])) {
++            $errors[] = '外部参考图不支持 spicy 模式';
++        }
+         foreach(self::rules($p) as $r){
+             $active=true;
+             foreach($r['when']??[] as $k=>$v)if(($input[$k]??null)!==$v)$active=false;

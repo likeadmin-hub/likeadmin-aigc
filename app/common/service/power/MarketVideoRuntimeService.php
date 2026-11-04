@@ -162,6 +162,8 @@ class MarketVideoRuntimeService
                 'description' => self::productDescription($product, $metadata),
                 'display_icon' => (string)($product['display_icon'] ?? ''),
                 'model_code' => (string)$product['upstream_model_code'],
+                'official_parameter_model' => $product['upstream_channel_code'] === 'official'
+                    && ($metadata['upstream_metadata']['model_code'] ?? '') === 'grok-imagine-video' ? 'grok-imagine-video' : '',
                 'channel_code' => (string)$product['upstream_channel_code'],
                 'app_code' => (string)$product['upstream_app_code'],
                 'api_code' => (string)$product['upstream_api_code'],
@@ -1192,6 +1194,11 @@ class MarketVideoRuntimeService
             MarketGenerationAdapterRegistry::modelProtocol('video', $snapshot);
             $payload = self::modelPayload($snapshot, $request, $idempotency);
             if (MarketGenerationMaterials::modes(MarketGenerationRequest::metadata($snapshot)) === []) $payload = MarketGenerationRequest::normalizeLegacyPayload($snapshot, $payload, $request);
+            $publicModel = $snapshot['market_metadata']['upstream_metadata']['model_code'] ?? $snapshot['model_code'] ?? '';
+            if (($snapshot['channel_code'] ?? '') === 'official' && $publicModel === 'grok-imagine-video'
+                && ($payload['mode'] ?? '') === 'spicy' && !empty($payload['image_urls'])) {
+                throw new \InvalidArgumentException('Grok 使用外部参考图时不支持 spicy 模式');
+            }
             MarketGenerationReviewedContract::validatePayload($snapshot,$request,$payload);
             $prepared = PreparedMarketGeneration::model($payload, $meter, $request);
         } else {

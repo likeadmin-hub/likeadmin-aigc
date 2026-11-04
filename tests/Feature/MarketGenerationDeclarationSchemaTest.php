@@ -29,6 +29,19 @@ class MarketGenerationDeclarationSchemaTest extends TestCase
         self::assertSame(['urls[]'],Review::incomplete(Declaration::expand($raw)));
         self::assertSame(['urls[]'],Review::incomplete(Declaration::expand(['urls'=>['type'=>'array','example'=>['text']]])));
     }
+    public function testEquivalentChildFlagsUseTheParentRequiredList(): void
+    {
+        $field = ['type'=>'string'];
+        $schema = ['type'=>'object', 'required'=>['name'], 'properties'=>['name'=>$field,'tag'=>$field],
+            'children'=>['name'=>$field + ['required'=>true], 'tag'=>$field + ['required'=>false]]];
+        $expanded = Declaration::expand($schema);
+        self::assertSame($schema['properties'], $expanded['properties']);
+        self::assertSame(['name'], $expanded['required']);
+        $schema['children']['tag']['required'] = true;
+        $this->expectException(\InvalidArgumentException::class);
+        Declaration::expand($schema);
+    }
+
     public function testConflictingChildrenAndItemsAreRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
