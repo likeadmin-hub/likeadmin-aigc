@@ -31,6 +31,11 @@ function generatedRun(mode) {
     exports.upload = async options => {
       fs.writeFileSync(process.env.CI_TEST_MARKER, 'called');
       if (process.env.CI_TEST_MODE === 'success' && options.threads !== 1) throw new Error('unsafe compiler concurrency');
+      if (process.env.CI_TEST_MODE === 'success') {
+        if (!options.setting?.useProjectConfig || !options.setting?.es6 || !options.setting?.es7) {
+          throw new Error('upload must compile modern JavaScript using the artifact project settings');
+        }
+      }
       if (process.env.CI_TEST_MODE === 'upload-fail') {
         setInterval(() => {}, 1000);
         throw Object.assign(new Error('provider rejected upload'), {errCode: 41001});
@@ -72,6 +77,17 @@ test('provider rejection exits promptly even when the SDK leaves handles open', 
   assert.equal(r.status, 1, r.stderr)
   assert.match(r.stderr, /provider rejected upload/)
   assert.equal(r.cleaned, true)
+})
+
+test('Chinese provider diagnostics stay intact and JSON serializable', () => {
+  const code = service + `\n$m = new \\ReflectionMethod(\\app\\common\\service\\wechat\\OpenPlatformService::class, 'manualUploadFailure');
+    $m->setAccessible(true);
+    $result = $m->invoke(null, "progress\\n微信小程序代码上传失败：小程序入口语法错误", 'npm install -g miniprogram-ci');
+    echo json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);`;
+  const result = JSON.parse(php(code));
+  assert.equal(result.success, false);
+  assert.equal(result.error_summary, '小程序入口语法错误');
+  assert.match(result.output, /小程序入口语法错误/);
 })
 
 function controllerResult(result) {
