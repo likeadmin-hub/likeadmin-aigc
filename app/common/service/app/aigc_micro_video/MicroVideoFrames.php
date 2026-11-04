@@ -23,8 +23,13 @@ final class MicroVideoFrames
         $values=['generation_mode'=>$mode,'frame_status'=>$mode==='reference'?'off':'idle'];$frameLimit=0;
         if($mode==='start_end'){
             if(empty($c['frames_enabled'])||empty($model['supports_first_last_frame'])||empty($model['start_end_specs']))throw new InvalidArgumentException('当前模型暂不支持首尾帧');
-            $frameModel=(string)($p['frame_model_id']??$task['frame_model_id']?:$c['default_frame_model_id']);MicroVideoPolicy::allowedModel($frameModel,$c['frame_model_ids']);$m=MicroVideoFrameCatalog::model($tenant,$frameModel);
-            $quality=(string)($p['frame_quality']??$task['frame_quality']?:$c['default_frame_quality']);MicroVideoFrameCatalog::selection($m,$quality,$params['ratio']);
+            $choices = MicroVideoModelOptions::images(MicroVideoFrameCatalog::models($tenant), $c, 2);
+            $m = MicroVideoModelOptions::pick($choices, (string)($p['frame_model_id'] ?? $task['frame_model_id']), $c['default_frame_model_id']);
+            if (!$m) throw new InvalidArgumentException('暂无可用的首尾帧图片模型');
+            foreach (MicroVideoStore::segments($id) as $segment) MicroVideoCatalog::spec($model, $params['quality'], $params['ratio'], (int)$segment['duration'], 'start_end');
+            $frameModel = $m['id'];
+            $spec = MicroVideoModelOptions::defaultSpec($m, $c['default_frame_quality'], $params['ratio']);
+            $quality = (string)($p['frame_quality'] ?? ($task['frame_model_id'] === $frameModel ? $task['frame_quality'] : $spec['quality']));MicroVideoFrameCatalog::selection($m,$quality,$params['ratio']);
             $frameLimit=(int)$m['max_reference_images'];$values+=['frame_model_id'=>$frameModel,'frame_quality'=>$quality];
         }
         Db::transaction(function()use($tenant,$user,$id,$p,$values,$frameLimit){$task=MicroVideoStore::owned($tenant,$user,$id,true);self::editable($task,$p);$rows=self::rows($id);$changed=$task['generation_mode']!==$values['generation_mode']||($values['generation_mode']==='start_end'&&($task['frame_model_id']!==$values['frame_model_id']||$task['frame_quality']!==$values['frame_quality']));if(!$changed&&$rows)return;
@@ -66,7 +71,7 @@ final class MicroVideoFrames
     }
     private static function quote(array $task,?array $ids): array
     {
-        $tenant=(int)$task['tenant_id'];$c=MicroVideoSettings::get($tenant);if(empty($c['frames_enabled'])||$task['generation_mode']!=='start_end')throw new InvalidArgumentException('请先启用首尾帧方式');MicroVideoPolicy::allowedModel($task['frame_model_id'],$c['frame_model_ids']);$m=MicroVideoFrameCatalog::model($tenant,$task['frame_model_id']);$params=MicroVideoStore::json($task['params_json']);$selection=MicroVideoFrameCatalog::selection($m,$task['frame_quality'],$params['ratio']);$frames=self::rows((int)$task['id']);$selected=self::selected($frames,$ids);$byIndex=array_column($frames,null,'boundary_index');$selectedIds=array_map('intval',array_column($selected,'id'));foreach($selected as $f){$i=(int)$f['boundary_index'];if($i>0&&($byIndex[$i-1]['status']??'')!=='success'&&!in_array((int)($byIndex[$i-1]['id']??0),$selectedIds,true))throw new InvalidArgumentException('请同时选择尚未完成的前序连续性锚图');}
+        $tenant=(int)$task['tenant_id'];$c=MicroVideoSettings::get($tenant);if(empty($c['frames_enabled'])||$task['generation_mode']!=='start_end')throw new InvalidArgumentException('请先启用首尾帧方式');$m=MicroVideoModelOptions::pick(MicroVideoModelOptions::images(MicroVideoFrameCatalog::models($tenant),$c,2),$task['frame_model_id'],'');$params=MicroVideoStore::json($task['params_json']);$selection=MicroVideoFrameCatalog::selection($m,$task['frame_quality'],$params['ratio']);$frames=self::rows((int)$task['id']);$selected=self::selected($frames,$ids);$byIndex=array_column($frames,null,'boundary_index');$selectedIds=array_map('intval',array_column($selected,'id'));foreach($selected as $f){$i=(int)$f['boundary_index'];if($i>0&&($byIndex[$i-1]['status']??'')!=='success'&&!in_array((int)($byIndex[$i-1]['id']??0),$selectedIds,true))throw new InvalidArgumentException('请同时选择尚未完成的前序连续性锚图');}
         $minimum=min(array_column($selected,'boundary_index'));$selectedIndices=array_map('intval',array_column($selected,'boundary_index'));foreach($selected as $f)for($i=(int)$minimum;$i<(int)$f['boundary_index'];$i++)if(!in_array($i,$selectedIndices,true))throw new InvalidArgumentException('生成多张帧图时请包含它们之间的连续性锚图');
         $images=MicroVideoMedia::validateImages($tenant,(int)$task['user_id'],$params['images'],15);$segments=MicroVideoStore::segments((int)$task['id']);$config=MicroVideoStore::json($task['config_snapshot']);$inputs=[];
         foreach($selected as $f){

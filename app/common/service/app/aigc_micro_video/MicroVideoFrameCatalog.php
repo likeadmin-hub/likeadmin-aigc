@@ -4,11 +4,12 @@ use app\common\service\power\MarketImageModelRuntimeService as R;
 use InvalidArgumentException;
 final class MicroVideoFrameCatalog
 {
-    public static function models(int $tenant): array
+    public static function models(int $tenant, int $minimumReferences = 2): array
     {
         $out=[];
         foreach(R::options($tenant) as $m){
-            if(empty($m['available'])||empty($m['supports_reference_images'])||(int)$m['max_reference_images']<2)continue;
+            $limit = !empty($m['supports_reference_images']) ? (int)$m['max_reference_images'] : 0;
+            if (empty($m['available']) || $limit < $minimumReferences) continue;
             $specs=[];
             foreach($m['skus'] as $s){
                 if(($s['settlement_mode']??'')!=='reserved')continue;
