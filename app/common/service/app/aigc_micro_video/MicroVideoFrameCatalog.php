@@ -19,7 +19,7 @@ final class MicroVideoFrameCatalog
                     if(!is_string($ratio)||$ratio===''||in_array(strtolower($ratio),['adaptive','auto','original'],true))continue;
                     // The shared catalogue batches live SKU availability and tenant retail prices.
                     // This is advisory display data; exact quote/reserve still validate live selections.
-                    foreach ($s['quality_options'] ?: [$s['quality']] as $quality) {
+                    foreach (($s['quality_options'] ?? []) ?: [$s['quality']] as $quality) {
                         $specs[] = ['quality'=>$quality, 'ratio'=>$ratio, 'market_sku_id'=>(int)$s['market_sku_id'],
                             'reference_counts'=>$counts, 'user_charge_points'=>round((float)$s['tenant_unit_price'], 4)];
                     }

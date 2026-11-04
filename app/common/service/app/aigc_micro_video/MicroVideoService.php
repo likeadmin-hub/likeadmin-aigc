@@ -53,25 +53,26 @@ final class MicroVideoService
         return Db::transaction(function()use($tenant,$user,$prepared,$key,$status){
             $row=MicroVideoStore::table('task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key])->find();
             if($row){if(MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(MicroVideoStore::json($row['params_json'])))!==MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams($prepared['params'])))throw new InvalidArgumentException('请求已用于其他创作内容，请使用新请求标识');return $row;}
+            if ($status === 'planning' || $status === 'prompt_draft') {
+                $prepared['config'] = self::classicModels($tenant, $prepared['config']);
+            }
             $now=time();$p=$prepared['params'];$data=['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key,'title'=>mb_substr($p['theme']?:$p['prompt'],0,80),'status'=>$status,'params_json'=>MicroVideoStore::encode($p),'config_snapshot'=>MicroVideoStore::encode($prepared['config']+['shot_timeline_version'=>1,'frame_feature_version'=>1,'content_planning_version'=>3]),'model_snapshot'=>MicroVideoStore::encode($prepared['model']),'direction_snapshot'=>MicroVideoStore::encode($prepared['direction']),'prompt'=>$p['prompt'],'analysis'=>'','continuity'=>'','planning_result'=>'{}','quote_json'=>'{}','confirmed_quote'=>'{}','next_run_at'=>$now,'create_time'=>$now,'update_time'=>$now];
             $id=MicroVideoStore::table('task')->insertGetId($data);return MicroVideoStore::owned($tenant,$user,$id);
         });
     }
-    private static function classicForm(int $tenant, int $user, array $params): array
+    private static function classicModels(int $tenant, array $config): array
     {
-        $prepared = self::form($tenant, $user, $params);
         $groups = array_column(MarketTextModelRuntimeService::modelGroups($tenant), null, 'key');
-        foreach (['vision_model_id'=>true, 'script_model_id'=>false] as $key => $vision) {
-            $group = $vision ? 'vision_describe' : 'script_plan';
-            $model = MicroVideoModelOptions::pick($groups[$group]['options'], '', $prepared['config'][$key]);
-            if (!$model) throw new InvalidArgumentException($vision ? '暂无可用的视觉文本模型' : '暂无可用的脚本模型');
-            $prepared['config'][$key] = $model['id'];
+        foreach (['vision_model_id'=>'vision_describe', 'script_model_id'=>'script_plan'] as $key => $group) {
+            $model = MicroVideoModelOptions::pick($groups[$group]['options'], '', $config[$key]);
+            if (!$model) throw new InvalidArgumentException($group === 'vision_describe' ? '暂无可用的视觉文本模型' : '暂无可用的脚本模型');
+            $config[$key] = (string)$model['id'];
         }
-        return $prepared;
+        return $config;
     }
     public static function writePrompt(int $tenant,int $user,array $p): array
     {
-        $prepared=self::classicForm($tenant,$user,$p);$row=self::createDraft($tenant,$user,$prepared,'prompt:'.self::key($p),'prompt_draft');
+        $prepared=self::form($tenant,$user,$p);$row=self::createDraft($tenant,$user,$prepared,'prompt:'.self::key($p),'prompt_draft');
         $lock=fopen(runtime_path().'micro_prompt_'.$row['id'].'.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))throw new InvalidArgumentException('提示词正在编写，请稍后查看');
         try{
             $images=MicroVideoMedia::validateImages($tenant,$user,$prepared['params']['images'],$prepared['config']['max_images']);
@@ -93,9 +94,9 @@ final class MicroVideoService
     }
     public static function createPlan(int $tenant,int $user,array $p): array
     {
-        $prepared=self::classicForm($tenant,$user,$p);$row=self::createDraft($tenant,$user,$prepared,'plan:'.self::key($p),'planning');
+        $prepared=self::form($tenant,$user,$p);$row=self::createDraft($tenant,$user,$prepared,'plan:'.self::key($p),'planning');
         if((int)($p['draft_id']??0)>0&&$row['analysis']===''){
-            $source=MicroVideoStore::owned($tenant,$user,(int)$p['draft_id']);$old=MicroVideoStore::json($source['params_json']);$new=$prepared['params'];$oldConfig=MicroVideoStore::json($source['config_snapshot']);
+            $source=MicroVideoStore::owned($tenant,$user,(int)$p['draft_id']);$old=MicroVideoStore::json($source['params_json']);$new=$prepared['params'];$oldConfig=MicroVideoStore::json($source['config_snapshot']);$prepared['config']=MicroVideoStore::json($row['config_snapshot']);
             if(MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(['images'=>$old['images']??[]]))===MicroVideoPolicy::fingerprint(MicroVideoPolicy::stableParams(['images'=>$new['images']]))&&($oldConfig['vision_model_id']??'')===$prepared['config']['vision_model_id']&&($oldConfig['analysis_template']??'')===$prepared['config']['analysis_template'])MicroVideoStore::update((int)$row['id'],['analysis'=>$source['analysis']]);
         }
         return self::detail($tenant,$user,(int)$row['id']);
