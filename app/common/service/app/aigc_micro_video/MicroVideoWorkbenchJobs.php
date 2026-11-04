@@ -42,17 +42,26 @@ final class MicroVideoWorkbenchJobs
         $request=['project_id'=>(int)$project['id'],'project_revision'=>(int)$project['revision'],'action'=>$action,'target_id'=>$target,'instructions'=>$instructions];
         if(str_ends_with($action,'_image')){
             $items=(array)($body[$action==='role_image'?'roles':'scenes']??[]);$key=$action==='role_image'?'role_id':'scene_id';$item=null;foreach($items as $v)if(($v[$key]??'')===$target)$item=$v;if(!$item)throw new InvalidArgumentException('请选择当前项目中的角色或分镜');
-            $config=MicroVideoSettings::get($tenant);$model=MicroVideoFrameCatalog::model($tenant,(string)($selection['model_id']??$config['default_frame_model_id']));if(!in_array($model['id'],(array)$config['frame_model_ids'],true))throw new InvalidArgumentException('请先在应用配置开放此图片模型');
-            $selection=MicroVideoFrameCatalog::selection($model,(string)($selection['quality']??$config['default_frame_quality']),(string)($selection['ratio']??$body['ratio']??'9:16'));
             $refs=(array)($item['images']??[]);if($action==='scene_image'){
                 $roleMap=array_column((array)($body['roles']??[]),null,'role_id');foreach((array)($item['role_ids']??[]) as $rid){$role=$roleMap[$rid]??null;if(!$role)throw new InvalidArgumentException('分镜角色引用已变化');if(!empty($role['fixed_identity'])&&empty($role['images']))throw new InvalidArgumentException('请先为需固定身份的角色绑定参考图');$refs=array_merge($refs,(array)($role['images']??[]));}
                 if(!empty($item['product_visible'])){$product=(array)($body['product_snapshot']['body']['images']??[]);if(!$product)throw new InvalidArgumentException('该分镜出现商品，请先添加真实商品图片');$refs=array_merge($refs,$product);}
             }
-            $refs=self::uniqueImages($refs);if(count($refs)>(int)$model['max_reference_images'])throw new InvalidArgumentException('本次角色与商品参考图超过模型上限，请调整分镜或更换模型，图片不会被静默丢弃');
+            $refs = self::uniqueImages($refs);
+            $config = MicroVideoSettings::get($tenant);
+            $choices = MicroVideoModelOptions::images(MicroVideoFrameCatalog::models($tenant, 0), $config, count($refs));
+            $choices = MicroVideoFrameCatalog::compatible($choices, [count($refs)]);
+            $model = MicroVideoModelOptions::pick($choices, (string)($selection['model_id'] ?? ''), $config['default_frame_model_id']);
+            if (!$model) throw new InvalidArgumentException('暂无支持本次参考图数量的生图模型');
+            $spec = MicroVideoModelOptions::defaultSpec($model, $config['default_frame_quality'], $body['ratio'] ?? '9:16');
+            $selection = MicroVideoFrameCatalog::selection($model, $selection['quality'] ?? $spec['quality'], $selection['ratio'] ?? $spec['ratio']);
             $refs=MicroVideoMedia::validateImages($tenant,$user,$refs,15);$request+=['selection'=>$selection,'images'=>$refs,'prompt'=>'生成一张'.($action==='role_image'?'角色定妆照':'剧情场景剧照').'。保持参考图的身份、服饰及商品结构，不添加未经确认的文字或功效。'.MicroVideoStore::encode($item).'\n商品事实：'.MicroVideoStore::encode($body['product_snapshot']??[]).'\n补充：'.$instructions];
             $quote=MicroVideoFrameCatalog::quote($tenant,$selection,self::imageRequest($request));$quote['approximate']=false;
         }else{
-            $config=MicroVideoSettings::get($tenant);$modelId=(string)($selection['model_id']??$config['script_model_id']);if($modelId==='')throw new InvalidArgumentException('请先在应用配置选择剧本规划模型');$model=Text::resolveModel($tenant,$modelId);$selection=['model_id'=>$model['id']];
+            $config=MicroVideoSettings::get($tenant);
+            $choice = MicroVideoModelOptions::pick(Text::textOptions($tenant), (string)($selection['model_id'] ?? ''), $config['script_model_id']);
+            if (!$choice) throw new InvalidArgumentException('暂无可用的文本模型');
+            $model = Text::resolveModel($tenant, $choice['id']);
+            $selection=['model_id'=>$model['id']];
             $request['continuity']=(string)($body['script']['continuity']??$body['template_snapshot']['body']['reference_rules']??MicroVideoSettings::defaults()['continuity_template']);
             $planning=null;
             if($action==='rewrite'&&!empty($body['model_id'])){$f=MicroVideoService::form($tenant,$user,['model_id'=>$body['model_id'],'quality'=>$body['quality']??$config['default_quality'],'ratio'=>$body['ratio']??'9:16','target_duration'=>$body['target_duration']??$body['brief']['target_duration']??30,'mode'=>'prompt','prompt'=>(string)($body['script']['text']??'')],false,MicroVideoService::workbenchTargetDurations($body));$planning=MicroVideoContentPlanning::contract($f['params'],array_column(MicroVideoCatalog::specs($f['model'],$f['params']['quality'],$f['params']['ratio']),'duration'),(int)$config['max_segments'],3);$planning['output_schema']['segments'][0]['image_indices']=[];$planning['image_reference_contract']=MicroVideoGeneratedReferences::contract($body);$planning['requirements'].=$planning['image_reference_contract']['requirements'];$request['planning_contract']=$planning;$request['video_reference_limit']=(int)$f['model']['max_reference_images'];}
