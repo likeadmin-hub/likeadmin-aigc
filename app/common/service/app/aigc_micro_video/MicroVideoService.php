@@ -271,6 +271,12 @@ final class MicroVideoService
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
         $q=MicroVideoStore::table('task')->where(['tenant_id'=>$tenant,'delete_time'=>0])->whereNotIn('status',['prompt_draft','prompt_ready']);if(!$admin)$q->where('user_id',$user);
+        if ($admin && isset($p['project_id']) && $p['project_id'] !== '') {
+            $executions = MicroVideoWorkbenchRecords::table('execution')
+                ->where(['tenant_id' => $tenant, 'project_id' => (int)$p['project_id']])
+                ->field('task_id')->buildSql();
+            $q->whereIn('id', Db::raw($executions));
+        }
         if(!empty($p['status']))$q->where('status',(string)$p['status']);
         if($admin&&!empty($p['user_keyword'])){$word=trim((string)$p['user_keyword']);$users=Db::name('user')->where('tenant_id',$tenant)->whereLike('account|nickname','%'.$word.'%')->column('id');if(ctype_digit($word))$users[]=(int)$word;$q->whereIn('user_id',$users?:[0]);}
         $count=(clone $q)->count();$ids=$q->order('id','desc')->page(max(1,(int)($p['page_no']??$p['page']??1)),max(1,min(50,(int)($p['page_size']??20))))->column('id');
