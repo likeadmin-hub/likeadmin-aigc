@@ -49,6 +49,7 @@ final class MicroVideoWorkbenchJobs
             $refs = self::uniqueImages($refs);
             $config = MicroVideoSettings::get($tenant);
             $choices = MicroVideoModelOptions::images(MicroVideoFrameCatalog::models($tenant, 0), $config, count($refs));
+            $choices = MicroVideoFrameCatalog::compatible($choices, [count($refs)]);
             $model = MicroVideoModelOptions::pick($choices, (string)($selection['model_id'] ?? ''), $config['default_frame_model_id']);
             if (!$model) throw new InvalidArgumentException('暂无支持本次参考图数量的生图模型');
             $spec = MicroVideoModelOptions::defaultSpec($model, $config['default_frame_quality'], $body['ratio'] ?? '9:16');
