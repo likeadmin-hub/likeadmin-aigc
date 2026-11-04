@@ -259,8 +259,9 @@ class MarketImageModelRuntimeService
         }
         $declaredKinds=($snapshot['media_meter_revision']??0)===1
             ? MarketGenerationMaterials::nativeMediaKinds($metadata,$request):[];
+        $payload = self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt);
         $prepared = PreparedMarketGeneration::model(
-            self::payload($snapshot, $request, '', $tenantId, $deferMissingPrompt),
+            self::applyBackgroundConstraint($snapshot, $payload),
             $snapshot['billing_meter'] ?? null, [], $declaredKinds
         );
         $pixelMeter=(array)($snapshot['billing_meter']??[]);
@@ -281,6 +282,16 @@ class MarketImageModelRuntimeService
         MarketGenerationMaterials::assertPreserved($request, $prepared->nativeInput, static fn($asset)=>
             ($asset['type'] ?? 'image') === 'image' ? (MarketImageReferenceUrlService::resolve([(string)$asset['url']], $tenantId)[0] ?? '') : $asset['url']);
         return $prepared;
+    }
+
+    private static function applyBackgroundConstraint(array $snapshot, array $payload): array
+    {
+        $model = $snapshot['market_metadata']['upstream_metadata']['model_code'] ?? $snapshot['model_code'] ?? '';
+        // The official GPT Image 2 contract only accepts background at 1K.
+        if ($model === 'gpt-image-2-official' && in_array(strtoupper((string)($payload['resolution'] ?? '')), ['2K', '4K'], true)) {
+            unset($payload['background']);
+        }
+        return $payload;
     }
 
     private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
@@ -405,7 +416,9 @@ class MarketImageModelRuntimeService
                     ||(float)$consumption['reserved_tenant_cost']+0.000001<MarketGenerationMeter::price((float)$price['platform_price'],$meter['maximum_quantity'],$price)
                     ||(float)$consumption['reserved_user_price']+0.000001<MarketGenerationMeter::price((float)$price['tenant_price'],$meter['maximum_quantity'],$price))throw new Exception('Token 预占未覆盖冻结费用上限，禁止提交');
             }
-            $payload = $frozenNative ?? self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput;
+            $payload = $frozenNative === null
+                ? self::prepareRequest($price, $request, (int)$consumption['tenant_id'])->nativeInput
+                : self::applyBackgroundConstraint($price, $frozenNative);
             if(self::requiresMeterReceipt($price)){$plan=MarketGenerationAdapterRegistry::transport($price,'submit');$submitUrl=self::origin().$plan['path'];}
         } catch (\Throwable $e) {
             \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
