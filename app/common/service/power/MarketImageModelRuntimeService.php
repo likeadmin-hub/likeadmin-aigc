@@ -301,10 +301,14 @@ class MarketImageModelRuntimeService
     {
         if (($snapshot['channel_code'] ?? '') !== 'official') return $payload;
         $model = $snapshot['market_metadata']['upstream_metadata']['model_code'] ?? $snapshot['model_code'] ?? '';
-        $resolution = $payload['resolution'] ?? $snapshot['locked_params']['resolution'] ?? '';
+        $resolution = $payload['params']['resolution'] ?? $payload['resolution'] ?? $snapshot['locked_params']['resolution'] ?? '';
         $excluded = self::excludedRatios($model, $resolution);
         if ($excluded !== []) {
             unset($payload['background']);
+            // Historical frozen submissions may wrap native input in params.
+            if (is_array($payload['params'] ?? null)) {
+                unset($payload['params']['background']);
+            }
             if (in_array($payload['aspect_ratio'] ?? '', $excluded, true)) {
                 throw new \InvalidArgumentException($resolution . ' 不支持所选图片比例 ' . $payload['aspect_ratio']);
             }
