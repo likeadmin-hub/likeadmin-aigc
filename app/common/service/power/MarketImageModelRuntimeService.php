@@ -101,10 +101,16 @@ class MarketImageModelRuntimeService
             $meta = self::metadata($product);
             $platformSkuCount = $catalogueSkus[(int)$product['id']]['platform_count'] ?? 0;
             $skus = [];
+            $meterReason = '';
             $officialModel = ($product['upstream_channel_code'] ?? '') === 'official'
                 ? ($meta['upstream_metadata']['model_code'] ?? $product['upstream_model_code']) : '';
             foreach ($catalogueSkus[(int)$product['id']]['available'] ?? [] as $market) {
                 $sku = $market['sku'];
+                $reason = self::unavailableMeterReason($sku);
+                if ($reason !== '') {
+                    $meterReason = $reason;
+                    continue;
+                }
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $quality = self::skuQuality($sku, $locked, $meta);
                 $skus[] = [
@@ -128,7 +134,7 @@ class MarketImageModelRuntimeService
                 ];
             }
             $available = $skus !== [];
-            $unavailableReason = $available ? '' : ((int)$platformSkuCount > 0 ? '租户未上架该图片模型 SKU' : '暂无可售 SKU');
+            $unavailableReason = $available ? '' : ($meterReason ?: ((int)$platformSkuCount > 0 ? '租户未上架该图片模型 SKU' : '暂无可售 SKU'));
             $qualities = array_values(array_unique(array_merge(...array_map(static fn(array $item): array => $item['quality_options'], $skus))));
             if ($qualities === []) {
                 $qualities = self::modelQualityOptions($product, $meta);
@@ -145,6 +151,7 @@ class MarketImageModelRuntimeService
                 'market_product_id' => (int)$product['id'],
                 'resource_type' => PowerMarketService::TYPE_MODEL,
                 'model_type' => 'image',
+                'official_parameter_model' => in_array($officialModel, ['wan-2-7-image', 'wan-2-7-image-pro'], true) ? $officialModel : '',
                 'category_code' => 'image',
                 'category_name' => '图片生成',
                 'market_sku_id' => 0,
@@ -302,13 +309,20 @@ class MarketImageModelRuntimeService
                 throw new \InvalidArgumentException($resolution . ' 不支持所选图片比例 ' . $payload['aspect_ratio']);
             }
         }
+        if (in_array($model, ['wan-2-7-image', 'wan-2-7-image-pro'], true)
+            && (!empty($payload['input_urls']) || !empty($payload['enable_sequential']))) {
+            unset($payload['thinking_mode']);
+            if ($model === 'wan-2-7-image-pro' && strtoupper($resolution) === '4K') {
+                throw new \InvalidArgumentException('Wan 2.7 Image Pro 的 4K 仅支持无参考图的单图生成');
+            }
+        }
         return $payload;
     }
 
     /** Both generation modes of each official GPT model share these resolution restrictions. */
-    private static function excludedRatios(string $model, string $resolution): array
+    private static function excludedRatios(string $model, mixed $resolution): array
     {
-        $tier = strtoupper($resolution);
+        $tier = is_string($resolution) ? strtoupper($resolution) : '';
         if (!in_array($tier, ['2K', '4K'], true)) return [];
         return match ($model) {
             'gpt-image-2-official' => $tier === '2K'
@@ -316,6 +330,24 @@ class MarketImageModelRuntimeService
             'gpt-image-2-5-flare', 'gpt-image-2-5-sunburst' => ['27:16', '16:27', '9:8', '8:9'],
             default => [],
         };
+    }
+
+    private static function unavailableMeterReason(array $sku): string
+    {
+        $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
+        $declaration = $source['meter_contract'] ?? $sku['meter_contract'] ?? [];
+        $summary = $source['meter_summary'] ?? $sku['meter_summary'] ?? '';
+        if (($declaration['basis'] ?? '') !== 'megapixel' && !str_starts_with(trim((string)$summary), '百万像素')) return '';
+        try {
+            $meter = MarketGenerationMeter::contract($sku);
+            if ($meter['basis'] === 'megapixel') {
+                if (!MarketGenerationPixelMeter::applies($meter)) return '该规格尚无可核验的像素报价';
+                MarketGenerationPixelMeter::assertUnitSize($sku['usage_unit_size'] ?? null);
+            }
+        } catch (\InvalidArgumentException $error) {
+            return $error->getMessage();
+        }
+        return '';
     }
 
     private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
@@ -1044,6 +1076,7 @@ class MarketImageModelRuntimeService
         $matches = [];
         foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
             $sku = (array)$market['sku'];
+            if (self::unavailableMeterReason($sku) !== '') continue;
             $locked = self::arrayValue($sku['locked_params'] ?? []);
             $lockedQuality = self::skuQuality($sku, $locked, self::metadata($product));
             $choices = self::skuQualityChoices($sku, self::metadata($product), $product);

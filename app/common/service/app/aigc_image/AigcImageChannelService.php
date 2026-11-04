@@ -631,6 +631,7 @@ class AigcImageChannelService
                 'provider' => ($model['resource_type'] ?? 'model') === 'app_api' ? 'power_market_app_api' : 'power_market_model',
                 'model' => $modelCode,
                 'model_code' => $modelCode,
+                'official_parameter_model' => $model['official_parameter_model'] ?? '',
                 'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
                 'generation_parameters' => (array)($model['generation_parameters'] ?? []),
                 'material_modes' => (array)($model['material_modes'] ?? []),
