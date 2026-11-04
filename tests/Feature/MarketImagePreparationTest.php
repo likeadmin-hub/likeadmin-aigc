@@ -83,6 +83,39 @@ class MarketImagePreparationTest extends TestCase
         $method->invoke(null, $this->market(), array_replace($this->request(), ['quality' => '8k']));
     }
 
+    /** @dataProvider backgroundCases */
+    public function testBackgroundFollowsTheResolvedModelAndSku(string $publicModel, string $resolution, ?string $chosen, ?string $expected): void
+    {
+        $snapshot = $this->snapshot();
+        $snapshot['market_metadata']['upstream_metadata'] = ['model_code' => $publicModel];
+        $snapshot['market_metadata']['material_capabilities'] = ['modes' => [['code' => 'text_to_image', 'fields' => []]]];
+        $snapshot['market_metadata']['params_schema'] = [
+            'prompt' => ['type' => 'string', 'required' => true],
+            'resolution' => ['type' => 'string', 'enum' => ['1K', '2K', '4K']],
+            'background' => ['type' => 'string', 'default' => 'opaque', 'enum' => ['opaque', 'transparent', 'auto']],
+        ];
+        $snapshot['locked_params'] = ['resolution' => $resolution];
+        $request = ['prompt' => 'A paper boat', 'provider_params' => $chosen === null ? [] : ['background' => $chosen]];
+        $body = Images::prepareRequest($snapshot, $request)->nativeInput;
+        self::assertSame($resolution, $body['resolution']);
+        if ($expected === null) {
+            self::assertArrayNotHasKey('background', $body);
+        } else {
+            self::assertSame($expected, $body['background']);
+        }
+    }
+
+    public static function backgroundCases(): array
+    {
+        return [
+            '1K default' => ['gpt-image-2-official', '1K', null, 'opaque'],
+            '1K explicit' => ['gpt-image-2-official', '1K', 'transparent', 'transparent'],
+            '2K default' => ['gpt-image-2-official', '2K', null, null],
+            '4K explicit' => ['gpt-image-2-official', '4K', 'opaque', null],
+            'other model' => ['gpt-image-2-5-flare', '2K', 'transparent', 'transparent'],
+        ];
+    }
+
     public function testRepeatedImageUsesArePreservedByTheLegacyImageCodec(): void
     {
         $request=$this->request();
