@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "model-source-badge": "../model-source-badge/model-source-badge",
     "recursive-node": "./UniNode"
   }
 }

@@ -4,6 +4,7 @@
     "u-icon": "../../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
     "u-loading": "../../../../uni_modules/vk-uview-ui/components/u-loading/u-loading",
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "digital-human-page": "../../../../components/digital-human-page/digital-human-page"
+    "digital-human-page": "../../../../components/digital-human-page/digital-human-page",
+    "model-source-badge": "../../../../components/model-source-badge/model-source-badge"
   }
 }

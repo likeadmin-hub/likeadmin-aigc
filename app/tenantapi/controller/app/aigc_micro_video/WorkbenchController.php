@@ -4,17 +4,29 @@ use app\tenantapi\controller\BaseAdminController;
 use app\common\service\app\aigc_micro_video\MicroVideoWorkbenchRecords as R;
 use app\common\service\app\aigc_micro_video\MicroVideoWorkbench as W;
 use app\common\service\app\aigc_micro_video\MicroVideoWorkbenchJobs as J;
-use app\common\service\app\aigc_micro_video\MicroVideoWorkbenchPolicy as P;
+use app\common\service\app\AppAccessService;
+use app\common\service\app\aigc_micro_video\MicroVideoSettings;
+use app\common\service\app\aigc_micro_video\MicroVideoStore;
 use app\common\service\app\aigc_micro_video\MicroVideoService;
 class WorkbenchController extends BaseAdminController
 {
     public function lists()
     {
-        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;MicroVideoService::available($tenant);$p=$this->request->get();if(($p['kind']??'')==='template')W::seed($tenant);return $this->success("操作成功",R::lists($tenant,$user,$p,$admin));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {
+            $tenant = (int)$this->tenantId;
+            $params = $this->request->get();
+            // Disabled tools expose saved records only. Catalog seeding writes tenant data.
+            if (($params['kind'] ?? '') === 'template'
+                && (int)MicroVideoSettings::get($tenant)['status'] === 1
+                && AppAccessService::tenantCanUse($tenant, MicroVideoStore::APP, false)) {
+                W::seed($tenant);
+            }
+            return $this->success("操作成功", R::lists($tenant, 0, $params, true));
+        } catch (\Throwable $e) { return $this->fail(MicroVideoService::friendly($e)); }
     }
     public function detail()
     {
-        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",R::dto(R::owned($tenant,$user,(string)($p['kind']??'project'),(int)($p['id']??0),$admin)));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;$p=$this->request->get();return $this->success("操作成功",R::dto(R::owned($tenant,$user,(string)($p['kind']??'project'),(int)($p['id']??0),$admin)));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
     public function save()
     {
@@ -30,7 +42,7 @@ class WorkbenchController extends BaseAdminController
     }
     public function versions()
     {
-        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",R::versions($tenant,$user,$p,$admin));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;$p=$this->request->get();return $this->success("操作成功",R::versions($tenant,$user,$p,$admin));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
     public function restore()
     {
@@ -38,7 +50,7 @@ class WorkbenchController extends BaseAdminController
     }
     public function categories()
     {
-        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",R::categories());}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;$p=$this->request->get();return $this->success("操作成功",R::categories());}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
     public function capabilities()
     {
@@ -46,11 +58,11 @@ class WorkbenchController extends BaseAdminController
     }
     public function jobs()
     {
-        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",J::lists($tenant,$user,$p,$admin));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;$p=$this->request->get();return $this->success("操作成功",J::lists($tenant,$user,$p,$admin));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
     public function jobDetail()
     {
-        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",J::dto(J::owned($tenant,$user,(int)($p['id']??0),$admin),$admin));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;$p=$this->request->get();return $this->success("操作成功",J::dto(J::owned($tenant,$user,(int)($p['id']??0),$admin),$admin));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
     public function reconcile()
     {
@@ -58,6 +70,6 @@ class WorkbenchController extends BaseAdminController
     }
     public function usage()
     {
-        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",W::usage($tenant));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {$tenant=(int)$this->tenantId;$user=(int)0;$admin=true;$p=$this->request->get();return $this->success("操作成功",W::usage($tenant));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
 }

@@ -2,6 +2,6 @@
   "navigationBarTitleText": "文案记录",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "mobile-workspace": "../../MobileWorkspace"
+    "page-content": "./index-content"
   }
 }

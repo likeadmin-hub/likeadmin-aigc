@@ -44,6 +44,12 @@ class SqlMigrationExecutor
                 continue;
             }
             if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
+            if (!class_exists(RuntimeGenerationSnapshotCapacity::class)) require_once __DIR__.'/RuntimeGenerationSnapshotCapacity.php';
+            $snapshotTarget = RuntimeGenerationSnapshotCapacity::target($sql);
+            if ($snapshotTarget !== null) {
+                RuntimeGenerationSnapshotCapacity::apply($snapshotTarget[0], $snapshotTarget[1], $prefix, $connection);
+                continue;
+            }
             $salePriceTable = RuntimeAppSalePriceInheritance::target($sql);
             if ($salePriceTable !== null) {
                 RuntimeAppSalePriceInheritance::apply($salePriceTable, $prefix, $connection);

@@ -18,6 +18,8 @@ proc_terminate($process,9);usleep(50000);
 $d=new Direct($site,PHP_BINARY);$busy=false;
 try{$d->recover(fn()=>null);}catch(Throwable $e){$busy=true;}
 check($busy&&file_get_contents($site.'/app/item.php')==='new','Recovery raced a live inherited child');
+$legacy=fopen($site.'/runtime/site-update.lock','c+');
+check(!flock($legacy,LOCK_EX|LOCK_NB),'Inherited child lost compatibility exclusion against an older updater');fclose($legacy);
 put($site.'/release-child','go');
 $recovered=false;
 for($i=0;$i<200;$i++){try{$state=$d->recover(fn()=>null);$recovered=true;break;}catch(Throwable $e){usleep(10000);}}
@@ -44,5 +46,5 @@ $d3->recover(fn()=>['version'=>'1.0.403']);check(file_get_contents($uncertain.'/
 $cli=$work.'/cli-reader.php';put($cli,'<?php require '.var_export($serviceFile,true).'; app\\common\\service\\update\\DirectSiteUpdateService::bootstrap($argv[1]);file_put_contents($argv[1]."/cli-ready","1");while(!is_file($argv[1]."/cli-exit"))usleep(10000);');
 $pipes=[];$p=proc_open([PHP_BINARY,$cli,$completed],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
 for($i=0;$i<200&&!is_file($completed.'/cli-ready');$i++)usleep(10000);
-check(is_file($completed.'/cli-ready'),'CLI reader did not boot');$blocked=false;try{$d2->apply($package,['version'=>'1.0.404'],[]);}catch(Throwable $e){$blocked=true;}check($blocked,'Writer ignored ordinary CLI reader');put($completed.'/cli-exit','1');foreach($pipes as $pipe)fclose($pipe);proc_close($p);
+check(is_file($completed.'/cli-ready'),'CLI reader did not boot');$d2->apply($package,['version'=>'1.0.404'],[]);check(proc_get_status($p)['running'],'Update killed ordinary CLI reader');put($completed.'/cli-exit','1');foreach($pipes as $pipe)fclose($pipe);proc_close($p);
 echo "PASS: killed parent, inherited live child, SQL indeterminate no replay, committed reply loss and resumed canonical bootstrap\n";

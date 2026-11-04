@@ -23,6 +23,7 @@ use app\common\model\brand\TenantBrandOrder;
 use app\common\model\brand\TenantBrandQuotaOrder;
 use app\common\model\membership\MembershipOrder;
 use app\common\model\pay\PayConfig;
+use app\common\model\TenantConfig;
 use app\common\model\power\TenantPowerOrder;
 use app\common\model\recharge\RechargeOrder;
 use app\common\model\user\UserAuth;
@@ -67,6 +68,7 @@ class WeChatPayService extends BasePayService
      */
     protected $terminal;
     protected bool $usePlatformPay = false;
+    private ?string $paymentAppId = null;
 
 
     /**
@@ -83,9 +85,7 @@ class WeChatPayService extends BasePayService
         if ($userId !== null) {
             $query = ['user_id' => $userId, 'terminal' => $terminal];
             if (in_array((int)$terminal, [UserTerminalEnum::WECHAT_MMP, UserTerminalEnum::WECHAT_OA], true)) {
-                $channel = (int)$terminal === UserTerminalEnum::WECHAT_MMP
-                    ? WeChatConfigService::getMnpConfig() : WeChatConfigService::getOaConfig();
-                $appId = $this->getPaymentAppId($channel);
+                $appId = $this->getPaymentAppId();
                 $this->auth = UserAuth::where($query)->where('appid', $appId)->findOrEmpty();
                 // Existing OA/Mini Program bindings predate the appid column.
                 if ($this->auth->isEmpty()) {
@@ -109,27 +109,21 @@ class WeChatPayService extends BasePayService
     public function pay($from, $order)
     {
         try {
+            $appId = $this->getPaymentAppId();
             switch ($this->terminal) {
                 case UserTerminalEnum::WECHAT_MMP:
-                    $config = WeChatConfigService::getMnpConfig();
-                    $result = $this->jsapiPay($from, $order, $this->getPaymentAppId($config));
-                    break;
                 case UserTerminalEnum::WECHAT_OA:
-                    $config = WeChatConfigService::getOaConfig();
-                    $result = $this->jsapiPay($from, $order, $this->getPaymentAppId($config));
+                    $result = $this->jsapiPay($from, $order, $appId);
                     break;
                 case UserTerminalEnum::IOS:
                 case UserTerminalEnum::ANDROID:
-                    $config = WeChatConfigService::getOpConfig();
-                    $result = $this->appPay($from, $order, $this->getPaymentAppId($config));
+                    $result = $this->appPay($from, $order, $appId);
                     break;
                 case UserTerminalEnum::H5:
-                    $config = WeChatConfigService::getOaConfig();
-                    $result = $this->mwebPay($from, $order, $this->getPaymentAppId($config));
+                    $result = $this->mwebPay($from, $order, $appId);
                     break;
                 case UserTerminalEnum::PC:
-                    $config = WeChatConfigService::getOaConfig();
-                    $result = $this->nativePay($from, $order, $this->getPaymentAppId($config));
+                    $result = $this->nativePay($from, $order, $appId);
                     break;
                 default:
                     throw new \Exception('支付方式错误');
@@ -336,12 +330,7 @@ class WeChatPayService extends BasePayService
      */
     public function packageContext(): array
     {
-        $channel = match((int)$this->terminal) {
-            UserTerminalEnum::WECHAT_MMP => WeChatConfigService::getMnpConfig(),
-            UserTerminalEnum::IOS, UserTerminalEnum::ANDROID => WeChatConfigService::getOpConfig(),
-            default => WeChatConfigService::getOaConfig(),
-        };
-        $identity=['app_id'=>$this->getPaymentAppId($channel),'merchant'=>(string)$this->config['mch_id']];
+        $identity=['app_id'=>$this->getPaymentAppId(),'merchant'=>(string)$this->config['mch_id']];
         $stable=$this->config;
         foreach (['private_key','certificate'] as $field) if(isset($stable[$field])&&is_string($stable[$field])&&is_file($stable[$field]))$stable[$field]=file_get_contents($stable[$field]);
         unset($stable['http'], $stable['notify_url']);
@@ -555,18 +544,43 @@ class WeChatPayService extends BasePayService
         ];
     }
 
-    private function getPaymentAppId(array $channelConfig): string
+    private function getPaymentAppId(): string
     {
-        $appId = $this->usePlatformPay
-            ? ($this->config['app_id'] ?? '')
-            : ($channelConfig['app_id'] ?? '');
+        // Context and prepay must use the same identity, even if config changes between them.
+        if ($this->paymentAppId !== null) return $this->paymentAppId;
+        if ($this->usePlatformPay) {
+            // Platform-owned orders never borrow a tenant's official or mini-program account.
+            $appId = $this->config['app_id'] ?? '';
+        } elseif ((int)$this->terminal === UserTerminalEnum::PC) {
+            // Native has no payer openid. Prefer this tenant's OA, then its bound mini-program.
+            // Read explicit tenant records so project defaults/platform config cannot cross scopes.
+            $appId = '';
+            $tenantId = (int)(request()->tenantId ?? 0);
+            if ($tenantId > 0) {
+                foreach (['oa_setting', 'mnp_setting'] as $type) {
+                    $appId = trim((string)TenantConfig::where([
+                        'tenant_id'=>$tenantId, 'type'=>$type, 'name'=>'app_id',
+                    ])->value('value'));
+                    if ($appId !== '') break;
+                }
+            }
+        } else {
+            $channel = match ((int)$this->terminal) {
+                UserTerminalEnum::WECHAT_MMP => WeChatConfigService::getMnpConfig(),
+                UserTerminalEnum::IOS, UserTerminalEnum::ANDROID => WeChatConfigService::getOpConfig(),
+                default => WeChatConfigService::getOaConfig(),
+            };
+            $appId = $channel['app_id'] ?? '';
+        }
         $appId = trim((string)$appId);
         if ($appId === '') {
             throw new \RuntimeException($this->usePlatformPay
                 ? '平台算力商城微信支付未配置微信公众号 AppID'
-                : '微信支付未配置 AppID');
+                : ((int)$this->terminal === UserTerminalEnum::PC
+                    ? '微信扫码支付未配置公众号或小程序 AppID'
+                    : '微信支付未配置 AppID'));
         }
-        return $appId;
+        return $this->paymentAppId = $appId;
     }
 
 

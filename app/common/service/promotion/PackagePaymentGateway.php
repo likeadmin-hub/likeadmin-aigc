@@ -12,7 +12,10 @@ final class PackagePaymentGateway
     {
         if(!in_array($channel,[2,3],true))throw new \RuntimeException('该订单支付方式不支持自动核对');
         if($this->transport)return ($this->transport)($action,$channel,$terminal,$user,$args);
-        $key=implode(':',[(int)request()->tenantId,$channel,$terminal,$user]);$sdk=$this->clients[$key]??=($channel===2?new WeChatPayService($terminal,$user):new AliPayService($terminal));
+        $key=implode(':',[(int)request()->tenantId,$channel,$terminal,$user]);
+        // Refresh before freezing/inspecting identity; reuse that exact client for the following I/O.
+        if($action==='context'&&$channel===2)unset($this->clients[$key]);
+        $sdk=$this->clients[$key]??=($channel===2?new WeChatPayService($terminal,$user):new AliPayService($terminal));
         if($action==='context')return $sdk->packageContext();
         if($action==='prepay'){$result=$sdk->pay($args['from'],$args['order']);if($result===false)throw new \RuntimeException(PackagePaymentError::message((string)$sdk->getError(), $channel));return $result;}
         if($action==='close'){$sdk->closePay($args['pay_sn']);return [];}

@@ -155,6 +155,7 @@ class SystemPackageUpdateService
             'remark' => 'AI 任务守护进程',
             'directory' => $directory,
             'start_command' => '/bin/sh ' . escapeshellarg($script),
+            'stop_config' => "stopsignal=TERM\nstopasgroup=true\nkillasgroup=true\nstopwaitsecs=3600",
             'log_command' => 'tail -f ' . escapeshellarg($directory . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR . 'ai_task_worker.log'),
         ];
     }
@@ -408,7 +409,7 @@ class SystemPackageUpdateService
                     'environment' => $preflight['environment'],
                     'builtin_apps' => $builtinApps,
                     'composer_runtime' => $runtime,
-                    'process_impact' => $processImpact,
+                    'process_impact' => ProjectUpdateProcessGate::systemUpdateAdvice($processImpact),
                 ];
                 $package->save([
                     'version' => (string)($manifest['version'] ?? $package['version']),
@@ -463,12 +464,12 @@ class SystemPackageUpdateService
             (new SystemPackageGrantService())->ensure($package->toArray());
             $manifest = $this->readUpdateManifest($extractPath);
             $processImpact = ProjectUpdateProcessGate::inspectUpdate(UpgradeLogic::getProjectPath(), $extractPath, $manifest);
-            ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(), $processImpact);
             $runtimeInstaller = new ComposerRuntimeUpdateService(UpgradeLogic::getProjectPath());
             $binding=['kind'=>'system','package_id'=>(int)$package['id'],'task_id'=>(int)$task['id'],'archive_sha256'=>(string)$package['sha256'],'context'=>array_intersect_key($_SERVER,array_flip(['HTTP_HOST','SERVER_NAME','SERVER_ADDR','SERVER_PORT','HTTPS']))];
             // Derived only by this authenticated server from verified bytes.
             // UI-only updates must not opportunistically repair unrelated schema.
             $binding['runtime_metadata_unchanged']=!$processImpact['requires_stop'];
+            $binding['restart_required']=!empty($processImpact['requires_stop']);
             $encoded=json_encode($binding,JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             if (DirectSiteUpdateService::enabled(UpgradeLogic::getProjectPath()) || !is_file(rtrim(UpgradeLogic::getProjectPath(),'/').'/.composer-runtime/current.json')) {
                 $direct=new DirectSiteUpdateService(UpgradeLogic::getProjectPath(),PHP_SAPI==='cli'?PHP_BINARY:PHP_BINDIR.'/php');
@@ -481,7 +482,6 @@ class SystemPackageUpdateService
                 }
                 $result=$direct->apply($extractPath,$manifest,[
                     'binding'=>$binding,'watch_paths'=>array_values(array_unique($watch)),
-                    'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
                     'validate_sql'=>fn(string $site)=>$direct->child(['--bootstrap-check',$site,$extractPath,$encoded]),
                     'sql'=>fn(string $site)=>$direct->child(['--bootstrap-prepare',$site,$extractPath,$encoded]),
                     'complete'=>fn(string $site)=>$direct->child(['--bootstrap-complete',$site,$extractPath,$encoded])['completion'],
@@ -494,12 +494,11 @@ class SystemPackageUpdateService
             }
             $installation = $runtimeInstaller->apply($extractPath, $manifest, [
                 'immutable_code'=>true,'bootstrap_context'=>$binding,
-                'before_sql'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
                 'validate_sql'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-check',$generation,$extractPath,$encoded]),
                 'sql'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-prepare',$generation,$extractPath,$encoded]),
                 'files'=>fn()=> (new SystemRuntimeBootstrapService())->copySharedFiles($extractPath,$manifest),
                 'finalize'=>fn()=>[],
-                'marker'=>fn()=>ProjectUpdateProcessGate::assertUpdateAllowed(UpgradeLogic::getProjectPath(),$processImpact),
+                'marker'=>static function():void{},
                 'complete'=>fn(string $generation)=>$runtimeInstaller->bootstrapChild(['--bootstrap-complete',$generation,$extractPath,$encoded])['completion'],
             ]);
             $result = $installation['completion'] ?? ['version'=>$package['version'], 'extract_path'=>$extractPath, 'composer_runtime'=>$installation];
@@ -584,7 +583,7 @@ class SystemPackageUpdateService
         Db::startTrans();
         try {
             $apps=($binding['runtime_metadata_unchanged']??false)===true?$this->syncRuntimePublicAssets($extractPath):$this->finalizeRuntimeApps($extractPath,(string)$package['version']);
-            $result=['version'=>$package['version'],'extract_path'=>$extractPath,'builtin_apps'=>$apps,'composer_runtime'=>['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION']]];
+            $result=['version'=>$package['version'],'extract_path'=>$extractPath,'builtin_apps'=>$apps,'composer_runtime'=>['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION']],'restart_required'=>!empty($binding['restart_required'])];
             $package->save(['status'=>'applied','error'=>'','update_time'=>time()]);
             $this->finishTask($task,'success',$result);
             if(!Db::connect()->getPdo()->inTransaction())throw new RuntimeException('自举元数据事务被隐式提交，禁止成功标记');

@@ -4,6 +4,8 @@
     "model-source-badge": "../../../../components/model-source-badge/model-source-badge",
     "app-membership-notice": "../../../../components/app-membership-notice/app-membership-notice",
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader",
+    "mobile-agent-assets": "../../components/MobileAgentAssets",
+    "mobile-agent-session": "../../components/MobileAgentSession"
   }
 }

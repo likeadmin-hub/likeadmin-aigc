@@ -10,7 +10,9 @@ use app\common\model\tenant\TenantPackage;
 use app\common\model\tenant\TenantPackageAppPlan;
 use app\common\service\app\AppPlanService;
 use app\common\service\app\AppRegistryService;
+use app\common\service\app\DefaultAppService;
 use app\common\service\brand\BrandOrderPolicy;
+use app\common\service\update\AppPackageUpdateService;
 use RuntimeException;
 use think\facade\Db;
 
@@ -125,6 +127,60 @@ class TenantPackageService
             ->order(['a.sort' => 'desc', 'p.sort' => 'desc', 'p.id' => 'asc'])
             ->select()
             ->toArray();
+    }
+
+    /** Read-only explanation of the existing package eligibility query. */
+    public static function appPlanCatalog(): array
+    {
+        $options = self::appPlanOptions();
+        $optionCounts = array_count_values(array_column($options, 'app_code'));
+        $enabledPlanCounts = array_count_values(AppPlan::where('status', AppPlanService::PLAN_ENABLED)->column('app_code'));
+        $localApps = (new AppPackageUpdateService())->localCatalog(
+            App::order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray()
+        );
+        $apps = [];
+        foreach ($localApps as $app) {
+            $code = (string)$app['code'];
+            $status = (string)$app['status'];
+            $selectable = isset($optionCounts[$code]);
+            $isDefault = DefaultAppService::isDefaultApp($code);
+            $reason = '';
+            $reasonCode = '';
+            if (!$selectable) {
+                if ($status !== AppRegistryService::STATUS_INSTALLED) {
+                    $reasonCode = $status;
+                    $reason = [AppRegistryService::STATUS_DISABLED => '应用已禁用', AppRegistryService::STATUS_REMOVED => '应用已卸载'][$status] ?? '应用未安装';
+                } elseif ($isDefault && empty($enabledPlanCounts[$code])) {
+                    $reasonCode = 'default_no_plan';
+                    $reason = '默认开通，无需绑定';
+                } else {
+                    $reasonCode = 'no_enabled_plan';
+                    $reason = '暂无启用的应用套餐';
+                }
+            }
+            $apps[] = [
+                'app_code' => $code,
+                'app_name' => $app['name'] ?? $code,
+                'status' => $status,
+                'is_default' => $isDefault,
+                'selectable' => $selectable,
+                'selectable_plan_count' => $optionCounts[$code] ?? 0,
+                'enabled_plan_count' => $enabledPlanCounts[$code] ?? 0,
+                'unavailable_reason_code' => $reasonCode,
+                'unavailable_reason' => $reason,
+            ];
+        }
+        return [
+            'options' => $options,
+            'apps' => $apps,
+            'counts' => [
+                'local_apps' => count($apps),
+                'installed_apps' => count(array_filter($apps, static fn($app) => $app['status'] === AppRegistryService::STATUS_INSTALLED)),
+                'selectable_apps' => count($optionCounts),
+                'selectable_plans' => count($options),
+                'excluded_apps' => count(array_filter($apps, static fn($app) => !$app['selectable'])),
+            ],
+        ];
     }
 
     public static function grantBoundAppPlans(int $tenantId, int $packageId, int $operatorId = 0, string $sourceSn = ''): void

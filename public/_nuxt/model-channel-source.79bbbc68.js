@@ -1,1 +1,0 @@
-function c(t){const n=t==null?void 0:t.channel_source;return n==="official"||n==="third_party"?n:"unknown"}function a(t){return{official:{label:"官方",title:"官方渠道",compact:"官"},third_party:{label:"三方",title:"三方渠道",compact:"三"},unknown:{label:"未标注",title:"上游未提供渠道归属信息",compact:"?"}}[c(t)]}export{c as a,a as m};

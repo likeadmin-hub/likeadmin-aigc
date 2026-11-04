@@ -94,13 +94,14 @@ class PaymentLogic extends BaseLogic
                 \app\common\service\promotion\PackagePurchaseAvailability::assertOrder($params['from'], $order);
             }
 
+            $snapshot=in_array($params['from'],['recharge','membership'],true)?\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']):null;
+            $summary=\app\common\service\promotion\PackageCheckoutSummary::fromOrder($params['from'],$order,$snapshot);
             if (in_array($params['from'], ['recharge','membership'], true) && $terminal === UserTerminalEnum::WECHAT_MMP && (float)$order['order_amount'] > 0) {
-                $snapshot=\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']);
                 $virtual=(int)$order['pay_way']===PayEnum::VIRTUAL_PAY;
                 if (!$virtual && $snapshot && (int)$snapshot['package_id'] > 0) {
                     try { $config=\app\common\service\virtualpay\VirtualPayConfigService::detail((int)$order['tenant_id'],0);$virtual=\app\common\service\virtualpay\VirtualPayConfigService::enabledFor($config,(string)($params['platform']??'')); } catch (\Exception $e) { $virtual=false; }
                 }
-                if ($virtual) return ['package_snapshot'=>(bool)$snapshot,'locked_channel'=>$virtual && trim((string)$order['pay_sn'])!==''?PayEnum::VIRTUAL_PAY:0,'lists'=>[['id'=>0,'name'=>'微信虚拟支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'','extra'=>'微信小程序虚拟商品支付']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
+                if ($virtual) return ['summary'=>$summary,'package_snapshot'=>(bool)$snapshot,'locked_channel'=>$virtual && trim((string)$order['pay_sn'])!==''?PayEnum::VIRTUAL_PAY:0,'lists'=>[['id'=>0,'name'=>'微信支付','pay_way'=>PayEnum::VIRTUAL_PAY,'is_default'=>1,'icon'=>'weixin-fill','extra'=>'']], 'order_amount'=>$order['order_amount'],'expires_at'=>(int)($snapshot['expires_at']??0)];
             }
 
             if (in_array($params['from'],['recharge','membership'],true) && (int)$order['pay_way']===PayEnum::VIRTUAL_PAY && $terminal!==UserTerminalEnum::WECHAT_MMP) throw new \RuntimeException('该订单已在微信小程序发起支付，请在原小程序核对结果');
@@ -130,6 +131,7 @@ class PaymentLogic extends BaseLogic
 
             $packageSnapshot=in_array($params['from'],['recharge','membership'],true)?\app\common\service\promotion\PackagePricingService::snapshot((int)$order['tenant_id'],$params['from'],(int)$order['id']):null;
             return [
+                'summary' => $summary,
                 'locked_channel' => $packageSnapshot && trim((string)$order['pay_sn'])!=='' ? (int)$order['pay_way'] : 0,
                 'package_snapshot' => (bool)$packageSnapshot,
                 'lists' => array_values($pay_way),

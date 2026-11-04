@@ -205,3 +205,31 @@ test('signed runtime baseline derives migration identity solely from predecessor
         const changed=f.run('changed');assert.notEqual(changed.status,0);assert.match(changed.stderr,/Historical migration changed; use a new filename/)
     } finally {fs.rmSync(f.dir,{recursive:true,force:true})}
 })
+
+
+test('optional app snapshot migration ships its bytes but executes only the bounded core counterpart',()=>{
+    const f=fixture(),out=path.join(f.dir,'optional-capacity-stage'),code='aigc_action_transfer'
+    try {
+        const migration=`app/apps/${code}/migrations/upgrade_20261103_generation_snapshot_capacity_${code}.sql`
+        const sql='ALTER TABLE `la_aigc_action_transfer_task` MODIFY COLUMN `pricing_snapshot` MEDIUMTEXT;'
+        f.write(migration,sql)
+        f.write(`app/apps/${code}/manifest.json`,JSON.stringify({code,is_builtin:0}))
+        f.write(`app/apps/${code}/api_schema.json`,'[]')
+        f.write(`app/apps/${code}/menus/tenant.json`,'[]')
+        f.write(`app/apps/${code}/permissions/tenant.json`,'[]')
+        f.write('upgrade/20261103_generation_snapshot_capacity.sql',sql)
+        f.write('scripts/snapshot-migration-coverage.mjs',fs.readFileSync(new URL('../../scripts/snapshot-migration-coverage.mjs',import.meta.url),'utf8'))
+        execFileSync('git',['add','app/apps/'+code,'upgrade/20261103_generation_snapshot_capacity.sql','scripts/snapshot-migration-coverage.mjs'],{cwd:f.repo})
+        execFileSync('git',['commit','-m','optional bounded capacity'],{cwd:f.repo,stdio:'pipe'})
+        const result=spawnSync(process.execPath,[script.pathname,'--repo',f.repo,'--base-ref',f.base,'--base-version','1.0.391','--version','1.0.392','--out-dir',out,'--composer-runtime'],{encoding:'utf8'})
+        assert.equal(result.status,0,result.stderr)
+        const manifest=JSON.parse(fs.readFileSync(path.join(out,'update.json')))
+        assert.ok(manifest.sql_order.includes('sql/structure/20261103_generation_snapshot_capacity.sql'))
+        assert.ok(!manifest.sql_order.includes('sql/structure/'+path.basename(migration)))
+        const coverage=JSON.parse(fs.readFileSync(path.join(out,'release-change-manifest.json')))
+        assert.equal(coverage.covered_app_migrations[0].source_path,migration)
+        assert.equal(coverage.covered_app_migrations[0].execution_owner,'system')
+        assert.equal(fs.readFileSync(path.join(out,'files',migration),'utf8'),sql)
+        assert.equal(JSON.parse(fs.readFileSync(path.join(out,'files/app/apps',code,'manifest.json'))).is_builtin,0)
+    } finally {fs.rmSync(f.dir,{recursive:true,force:true})}
+})

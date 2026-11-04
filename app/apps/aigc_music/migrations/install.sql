@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_music_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` mediumtext,
+  `pricing_snapshot` text,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
   `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
   `market_error_code` varchar(80) NOT NULL DEFAULT '',

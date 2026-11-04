@@ -139,7 +139,8 @@ class TenantUrlService
 
     /**
      * Return the platform hosts configured for platform administration.
-     * Reserve these hosts and their subdomains against tenant alias binding.
+     * Tenant aliases reserve these exact hosts; other domain workflows may
+     * additionally reserve their subdomains through isPlatformHost().
      * Backend access separately checks actual tenant ownership; unbound hosts
      * may serve the platform even when absent from this configuration.
      */

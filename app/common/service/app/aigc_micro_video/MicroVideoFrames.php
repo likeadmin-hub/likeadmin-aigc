@@ -66,10 +66,37 @@ final class MicroVideoFrames
     }
     private static function quote(array $task,?array $ids): array
     {
-        $tenant=(int)$task['tenant_id'];$c=MicroVideoSettings::get($tenant);if(empty($c['frames_enabled'])||$task['generation_mode']!=='start_end')throw new InvalidArgumentException('请先启用首尾帧方式');MicroVideoPolicy::allowedModel($task['frame_model_id'],$c['frame_model_ids']);$m=MicroVideoFrameCatalog::model($tenant,$task['frame_model_id']);$params=MicroVideoStore::json($task['params_json']);$selection=MicroVideoFrameCatalog::selection($m,$task['frame_quality'],$params['ratio']);$q=MicroVideoFrameCatalog::quote($tenant,$selection);$frames=self::rows((int)$task['id']);$selected=self::selected($frames,$ids);$byIndex=array_column($frames,null,'boundary_index');$selectedIds=array_map('intval',array_column($selected,'id'));foreach($selected as $f){$i=(int)$f['boundary_index'];if($i>0&&($byIndex[$i-1]['status']??'')!=='success'&&!in_array((int)($byIndex[$i-1]['id']??0),$selectedIds,true))throw new InvalidArgumentException('请同时选择尚未完成的前序连续性锚图');}
+        $tenant=(int)$task['tenant_id'];$c=MicroVideoSettings::get($tenant);if(empty($c['frames_enabled'])||$task['generation_mode']!=='start_end')throw new InvalidArgumentException('请先启用首尾帧方式');MicroVideoPolicy::allowedModel($task['frame_model_id'],$c['frame_model_ids']);$m=MicroVideoFrameCatalog::model($tenant,$task['frame_model_id']);$params=MicroVideoStore::json($task['params_json']);$selection=MicroVideoFrameCatalog::selection($m,$task['frame_quality'],$params['ratio']);$frames=self::rows((int)$task['id']);$selected=self::selected($frames,$ids);$byIndex=array_column($frames,null,'boundary_index');$selectedIds=array_map('intval',array_column($selected,'id'));foreach($selected as $f){$i=(int)$f['boundary_index'];if($i>0&&($byIndex[$i-1]['status']??'')!=='success'&&!in_array((int)($byIndex[$i-1]['id']??0),$selectedIds,true))throw new InvalidArgumentException('请同时选择尚未完成的前序连续性锚图');}
         $minimum=min(array_column($selected,'boundary_index'));$selectedIndices=array_map('intval',array_column($selected,'boundary_index'));foreach($selected as $f)for($i=(int)$minimum;$i<(int)$f['boundary_index'];$i++)if(!in_array($i,$selectedIndices,true))throw new InvalidArgumentException('生成多张帧图时请包含它们之间的连续性锚图');
-        foreach($selected as $f)MicroVideoFramePolicy::references(MicroVideoStore::json($f['reference_indices']),count($params['images']),(int)$m['max_reference_images'],(int)$f['boundary_index']>0);
+        $images=MicroVideoMedia::validateImages($tenant,(int)$task['user_id'],$params['images'],15);$segments=MicroVideoStore::segments((int)$task['id']);$config=MicroVideoStore::json($task['config_snapshot']);$inputs=[];
+        foreach($selected as $f){
+            $indices=MicroVideoFramePolicy::references(MicroVideoStore::json($f['reference_indices']),count($images),(int)$m['max_reference_images'],(int)$f['boundary_index']>0);
+            $refs=array_map(fn($i)=>$images[$i],$indices);$future=false;
+            if((int)$f['boundary_index']>0){$previous=$byIndex[(int)$f['boundary_index']-1];
+                // A selected predecessor will be regenerated; its historical image is not the future anchor.
+                if($previous['status']==='success'&&!in_array((int)$previous['id'],$selectedIds,true))$refs[]=MicroVideoMedia::validateImages($tenant,(int)$task['user_id'],[['uri'=>$previous['image_uri']]],1)[0];
+                else $future=true;
+            }
+            $inputs[]=['request'=>self::imageRequest($selection,$f,$segments,$config['frame_template']??MicroVideoSettings::defaults()['frame_template'],MicroVideoMedia::visionInputs($refs)),'future_reference'=>$future];
+        }
+        $q=self::quoteInputs($tenant,$selection,$inputs);
         return ['identity'=>MicroVideoFramePolicy::identity($task,$frames),'ids'=>array_map('intval',array_column($selected,'id')),'selection'=>$selection,'per_frame'=>$q,'frame_count'=>count($selected),'user_charge_points'=>round(count($selected)*$q['user_charge_points'],4),'tenant_cost_points'=>round(count($selected)*$q['tenant_cost_points'],4)];
+    }
+    /** The same final prompt composition is used at estimation and worker admission. */
+    public static function imageRequest(array $selection,array $frame,array $segments,string $template,array $references): array
+    {return $selection+['quantity'=>1,'prompt'=>MicroVideoFramePolicy::generationPrompt($frame,$segments,$template),'reference_images'=>$references];}
+
+    /** Keep the existing uniform per-frame receipt; refuse batches whose exact frame prices differ. */
+    public static function quoteInputs(int $tenant,array $selection,array $inputs): array
+    {
+        $quote=null;
+        foreach($inputs as $input){
+            $current=MicroVideoFrameCatalog::quote($tenant,$selection,$input['request'],(bool)$input['future_reference']);
+            if($quote!==null&&$current!==$quote)throw new InvalidArgumentException('所选首尾帧的价格不同，请逐张估价生成');
+            $quote=$current;
+        }
+        if($quote===null)throw new InvalidArgumentException('没有需要生成的首尾帧');
+        return $quote;
     }
     public static function estimate(int $tenant,int $user,array $p): array
     {

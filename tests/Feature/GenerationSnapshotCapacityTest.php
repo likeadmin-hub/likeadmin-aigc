@@ -5,7 +5,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\app\aigc_video\AigcVideoTask;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
-use app\common\service\database\SqlMigrationExecutor;
+use app\common\service\database\{SqlMigrationExecutor, RuntimeGenerationSnapshotCapacity};
 use app\common\service\power\MarketGenerationRuntime;
 use app\common\service\power\MarketVideoRuntimeService;
 use PHPUnit\Framework\TestCase;
@@ -23,16 +23,22 @@ class GenerationSnapshotCapacityTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         self::assertSame($this->sql(), file_get_contents($root.'/public/upgrade/20261103_generation_snapshot_capacity.sql'));
-        preg_match_all("/TABLE_NAME = '(la_[a-z_]+)' AND COLUMN_NAME = '([a-z_]+)'/", $this->sql(), $matches, PREG_SET_ORDER);
-        self::assertCount(13, $matches);
+        $targets = array_map([RuntimeGenerationSnapshotCapacity::class, 'target'], SqlMigrationExecutor::split($this->sql()));
+        self::assertCount(13, $targets);
         $install = file_get_contents($root.'/public/install/db/like.sql');
-        foreach ($matches as [, $table, $column]) {
+        foreach ($targets as $target) {
+            self::assertNotNull($target);
+            [$suffix, $column] = $target;
+            $table = 'la_'.$suffix;
             self::assertMatchesRegularExpression('/CREATE TABLE[^\n]*`'.$table.'`.*?`'.$column.'`\s+mediumtext\b/is', $install);
             if ($table === 'la_ai_consumption_log') continue;
             $app = preg_replace('/_(?:script_|generation_)?task$/', '', substr($table, 3));
             $folder = $root.'/app/apps/'.$app.'/migrations/';
-            self::assertStringContainsString("TABLE_NAME = '".$table."'", file_get_contents($folder.'upgrade_20261103_generation_snapshot_capacity.sql'));
-            self::assertMatchesRegularExpression('/CREATE TABLE[^\n]*`'.$table.'`.*?`'.$column.'`\s+mediumtext\b/is', file_get_contents($folder.'install.sql'));
+            $appTargets = array_map([RuntimeGenerationSnapshotCapacity::class, 'target'], SqlMigrationExecutor::split(file_get_contents($folder.'upgrade_20261103_generation_snapshot_capacity_'.$app.'.sql')));
+            self::assertContains([$suffix, $column], $appTargets);
+            // Signed historical install bytes stay intact. A fresh app install
+            // reaches the same capacity through its new bounded upgrade intent.
+            self::assertMatchesRegularExpression('/CREATE TABLE[^\n]*`'.$table.'`.*?`'.$column.'`\s+(?:text|mediumtext|longtext)\b/is', file_get_contents($folder.'install.sql'));
         }
     }
 

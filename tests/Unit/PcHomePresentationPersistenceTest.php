@@ -32,7 +32,7 @@ final class PcHomePresentationPersistenceTest extends TestCase
         Config::set(['default' => 'array', 'stores' => ['array' => ['type' => 'file', 'path' => sys_get_temp_dir() . '/home-presentation-' . getmypid() . '/']]], 'cache');
         foreach (['tenant_config' => 'id INTEGER PRIMARY KEY, tenant_id INTEGER, type TEXT, name TEXT, value TEXT',
             'config' => 'id INTEGER PRIMARY KEY, type TEXT, name TEXT, value TEXT',
-            'tenant' => 'id INTEGER PRIMARY KEY, tactics INTEGER DEFAULT 0, is_storage INTEGER DEFAULT 0, allow_local_storage INTEGER DEFAULT 0, delete_time INTEGER'] as $table => $columns) {
+            'tenant' => 'id INTEGER PRIMARY KEY, sn TEXT DEFAULT "", tactics INTEGER DEFAULT 0, is_storage INTEGER DEFAULT 0, allow_local_storage INTEGER DEFAULT 0, delete_time INTEGER'] as $table => $columns) {
             Db::execute("CREATE TABLE la_{$table} ({$columns})");
         }
         request()->source = AdminTerminalEnum::TENANT;

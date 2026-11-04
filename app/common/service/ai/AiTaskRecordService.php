@@ -290,6 +290,38 @@ class AiTaskRecordService
         return self::displayModel($row, $baseAppCode);
     }
 
+    /** Internal read-only source reader for operator support. Never refreshes providers. */
+    public static function supportSource(string $table, int $id, int $tenantId, int $userId): array
+    {
+        if ($id <= 0 || $tenantId <= 0 || $userId <= 0) {
+            return [];
+        }
+        foreach (self::BASE_TASK_SOURCES as $appCode => $source) {
+            if ($source['table'] !== $table || !self::tableExists($table)) {
+                continue;
+            }
+            $query = Db::name($table)->where(['id' => $id, 'tenant_id' => $tenantId, 'user_id' => $userId]);
+            if (self::columnExists($table, 'delete_time')) {
+                $query->where('delete_time', 0);
+            }
+            $row = $query->find();
+            if (!$row) {
+                return [];
+            }
+            try {
+                $media = self::mediaResults($appCode, $tenantId, $id, $userId);
+            } catch (\Throwable) {
+                $media = [];
+            }
+            return [
+                'row' => $row,
+                'display_model' => self::modelDisplayName($row, $appCode),
+                'media_results' => $media,
+            ];
+        }
+        return [];
+    }
+
     public static function detail(int $id, int $tenantId = 0, string $baseAppCode = 'aigc_image'): array
     {
         if ($baseAppCode === 'ai_app_task') {
@@ -902,7 +934,7 @@ class AiTaskRecordService
         return $rows;
     }
 
-    private static function imageResults(int $tenantId, int $taskId): array
+    private static function imageResults(int $tenantId, int $taskId, int $userId = 0): array
     {
         $table = 'aigc_image_result';
         if (!self::tableExists($table)) {
@@ -914,6 +946,7 @@ class AiTaskRecordService
         ]);
         $rows = Db::name($table)
             ->where(['tenant_id' => $tenantId, 'task_id' => $taskId])
+            ->when($userId > 0, static fn ($query) => $query->where('user_id', $userId))
             ->where('delete_time', 0)
             ->field(implode(',', $fields))
             ->select()
@@ -930,9 +963,9 @@ class AiTaskRecordService
         return $rows;
     }
 
-    private static function imageMediaResults(int $tenantId, int $taskId): array
+    private static function imageMediaResults(int $tenantId, int $taskId, int $userId = 0): array
     {
-        return array_values(array_filter(array_map(static function (array $row): array {
+        return array_values(array_filter(array_map(static function (array $row) use ($userId): array {
             $url = (string)($row['image_url'] ?? '');
             if ($url === '') {
                 return [];
@@ -945,11 +978,16 @@ class AiTaskRecordService
                 'width' => (int)($row['width'] ?? 0),
                 'height' => (int)($row['height'] ?? 0),
                 'provider_task_id' => (string)($row['provider_task_id'] ?? ''),
-            ];
-        }, self::imageResults($tenantId, $taskId))));
+            ] + ($userId > 0 ? [
+                'storage_scope' => (string)($row['storage_scope'] ?? ''),
+                'storage_engine' => (string)($row['storage_engine'] ?? ''),
+                'storage_domain' => (string)($row['storage_domain'] ?? ''),
+                'source_uri' => (string)($row['image_uri'] ?? ''),
+            ] : []);
+        }, self::imageResults($tenantId, $taskId, $userId))));
     }
 
-    private static function videoResults(string $baseAppCode, int $tenantId, int $taskId): array
+    private static function videoResults(string $baseAppCode, int $tenantId, int $taskId, int $userId = 0): array
     {
         $table = self::videoResultTable($baseAppCode);
         if ($table === '' || !self::tableExists($table)) {
@@ -961,6 +999,7 @@ class AiTaskRecordService
         ]);
         $rows = Db::name($table)
             ->where(['tenant_id' => $tenantId, 'task_id' => $taskId])
+            ->when($userId > 0, static fn ($query) => $query->where('user_id', $userId))
             ->where('delete_time', 0)
             ->field(implode(',', $fields))
             ->select()
@@ -983,9 +1022,9 @@ class AiTaskRecordService
         return $rows;
     }
 
-    private static function videoMediaResults(string $baseAppCode, int $tenantId, int $taskId): array
+    private static function videoMediaResults(string $baseAppCode, int $tenantId, int $taskId, int $userId = 0): array
     {
-        return array_values(array_filter(array_map(static function (array $row): array {
+        return array_values(array_filter(array_map(static function (array $row) use ($userId): array {
             $url = (string)($row['video_url'] ?? '');
             if ($url === '') {
                 return [];
@@ -999,18 +1038,23 @@ class AiTaskRecordService
                 'height' => (int)($row['height'] ?? 0),
                 'duration' => (float)($row['duration'] ?? 0),
                 'provider_task_id' => (string)($row['provider_task_id'] ?? ''),
-            ];
-        }, self::videoResults($baseAppCode, $tenantId, $taskId))));
+            ] + ($userId > 0 ? [
+                'storage_scope' => (string)($row['storage_scope'] ?? ''),
+                'storage_engine' => (string)($row['storage_engine'] ?? ''),
+                'storage_domain' => (string)($row['storage_domain'] ?? ''),
+                'source_uri' => (string)($row['video_uri'] ?? ''),
+            ] : []);
+        }, self::videoResults($baseAppCode, $tenantId, $taskId, $userId))));
     }
 
-    private static function mediaResults(string $baseAppCode, int $tenantId, int $taskId): array
+    private static function mediaResults(string $baseAppCode, int $tenantId, int $taskId, int $userId = 0): array
     {
         $mediaType = self::baseMediaType($baseAppCode);
         if ($mediaType === 'video') {
-            return self::videoMediaResults($baseAppCode, $tenantId, $taskId);
+            return self::videoMediaResults($baseAppCode, $tenantId, $taskId, $userId);
         }
         if ($mediaType === 'image') {
-            return self::imageMediaResults($tenantId, $taskId);
+            return self::imageMediaResults($tenantId, $taskId, $userId);
         }
         return [];
     }
@@ -1071,7 +1115,7 @@ class AiTaskRecordService
             return $cache[$key];
         }
         try {
-            $cache[$key] = in_array($column, array_column(Db::query('SHOW COLUMNS FROM `la_' . $table . '`'), 'Field'), true);
+            $cache[$key] = in_array($column, Db::name($table)->getTableFields(), true);
         } catch (\Throwable) {
             $cache[$key] = false;
         }

@@ -20,8 +20,10 @@ final class PackagePricingService
         if($from==='recharge')return ['cycle'=>'package','name'=>(string)$p['name'],'regular_cents'=>PackagePromotionPolicy::cents($p['amount']),'rights'=>['recharge_points'=>(string)$p['points']]];
         if(!in_array($cycle,['package','monthly','yearly'],true))throw new \InvalidArgumentException('会员购买周期不正确');
         $duration=(int)$p['duration_months'];$cycle=$duration>0?'package':($cycle==='yearly'?'yearly':'monthly');$year=$cycle==='yearly';
+        $appCodes=MembershipPlanApp::where(['tenant_id'=>$tenant,'plan_id'=>$id])->column('app_code');
+        $appNames=$appCodes?Db::name('app')->whereIn('code',$appCodes)->column('name'):[];
         return ['cycle'=>$cycle,'name'=>(string)$p['name'],'regular_cents'=>PackagePromotionPolicy::cents($p[$year?'yearly_price':'monthly_price']),
-            'rights'=>['duration_months'=>$duration>0?$duration:($year?12:1),'bonus_points'=>(string)$p[$year?'yearly_bonus_points':'monthly_bonus_points'],'features'=>(array)$p['features'],'app_codes'=>MembershipPlanApp::where(['tenant_id'=>$tenant,'plan_id'=>$id])->column('app_code')]];
+            'rights'=>['duration_months'=>$duration>0?$duration:($year?12:1),'bonus_points'=>(string)$p[$year?'yearly_bonus_points':'monthly_bonus_points'],'features'=>(array)$p['features'],'app_codes'=>$appCodes,'app_names'=>$appNames,'description'=>(string)($p['description']??'')]];
     }
     private static function scope(int $tenant,int $user,string $from,int $package): array {return ['tenant_id'=>$tenant,'user_id'=>$user,'biz_type'=>$from,'package_id'=>$package];}
     public static function quote(int $tenant,int $user,string $from,int $package,string $cycle='package',?array $catalog=null): array

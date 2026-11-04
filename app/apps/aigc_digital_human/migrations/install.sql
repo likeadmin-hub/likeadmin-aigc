@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_task` (
   `consumption_id` int unsigned NOT NULL DEFAULT 0,
   `market_product_id` int unsigned NOT NULL DEFAULT 0,
   `market_sku_id` int unsigned NOT NULL DEFAULT 0,
-  `pricing_snapshot` mediumtext,
+  `pricing_snapshot` text,
   `idempotency_key` varchar(100) DEFAULT NULL,
   `market_request_id` varchar(120) NOT NULL DEFAULT '',
   `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
