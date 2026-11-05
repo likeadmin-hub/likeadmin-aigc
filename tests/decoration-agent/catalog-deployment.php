@@ -9,10 +9,15 @@ try {
     copy($source . '/catalog/mobile-catalog.json', $staged . '/catalog/mobile-catalog.json');
     require $staged . '/DecorationAgentCatalog.php';
     $catalog = \app\common\service\decorate\agent\DecorationAgentCatalog::all();
-    if (count($catalog['components']) !== 46 || strlen($catalog['hash']) !== 64) {
+    if (count($catalog['components']) !== 47 || strlen($catalog['hash']) !== 64) {
         throw new RuntimeException('Packaged decoration catalog is incomplete');
     }
-    echo "PASS: isolated immutable application catalog, 46 contracts and verified SHA256\n";
+    $magic = \app\common\service\decorate\agent\DecorationAgentCatalog::definition('magic-grid');
+    if (($magic['lists']['data']['fields']['border_radius']['unit'] ?? '') !== 'rpx' ||
+        !str_contains($magic['content_fields']['grid']['help'] ?? '', 'column_weights')) {
+        throw new RuntimeException('Magic region presentation contract is missing');
+    }
+    echo "PASS: isolated immutable application catalog, 47 contracts, magic region properties and verified SHA256\n";
 } finally {
     foreach ([$staged . '/DecorationAgentCatalog.php', $staged . '/catalog/mobile-catalog.json'] as $file) {
         if (is_file($file)) unlink($file);
