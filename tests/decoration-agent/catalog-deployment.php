@@ -17,7 +17,12 @@ try {
         !str_contains($magic['content_fields']['grid']['help'] ?? '', 'column_weights')) {
         throw new RuntimeException('Magic region presentation contract is missing');
     }
-    echo "PASS: isolated immutable application catalog, 47 contracts, magic region properties and verified SHA256\n";
+    $metaFields = $catalog['page_meta']['content_fields'];
+    if (($metaFields['title_img_height']['max'] ?? 0) !== 80 || ($metaFields['title_img_position']['max'] ?? 0) !== 100 ||
+        array_key_exists('title_img_height', $catalog['page_meta']['defaults']['content'])) {
+        throw new RuntimeException('Optional navigation image controls changed legacy defaults');
+    }
+    echo "PASS: isolated immutable application catalog, 47 contracts, optional navigation image/region properties and verified SHA256\n";
 } finally {
     foreach ([$staged . '/DecorationAgentCatalog.php', $staged . '/catalog/mobile-catalog.json'] as $file) {
         if (is_file($file)) unlink($file);

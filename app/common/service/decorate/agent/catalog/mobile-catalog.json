@@ -28620,6 +28620,28 @@
             "value": "2"
           }
         ]
+      },
+      "title_img_height": {
+        "key": "title_img_height",
+        "label": "导航图片高度",
+        "type": "number",
+        "value_type": "number",
+        "default": 40,
+        "min": 16,
+        "max": 80,
+        "unit": "rpx",
+        "help": "可选；保持图片原比例缩放并限制在导航可用空间，缺省保留旧尺寸。"
+      },
+      "title_img_position": {
+        "key": "title_img_position",
+        "label": "导航图片左右位置",
+        "type": "number",
+        "value_type": "number",
+        "default": 50,
+        "min": 0,
+        "max": 100,
+        "unit": "%",
+        "help": "可选；0在安全区域左侧、100在右侧，避让返回和微信胶囊；缺省沿用title_align。"
       }
     },
     "style_fields": {},
@@ -28627,5 +28649,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "67868e0735147a5d41da85429f0bca11fffa36ff4f243b9c3f1af2204405a571"
+  "hash": "dc16c9a0daba1713ad175a5dad1febf2ddea84f80a79d35625ee1121dc5b9e70"
 }
