@@ -26,6 +26,8 @@ final class WorkspaceAssetService
         'style_transfer' => 'aigc_style_transfer', 'watermark_removal' => 'aigc_watermark_removal',
         'fitting' => 'aigc_fitting',
     ];
+    // These tools store their final work directly on the task, without a result table.
+    private const TASK_OUTPUTS = ['copywriting' => 'aigc_copywriting_task', 'micro_video' => 'aigc_micro_video_task'];
     public const LABELS = ['', 'todo', 'in_progress', 'review', 'done'];
 
     public static function normalize(array $params): array
@@ -36,9 +38,9 @@ final class WorkspaceAssetService
         foreach ($refs as $ref) {
             if (!is_string($ref) || !preg_match('/^(?:[a-z_]+:(result|task):[1-9][0-9]{0,10}|canvas:task:[1-9][0-9]{0,10}:[1-9][0-9]{0,4})$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
             [$source, $kind] = explode(':', $ref);
-            if ($source !== 'upload' && !isset(self::SOURCES[$source])) throw new InvalidArgumentException('资产标识无效');
+            if ($source !== 'upload' && !isset(self::SOURCES[$source]) && !isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产标识无效');
             if ($source === 'canvas' && $kind === 'task' && count(explode(':', $ref)) !== 4) throw new InvalidArgumentException('资产标识无效');
-            if ($source === 'fitting' && $kind !== 'task') throw new InvalidArgumentException('资产标识无效');
+            if (($source === 'fitting' || isset(self::TASK_OUTPUTS[$source])) && $kind !== 'task') throw new InvalidArgumentException('资产标识无效');
             if (in_array($source, ['short_drama', 'upload', 'agent'], true) && $kind !== 'result') throw new InvalidArgumentException('资产标识无效');
         }
         $patch = [];
@@ -112,6 +114,43 @@ final class WorkspaceAssetService
         });
     }
 
+    public static function taskOutputs(int $tenant, int $user, string $source, int $page): array
+    {
+        self::identity($tenant, $user);
+        if (!isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产来源无效');
+        $rows = self::taskOutputQuery($tenant, $user, $source)->order('id', 'desc')
+            ->limit((max(1, $page) - 1) * 30, 31)->select()->toArray();
+        return [
+            'lists' => array_map(fn($row) => self::presentTaskOutput($source, $row), array_slice($rows, 0, 30)),
+            'has_more' => count($rows) > 30,
+        ];
+    }
+
+    private static function taskOutputQuery(int $tenant, int $user, string $source)
+    {
+        $copy = $source === 'copywriting';
+        return Db::name(self::TASK_OUTPUTS[$source])->where([
+            'tenant_id' => $tenant, 'user_id' => $user, 'delete_time' => 0, 'status' => 'success',
+        ])->where($copy ? 'result_text' : 'result_uri', '<>', '')
+          ->field($copy ? 'id,result_text,create_time' : 'id,title,result_uri,cover_uri,storage_scope,storage_engine,storage_domain,create_time');
+    }
+
+    private static function presentTaskOutput(string $source, array $row): array
+    {
+        $copy = $source === 'copywriting';
+        $raw = [
+            'id' => (int)$row['id'], 'task_id' => (int)$row['id'], 'create_time' => (int)$row['create_time'],
+            'status' => 'success', 'asset_type' => $copy ? 'document' : 'video',
+            'title' => $copy ? mb_substr(trim($row['result_text']), 0, 60) : $row['title'],
+        ];
+        if ($copy) $raw['content'] = $row['result_text'];
+        else {
+            $raw['video_url'] = self::url($row, 'result_uri');
+            $raw['cover_url'] = self::url($row, 'cover_uri');
+        }
+        return ['ref' => $source . ':task:' . $row['id'], 'source' => $source, 'raw' => $raw];
+    }
+
     public static function uploads(int $tenant, int $user, int $page): array
     {
         self::identity($tenant, $user);
@@ -166,7 +205,7 @@ final class WorkspaceAssetService
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return;
         // Agent-only documents/speech have no generation task to delete. Library state is authoritative.
-        if ($source === 'agent') return;
+        if ($source === 'agent' || isset(self::TASK_OUTPUTS[$source])) return;
         $owner = ['tenant_id'=>$tenant,'user_id'=>$user];
         if ($source === 'upload') {
             $file = Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'id'=>(int)$id,'source'=>FileEnum::SOURCE_USER,'upload_origin'=>'local']);
@@ -217,6 +256,10 @@ final class WorkspaceAssetService
     {
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return WorkspaceCanvasAssetService::owned($tenant, $user, $ref);
+        if (isset(self::TASK_OUTPUTS[$source])) {
+            $row = self::taskOutputQuery($tenant, $user, $source)->where('id', (int)$id)->find();
+            return $row ? self::presentTaskOutput($source, $row) : null;
+        }
         if ($source === 'agent') return self::ownedAgentArtifact($tenant, $user, (int)$id);
         if ($source === 'upload') {
             $file = ($includeDeleted ? TenantFile::withTrashed() : TenantFile::where([]))->where(['id' => (int)$id, 'tenant_id' => $tenant, 'source' => FileEnum::SOURCE_USER, 'source_id' => $user, 'upload_origin' => 'local'])
