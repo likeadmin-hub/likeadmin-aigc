@@ -56,9 +56,10 @@ final class CopywritingTaskService
         return $public;
     }
     public static function detail(int $tenantId,int $userId,int $id): array{return self::publicTask(self::owned($tenantId,$userId,$id));}
-    public static function lists(int $tenantId,int $userId,int $page=1,bool $admin=false): array
+    public static function lists(int $tenantId,int $userId,int $page=1,bool $admin=false,int $toolId=0): array
     {
         $q=CopywritingStore::table('task')->where('tenant_id',$tenantId);if(!$admin)$q->where(['user_id'=>$userId,'delete_time'=>0]);
+        if($toolId>0)$q->where('tool_id',$toolId);
         $count=(clone $q)->count();$rows=$q->order('id','desc')->page(max(1,$page),20)->select()->toArray();
         return ['lists'=>array_map([self::class,'publicTask'],$rows),'count'=>$count];
     }
