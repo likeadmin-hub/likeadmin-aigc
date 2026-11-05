@@ -126,13 +126,14 @@ final class WorkspaceAssetService
         ];
     }
 
-    private static function taskOutputQuery(int $tenant, int $user, string $source)
+    private static function taskOutputQuery(int $tenant, int $user, string $source, bool $includeDeleted = false)
     {
         $copy = $source === 'copywriting';
-        return Db::name(self::TASK_OUTPUTS[$source])->where([
-            'tenant_id' => $tenant, 'user_id' => $user, 'delete_time' => 0, 'status' => 'success',
+        $query = Db::name(self::TASK_OUTPUTS[$source])->where([
+            'tenant_id' => $tenant, 'user_id' => $user, 'status' => 'success',
         ])->where($copy ? 'result_text' : 'result_uri', '<>', '')
           ->field($copy ? 'id,result_text,create_time' : 'id,title,result_uri,cover_uri,storage_scope,storage_engine,storage_domain,create_time');
+        return $includeDeleted ? $query : $query->where('delete_time', 0);
     }
 
     private static function presentTaskOutput(string $source, array $row): array
@@ -205,7 +206,14 @@ final class WorkspaceAssetService
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return;
         // Agent-only documents/speech have no generation task to delete. Library state is authoritative.
-        if ($source === 'agent' || isset(self::TASK_OUTPUTS[$source])) return;
+        if ($source === 'agent') return;
+        if (isset(self::TASK_OUTPUTS[$source])) {
+            Db::name(self::TASK_OUTPUTS[$source])->where([
+                'tenant_id' => $tenant, 'user_id' => $user, 'id' => (int)$id,
+                'status' => 'success', 'delete_time' => $restore ? $stamp : 0,
+            ])->update(['delete_time' => $restore ? 0 : $stamp]);
+            return;
+        }
         $owner = ['tenant_id'=>$tenant,'user_id'=>$user];
         if ($source === 'upload') {
             $file = Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source_id'=>$user,'id'=>(int)$id,'source'=>FileEnum::SOURCE_USER,'upload_origin'=>'local']);
@@ -257,7 +265,7 @@ final class WorkspaceAssetService
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return WorkspaceCanvasAssetService::owned($tenant, $user, $ref);
         if (isset(self::TASK_OUTPUTS[$source])) {
-            $row = self::taskOutputQuery($tenant, $user, $source)->where('id', (int)$id)->find();
+            $row = self::taskOutputQuery($tenant, $user, $source, $includeDeleted)->where('id', (int)$id)->find();
             return $row ? self::presentTaskOutput($source, $row) : null;
         }
         if ($source === 'agent') return self::ownedAgentArtifact($tenant, $user, (int)$id);
