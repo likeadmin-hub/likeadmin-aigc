@@ -47,6 +47,30 @@ try {
         Library::update($tenant,$user,['refs'=>[$toolRef],'action'=>'restore']);
         check((int)Db::name($table.'_result')->where('id',$resultId)->value('delete_time')===0,'Tool source result restored');
     }
+    foreach (['copywriting', 'micro_video'] as $source) {
+        $fixture = $source === 'copywriting' ? [
+            'tool_id'=>1,'version_id'=>1,'request_hash'=>'test','input_snapshot'=>'{}','prompt_snapshot'=>'test',
+            'model_snapshot'=>'{}','execution_fingerprint'=>'test','result_text'=>'资产中心测试正文',
+        ] : [
+            'params_json'=>'{}','config_snapshot'=>'{}','model_snapshot'=>'{}','direction_snapshot'=>'{}',
+            'prompt'=>'test','analysis'=>'{}','continuity'=>'{}','planning_result'=>'{}','quote_json'=>'{}',
+            'confirmed_quote'=>'{}','result_uri'=>'uploads/test-video.mp4',
+        ];
+        $id = Db::name('aigc_'.$source.'_task')->insertGetId($fixture + [
+            'tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>'asset-center-test','status'=>'success','create_time'=>time(),
+        ]);
+        $ref = $source.':task:'.$id;
+        check(Library::taskOutputs($tenant,$user,$source,1)['lists'][0]['ref'] === $ref,'Task output has stable identity');
+        check(Library::taskOutputs($tenant,$user+1,$source,1)['lists'] === [],'Foreign outputs are private');
+        reject(fn()=>Library::update($tenant+1,$user,['refs'=>[$ref],'favorite'=>1]));
+        Library::update($tenant,$user,['refs'=>[$ref],'favorite'=>1]);
+        $saved = array_column(Library::read($tenant,$user)['supplemental'], 'raw', 'ref');
+        check(isset($saved[$ref][$source === 'copywriting' ? 'content' : 'video_url']), 'PC and mobile favorites resolve the output');
+        Library::update($tenant,$user,['refs'=>[$ref],'action'=>'trash']);
+        check(Library::taskOutputs($tenant,$user,$source,1)['lists'] === [],'Trashed work is excluded');
+        Library::update($tenant,$user,['refs'=>[$ref],'action'=>'restore']);
+        check(Library::taskOutputs($tenant,$user,$source,1)['lists'][0]['ref'] === $ref,'Restore returns the same work');
+    }
     $secondTask=Db::name('aigc_image_task')->insertGetId(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Pagination fixture','create_time'=>time()]);
     Db::name('aigc_image_task')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'status'=>'success','prompt'=>'Other live pagination fixture','create_time'=>time()]);
     $firstPage=\app\common\service\app\aigc_image\AigcImageService::taskLists($tenant,$user,['page_no'=>1,'page_size'=>1,'status'=>'success']);
