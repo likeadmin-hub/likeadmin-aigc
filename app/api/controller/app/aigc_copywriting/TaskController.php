@@ -4,7 +4,7 @@ use app\common\service\app\aigc_copywriting\{CopywritingStore as Store,Copywriti
 class TaskController extends Controller {
  public function create(){return $this->call(fn()=>Tasks::create($this->tenant(),$this->userId,$this->request->post('',null,null)));}
  public function detail(){return $this->call(fn()=>Tasks::detail($this->tenant(),$this->userId,(int)$this->request->get('id')));}
- public function lists(){return $this->call(fn()=>Tasks::lists($this->tenant(),$this->userId,(int)$this->request->get('page_no',1)));}
+ public function lists(){return $this->call(fn()=>Tasks::lists($this->tenant(),$this->userId,(int)$this->request->get('page_no',1),false,(int)$this->request->get('tool_id',0)));}
  public function cancel(){return $this->call(fn()=>Tasks::cancel($this->tenant(),$this->userId,(int)$this->request->post('id')));}
  public function delete(){return $this->call(fn()=>Tasks::delete($this->tenant(),$this->userId,(int)$this->request->post('id')));}
  public function events(){
