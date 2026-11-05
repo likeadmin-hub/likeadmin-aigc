@@ -17694,7 +17694,8 @@
           "default": {
             "columns": 4,
             "rows": 4
-          }
+          },
+          "help": "grid.columns/rows保留合并身份；可选column_weights/row_weights为正数数组，按列/行归一化。调整共享分隔线联动相邻区域，总宽度不变；缺省全部等分。"
         },
         "gap": {
           "key": "gap",
@@ -18044,6 +18045,17 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "border_radius": {
+              "key": "border_radius",
+              "label": "区域圆角",
+              "type": "number",
+              "value_type": "number",
+              "default": 0,
+              "min": 0,
+              "max": 100,
+              "unit": "rpx",
+              "help": "可选；缺省沿用旧圆角，显式0为直角。仅改变本区域。"
             }
           }
         },
@@ -18126,6 +18138,17 @@
               "type": "switch",
               "value_type": "string",
               "default": "1"
+            },
+            "border_radius": {
+              "key": "border_radius",
+              "label": "区域圆角",
+              "type": "number",
+              "value_type": "number",
+              "default": 0,
+              "min": 0,
+              "max": 100,
+              "unit": "rpx",
+              "help": "可选；缺省沿用旧圆角，显式0为直角。仅改变本区域。"
             }
           }
         }
@@ -20582,6 +20605,645 @@
           "field_map": {},
           "fallback_data": [],
           "title": "AI 应用"
+        },
+        "styles": {
+          "background": "rgba(255, 255, 255, 0.88)",
+          "padding": 24,
+          "background_color": "rgba(255, 255, 255, 0.88)",
+          "color": "#333333",
+          "border_color": "",
+          "appearance": "default",
+          "item_gap": 0,
+          "padding_top": 24,
+          "padding_bottom": 24,
+          "padding_horizontal": 24,
+          "margin_horizontal": 24,
+          "margin_top": 20,
+          "margin_bottom": 0,
+          "radius_top": 16,
+          "radius_right": 16,
+          "radius_bottom": 16,
+          "radius_left": 16,
+          "opacity": 100
+        }
+      }
+    },
+    {
+      "schema_version": 1,
+      "name": "cw-tool-collection",
+      "title": "智能文案集合",
+      "category": "content",
+      "terminal": [
+        "mobile"
+      ],
+      "channels": [
+        "h5",
+        "mp_weixin"
+      ],
+      "repeatable": true,
+      "content_fields": {
+        "enabled": {
+          "key": "enabled",
+          "label": "是否显示",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": ""
+        },
+        "data_mode": {
+          "key": "data_mode",
+          "label": "数据模式",
+          "type": "text",
+          "value_type": "string",
+          "default": "hybrid"
+        },
+        "data": {
+          "key": "data",
+          "label": "内容列表",
+          "type": "array",
+          "value_type": "array",
+          "default": []
+        },
+        "source_key": {
+          "key": "source_key",
+          "label": "数据源",
+          "type": "text",
+          "value_type": "string",
+          "default": "copywriting_tools"
+        },
+        "source_params": {
+          "key": "source_params",
+          "label": "数据源参数",
+          "type": "object",
+          "value_type": "object",
+          "default": {
+            "limit": 12
+          }
+        },
+        "field_map": {
+          "key": "field_map",
+          "label": "字段映射",
+          "type": "object",
+          "value_type": "object",
+          "default": {}
+        },
+        "fallback_data": {
+          "key": "fallback_data",
+          "label": "备用内容",
+          "type": "array",
+          "value_type": "array",
+          "default": []
+        },
+        "title": {
+          "key": "title",
+          "label": "标题",
+          "type": "text",
+          "value_type": "string",
+          "default": "智能文案"
+        },
+        "show_heading": {
+          "key": "show_heading",
+          "label": "显示区块标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": "",
+          "help": "仅控制组件区块标题，不影响每个入口的标题文字。"
+        },
+        "columns": {
+          "key": "columns",
+          "label": "每行数量",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 4,
+          "unit": "",
+          "min": 1,
+          "max": 5
+        },
+        "font_size": {
+          "key": "font_size",
+          "label": "入口字号",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 13,
+          "unit": "px",
+          "min": 10,
+          "max": 24
+        },
+        "icon_size": {
+          "key": "icon_size",
+          "label": "图标尺寸",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 84,
+          "unit": "rpx",
+          "min": 32,
+          "max": 160
+        },
+        "show_title": {
+          "key": "show_title",
+          "label": "显示入口标题",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": ""
+        },
+        "show_sub_title": {
+          "key": "show_sub_title",
+          "label": "显示入口说明",
+          "type": "switch",
+          "value_type": "number",
+          "default": 1,
+          "unit": ""
+        },
+        "image_fit": {
+          "key": "image_fit",
+          "label": "图片适配",
+          "type": "select",
+          "value_type": "string",
+          "default": "cover",
+          "options": [
+            {
+              "label": "裁剪填满",
+              "value": "cover"
+            },
+            {
+              "label": "完整显示",
+              "value": "contain"
+            }
+          ]
+        }
+      },
+      "style_fields": {
+        "background": {
+          "key": "background",
+          "label": "备用底色",
+          "type": "color",
+          "value_type": "string",
+          "default": "rgba(255, 255, 255, 0.88)"
+        },
+        "background_color": {
+          "key": "background_color",
+          "label": "组件底色",
+          "type": "color",
+          "value_type": "string",
+          "default": "rgba(255, 255, 255, 0.88)"
+        },
+        "color": {
+          "key": "color",
+          "label": "文字颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": "#333333"
+        },
+        "border_color": {
+          "key": "border_color",
+          "label": "边框颜色",
+          "type": "color",
+          "value_type": "string",
+          "default": ""
+        },
+        "background_gradient": {
+          "key": "background_gradient",
+          "label": "背景渐变",
+          "type": "text",
+          "value_type": "string",
+          "default": ""
+        },
+        "background_image": {
+          "key": "background_image",
+          "label": "背景图片",
+          "type": "image",
+          "value_type": "string",
+          "default": ""
+        },
+        "appearance": {
+          "key": "appearance",
+          "label": "组件样式",
+          "type": "text",
+          "value_type": "string",
+          "default": "default"
+        },
+        "shadow": {
+          "key": "shadow",
+          "label": "阴影",
+          "type": "text",
+          "value_type": "string",
+          "default": ""
+        },
+        "item_gap": {
+          "key": "item_gap",
+          "label": "图片间距",
+          "type": "number",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx",
+          "min": 0,
+          "max": 240
+        },
+        "padding_top": {
+          "key": "padding_top",
+          "label": "上内边距",
+          "type": "number",
+          "value_type": "number",
+          "default": 24,
+          "unit": "rpx",
+          "min": 0,
+          "max": 240
+        },
+        "padding_bottom": {
+          "key": "padding_bottom",
+          "label": "下内边距",
+          "type": "number",
+          "value_type": "number",
+          "default": 24,
+          "unit": "rpx",
+          "min": 0,
+          "max": 240
+        },
+        "padding_horizontal": {
+          "key": "padding_horizontal",
+          "label": "左右内边距",
+          "type": "number",
+          "value_type": "number",
+          "default": 24,
+          "unit": "rpx",
+          "min": 0,
+          "max": 240
+        },
+        "margin_horizontal": {
+          "key": "margin_horizontal",
+          "label": "左右外边距",
+          "type": "number",
+          "value_type": "number",
+          "default": 24,
+          "unit": "rpx",
+          "min": 0,
+          "max": 240
+        },
+        "margin_top": {
+          "key": "margin_top",
+          "label": "上外边距",
+          "type": "number",
+          "value_type": "number",
+          "default": 20,
+          "unit": "rpx",
+          "min": -480,
+          "max": 240
+        },
+        "margin_bottom": {
+          "key": "margin_bottom",
+          "label": "下外边距",
+          "type": "number",
+          "value_type": "number",
+          "default": 0,
+          "unit": "rpx"
+        },
+        "radius_top": {
+          "key": "radius_top",
+          "label": "左上圆角",
+          "type": "number",
+          "value_type": "number",
+          "default": 16,
+          "unit": "rpx",
+          "min": 0,
+          "max": 100
+        },
+        "radius_right": {
+          "key": "radius_right",
+          "label": "右上圆角",
+          "type": "number",
+          "value_type": "number",
+          "default": 16,
+          "unit": "rpx",
+          "min": 0,
+          "max": 100
+        },
+        "radius_bottom": {
+          "key": "radius_bottom",
+          "label": "右下圆角",
+          "type": "number",
+          "value_type": "number",
+          "default": 16,
+          "unit": "rpx",
+          "min": 0,
+          "max": 100
+        },
+        "radius_left": {
+          "key": "radius_left",
+          "label": "左下圆角",
+          "type": "number",
+          "value_type": "number",
+          "default": 16,
+          "unit": "rpx",
+          "min": 0,
+          "max": 100
+        },
+        "opacity": {
+          "key": "opacity",
+          "label": "背景透明度",
+          "type": "number",
+          "value_type": "number",
+          "default": 100,
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        "padding": {
+          "key": "padding",
+          "label": "旧版内边距",
+          "type": "number",
+          "value_type": "number",
+          "default": 24,
+          "unit": "rpx"
+        },
+        "grid_column": {
+          "key": "grid_column",
+          "label": "栅格占列",
+          "type": "stepper",
+          "value_type": "number",
+          "default": 0,
+          "unit": "列",
+          "min": 0,
+          "max": 12,
+          "options": [
+            {
+              "label": "自动（占满父栅格）",
+              "value": 0
+            },
+            {
+              "label": "1列",
+              "value": 1
+            },
+            {
+              "label": "2列",
+              "value": 2
+            },
+            {
+              "label": "3列",
+              "value": 3
+            },
+            {
+              "label": "4列",
+              "value": 4
+            },
+            {
+              "label": "5列",
+              "value": 5
+            },
+            {
+              "label": "6列",
+              "value": 6
+            },
+            {
+              "label": "7列",
+              "value": 7
+            },
+            {
+              "label": "8列",
+              "value": 8
+            },
+            {
+              "label": "9列",
+              "value": 9
+            },
+            {
+              "label": "10列",
+              "value": 10
+            },
+            {
+              "label": "11列",
+              "value": 11
+            },
+            {
+              "label": "12列",
+              "value": 12
+            }
+          ],
+          "help": "整数0–12；仅最近父栅格的直接子组件使用，显式0占满父行，缺字段保留旧别名，无旧配置则占满行；正值不超过父columns。其它容器忽略；子栅格的columns不会覆盖它在外层的占列。"
+        }
+      },
+      "lists": {
+        "data": {
+          "min_items": 0,
+          "max_items": null,
+          "limit_scope": "unspecified",
+          "initial_items": 0,
+          "fields": {
+            "id": {
+              "key": "id",
+              "label": "id",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "title": {
+              "key": "title",
+              "label": "标题",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "name": {
+              "key": "name",
+              "label": "名称",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "image": {
+              "key": "image",
+              "label": "图片",
+              "type": "image",
+              "value_type": "string",
+              "default": ""
+            },
+            "cover": {
+              "key": "cover",
+              "label": "封面",
+              "type": "image",
+              "value_type": "string",
+              "default": ""
+            },
+            "description": {
+              "key": "description",
+              "label": "描述",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "sub_title": {
+              "key": "sub_title",
+              "label": "副标题",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "tag": {
+              "key": "tag",
+              "label": "标签",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "link": {
+              "key": "link",
+              "label": "跳转链接",
+              "type": "link",
+              "value_type": "object",
+              "default": {}
+            },
+            "is_show": {
+              "key": "is_show",
+              "label": "是否显示",
+              "type": "switch",
+              "value_type": "string",
+              "default": "1"
+            }
+          }
+        },
+        "fallback_data": {
+          "min_items": 0,
+          "max_items": null,
+          "limit_scope": "unspecified",
+          "initial_items": 0,
+          "fields": {
+            "id": {
+              "key": "id",
+              "label": "id",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "title": {
+              "key": "title",
+              "label": "标题",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "name": {
+              "key": "name",
+              "label": "名称",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "image": {
+              "key": "image",
+              "label": "图片",
+              "type": "image",
+              "value_type": "string",
+              "default": ""
+            },
+            "cover": {
+              "key": "cover",
+              "label": "封面",
+              "type": "image",
+              "value_type": "string",
+              "default": ""
+            },
+            "description": {
+              "key": "description",
+              "label": "描述",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "sub_title": {
+              "key": "sub_title",
+              "label": "副标题",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "tag": {
+              "key": "tag",
+              "label": "标签",
+              "type": "text",
+              "value_type": "string",
+              "default": ""
+            },
+            "link": {
+              "key": "link",
+              "label": "跳转链接",
+              "type": "link",
+              "value_type": "object",
+              "default": {}
+            },
+            "is_show": {
+              "key": "is_show",
+              "label": "是否显示",
+              "type": "switch",
+              "value_type": "string",
+              "default": "1"
+            }
+          }
+        }
+      },
+      "source": {
+        "default_key": "copywriting_tools",
+        "allowed_keys": [
+          "article",
+          "ai_tools",
+          "image_cases",
+          "video_cases",
+          "digital_human_cases",
+          "app_entries",
+          "assets",
+          "recent_tasks",
+          "user_profile",
+          "membership_summary",
+          "account_summary",
+          "user_assets"
+        ],
+        "modes": [
+          "manual",
+          "source",
+          "hybrid"
+        ],
+        "params": {
+          "limit": {
+            "key": "limit",
+            "label": "显示数量",
+            "type": "number",
+            "value_type": "number",
+            "default": 12,
+            "unit": "",
+            "min": 1,
+            "max": 50
+          }
+        },
+        "empty_policy": "manual uses data; source uses resolved items; hybrid prefers source then manual then fallback"
+      },
+      "children": {
+        "supported": false,
+        "max_depth": 4
+      },
+      "runtime_notes": [
+        "unsupported: field_map has no runtime consumer; do not recommend arbitrary mappings."
+      ],
+      "compatibility": {
+        "unknown_fields": "preserve",
+        "persisted_shape": "name/content/styles/children",
+        "required_renderer_components": [
+          "cw-tool-collection"
+        ]
+      },
+      "defaults": {
+        "name": "cw-tool-collection",
+        "title": "智能文案集合",
+        "content": {
+          "enabled": 1,
+          "data_mode": "hybrid",
+          "data": [],
+          "source_key": "copywriting_tools",
+          "source_params": {
+            "limit": 12
+          },
+          "field_map": {},
+          "fallback_data": [],
+          "title": "智能文案"
         },
         "styles": {
           "background": "rgba(255, 255, 255, 0.88)",
@@ -27965,5 +28627,5 @@
       "unknown_fields": "preserve"
     }
   },
-  "hash": "9fafee065260e4214745f7e6edcbf27e82de06be8f8cb87e8138c423ca2e836c"
+  "hash": "67868e0735147a5d41da85429f0bca11fffa36ff4f243b9c3f1af2204405a571"
 }
