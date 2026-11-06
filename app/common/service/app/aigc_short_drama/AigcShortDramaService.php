@@ -2186,7 +2186,7 @@ class AigcShortDramaService
         }
         $count = (int)(clone $query)->count();
         $rows = $query
-            ->order(['create_time' => 'desc', 'id' => 'desc'])
+            ->order([($params['sort_by'] ?? '') === 'updated' ? 'update_time' : 'create_time' => 'desc', 'id' => 'desc'])
             ->page($pageNo, $pageSize)
             ->select()
             ->toArray();
