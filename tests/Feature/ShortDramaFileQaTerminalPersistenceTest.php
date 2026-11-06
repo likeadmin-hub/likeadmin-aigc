@@ -18,11 +18,11 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
 
     public static function terminals(): array
     {
-        return [['failed', 'success'], ['failed', 'malformed'], ['failed', 'failed'], ['canceled', 'failed'], ['success', 'failed'], ['canceled', 'success'], ['success', 'success'], ['canceled', 'malformed'], ['success', 'malformed'], ['running', 'success']];
+        return [['failed', 'success'], ['failed', 'malformed'], ['failed', 'failed'], ['canceled', 'failed'], ['success', 'failed'], ['canceled', 'success'], ['success', 'success'], ['canceled', 'malformed'], ['success', 'malformed'], ['running', 'success'], ['running', 'success', 1]];
     }
 
     /** @dataProvider terminals */
-    public function testLateReceiptCannotOverwriteTerminalTask(string $terminal, string $upstream): void
+    public function testLateReceiptCannotOverwriteTerminalTask(string $terminal, string $upstream, int $count = 2): void
     {
         $taskId = 'parse_terminal_' . bin2hex(random_bytes(8));
         $scope = ['tenant_id' => 2000000719, 'user_id' => 7];
@@ -33,6 +33,8 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
             'episodes' => [
                 ['episode_number' => 1, 'title' => '旧信', 'story_outline' => '调查员在书房找到旧信。', 'conflict_point' => '署名与记忆矛盾。', 'ending_hook' => '发现信里的地址。'],
                 ['episode_number' => 2, 'title' => '证人', 'story_outline' => '调查员抵达地址并找到失踪者的妹妹。', 'conflict_point' => '妹妹拒绝开口。', 'ending_hook' => '妹妹交出日记。']]];
+        $plan['episodes'] = array_slice($plan['episodes'], 0, $count);
+        $plan['episode_count'] = $count;
         $appId = Db::name('ai_app_task')->insertGetId($scope + ['task_no' => $taskId, 'app_code' => 'aigc_short_drama', 'action_code' => 'script_parse']);
         Db::name('ai_consumption_log')->insert($scope + ['consume_no' => $taskId, 'app_task_id' => $appId,
             'app_code' => 'aigc_short_drama', 'run_status' => $upstream === 'malformed' ? 'success' : $upstream,
@@ -51,7 +53,9 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
             self::assertSame('success', $saved['status']);
             self::assertSame('story_outline_v2', $request['workflow_variant']);
             self::assertSame('story', $request['multi_episode_stage']);
-            self::assertCount(2, $request['_imported_outline_snapshot']['episodes']);
+            self::assertCount($count, $request['_imported_outline_snapshot']['episodes']);
+            self::assertSame($count, (int)$request['episode_count']);
+            self::assertSame($count, (int)Db::name('aigc_short_drama_project')->where('id', $projectId)->value('episode_count'));
             self::assertSame(120,$request['episode_duration_policy']['target_seconds']);
             self::assertSame(60,$request['episode_duration_policy']['min_seconds']);
             self::assertSame(1,$request['episode_duration_policy']['target_planning_version']);
