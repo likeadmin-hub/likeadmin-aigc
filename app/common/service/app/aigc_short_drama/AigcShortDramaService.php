@@ -20843,14 +20843,15 @@ class AigcShortDramaService
         // the normalized plan so reviewPlanResult can request one complete
         // JSON repair. The final accepted result is still validated strictly.
         $outlineValidationIssues = $multiEpisode && $multiEpisodeStage === self::MULTI_EPISODE_STAGE_OUTLINE
-            ? self::multiEpisodeOutlineValidationIssues($payload, $episodeCount)
+            ? self::multiEpisodeOutlineValidationIssues($payload, $episodeCount, ShortDramaImportedScript::allowsSingleEpisode($request))
             : [];
         $episodes = ($multiEpisode && $multiEpisodeStage !== self::MULTI_EPISODE_STAGE_STORY)
             ? self::normalizeGeneratedEpisodes(
                 $rawEpisodeItems,
                 $episodeCount,
                 $storyOutline,
-                $scriptLines
+                $scriptLines,
+                ShortDramaImportedScript::allowsSingleEpisode($request)
             )
             : [];
         if ($multiEpisode && $multiEpisodeStage !== self::MULTI_EPISODE_STAGE_STORY) {
@@ -21065,7 +21066,7 @@ class AigcShortDramaService
      * the review pass so an incomplete final episode is repaired, never
      * silently represented as a complete outline.
      */
-    private static function multiEpisodeOutlineValidationIssues(array $payload, int $episodeCount): array
+    private static function multiEpisodeOutlineValidationIssues(array $payload, int $episodeCount, bool $allowSingle = false): array
     {
         $issues = [];
         $requiredTopLevel = [
@@ -21100,7 +21101,7 @@ class AigcShortDramaService
             $issues[] = ['code' => 'outline.locations.empty', 'path' => 'locations', 'message' => '分集大纲缺少场景列表'];
         }
 
-        $episodeCount = max(2, $episodeCount);
+        $episodeCount = max($allowSingle ? 1 : 2, $episodeCount);
         $episodes = array_values(array_filter((array)($payload['episodes'] ?? []), 'is_array'));
         if (count($episodes) !== $episodeCount) {
             $issues[] = [
@@ -21291,9 +21292,9 @@ class AigcShortDramaService
         ]);
     }
 
-    private static function normalizeGeneratedEpisodes(array $items, int $episodeCount, string $storyOutline, array $scriptLines): array
+    private static function normalizeGeneratedEpisodes(array $items, int $episodeCount, string $storyOutline, array $scriptLines, bool $allowSingle = false): array
     {
-        if ($episodeCount <= 1) {
+        if ($episodeCount < ($allowSingle ? 1 : 2)) {
             return [];
         }
 
