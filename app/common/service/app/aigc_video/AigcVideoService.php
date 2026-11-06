@@ -1016,7 +1016,7 @@ class AigcVideoService
     }
 
     /** Enrich response copies in one bounded read; never repair terminal task rows. */
-    private static function appendRequestDurations(array &$tasks): void
+    public static function appendRequestDurations(array &$tasks): void
     {
         $ids=[];
         foreach($tasks as$task)if(self::historicalRequestDuration($task,null)===null&&($task['consumption_id']??0)>0)$ids[]=(int)$task['consumption_id'];
