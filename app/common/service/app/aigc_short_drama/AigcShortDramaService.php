@@ -5542,7 +5542,7 @@ class AigcShortDramaService
             $fullPlanRevision = true;
         }
         if (ShortDramaStoryWorkflow::enabled($sourceRequest)) {
-            if (empty($request['multi_episode']) || (int)$request['episode_count'] < (!empty($request['_canvas_series_planning']) ? 1 : 2)) {
+            if (empty($request['multi_episode']) || (int)$request['episode_count'] < (!empty($request['_canvas_series_planning']) || ShortDramaImportedScript::allowsSingleEpisode($sourceRequest) ? 1 : 2)) {
                 throw new Exception('当前项目是多集故事流程；如需单集，请新建单集项目');
             }
             // Changing the requested count must not bypass story confirmation.
@@ -9224,8 +9224,8 @@ class AigcShortDramaService
         $episodes = ShortDramaSourceBoundary::episodes(array_values(array_filter((array)($source['episodes'] ?? []), 'is_array')),
             (string)($request['parse_mode'] ?? $result['parse_mode'] ?? ''));
         $count = count($episodes);
-        if ($count < 2 || $count > self::SCRIPT_MAX_EPISODES || (int)($source['episode_count'] ?? $count) !== $count) {
-            throw new Exception('解析结果的有效剧集数必须为 2～' . self::SCRIPT_MAX_EPISODES . '，且与 episodes 一致');
+        if ($count < 1 || $count > self::SCRIPT_MAX_EPISODES || (int)($source['episode_count'] ?? $count) !== $count) {
+            throw new Exception('解析结果的有效剧集数必须为 1～' . self::SCRIPT_MAX_EPISODES . '，且与 episodes 一致');
         }
         $subjects = (array)($source['subjects'] ?? $source['characters'] ?? []);
         $locations = (array)($source['locations'] ?? $source['scenes'] ?? $source['settings'] ?? []);
@@ -9258,6 +9258,7 @@ class AigcShortDramaService
             }
             $mappedEpisodes[] = $mapped;
         }
+        $request['source'] = 'market_file_qa_parse';
         $request['multi_episode'] = true; $request['episode_count'] = $count; $request['episode_total_count'] = $count;
         $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_OUTLINE; $request['workflow_variant'] = '';
         $payload = [
@@ -9269,6 +9270,7 @@ class AigcShortDramaService
         $plan = self::normalizeGeneratedPlanResult($payload, $required['story_outline'], $request, $required['title']);
         $plan['storyboard'] = [];
         $plan['parse_metadata'] = [
+            'imported_script' => true,
             'detected_type' => (string)($result['detected_type'] ?? ''), 'parse_mode' => (string)($result['parse_mode'] ?? ''),
             'source_summary' => (string)($result['summary'] ?? ''), 'source_characters' => (array)($result['characters'] ?? []),
             'usage' => (array)($result['usage'] ?? []),
@@ -17410,7 +17412,7 @@ class AigcShortDramaService
     private static function normalizeEpisodeSettings(array $params): array
     {
         $requestedCount = (int)($params['episode_count'] ?? 0);
-        if ((!empty($params['_short_drama_episode_batch']) || !empty($params['_canvas_series_planning'])) && $requestedCount === 1) {
+        if ((!empty($params['_short_drama_episode_batch']) || !empty($params['_canvas_series_planning']) || ShortDramaImportedScript::allowsSingleEpisode($params)) && $requestedCount === 1) {
             return ['multi_episode' => true, 'episode_count' => 1];
         }
         $multiEpisode = (bool)($params['multi_episode'] ?? false) || $requestedCount > 1;
@@ -17426,7 +17428,7 @@ class AigcShortDramaService
 
     private static function hydrateEpisodeSettingsFromProject(array $request, array $project): array
     {
-        if (!empty($request['_canvas_series_planning']) && (int)($request['episode_count'] ?? 0) === 1) return $request;
+        if ((!empty($request['_canvas_series_planning']) || ShortDramaImportedScript::allowsSingleEpisode($request)) && (int)($request['episode_count'] ?? 0) === 1) return $request;
         $projectEpisodeCount = (int)($project['episode_count'] ?? 0);
         $projectIsMultiEpisode = (int)($project['multi_episode'] ?? 0) === 1 || $projectEpisodeCount > 1;
         if (!$projectIsMultiEpisode) {

@@ -17,7 +17,10 @@ class ShortDramaImportedConfirmationTest extends TestCase
     }
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
 
-    public function testConfirmationIsLocalLosslessAndIdempotent(): void
+    public static function episodeCounts(): array { return [[1], [2]]; }
+
+    /** @dataProvider episodeCounts */
+    public function testConfirmationIsLocalLosslessAndIdempotent(int $count): void
     {
         $scope = ['tenant_id' => 2000000719, 'user_id' => 7];
         $task = 'import_confirm_' . bin2hex(random_bytes(8));
@@ -33,7 +36,13 @@ class ShortDramaImportedConfirmationTest extends TestCase
             'episode_duration_policy'=>['version'=>1,'source'=>'default','target_seconds'=>120,'min_seconds'=>60,
                 'max_seconds'=>180,'target_planning_version'=>1], '_upload_timing_rule_snapshot'=>['enabled'=>true,
                 'target_seconds'=>120,'min_seconds'=>60,'max_seconds'=>180]];
-        $project = Db::name('aigc_short_drama_project')->insertGetId($scope + ['title' => '旧信', 'last_task_id' => $task, 'multi_episode' => 1, 'episode_count' => 2]);
+        $plan['episodes'] = array_slice($plan['episodes'], 0, $count);
+        $plan['episode_count'] = $count;
+        $plan['parse_metadata']['imported_script'] = true;
+        $request['_imported_outline_snapshot'] = $plan;
+        $request['episode_count'] = $count;
+        $story = Imported::storyDraft($plan);
+        $project = Db::name('aigc_short_drama_project')->insertGetId($scope + ['title' => '旧信', 'last_task_id' => $task, 'multi_episode' => 1, 'episode_count' => $count]);
         $id = Db::name('aigc_short_drama_script_task')->insertGetId($scope + ['project_id' => $project, 'task_id' => $task,
             'status' => 'success', 'prompt' => '按原文策划', 'request_json' => json_encode($request), 'result_json' => json_encode($story),
             'config_snapshot' => '{}', 'billing_status' => 'settled', 'user_charge_points' => '5.00']);
