@@ -15,7 +15,7 @@ class CaseController extends BaseAdminController
 
     public function apps()
     {
-        return $this->success('获取成功', CaseGalleryService::appOptions($this->tenantId));
+        return $this->success('获取成功', CaseGalleryService::appOptions($this->tenantId, (bool)$this->request->get('include_generation', false)));
     }
 
     public function detail()
