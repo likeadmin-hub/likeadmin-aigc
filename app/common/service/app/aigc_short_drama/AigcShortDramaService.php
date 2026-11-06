@@ -23557,11 +23557,15 @@ class AigcShortDramaService
         if ($withResult && (string)($task['status'] ?? '') === self::STATUS_SUCCESS) {
             $task = self::cleanStoredStoryboardForTaskData($task);
         }
+        $storedRequest = self::jsonDecode((string)($task['request_json'] ?? ''));
         $request = self::hydrateStoredSubjectReferences(
             (int)$task['tenant_id'],
             (int)$task['user_id'],
-            self::stripPromptDiagnostics(self::jsonDecode((string)($task['request_json'] ?? '')))
+            self::stripPromptDiagnostics($storedRequest)
         );
+        // Public formatting removes the immutable private outline. Keep only
+        // its classification so a one-episode import stays in the staged UI.
+        if (ShortDramaImportedScript::allowsSingleEpisode($storedRequest)) $request['imported_script'] = true;
         $submission = (array)($request['submission'] ?? []);
         $publicSubmission = (string)($submission['type'] ?? '') === 'script_upload'
             ? [
