@@ -70,9 +70,9 @@ final class CaseGenerationTest extends TestCase
     {
         $request=Cases::request(['model_id'=>'model','tenant_id'=>99,'user_id'=>8,'pricing_snapshot'=>['secret'=>'x'],
             'provider_params'=>['api_key'=>'x','nested'=>['access_token'=>'x','enabled'=>false],'seed'=>0],
-            'reference_images'=>['a.png','blob:x','javascript:bad','data:image/png;base64,xx'],
+            'reference_images'=>['a.png','asset://owned-media','blob:x','javascript:bad','data:image/png;base64,xx'],
             'reference_assets'=>[['uri'=>'a.png','url'=>'blob:preview','type'=>'image','role'=>'reference_image','file'=>'local'],['uri'=>'file:///private','type'=>'image']]]);
-        self::assertSame(['a.png'],$request['reference_images']);
+        self::assertSame(['a.png','asset://owned-media'],$request['reference_images']);
         self::assertCount(1,$request['reference_assets']);
         self::assertArrayNotHasKey('url',$request['reference_assets'][0]);
         self::assertSame(['nested'=>['enabled'=>false],'seed'=>0],$request['provider_params']);

@@ -32,7 +32,7 @@ final class CaseGenerationService
             foreach ((array)$request['reference_assets'] as $asset) {
                 if (!is_array($asset)) continue;
                 $asset = array_intersect_key($asset, array_flip([
-                    'type', 'media_type', 'uri', 'url', 'name', 'role', 'field', 'reference_slot_id',
+                    'type', 'media_type', 'uri', 'url', 'name', 'role', 'field', 'reference_slot_id', 'asset_id',
                     'duration', 'width', 'height', 'storage_scope', 'storage_engine', 'storage_domain',
                 ]));
                 $uri = self::uri($asset['uri'] ?? $asset['url'] ?? '');
@@ -107,7 +107,9 @@ final class CaseGenerationService
         }
         $tasks = [];
         foreach ($groups as $tenantId => $apps) foreach ($apps as $app => $ids) {
-            foreach ($models[$app]::where(['tenant_id' => $tenantId, 'delete_time' => 0, 'status' => 'success'])->whereIn('id', array_unique($ids))->select()->toArray() as $task) {
+            $loaded = $models[$app]::where(['tenant_id' => $tenantId, 'delete_time' => 0, 'status' => 'success'])->whereIn('id', array_unique($ids))->select()->toArray();
+            if ($app === 'aigc_video') \app\common\service\app\aigc_video\AigcVideoService::appendRequestDurations($loaded);
+            foreach ($loaded as $task) {
                 $tasks[$tenantId][$app][(int)$task['id']] = $task;
             }
         }
@@ -130,14 +132,16 @@ final class CaseGenerationService
         $config = self::config(self::array($row['config_json'] ?? []));
         $request = $config['generation_request'];
         $request['prompt'] = (string)($row['prompt'] ?? '');
-        $request['reference_images'] = array_values((array)($row['reference_images'] ?? $request['reference_images'] ?? []));
+        if (($row['app_code'] ?? '') === 'aigc_digital_human') $request['script_text'] = $request['prompt'];
+        $request['reference_images'] = self::request(['reference_images' => $row['reference_images'] ?? $request['reference_images'] ?? []])['reference_images'];
         foreach ($request['reference_assets'] ?? [] as $i => $asset) {
-            $request['reference_assets'][$i]['url'] = FileService::getFileUrlByStorage($asset['uri'], (string)($asset['storage_scope'] ?? ''), (string)($asset['storage_engine'] ?? ''), (string)($asset['storage_domain'] ?? ''));
+            $request['reference_assets'][$i]['url'] = str_starts_with($asset['uri'], 'asset://') ? $asset['uri'] : FileService::getFileUrlByStorage($asset['uri'], (string)($asset['storage_scope'] ?? ''), (string)($asset['storage_engine'] ?? ''), (string)($asset['storage_domain'] ?? ''));
         }
         $row['config_json'] = $config;
         $row['generation_request'] = $request;
         $row['reference_images'] = $request['reference_images'];
-        $row['reference_image_urls'] = array_map([FileService::class, 'getFileUrl'], $request['reference_images']);
+        $row['reference_image_urls'] = array_map(static fn(string $uri) => str_starts_with($uri, 'asset://') ? $uri : FileService::getFileUrl($uri), $request['reference_images']);
+        if (!empty($request['audio_uri'])) $row['generation_request']['audio_url'] = FileService::getFileUrl($request['audio_uri']);
         return $row;
     }
 
@@ -155,7 +159,7 @@ final class CaseGenerationService
     {
         if (!is_string($value)) return '';
         $value = trim($value);
-        if (preg_match('~^(?:[a-z][a-z0-9+.-]*:|//)~i', $value) && !preg_match('~^https?://~i', $value)) return '';
+        if (preg_match('~^(?:[a-z][a-z0-9+.-]*:|//)~i', $value) && !preg_match('~^(?:https?://|asset://)~i', $value)) return '';
         return $value;
     }
 
