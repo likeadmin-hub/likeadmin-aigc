@@ -8,7 +8,7 @@ final class ShortDramaImportedScript
 {
     public static function allowsSingleEpisode(array $request): bool
     {
-        return ($request['source'] ?? '') === 'market_file_qa_parse' || !empty($request['_imported_outline_snapshot']);
+        return ($request['source'] ?? '') === 'market_file_qa_parse' || !empty($request['_imported_outline_snapshot']) || !empty($request['imported_script']);
     }
 
     /**
