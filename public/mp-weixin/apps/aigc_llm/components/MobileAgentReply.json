@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "generation-state": "../../../components/creation-studio/GenerationState"
+  }
+}

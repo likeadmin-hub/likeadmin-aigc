@@ -1,0 +1,1 @@
+"use strict";const e=require("../common/vendor.js"),t=e.shallowReactive(new WeakMap);exports.currentPageTitles=t,exports.syncPageNavigationTitles=function(){e.index.addInterceptor("setNavigationBarTitle",{invoke({title:e}){const n=getCurrentPages(),i=n[n.length-1];i&&t.set(i,e)}})};

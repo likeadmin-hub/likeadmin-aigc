@@ -1,4 +1,5 @@
 {
+  "navigationStyle": "custom",
   "navigationBarTitleText": "智能文案",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",

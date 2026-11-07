@@ -1,6 +1,9 @@
 {
   "component": true,
   "usingComponents": {
+    "work-card": "../../../../components/creation-studio/WorkCard",
+    "work-status-tabs": "../../../../components/creation-studio/WorkStatusTabs",
+    "delete-work-dialog": "../../../../components/creation-studio/DeleteWorkDialog",
     "micro-page": "../../components/MicroPage"
   }
 }

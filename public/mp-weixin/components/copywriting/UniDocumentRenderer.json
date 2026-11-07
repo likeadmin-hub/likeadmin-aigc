@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "studio-select-menu": "../creation-studio/StudioSelectMenu",
     "uni-node": "./UniNode"
   }
 }

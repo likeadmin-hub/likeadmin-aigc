@@ -1,0 +1,1 @@
+<button class="studio-close icon-action data-v-4528a05d" aria-label="{{b}}" disabled="{{c}}" catchtap="{{d}}"><studio-icon wx:if="{{a}}" class="data-v-4528a05d" u-i="4528a05d-0" bind:__l="__l" u-p="{{a}}"/></button>

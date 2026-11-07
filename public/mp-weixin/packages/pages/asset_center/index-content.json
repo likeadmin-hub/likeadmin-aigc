@@ -1,0 +1,10 @@
+{
+  "component": true,
+  "usingComponents": {
+    "studio-select": "../../../components/creation-studio/StudioSelect",
+    "studio-select-menu": "../../../components/creation-studio/StudioSelectMenu",
+    "studio-icon": "../../../components/creation-studio/StudioIcon",
+    "studio-close": "../../../components/creation-studio/StudioClose",
+    "asset-thumbnail": "./AssetThumbnail"
+  }
+}

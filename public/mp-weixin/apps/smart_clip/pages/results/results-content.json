@@ -1,6 +1,10 @@
 {
   "component": true,
   "usingComponents": {
+    "work-card": "../../../../components/creation-studio/WorkCard",
+    "work-status-tabs": "../../../../components/creation-studio/WorkStatusTabs",
+    "tool-record-detail": "../../../mobile_tools/components/ToolRecordDetail",
+    "delete-work-dialog": "../../../../components/creation-studio/DeleteWorkDialog",
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
     "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
   }

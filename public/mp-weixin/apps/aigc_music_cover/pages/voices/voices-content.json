@@ -2,6 +2,8 @@
   "component": true,
   "usingComponents": {
     "u-icon": "../../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
+    "studio-close": "../../../../components/creation-studio/StudioClose",
+    "studio-icon": "../../../../components/creation-studio/StudioIcon",
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page"
   }
 }

@@ -1,6 +1,8 @@
 {
   "component": true,
   "usingComponents": {
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page"
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
+    "creation-workbench": "../../../../components/digital-human-page/digital-human-page",
+    "studio-icon": "../../../../components/creation-studio/StudioIcon"
   }
 }

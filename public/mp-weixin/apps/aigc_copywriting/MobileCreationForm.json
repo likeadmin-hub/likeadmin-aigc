@@ -1,0 +1,9 @@
+{
+  "component": true,
+  "usingComponents": {
+    "generation-state": "../../components/creation-studio/GenerationState",
+    "creation-workbench": "../../components/digital-human-page/digital-human-page",
+    "studio-select": "../../components/creation-studio/StudioSelect",
+    "studio-select-menu": "../../components/creation-studio/StudioSelectMenu"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "studio-icon": "./StudioIcon"
+  }
+}

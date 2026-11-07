@@ -1,6 +1,7 @@
 {
   "component": true,
   "usingComponents": {
+    "generation-state": "../../../../../components/creation-studio/GenerationState",
     "decoration-tab-page": "../../../../../components/decoration-tab-page/decoration-tab-page",
     "image-human-nav": "../../../components/ImageHumanNav"
   }

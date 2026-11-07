@@ -2,7 +2,6 @@
   "component": true,
   "usingComponents": {
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader",
-    "app-membership-notice": "../../../../components/app-membership-notice/app-membership-notice"
+    "tool-workbench": "../../../../components/creation-studio/ToolWorkbench"
   }
 }

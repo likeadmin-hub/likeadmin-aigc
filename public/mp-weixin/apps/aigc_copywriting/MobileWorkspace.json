@@ -1,7 +1,12 @@
 {
   "component": true,
   "usingComponents": {
+    "mobile-creation-form": "./MobileCreationForm",
+    "studio-icon": "../../components/creation-studio/StudioIcon",
+    "writing-work-card": "./WritingWorkCard",
+    "work-status-tabs": "../../components/creation-studio/WorkStatusTabs",
     "decoration-tab-page": "../../components/decoration-tab-page/decoration-tab-page",
+    "mobile-tool-header": "../../components/creation-studio/WorkbenchHeader",
     "uni-document-renderer": "../../components/copywriting/UniDocumentRenderer"
   }
 }

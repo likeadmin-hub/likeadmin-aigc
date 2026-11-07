@@ -2,6 +2,13 @@
   "component": true,
   "usingComponents": {
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+    "creation-workbench": "../../../../components/digital-human-page/digital-human-page",
+    "studio-image-upload": "../../../../components/creation-studio/StudioImageUpload",
+    "studio-video-upload": "../../../../components/creation-studio/StudioVideoUpload",
+    "studio-image-library": "../../../../components/creation-studio/StudioImageLibrary",
+    "studio-video-library": "../../../../components/creation-studio/StudioVideoLibrary",
+    "studio-choice-image": "../../../../components/creation-studio/StudioChoiceImage",
+    "studio-icon": "../../../../components/creation-studio/StudioIcon",
+    "studio-close": "../../../../components/creation-studio/StudioClose"
   }
 }

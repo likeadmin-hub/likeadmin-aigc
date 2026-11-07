@@ -1,6 +1,8 @@
 {
   "component": true,
   "usingComponents": {
+    "generation-state": "../../../components/creation-studio/GenerationState",
+    "studio-index-select": "../../../components/creation-studio/StudioIndexSelect",
     "model-source-badge": "../../../components/model-source-badge/model-source-badge"
   }
 }

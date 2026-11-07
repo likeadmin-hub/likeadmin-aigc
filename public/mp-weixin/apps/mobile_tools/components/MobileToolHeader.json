@@ -1,4 +1,6 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "workbench-header": "../../../components/creation-studio/WorkbenchHeader"
+  }
 }

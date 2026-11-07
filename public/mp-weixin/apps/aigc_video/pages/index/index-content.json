@@ -1,11 +1,15 @@
 {
   "component": true,
   "usingComponents": {
-    "u-icon": "../../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
-    "model-source-badge": "../../../../components/model-source-badge/model-source-badge",
     "u-switch": "../../../../uni_modules/vk-uview-ui/components/u-switch/u-switch",
-    "u-loading": "../../../../uni_modules/vk-uview-ui/components/u-loading/u-loading",
+    "model-source-badge": "../../../../components/model-source-badge/model-source-badge",
+    "generation-state": "../../../../components/creation-studio/GenerationState",
+    "studio-close": "../../../../components/creation-studio/StudioClose",
     "app-membership-notice": "../../../../components/app-membership-notice/app-membership-notice",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page"
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
+    "studio-icon": "../../../../components/creation-studio/StudioIcon",
+    "frame-slots": "../../components/FrameSlots",
+    "studio-prompt": "../../../../components/creation-studio/StudioPrompt",
+    "workbench-header": "../../../../components/creation-studio/WorkbenchHeader"
   }
 }

@@ -1,0 +1,1 @@
+"use strict";const e={pending:"排队中",queued:"排队中",running:"生成中",processing:"生成中",success:"已完成",completed:"已完成",failed:"生成失败",canceled:"已取消",cancelled:"已取消",retrying:"重试中"};exports.imageStatusLabel=n=>e[String(n||"").toLowerCase()]||"处理中";

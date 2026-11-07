@@ -1,4 +1,9 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "generation-state": "../../../components/creation-studio/GenerationState",
+    "studio-icon": "../../../components/creation-studio/StudioIcon",
+    "work-prompt": "../../../components/creation-studio/WorkPrompt",
+    "task-trace": "../../../components/task-trace/TaskTrace"
+  }
 }
