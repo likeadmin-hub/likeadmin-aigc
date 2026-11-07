@@ -8,4 +8,4 @@ Before release, also run the official miniprogram-ci `getCompiledResult` with th
 
 SDK 2.1.31 reproduces the 1.0.432 failure: compiled main 2,334,096 bytes, including the 195,144-byte internal inventory. The raw-only main measurement of 1,968,701 bytes omitted that inventory and CI transformations.
 
-The smart-clip video upload, video library and template preview components belong in apps/smart_clip/components; other apps must not synchronously import them. An unreferenced background has been removed from shared static resources. Shared controls and business entry points remain available.
+Shared workbench components retain their original shared paths. Unreferenced legacy login icons and background images were removed after checking source and install defaults. Business entry points and current icons remain available.
