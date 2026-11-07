@@ -9,7 +9,7 @@ const root = path.resolve(__dirname, '..')
 const service = fs.readFileSync(path.join(root, 'app/common/service/wechat/OpenPlatformService.php'), 'utf8')
 const controller = fs.readFileSync(path.join(root, 'app/platformapi/controller/OpenPlatformController.php'), 'utf8')
 function php(code) {
-  const r = spawnSync('docker', ['exec', '-i', 'bt', '/www/server/php/82/bin/php'], { input: code, encoding: 'utf8', timeout: 10000 })
+  const r = spawnSync('docker', ['exec', '-i', process.env.WECHAT_TEST_PHP_CONTAINER || 'bt', '/www/server/php/82/bin/php'], { input: code, encoding: 'utf8', timeout: 10000 })
   assert.equal(r.status, 0, r.stderr || r.stdout)
   return r.stdout
 }
@@ -21,7 +21,11 @@ function generatedRun(mode) {
   fs.writeFileSync(path.join(modules, 'config/config.js'), 'exports.DefaultProjectAttr = { fallback: true };')
   fs.writeFileSync(path.join(modules, 'index.js'), `
     const fs = require('fs');
-    exports.Project = class { async attr() {
+    exports.Project = class { constructor(options) {
+      if (!options.ignores.includes('.artifact.meta.json') || !options.ignores.includes('node_modules/**/*')) {
+        throw new Error('upload must exclude server-only artifact metadata and dependencies');
+      }
+    } async attr() {
       if (process.env.CI_TEST_MODE === 'auth-fail') {
         console.error('get project attr fail errCode: -1, errMsg: access_token missing');
         return require('./config/config').DefaultProjectAttr;
@@ -32,7 +36,7 @@ function generatedRun(mode) {
       fs.writeFileSync(process.env.CI_TEST_MARKER, 'called');
       if (process.env.CI_TEST_MODE === 'success' && options.threads !== 1) throw new Error('unsafe compiler concurrency');
       if (process.env.CI_TEST_MODE === 'success') {
-        if (!options.setting?.useProjectConfig || !options.setting?.es6 || !options.setting?.es7) {
+        if (!options.setting?.useProjectConfig || !options.setting?.es6 || !options.setting?.es7 || !options.setting?.minify) {
           throw new Error('upload must compile modern JavaScript using the artifact project settings');
         }
       }
