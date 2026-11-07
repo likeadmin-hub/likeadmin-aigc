@@ -1,1 +1,0 @@
-import{g as s,C as o,dT as r,o as c,c as n,ca as _}from"./entry.b68bf7ac.js";const m=s({__name:"smart_clip",async setup(p){let e,t;const a=o();return[e,t]=r(()=>_({path:"/ai/tools/smart_clip",query:a.query,hash:a.hash},{replace:!0})),await e,t(),(i,u)=>(c(),n("div"))}});export{m as default};
