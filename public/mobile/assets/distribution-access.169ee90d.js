@@ -1,0 +1,1 @@
+import{bT as a,k as e,bz as n,bA as i,ap as s,by as t,bt as b}from"./index-5cc95378.js";async function d(){const d=await a(),r=1===Number(null==d?void 0:d.enabled);return e().config.distribution_enabled=r?1:0,!!r||(n({url:i({path:"/pages/index/index"})||s[0],fail:()=>t({url:b("/pages/index/index")})}),!1)}export{d as e};

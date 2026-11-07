@@ -1,1 +1,0 @@
-import{br as a,k as e,b7 as n,b8 as i,ao as s,b6 as r,b3 as b}from"./index-45bce6da.js";async function d(){const d=await a(),o=1===Number(null==d?void 0:d.enabled);return e().config.distribution_enabled=o?1:0,!!o||(n({url:i({path:"/pages/index/index"})||s[0],fail:()=>r({url:b("/pages/index/index")})}),!1)}export{d as e};
