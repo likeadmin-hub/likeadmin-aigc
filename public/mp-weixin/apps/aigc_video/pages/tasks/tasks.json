@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "视频任务",
   "usingComponents": {
+    "mp-page-navbar": "../../../../components/mp-page-navbar/mp-page-navbar",
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
     "page-content": "./tasks-content"
   }

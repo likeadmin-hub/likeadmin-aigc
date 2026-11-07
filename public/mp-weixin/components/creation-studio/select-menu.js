@@ -1,0 +1,1 @@
+"use strict";const e=require("../../common/vendor.js"),o=require("../../utils/page-content-lifecycle.js"),t=Symbol("studio-select");exports.provideStudioMenu=function(){const n=e.shallowRef(null);e.provide(t,n),o.onHide(()=>{n.value=null})},exports.studioMenuKey=t;

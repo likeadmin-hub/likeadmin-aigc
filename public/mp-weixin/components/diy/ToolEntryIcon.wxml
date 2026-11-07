@@ -1,0 +1,1 @@
+<image wx:if="{{a}}" class="art data-v-36d32045" src="{{b}}" mode="aspectFit" binderror="{{c}}"/><view wx:else class="tile data-v-36d32045"><image class="glyph data-v-36d32045" src="{{d}}" mode="aspectFit"/></view>

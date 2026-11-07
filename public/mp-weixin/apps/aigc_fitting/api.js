@@ -1,0 +1,1 @@
+"use strict";const t=require("../../utils/request/index.js");exports.estimateFitting=e=>t.request.post({url:"/app.aigc_fitting.generate/estimate",data:e},{ignoreCancel:!0}),exports.generateFitting=e=>t.request.post({url:"/app.aigc_fitting.generate/index",data:e,timeout:12e4,retry:0}),exports.getFittingConfig=()=>t.request.get({url:"/app.aigc_fitting.config/detail"});

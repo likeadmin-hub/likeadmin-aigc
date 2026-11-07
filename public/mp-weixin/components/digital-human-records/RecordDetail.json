@@ -1,6 +1,9 @@
 {
   "component": true,
   "usingComponents": {
-    "task-trace": "../task-trace/TaskTrace"
+    "generation-state": "../creation-studio/GenerationState",
+    "task-trace": "../task-trace/TaskTrace",
+    "studio-icon": "../creation-studio/StudioIcon",
+    "work-prompt": "../creation-studio/WorkPrompt"
   }
 }

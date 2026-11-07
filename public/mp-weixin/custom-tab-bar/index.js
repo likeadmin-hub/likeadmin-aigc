@@ -27,7 +27,6 @@ Component({
             var match = /pages\/decoration-tab\/tab-(\d)$/.exec(current && current.route || '')
             var selected = typeof this._slot === 'number' ? this._slot : match ? Number(match[1]) : this.data.selected
             var style = model.style || {}
-            var active = style.iconAtlas ? model.tabs[selected] || {} : {}
             var items = model.tabs.map(function (item, index) {
                 var column = item.atlasIndex == null ? index : Number(item.atlasIndex)
                 var state = selected === index ? 'selected' : 'unselected'
@@ -35,7 +34,7 @@ Component({
                 var useAtlas = style.iconAtlas && !(item.icon_atlas_overrides && item.icon_atlas_overrides[state]) && (!source || source === style.iconAtlas)
                 return Object.assign({}, item, { hasAtlas: !!useAtlas && column >= 0 && column < 4 && Math.floor(column) === column, atlasLeft: (-column * 100) + '%', atlasTop: selected === index ? '-100%' : '0%' })
             })
-            this.setData({ items: items, color: style.color, selectedColor: active.selected_color || style.selectedColor, backgroundColor: active.background_color || style.backgroundColor, selected: selected,
+            this.setData({ items: items, color: style.color, selectedColor: style.selectedColor, backgroundColor: style.backgroundColor, selected: selected,
                 iconAtlas: style.iconAtlas || '', barHeight: style.iconAtlas ? style.barHeight || 122 : 100, iconSize: style.iconAtlas ? style.iconSize || 72 : 44 })
         },
         select: function (event) {

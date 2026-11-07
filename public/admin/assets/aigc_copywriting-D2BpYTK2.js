@@ -1,0 +1,1 @@
+import{r}from"./index-CMrFem8U.js";const a=(t,o={})=>r.get({url:`/app.aigc_copywriting.${t}`,params:o},{ignoreCancelToken:!0}),e=(t,o)=>r.post({url:`/app.aigc_copywriting.${t}`,params:o});export{e as a,a as c};

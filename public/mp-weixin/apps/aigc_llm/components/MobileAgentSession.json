@@ -1,6 +1,8 @@
 {
   "component": true,
   "usingComponents": {
+    "generation-state": "../../../components/creation-studio/GenerationState",
+    "mobile-agent-reply": "./MobileAgentReply",
     "mobile-agent-plan-editor": "./MobileAgentPlanEditor"
   }
 }

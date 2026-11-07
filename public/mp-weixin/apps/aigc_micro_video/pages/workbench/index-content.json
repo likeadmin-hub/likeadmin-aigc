@@ -2,6 +2,9 @@
   "component": true,
   "usingComponents": {
     "model-source-badge": "../../../../components/model-source-badge/model-source-badge",
+    "generation-state": "../../../../components/creation-studio/GenerationState",
+    "studio-index-select": "../../../../components/creation-studio/StudioIndexSelect",
+    "studio-select-menu": "../../../../components/creation-studio/StudioSelectMenu",
     "micro-page": "../../components/MicroPage",
     "image-library": "../../components/ImageLibrary"
   }

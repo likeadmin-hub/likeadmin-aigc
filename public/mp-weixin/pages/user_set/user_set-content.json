@@ -1,10 +1,10 @@
 {
   "component": true,
   "usingComponents": {
-    "u-icon": "../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
     "u-avatar": "../../uni_modules/vk-uview-ui/components/u-avatar/u-avatar",
-    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button",
+    "u-icon": "../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
     "u-action-sheet": "../../uni_modules/vk-uview-ui/components/u-action-sheet/u-action-sheet",
+    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button",
     "u-popup": "../../uni_modules/vk-uview-ui/components/u-popup/u-popup"
   }
 }

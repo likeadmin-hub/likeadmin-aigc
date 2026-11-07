@@ -1,1 +1,1 @@
-page{height:100%}
+.login.data-v-f18bae4c,.register.data-v-f18bae4c{box-sizing:border-box;min-height:100%;padding:32px 16px 24px;background:var(--tool-page);color:var(--tool-text);font-size:14px;line-height:22px}.login.data-v-f18bae4c .u-input__input,.register.data-v-f18bae4c .u-input__input{color:var(--tool-text)}.login.data-v-f18bae4c .u-btn,.register.data-v-f18bae4c .u-btn{min-height:44px;border-radius:12px}

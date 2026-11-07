@@ -1,0 +1,1 @@
+import{d as e,a as t,e as o}from"./index-45bce6da.js";import{W as a}from"./WorkbenchHeader.a6dcfdb5.js";const s=e({__name:"MobileToolHeader",props:{title:null},emits:["back"],setup:e=>(s,i)=>(t(),o(a,{title:e.title,onBack:i[0]||(i[0]=e=>s.$emit("back"))},null,8,["title"]))});export{s as _};

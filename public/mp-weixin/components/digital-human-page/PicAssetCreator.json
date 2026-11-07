@@ -1,0 +1,9 @@
+{
+  "component": true,
+  "usingComponents": {
+    "studio-icon": "../creation-studio/StudioIcon",
+    "studio-close": "../creation-studio/StudioClose",
+    "studio-index-select": "../creation-studio/StudioIndexSelect",
+    "studio-select-menu": "../creation-studio/StudioSelectMenu"
+  }
+}

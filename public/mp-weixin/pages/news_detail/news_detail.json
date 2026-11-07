@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "详情",
   "usingComponents": {
+    "mp-page-navbar": "../../components/mp-page-navbar/mp-page-navbar",
     "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
     "page-content": "./news_detail-content"
   }

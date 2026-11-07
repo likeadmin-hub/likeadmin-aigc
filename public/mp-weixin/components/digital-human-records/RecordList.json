@@ -1,4 +1,8 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "studio-icon": "../creation-studio/StudioIcon",
+    "work-card": "../creation-studio/WorkCard",
+    "work-status-tabs": "../creation-studio/WorkStatusTabs"
+  }
 }
