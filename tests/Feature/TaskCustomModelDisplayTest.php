@@ -40,6 +40,9 @@ class TaskCustomModelDisplayTest extends TestCase
             (new ReflectionMethod($service,'appendTaskModelDisplay'))->invokeArgs(null,[&$row]);
             self::assertSame('REK 自定义模型',$row['model_name']);self::assertSame($row['model_name'],$row['display_model_name']);
             foreach(['channel','model_json','pricing_snapshot','prompt','ratio'] as $field)self::assertSame($frozen[$field],$row[$field]);
+            $ordinary=array_replace($frozen,['tenant_id'=>$tenant+3]);
+            (new ReflectionMethod($service,'appendTaskModelDisplay'))->invokeArgs(null,[&$ordinary]);
+            self::assertSame('',$ordinary['display_model_name']);self::assertSame('Old task name',$ordinary['model_name']);
         } finally {Db::rollback();}
         self::assertSame(0,PowerMarketProduct::where('product_code',$key)->count());
     }

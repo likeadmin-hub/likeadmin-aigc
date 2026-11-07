@@ -290,6 +290,12 @@ class AiTaskRecordService
         return self::displayModel($row, $baseAppCode);
     }
 
+    /** Explicit tenant presentation override; ordinary media snapshots keep their original name. */
+    public static function customModelDisplayName(array $row): string
+    {
+        return self::marketProductDisplayName($row, true);
+    }
+
     /** Internal read-only source reader for operator support. Never refreshes providers. */
     public static function supportSource(string $table, int $id, int $tenantId, int $userId): array
     {
