@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="tests/bootstrap.php" colors="true" cacheResult="false">
+    <testsuites>
+        <testsuite name="mobile-workspace-regression">
+            <file>tests/Feature/CaseGenerationTest.php</file>
+            <file>tests/Feature/ShortDramaFileQaTerminalPersistenceTest.php</file>
+            <file>tests/Feature/ShortDramaImportedConfirmationTest.php</file>
+            <file>tests/Feature/ShortDramaImportedScriptTest.php</file>
+            <file>tests/Feature/ShortDramaProjectOrderContractTest.php</file>
+            <file>tests/Feature/ShortDramaProjectPaginationTest.php</file>
+            <file>tests/Feature/ShortDramaUploadedScriptApiRetryTest.php</file>
+            <file>tests/Feature/ShortDramaUploadedScriptApiTest.php</file>
+        </testsuite>
+    </testsuites>
+</phpunit>
