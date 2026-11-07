@@ -9,7 +9,8 @@ const root = path.resolve(__dirname, '..')
 const service = fs.readFileSync(path.join(root, 'app/common/service/wechat/OpenPlatformService.php'), 'utf8')
 const controller = fs.readFileSync(path.join(root, 'app/platformapi/controller/OpenPlatformController.php'), 'utf8')
 function php(code) {
-  const r = spawnSync('docker', ['exec', '-i', process.env.WECHAT_TEST_PHP_CONTAINER || 'bt', '/www/server/php/82/bin/php'], { input: code, encoding: 'utf8', timeout: 10000 })
+  // Process fixtures need putenv/proc_open; only this isolated CLI invocation is changed.
+  const r = spawnSync('docker', ['exec', '-i', process.env.WECHAT_TEST_PHP_CONTAINER || 'bt', '/www/server/php/82/bin/php', '-d', 'disable_functions='], { input: code, encoding: 'utf8', timeout: 10000 })
   assert.equal(r.status, 0, r.stderr || r.stdout)
   return r.stdout
 }
