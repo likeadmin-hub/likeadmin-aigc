@@ -1,6 +1,6 @@
 # WeChat Mini Program upload size
 
-The normal MP production build checks the whole emitted tree: main source <= 1900 KiB and each subpackage <= 2048 KiB. Main source headroom is intentional: the official CI compiler adds helpers and wrappers, so raw source bytes do not equal upload bytes. Only the exact root `.artifact.meta.json` is excluded from source totals; full integrity validation remains mandatory on formal artifacts.
+The normal MP production build checks the whole emitted tree: main source <= 1850 KiB and each subpackage <= 2048 KiB. Main source headroom is intentional: the official CI compiler adds helpers and wrappers, so raw source bytes do not equal upload bytes. Only the exact root `.artifact.meta.json` is excluded from source totals; full integrity validation remains mandatory on formal artifacts.
 
 Both manual and platform draft upload scripts must exclude `.artifact.meta.json` and node_modules through `ci.Project.ignores`. Retain the inventory on shared artifacts and keep authentication fail-closed before compilation/upload.
 
