@@ -148,7 +148,7 @@ class MarketTaskReconciliationService
         }
         $prices=$consumption['price_snapshot']??[];if(is_string($prices))$prices=json_decode($prices,true)?:[];
         $text=isset($prices['input'],$prices['output'])&&($consumption['usage_unit']??'')==='token';
-        if($runStatus==='success'&&$billingStatus==='pending_usage')$issues[]=array_merge($context,['code'=>$text?'text_usage_pending':'actual_usage_pending','has_upstream_reference'=>trim((string)($consumption['upstream_request_id']??''))!==''||trim((string)($consumption['upstream_task_id']??''))!=='']);
+        if(($runStatus==='success'&&$billingStatus==='pending_usage')||AiMarketTaskRuntimeService::awaitsUsageSettlement($consumption))$issues[]=array_merge($context,['code'=>$text?'text_usage_pending':'actual_usage_pending','has_upstream_reference'=>trim((string)($consumption['upstream_request_id']??''))!==''||trim((string)($consumption['upstream_task_id']??''))!=='']);
         if($billingStatus==='settlement_failed')$issues[]=array_merge($context,['code'=>'settlement_failed']);
         // Text calls have no media assets. They still need exactly one traceable deduction per payer.
         if($text&&$billingStatus==='settled'){

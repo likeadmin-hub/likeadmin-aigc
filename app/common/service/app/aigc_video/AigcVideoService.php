@@ -1048,6 +1048,7 @@ class AigcVideoService
         $effect = $task['model_json']['effect_snapshot'] ?? [];
         $task['effect'] = $effect ? array_intersect_key($effect, array_flip(['id', 'name', 'version', 'instruction'])) : null;
         $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
+        $task['display_model_name'] = AiTaskRecordService::customModelDisplayName($task);
         $task['channel_name'] = $task['model_name'];
         $task = array_merge($task, \app\common\service\power\MarketModelSource::task($task));
     }

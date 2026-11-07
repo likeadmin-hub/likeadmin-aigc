@@ -384,6 +384,9 @@ class AiTaskJobService
 
     private static function readyForBusinessProcessing(array $consumption): bool
     {
+        if (AiMarketTaskRuntimeService::awaitsUsageSettlement($consumption)) {
+            return false;
+        }
         return in_array((string)($consumption['run_status'] ?? ''), ['success', 'failed', 'canceled', 'cancelled'], true)
             || in_array((string)($consumption['billing_status'] ?? ''), ['settled', 'refunded'], true);
     }

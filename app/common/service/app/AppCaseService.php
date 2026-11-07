@@ -67,6 +67,10 @@ class AppCaseService
 
     private static function paginateCaseQuery($query, array $params): array
     {
+        $keyword = trim((string)($params['keyword'] ?? ''));
+        if ($keyword !== '') {
+            $query->whereLike('title|prompt', '%' . addcslashes($keyword, '\\%_') . '%');
+        }
         $usePage = isset($params['page_no']) || isset($params['page_size']);
         $pageNo = max(1, (int)($params['page_no'] ?? 1));
         $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));

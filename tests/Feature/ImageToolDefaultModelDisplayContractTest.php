@@ -7,6 +7,17 @@ use PHPUnit\Framework\TestCase;
 
 class ImageToolDefaultModelDisplayContractTest extends TestCase
 {
+    private const MODEL_NAME_OPTION = '/(?:label:([A-Za-z_$][A-Za-z0-9_$]*)\.name,value:\1\.code|value:([A-Za-z_$][A-Za-z0-9_$]*)\.code,label:\2\.name)/';
+
+    public function testModelNameAssertionAcceptsEitherPropertyOrderAndRejectsCodesOrDifferentOptions(): void
+    {
+        foreach (['label:r.name,value:r.code', 'value:r.code,label:r.name'] as $option) {
+            self::assertMatchesRegularExpression(self::MODEL_NAME_OPTION, $option);
+        }
+        foreach (['label:r.code,value:r.code', 'label:r.name,value:q.code', 'value:r.code,label:q.name'] as $option) {
+            self::assertDoesNotMatchRegularExpression(self::MODEL_NAME_OPTION, $option);
+        }
+    }
     public function testLegacySavedModelCodeMatchesTheCurrentNamedOption(): void
     {
         $aligned = AigcImageChannelService::alignConfigSelection([
@@ -76,17 +87,18 @@ class ImageToolDefaultModelDisplayContractTest extends TestCase
 
     public function testAdminModelSelectorsRenderTheModelNameInsteadOfItsCode(): void
     {
-        $assets = glob(dirname(__DIR__, 2) . '/public/admin/assets/config-*.js') ?: [];
         $checked = 0;
-        foreach ($assets as $asset) {
-            $source = (string)file_get_contents($asset);
+        foreach (['aigc_background_removal','aigc_fashion_lookbook','aigc_image_translate',
+            'aigc_one_click_cleanup','aigc_photo_restore','aigc_product_image',
+            'aigc_product_multi_angle','aigc_product_suite','aigc_style_transfer'] as $app) {
+            $source = \Tests\Support\CompiledAssets::vitePage('admin', 'apps/' . $app . '/config');
             if (!str_contains($source, '默认模型')) {
                 continue;
             }
             self::assertMatchesRegularExpression(
-                '/label:([A-Za-z_$][A-Za-z0-9_$]*)\.name,value:\1\.code/',
+                self::MODEL_NAME_OPTION,
                 $source,
-                basename($asset)
+                $app
             );
             $checked++;
         }

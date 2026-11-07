@@ -290,6 +290,12 @@ class AiTaskRecordService
         return self::displayModel($row, $baseAppCode);
     }
 
+    /** Explicit tenant presentation override; ordinary media snapshots keep their original name. */
+    public static function customModelDisplayName(array $row): string
+    {
+        return self::marketProductDisplayName($row, true);
+    }
+
     /** Internal read-only source reader for operator support. Never refreshes providers. */
     public static function supportSource(string $table, int $id, int $tenantId, int $userId): array
     {
@@ -511,6 +517,10 @@ class AiTaskRecordService
 
     private static function displayModel(array $row, string $baseAppCode): string
     {
+        $customName = self::marketProductDisplayName($row, true);
+        if ($customName !== '') {
+            return $customName;
+        }
         $model = self::firstModelDisplayValue([
             $row['model_name'] ?? '',
         ]);
@@ -552,7 +562,7 @@ class AiTaskRecordService
             : self::appName($baseAppCode);
     }
 
-    private static function marketProductDisplayName(array $row): string
+    private static function marketProductDisplayName(array $row, bool $onlyOverride = false): string
     {
         $productId = self::marketProductId($row);
         if ($productId <= 0) {
@@ -562,25 +572,25 @@ class AiTaskRecordService
         $tenantId = (int)($row['tenant_id'] ?? 0);
         static $cache = [];
         $cacheKey = $tenantId . ':' . $productId;
-        if (array_key_exists($cacheKey, $cache)) {
-            return $cache[$cacheKey];
-        }
-
-        try {
-            $product = PowerMarketProduct::where('id', $productId)->findOrEmpty();
-            if ($product->isEmpty()) {
-                return $cache[$cacheKey] = '';
+        if (!array_key_exists($cacheKey, $cache)) {
+            try {
+                $product = PowerMarketProduct::where('id', $productId)->findOrEmpty();
+                if ($product->isEmpty()) {
+                    $cache[$cacheKey] = ['name' => '', 'overridden' => false];
+                } else {
+                    $data = $product->toArray();
+                    TenantPowerMarketService::applyProductDisplays($tenantId, $data);
+                    $cache[$cacheKey] = ['name' => self::firstModelDisplayValue([
+                        $data['name'] ?? '',
+                        $data['upstream_model_code'] ?? '',
+                        $data['upstream_api_code'] ?? '',
+                    ]), 'overridden' => !empty($data['display_name_overridden'])];
+                }
+            } catch (\Throwable) {
+                $cache[$cacheKey] = ['name' => '', 'overridden' => false];
             }
-            $data = $product->toArray();
-            TenantPowerMarketService::applyProductDisplays($tenantId, $data);
-            return $cache[$cacheKey] = self::firstModelDisplayValue([
-                $data['name'] ?? '',
-                $data['upstream_model_code'] ?? '',
-                $data['upstream_api_code'] ?? '',
-            ]);
-        } catch (\Throwable) {
-            return $cache[$cacheKey] = '';
         }
+        return $onlyOverride && !$cache[$cacheKey]['overridden'] ? '' : $cache[$cacheKey]['name'];
     }
 
     private static function knownSelectionModelName(array $row): string

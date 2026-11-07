@@ -5,6 +5,7 @@ namespace app\common\command;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\ai\AiTaskJobService;
+use app\common\service\ai\AiMarketTaskRuntimeService;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
@@ -43,9 +44,7 @@ class AiUsageReconcile extends Command
                 \app\common\service\app\aigc_llm\agent\AgentTranscriptionRecovery::reconcile((int)$row['id'],(int)$row['tenant_id']);
                 $count++;continue;
             }
-            $snapshot=(array)$row['price_snapshot'];
-            if(($snapshot['runtime_adapter']??'')==='music_operation')AiTaskJobService::enqueueMusicOperation((int)$row['id']);
-            else AiTaskJobService::enqueueQueryResult((int)$row['id'], 10, true);
+            self::enqueueResultQuery($row->toArray());
             AiConsumptionLog::where('id', (int)$row['id'])->update(['refresh_requested_at' => time(), 'update_time' => time()]);
             $count++;
         }
@@ -59,5 +58,18 @@ class AiUsageReconcile extends Command
         $purged = \app\common\service\ai\AiUsageService::purgeExpiredPayloads();
         $output->writeln('clip_enqueued: ' . $clip . ', enqueued: ' . $count . ', legacy_refreshed: ' . $legacy . ', queue_processed: ' . $drained['processed'] . ', queue_waiting: ' . $drained['waiting'] . ', queue_retried: ' . $drained['retried'] . ', purged_payloads: ' . $purged);
         return 0;
+    }
+
+    private static function enqueueResultQuery(array $consumption): void
+    {
+        $snapshot = (array)$consumption['price_snapshot'];
+        if (($snapshot['runtime_adapter'] ?? '') === 'music_operation') {
+            AiTaskJobService::enqueueMusicOperation((int)$consumption['id']);
+        } elseif (AiMarketTaskRuntimeService::awaitsUsageSettlement($consumption)) {
+            // Older workers may have completed the query job before actual usage arrived.
+            AiTaskJobService::requeueQueryResult((int)$consumption['id'], 10);
+        } else {
+            AiTaskJobService::enqueueQueryResult((int)$consumption['id'], 10, true);
+        }
     }
 }

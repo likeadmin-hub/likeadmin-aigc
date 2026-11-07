@@ -9,20 +9,24 @@ const root = path.resolve(__dirname, '..')
 const service = fs.readFileSync(path.join(root, 'app/common/service/wechat/OpenPlatformService.php'), 'utf8')
 const controller = fs.readFileSync(path.join(root, 'app/platformapi/controller/OpenPlatformController.php'), 'utf8')
 function php(code) {
-  const r = spawnSync('docker', ['exec', '-i', 'bt', '/www/server/php/82/bin/php'], { input: code, encoding: 'utf8', timeout: 10000 })
+  // Process fixtures need putenv/proc_open; only this isolated CLI invocation is changed.
+  const r = spawnSync('docker', ['exec', '-i', process.env.WECHAT_TEST_PHP_CONTAINER || 'bt', '/www/server/php/82/bin/php', '-d', 'disable_functions='], { input: code, encoding: 'utf8', timeout: 10000 })
   assert.equal(r.status, 0, r.stderr || r.stdout)
   return r.stdout
 }
 function generatedRun(mode) {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'wechat-ci-safety-'))
   const marker = work + '.upload-called'
-  const trace = work + '.project-options.json'
   const modules = path.join(work, 'node_modules/miniprogram-ci')
   fs.mkdirSync(path.join(modules, 'config'), { recursive: true })
   fs.writeFileSync(path.join(modules, 'config/config.js'), 'exports.DefaultProjectAttr = { fallback: true };')
   fs.writeFileSync(path.join(modules, 'index.js'), `
     const fs = require('fs');
-    exports.Project = class { constructor(options) { fs.writeFileSync(process.env.CI_TEST_TRACE, JSON.stringify({ ignores: options.ignores })); } async attr() {
+    exports.Project = class { constructor(options) {
+      if (!options.ignores.includes('.artifact.meta.json') || !options.ignores.includes('node_modules/**/*')) {
+        throw new Error('upload must exclude server-only artifact metadata and dependencies');
+      }
+    } async attr() {
       if (process.env.CI_TEST_MODE === 'auth-fail') {
         console.error('get project attr fail errCode: -1, errMsg: access_token missing');
         return require('./config/config').DefaultProjectAttr;
@@ -33,7 +37,7 @@ function generatedRun(mode) {
       fs.writeFileSync(process.env.CI_TEST_MARKER, 'called');
       if (process.env.CI_TEST_MODE === 'success' && options.threads !== 1) throw new Error('unsafe compiler concurrency');
       if (process.env.CI_TEST_MODE === 'success') {
-        if (!options.setting?.useProjectConfig || !options.setting?.es6 || !options.setting?.es7) {
+        if (!options.setting?.useProjectConfig || !options.setting?.es6 || !options.setting?.es7 || !options.setting?.minify) {
           throw new Error('upload must compile modern JavaScript using the artifact project settings');
         }
       }
@@ -51,13 +55,12 @@ function generatedRun(mode) {
   fs.writeFileSync(scriptPath, script)
   const r = spawnSync(process.execPath, [scriptPath], {
     encoding: 'utf8', timeout: 4000,
-    env: { ...process.env, CI_TEST_MODE: mode, CI_TEST_MARKER: marker, CI_TEST_TRACE: trace }
+    env: { ...process.env, CI_TEST_MODE: mode, CI_TEST_MARKER: marker }
   })
   const called = fs.existsSync(marker)
-  const projectOptions = JSON.parse(fs.readFileSync(trace, 'utf8')); fs.rmSync(trace, { force: true })
   const cleaned = !fs.existsSync(work)
   fs.rmSync(work, { recursive: true, force: true }); fs.rmSync(marker, { force: true })
-  return { ...r, called, cleaned, projectOptions }
+  return { ...r, called, cleaned }
 }
 
 test('rejected CI authentication prevents compilation and removes temporary credentials', () => {
@@ -145,11 +148,4 @@ test('exited uploader cannot leave descendant processes holding output pipes ope
   const r = JSON.parse(php(code))
   assert.equal(r.success, false)
   assert.match(r.output, /provider-rejected/)
-})
-
-test('shared artifact integrity metadata is excluded only from the tenant upload project', () => {
-  const r = generatedRun('success')
-  assert.equal(r.status, 0, r.stderr)
-  assert.ok(r.projectOptions.ignores.includes('.artifact.meta.json'), 'internal 190KB hash inventory must not consume the upload main package')
-  assert.ok(r.projectOptions.ignores.includes('node_modules'))
 })

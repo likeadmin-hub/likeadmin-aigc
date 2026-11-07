@@ -2,7 +2,7 @@
 namespace Tests\Feature;
 
 use app\common\model\ai\{AiAppTask,AiConsumptionLog,AiTaskResultAsset};
-use app\common\service\ai\{AiTaskBusinessResultService,AiTaskResultAssetService};
+use app\common\service\ai\{AiTaskBusinessResultService,AiTaskResultAssetService,AiTaskJobService,MarketTaskReconciliationService};
 use app\common\service\point\PointService;
 use app\common\service\power\{MarketVideoRuntimeService as Videos,MarketGenerationRuntime as Runtime,MarketGenerationMedia as Media};
 use PHPUnit\Framework\TestCase;
@@ -47,7 +47,8 @@ class MarketMeasuredVideoCompletionTest extends TestCase
         self::assertSame(32,$facts['width']);self::assertSame(32,$facts['height']);
     }
 
-    public function testExistingCompletedVideoSettlesOnceAndStopsRegisteringOrUploadingCopies(): void
+    /** @dataProvider workerRoutes */
+    public function testExistingCompletedVideoSettlesOnceAndStopsRegisteringOrUploadingCopies(bool $legacy): void
     {
         if(getenv('AIGC_TRANSFER_CHECKPOINT_DB_TESTS')!=='1')self::markTestSkipped('Explicit local rollback fixture only');
         (new \think\App())->initialize();
@@ -56,7 +57,7 @@ class MarketMeasuredVideoCompletionTest extends TestCase
         $user=(int)Db::name('user')->where('tenant_id',1)->where('user_money','>',100)->order('user_money','desc')->value('id');
         if(!$user)self::markTestSkipped('Funded local fixture unavailable');
         $key='measured-video-'.bin2hex(random_bytes(6));$uri='uploads/'.$key.'.mp4';$path=root_path().'public/'.$uri;
-        copy($this->fixturePath(),$path);
+        $fixturePath=$this->fixturePath();
         Db::startTrans();
         try{
             Db::name('tenant')->where('id',1)->lock(true)->find();Db::name('user')->where('id',$user)->lock(true)->find();
@@ -67,9 +68,10 @@ class MarketMeasuredVideoCompletionTest extends TestCase
             $snapshot=['protocol'=>'video_generate','resource_type'=>'model','model_type'=>'video','product_id'=>2147483000,'quantity'=>1,
                 'usage_unit'=>'output_second','usage_unit_size'=>1,'platform_price'=>10,'tenant_price'=>10,'requires_actual_duration'=>true,
                 'billing_meter'=>['version'=>1,'basis'=>'output','round_up'=>true,'source'=>'legacy_summary']];
-            $video=['video_uri'=>$uri,'width'=>0,'height'=>0,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>''];
+            if($legacy){unset($snapshot['model_type']);$snapshot['protocol']='';$snapshot['model_code']='offline-accepted-video';}
+            $video=['video_uri'=>'https://fixture.invalid/already-generated.mp4','width'=>0,'height'=>0];
             $c=AiConsumptionLog::create(['consume_no'=>$key,'app_task_id'=>$task['id'],'tenant_id'=>1,'user_id'=>$user,'app_code'=>'aigc_video',
-                'action_code'=>'video_generate','provider'=>'power_market','resource_type'=>'model','protocol'=>'video_generate',
+                'action_code'=>'video_generate','provider'=>'power_market','resource_type'=>'model','protocol'=>$legacy?'':'video_generate',
                 'upstream_task_id'=>'accepted-offline-fixture','price_snapshot'=>$snapshot,'response_summary'=>['videos'=>[$video]],
                 'usage_snapshot'=>['actual_quantity'=>0,'submitted_quantity'=>1,'upstream_usage'=>['points_cost'=>11]],
                 'run_status'=>'success','billing_status'=>'reserved','reserved_tenant_cost'=>10,'reserved_user_price'=>10,
@@ -77,9 +79,31 @@ class MarketMeasuredVideoCompletionTest extends TestCase
             PointService::reserveBusinessAmountsInCurrentTransaction(1,$user,10,10,$key.'-reserve','Offline fixture',
                 ['app_code'=>'aigc_video','app_task_id'=>(int)$task['id'],'consumption_id'=>(int)$c['id']]);
             $asset=AiTaskResultAsset::create(['consumption_id'=>$c['id'],'app_task_id'=>$task['id'],'tenant_id'=>1,'user_id'=>$user,'asset_type'=>'video',
-                'external_url'=>'https://fixture.invalid/already-generated.mp4','local_uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local',
-                'storage_domain'=>'','storage_meta'=>[],'transfer_status'=>'stored','create_time'=>time(),'update_time'=>time()]);
+                'external_url'=>$video['video_uri'],'local_uri'=>'','storage_scope'=>'','storage_engine'=>'',
+                'storage_domain'=>'','storage_meta'=>[],'transfer_status'=>'external','create_time'=>time(),'update_time'=>time()]);
             $fileCount=Db::name('tenant_file')->count();$count=AiTaskResultAsset::where('consumption_id',$c['id'])->count();
+            $jobId=AiTaskJobService::enqueueQueryResult((int)$c['id'],200);
+            Db::name('ai_task_job')->where('id',$jobId)->update(['status'=>'success','finish_time'=>time()]);
+            (new ReflectionMethod(\app\common\command\AiUsageReconcile::class,'enqueueResultQuery'))->invoke(null,$c->toArray());
+            self::assertSame('pending',Db::name('ai_task_job')->where('id',$jobId)->value('status'));
+            $jobs=AiTaskJobService::claim('measured-usage-fixture',30,1,'',(int)$c['id']);
+            self::assertCount(1,$jobs);self::assertSame($jobId,(int)$jobs[0]['id']);
+            self::assertFalse(AiTaskJobService::run($jobs[0]),'A result awaiting transfer/measurement must keep its query job');
+            self::assertSame('reserved',AiConsumptionLog::find($c['id'])['billing_status']);
+            self::assertSame($before['user']-10,$this->balances($user)['user']);
+            $issues=(new ReflectionMethod(MarketTaskReconciliationService::class,'issues'))->invoke(null,AiConsumptionLog::find($c['id'])->toArray());
+            self::assertContains('actual_usage_pending',array_column($issues,'code'));
+            AiTaskJobService::reschedule($jobs[0],5);
+            self::assertSame('pending',Db::name('ai_task_job')->where('id',$jobId)->value('status'));
+            copy($fixturePath,$path);
+            $asset->save(['local_uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','transfer_status'=>'stored']);
+            Db::name('ai_task_job')->where('id',$jobId)->update(['next_run_time'=>time()-1]);
+            $jobs=AiTaskJobService::claim('measured-usage-fixture',30,1,'',(int)$c['id']);
+            self::assertCount(1,$jobs);self::assertSame($jobId,(int)$jobs[0]['id']);
+            self::assertTrue(AiTaskJobService::run($jobs[0]),'The real result worker must resume measured-duration settlement');
+            AiTaskJobService::succeed($jobs[0]);
+            self::assertSame('success',Db::name('ai_task_job')->where('id',$jobId)->value('status'));
+            self::assertSame(1,(int)Db::name('ai_task_job')->where(['consumption_id'=>$c['id'],'job_type'=>'query_result'])->count());
             $runtime=Runtime::consumption((int)$c['id'],1,$user);
             foreach([1,2] as $attempt){
                 $result=$runtime->refresh((int)$c['id'],1,$user);
@@ -99,6 +123,8 @@ class MarketMeasuredVideoCompletionTest extends TestCase
             AiTaskResultAssetService::measureStoredVideo((int)$asset['id'],(int)$c['id'],1,$user+1);
         }finally{Db::rollback();@unlink($path);}
     }
+
+    public static function workerRoutes(): array { return ['current video'=>[false],'legacy canvas/drama'=>[true]]; }
 
     private function fixturePath(): string
     {
