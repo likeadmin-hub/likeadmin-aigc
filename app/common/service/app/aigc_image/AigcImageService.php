@@ -902,6 +902,7 @@ class AigcImageService
     {
         $task['creation_batch'] = AigcImageCreationBatch::fromTask($task);
         $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
+        $task['display_model_name'] = $task['model_name'];
         $task['channel_name'] = $task['model_name'];
         $task = array_merge($task, \app\common\service\power\MarketModelSource::task($task));
     }
