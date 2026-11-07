@@ -2359,7 +2359,7 @@ try {
     }
   }
   if (!ci) throw new Error('未找到 miniprogram-ci，请先安装后重试');
-  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules'] });
+  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules', '.artifact.meta.json'] });
   // The SDK otherwise logs authentication errors, returns default attributes,
   // and proceeds to spawn expensive compiler workers with invalid credentials.
   const { DefaultProjectAttr } = require(path.join(path.dirname(ciEntry), 'config/config.js'));

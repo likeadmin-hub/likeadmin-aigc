@@ -16,12 +16,13 @@ function php(code) {
 function generatedRun(mode) {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'wechat-ci-safety-'))
   const marker = work + '.upload-called'
+  const trace = work + '.project-options.json'
   const modules = path.join(work, 'node_modules/miniprogram-ci')
   fs.mkdirSync(path.join(modules, 'config'), { recursive: true })
   fs.writeFileSync(path.join(modules, 'config/config.js'), 'exports.DefaultProjectAttr = { fallback: true };')
   fs.writeFileSync(path.join(modules, 'index.js'), `
     const fs = require('fs');
-    exports.Project = class { async attr() {
+    exports.Project = class { constructor(options) { fs.writeFileSync(process.env.CI_TEST_TRACE, JSON.stringify({ ignores: options.ignores })); } async attr() {
       if (process.env.CI_TEST_MODE === 'auth-fail') {
         console.error('get project attr fail errCode: -1, errMsg: access_token missing');
         return require('./config/config').DefaultProjectAttr;
@@ -50,12 +51,13 @@ function generatedRun(mode) {
   fs.writeFileSync(scriptPath, script)
   const r = spawnSync(process.execPath, [scriptPath], {
     encoding: 'utf8', timeout: 4000,
-    env: { ...process.env, CI_TEST_MODE: mode, CI_TEST_MARKER: marker }
+    env: { ...process.env, CI_TEST_MODE: mode, CI_TEST_MARKER: marker, CI_TEST_TRACE: trace }
   })
   const called = fs.existsSync(marker)
+  const projectOptions = JSON.parse(fs.readFileSync(trace, 'utf8')); fs.rmSync(trace, { force: true })
   const cleaned = !fs.existsSync(work)
   fs.rmSync(work, { recursive: true, force: true }); fs.rmSync(marker, { force: true })
-  return { ...r, called, cleaned }
+  return { ...r, called, cleaned, projectOptions }
 }
 
 test('rejected CI authentication prevents compilation and removes temporary credentials', () => {
@@ -143,4 +145,11 @@ test('exited uploader cannot leave descendant processes holding output pipes ope
   const r = JSON.parse(php(code))
   assert.equal(r.success, false)
   assert.match(r.output, /provider-rejected/)
+})
+
+test('shared artifact integrity metadata is excluded only from the tenant upload project', () => {
+  const r = generatedRun('success')
+  assert.equal(r.status, 0, r.stderr)
+  assert.ok(r.projectOptions.ignores.includes('.artifact.meta.json'), 'internal 190KB hash inventory must not consume the upload main package')
+  assert.ok(r.projectOptions.ignores.includes('node_modules'))
 })
