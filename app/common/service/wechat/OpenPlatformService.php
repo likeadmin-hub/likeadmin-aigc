@@ -2373,7 +2373,8 @@ try {
   if (!attributes || attributes === DefaultProjectAttr) {
     throw Object.assign(new Error(authError || '微信 CI 认证失败，请核对草稿小程序 AppID、上传密钥和上传 IP 白名单'), { code: 'CI_AUTH_FAILED' });
   }
-  await ci.upload({ project, version, desc, threads: 1, setting: { useProjectConfig: true, es6: true, es7: true, minify: true } });
+  // UniApp already minimizes WXSS; a second CI pass expands its CSS and consumes main-package headroom.
+  await ci.upload({ project, version, desc, threads: 1, setting: { useProjectConfig: true, es6: true, es7: true, minify: true, minifyWXSS: false } });
   console.log('微信小程序代码上传成功');
   exitCode = 0;
 } catch (error) {
