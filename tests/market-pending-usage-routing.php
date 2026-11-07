@@ -50,13 +50,16 @@ namespace {
     function check(bool $ok,string $message): void { if(!$ok)throw new \RuntimeException($message); }
     $query=new \ReflectionMethod(Jobs::class,'queryResult');
     foreach([
-        ['video_generate','aigc_video','reserved','video'],
-        ['image_generate','aigc_image','pending_usage','image'],
-        ['application_api','aigc_music','pending_usage','application_api'],
-        ['application_api','aigc_pic_lipsync','reserved','application_api'],
-    ] as [$protocol,$app,$billing,$adapter]) {
+        ['video_generate','aigc_video','reserved','video',[]],
+        ['image_generate','aigc_image','pending_usage','image',[]],
+        ['application_api','aigc_music','pending_usage','application_api',[]],
+        ['application_api','aigc_pic_lipsync','reserved','application_api',[]],
+        ['','aigc_canvas','reserved','video',['resource_type'=>'model','requires_actual_duration'=>true]],
+        ['','aigc_short_drama','reserved','video',['resource_type'=>'model','requires_actual_duration'=>true]],
+    ] as [$protocol,$app,$billing,$adapter,$snapshot]) {
         Log::$state=['id'=>1,'provider'=>'power_market','protocol'=>$protocol,'app_code'=>$app,
-            'run_status'=>'success','billing_status'=>$billing,'upstream_task_id'=>'owned-offline-task','price_snapshot'=>[]];
+            'run_status'=>'success','billing_status'=>$billing,'upstream_task_id'=>'owned-offline-task','price_snapshot'=>$snapshot,
+            'response_summary'=>['videos'=>[['video_uri'=>'owned.mp4']]]];
         Fixture::$calls=[];Fixture::$receiptReady=false;Business::$syncs=0;
         check($query->invoke(null,1)===false,$app.': query job finished before its usage receipt');
         check(Fixture::$calls===[$adapter],$app.': dispatcher skipped the pending adapter');

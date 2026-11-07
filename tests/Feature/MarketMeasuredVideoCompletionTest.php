@@ -47,7 +47,8 @@ class MarketMeasuredVideoCompletionTest extends TestCase
         self::assertSame(32,$facts['width']);self::assertSame(32,$facts['height']);
     }
 
-    public function testExistingCompletedVideoSettlesOnceAndStopsRegisteringOrUploadingCopies(): void
+    /** @dataProvider workerRoutes */
+    public function testExistingCompletedVideoSettlesOnceAndStopsRegisteringOrUploadingCopies(bool $legacy): void
     {
         if(getenv('AIGC_TRANSFER_CHECKPOINT_DB_TESTS')!=='1')self::markTestSkipped('Explicit local rollback fixture only');
         (new \think\App())->initialize();
@@ -67,9 +68,10 @@ class MarketMeasuredVideoCompletionTest extends TestCase
             $snapshot=['protocol'=>'video_generate','resource_type'=>'model','model_type'=>'video','product_id'=>2147483000,'quantity'=>1,
                 'usage_unit'=>'output_second','usage_unit_size'=>1,'platform_price'=>10,'tenant_price'=>10,'requires_actual_duration'=>true,
                 'billing_meter'=>['version'=>1,'basis'=>'output','round_up'=>true,'source'=>'legacy_summary']];
+            if($legacy){unset($snapshot['model_type']);$snapshot['protocol']='';$snapshot['model_code']='offline-accepted-video';}
             $video=['video_uri'=>'https://fixture.invalid/already-generated.mp4','width'=>0,'height'=>0];
             $c=AiConsumptionLog::create(['consume_no'=>$key,'app_task_id'=>$task['id'],'tenant_id'=>1,'user_id'=>$user,'app_code'=>'aigc_video',
-                'action_code'=>'video_generate','provider'=>'power_market','resource_type'=>'model','protocol'=>'video_generate',
+                'action_code'=>'video_generate','provider'=>'power_market','resource_type'=>'model','protocol'=>$legacy?'':'video_generate',
                 'upstream_task_id'=>'accepted-offline-fixture','price_snapshot'=>$snapshot,'response_summary'=>['videos'=>[$video]],
                 'usage_snapshot'=>['actual_quantity'=>0,'submitted_quantity'=>1,'upstream_usage'=>['points_cost'=>11]],
                 'run_status'=>'success','billing_status'=>'reserved','reserved_tenant_cost'=>10,'reserved_user_price'=>10,
@@ -121,6 +123,8 @@ class MarketMeasuredVideoCompletionTest extends TestCase
             AiTaskResultAssetService::measureStoredVideo((int)$asset['id'],(int)$c['id'],1,$user+1);
         }finally{Db::rollback();@unlink($path);}
     }
+
+    public static function workerRoutes(): array { return ['current video'=>[false],'legacy canvas/drama'=>[true]]; }
 
     private function fixturePath(): string
     {

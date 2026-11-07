@@ -29,6 +29,8 @@ class MarketPendingUsageWorkerTest extends TestCase
             'tool usage pending'=>[['protocol'=>'application_api'],true,false],
             'legacy image snapshot'=>[['protocol'=>'','price_snapshot'=>['resource_type'=>'model','model_type'=>'image']],true,false],
             'legacy video JSON snapshot'=>[['protocol'=>'','price_snapshot'=>'{"resource_type":"model","model_type":"video"}'],true,false],
+            'legacy canvas measured video'=>[['protocol'=>'','price_snapshot'=>['resource_type'=>'model','requires_actual_duration'=>true],'response_summary'=>['videos'=>[['video_uri'=>'owned.mp4']]]],true,false],
+            'missing legacy video result'=>[['protocol'=>'','price_snapshot'=>['requires_actual_duration'=>true],'response_summary'=>['videos'=>[]]],false,true],
             'settled'=>[['billing_status'=>'settled'],false,true],
             'free'=>[['billing_status'=>'none'],false,true],
             'refunded'=>[['billing_status'=>'refunded'],false,true],
