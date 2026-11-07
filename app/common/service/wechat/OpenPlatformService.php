@@ -2359,7 +2359,9 @@ try {
     }
   }
   if (!ci) throw new Error('未找到 miniprogram-ci，请先安装后重试');
-  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules'] });
+  // The signed manifest verifies the shared artifact; it is not runtime code.
+  // CI includes dotfiles, so uploading this growing JSON can overflow the main package.
+  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules', 'node_modules/**/*', '.artifact.meta.json'] });
   // The SDK otherwise logs authentication errors, returns default attributes,
   // and proceeds to spawn expensive compiler workers with invalid credentials.
   const { DefaultProjectAttr } = require(path.join(path.dirname(ciEntry), 'config/config.js'));
@@ -2371,7 +2373,7 @@ try {
   if (!attributes || attributes === DefaultProjectAttr) {
     throw Object.assign(new Error(authError || '微信 CI 认证失败，请核对草稿小程序 AppID、上传密钥和上传 IP 白名单'), { code: 'CI_AUTH_FAILED' });
   }
-  await ci.upload({ project, version, desc, threads: 1, setting: { useProjectConfig: true, es6: true, es7: true } });
+  await ci.upload({ project, version, desc, threads: 1, setting: { useProjectConfig: true, es6: true, es7: true, minify: true } });
   console.log('微信小程序代码上传成功');
   exitCode = 0;
 } catch (error) {
