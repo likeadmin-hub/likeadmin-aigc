@@ -44,7 +44,8 @@ class AiMarketTaskRuntimeService
             self::syncTerminalBusinessResult($consumptionId);
             return;
         }
-        if ($protocol === 'video_generate' || self::isVideoApp($upstreamApp) || self::isModelType($snapshot, 'video')) {
+        if ($protocol === 'video_generate' || self::hasAcceptedVideoForMeasurement($consumption->toArray())
+            || self::isVideoApp($upstreamApp) || self::isModelType($snapshot, 'video')) {
             MarketVideoRuntimeService::refresh($consumptionId);
             self::syncTerminalBusinessResult($consumptionId);
             return;
@@ -74,7 +75,20 @@ class AiMarketTaskRuntimeService
         $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
         return in_array($consumption['protocol'] ?? '', ['image_generate', 'video_generate', 'application_api'], true)
             || (($snapshot['resource_type'] ?? '') === 'model'
-                && in_array($snapshot['model_type'] ?? '', ['image', 'video'], true));
+                && in_array($snapshot['model_type'] ?? '', ['image', 'video'], true))
+            || self::hasAcceptedVideoForMeasurement($consumption);
+    }
+
+    private static function hasAcceptedVideoForMeasurement(array $consumption): bool
+    {
+        $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
+        $summary = self::arrayValue($consumption['response_summary'] ?? []);
+        // Legacy canvas/drama snapshots can omit protocol/model_type. Their frozen
+        // duration contract and accepted videos still identify the local recovery path.
+        return in_array($snapshot['resource_type'] ?? '', ['model', 'app_api'], true)
+            && in_array($snapshot['model_type'] ?? '', ['', 'video'], true)
+            && !empty($snapshot['requires_actual_duration'])
+            && is_array($summary['videos'] ?? null) && $summary['videos'] !== [];
     }
 
     /**
