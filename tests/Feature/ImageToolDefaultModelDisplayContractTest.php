@@ -87,21 +87,16 @@ class ImageToolDefaultModelDisplayContractTest extends TestCase
 
     public function testAdminModelSelectorsRenderTheModelNameInsteadOfItsCode(): void
     {
-        $assets = glob(dirname(__DIR__, 2) . '/public/admin/assets/config-*.js') ?: [];
-        $checked = 0;
-        foreach ($assets as $asset) {
-            $source = (string)file_get_contents($asset);
-            if (!str_contains($source, '默认模型')) {
-                continue;
-            }
+        foreach (['aigc_background_removal','aigc_fashion_lookbook','aigc_image_translate',
+            'aigc_one_click_cleanup','aigc_photo_restore','aigc_product_image',
+            'aigc_product_multi_angle','aigc_product_suite','aigc_style_transfer'] as $app) {
+            $source = \Tests\Support\CompiledAssets::vitePage('admin', 'apps/' . $app . '/config');
             self::assertMatchesRegularExpression(
                 self::MODEL_NAME_OPTION,
                 $source,
-                basename($asset)
+                $app
             );
-            $checked++;
         }
-        self::assertGreaterThan(0, $checked);
     }
 
     private function options(): array
