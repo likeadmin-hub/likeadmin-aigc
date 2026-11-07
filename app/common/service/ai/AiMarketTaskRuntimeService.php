@@ -18,7 +18,7 @@ class AiMarketTaskRuntimeService
         if ($consumption->isEmpty()) {
             return;
         }
-        if (self::terminal($consumption->toArray())) {
+        if (self::terminal($consumption->toArray()) && !self::awaitsUsageSettlement($consumption->toArray())) {
             self::syncTerminalBusinessResult($consumptionId);
             return;
         }
@@ -60,6 +60,21 @@ class AiMarketTaskRuntimeService
     {
         return in_array((string)($consumption['run_status'] ?? ''), ['success', 'failed', 'canceled', 'cancelled'], true)
             || in_array((string)($consumption['billing_status'] ?? ''), ['settled', 'refunded'], true);
+    }
+
+    /** A delivered result can still need its async adapter to obtain the final usage receipt. */
+    public static function awaitsUsageSettlement(array $consumption): bool
+    {
+        if (($consumption['provider'] ?? '') !== 'power_market'
+            || ($consumption['run_status'] ?? '') !== 'success'
+            || !in_array($consumption['billing_status'] ?? '', ['reserved', 'pending_usage'], true)) {
+            return false;
+        }
+        // Text usage review and non-market providers have their own recovery paths.
+        $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
+        return in_array($consumption['protocol'] ?? '', ['image_generate', 'video_generate', 'application_api'], true)
+            || (($snapshot['resource_type'] ?? '') === 'model'
+                && in_array($snapshot['model_type'] ?? '', ['image', 'video'], true));
     }
 
     /**
