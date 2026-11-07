@@ -9,3 +9,5 @@ Before release, also run the official miniprogram-ci `getCompiledResult` with th
 SDK 2.1.31 reproduces the 1.0.432 failure: compiled main 2,334,096 bytes, including the 195,144-byte internal inventory. The raw-only main measurement of 1,968,701 bytes omitted that inventory and CI transformations.
 
 Shared workbench components retain their original shared paths. Unreferenced legacy login icons and background images were removed after checking source and install defaults. Business entry points and current icons remain available.
+
+For 1.0.434, preserve JS/WXML minification but set minifyWXSS=false: UniApp emits minimized WXSS already and CI 2.1.31 expands these styles when minimizing them again. Verify compiled size with these exact upload settings.
