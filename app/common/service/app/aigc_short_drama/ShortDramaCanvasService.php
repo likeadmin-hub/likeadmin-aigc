@@ -70,7 +70,7 @@ class ShortDramaCanvasService
         $keyword = trim((string)($params['keyword'] ?? ''));
         if ($keyword !== '') $query->whereLike('title', '%' . $keyword . '%');
         $count = (int)(clone $query)->count();
-        $rows = $query->order(['update_time' => 'desc', 'id' => 'desc'])->page($pageNo, $pageSize)->select()->toArray();
+        $rows = $query->order([($params['sort_by'] ?? '') === 'created' ? 'create_time' : 'update_time' => 'desc', 'id' => 'desc'])->page($pageNo, $pageSize)->select()->toArray();
         return ['lists' => array_map(static fn(array $row): array => self::formatDocument($row), $rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 

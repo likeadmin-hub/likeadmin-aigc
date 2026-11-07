@@ -29,7 +29,7 @@ final class ShortDramaStoryWorkflow
             && ($request['multi_episode_stage'] ?? '') === 'episodes'
             && (int)($request['episode_total_count'] ?? 0) >= 2;
         return ($request['workflow_variant'] ?? '') === self::VARIANT
-            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= (!empty($request['_canvas_series_planning']) || $outlineBatch ? 1 : 2);
+            && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= (!empty($request['_canvas_series_planning']) || $outlineBatch || ShortDramaImportedScript::allowsSingleEpisode($request) ? 1 : 2);
     }
 
     public static function workerOwned(array $request): bool
@@ -73,7 +73,7 @@ final class ShortDramaStoryWorkflow
     {
         $data = self::withoutEpisodeAllocation($data);
         $data['story_scale'] = [
-            'target_episode_count' => min(500, max(!empty($request['_canvas_series_planning']) ? 1 : 2, (int)($request['episode_count'] ?? 3))),
+            'target_episode_count' => min(500, max(!empty($request['_canvas_series_planning']) || ShortDramaImportedScript::allowsSingleEpisode($request) ? 1 : 2, (int)($request['episode_count'] ?? 3))),
             // Legacy normalization also extracts whole-film duration from prose.
             // Do not relabel that ambiguous field as per-episode or multiply it.
             'target_duration_seconds' => max(0, (int)($request['target_duration_seconds'] ?? 0)),

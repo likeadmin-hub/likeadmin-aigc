@@ -12,8 +12,8 @@ class ShortDramaProjectOrderContractTest extends TestCase
         $start = strpos($source, 'public static function projectLists(');
         $end = strpos($source, 'public static function projectDetail(', $start);
         $method = substr($source, $start, $end - $start);
-        self::assertStringContainsString("->order(['create_time' => 'desc', 'id' => 'desc'])", $method);
-        self::assertStringNotContainsString("'update_time' => 'desc'", $method);
+        self::assertStringContainsString("(\$params['sort_by'] ?? '') === 'updated' ? 'update_time' : 'create_time'", $method);
+        self::assertStringContainsString("'id' => 'desc'", $method);
         self::assertLessThan(strpos($method, '->page('), strpos($method, '->order('));
         self::assertStringContainsString("'tenant_id' => \$tenantId", $method);
         self::assertStringContainsString("'user_id' => \$userId", $method);

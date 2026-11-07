@@ -74,14 +74,15 @@ final class ShortDramaStoryDraft
         }
         if ($stage === 'story') {
             if (array_key_exists('episode_count', $input)) {
+                $minimum = !empty($base['parse_metadata']['imported_script']) ? 1 : 2;
                 $count = $input['episode_count'];
                 // Request's recursive trim filter converts JSON numbers to strings.
                 // Accept decimal integer text, but never coerce fractions or junk.
                 if (is_string($count) && preg_match('/^[0-9]+$/D', $count)) {
-                    if ((float)$count > 500) throw new InvalidArgumentException('请输入 2～500 之间的整数集数');
+                    if ((float)$count > 500) throw new InvalidArgumentException('请输入 ' . $minimum . '～500 之间的整数集数');
                     $count = (int)$count;
                 }
-                if (!is_int($count) || $count < 2 || $count > 500) throw new InvalidArgumentException('请输入 2～500 之间的整数集数');
+                if (!is_int($count) || $count < $minimum || $count > 500) throw new InvalidArgumentException('请输入 ' . $minimum . '～500 之间的整数集数');
                 $base['episode_count'] = $count;
             }
             if (isset($input['series_bible'])) {

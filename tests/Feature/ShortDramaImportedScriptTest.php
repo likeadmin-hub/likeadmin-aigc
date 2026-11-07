@@ -6,6 +6,29 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaImportedScriptTest extends TestCase
 {
+    public function testSingleEpisodeApiReceiptSurvivesNormalizationDraftAndOutlineConfirmation(): void
+    {
+        $raw = ['title'=>'旧信','type_judgement'=>'悬疑','core_theme'=>'寻找真相','story_outline'=>'调查员在旧宅发现旧信并找到故人。',
+            'episode_count'=>1,'subjects'=>[['id'=>'s1','name'=>'调查员','description'=>'寻找故人的调查员','category'=>'character']],
+            'locations'=>[['id'=>'l1','name'=>'旧宅','description'=>'藏有旧信的房屋']],
+            'episodes'=>[['episode_no'=>1,'title'=>'旧信','story_outline'=>'调查员在旧宅找到旧信，循线找到故人。',
+                'conflict_point'=>'信中署名与记忆矛盾。','ending_hook'=>'故人交出另一封信。','content'=>'完整的单集原文。',
+                'source_range'=>['start_line'=>1,'end_line'=>1]]]];
+        $service=\app\common\service\app\aigc_short_drama\AigcShortDramaService::class;
+        $plan=(new \ReflectionMethod($service,'fileQaParsePlan'))->invoke(null,$raw,[],'旧信');
+        self::assertSame(1,$plan['episode_count']);self::assertCount(1,$plan['episodes']);
+        self::assertSame('完整的单集原文。',$plan['episodes'][0]['source_content']);
+        $request=['multi_episode'=>true,'episode_count'=>1,'workflow_variant'=>'story_outline_v2','_imported_outline_snapshot'=>$plan];
+        self::assertTrue(\app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::enabled($request));
+        $story=ShortDramaImportedScript::storyDraft($plan);
+        $story=\app\common\service\app\aigc_short_drama\ShortDramaStoryDraft::merge($story,['episode_count'=>1],'story');
+        $outline=ShortDramaImportedScript::confirmedOutline($plan,$story);
+        self::assertCount(1,\app\common\service\app\aigc_short_drama\ShortDramaEpisodeService::validateOutline($outline,1));
+        self::assertSame([],\app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::issues($outline,'episodes',1));
+        $normal=(new \ReflectionMethod($service,'normalizeEpisodeSettings'))->invoke(null,['multi_episode'=>true,'episode_count'=>1]);
+        self::assertGreaterThanOrEqual(2,$normal['episode_count'],'Ordinary multi-episode creation retains its existing minimum');
+    }
+
     public function testFrozenImportIsNotDuplicatedIntoPublicOrPromptDiagnostics(): void
     {
         $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'stripPromptDiagnostics');

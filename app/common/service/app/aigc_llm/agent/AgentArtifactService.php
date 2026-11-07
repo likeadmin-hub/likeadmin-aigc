@@ -39,7 +39,7 @@ final class AgentArtifactService
                     if(!$state && (int)$row['favorite']===1)$state=WorkspaceAssetService::update($tenant,$user,['refs'=>[$ref],'favorite'=>1])['states'][0];
                     $row['favorite']=(int)($state['favorite']??0);
                 }
-                $output[]=array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['content'=>$data['content']??'','generation'=>self::generationMetadata($row)];
+                $output[]=array_intersect_key($row,array_flip(['id','run_id','step_id','title','kind','favorite','create_time']))+$asset+['library_ref'=>$ref,'content'=>$data['content']??'','generation'=>self::generationMetadata($row)];
                 if(count($output)===100)return $output;
             }
             $cursor=$rows?(int)end($rows)['id']:0;

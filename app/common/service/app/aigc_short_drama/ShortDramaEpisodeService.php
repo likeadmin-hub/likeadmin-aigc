@@ -97,6 +97,7 @@ class ShortDramaEpisodeService
 
     public static function validateOutline(array $plan, int $count, bool $allowSingle = false): array
     {
+        $allowSingle = $allowSingle || !empty($plan['parse_metadata']['imported_script']);
         foreach (['title', 'type_judgement', 'story_outline', 'core_theme'] as $field) {
             if (trim((string)($plan[$field] ?? '')) === '') throw new Exception('大纲内容不完整，请补充后确认');
         }

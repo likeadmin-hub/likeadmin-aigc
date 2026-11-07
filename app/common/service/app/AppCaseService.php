@@ -6,6 +6,7 @@ use app\common\model\app\AppCase;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanResult;
 use app\common\model\app\aigc_video\AigcVideoResult;
 use app\common\service\FileService;
+use app\common\service\case_gallery\CaseGenerationService;
 use Exception;
 
 class AppCaseService
@@ -73,39 +74,40 @@ class AppCaseService
             $count = (int)(clone $query)->count();
             $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
             return [
-                'lists' => array_map([self::class, 'formatRow'], $rows),
+                'lists' => array_map([self::class, 'formatRow'], CaseGenerationService::recoverRows($rows)),
                 'count' => $count,
                 'page_no' => $pageNo,
                 'page_size' => $pageSize,
             ];
         }
         $limit = max(1, min((int)($params['limit'] ?? 50), 100));
-        return array_map([self::class, 'formatRow'], $query->limit($limit)->select()->toArray());
+        return array_map([self::class, 'formatRow'], CaseGenerationService::recoverRows($query->limit($limit)->select()->toArray()));
     }
 
     public static function detail(int $tenantId, string $appCode, int $id): array
     {
         $row = self::findRow($tenantId, $appCode, $id);
-        return self::formatRow($row->toArray());
+        return self::formatRow(CaseGenerationService::recoverRows([$row->toArray()])[0]);
     }
 
     public static function detailByAppCodes(int $tenantId, array $appCodes, int $id): array
     {
         $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
-        return self::formatRow($row->toArray());
+        return self::formatRow(CaseGenerationService::recoverRows([$row->toArray()])[0]);
     }
 
     public static function save(int $tenantId, string $appCode, array $params): array
     {
-        $data = self::buildSaveData($tenantId, $appCode, $params);
         $id = (int)($params['id'] ?? 0);
 
         if ($id > 0) {
             $row = self::findRow($tenantId, $appCode, $id);
+            $data = self::buildSaveData($tenantId, $appCode, array_replace(CaseGenerationService::recoverRows([$row->toArray()])[0], $params));
             $row->save($data);
             return self::formatRow($row->toArray());
         }
 
+        $data = self::buildSaveData($tenantId, $appCode, $params);
         $data['create_time'] = time();
         $data['delete_time'] = 0;
         $row = AppCase::create($data);
@@ -120,14 +122,15 @@ class AppCaseService
             throw new Exception('案例所属应用不支持');
         }
 
-        $data = self::buildSaveData($tenantId, $appCode, $params);
         $id = (int)($params['id'] ?? 0);
         if ($id > 0) {
             $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
+            $data = self::buildSaveData($tenantId, $appCode, array_replace(CaseGenerationService::recoverRows([$row->toArray()])[0], $params));
             $row->save($data);
             return self::formatRow($row->toArray());
         }
 
+        $data = self::buildSaveData($tenantId, $appCode, $params);
         $data['create_time'] = time();
         $data['delete_time'] = 0;
         $row = AppCase::create($data);
@@ -205,6 +208,11 @@ class AppCaseService
             throw new Exception('案例类型不支持');
         }
 
+        $config = CaseGenerationService::config((array)($params['config_json'] ?? []));
+        $request = CaseGenerationService::request(array_replace($config['generation_request'], [
+            'reference_images' => $params['reference_images'] ?? $config['generation_request']['reference_images'] ?? [],
+        ]));
+        $config['generation_request'] = $request;
         $data = [
             'tenant_id' => $tenantId,
             'app_code' => $appCode,
@@ -213,8 +221,8 @@ class AppCaseService
             'media_type' => $mediaType,
             'cover_uri' => self::normalizeUri((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
             'media_uri' => self::normalizeUri((string)($params['media_uri'] ?? $params['media_url'] ?? '')),
-            'reference_images' => array_values(array_filter((array)($params['reference_images'] ?? []))),
-            'config_json' => (array)($params['config_json'] ?? []),
+            'reference_images' => $request['reference_images'],
+            'config_json' => $config,
             'source_task_id' => (int)($params['source_task_id'] ?? 0),
             'source_result_id' => (int)($params['source_result_id'] ?? 0),
             'status' => (int)($params['status'] ?? 1),
@@ -231,6 +239,7 @@ class AppCaseService
 
     private static function formatRow(array $row): array
     {
+        $row = CaseGenerationService::present($row);
         $cover = (string)($row['cover_uri'] ?? '');
         $media = (string)($row['media_uri'] ?? '');
         $config = (array)($row['config_json'] ?? []);

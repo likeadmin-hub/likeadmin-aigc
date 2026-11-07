@@ -957,13 +957,7 @@ class AigcVideoService
             'cover_uri' => (string)($params['cover_uri'] ?? $params['cover_url'] ?? ''),
             'media_uri' => $videoUri,
             'reference_images' => $task['reference_images'] ?: [],
-            'config_json' => [
-                'channel' => $task['channel'] ?? '',
-                'model' => $task['model'] ?? '',
-                'quantity' => $task['quantity'] ?? 1,
-                'ratio' => $task['ratio'] ?? '',
-                'quality' => $task['quality'] ?? '',
-            ],
+            'config_json' => \app\common\service\case_gallery\CaseGenerationService::fromTask($task, self::APP_CODE),
             'source_task_id' => (int)$task['id'],
             'source_result_id' => (int)($first['id'] ?? 0),
             'status' => (int)($params['status'] ?? 1),
@@ -1022,7 +1016,7 @@ class AigcVideoService
     }
 
     /** Enrich response copies in one bounded read; never repair terminal task rows. */
-    private static function appendRequestDurations(array &$tasks): void
+    public static function appendRequestDurations(array &$tasks): void
     {
         $ids=[];
         foreach($tasks as$task)if(self::historicalRequestDuration($task,null)===null&&($task['consumption_id']??0)>0)$ids[]=(int)$task['consumption_id'];

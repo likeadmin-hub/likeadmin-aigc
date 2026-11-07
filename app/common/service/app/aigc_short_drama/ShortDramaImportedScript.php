@@ -6,6 +6,11 @@ use RuntimeException;
 /** Lossless adapter for raw and previously normalized parser receipts. */
 final class ShortDramaImportedScript
 {
+    public static function allowsSingleEpisode(array $request): bool
+    {
+        return ($request['source'] ?? '') === 'market_file_qa_parse' || !empty($request['_imported_outline_snapshot']) || !empty($request['imported_script']);
+    }
+
     /**
      * Imported shot lists often number whole seconds as 0-3, 4-8, 9-13.
      * Interpret that consistent notation as consecutive editorial ranges,

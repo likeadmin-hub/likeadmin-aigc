@@ -28,13 +28,20 @@ class CaseGalleryService
         'image_human' => '全驱动数字人',
     ];
 
-    public static function appOptions(int $tenantId = 0): array
+    public static function appOptions(int $tenantId = 0, bool $includeGeneration = false): array
     {
         $appCodes = $tenantId > 0 ? self::caseAppCodes($tenantId) : self::APP_CODES;
         $names = self::appNameMap($appCodes);
         return array_map(static fn(string $appCode) => [
             'app_code' => $appCode,
             'name' => $names[$appCode] ?? self::APP_NAMES[$appCode] ?? $appCode,
+            ...($includeGeneration ? ['option_config' => match ($appCode) {
+                'aigc_image' => \app\common\service\app\aigc_image\AigcImageChannelService::userConfig($tenantId),
+                'aigc_video' => AigcVideoService::creationConfig($tenantId)['option_config'],
+                'aigc_digital_human' => \app\common\service\app\aigc_digital_human\AigcDigitalHumanChannelService::userConfig($tenantId),
+                'image_human' => ['channels' => [['code' => 'image_human', 'label' => '全驱动数字人', 'mode_options' => ['fast', 'standard']]]],
+                default => ['channels' => []],
+            }] : []),
         ], $appCodes);
     }
 
