@@ -46,6 +46,7 @@
     {
       "root": "packages",
       "pages": [
+        "pages/avatar_cropper/avatar_cropper",
         "pages/404/404",
         "pages/asset_center/index",
         "pages/user_wallet/user_wallet",

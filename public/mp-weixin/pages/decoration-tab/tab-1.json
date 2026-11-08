@@ -91,6 +91,7 @@
     "tab-content-103": "../../apps/aigc_micro_video/pages/detail/index-content",
     "u-navbar": "../../uni_modules/vk-uview-ui/components/u-navbar/u-navbar",
     "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
+    "app-access-gate": "../../components/app-access-gate/app-access-gate",
     "diy-page-loading": "../../components/diy/diy-page-loading",
     "main-content0": "../point_alert/index-content",
     "main-content1": "../index/index-content",

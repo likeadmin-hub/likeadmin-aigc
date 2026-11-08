@@ -1,1 +1,0 @@
-import{m as a,bw as r}from"./index-2376218f.js";function e(e){const t=a(!1),n=a(!1);let o=0;r(()=>{o++});return{loadError:t,loading:n,loadPage:async(a,r)=>{const l=++o;t.value=!1,n.value=!0;try{const t=await a();if(l!==o)return;r(t),e.ready=!0}catch(s){l!==o||e.ready||(t.value=!0)}finally{l===o&&(n.value=!1)}}}}export{e as u};

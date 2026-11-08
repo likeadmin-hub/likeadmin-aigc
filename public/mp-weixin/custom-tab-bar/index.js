@@ -26,6 +26,7 @@ Component({
             var current = pages[pages.length - 1]
             var match = /pages\/decoration-tab\/tab-(\d)$/.exec(current && current.route || '')
             var selected = typeof this._slot === 'number' ? this._slot : match ? Number(match[1]) : this.data.selected
+            selected = model.tabs.findIndex(function (item, index) { return (item.nativeSlot == null ? index : item.nativeSlot) === selected })
             var style = model.style || {}
             var items = model.tabs.map(function (item, index) {
                 var column = item.atlasIndex == null ? index : Number(item.atlasIndex)
