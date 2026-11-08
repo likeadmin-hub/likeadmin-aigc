@@ -366,6 +366,16 @@ if ($appAccessPolicy) {
     foreach (['buy_status','shelf_status','enable_status','expire_time'] as $field) verify((string)$policy[$field]===(string)$appAccessPolicy[$field],'System update altered existing app policy: '.$field);
     echo "PASS signed system update preserved closed platform and tenant app switches\n";
 }
+if (getenv('FIXTURE_OFFICIAL_ARCHIVE') && in_array($case, ['success','metadata-failure'], true)
+    && in_array('sql/structure/zzzz_20261108_avatar_billing_quantity.sql', $manifest['sql_order'] ?? [], true)) {
+    $billingTable=(string)config('database.connections.mysql.prefix').'aigc_digital_human_billing';
+    $billingColumn=Db::query('SELECT COLUMN_TYPE AS type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',[$billingTable,'quantity']);
+    verify(strtolower((string)($billingColumn[0]['type'] ?? ''))==='decimal(16,6) unsigned','Actual signed upgrade omitted fractional avatar billing schema');
+    $probeId=Db::name('aigc_digital_human_billing')->insertGetId(['tenant_id'=>901,'user_id'=>777,'quantity'=>2.88,'billing_type'=>'fixture_verify','billing_unit'=>'second']);
+    verify((float)Db::name('aigc_digital_human_billing')->where('id',$probeId)->value('quantity')===2.88,'Upgraded billing schema truncated fractional actual seconds');
+    Db::name('aigc_digital_human_billing')->where('id',$probeId)->delete();
+    echo "PASS actual signed upgrade applies decimal avatar quantity and stores 2.88 seconds\n";
+}
 echo 'PASS real SystemPackageUpdateService ' . ($migration?'legacy402-':($canonical?'canonical-':'')) . $case . ': signed preflight/apply, DB statuses, files/pointer/version, six business tables and protected site state; SQL count=' . $sqlCount . "\n";
 
 if($case==='success' && getenv('FIXTURE_APP_PACKAGES')==='1') {
