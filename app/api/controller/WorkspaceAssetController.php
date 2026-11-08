@@ -9,6 +9,11 @@ use InvalidArgumentException;
 /** Shared account asset library, independent of any single installed AI app. */
 class WorkspaceAssetController extends BaseApiController
 {
+    public function picker()
+    {
+        return $this->respond(fn($tenant, $user) => \app\common\service\WorkspaceMediaPickerService::page($tenant, $user, $this->request->get()));
+    }
+
     public function taskOutputs()
     {
         return $this->respond(fn($tenant, $user) => WorkspaceAssetService::taskOutputs(
