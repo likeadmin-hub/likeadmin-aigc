@@ -1,1 +1,1 @@
-<view class="cw-mobile" style="{{b}}"><studio-select-menu u-i="57d59d54-0" bind:__l="__l"/><uni-node wx:for="{{a}}" wx:for-item="node" wx:key="a" u-i="{{node.b}}" bind:__l="__l" u-p="{{node.c}}"/></view>
+<view class="cw-mobile" style="{{b}}"><studio-select-menu u-i="0cf591f5-0" bind:__l="__l"/><uni-node wx:for="{{a}}" wx:for-item="node" wx:key="a" u-i="{{node.b}}" bind:__l="__l" u-p="{{node.c}}"/></view>
