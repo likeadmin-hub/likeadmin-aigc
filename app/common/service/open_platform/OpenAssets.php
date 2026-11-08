@@ -6,6 +6,28 @@ use app\common\model\file\TenantFile;
 use app\common\service\FileService;
 final class OpenAssets
 {
+    /** Register an authorized existing object without downloading, copying or uploading bytes. */
+    public static function referenceWorkspaceMedia(int $tenantId,int $userId,string $assetId): array
+    {
+        $asset=\app\common\service\WorkspaceMediaPickerService::resolve($tenantId,$userId,$assetId);
+        if (!empty($asset['file_id'])) return self::detail($tenantId,$userId,$asset['file_id']);
+        $storage=array_intersect_key($asset,array_flip(['storage_scope','storage_engine','storage_domain']));
+        $mime=self::storedMime((string)($asset['mime'] ?? ''),$asset['uri']);
+        if ($mime==='' || $mime==='application/octet-stream') $mime=in_array($asset['type'],['image','video','audio'],true) ? $asset['type'].'/*' : 'application/octet-stream';
+        $id='of_'.substr(hash('sha256',OpenStore::encode([$tenantId,$userId,'workspace_media',$assetId,$asset['uri'],$storage])),0,32);
+        $row=['tenant_id'=>$tenantId,'user_id'=>$userId,'file_id'=>$id,'uri'=>$asset['uri'],'name'=>$asset['name'] ?: basename((string)(parse_url($asset['uri'],PHP_URL_PATH) ?: $asset['uri'])),'mime'=>$mime,'size'=>max(0,(int)($asset['size'] ?? 0))]+$storage+OpenStore::timestamp();
+        // Resolve authorization before every retry, including already registered references.
+        $existing=OpenStore::table('file')->where('file_id',$id)->find();
+        if (!$existing) {
+            try { OpenStore::table('file')->insert($row); }
+            catch (\Throwable $error) { if (!OpenStore::owner('file',$tenantId,$userId)->where('file_id',$id)->find()) throw $error; }
+        }
+        foreach (['tenant_id','user_id','uri','storage_scope','storage_engine','storage_domain'] as $field) {
+            $existing ??=OpenStore::table('file')->where('file_id',$id)->find();
+            if (!$existing || (string)($existing[$field] ?? '') !== (string)($row[$field] ?? '')) throw new OpenException('asset_identity_conflict','素材归属或存储信息冲突',500);
+        }
+        return self::detail($tenantId,$userId,$id);
+    }
     public static function upload(int $tenantId,int $userId,string $type): array
     {
         // Local storage moves the PHP upload. Read its facts while the

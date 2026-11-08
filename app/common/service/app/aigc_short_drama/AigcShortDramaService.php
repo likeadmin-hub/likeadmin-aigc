@@ -5896,6 +5896,7 @@ class AigcShortDramaService
             }
         }
         $assetType = self::normalizeAssetType((string)($params['asset_type'] ?? $params['type'] ?? 'reference_image'));
+        $params = \app\common\service\WorkspaceMediaPickerService::referenceParams($tenantId, $userId, $params, $assetType);
         $uri = FileService::setFileUrl((string)($params['uri'] ?? $params['url'] ?? ''));
         if ($uri === '') {
             throw new Exception('Asset file is required');
@@ -5965,6 +5966,7 @@ class AigcShortDramaService
         if (!in_array($nodeType, ['text', 'image', 'video', 'audio', 'document'], true)) {
             throw new Exception('不支持的画布资产类型');
         }
+        $params = \app\common\service\WorkspaceMediaPickerService::referenceParams($tenantId, $userId, $params, $nodeType);
         $uri = FileService::setFileUrl((string)($params['uri'] ?? $params['url'] ?? ''));
         if ($nodeType !== 'text' && $uri === '') {
             throw new Exception('当前节点没有可保存的媒体');

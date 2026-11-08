@@ -18,7 +18,14 @@ class AssetController extends BaseApiController
         foreach ($rows as &$row) $row['url'] = AigcMusicAssetService::assetUrl($row);
         return $this->success('获取成功', $rows);
     }
-    public function upload_audio() { try { return $this->success('上传成功', AigcMusicAssetService::uploadAudio((int)$this->request->tenantId, $this->userId, ['asset_type' => 'pic_lipsync_audio'])); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
+    public function upload_audio() { try {
+        $assetId=$this->request->post('asset_id',null);
+        if ($assetId!==null) {
+            if (!is_string($assetId) || $this->request->file('file') || $this->request->file('iFile')) throw new \InvalidArgumentException('素材引用参数无效');
+            return $this->success('添加成功',AigcMusicAssetService::referenceWorkspaceAudio((int)$this->request->tenantId,$this->userId,$assetId));
+        }
+        return $this->success('上传成功', AigcMusicAssetService::uploadAudio((int)$this->request->tenantId, $this->userId, ['asset_type' => 'pic_lipsync_audio']));
+    } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function upload_image() {
         try {
             $file = UploadService::image(0, $this->userId, FileEnum::SOURCE_USER);
