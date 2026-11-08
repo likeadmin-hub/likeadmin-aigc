@@ -38,6 +38,8 @@ try {
     check($ids===array_map(fn($r)=>'upload:result:'.$r['id'],$expected),'Global chronology, stable ties and insert-safe continuation');
     check(count($page('uploads',['search'=>'fixture 46'])['lists'])===1,'Search the entire history');
     check(!$page('uploads',['types'=>'audio'])['lists'],'Slot media filter');
+    $jpg=$upload(1,'old jpg',['uri'=>'uploads/old.JPG']);
+    check(array_column($page('uploads',['formats'=>'jpg,video/*'])['lists'],'id')===['upload:result:'.$jpg],'Older compatible file survives format filtering before the limit');
 
     $task=Db::name('aigc_image_task')->insertGetId($owner+['status'=>'success','prompt'=>'older image','create_time'=>200]);
     $image=Db::name('aigc_image_result')->insertGetId($owner+$storage+['task_id'=>$task,'image_uri'=>'uploads/picker-image.png','create_time'=>220]);

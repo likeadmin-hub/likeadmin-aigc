@@ -21,7 +21,8 @@ final class WorkspaceMediaPickerService
         if ($tenant < 1 || $user < 1) throw new InvalidArgumentException('请先登录');
         $tab = $params['tab'] ?? 'uploads';
         if (!in_array($tab, ['uploads','assets'], true)) throw new InvalidArgumentException('素材来源无效');
-        $types = explode(',', (string)($params['types'] ?? implode(',', self::TYPES)));
+        $types = array_values(array_unique(explode(',', (string)($params['types'] ?? implode(',', self::TYPES)))));
+        $formats = self::formats((string)($params['formats'] ?? ''));
         if (array_diff($types, self::TYPES)) throw new InvalidArgumentException('素材类型无效');
         $keyword = trim((string)($params['search'] ?? ''));
         $cursor = (string)($params['cursor'] ?? '');
@@ -36,12 +37,16 @@ final class WorkspaceMediaPickerService
         $next = null;
         // A canvas run can contain several outputs. Resume inside the run when a page ends there.
         do {
-            $rows = self::candidates($tenant, $user, $sources, $types, $keyword, $after);
+            $rows = self::candidates($tenant, $user, $sources, $types, $formats, $keyword, $after);
             $expanded = [];
             foreach ($rows as $row) {
                 $outputs = self::outputs($tenant, $user, $row);
                 $offset = $after && $row['stream'] === $after[1] && (int)$row['id'] === $after[2] ? $after[3] : 0;
                 foreach (array_slice($outputs, $offset, null, true) as $i => $item) {
+                    if ($formats && !in_array($item['type'],$formats['wildcards'],true)) {
+                        $path = parse_url($item['url'],PHP_URL_PATH) ?: '';
+                        if (!in_array(strtolower(pathinfo($path,PATHINFO_EXTENSION)), $formats['extensions'],true)) continue;
+                    }
                     $position = [$row['stamp'], $row['stream'], $row['id'], $i + 1 < count($outputs) ? $i + 1 : 0];
                     $expanded[$item['id']] = [$item, implode(':', $position)];
                 }
@@ -60,6 +65,18 @@ final class WorkspaceMediaPickerService
         return ['lists'=>$items, 'next_cursor'=>null];
     }
 
+    private static function formats(string $value): array
+    {
+        if ($value === '') return [];
+        $extensions = $wildcards = [];
+        foreach (explode(',', $value) as $rule) {
+            if (preg_match('~^(image|video|audio)/\*$~D', $rule, $match)) $wildcards[] = $match[1];
+            elseif (preg_match('/^[a-z0-9]{1,16}$/D', $rule)) $extensions[] = $rule;
+            else throw new InvalidArgumentException('素材格式无效');
+        }
+        return ['extensions'=>array_unique($extensions), 'wildcards'=>array_unique($wildcards)];
+    }
+
     private static function uploads(): array
     {
         return ['table'=>'tenant_file', 'owner'=>'source_id', 'type'=>"CASE WHEN r.type=10 THEN 'image' ELSE 'video' END",
@@ -76,7 +93,7 @@ final class WorkspaceMediaPickerService
             // Fitting results are owned image results; saved stand-alone Agent artifacts are handled below.
             if (in_array($source, ['fitting','agent'], true)) continue;
             $stream = $source.':result';
-            $available = in_array($app,$enabled,true) && MembershipService::userCanUseApp($tenant,$user,$app);
+            $available = $source === 'canvas' || (in_array($app,$enabled,true) && MembershipService::userCanUseApp($tenant,$user,$app));
             if (!$available && !in_array($stream,$saved,true) && !($source==='canvas' && in_array('canvas:task',$saved,true))) continue;
             if ($source === 'canvas' || $source === 'short_drama') {
                 $type = "CASE WHEN r.asset_type LIKE '%video%' THEN 'video' WHEN r.asset_type LIKE '%audio%' THEN 'audio' WHEN r.asset_type LIKE '%text%' OR r.asset_type LIKE '%document%' THEN 'document' ELSE 'image' END";
@@ -111,7 +128,7 @@ final class WorkspaceMediaPickerService
     }
 
     /** Each owned source contributes at most one page plus a lookahead to the global merge. */
-    private static function candidates(int $tenant, int $user, array $sources, array $types, string $keyword, ?array $after): array
+    private static function candidates(int $tenant, int $user, array $sources, array $types, array $formats, string $keyword, ?array $after): array
     {
         $parts = $bindings = [];
         $size = self::SIZE + 1;
@@ -129,6 +146,16 @@ final class WorkspaceMediaPickerService
             if (isset($s['uri'])) $conditions[] = $s['uri']."<>''";
             $conditions[] = $s['type'].' IN ('.implode(',',array_fill(0,count($types),'?')).')';
             array_push($bindings,...$types);
+            // Exclude incompatible stored files before the page limit. Canvas runs are expanded below.
+            if ($formats && isset($s['uri'])) {
+                $matches = [];
+                foreach (['wildcards'=>$s['type'], 'extensions'=>"LOWER(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(".$s['uri'].", '?', 1), '#', 1), '.', -1))"] as $key=>$field) {
+                    if (!$formats[$key]) continue;
+                    $matches[] = $field.' IN ('.implode(',',array_fill(0,count($formats[$key]),'?')).')';
+                    array_push($bindings,...$formats[$key]);
+                }
+                $conditions[] = '('.implode(' OR ',$matches).')';
+            }
             $name = $s['name'];
             if ($keyword !== '') {
                 $conditions[] = "LOCATE(?, $name)>0";
@@ -140,6 +167,13 @@ final class WorkspaceMediaPickerService
                 $conditions[] = "EXISTS (SELECT 1 FROM `$state` a WHERE a.tenant_id=r.tenant_id AND a.user_id=r.$owner AND $ref AND a.hidden_at=0 AND a.trashed_at=0 AND (a.favorite=1 OR a.label<>''))";
             }
             $stamp = 'COALESCE(r.create_time,0)';
+            if ($stream === 'short_drama:result') {
+                // Reusing a subject in another episode keeps the original work's creation time.
+                $original = "CAST(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(r.meta_json),r.meta_json,'{}'),'$.reused_from_asset_id')) AS UNSIGNED)";
+                $from .= " LEFT JOIN `$table` orig ON orig.id=$original AND orig.tenant_id=r.tenant_id AND orig.user_id=r.user_id AND orig.uri=r.uri";
+                $stamp = 'COALESCE(orig.create_time,r.create_time,0)';
+                $s['alias'] = "CONCAT('$stream:',COALESCE(orig.id,r.id))";
+            }
             if ($after) {
                 [$time,$source,$id,$offset] = $after;
                 $operator = strcmp($stream,$source)>0 || ($stream===$source && $offset>0) ? '<=' : '<';
@@ -180,7 +214,7 @@ final class WorkspaceMediaPickerService
         if ($row['stream']==='short_drama:result' || $row['stream']==='canvas:result') {
             $meta = json_decode($row['extra'] ?? '',true) ?: [];
             if (WorkspaceShortDramaAssetService::isUpload(['task_id'=>$row['task'],'meta'=>$meta]) || !empty($meta['source_subject_id'])) return [];
-            if (!empty($meta['reused_from_asset_id'])) $alias=$row['stream'].':'.(int)$meta['reused_from_asset_id'];
+            if ($row['stream']==='canvas:result' && !empty($meta['reused_from_asset_id'])) $alias=$row['stream'].':'.(int)$meta['reused_from_asset_id'];
         }
         $url = static fn($uri)=>FileService::getFileUrlByStorage((string)$uri,$row['storage_scope'],$row['storage_engine'],$row['storage_domain']);
         return [$base+['id'=>$ref,'canonical_id'=>$alias,'uri'=>$row['uri'],'url'=>$url($row['uri']),'cover'=>$url($row['cover']),'duration'=>(float)$row['duration']]];
