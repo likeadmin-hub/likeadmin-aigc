@@ -17,6 +17,7 @@ class P3QuoteConfirmationVideo
     public static int $calls = 0;
     public static function estimate(int $tenant, array $payload): array
     {
+        if (trim((string)($payload['prompt'] ?? '')) === '') throw new InvalidArgumentException('Missing video prompt');
         return Market::quote($tenant, ['market_sku_id' => self::$sku] + $payload);
     }
     public static function generate(int $tenant, int $user, array $payload): array
@@ -50,6 +51,10 @@ try {
     $before = [Db::name('ai_app_task')->count(), Db::name('ai_consumption_log')->count()];
     $preview = Canvas::quote(91001, 92001, array_replace($request, ['preview_only' => true]));
     agentCheck($preview['status'] === 'preview' && (float)$preview['quote']['user_charge_points'] === 2.0, 'M14 read-only preview returns the complete task price');
+    $empty = array_replace($request, ['prompt'=>'']);
+    agentCheck(Canvas::quote(91001,92001,$empty+['preview_only'=>true])['quote']===$preview['quote'],'blank editor previews the same video SKU');
+    try { Canvas::quote(91001,92001,$empty); throw new RuntimeException('empty prompt accepted'); }
+    catch (Exception $error) { agentCheck($error->getMessage()==='请输入提示内容','a binding quote still requires the real prompt'); }
     agentCheck(Db::name('aigc_short_drama_canvas_quote')->where('canvas_id', $canvas)->count() === 0, 'M14 read-only preview does not persist a confirmation quote');
     agentCheck($before === [Db::name('ai_app_task')->count(), Db::name('ai_consumption_log')->count()] && P3QuoteConfirmationVideo::$calls === 0, 'M14 read-only preview creates no task or charge');
     $quote = Canvas::quote(91001, 92001, $request);
