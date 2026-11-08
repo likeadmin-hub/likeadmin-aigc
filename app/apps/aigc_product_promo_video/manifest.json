@@ -1,10 +1,10 @@
 {
   "code": "aigc_product_promo_video",
   "name": "产品宣传视频",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require_core": ">=1.0.0",
   "description": "面向电商产品传播的 AI 产品宣传视频工具，支持产品图生成视频、租户配置视频类型和按秒生成售价。",
-  "changelog": "1. 新增产品宣传视频工具。\n2. 支持租户配置视频类型和按秒生成售价。\n3. 支持 PC 端上传产品图生成宣传视频。",
+  "changelog": "1. AI帮写根据上传的产品图片识别内容，生成更贴合产品的宣传描述。\n2. 未选择产品图片时无法使用AI帮写。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
