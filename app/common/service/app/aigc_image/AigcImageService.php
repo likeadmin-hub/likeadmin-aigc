@@ -568,6 +568,7 @@ class AigcImageService
                 }
             }
         }
+        $rows = AigcImageReferenceDisplayService::appendRows($rows);
         foreach ($rows as &$row) {
             self::appendTaskModelDisplay($row);
             $row['task_id'] = (int)$row['id'];
@@ -605,7 +606,7 @@ class AigcImageService
         if ($task->isEmpty()) {
             throw new Exception('任务不存在');
         }
-        $data = $task->toArray();
+        $data = AigcImageReferenceDisplayService::appendRows([$task->toArray()])[0];
         self::appendTaskModelDisplay($data);
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
         return GenerationTaskResultService::appendBusiness($data,(int)$task['app_task_id'],(int)$task['tenant_id'],(int)$task['user_id']);

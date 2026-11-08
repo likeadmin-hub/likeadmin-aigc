@@ -16,7 +16,7 @@ Config::set($config,'database'); Db::connect(null,true);
 $pdo=new PDO('mysql:host=127.0.0.1;dbname=app_access_fixture;charset=utf8mb4','root', '');
 if (!preg_match('/^[a-f0-9-]{36}$/iD', (string)getenv('APP_ACCESS_DB_UUID')) || $pdo->query('SELECT @@server_uuid')->fetchColumn() !== getenv('APP_ACCESS_DB_UUID')) throw new RuntimeException('Private MySQL identity differs');
 $schema=file_get_contents(dirname(__DIR__,2).'/public/install/db/like.sql');
-foreach(['app','tenant_app','tenant_app_order','tenant','tenant_system_menu','tenant_system_role_menu','app_frontend_entry','app_install','app_api','app_version','membership_plan','membership_plan_app','tenant_app_config','app_migration','app_plan','aigc_llm_session','aigc_llm_agent_run','aigc_llm_agent_event','tenant_brand_order','tenant_brand_job','tenant_brand_event'] as $name) {
+foreach(['app','tenant_app','tenant_app_order','tenant','tenant_system_menu','tenant_system_role_menu','app_frontend_entry','app_install','app_api','app_version','membership_plan','membership_plan_app','tenant_app_config','app_migration','app_plan','aigc_llm_session','aigc_llm_agent_run','aigc_llm_agent_event','tenant_brand_order','tenant_brand_job','tenant_brand_event','open_platform_setting'] as $name) {
  if (!preg_match('~^CREATE TABLE(?: IF NOT EXISTS)? `la_'.preg_quote($name,'~').'`\s*\(.*?^\)\s*ENGINE\s*=\s*InnoDB\b[^;]*;~msi',$schema,$m)) throw new RuntimeException('Missing fixture DDL '.$name);
  $pdo->exec('DROP TABLE IF EXISTS `la_'.$name.'`'); $pdo->exec($m[0]);
 }
@@ -32,6 +32,7 @@ foreach($codes as $code) {
  foreach([9101,9102] as $tenant) Db::name('tenant_app')->insert(['tenant_id'=>$tenant,'app_code'=>$code,'version'=>'1.0.0','buy_status'=>'paid','shelf_status'=>'on','enable_status'=>'enabled']);
  foreach(['pc','uniapp','tenant'] as $terminal) Db::name('app_frontend_entry')->insert(['app_code'=>$code,'terminal'=>$terminal,'path'=>'/app/'.$code,'status'=>1,'meta'=>'{}']);
 }
+require __DIR__.'/configuration-matrix.php';
 $upsert=new ReflectionMethod(Defaults::class,'upsertTenantApp');$upsert->setAccessible(true);
 foreach(array_diff($codes,['system_default']) as $code) {
  Db::name('tenant_app')->where(['tenant_id'=>9101,'app_code'=>$code])->update(['shelf_status'=>'off','enable_status'=>'disabled','expire_time'=>123]);

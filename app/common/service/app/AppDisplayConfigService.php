@@ -212,6 +212,14 @@ class AppDisplayConfigService
         ],
     ];
 
+    /** Public availability uses both scopes; a tenant cannot reopen a platform-hidden app. */
+    public static function closedAppCodes(int $tenantId, array $appCodes): array
+    {
+        if (!$appCodes) return [];
+        return TenantAppConfig::whereIn('tenant_id', array_values(array_unique([0, $tenantId])))
+            ->whereIn('app_code', $appCodes)->where('status', '<>', 1)->column('app_code');
+    }
+
     public static function appendToConfig(int $tenantId, string $appCode, array $config): array
     {
         $config['display_config'] = self::detail($tenantId, $appCode);

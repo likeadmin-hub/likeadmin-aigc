@@ -4,7 +4,6 @@ namespace app\common\service\app;
 
 use app\common\model\app\App;
 use app\common\model\app\TenantApp;
-use app\common\model\app\TenantAppConfig;
 use app\common\model\app\TenantAppOrder;
 use app\common\service\JsonService;
 use app\common\service\membership\MembershipService;
@@ -80,19 +79,17 @@ class AppAccessService
     /** Public navigation includes legacy preview cards, without granting API execution. */
     public static function frontendAppCodes(int $tenantId): array
     {
-        $codes = self::enabledTenantAppCodes($tenantId);
+        $codes = self::tenantAppCodes($tenantId, true, false);
         if ($tenantId <= 0) return $codes;
         foreach (self::DISPLAY_MANAGED_APP_CODES as $appCode) {
             $status = App::where('code', $appCode)->value('status');
-            $displayStatus = TenantAppConfig::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->value('status');
             $grant = TenantApp::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->findOrEmpty();
             $tenantClosed = !$grant->isEmpty() && ($grant['shelf_status'] !== self::SHELF_ON || $grant['enable_status'] !== self::ENABLED);
-            if (!$tenantClosed && ($status === null || $status === AppRegistryService::STATUS_INSTALLED) && (int)($displayStatus ?? 1) === 1) {
+            if (!$tenantClosed && ($status === null || $status === AppRegistryService::STATUS_INSTALLED)) {
                 $codes[] = $appCode;
-            } else {
-                $codes = array_diff($codes, [$appCode]);
             }
         }
+        $codes = AppAvailabilityConfigService::filterAvailable($tenantId, $codes);
         return array_values(array_unique($codes));
     }
 
@@ -112,10 +109,6 @@ class AppAccessService
 
     public static function tenantCanUse(int $tenantId, string $appCode, bool $initialize = true): bool
     {
-        if (in_array($appCode, self::DISPLAY_MANAGED_APP_CODES, true)
-            && (int)(TenantAppConfig::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->value('status') ?? 1) === 0) {
-            return false;
-        }
         if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
             if ($initialize) DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
         }
@@ -158,7 +151,7 @@ class AppAccessService
         return null;
     }
 
-    private static function tenantAppCodes(int $tenantId, bool $requireShelf): array
+    private static function tenantAppCodes(int $tenantId, bool $requireShelf, bool $filterAvailability = true): array
     {
         if ($tenantId <= 0) {
             return [];
@@ -208,10 +201,8 @@ class AppAccessService
         $existing = TenantApp::where('tenant_id', $tenantId)->column('app_code');
         $defaults = array_values(array_intersect(array_keys($installedApps), self::DEFAULT_APP_CODES));
         $codes = array_values(array_unique(array_merge($codes, array_diff($defaults, $existing))));
-        if ($requireShelf) {
-            $displayClosed = TenantAppConfig::where('tenant_id', $tenantId)
-                ->whereIn('app_code', self::DISPLAY_MANAGED_APP_CODES)->where('status', 0)->column('app_code');
-            $codes = array_values(array_diff($codes, $displayClosed));
+        if ($requireShelf && $filterAvailability) {
+            $codes = AppAvailabilityConfigService::filterAvailable($tenantId, $codes);
         }
         return $codes;
     }
