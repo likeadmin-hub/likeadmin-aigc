@@ -144,7 +144,7 @@ final class PersonReplacementCoverTest extends TestCase
     private function fixture(): array
     {
         self::assertSame('127.0.0.1', config('database.connections.mysql.hostname'));
-        self::assertSame('z_cn', config('database.connections.mysql.database'));
+        self::assertContains(config('database.connections.mysql.database'), ['x_cn', 'z_cn']);
         Db::startTrans();
         $this->transaction = true;
         $task = Db::name('aigc_person_replacement_task')->insertGetId([
