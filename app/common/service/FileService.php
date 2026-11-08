@@ -68,7 +68,7 @@ class FileService
         return self::format($domain, $uri);
     }
 
-    public static function getFileUrlByStorage(string $uri = '', string $storageScope = '', string $storageEngine = '', string $storageDomain = ''): string
+    public static function getFileUrlByStorage(string $uri = '', string $storageScope = '', string $storageEngine = '', string $storageDomain = '', ?int $tenantId = null): string
     {
         // An absent stored file is not the storage bucket's root URL.
         if (trim($uri) === '') return '';
@@ -91,7 +91,7 @@ class FileService
             $storageScope,
             $storageEngine,
             $storageDomain,
-            StorageConfigService::currentTenantId()
+            $tenantId ?? StorageConfigService::currentTenantId()
         );
         if ($signed !== null) {
             return $signed;
@@ -105,7 +105,7 @@ class FileService
         }
 
         if ($storageDomain === '' && $storageEngine !== '') {
-            $config = StorageConfigService::getStoredFileConfig(StorageConfigService::currentTenantId(), $storageScope, $storageEngine);
+            $config = StorageConfigService::getStoredFileConfig($tenantId ?? StorageConfigService::currentTenantId(), $storageScope, $storageEngine);
             $storage = $config['engine'][$storageEngine] ?? [];
             $storageDomain = (string)($storage['domain'] ?? '');
         }
