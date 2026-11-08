@@ -347,12 +347,12 @@ class ShortDramaCanvasService
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id'], $previewOnly);
         // The PC creation tools use a temporary prompt to preview a video's SKU
         // before editing. Only the read-only estimate receives this value.
-        if ($previewOnly && $type === 'video' && $payload['prompt'] === '') {
+        if ($previewOnly && $type === 'video' && ($payload['prompt'] ?? '') === '') {
             $payload['prompt'] = $payload['content'] = 'estimate';
         }
         self::assertWorkflowVideoDuration($document, $nodeId, $type, $payload, $tenantId);
         $quote = match ($type) {
-            'video' => MarketGenerationMedia::withStoredVideoReferences($tenantId, $userId, $payload['reference_assets'],
+            'video' => MarketGenerationMedia::withStoredVideoReferences($tenantId, $userId, $payload['reference_assets'] ?? [],
                 static fn() => AigcVideoService::estimate($tenantId, $payload)),
             'audio' => AigcMusicService::estimate($tenantId, $payload),
             'image' => ($payload['operation'] ?? '') === 'local_redraw'
