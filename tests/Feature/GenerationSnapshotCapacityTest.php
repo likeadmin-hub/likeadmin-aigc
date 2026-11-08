@@ -89,6 +89,56 @@ class GenerationSnapshotCapacityTest extends TestCase
 
     public static function sqlModes(): array { return [[false], [true]]; }
 
+    public function testLegacyTablesMissingSnapshotColumnsAreRepairedWithoutChangingRows(): void
+    {
+        $this->localDatabase();
+        $prefix = 'snapshot_'.bin2hex(random_bytes(6)).'_';
+        $targets = array_map([RuntimeGenerationSnapshotCapacity::class, 'target'], SqlMigrationExecutor::split($this->sql()));
+        $tables = [];
+        try {
+            foreach ($targets as [$suffix, $column]) {
+                $table = $prefix.$suffix;
+                Db::execute('CREATE TABLE `'.$table.'` (`id` INT PRIMARY KEY, `legacy_payload` TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin');
+                $tables[] = $table;
+                Db::table($table)->insert(['id'=>1, 'legacy_payload'=>'existing customer task']);
+            }
+            SqlMigrationExecutor::execute($this->sql(), $prefix);
+            SqlMigrationExecutor::execute($this->sql(), $prefix);
+            foreach ($targets as [$suffix, $column]) {
+                $table = $prefix.$suffix;
+                $metadata = Db::query('SELECT DATA_TYPE,IS_NULLABLE,COLUMN_DEFAULT,COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?', [$table, $column]);
+                self::assertSame([['DATA_TYPE'=>'mediumtext', 'IS_NULLABLE'=>'YES', 'COLUMN_DEFAULT'=>null, 'COLLATION_NAME'=>'utf8mb4_bin']], $metadata);
+                self::assertSame([['id'=>1, 'legacy_payload'=>'existing customer task', $column=>null]], Db::table($table)->select()->toArray());
+                $large = json_encode(['contract'=>str_repeat('legacy capacity repair', 5000)]);
+                // Use SQL across DDL: ThinkORM cached the legacy field list at insert time.
+                Db::execute('UPDATE `'.$table.'` SET `'.$column.'`=? WHERE id=1', [$large]);
+                self::assertSame($large, Db::table($table)->where('id', 1)->value($column));
+            }
+        } finally {
+            foreach ($tables as $table) Db::execute('DROP TABLE IF EXISTS `'.$table.'`');
+        }
+    }
+
+    public function testMissingOptionalTablesStayAbsentAndUnsupportedEnginesStayUntouched(): void
+    {
+        $this->localDatabase();
+        $prefix = 'snapshot_'.bin2hex(random_bytes(6)).'_';
+        self::assertSame(['status'=>'optional_table_absent'], RuntimeGenerationSnapshotCapacity::apply('image_human_task', 'pricing_snapshot', $prefix));
+        $table = $prefix.'image_human_task';
+        Db::execute('CREATE TABLE `'.$table.'` (`id` INT PRIMARY KEY) ENGINE=MyISAM');
+        try {
+            try {
+                RuntimeGenerationSnapshotCapacity::apply('image_human_task', 'pricing_snapshot', $prefix);
+                self::fail('Unsupported engine accepted');
+            } catch (\RuntimeException $expected) {
+                self::assertStringContainsString('InnoDB', $expected->getMessage());
+            }
+            self::assertSame(['id'], array_column(Db::query('SHOW COLUMNS FROM `'.$table.'`'), 'Field'));
+        } finally {
+            Db::execute('DROP TABLE `'.$table.'`');
+        }
+    }
+
     public function testLargeContractCanCreateBusinessTaskReserveAndRefundWithoutTruncation(): void
     {
         $this->localDatabase();
