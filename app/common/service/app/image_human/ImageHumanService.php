@@ -58,9 +58,8 @@ class ImageHumanService
         $duration = self::normalizeDuration($params['duration'] ?? $params['audio_duration'] ?? 0);
         if ($driverAudioUri !== '') {
             $detectedDuration = self::detectAudioDurationFromUri($driverAudioUri, $tenantId);
-            if ($detectedDuration > 0) {
-                $duration = $detectedDuration;
-            }
+            if ($detectedDuration <= 0) throw new Exception('无法确认驱动音频时长，请重新上传音频');
+            $duration = $detectedDuration;
         }
         if ($duration <= 0 && (int)($params['voice_id'] ?? 0) > 0) {
             $scriptText = trim((string)($params['script_text'] ?? $params['text'] ?? $params['prompt'] ?? ''));
@@ -479,9 +478,8 @@ class ImageHumanService
         $duration = self::normalizeDuration($params['duration'] ?? 0);
         if ($audioDriven) {
             $detectedDuration = self::detectAudioDurationFromUri($audioUri, $tenantId);
-            if ($detectedDuration > 0) {
-                $duration = $detectedDuration;
-            }
+            if ($detectedDuration <= 0) throw new Exception('无法确认驱动音频时长，请重新上传音频');
+            $duration = $detectedDuration;
         }
         if (!$audioDriven && $duration <= 0) {
             $duration = self::estimateScriptDuration($scriptText);
@@ -499,7 +497,8 @@ class ImageHumanService
         }
 
         $duration = self::billableDuration($duration, self::providerMinDuration($config));
-        $estimate = self::buildEstimate($duration, self::pricing($tenantId), $mode, self::providerMinDuration($config));
+        $pricing = self::pricing($tenantId);
+        $estimate = self::buildEstimate($duration, $pricing, $mode, self::providerMinDuration($config));
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $submitLock = SubmitLockService::acquire('image_human_submit', $tenantId, $userId, true);
@@ -531,7 +530,7 @@ class ImageHumanService
                 'provider_task_id' => '',
                 'provider_stage' => $audioDriven ? 'video_submitted' : 'created',
                 'tts_task_id' => '',
-                'provider_payload_json' => [],
+                'provider_payload_json' => ['generation_billing' => ['version' => 1, 'pricing' => $pricing, 'min_duration' => self::providerMinDuration($config), 'estimate' => $estimate]],
                 'status' => 'running',
                 'progress' => $audioDriven ? 10 : 5,
                 'error' => '',
@@ -850,6 +849,8 @@ class ImageHumanService
                 'task_id' => (int)$locked['id'],
             ])->lock(true)->findOrEmpty();
             if ($existingBilling->isEmpty()) {
+                $billingSnapshot = (array)($locked['provider_payload_json']['generation_billing'] ?? []);
+                $unitPricing = isset($billingSnapshot['estimate']) ? (array)$billingSnapshot['estimate'] : self::modePricing(self::pricing($tenantId), (string)$locked['mode']);
                 PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$locked['tenant_cost_points'], (float)$locked['user_charge_points'], $sourceSn, '全驱数字人消费', [
                     'app_code' => self::APP_CODE,
                     'task_id' => (int)$locked['id'],
@@ -864,8 +865,8 @@ class ImageHumanService
                     'result_id' => (int)$row['id'],
                     'mode' => (string)$locked['mode'],
                     'duration' => (float)$locked['duration'],
-                    'platform_unit_cost' => self::modePricing(self::pricing($tenantId), (string)$locked['mode'])['platform_unit_cost'],
-                    'tenant_unit_price' => self::modePricing(self::pricing($tenantId), (string)$locked['mode'])['tenant_unit_price'],
+                    'platform_unit_cost' => $unitPricing['platform_unit_cost'],
+                    'tenant_unit_price' => $unitPricing['tenant_unit_price'],
                     'tenant_cost_points' => $locked['tenant_cost_points'],
                     'user_charge_points' => $locked['user_charge_points'],
                     'billing_status' => 'deducted',
@@ -1283,7 +1284,7 @@ class ImageHumanService
 
     private static function estimateScriptDuration(string $text): float
     {
-        return max(1, (float)ceil(mb_strlen($text) / 4));
+        return (float)\app\common\service\app\aigc_digital_human\AvatarGenerationDurationService::estimateScriptSeconds($text);
     }
 
     private static function advanceRunningTaskSafely(ImageHumanTask $task, array $config, array $voice): void
@@ -1407,9 +1408,15 @@ class ImageHumanService
                 if ($detectedDuration <= 0) {
                     $detectedDuration = self::detectAudioDurationFromUri((string)($audio['uri'] ?? $audioUrl), (int)$task['tenant_id']);
                 }
-                $duration = $detectedDuration > 0 ? $detectedDuration : max((float)$task['duration'], self::estimateScriptDuration((string)($task['script_text'] ?? '')));
-                $duration = self::billableDuration($duration, self::providerMinDuration($config));
-                $estimate = self::buildEstimate($duration, self::pricing((int)$task['tenant_id']), (string)$task['mode'], self::providerMinDuration($config));
+                if ($detectedDuration <= 0) throw new Exception('无法确认合成音频时长');
+                $billingSnapshot = (array)($task['provider_payload_json']['generation_billing'] ?? []);
+                $minimum = isset($billingSnapshot['min_duration']) ? (float)$billingSnapshot['min_duration'] : self::providerMinDuration($config);
+                $duration = self::billableDuration($detectedDuration, $minimum);
+                $estimate = self::buildEstimate($duration, (array)($billingSnapshot['pricing'] ?? self::pricing((int)$task['tenant_id'])), (string)$task['mode'], $minimum);
+                if ($billingSnapshot !== []) {
+                    $billingSnapshot['estimate'] = $estimate;
+                    $payload['generation_billing'] = $billingSnapshot;
+                }
                 PointService::assertCanConsumeAmounts((int)$task['tenant_id'], (int)$task['user_id'], (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
                 $audioUri = (string)($audio['url'] ?? $audio['uri'] ?? $audioUrl);
                 $task->save([
@@ -1592,6 +1599,8 @@ class ImageHumanService
 
     private static function detectAudioDurationFromUri(string $audioUri, int $tenantId = 0): float
     {
+        $precise = \app\common\service\app\aigc_digital_human\AvatarGenerationDurationService::detect($audioUri);
+        if ($precise > 0) return $precise;
         if ($audioUri === '') {
             return 0;
         }

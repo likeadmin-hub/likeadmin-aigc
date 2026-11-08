@@ -66,7 +66,8 @@ final class DigitalHumanMarketService
     public static function estimate(int $tenantId, array $params): array
     {
         $selected = self::selection($tenantId,$params);
-        $duration = max(1,(int)($params['duration'] ?? $params['audio_duration'] ?? 1));
+        $duration = (float)($params['duration'] ?? $params['audio_duration'] ?? 1);
+        if (!is_finite($duration) || $duration <= 0) throw new \Exception('无法确认输入音频时长');
         $quote = Market::quote($tenantId,$selected['channel'],$duration);
         return array_merge($quote,[
             'channel'=>$selected['channel']['code'],'channel_name'=>$selected['channel']['name'],

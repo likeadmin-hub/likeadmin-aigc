@@ -63,15 +63,16 @@ class PicLipsyncManagementTest extends TestCase
         $config=Db::name('aigc_pic_lipsync_config')->where('tenant_id',987001)->find();
         self::assertSame(0,(int)$config['status']);self::assertSame($before,json_decode($config['config_json'],true));
     }
-    public function testBuiltinAccessDoesNotDependOnPaidShelfState(): void
+    public function testBuiltinAccessRespectsShelfAndRetainsManagement(): void
     {
         Db::name('app')->where('code',Service::APP_CODE)->update(['status'=>'installed']);
         Db::name('tenant_app')->where(['tenant_id'=>987001,'app_code'=>Service::APP_CODE])->delete();
         Db::name('tenant_app')->insert(['tenant_id'=>987001,'app_code'=>Service::APP_CODE,'buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'off','expire_time'=>time()+3600]);
-        self::assertTrue(Access::tenantCanUse(987001,Service::APP_CODE));
+        self::assertFalse(Access::tenantCanUse(987001,Service::APP_CODE));
         self::assertTrue(Access::tenantCanManage(987001,Service::APP_CODE));
-        $this->expectExceptionMessage('系统应用不允许禁用或卸载');
         Registry::setStatus(Service::APP_CODE,'disabled');
+        self::assertFalse(Access::tenantCanUse(987001,Service::APP_CODE));
+        self::assertTrue(Access::tenantCanManage(987001,Service::APP_CODE));
     }
     public function testPublicReferenceSamplesSaveAndPublishWithoutCloneWork(): void
     {

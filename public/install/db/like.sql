@@ -4447,7 +4447,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_billing` (
   `ratio` varchar(30) NOT NULL DEFAULT '',
   `billing_type` varchar(30) NOT NULL DEFAULT 'generate' COMMENT '计费类型 generate/avatar_clone/voice_clone',
   `billing_unit` varchar(20) NOT NULL DEFAULT 'count' COMMENT '计费单位 second/count',
-  `quantity` int unsigned NOT NULL DEFAULT 1,
+  `quantity` decimal(16,6) unsigned NOT NULL DEFAULT 1.000000,
   `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台成本单价',
   `tenant_unit_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户用户售价',
   `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户成本扣点',
