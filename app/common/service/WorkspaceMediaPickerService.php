@@ -5,7 +5,7 @@ use app\common\enum\FileEnum;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\membership\MembershipService;
-use app\common\service\open_platform\{OpenAssets, OpenException};
+use app\common\service\open_platform\{OpenAssets, OpenException, OpenStore};
 use InvalidArgumentException;
 use think\facade\Db;
 
@@ -15,6 +15,53 @@ final class WorkspaceMediaPickerService
     private const SIZE = 20;
     private const TYPES = ['image', 'video', 'audio', 'document'];
     private const VIDEO = ['video','digital_human','image_human','pic_lipsync','action_transfer','person_replacement','product_promo_video','watermark_removal','smart_clip'];
+
+    /** Resolve the exact picker identity using the same source/ownership/visibility rules as listing.
+     * Storage coordinates are returned only to server callers; no client URL is trusted. */
+    public static function resolve(int $tenant, int $user, string $id): array
+    {
+        if ($tenant < 1 || $user < 1) throw new InvalidArgumentException('请先登录');
+        if (!preg_match('/^([a-z_]+:(?:result|task)):([1-9][0-9]{0,10})(?::([1-9][0-9]{0,4}))?$/D', $id, $match)) throw new InvalidArgumentException('素材标识无效');
+        $stream=$match[1];
+        if (($stream==='canvas:task') !== isset($match[3])) throw new InvalidArgumentException('素材标识无效');
+        $sources=$stream==='upload:result' ? [$stream=>self::uploads()] : self::assets($tenant,$user,self::TYPES);
+        if (!isset($sources[$stream])) throw new InvalidArgumentException('素材不存在或无权引用');
+        $hidden=Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$id])->whereRaw('(hidden_at > 0 OR trashed_at > 0)')->count();
+        if (!$hidden) foreach (self::candidates($tenant,$user,[$stream=>$sources[$stream]],self::TYPES,[],'',null,(int)$match[2]) as $row) {
+            foreach (self::outputs($tenant,$user,$row) as $item) if ($item['id']===$id) {
+                if ($stream==='agent:result') {
+                    $data=json_decode($row['extra'] ?? '',true) ?: [];
+                    $file=OpenStore::owner('file',$tenant,$user)->where('file_id',(string)($data['file_id'] ?? ''))->find();
+                    if (!$file) throw new InvalidArgumentException('素材不存在或无权引用');
+                    return array_replace($item,array_intersect_key($file,array_flip(['uri','storage_scope','storage_engine','storage_domain','mime','size'])))+['file_id'=>(string)$data['file_id']];
+                }
+                return $item+['cover_uri'=>(string)($row['cover'] ?? '')]+array_intersect_key($row,array_flip(['storage_scope','storage_engine','storage_domain']));
+            }
+        }
+        throw new InvalidArgumentException('素材不存在或无权引用');
+    }
+
+    /** Attach an owned library source to a destination asset without trusting client coordinates. */
+    public static function referenceParams(int $tenant, int $user, array $params, string $targetType): array
+    {
+        $meta=is_array($params['meta'] ?? null) ? $params['meta'] : [];
+        if (!array_key_exists('source_library_id',$meta)) return $params;
+        if (!is_string($meta['source_library_id'])) throw new InvalidArgumentException('素材标识无效');
+        $asset=self::resolve($tenant,$user,$meta['source_library_id']);
+        $target=strtolower(trim($targetType));
+        $kind=match ($target) {
+            'video','reference_video','shot_video','final_video','canvas_video'=>'video',
+            'audio','reference_audio','bgm_audio','canvas_audio'=>'audio',
+            'document','script_document','canvas_document','text','canvas_text'=>'document',
+            default=>'image', // Image business labels, including normalized unknown labels.
+        };
+        if ($asset['type']!==$kind) throw new InvalidArgumentException('素材类型与当前入口不一致');
+        return array_replace($params,array_intersect_key($asset,array_flip(['uri','storage_scope','storage_engine','storage_domain','cover_uri'])),[
+            'mime_type'=>(string)($asset['mime'] ?? ''),'file_size'=>max(0,(int)($asset['size'] ?? 0)),
+            'width'=>max(0,(int)($asset['width'] ?? 0)),'height'=>max(0,(int)($asset['height'] ?? 0)),
+            'duration'=>max(0,(float)($asset['duration'] ?? 0)),'checksum'=>'',
+        ]);
+    }
 
     public static function page(int $tenant, int $user, array $params): array
     {
@@ -99,7 +146,7 @@ final class WorkspaceMediaPickerService
                 $type = "CASE WHEN r.asset_type LIKE '%video%' THEN 'video' WHEN r.asset_type LIKE '%audio%' THEN 'audio' WHEN r.asset_type LIKE '%text%' OR r.asset_type LIKE '%document%' THEN 'document' ELSE 'image' END";
                 $where = "r.status NOT IN ('deleted','failed','fail','error')";
                 if ($source === 'short_drama') $where .= " AND r.asset_type IN ('subject_image','three_view','scene_image','shot_image','shot_video','bgm_audio','final_video','reference_image','canvas_image','canvas_video','canvas_audio')";
-                $sources[$stream] = ['table'=>$app.'_asset','type'=>$type,'name'=>'r.title','uri'=>'r.uri','cover'=>'r.cover_uri','duration'=>'r.duration','extra'=>'r.meta_json','task'=>'r.task_id','where'=>$where,'saved'=>!$available];
+                $sources[$stream] = ['table'=>$app.'_asset','type'=>$type,'name'=>'r.title','uri'=>'r.uri','cover'=>'r.cover_uri','duration'=>'r.duration','mime'=>'r.mime_type','size'=>'r.file_size','width'=>'r.width','height'=>'r.height','extra'=>'r.meta_json','task'=>'r.task_id','where'=>$where,'saved'=>!$available];
                 if ($source === 'canvas') $sources['canvas:task'] = ['table'=>'aigc_canvas_run','type'=>'r.run_type','name'=>'r.prompt','extra'=>'r.result_json',
                     'where'=>"r.status='success' AND r.run_type IN ('image','video')",'stored'=>false,'saved'=>!$available];
                 continue;
@@ -112,6 +159,8 @@ final class WorkspaceMediaPickerService
             };
             $spec = ['table'=>$app.'_result','join'=>$app.'_task','name'=>$title,'type'=>"'$type'",'uri'=>'r.'.$type.'_uri','saved'=>!$available];
             if ($source === 'music_cover') $spec['uri'] = "COALESCE(NULLIF(r.audio_uri,''),r.audio_url)";
+            if (in_array($source,['music','music_cover'],true)) { $spec['mime']='r.mime_type'; $spec['size']='r.file_size'; }
+            if (in_array($source,['image','video'],true)) { $spec['width']='r.width'; $spec['height']='r.height'; }
             if (in_array($source,['digital_human','image_human','action_transfer','person_replacement','product_promo_video','smart_clip'],true)) $spec['cover']='r.cover_uri';
             if (in_array($source,['digital_human','image_human','action_transfer','person_replacement','smart_clip','music','music_cover'],true)) $spec['duration']='r.duration';
             if ($source==='product_promo_video') $spec['duration']='t.duration';
@@ -128,7 +177,7 @@ final class WorkspaceMediaPickerService
     }
 
     /** Each owned source contributes at most one page plus a lookahead to the global merge. */
-    private static function candidates(int $tenant, int $user, array $sources, array $types, array $formats, string $keyword, ?array $after): array
+    private static function candidates(int $tenant, int $user, array $sources, array $types, array $formats, string $keyword, ?array $after, ?int $exactId = null): array
     {
         $parts = $bindings = [];
         $size = self::SIZE + 1;
@@ -142,6 +191,7 @@ final class WorkspaceMediaPickerService
             $owner = $s['owner'] ?? 'user_id';
             $conditions = ["r.tenant_id=?", "r.$owner=?", $s['where'] ?? '1=1'];
             array_push($bindings,$tenant,$user);
+            if ($exactId !== null) { $conditions[]='r.id=?'; $bindings[]=$exactId; }
             if ($s['deleted'] ?? true) $conditions[] = 'COALESCE(r.delete_time,0)=0';
             if (isset($s['uri'])) $conditions[] = $s['uri']."<>''";
             $conditions[] = $s['type'].' IN ('.implode(',',array_fill(0,count($types),'?')).')';
@@ -182,7 +232,7 @@ final class WorkspaceMediaPickerService
             }
             $stored = $s['stored'] ?? true;
             $fields = ['r.id',"$stamp AS stamp","'$stream' AS stream", $s['type'].' AS type',"$name AS name"];
-            foreach (['uri','cover','duration','extra','task','alias'] as $key) $fields[] = ($s[$key] ?? "''")." AS `$key`";
+            foreach (['uri','cover','duration','extra','task','alias','mime','size','width','height'] as $key) $fields[] = ($s[$key] ?? "''")." AS `$key`";
             foreach (['storage_scope','storage_engine','storage_domain'] as $key) $fields[] = ($stored ? "r.$key" : "''")." AS $key";
             $parts[] = '(SELECT '.implode(',',$fields).' FROM '.$from.' WHERE '.implode(' AND ',$conditions)." ORDER BY stamp DESC,r.id DESC LIMIT $size)";
         }
@@ -196,7 +246,7 @@ final class WorkspaceMediaPickerService
         $type = $row['type'];
         $ref = $row['stream'].':'.$row['id'];
         $name = trim((string)$row['name']);
-        $base = ['type'=>$type,'name'=>$name,'created_at'=>(int)$row['stamp']];
+        $base = ['type'=>$type,'name'=>$name,'created_at'=>(int)$row['stamp'],'mime'=>(string)($row['mime'] ?? ''),'size'=>max(0,(int)($row['size'] ?? 0)),'width'=>max(0,(int)($row['width'] ?? 0)),'height'=>max(0,(int)($row['height'] ?? 0))];
         if ($row['stream'] === 'canvas:task') {
             $payload = json_decode($row['extra'] ?? '',true) ?: [];
             $keys = ['results','images','videos','image_url','image_uri','video_url','video_uri','url','file_url'];

@@ -26,6 +26,7 @@ final class CanvasAssetService
         }
 
         $assetType = self::normalizeAssetType((string)($params['asset_type'] ?? $params['type'] ?? 'reference_image'));
+        $params = \app\common\service\WorkspaceMediaPickerService::referenceParams($tenantId, $userId, $params, $assetType);
         $uri = FileService::setFileUrl((string)($params['uri'] ?? $params['url'] ?? ''));
         if ($uri === '') {
             throw new Exception('Asset file is required');
