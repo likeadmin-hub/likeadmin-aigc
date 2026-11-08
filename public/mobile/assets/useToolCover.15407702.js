@@ -1,0 +1,1 @@
+import{k as e,q as r,B as t}from"./index-7e1fdb18.js";function a(a){const s=e();return r(()=>{const e=String(a.value.cover_url||a.value.cover_uri||"");return/^https?:\/\//i.test(e)?e:/^\/?uploads\/tool-materials\//.test(e)?String(t.baseUrl||"").replace(/\/$/,"")+"/"+e.replace(/^\//,""):s.getImageUrl(e)})}export{a as u};

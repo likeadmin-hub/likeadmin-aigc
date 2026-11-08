@@ -1,0 +1,1 @@
+import{aI as e,q as a,cE as o}from"./index-7e1fdb18.js";import{u as r}from"./page-content-lifecycle.efbf014d.js";function t(){const t=e(),f=a(()=>t.appearanceMode),n=a(()=>o[f.value]);return r(()=>({frontColor:"dark"===f.value?"#ffffff":"#000000",backgroundColor:n.value["--pc-theme-page"]})),{mode:f,paletteStyle:n}}export{t as u};

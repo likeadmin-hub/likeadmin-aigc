@@ -1,1 +1,0 @@
-import{bR as a,k as e,bx as n,by as i,ap as s,aj as d,a6 as r}from"./index-c24f3e32.js";async function t(){const t=await a(),o=1===Number(null==t?void 0:t.enabled);return e().config.distribution_enabled=o?1:0,!!o||(n({url:i({path:"/pages/index/index"})||s[0],fail:()=>d({url:r("/pages/index/index")})}),!1)}export{t as e};
