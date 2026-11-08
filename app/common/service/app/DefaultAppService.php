@@ -24,7 +24,9 @@ class DefaultAppService
         }
         $data['is_builtin'] = 1;
         $data['expire_policy'] = AppPlanService::EXPIRE_ALLOW;
-        $data['status'] = AppRegistryService::STATUS_INSTALLED;
+        $previousStatus = App::where('code', $appCode)->value('status');
+        $data['status'] = $appCode !== 'system_default' && $previousStatus === AppRegistryService::STATUS_DISABLED
+            ? AppRegistryService::STATUS_DISABLED : AppRegistryService::STATUS_INSTALLED;
         return $data;
     }
 
@@ -83,11 +85,11 @@ class DefaultAppService
         if ($tenantId <= 0 || !self::isDefaultApp($appCode)) {
             return;
         }
-        if (AppAccessService::isShelfableDefaultApp($appCode)
-            && TenantApp::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->count() > 0) {
+        if (TenantApp::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->count() > 0) {
             return;
         }
-        $app = App::where(['code' => $appCode, 'status' => AppRegistryService::STATUS_INSTALLED])->findOrEmpty();
+        $app = App::where('code', $appCode)
+            ->whereIn('status', [AppRegistryService::STATUS_INSTALLED, AppRegistryService::STATUS_DISABLED])->findOrEmpty();
         if ($app->isEmpty()) {
             return;
         }
@@ -125,12 +127,8 @@ class DefaultAppService
             TenantApp::create($data);
             return;
         }
-        if (AppAccessService::isShelfableDefaultApp($appCode)) {
-            // Do not overwrite a tenant's existing purchase, expiry or visibility settings.
-            $row->save(['version' => $version, 'update_time' => $time]);
-            return;
-        }
-        $row->save($data);
+        // Updates may refresh metadata, but only an explicit admin action changes access.
+        $row->save(['version' => $version, 'update_time' => $time]);
     }
 
     private static function syncTenantMenusToTable(int $tenantId, string $appCode, string $table): void

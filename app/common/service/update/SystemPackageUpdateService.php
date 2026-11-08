@@ -10,6 +10,7 @@ use app\common\service\app\DefaultAppService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\billing\PackageProvisionService;
 use app\common\service\database\SqlMigrationExecutor;
+use app\common\service\app\AppAccessStateService;
 use app\platformapi\logic\upgrade\UpgradeLogic;
 use RuntimeException;
 use think\facade\Db;
@@ -1297,6 +1298,11 @@ class SystemPackageUpdateService
     }
 
     private function applySqlGroup(string $extractPath, array $manifest, string $group, array $appSqlOwners = []): bool
+    {
+        return AppAccessStateService::preserveExisting(fn() => $this->executeSqlGroup($extractPath, $manifest, $group, $appSqlOwners));
+    }
+
+    private function executeSqlGroup(string $extractPath, array $manifest, string $group, array $appSqlOwners = []): bool
     {
         if (($manifest['package_mode'] ?? '') !== 'incremental' || !is_array($manifest['sql_order'] ?? null)) {
             return UpgradeLogic::upgradeSql(rtrim($extractPath, '/') . '/sql/' . $group . '/');

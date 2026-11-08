@@ -112,6 +112,13 @@ seedBusiness('recharge_order', ['tenant_id'=>901,'user_id'=>901,'sn'=>'fixture-o
 seedBusiness('aigc_short_drama_episode_task', ['tenant_id'=>901,'user_id'=>901,'status'=>'running','heartbeat_at'=>123456,'attempt_number'=>2]);
 seedBusiness('aigc_short_drama_canvas_poster_job', ['status'=>'running','lease_token'=>'existing-owner','lease_expire_time'=>4294967295,'attempts'=>2,'idempotency_key'=>'fixture-existing-task']);
 $businessTables = ['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_canvas_poster_job'];
+$appAccessPolicy=[];
+if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') {
+    Db::name('app')->where('code','aigc_music')->update(['status'=>'disabled']);
+    Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->delete();
+    Db::name('tenant_app')->insert(['tenant_id'=>901,'app_code'=>'aigc_music','version'=>'fixture','buy_status'=>'paid','shelf_status'=>'off','enable_status'=>'disabled','expire_time'=>123,'create_time'=>1,'update_time'=>2]);
+    $appAccessPolicy=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->find();
+}
 $business = []; foreach ($businessTables as $table) $business[$table] = Db::name($table)->order('id')->select()->toArray();
 $metadata=fixtureMetadata();
 $package = $site . '/fixture-package';
@@ -119,6 +126,7 @@ foreach (['composer.json','composer.lock','vendor'] as $path) copyFixture('/prod
 writeFixture($package . '/files/app/FixtureVersion.php', '<?php namespace app; class FixtureVersion { const VERSION="new"; }');
 writeFixture($package . '/files/config/project.php', "<?php return ['version'=>'{$to}'];\n");
 writeFixture($package . '/sql/data/fixture.sql', "INSERT INTO `la_config` (`type`,`name`,`value`) VALUES ('system_fixture','sql_once','1');\n");
+if ($appAccessPolicy) file_put_contents($package.'/sql/data/fixture.sql', "UPDATE la_app SET status='installed' WHERE code='aigc_music'; UPDATE la_tenant_app SET shelf_status='on',enable_status='enabled',expire_time=0 WHERE tenant_id=901 AND app_code='aigc_music';\n", FILE_APPEND);
 writeFixture($package . '/menus/README', 'No menu replacement');
 writeFixture($package . '/rollback/README', 'Filesystem rollback exercised by runtime updater');
 // Match the official stager: signed source identities adopt installed historical SQL, never replay it.
@@ -351,6 +359,12 @@ if ($case === 'metadata-failure') {
     freshFixtureGeneration($site,$canonical||$migration);
     foreach ($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray() === $rows, 'Retry changed business records: ' . $table);
     echo "PASS final metadata failure retry: actual service apply completed without replaying SQL or altering business records\n";
+}
+if ($appAccessPolicy) {
+    verify(Db::name('app')->where('code','aigc_music')->value('status')==='disabled','System update reopened platform app');
+    $policy=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->find();
+    foreach (['buy_status','shelf_status','enable_status','expire_time'] as $field) verify((string)$policy[$field]===(string)$appAccessPolicy[$field],'System update altered existing app policy: '.$field);
+    echo "PASS signed system update preserved closed platform and tenant app switches\n";
 }
 echo 'PASS real SystemPackageUpdateService ' . ($migration?'legacy402-':($canonical?'canonical-':'')) . $case . ': signed preflight/apply, DB statuses, files/pointer/version, six business tables and protected site state; SQL count=' . $sqlCount . "\n";
 

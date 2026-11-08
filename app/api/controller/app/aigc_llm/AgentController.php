@@ -22,7 +22,14 @@ class AgentController extends BaseApiController
         $params=$this->requestParameters();
         return AgentWorkspaceScope::within($this->workspaceScope(),function()use($call,$params){
             $t=(int)$this->request->tenantId;$u=$this->userId;
-            AgentStore::access($t,$u);
+            $historical = strtoupper($this->request->method()) === 'GET'
+                && in_array(strtolower($this->request->action()), ['detail','events'], true)
+                && (int)($params['run_id'] ?? 0) > 0;
+            if ($historical) {
+                if ($t < 1 || $u < 1) throw new \InvalidArgumentException('请先登录');
+            } else {
+                AgentStore::access($t,$u);
+            }
             if(!empty($params['run_id']))AgentWorkspaceScope::assertRun($t,$u,(int)$params['run_id']);
             if(!empty($params['session_id']))AgentWorkspaceScope::assertSession($t,$u,(int)$params['session_id']);
             if(strtolower($this->request->action())==='favorite'){
