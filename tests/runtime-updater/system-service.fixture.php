@@ -112,12 +112,22 @@ seedBusiness('recharge_order', ['tenant_id'=>901,'user_id'=>901,'sn'=>'fixture-o
 seedBusiness('aigc_short_drama_episode_task', ['tenant_id'=>901,'user_id'=>901,'status'=>'running','heartbeat_at'=>123456,'attempt_number'=>2]);
 seedBusiness('aigc_short_drama_canvas_poster_job', ['status'=>'running','lease_token'=>'existing-owner','lease_expire_time'=>4294967295,'attempts'=>2,'idempotency_key'=>'fixture-existing-task']);
 $businessTables = ['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_canvas_poster_job'];
-$appAccessPolicy=[];
+$appAccessPolicy=[];$appConfigPolicies=[];
 if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') {
     Db::name('app')->where('code','aigc_music')->update(['status'=>'disabled']);
     Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->delete();
     Db::name('tenant_app')->insert(['tenant_id'=>901,'app_code'=>'aigc_music','version'=>'fixture','buy_status'=>'paid','shelf_status'=>'off','enable_status'=>'disabled','expire_time'=>123,'create_time'=>1,'update_time'=>2]);
     $appAccessPolicy=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->find();
+    foreach ([0,901] as $scope) {
+        Db::name('tenant_app_config')->where(['tenant_id'=>$scope,'app_code'=>'aigc_micro_video'])->delete();
+        Db::name('tenant_app_config')->insert(['tenant_id'=>$scope,'app_code'=>'aigc_micro_video','status'=>0,'title'=>'preserve-hidden-config']);
+        Db::name('aigc_micro_video_config')->where('tenant_id',$scope)->delete();
+        Db::name('aigc_micro_video_config')->insert(['tenant_id'=>$scope,'config_json'=>json_encode(['status'=>0,'fixture_unrelated'=>'keep'])]);
+        Db::name('aigc_image_config')->where('tenant_id',$scope)->update(['status'=>0]);
+    }
+    foreach (['tenant_app_config','aigc_micro_video_config','aigc_image_config'] as $table) {
+        $appConfigPolicies[$table]=Db::name($table)->whereIn('tenant_id',[0,901])->order('id')->select()->toArray();
+    }
 }
 $business = []; foreach ($businessTables as $table) $business[$table] = Db::name($table)->order('id')->select()->toArray();
 $metadata=fixtureMetadata();
@@ -365,6 +375,8 @@ if ($appAccessPolicy) {
     $policy=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->find();
     foreach (['buy_status','shelf_status','enable_status','expire_time'] as $field) verify((string)$policy[$field]===(string)$appAccessPolicy[$field],'System update altered existing app policy: '.$field);
     echo "PASS signed system update preserved closed platform and tenant app switches\n";
+    foreach ($appConfigPolicies as $table=>$rows) verify(Db::name($table)->whereIn('tenant_id',[0,901])->order('id')->select()->toArray()===$rows,'System update altered existing display/service config: '.$table);
+    echo "PASS signed system update preserved hidden display and disabled service configuration\n";
 }
 if (getenv('FIXTURE_OFFICIAL_ARCHIVE') && in_array($case, ['success','metadata-failure'], true)
     && in_array('sql/structure/zzzz_20261108_avatar_billing_quantity.sql', $manifest['sql_order'] ?? [], true)) {
