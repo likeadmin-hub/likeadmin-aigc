@@ -13,6 +13,7 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_llm\AigcLlmService;
+use app\common\service\app\aigc_micro_video\MicroVideoMedia;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -227,12 +228,21 @@ class AigcProductPromoVideoService
 
     public static function writePrompt(int $tenantId, int $userId, array $params): array
     {
+        $sourceImage = self::normalizeImage($params['source_image'] ?? '');
+        if ($sourceImage === '') {
+            throw new Exception('请先上传产品图片');
+        }
+        if (preg_match('/^(?:blob|data):/i', $sourceImage)) {
+            throw new Exception('产品图片尚未上传完成，请重新上传');
+        }
+        $images = MicroVideoMedia::validateImages($tenantId, $userId, [['uri' => $sourceImage]], 1);
+        $references = MicroVideoMedia::visionInputs($images);
         $type = self::resolveType($tenantId, self::normalizeTypeCode((string)($params['video_type_code'] ?? $params['type_code'] ?? '')));
         $ratio = trim((string)($params['ratio'] ?? '9:16'));
         $duration = max(0, (int)($params['duration'] ?? 5));
         $hint = trim((string)($params['hint'] ?? $params['prompt'] ?? ''));
-        $content = '请为电商产品宣传视频写一段可直接用于 AI 生视频的中文描述词。要求：突出产品卖点、镜头节奏、画面氛围、材质细节和转化导向；不要输出标题、序号和解释，只输出一段描述词。视频类型：' . ($type['name'] ?? '产品宣传') . '。比例：' . $ratio . '。时长：' . $duration . '秒。' . ($hint !== '' ? '用户补充：' . $hint : '');
-        return self::generatePromptText($tenantId, $userId, $content);
+        $content = '请先识别所附产品图片中的真实产品类别、外观、颜色、材质、结构和清晰可见的文字，再为该产品写一段可直接用于 AI 生视频的中文宣传描述词。以图片为依据，保持产品身份与外观一致，不编造品牌、价格、功效或图片中无法确认的细节，不使用“产品名称”等占位词。结合产品特点规划镜头、节奏、光影和使用场景；不要输出识别过程、标题、序号或解释，只输出一段描述词。视频类型：' . ($type['name'] ?? '产品宣传') . '。比例：' . $ratio . '。时长：' . $duration . '秒。' . ($hint !== '' ? '用户补充：' . $hint : '');
+        return self::generatePromptText($tenantId, $userId, $content, $references);
     }
 
     public static function optimizePrompt(int $tenantId, int $userId, array $params): array
@@ -1106,7 +1116,7 @@ class AigcProductPromoVideoService
         return trim($text);
     }
 
-    private static function generatePromptText(int $tenantId, int $userId, string $content): array
+    private static function generatePromptText(int $tenantId, int $userId, string $content, array $referenceImages = []): array
     {
         if (AppAccessService::assertTenantAvailable($tenantId, self::LLM_APP_CODE) !== null) {
             throw new Exception('AIGC对话应用未开通，暂无法使用AI帮写');
@@ -1115,6 +1125,7 @@ class AigcProductPromoVideoService
             'content' => $content,
             'source_app_code' => self::APP_CODE,
             'source_type' => 'prompt_helper',
+            'reference_images' => $referenceImages,
         ]);
         return [
             'prompt' => trim((string)($result['content'] ?? '')),
