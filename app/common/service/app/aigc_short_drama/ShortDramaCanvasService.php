@@ -12,6 +12,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
 use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\power\MarketTextModelRuntimeService;
+use app\common\service\power\MarketGenerationMedia;
 use app\common\service\FileService;
 use app\common\service\ai\ReferenceMaterialSlot;
 use app\common\service\storage\StorageConfigService;
@@ -346,7 +347,8 @@ class ShortDramaCanvasService
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id'], $previewOnly);
         self::assertWorkflowVideoDuration($document, $nodeId, $type, $payload, $tenantId);
         $quote = match ($type) {
-            'video' => AigcVideoService::estimate($tenantId, $payload),
+            'video' => MarketGenerationMedia::withStoredVideoReferences($tenantId, $userId, $payload['reference_assets'],
+                static fn() => AigcVideoService::estimate($tenantId, $payload)),
             'audio' => AigcMusicService::estimate($tenantId, $payload),
             'image' => ($payload['operation'] ?? '') === 'local_redraw'
                 ? AigcLocalRedrawService::estimate($tenantId, $payload)
@@ -534,7 +536,8 @@ class ShortDramaCanvasService
             'image'=>($payload['operation']??'')==='local_redraw'
                 ? AigcLocalRedrawService::generate($tenantId,$userId,$payload,$onTaskCreated)
                 : AigcImageService::generateWithBillingOverride($tenantId,$userId,$payload,[],$onTaskCreated),
-            'video'=>AigcVideoService::generate($tenantId,$userId,$payload,$onTaskCreated),
+            'video'=>MarketGenerationMedia::withStoredVideoReferences($tenantId, $userId, $payload['reference_assets'] ?? [],
+                static fn() => AigcVideoService::generate($tenantId,$userId,$payload,$onTaskCreated)),
             'audio'=>AigcMusicService::generate($tenantId,$userId,$payload,$onTaskCreated),
         };
     }
@@ -1553,6 +1556,10 @@ class ShortDramaCanvasService
         // the completed video but missed its asset binding, retry the guarded
         // projector so downstream references see the same result as the preview.
         $repairedVideo = false;
+        $referenceSources = [];
+        foreach ($data['edges'] as $edge) {
+            if (($edge['kind'] ?? 'reference') === 'reference') $referenceSources[(string)$edge['from']] = true;
+        }
         foreach ($data['nodes'] as &$node) {
             if ((string)($node['type'] ?? '') !== 'video') continue;
             $run = $latest[(string)($node['id'] ?? '')] ?? null;
@@ -1560,7 +1567,7 @@ class ShortDramaCanvasService
             if (!$run || (int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
             if (!in_array((string)$run['status'], ['success', 'failed', 'canceled'], true)) continue;
             $result = $run['results'][0] ?? null;
-            if ($run['status'] === 'success' && (int)($result['asset_id'] ?? 0) > 0
+            if (isset($referenceSources[(string)$node['id']]) && $run['status'] === 'success' && (int)($result['asset_id'] ?? 0) > 0
                 && (int)($metadata['active_generation_id'] ?? 0) === (int)$run['id']
                 && (int)($metadata['projected_generation_id'] ?? 0) !== (int)$run['id']
                 && !empty($result['uri']) && ($metadata['uri'] ?? '') === $result['uri']) {

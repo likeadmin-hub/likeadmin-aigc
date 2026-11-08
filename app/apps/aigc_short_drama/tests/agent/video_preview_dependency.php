@@ -5,12 +5,34 @@ require __DIR__.'/bootstrap.php';
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService as Intent;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
+use app\common\service\FileService;
+use app\common\service\power\MarketGenerationMedia as Media;
 use think\facade\Db;
 
 Db::startTrans();
 try {
     $tenant=91001;
     $user=92001;
+    $file=['storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>''];
+    $uri='uploads/fixture/reference-duration.mp4';
+    $url=FileService::getFileUrlByStorage($uri,$file['storage_scope'],$file['storage_engine'],$file['storage_domain']);
+    $ref=$file+['uri'=>$uri,'url'=>$url,'type'=>'video','asset_id'=>1,'duration'=>999];
+    Db::name('ai_task_result_asset')->insert($file+[
+        'tenant_id'=>$tenant,'user_id'=>$user,'asset_type'=>'video','transfer_status'=>'stored','local_uri'=>$uri,
+        'storage_meta'=>json_encode(['duration'=>4.064,'file_size'=>1000]),'consumption_id'=>0,'app_task_id'=>0,
+    ]);
+    $measure=static fn(): float => Media::seconds(['video_url'=>$url],false,static fn()=>7.0);
+    agentCheck(Media::withStoredVideoReferences($tenant,$user,[$ref],$measure)===4.064,'full video uses stored measurement instead of browser duration');
+    foreach ([[$tenant+1,$user,$ref],[$tenant,$user+1,$ref],[$tenant,$user,array_replace($ref,['asset_id'=>0])],
+        [$tenant,$user,array_replace($ref,['storage_scope'=>'platform'])],[$tenant,$user,array_replace($ref,['url'=>$url.'?other'])]] as [$t,$u,$r]) {
+        agentCheck(Media::withStoredVideoReferences($t,$u,[$r],$measure)===7.0,'unmatched owner, reference or location retains the normal probe');
+    }
+    try {
+        Media::withStoredVideoReferences($tenant,$user,[$ref],static function(){throw new RuntimeException('stop');});
+    } catch (RuntimeException $error) {
+        if ($error->getMessage()!=='stop') throw $error;
+    }
+    agentCheck($measure()===7.0,'measured duration does not leak after completion or exception');
     foreach (['current','legacy','legacy-edited'] as $case) {
         $canvas=Canvas::create($tenant,$user,['title'=>'Video preview dependency'])['id'];
         $saved=Canvas::save($tenant,$user,[
