@@ -11,6 +11,7 @@ final class GenerationIntentService
 {
     public const TABLE = 'aigc_short_drama_canvas_generation_intent';
     private const RUNS = 'aigc_short_drama_canvas_run';
+    private const VIDEO_PREVIEW_FIELDS = ['taskTrace','videoWidth','videoHeight','mediaWidth','mediaHeight','mediaPreviewRatioActive'];
 
     public static function lookup(int $tenant,int $user,int $canvas,string $key,string $nodeId,string $type,array $requestInput): ?array
     {
@@ -50,6 +51,7 @@ final class GenerationIntentService
             $snapshot=['graph_revision'=>$document['graph_revision']??null,
                 'content_revision'=>$node['metadata']['content_revision']??0,'target_signature'=>self::nodeInputSignature($node),
                 'node_id'=>$nodeId,'type'=>$type,'input'=>$input];
+            if ($type==='video') $snapshot['target_signature_version']=2;
             $id=Db::name(self::TABLE)->insertGetId($scope+[
                 'request_key'=>$key,'request_hash'=>$hash,'canvas_run_id'=>$run,'node_id'=>$nodeId,
                 'snapshot_json'=>self::json($snapshot),'state'=>'prepared','fencing_version'=>0,
@@ -145,7 +147,7 @@ final class GenerationIntentService
                 return null;
             }
             $snapshot=json_decode($row['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
-            if (!isset($snapshot['target_signature']) || !hash_equals($snapshot['target_signature'],self::nodeInputSignature($target))) {
+            if (!self::matchesTargetInput($snapshot,$target)) {
                 self::transition($row,['state'=>'canceled','error_code'=>'INPUT_CHANGED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'节点输入已变化，请确认新参数后重新提交']);
                 return null;
             }
@@ -265,7 +267,7 @@ final class GenerationIntentService
                 if ((string)$node['id']!==(string)$intent['node_id']) continue;
                 $metadata=(array)($node['metadata']??[]);
                 if ((int)($metadata['active_generation_id']??0)!==$runId || (int)($metadata['canvasRunId']??0)!==$runId || (int)($metadata['projected_generation_id']??0)===$runId) return false;
-                if (!isset($snapshot['target_signature']) || !hash_equals($snapshot['target_signature'],self::nodeInputSignature($node))) return false;
+                if (!self::matchesTargetInput($snapshot,$node)) return false;
                 $result=json_decode($run['result_json']?:'{}',true,512,JSON_THROW_ON_ERROR);
                 if ($run['node_type']==='text') {
                     $content=$result['content']??$result['text']??'';
@@ -352,12 +354,34 @@ final class GenerationIntentService
     private static function requestHash(string $nodeId,string $type,array $input): string {
         return hash('sha256',self::json(self::canonical(['node_id'=>$nodeId,'type'=>$type,'input'=>$input])));
     }
-    private static function nodeInputSignature(array $node): string {
+    private static function matchesTargetInput(array $snapshot, array $node): bool
+    {
+        $expected=$snapshot['target_signature']??'';
+        if ($expected==='') return false;
+        if (($node['type']??'')!=='video' || ($snapshot['target_signature_version']??1)===2) {
+            return hash_equals($expected,self::nodeInputSignature($node));
+        }
+        // Old video signatures included preview metadata and its autosave revision.
+        // Check the original hash first, then the state before the preview was saved.
+        if (hash_equals($expected,self::nodeInputSignature($node,true))) return true;
+        if (isset($node['metadata']['content_revision'])) $node['metadata']['content_revision']=$snapshot['content_revision']??0;
+        if (hash_equals($expected,self::nodeInputSignature($node,true))) return true;
+        foreach (self::VIDEO_PREVIEW_FIELDS as $field) unset($node['metadata'][$field]);
+        if (hash_equals($expected,self::nodeInputSignature($node,true))) return true;
+        if (($node['metadata']['content_revision']??null)!==0) return false;
+        unset($node['metadata']['content_revision']);
+        return hash_equals($expected,self::nodeInputSignature($node,true));
+    }
+
+    private static function nodeInputSignature(array $node, bool $legacyVideo=false): string {
         $metadata=(array)($node['metadata']??[]);
         $ignored=['generationTaskRef','status','progress','error','errorDetails','canvasRunId','active_generation_id','projected_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'];
         // Video reads may overlay completed results before a layout-only save.
         // The result fields do not change the video request or its references.
-        if (($node['type']??'')==='video') $ignored=array_merge($ignored,['pending','url','video_url','uri','asset_id','storage_scope','storage_engine','storage_domain']);
+        if (($node['type']??'')==='video') {
+            $ignored=array_merge($ignored,['pending','url','video_url','uri','asset_id','storage_scope','storage_engine','storage_domain']);
+            if (!$legacyVideo) $ignored=array_merge($ignored,self::VIDEO_PREVIEW_FIELDS,['content_revision']);
+        }
         foreach ($ignored as $field) unset($metadata[$field]);
         // Layout and progress do not authorize a different generation input.
         return hash('sha256',self::json(self::canonical(['type'=>$node['type']??'','title'=>$node['title']??'','metadata'=>$metadata])));
