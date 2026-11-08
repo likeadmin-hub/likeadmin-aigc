@@ -6,6 +6,7 @@ use app\common\model\app\App;
 use app\common\model\app\TenantApp;
 use app\common\model\app\TenantAppOrder;
 use app\common\service\app\AppAccessService;
+use app\common\service\app\AppAccessStateService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppFrontendManifestService;
@@ -16,15 +17,13 @@ use Exception;
 
 class AppController extends BaseAdminController
 {
-    private const DISPLAY_MANAGED_APP_CODES = [
-        'aigc_geo',
-    ];
+    private const DISPLAY_MANAGED_APP_CODES = AppAccessService::DISPLAY_MANAGED_APP_CODES;
 
     public function market()
     {
         $name = trim((string)$this->request->get('name', ''));
         $isBuyFilter = $this->request->get('is_buy', '');
-        $apps = App::where('status', 'installed')->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
+        $apps = App::whereIn('status', ['installed', 'disabled'])->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
         $tenantApps = TenantApp::where('tenant_id', $this->tenantId)->column('*', 'app_code');
         $paidOrderExpires = self::paidOrderExpireMap($this->tenantId);
         $displayMap = AppDisplayConfigService::map($this->tenantId, array_column($apps, 'code') ?: []);
@@ -47,6 +46,7 @@ class AppController extends BaseAdminController
             } elseif (!$isBuiltin && !empty($tenantApp)) {
                 $tenantApp['expire_time'] = max((int)($tenantApp['expire_time'] ?? 0), (int)($paidOrderExpires[$app['code']] ?? 0));
             }
+            $app['platform_status'] = $app['status'];
             $app['is_builtin'] = $isBuiltin ? 1 : 0;
             $app['can_shelf'] = (!$isBuiltin || $canShelf) ? 1 : 0;
             $app['expire_policy'] = $isBuiltin ? AppPlanService::EXPIRE_ALLOW : ($app['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK);
@@ -100,7 +100,7 @@ class AppController extends BaseAdminController
                 || self::isValidPaidTenantApp($item, $paidOrderExpires);
         }));
         $apps = App::whereIn('code', array_column($lists, 'app_code') ?: [''])->column('*', 'code');
-        $builtinApps = App::where('status', 'installed')
+        $builtinApps = App::whereIn('status', ['installed', 'disabled'])
             ->whereIn('code', AppAccessService::DEFAULT_APP_CODES)
             ->order(['sort' => 'desc', 'id' => 'desc'])
             ->select()
@@ -213,6 +213,15 @@ class AppController extends BaseAdminController
 
     public function shelf()
     {
+        try {
+            return AppAccessStateService::withSwitchLock(fn() => $this->saveShelf());
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    private function saveShelf()
+    {
         $appCode = (string)$this->request->post('app_code', '');
         if ($appCode === 'system_default' || ($this->isDefaultOpenedApp($appCode) && !AppAccessService::isShelfableDefaultApp($appCode))) {
             return $this->fail('系统默认应用不允许上下架');
@@ -270,6 +279,7 @@ class AppController extends BaseAdminController
     private function displayManagedApp(string $appCode): array
     {
         $display = AppDisplayConfigService::detail($this->tenantId, $appCode);
+        $platformStatus = (string)(App::where('code', $appCode)->value('status') ?? 'installed');
         $shelfStatus = (int)($display['status'] ?? 1) === 1
             ? AppAccessService::SHELF_ON
             : 'off';
@@ -288,8 +298,9 @@ class AppController extends BaseAdminController
             'category' => 'aigc',
             'current_version' => '-',
             'version' => '-',
-            'platform_status' => 'installed',
-            'status' => 'installed',
+            'platform_status' => $platformStatus,
+            'status' => $platformStatus,
+            'can_shelf' => 1,
             'buy_status' => AppAccessService::BUY_PAID,
             'is_buy' => 1,
             'is_builtin' => 0,

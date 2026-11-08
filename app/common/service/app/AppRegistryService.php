@@ -155,9 +155,16 @@ class AppRegistryService
 
     public static function installFromLocalWithResult(string $appCode, string $coreVersion = ''): array
     {
+        return AppAccessStateService::withSwitchLock(fn() => self::installLocalWithResult($appCode, $coreVersion));
+    }
+
+    private static function installLocalWithResult(string $appCode, string $coreVersion): array
+    {
         $manifest = self::getManifest($appCode);
         self::assertCoreCompatible($manifest, $coreVersion);
-        $migrations = self::runLocalMigrations($appCode, (string)($manifest['version'] ?? '1.0.0'));
+        $migrations = AppAccessStateService::preserveExisting(
+            fn() => self::runLocalMigrations($appCode, (string)($manifest['version'] ?? '1.0.0'))
+        );
         self::installPublicAssets($manifest, base_path() . 'apps/' . $appCode);
         $time = time();
         $appData = DefaultAppService::normalizeAppData($appCode, [
@@ -176,6 +183,9 @@ class AppRegistryService
             'install_time' => $time,
             'update_time' => $time,
         ]);
+        if (App::where(['code' => $appCode, 'status' => self::STATUS_DISABLED])->count() > 0) {
+            $appData['status'] = self::STATUS_DISABLED;
+        }
         self::saveModel(App::class, ['code' => $appCode], $appData);
         self::saveModel(AppVersion::class, ['app_code' => $appCode, 'version' => $manifest['version']], [
             'app_code' => $appCode,
@@ -369,8 +379,15 @@ class AppRegistryService
 
     public static function setStatus(string $appCode, string $status): void
     {
+        AppAccessStateService::withSwitchLock(fn() => self::saveStatus($appCode, $status));
+    }
+
+    private static function saveStatus(string $appCode, string $status): void
+    {
         self::assertValidCode($appCode);
-        self::assertNotBuiltin($appCode);
+        if ($appCode === 'system_default') {
+            throw new RuntimeException('系统应用不允许禁用或卸载');
+        }
         if (!in_array($status, [self::STATUS_INSTALLED, self::STATUS_DISABLED], true)) {
             throw new RuntimeException('应用状态不支持');
         }
@@ -389,6 +406,11 @@ class AppRegistryService
     }
 
     public static function uninstall(string $appCode, bool $clearData = false): void
+    {
+        AppAccessStateService::withSwitchLock(fn() => self::uninstallLocked($appCode, $clearData));
+    }
+
+    private static function uninstallLocked(string $appCode, bool $clearData): void
     {
         self::assertValidCode($appCode);
         self::assertNotBuiltin($appCode);
@@ -476,7 +498,7 @@ class AppRegistryService
 
     public static function frontendEntries(int $tenantId, string $terminal): array
     {
-        $apps = AppAccessService::enabledTenantAppCodes($tenantId);
+        $apps = AppAccessService::frontendAppCodes($tenantId);
         if (empty($apps)) {
             return [];
         }

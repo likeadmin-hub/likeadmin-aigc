@@ -126,6 +126,11 @@ class AppPlanService
 
     public static function openOrRenew(int $tenantId, int $operatorId, string $appCode, int $planId): array
     {
+        return AppAccessStateService::withSwitchLock(fn() => self::openOrRenewLocked($tenantId, $operatorId, $appCode, $planId));
+    }
+
+    private static function openOrRenewLocked(int $tenantId, int $operatorId, string $appCode, int $planId): array
+    {
         if ($appCode === 'system_default') {
             throw new RuntimeException('系统应用无需开通');
         }
@@ -220,6 +225,11 @@ class AppPlanService
     }
 
     public static function grantWithoutCharge(int $tenantId, int $operatorId, string $appCode, int $planId, string $sourceSn, string $remark = '租户套餐赠送应用'): array
+    {
+        return AppAccessStateService::withSwitchLock(fn() => self::grantWithoutChargeLocked($tenantId, $operatorId, $appCode, $planId, $sourceSn, $remark));
+    }
+
+    private static function grantWithoutChargeLocked(int $tenantId, int $operatorId, string $appCode, int $planId, string $sourceSn, string $remark): array
     {
         if ($appCode === 'system_default') {
             return [];

@@ -2,6 +2,8 @@
 declare(strict_types=1);
 namespace app\common\service\brand;
 use app\common\enum\AdminTerminalEnum;
+use app\common\service\app\AppAccessStateService;
+use app\common\service\app\AppAccessBusyException;
 use think\facade\Db;
 use think\facade\Log;
 
@@ -68,7 +70,7 @@ final class BrandProvisionService
             // Asset downloads/uploads are bounded and happen outside database locks.
             $prepared=$provisioner->prepare($preview['step'],$preview['order']);
             if (function_exists('aigc_runtime_generation_changed') && \aigc_runtime_generation_changed()) { self::retire($job); return false; }
-            return Db::transaction(function()use($job,$preview,$prepared,$provisioner) {
+            return AppAccessStateService::withSwitchLock(fn() => Db::transaction(function()use($job,$preview,$prepared,$provisioner) {
                 $order=BrandPlatformService::order((int)$job['order_id'],true);
                 $current=Db::name('tenant_brand_job')->where('id',$job['id'])->lock(true)->find();
                 if ($current && $current['status']==='done' && $order['workflow_state']==='delivered') return false;
@@ -88,7 +90,10 @@ final class BrandProvisionService
                     'status'=>$done?'done':'running','lease_token'=>$done?'':$job['lease_token'],'lease_until'=>$done?0:time()+180,'heartbeat_time'=>time(),'finished_time'=>$done?time():0,'last_error'=>'','update_time'=>time()]);
                 if ($step!=='delivery_check') BrandWorkflowService::event($order,'worker',0,$step,$done?'delivered':'opening',$done?'贴牌租户已完成交付':'已完成开通步骤');
                 return !$done;
-            });
+            }));
+        } catch (AppAccessBusyException $e) {
+            self::retire($job);
+            return false;
         } catch (BrandLeaseLostException $e) {
             self::acknowledgeStop($job);
             return false;

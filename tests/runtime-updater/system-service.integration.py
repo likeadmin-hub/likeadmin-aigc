@@ -27,6 +27,8 @@ parser.add_argument('--archive',type=pathlib.Path)
 parser.add_argument('--db-tests', action='store_true')
 parser.add_argument('--standalone', action='store_true')
 parser.add_argument('--app-packages', action='store_true')
+parser.add_argument('--app-access-switches', action='store_true', help='Verify disabled app policies survive signed updater SQL')
+parser.add_argument('--env-mask', type=pathlib.Path, help='Mask the workspace environment with a nonsecret fixture file')
 parser.add_argument('--full-suite', action='store_true', help='Run the complete PHP suite after assets are ready')
 parser.add_argument('--companions', action='store_true', help='Run all independent server integration/protocol fixtures')
 parser.add_argument('--companion-start', type=int, default=0, help='Resume companion fixtures at a zero-based index')
@@ -61,7 +63,9 @@ def php(database):
         '-e', 'FIXTURE_ENTRY_REPAIR='+('1' if args.entry_repair else '0'),
         '-e', 'PHP_DATABASE_HOSTNAME='+('127.0.0.1' if database=='x_cn' else 'mysql'), '-e', 'PHP_DATABASE_DATABASE=' + database,
         '-e', 'PHP_DATABASE_USERNAME=root', '-e', 'PHP_DATABASE_PASSWORD=',
-        '-e', 'FIXTURE_APP_PACKAGES='+('1' if args.app_packages else '0'), '-e', 'PHP_DATABASE_PREFIX=la_', '-e', 'PHP_DATABASE_HOSTPORT=3306', '-e', 'PHP_CACHE_DRIVER=file']
+        '-e', 'FIXTURE_APP_PACKAGES='+('1' if args.app_packages else '0'), '-e', 'FIXTURE_APP_ACCESS_SWITCHES='+('1' if args.app_access_switches else '0'), '-e', 'PHP_DATABASE_PREFIX=la_', '-e', 'PHP_DATABASE_HOSTPORT=3306', '-e', 'PHP_CACHE_DRIVER=file']
+    if args.env_mask:
+        command += ['-v', str(args.env_mask.resolve()) + ':/repo/.env:ro']
     installed=root.parents[4]/'server/config/install.lock'
     if installed.is_file():
         command += ['-v',str(installed)+':/repo/config/install.lock:ro']
