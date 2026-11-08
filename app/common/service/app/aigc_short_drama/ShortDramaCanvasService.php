@@ -345,6 +345,11 @@ class ShortDramaCanvasService
         // A price preview describes the selected SKU, not the yet-to-be-written
         // prompt. Keep the prompt requirement on every actual submission.
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id'], $previewOnly);
+        // The PC creation tools use a temporary prompt to preview a video's SKU
+        // before editing. Only the read-only estimate receives this value.
+        if ($previewOnly && $type === 'video' && $payload['prompt'] === '') {
+            $payload['prompt'] = $payload['content'] = 'estimate';
+        }
         self::assertWorkflowVideoDuration($document, $nodeId, $type, $payload, $tenantId);
         $quote = match ($type) {
             'video' => MarketGenerationMedia::withStoredVideoReferences($tenantId, $userId, $payload['reference_assets'],

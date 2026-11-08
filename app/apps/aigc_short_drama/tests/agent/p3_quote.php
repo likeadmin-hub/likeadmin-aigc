@@ -8,7 +8,7 @@ try {
     Db::name('tenant')->insert(['id'=>91001,'sn'=>'p3-reserve','create_time'=>time(),'point_balance'=>100]);
     Db::name('user')->insert(['id'=>92001,'sn'=>92001,'account'=>'p3-reserve','tenant_id'=>91001,'user_money'=>100]);
     $product=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-p3-quote','resource_type'=>'model','model_type'=>'video','name'=>'Isolated video quote','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-p3-video','upstream_model_code'=>'isolated-p3-video','upstream_channel_code'=>'isolated-channel','source_payload'=>json_encode(['market_metadata'=>['supported_asset_types'=>['image','video'],'capabilities'=>['max_reference_images'=>3,'max_reference_videos'=>3,'max_reference_assets'=>2]]]),'status'=>1]);
-    $sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'video-call','title'=>'Isolated video call','usage_unit'=>'call','sale_points'=>2,'status'=>1,'sale_status'=>1,'locked_params'=>'{"duration":5}']);
+    $sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'video-call','title'=>'Isolated video call','usage_unit'=>'per_call','usage_unit_size'=>1,'source_payload'=>'{"meter_summary":"按次，总点数向上取整"}','upstream_price'=>2,'sale_points'=>2,'status'=>1,'sale_status'=>1,'locked_params'=>'{"duration":5}']);
     $selection=['market_sku_id'=>$sku,'duration'=>5];
     $before=[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count()];
     $assets=[['type'=>'image','url'=>'https://fixtures.invalid/one.png'],['type'=>'image','url'=>'https://fixtures.invalid/two.png']];
