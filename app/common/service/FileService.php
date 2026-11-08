@@ -70,6 +70,8 @@ class FileService
 
     public static function getFileUrlByStorage(string $uri = '', string $storageScope = '', string $storageEngine = '', string $storageDomain = ''): string
     {
+        // An absent stored file is not the storage bucket's root URL.
+        if (trim($uri) === '') return '';
         $uri = LikeAdminBrandService::assetPath($uri);
         $localUri = self::localUriFromUrl($uri);
         if ($storageEngine === 'local') {

@@ -1,10 +1,10 @@
 {
   "code": "aigc_person_replacement",
   "name": "动作替换",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "require_core": ">=1.0.0",
   "description": "上传参考人物图片和输入视频，将视频动作替换到人物形象生成新视频。",
-  "changelog": "1. 新增动作替换工具。\n2. 支持 PC 端上传人物图和输入视频生成动作替换视频。\n3. 支持租户配置模式售价和查看任务记录。",
+  "changelog": "1. 动作替换作品自动保存视频封面。\n2. 修复缺少封面时资产卡片显示空白的问题。\n3. 支持为已有动作替换作品补齐封面。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
