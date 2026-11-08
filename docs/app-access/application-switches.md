@@ -4,7 +4,9 @@
 
 - 平台应用中心：`POST /platformapi/app/enable`、`POST /platformapi/app/disable`，参数 `app_code`。权威状态为 `app.status=installed/disabled`。仅基础框架 `system_default` 不允许关闭；默认工具应用仍禁止卸载。
 - 租户应用中心：`POST /tenantapi/app/shelf`，参数 `app_code`、`shelf_status=on/off`。权威状态为 `tenant_app.shelf_status`。`enable_status` 保留为租户授权状态，不以新字段替代。
+- 应用配置中的“展示状态”统一尊重平台和租户的 `tenant_app_config.status`；任一层隐藏都移除用户入口。各应用原有“创作服务状态”也纳入同一判断：29 类应用使用配置表 `status`，微视频使用 `config_json.status`。任一层停用都关闭用户入口及新的创作请求；缺失配置保留原初始化默认值。配置来源清单与边界见 `tests/app-access/README.md`。
 - 用户目录：`GET /api/app/frontend?terminal=pc|uniapp`，继续返回原有数组。一般应用同时满足平台 installed、租户 enabled、租户 shelf on 和原有购买/有效期规则才返回。默认应用也尊重已有租户开关；尚无授权行的默认应用保留首次开通行为。
+- PC 和移动端侧栏、工具卡片、装修与横幅使用同一有效目录；应用链接保留 app_code 和模式查询参数。目录未知或加载失败时不默认展示应用入口。直接访问关闭页面仍显示“当前应用已关闭”，不挂载创作组件。
 - 租户后台目录：`GET /tenantapi/app/frontend` 使用同一有效入口；`/tenantapi/app/my`、`/tenantapi/app/market` 仍展示关闭应用的真实状态与 `can_shelf`，应用后台管理权限独立于用户端开关，拥有者可以重新开启或查看历史数据。
 - 关闭的用户执行 API 返回 `code=0`、`msg=当前应用已关闭`、`data={app_code,app_disabled:1}`。会员拒绝仍返回 `need_membership`/`need_login`，与关闭状态分开。
 
