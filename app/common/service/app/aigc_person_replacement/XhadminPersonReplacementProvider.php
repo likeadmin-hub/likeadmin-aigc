@@ -2,7 +2,6 @@
 
 namespace app\common\service\app\aigc_person_replacement;
 
-use app\common\service\app\smart_clip\SmartClipAssetService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 
@@ -48,7 +47,7 @@ class XhadminPersonReplacementProvider
             }
             $videos = [];
             foreach (array_slice($videoUrls, 0, 1) as $url) {
-                $stored = SmartClipAssetService::persistGeneratedVideo($url, $tenantId, $userId);
+                $stored = PersonReplacementAssetService::persistVideo($url, $data, $tenantId, $userId);
                 $videos[] = array_merge($stored, [
                     'provider_task_id' => $taskId,
                     'duration' => (float)$this->firstValue($data, ['data.result.duration', 'data.result.data.duration', 'result.duration', 'duration']),

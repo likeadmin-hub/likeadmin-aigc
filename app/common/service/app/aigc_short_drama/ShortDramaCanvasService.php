@@ -12,6 +12,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
 use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\power\MarketTextModelRuntimeService;
+use app\common\service\power\MarketGenerationMedia;
 use app\common\service\FileService;
 use app\common\service\ai\ReferenceMaterialSlot;
 use app\common\service\storage\StorageConfigService;
@@ -344,9 +345,15 @@ class ShortDramaCanvasService
         // A price preview describes the selected SKU, not the yet-to-be-written
         // prompt. Keep the prompt requirement on every actual submission.
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id'], $previewOnly);
+        // The PC creation tools use a temporary prompt to preview a video's SKU
+        // before editing. Only the read-only estimate receives this value.
+        if ($previewOnly && $type === 'video' && ($payload['prompt'] ?? '') === '') {
+            $payload['prompt'] = $payload['content'] = 'estimate';
+        }
         self::assertWorkflowVideoDuration($document, $nodeId, $type, $payload, $tenantId);
         $quote = match ($type) {
-            'video' => AigcVideoService::estimate($tenantId, $payload),
+            'video' => MarketGenerationMedia::withStoredVideoReferences($tenantId, $userId, $payload['reference_assets'] ?? [],
+                static fn() => AigcVideoService::estimate($tenantId, $payload)),
             'audio' => AigcMusicService::estimate($tenantId, $payload),
             'image' => ($payload['operation'] ?? '') === 'local_redraw'
                 ? AigcLocalRedrawService::estimate($tenantId, $payload)
@@ -534,7 +541,8 @@ class ShortDramaCanvasService
             'image'=>($payload['operation']??'')==='local_redraw'
                 ? AigcLocalRedrawService::generate($tenantId,$userId,$payload,$onTaskCreated)
                 : AigcImageService::generateWithBillingOverride($tenantId,$userId,$payload,[],$onTaskCreated),
-            'video'=>AigcVideoService::generate($tenantId,$userId,$payload,$onTaskCreated),
+            'video'=>MarketGenerationMedia::withStoredVideoReferences($tenantId, $userId, $payload['reference_assets'] ?? [],
+                static fn() => AigcVideoService::generate($tenantId,$userId,$payload,$onTaskCreated)),
             'audio'=>AigcMusicService::generate($tenantId,$userId,$payload,$onTaskCreated),
         };
     }
@@ -1549,19 +1557,33 @@ class ShortDramaCanvasService
         }
         // A task may finish after the browser has saved its earlier running
         // snapshot. The run row is authoritative for that exact generation;
-        // project terminal state on reads so a reopened canvas never displays
-        // a completed video as "generating". Do not rewrite nodes_json here.
+        // display its terminal state on reads. If an old save already contains
+        // the completed video but missed its asset binding, retry the guarded
+        // projector so downstream references see the same result as the preview.
+        $repairedVideo = false;
+        $referenceSources = [];
+        foreach ($data['edges'] as $edge) {
+            if (($edge['kind'] ?? 'reference') === 'reference') $referenceSources[(string)$edge['from']] = true;
+        }
         foreach ($data['nodes'] as &$node) {
             if ((string)($node['type'] ?? '') !== 'video') continue;
             $run = $latest[(string)($node['id'] ?? '')] ?? null;
             $metadata = (array)($node['metadata'] ?? []);
             if (!$run || (int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
             if (!in_array((string)$run['status'], ['success', 'failed', 'canceled'], true)) continue;
+            $result = $run['results'][0] ?? null;
+            if (isset($referenceSources[(string)$node['id']]) && $run['status'] === 'success' && (int)($result['asset_id'] ?? 0) > 0
+                && (int)($metadata['active_generation_id'] ?? 0) === (int)$run['id']
+                && (int)($metadata['projected_generation_id'] ?? 0) !== (int)$run['id']
+                && !empty($result['uri']) && ($metadata['uri'] ?? '') === $result['uri']) {
+                if (GenerationIntentService::projectResult((int)$row['tenant_id'], (int)$row['user_id'], (int)$run['id'])) {
+                    $repairedVideo = true;
+                }
+            }
             $metadata['status'] = $run['status'];
             $metadata['progress'] = $run['progress'];
             $metadata['error'] = $run['error'];
             $metadata['pending'] = false;
-            $result = $run['results'][0] ?? null;
             if (is_array($result)) {
                 $url = (string)($result['url'] ?? $result['video_url'] ?? '');
                 if ($url !== '') {
@@ -1575,6 +1597,12 @@ class ShortDramaCanvasService
             $node['metadata'] = $metadata;
         }
         unset($node);
+        if ($repairedVideo) {
+            // The successful projector advanced the locked graph revision. Return
+            // its new token and node data together, including any other repairs.
+            $current = self::ownedDocument((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'], true);
+            return self::formatDocument($current, true, true);
+        }
         $data['runs'] = array_values($latest);
         $data['recovery_pending_node_ids'] = array_values($pendingRecovery);
         return $data;

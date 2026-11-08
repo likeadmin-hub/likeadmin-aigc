@@ -10,7 +10,7 @@ use InvalidArgumentException;
 final class WorkspaceAssetService
 {
     private const TABLE = 'user_asset_state';
-    private const SOURCES = [
+    public const SOURCES = [
         'image' => 'aigc_image', 'video' => 'aigc_video', 'agent' => 'aigc_llm_agent',
         'digital_human' => 'aigc_digital_human', 'image_human' => 'image_human',
         'action_transfer' => 'aigc_action_transfer', 'person_replacement' => 'aigc_person_replacement',

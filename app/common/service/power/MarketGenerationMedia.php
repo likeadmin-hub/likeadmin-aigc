@@ -2,18 +2,59 @@
 namespace app\common\service\power;
 
 use app\common\service\open_platform\OpenSafeHttp;
+use app\common\service\FileService;
 use InvalidArgumentException;
+use think\facade\Db;
 
 /** Measured media facts for source-duration quotes. Browser duration metadata is never authoritative. */
 final class MarketGenerationMedia
 {
+    private static array $storedVideoSeconds = [];
+
+    /** Use measured result metadata only for this owner's resolved video references
+     * during this operation. Other URLs retain the normal remote probe. */
+    public static function withStoredVideoReferences(int $tenantId, int $userId, array $references, callable $operation): mixed
+    {
+        $byUri = [];
+        foreach ($references as $ref) {
+            if (($ref['type'] ?? '') !== 'video' || (int)($ref['asset_id'] ?? 0) <= 0 || empty($ref['uri'])) continue;
+            $byUri[(string)$ref['uri']][] = $ref;
+        }
+        $seconds = [];
+        if ($byUri) {
+            $rows = Db::name('ai_task_result_asset')->where([
+                'tenant_id'=>$tenantId, 'user_id'=>$userId, 'asset_type'=>'video', 'transfer_status'=>'stored',
+            ])->whereIn('local_uri', array_keys($byUri))->field('local_uri,storage_scope,storage_engine,storage_domain,storage_meta')->select();
+            foreach ($rows as $row) {
+                $facts = json_decode((string)$row['storage_meta'], true);
+                $duration = (float)($facts['duration'] ?? 0);
+                if (!is_numeric($facts['duration'] ?? null) || !is_finite($duration) || $duration <= 0 || (int)($facts['file_size'] ?? 0) <= 0) continue;
+                foreach ($byUri[$row['local_uri']] ?? [] as $ref) {
+                    if ($row['storage_scope'] !== ($ref['storage_scope'] ?? null)
+                        || $row['storage_engine'] !== ($ref['storage_engine'] ?? null)
+                        || $row['storage_domain'] !== ($ref['storage_domain'] ?? null)) continue;
+                    $url = FileService::getFileUrlByStorage($row['local_uri'], $row['storage_scope'], $row['storage_engine'], $row['storage_domain']);
+                    if ($url === ($ref['url'] ?? '')) $seconds[$url] = $duration;
+                }
+            }
+        }
+        $previous = self::$storedVideoSeconds;
+        self::$storedVideoSeconds = $seconds;
+        try {
+            return $operation();
+        } finally {
+            self::$storedVideoSeconds = $previous;
+        }
+    }
+
     public static function seconds(array $input, bool $estimateWithoutTimedInput = false, ?callable $probe = null): float
     {
         $totals=['video'=>0.0,'audio'=>0.0];$count=0;
         $media=self::inputs($input);
         foreach(array_keys($totals)as$kind)foreach($media[$kind]as$url){
             if(!preg_match('~^https?://~i',$url))throw new InvalidArgumentException('计费素材缺少可核验的音视频地址');
-            $duration=$probe!==null?$probe($url,$kind):self::probe($url,$kind);
+            $measured=$kind==='video' ? (self::$storedVideoSeconds[$url]??null) : null;
+            $duration=$measured??($probe!==null?$probe($url,$kind):self::probe($url,$kind));
             if((!is_int($duration)&&!is_float($duration))||!is_finite((float)$duration)||$duration<=0)throw new InvalidArgumentException('素材实测时长无效');
             $totals[$kind]+=$duration;$count++;
         }
