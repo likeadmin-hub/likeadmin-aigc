@@ -37,8 +37,8 @@ function generatedRun(mode) {
       fs.writeFileSync(process.env.CI_TEST_MARKER, 'called');
       if (process.env.CI_TEST_MODE === 'success' && options.threads !== 1) throw new Error('unsafe compiler concurrency');
       if (process.env.CI_TEST_MODE === 'success') {
-        if (!options.setting?.useProjectConfig || !options.setting?.es6 || !options.setting?.es7 || !options.setting?.minify) {
-          throw new Error('upload must compile modern JavaScript using the artifact project settings');
+        if (!options.setting?.useProjectConfig || !options.setting?.es6 || !options.setting?.es7 || !options.setting?.minify || options.setting?.minifyWXSS !== false) {
+          throw new Error('upload must compile modern JavaScript and preserve pre-minified WXSS');
         }
       }
       if (process.env.CI_TEST_MODE === 'upload-fail') {

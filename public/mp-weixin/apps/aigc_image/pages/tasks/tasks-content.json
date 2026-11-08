@@ -1,7 +1,9 @@
 {
   "component": true,
   "usingComponents": {
+    "generation-state": "../../../../components/creation-studio/GenerationState",
+    "studio-icon": "../../../../components/creation-studio/StudioIcon",
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+    "workbench-header": "../../../../components/creation-studio/WorkbenchHeader"
   }
 }

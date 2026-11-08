@@ -1,6 +1,9 @@
 {
   "component": true,
   "usingComponents": {
+    "generation-state": "../../../../components/creation-studio/GenerationState",
+    "work-prompt": "../../../../components/creation-studio/WorkPrompt",
+    "task-trace": "../../../../components/task-trace/TaskTrace",
     "micro-page": "../../components/MicroPage"
   }
 }

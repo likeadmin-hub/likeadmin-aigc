@@ -2,7 +2,9 @@
   "component": true,
   "usingComponents": {
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader",
-    "app-membership-notice": "../../../../components/app-membership-notice/app-membership-notice"
+    "creation-workbench": "../../../../components/digital-human-page/digital-human-page",
+    "studio-image-upload": "../../../../components/creation-studio/StudioImageUpload",
+    "studio-image-library": "../../../../components/creation-studio/StudioImageLibrary",
+    "mask-editor": "../../MaskEditor"
   }
 }

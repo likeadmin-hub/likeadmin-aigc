@@ -21,9 +21,11 @@ if(($argv[1]??'')!=='--operation') {
         appWrite($dir.'/menus/platform.json',json_encode([['source_menu_key'=>'fixture-'.$suffix,'name'=>'Runtime canary '.$suffix,'type'=>'C','paths'=>'fixture/'.$suffix,'perms'=>'fixture:'.$suffix]]));
         appWrite($dir.'/frontend/README','No public artifact needed for PHP generation canary');
         appWrite($dir.'/migrations/install.sql',"INSERT INTO la_config (type,name,value) VALUES ('app_runtime_fixture','".$code."','once');\n");
+        if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') file_put_contents($dir.'/migrations/install.sql', "UPDATE la_app SET status='installed' WHERE code='aigc_music_cover'; UPDATE la_tenant_app SET shelf_status='on',enable_status='enabled',expire_time=0 WHERE tenant_id=901 AND app_code='aigc_music_cover';\n", FILE_APPEND);
         appWrite($dir.'/signature.json',json_encode(['sha256'=>appHashes($dir)]));
         $archive=$dir.'.tar';$tar=new PharData($archive);$tar->buildFromDirectory($dir);unset($tar);$packages[$suffix][$version]=$archive;
     }
+    if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') appChild($site,'close-app-policy');
     appChild($site,'bundled-local');
     appChild($site,'preflight-rejections',['archive'=>$packages['a']['1.0.0'],'code'=>'aigc_fixture_a']);
     $initial=appChild($site,'snapshot');$pointer=$initial['generation'];$canonical=$pointer===rtrim($site,'/');$generations=[];
@@ -62,13 +64,22 @@ appCheck(root_path()===$site.'/' && str_starts_with((string)config('database.con
 request()->withServer(array_merge(request()->server(),['HTTP_HOST'=>'system.fixture','SERVER_NAME'=>'system.fixture']));
 function appBusiness(string $site):array {
     $result=[];foreach(['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_generation_task'] as $table)$result[$table]=Db::name($table)->order('id')->select()->toArray();
+    if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') {
+        $result['closed_platform_app']=Db::name('app')->where('code','aigc_music_cover')->value('status');
+        $result['closed_tenant_app']=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music_cover'])->field('tenant_id,app_code,buy_status,shelf_status,enable_status,expire_time')->find();
+    }
     $result['paid_nondefault_app']=Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'smart_clip'])->find();
     $state=is_file('/fixture/state.json')?json_decode(file_get_contents('/fixture/state.json'),true,512,JSON_THROW_ON_ERROR):['customer_configuration'=>[]];
     foreach($state['customer_configuration'] as $table=>$rows)$result['customer_configuration'][$table]=Db::name($table)->whereIn('id',array_column($rows,'id'))->order('id')->select()->toArray();
     foreach(['.env','config/install.lock','upgrade/version.json','public/uploads/business.bin','runtime/task-lease.json','oem/brand.json'] as $path)$result[$path]=is_file($site.'/'.$path)?hash_file('sha256',$site.'/'.$path):null;return $result;
 }
 $service=new AppPackageUpdateService();$result=[];
-if($action==='apply' || $action==='retry') {
+if ($action==='close-app-policy') {
+    AppRegistryService::setStatus('aigc_music_cover','disabled');
+    Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music_cover'])->delete();
+    Db::name('tenant_app')->insert(['tenant_id'=>901,'app_code'=>'aigc_music_cover','buy_status'=>'paid','shelf_status'=>'off','enable_status'=>'disabled','expire_time'=>123]);
+    $result=['closed'=>true];
+} elseif($action==='apply' || $action==='retry') {
     if($action==='apply'){$package=$service->saveUploadedPackage($data['archive'],'tar');$id=(int)$package['id'];$preflight=$service->preflight($id,$data['code']);appCheck($preflight['passed'],'Canary preflight failed: '.json_encode($preflight['errors']));}
     else {$id=(int)$data['id'];Db::execute('DROP TRIGGER IF EXISTS fixture_app_metadata_failure');}
     if(!empty($data['fail']))Db::execute("CREATE TRIGGER fixture_app_metadata_failure BEFORE UPDATE ON la_update_task FOR EACH ROW BEGIN IF NEW.type='app' AND NEW.action='apply' AND NEW.status='success' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture app final metadata failure'; END IF; END");

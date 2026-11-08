@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "studio-icon": "../../../components/creation-studio/StudioIcon",
+    "agent-design-icon": "./AgentDesignIcon"
+  }
+}

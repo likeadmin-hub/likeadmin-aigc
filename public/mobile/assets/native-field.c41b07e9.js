@@ -1,0 +1,1 @@
+const t="font-family:inherit;font-size:inherit;font-weight:inherit;line-height:inherit;letter-spacing:inherit;text-align:inherit;color:var(--tool-text-muted,var(--pc-theme-text-2,#929292));";export{t as n};

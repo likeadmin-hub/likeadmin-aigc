@@ -1,0 +1,1 @@
+"use strict";const t=require("../utils/request/index.js");exports.assistAigcDigitalHumanScript=function(i){return t.request.post({url:"/app.aigc_digital_human.generate/assistScript",data:i},{retryCount:0})};

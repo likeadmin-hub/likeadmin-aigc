@@ -902,11 +902,9 @@ class AigcDigitalHumanService
         }
         $title = trim((string)($params['title'] ?? '数字人口播'));
         $prompt = trim((string)($params['prompt'] ?? ''));
-        $audioDuration = $audioDriven ? self::detectAudioDurationFromUri($driverAudioUri, $tenantId) : 0;
-        $duration = max(1, (int)($audioDriven
-            ? ($audioDuration ?: ($params['duration'] ?? 0))
-            : ($params['duration'] ?? self::estimateAudioDuration($scriptText))
-        ));
+        $audioDuration = $audioDriven ? self::detectGenerateAudioDurationFromUri($driverAudioUri, $tenantId) : 0;
+        if ($audioDriven && $audioDuration <= 0) throw new Exception('无法确认驱动音频时长，请重新上传音频');
+        $duration = $audioDriven ? $audioDuration : max(1, (float)($params['duration'] ?? self::estimateAudioDuration($scriptText)));
         $duplicateCriteria = [
             'avatar_id' => (int)$avatar['id'],
             'voice_id' => $audioDriven ? 0 : (int)$voice['id'],
@@ -1903,8 +1901,9 @@ class AigcDigitalHumanService
                 if ($storedAudioUrl === '') {
                     $storedAudioUrl = !empty($audio['stored']) ? self::fileUrlForTenant((string)$audio['uri'], (int)$task['tenant_id']) : (string)($audio['uri'] ?? $audioUrl);
                 }
-                $audioDuration = (int)($audio['duration'] ?? 0);
-                $audioDuration = $audioDuration > 0 ? $audioDuration : max(1, (int)$task['duration']);
+                $audioDuration = (float)($audio['duration'] ?? 0);
+                if (!is_finite($audioDuration) || $audioDuration <= 0) $audioDuration = self::detectGenerateAudioDurationFromUri((string)($audio['uri'] ?? $audioUrl), (int)$task['tenant_id']);
+                if ($audioDuration <= 0) throw new Exception('无法确认合成音频时长');
                 $task->save([
                     'provider_stage' => 'lipsync_submitted',
                     'tts_audio_uri' => (string)($audio['uri'] ?? $audioUrl),
@@ -2081,14 +2080,14 @@ class AigcDigitalHumanService
             $payload = ['video_url'=>(string)($request->avatar['media_url'] ?? ''),
                 'audio_url'=>(string)($request->providerParams['audio_url'] ?? self::fileUrlForTenant((string)$task['tts_audio_uri'], (int)$task['tenant_id']))];
             if (!$consumptionId) {
-                $seconds = self::detectAudioDurationFromUri((string)$task['tts_audio_uri'], (int)$task['tenant_id']);
+                $seconds = self::detectGenerateAudioDurationFromUri((string)$task['tts_audio_uri'], (int)$task['tenant_id']);
                 if ($seconds <= 0) throw new Exception('无法确认驱动音频时长，请重新上传音频');
                 $shared=\app\common\service\power\MarketGenerationRuntime::selection('application',$selection['channel']);
                 $reserve=$shared->reserve((int)$task['tenant_id'],(int)$task['user_id'],self::APP_CODE,'generate','aigc_digital_human_task',(string)$task['id'],$payload,$seconds);
                 $consumptionId = (int)$reserve['consumption_id'];
                 $shared->bind((int)$reserve['app_task_id'],(int)$task['id'],(int)$task['tenant_id'],(int)$task['user_id']);
                 $task->save(['provider_stage'=>'market_lipsync','duration'=>$seconds,
-                    'provider_payload_json'=>self::mergeProviderPayload($task,['market_consumption_id'=>$consumptionId,'market_reservation'=>$reserve]),'update_time'=>time()]);
+                    'provider_payload_json'=>self::mergeProviderPayload($task,['market_consumption_id'=>$consumptionId,'market_reservation'=>$reserve,'input_audio_seconds'=>$seconds]),'update_time'=>time()]);
             }
             $consumption = \app\common\model\ai\AiConsumptionLog::findOrEmpty($consumptionId);
             $shared=\app\common\service\power\MarketGenerationRuntime::consumption($consumptionId,(int)$task['tenant_id'],(int)$task['user_id']);
@@ -2418,7 +2417,7 @@ class AigcDigitalHumanService
 
     private static function estimateAudioDuration(string $text): int
     {
-        return max(1, (int)ceil(mb_strlen($text) / 4));
+        return AvatarGenerationDurationService::estimateScriptSeconds($text);
     }
 
     private static function applyBillableDuration(array $estimate, int $duration): array
@@ -2479,6 +2478,14 @@ class AigcDigitalHumanService
             throw new Exception('克隆音频不能超过10秒，请重新上传');
         }
         return $duration;
+    }
+
+    private static function detectGenerateAudioDurationFromUri(string $audioUri, int $tenantId = 0): float
+    {
+        $duration = AvatarGenerationDurationService::detect($audioUri);
+        if ($duration > 0 || preg_match('~^https?://~i', $audioUri)) return $duration;
+        $url = self::storedAudioUrl($audioUri, $tenantId);
+        return $url !== '' ? AvatarGenerationDurationService::detect($url) : 0;
     }
 
     private static function detectAudioDurationFromUri(string $audioUri, int $tenantId = 0): int
@@ -3342,7 +3349,7 @@ class AigcDigitalHumanService
                     'ratio' => $selection['spec']['ratio'],
                     'billing_type' => 'generate',
                     'billing_unit' => $estimate['billing_unit'] ?? 'second',
-                    'quantity' => (int)($estimate['billable_quantity'] ?? 1),
+                    'quantity' => (float)($estimate['billable_quantity'] ?? 1),
                     'platform_unit_cost' => $estimate['platform_unit_cost'],
                     'tenant_unit_price' => $estimate['tenant_unit_price'],
                     'tenant_cost_points' => $estimate['tenant_cost_points'],
@@ -3352,6 +3359,7 @@ class AigcDigitalHumanService
                     'user_point_sn' => $sourceSn,
                     'extra_json' => [
                         'market_consumption_id' => (int)($task['provider_payload_json']['market_consumption_id'] ?? 0),
+                        'input_audio_seconds' => (float)($estimate['billable_quantity'] ?? $billableDuration),
                         'duration' => $billableDuration,
                         'unit' => $estimate['billing_unit'] ?? 'second',
                     ],

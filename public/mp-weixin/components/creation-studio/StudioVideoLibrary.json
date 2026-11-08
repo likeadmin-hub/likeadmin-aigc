@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "studio-close": "./StudioClose",
+    "studio-icon": "./StudioIcon"
+  }
+}

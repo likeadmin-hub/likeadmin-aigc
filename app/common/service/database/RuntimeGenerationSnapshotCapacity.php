@@ -4,7 +4,7 @@ namespace app\common\service\database;
 use RuntimeException;
 use think\facade\Db;
 
-/** Reviewed snapshot capacity increases only; this is not a general MODIFY executor. */
+/** Reviewed snapshot columns only: repair legacy omissions or preserve live semantics when widening. */
 final class RuntimeGenerationSnapshotCapacity
 {
     private const COLUMNS = [
@@ -36,7 +36,22 @@ final class RuntimeGenerationSnapshotCapacity
         if (count($tables) !== 1) throw new RuntimeException('生成快照容量迁移无法确定目标表');
         $read = static fn() => $query('SELECT COLUMN_NAME AS column_name, DATA_TYPE AS data_type, COLUMN_TYPE AS column_type, IS_NULLABLE AS is_nullable, COLUMN_DEFAULT AS column_default, CHARACTER_SET_NAME AS character_set_name, COLLATION_NAME AS collation_name, COLUMN_COMMENT AS column_comment, EXTRA AS extra FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?', [$table, $column]);
         $columns = $read();
-        if (count($columns) !== 1) throw new RuntimeException('生成快照容量迁移缺少原字段');
+        // CREATE TABLE IF NOT EXISTS cannot repair older app tables. Historical
+        // install migrations may already be adopted, so this reviewed intent
+        // must also add the nullable snapshot when the original column is absent.
+        if ($columns === []) {
+            if (strcasecmp((string)($tables[0]['engine'] ?? ''), 'InnoDB') !== 0) throw new RuntimeException('生成快照容量迁移要求 InnoDB');
+            $sql = 'ALTER TABLE `'.$table.'` ADD COLUMN `'.$column.'` MEDIUMTEXT NULL DEFAULT NULL';
+            if ($connection) $connection->execute($sql); else Db::execute($sql);
+            $after = $read();
+            if (count($after) !== 1 || strtolower((string)$after[0]['data_type']) !== 'mediumtext'
+                || $after[0]['is_nullable'] !== 'YES' || $after[0]['column_default'] !== null
+                || self::columnSql($suffix, $column, $tables[0], $after[0], $prefix) !== null) {
+                throw new RuntimeException('生成快照容量迁移补齐字段未完成: '.$table.'.'.$column);
+            }
+            return ['status'=>'added'];
+        }
+        if (count($columns) !== 1) throw new RuntimeException('生成快照容量迁移无法确定原字段: '.$table.'.'.$column);
         $modes = $query('SELECT @@SESSION.sql_mode AS sql_mode');
         if (count($modes) !== 1 || !is_string($modes[0]['sql_mode'] ?? null)) throw new RuntimeException('生成快照容量迁移无法确定字符串语义');
         $noBackslash = in_array('NO_BACKSLASH_ESCAPES', explode(',', strtoupper($modes[0]['sql_mode'])), true);

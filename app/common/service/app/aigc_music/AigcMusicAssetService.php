@@ -132,6 +132,22 @@ class AigcMusicAssetService
         ]);
     }
 
+    /** Register a picker-owned audio object as driver material; never transfer its bytes. */
+    public static function referenceWorkspaceAudio(int $tenantId, int $userId, string $assetId, string $assetType = 'pic_lipsync_audio'): array
+    {
+        $asset=\app\common\service\WorkspaceMediaPickerService::resolve($tenantId,$userId,$assetId);
+        if ($asset['type']!=='audio') throw new \InvalidArgumentException('请选择音频素材');
+        self::assertAudioUri($asset['uri']);
+        return self::createAsset($tenantId,$userId,[
+            'asset_type'=>$assetType,'source_action'=>'reference_workspace_audio','title'=>$asset['name'],
+            'uri'=>$asset['uri'],'url'=>$asset['url'],
+            'storage_scope'=>$asset['storage_scope'] ?? '', 'storage_engine'=>$asset['storage_engine'] ?? '', 'storage_domain'=>$asset['storage_domain'] ?? '',
+            'mime_type'=>($asset['mime'] ?? '') ?: self::mimeByExt(pathinfo((string)(parse_url($asset['uri'],PHP_URL_PATH) ?: $asset['uri']),PATHINFO_EXTENSION)),
+            'file_size'=>max(0,(int)($asset['size'] ?? 0)), 'duration'=>max(0,(float)($asset['duration'] ?? 0)),
+            'auth_status'=>'pending','audit_status'=>'pending','audit_json'=>self::authorizationPayload(['source'=>'workspace_media']),
+        ]);
+    }
+
     public static function assetUrl(array $asset): string
     {
         return FileService::getFileUrlByStorage(

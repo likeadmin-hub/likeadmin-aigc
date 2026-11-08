@@ -1,0 +1,14 @@
+{
+  "component": true,
+  "usingComponents": {
+    "creation-workbench": "../digital-human-page/digital-human-page",
+    "studio-image-upload": "./StudioImageUpload",
+    "studio-image-library": "./StudioImageLibrary",
+    "studio-select": "./StudioSelect",
+    "studio-select-menu": "./StudioSelectMenu",
+    "studio-icon": "./StudioIcon",
+    "studio-choice-image": "./StudioChoiceImage",
+    "studio-video-upload": "./StudioVideoUpload",
+    "studio-video-library": "./StudioVideoLibrary"
+  }
+}

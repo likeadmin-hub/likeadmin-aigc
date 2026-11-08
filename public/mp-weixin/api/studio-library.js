@@ -1,0 +1,1 @@
+"use strict";const e=require("../utils/request/index.js"),t=require("../utils/generation-task.js");exports.getStudioImageResults=function(s){return e.request.get({url:"/app.aigc_image.result/lists",data:s}).then(t.mobileGenerationRecords)};

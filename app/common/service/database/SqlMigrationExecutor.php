@@ -45,6 +45,11 @@ class SqlMigrationExecutor
             }
             if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
             if (!class_exists(RuntimeGenerationSnapshotCapacity::class)) require_once __DIR__.'/RuntimeGenerationSnapshotCapacity.php';
+            if (!class_exists(RuntimeAvatarBillingQuantity::class)) require_once __DIR__.'/RuntimeAvatarBillingQuantity.php';
+            if (RuntimeAvatarBillingQuantity::target($sql)) {
+                RuntimeAvatarBillingQuantity::apply($prefix, $connection);
+                continue;
+            }
             $snapshotTarget = RuntimeGenerationSnapshotCapacity::target($sql);
             if ($snapshotTarget !== null) {
                 RuntimeGenerationSnapshotCapacity::apply($snapshotTarget[0], $snapshotTarget[1], $prefix, $connection);

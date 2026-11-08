@@ -4,6 +4,7 @@
   "navigationBarTitleText": "AIGC对话",
   "usingComponents": {
     "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
+    "app-access-gate": "../../../../components/app-access-gate/app-access-gate",
     "page-content": "./index-content"
   }
 }

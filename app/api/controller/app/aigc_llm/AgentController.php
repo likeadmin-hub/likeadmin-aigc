@@ -22,7 +22,14 @@ class AgentController extends BaseApiController
         $params=$this->requestParameters();
         return AgentWorkspaceScope::within($this->workspaceScope(),function()use($call,$params){
             $t=(int)$this->request->tenantId;$u=$this->userId;
-            AgentStore::access($t,$u);
+            $historical = strtoupper($this->request->method()) === 'GET'
+                && in_array(strtolower($this->request->action()), ['detail','events'], true)
+                && (int)($params['run_id'] ?? 0) > 0;
+            if ($historical) {
+                if ($t < 1 || $u < 1) throw new \InvalidArgumentException('请先登录');
+            } else {
+                AgentStore::access($t,$u);
+            }
             if(!empty($params['run_id']))AgentWorkspaceScope::assertRun($t,$u,(int)$params['run_id']);
             if(!empty($params['session_id']))AgentWorkspaceScope::assertSession($t,$u,(int)$params['session_id']);
             if(strtolower($this->request->action())==='favorite'){
@@ -95,6 +102,11 @@ class AgentController extends BaseApiController
     public function artifacts(){return $this->handle(fn($t,$u)=>AgentArtifactService::lists($t,$u,(int)$this->request->get('session_id',0),(int)$this->request->get('before_id',0),$this->request->get('scope','')==='all',(string)$this->request->get('kind','')));}
     public function favorite(){return $this->handle(function($t,$u){AgentArtifactService::favorite($t,$u,(int)$this->request->post('id',0),(bool)\app\common\service\WorkspaceAssetService::normalizeFavorite($this->request->post('favorite',null,null)));return [];});}
     public function upload(){return $this->handle(function($t,$u){
+        $assetId=$this->request->post('asset_id',null);
+        if ($assetId !== null) {
+            if (!is_string($assetId) || $this->request->file('file')) throw new \InvalidArgumentException('素材引用参数无效');
+            return OpenAssets::referenceWorkspaceMedia($t,$u,$assetId);
+        }
         $file=$this->request->file('file');if(!$file||$file->getSize()>50*1024*1024)throw new \InvalidArgumentException('请选择50MB以内的素材');
         $mime=$file->getMime();$type=explode('/',$mime)[0];
         if(strtolower($file->getOriginalExtension())==='pdf'){

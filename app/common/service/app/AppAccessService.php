@@ -49,6 +49,8 @@ class AppAccessService
         'aigc_music_cover',
         ...self::SHELFABLE_DEFAULT_APP_CODES,
     ];
+    // Legacy market cards expose a preview without granting paid execution.
+    public const DISPLAY_MANAGED_APP_CODES = ['aigc_geo'];
     public const BUY_PAID = 'paid';
     public const BUY_TRIAL = 'trial';
     public const SHELF_ON = 'on';
@@ -66,12 +68,29 @@ class AppAccessService
 
     public static function isShelfableDefaultApp(string $appCode): bool
     {
-        return in_array($appCode, self::SHELFABLE_DEFAULT_APP_CODES, true);
+        return $appCode !== 'system_default' && self::isDefaultApp($appCode);
     }
 
     public static function enabledTenantAppCodes(int $tenantId): array
     {
         return self::tenantAppCodes($tenantId, true);
+    }
+
+    /** Public navigation includes legacy preview cards, without granting API execution. */
+    public static function frontendAppCodes(int $tenantId): array
+    {
+        $codes = self::tenantAppCodes($tenantId, true, false);
+        if ($tenantId <= 0) return $codes;
+        foreach (self::DISPLAY_MANAGED_APP_CODES as $appCode) {
+            $status = App::where('code', $appCode)->value('status');
+            $grant = TenantApp::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->findOrEmpty();
+            $tenantClosed = !$grant->isEmpty() && ($grant['shelf_status'] !== self::SHELF_ON || $grant['enable_status'] !== self::ENABLED);
+            if (!$tenantClosed && ($status === null || $status === AppRegistryService::STATUS_INSTALLED)) {
+                $codes[] = $appCode;
+            }
+        }
+        $codes = AppAvailabilityConfigService::filterAvailable($tenantId, $codes);
+        return array_values(array_unique($codes));
     }
 
     public static function purchasedTenantAppCodes(int $tenantId): array
@@ -81,8 +100,8 @@ class AppAccessService
 
     public static function tenantCanManage(int $tenantId, string $appCode): bool
     {
-        if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
-            DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
+        if ($tenantId > 0 && self::isDefaultApp($appCode)
+            && App::where('code', $appCode)->whereIn('status', [AppRegistryService::STATUS_INSTALLED, AppRegistryService::STATUS_DISABLED])->count() > 0) {
             return true;
         }
         return in_array($appCode, self::purchasedTenantAppCodes($tenantId), true);
@@ -92,7 +111,6 @@ class AppAccessService
     {
         if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
             if ($initialize) DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
-            if (!self::isShelfableDefaultApp($appCode)) return true;
         }
         return in_array($appCode, self::enabledTenantAppCodes($tenantId), true);
     }
@@ -109,7 +127,7 @@ class AppAccessService
     public static function assertTenantAvailable(int $tenantId, string $appCode, bool $initialize = true): ?Response
     {
         if (!self::tenantCanUse($tenantId, $appCode, $initialize)) {
-            return JsonService::fail('应用未购买、未上架或已过期', [], 0, 1);
+            return JsonService::fail('当前应用已关闭', ['app_code' => $appCode, 'app_disabled' => 1], 0, 1);
         }
         return null;
     }
@@ -133,12 +151,14 @@ class AppAccessService
         return null;
     }
 
-    private static function tenantAppCodes(int $tenantId, bool $requireShelf): array
+    private static function tenantAppCodes(int $tenantId, bool $requireShelf, bool $filterAvailability = true): array
     {
         if ($tenantId <= 0) {
             return [];
         }
-        $installedApps = App::where('status', AppRegistryService::STATUS_INSTALLED)->column('*', 'code');
+        $installedApps = App::whereIn('status', $requireShelf
+            ? [AppRegistryService::STATUS_INSTALLED]
+            : [AppRegistryService::STATUS_INSTALLED, AppRegistryService::STATUS_DISABLED])->column('*', 'code');
         $installed = array_keys($installedApps);
         if (empty($installed)) {
             return [];
@@ -147,11 +167,10 @@ class AppAccessService
             ->whereIn('app_code', $installed)
             ->where(function ($query) {
                 $query->whereIn('buy_status', [self::BUY_PAID, self::BUY_TRIAL])
-                    ->whereOr('app_code', 'in', self::SHELFABLE_DEFAULT_APP_CODES);
-            })
-            ->where('enable_status', self::ENABLED);
+                    ->whereOr('app_code', 'in', self::DEFAULT_APP_CODES);
+            });
         if ($requireShelf) {
-            $query->where('shelf_status', self::SHELF_ON);
+            $query->where('shelf_status', self::SHELF_ON)->where('enable_status', self::ENABLED);
         }
         $rows = $query->select()->toArray();
         $paidOrderExpires = TenantAppOrder::where('tenant_id', $tenantId)
@@ -161,7 +180,7 @@ class AppAccessService
         $codes = [];
         foreach ($rows as $row) {
             $appCode = (string)($row['app_code'] ?? '');
-            if (self::isShelfableDefaultApp($appCode)) {
+            if (self::isDefaultApp($appCode)) {
                 $codes[] = $appCode;
                 continue;
             }
@@ -178,7 +197,14 @@ class AppAccessService
                 $codes[] = $appCode;
             }
         }
-        return array_values(array_unique(array_merge($codes, self::installedDefaultAppCodes())));
+        // Missing grants retain bundled defaults; an existing grant always owns its switch.
+        $existing = TenantApp::where('tenant_id', $tenantId)->column('app_code');
+        $defaults = array_values(array_intersect(array_keys($installedApps), self::DEFAULT_APP_CODES));
+        $codes = array_values(array_unique(array_merge($codes, array_diff($defaults, $existing))));
+        if ($requireShelf && $filterAvailability) {
+            $codes = AppAvailabilityConfigService::filterAvailable($tenantId, $codes);
+        }
+        return $codes;
     }
 
     private static function isInstalled(string $appCode): bool
@@ -186,10 +212,4 @@ class AppAccessService
         return App::where(['code' => $appCode, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
     }
 
-    private static function installedDefaultAppCodes(): array
-    {
-        return App::where('status', AppRegistryService::STATUS_INSTALLED)
-            ->whereIn('code', array_values(array_diff(self::DEFAULT_APP_CODES, self::SHELFABLE_DEFAULT_APP_CODES)))
-            ->column('code');
-    }
 }

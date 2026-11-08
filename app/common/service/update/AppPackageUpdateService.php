@@ -9,6 +9,7 @@ use app\common\model\app\TenantApp;
 use app\common\model\update\UpdatePackage;
 use app\common\model\update\UpdateTask;
 use app\common\service\app\AppRegistryService;
+use app\common\service\app\AppAccessStateService;
 use app\common\service\app\DefaultAppService;
 use app\common\service\database\SqlMigrationExecutor;
 use RuntimeException;
@@ -239,6 +240,11 @@ class AppPackageUpdateService
 
     private function installVerifiedApp(UpdatePackage $package, UpdateTask $task, string $extractPath, array $manifest, bool $runtime): array
     {
+        return AppAccessStateService::withSwitchLock(fn() => $this->installVerifiedAppLocked($package, $task, $extractPath, $manifest, $runtime));
+    }
+
+    private function installVerifiedAppLocked(UpdatePackage $package, UpdateTask $task, string $extractPath, array $manifest, bool $runtime): array
+    {
         $appCode = (string)$manifest['code'];
         AppRegistryService::installPublicAssets($manifest, $extractPath);
         $target = base_path() . 'apps/' . $appCode;
@@ -253,7 +259,8 @@ class AppPackageUpdateService
             if (DefaultAppService::isDefaultApp($appCode)) {
                 App::where('code', $appCode)->update([
                     'is_builtin' => 1, 'expire_policy' => 'allow',
-                    'status' => AppRegistryService::STATUS_INSTALLED, 'update_time' => time(),
+                    'status' => ($installed['status'] ?? '') === AppRegistryService::STATUS_DISABLED
+                        ? AppRegistryService::STATUS_DISABLED : AppRegistryService::STATUS_INSTALLED, 'update_time' => time(),
                 ]);
             } else {
                 $previousStatus = (string)($installed['status'] ?? '');
@@ -510,6 +517,11 @@ class AppPackageUpdateService
     }
 
     private function runSqlMigrations(string $dir, string $appCode, string $version): void
+    {
+        AppAccessStateService::preserveExisting(fn() => $this->executeSqlMigrations($dir, $appCode, $version));
+    }
+
+    private function executeSqlMigrations(string $dir, string $appCode, string $version): void
     {
         if (!is_dir($dir)) {
             return;

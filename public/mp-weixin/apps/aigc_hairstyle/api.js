@@ -1,0 +1,1 @@
+"use strict";const e=require("../../utils/request/index.js");exports.estimateHairstyle=t=>e.request.post({url:"/app.aigc_hairstyle.generate/estimate",data:t},{ignoreCancel:!0}),exports.generateHairstyle=t=>e.request.post({url:"/app.aigc_hairstyle.generate/index",data:t,timeout:12e4,retry:0}),exports.getHairstyleConfig=()=>e.request.get({url:"/app.aigc_hairstyle.config/detail"});

@@ -1,1 +1,1 @@
-page{height:100%}
+.login.data-v-01565bbb,.register.data-v-01565bbb{box-sizing:border-box;min-height:100%;padding:32px 16px 24px;background:var(--tool-page);color:var(--tool-text);font-size:14px;line-height:22px}.login.data-v-01565bbb .u-input__input,.register.data-v-01565bbb .u-input__input{color:var(--tool-text)}.login.data-v-01565bbb .u-btn,.register.data-v-01565bbb .u-btn{min-height:44px;border-radius:12px}
