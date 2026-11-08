@@ -65,7 +65,7 @@ class AigcPicLipsyncService
         self::assertAvailable($tenantId);
         $prepared = self::prepare($tenantId, $params, false, (int)($params['_user_id'] ?? 0));
         $quote = MarketPicLipsyncAppRuntimeService::quote($tenantId, $prepared['selection'], $prepared['duration']);
-        return array_merge($quote, ['quantity' => $prepared['duration'], 'input_seconds' => $prepared['duration'], 'quality' => $prepared['request']['quality'], 'display_points' => (float)$quote['user_charge_points']]);
+        return array_merge($quote, ['quantity' => $prepared['duration'], 'input_seconds' => $prepared['duration'], 'quantity_basis' => $prepared['request']['mode'] === 'text' ? 'script_estimate' : 'measured_input_audio', 'reference_sample_seconds' => $prepared['reference_sample_seconds'], 'quality' => $prepared['request']['quality'], 'display_points' => (float)$quote['user_charge_points']]);
     }
 
     public static function generate(int $tenantId, int $userId, array $params): array
@@ -79,6 +79,7 @@ class AigcPicLipsyncService
         }
         $prepared = self::prepare($tenantId, $params, true, $userId);
         $quote = MarketPicLipsyncAppRuntimeService::quote($tenantId, $prepared['selection'], $prepared['duration']);
+        \app\common\service\point\PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$quote['tenant_cost_points'], (float)$quote['user_charge_points']);
         try { $task = AigcPicLipsyncTask::create(['tenant_id' => $tenantId, 'user_id' => $userId, 'app_task_id' => 0, 'consumption_id' => 0, 'provider_task_id' => '', 'market_product_id' => (int)$quote['market_product_id'], 'market_sku_id' => (int)$quote['market_sku_id'], 'pricing_snapshot' => $quote['market_snapshot'], 'source_url' => $prepared['request']['image_url'], 'avatar_id' => $prepared['avatar_id'], 'audio_asset_id' => $prepared['audio_asset_id'], 'title' => mb_substr(trim((string)($params['title'] ?? '图片数字人作品')), 0, 160), 'quality' => $prepared['request']['quality'], 'drive_mode' => $prepared['request']['mode'], 'input_seconds' => $prepared['duration'], 'request_key' => $requestKey ?: null, 'request_snapshot' => $prepared['request'], 'status' => 'pending', 'error' => '', 'tenant_cost_points' => (float)$quote['tenant_cost_points'], 'user_charge_points' => (float)$quote['user_charge_points'], 'create_time' => time(), 'update_time' => time(), 'finish_time' => 0, 'delete_time' => 0]);
         } catch (\Throwable $e) {
             if ($requestKey !== '') {
@@ -148,9 +149,9 @@ class AigcPicLipsyncService
         $consumption = AiConsumptionLog::findOrEmpty((int)$task['consumption_id']); if ($consumption->isEmpty()) return;
         $terminal = in_array((string)$consumption['run_status'], ['success', 'failed', 'canceled', 'cancelled'], true) || in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true); if (!$terminal) return;
         $summary = $consumption['response_summary'] ?? []; if (is_string($summary)) $summary = json_decode($summary, true) ?: []; $videos = is_array($summary) ? (array)($summary['videos'] ?? []) : [];
-        if ((string)$consumption['run_status'] === 'success' && $videos !== []) {
+        if ((string)$consumption['run_status'] === 'success' && (string)$consumption['billing_status'] === 'settled' && $videos !== []) {
             foreach ($videos as $video) { if (!is_array($video) || trim((string)($video['video_uri'] ?? '')) === '') continue; $exists = AigcPicLipsyncResult::where(['tenant_id' => (int)$task['tenant_id'], 'task_id' => $taskId, 'video_uri' => (string)$video['video_uri'], 'delete_time' => 0])->findOrEmpty(); if ($exists->isEmpty()) AigcPicLipsyncResult::create(['tenant_id' => (int)$task['tenant_id'], 'task_id' => $taskId, 'user_id' => (int)$task['user_id'], 'video_uri' => (string)$video['video_uri'], 'storage_scope' => (string)($video['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($video['storage_engine'] ?? 'local'), 'storage_domain' => (string)($video['storage_domain'] ?? ''), 'width' => (int)($video['width'] ?? 0), 'height' => (int)($video['height'] ?? 0), 'create_time' => time(), 'update_time' => time(), 'delete_time' => 0]); }
-            $task->save(['actual_tenant_cost' => (float)$consumption['actual_tenant_cost'], 'actual_user_price' => (float)$consumption['actual_user_price'], 'status' => 'success', 'error' => '', 'finish_time' => self::timestampValue($consumption['finish_time'] ?? 0) ?: time(), 'update_time' => time()]);
+            $task->save(['input_seconds' => (float)$consumption['quantity'], 'actual_tenant_cost' => (float)$consumption['actual_tenant_cost'], 'actual_user_price' => (float)$consumption['actual_user_price'], 'status' => 'success', 'error' => '', 'finish_time' => self::timestampValue($consumption['finish_time'] ?? 0) ?: time(), 'update_time' => time()]);
         } elseif (in_array((string)$consumption['run_status'], ['failed', 'canceled', 'cancelled'], true) || (string)$consumption['billing_status'] === 'refunded') $task->save(['status' => (string)$consumption['run_status'] === 'canceled' ? 'canceled' : 'failed', 'error' => (string)($consumption['error_message'] ?? '图片数字人任务失败'), 'finish_time' => self::timestampValue($consumption['finish_time'] ?? 0) ?: time(), 'update_time' => time()]);
     }
 
@@ -208,9 +209,16 @@ class AigcPicLipsyncService
             elseif (!$audio->isEmpty()) $audio->save(['duration' => $duration, 'update_time' => time()]);
         }
         $request = ['model' => 'super-lipsync-pro', 'image_url' => $imageUrl, 'audio_url' => $audioUrl, 'mode' => $mode, 'quality' => $quality, 'prompt' => trim((string)($params['prompt'] ?? '')), 'content' => trim((string)($params['content'] ?? ''))];
+        $referenceSampleSeconds = $mode === 'text' ? $duration : 0.0;
+        if ($mode === 'text') {
+            if ($request['content'] === '') throw new Exception('请输入口播文案');
+            if (mb_strlen($request['content']) > 10000) throw new Exception('口播文案最多10000字');
+            $duration = (float)\app\common\service\app\aigc_digital_human\AvatarGenerationDurationService::estimateScriptSeconds($request['content']);
+            $request['reference_sample_seconds'] = $referenceSampleSeconds;
+        }
         if ($voice !== null) $request[$mode === 'text' ? 'voice_id' : 'driver_voice_id'] = $voiceId;
         if ($required) MarketPicLipsyncAppRuntimeService::buildPayload(['locked_params' => $selected['locked_params']], $request);
-        return ['selection' => $selected, 'request' => $request, 'avatar_id' => $avatarId, 'audio_asset_id' => $audioId, 'duration' => $duration];
+        return ['selection' => $selected, 'request' => $request, 'avatar_id' => $avatarId, 'audio_asset_id' => $audioId, 'duration' => $duration, 'reference_sample_seconds' => $referenceSampleSeconds];
     }
 
     private static function marketOptions(int $tenantId): array { return MarketPicLipsyncAppRuntimeService::options($tenantId); }

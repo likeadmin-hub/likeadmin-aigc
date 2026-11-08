@@ -185,7 +185,7 @@ class MarketPicLipsyncAppRuntimeService
                 'parent_task_id' => 0,
                 'status' => 'running',
                 'progress' => 10,
-                'request_summary' => array_merge(self::requestSummary($request), ['input_audio_seconds' => $quantity]),
+                'request_summary' => array_merge(self::requestSummary($request), self::reservationQuantitySummary($request, $quantity)),
                 'result_summary' => [],
                 'estimated_tenant_cost' => $tenantCost,
                 'estimated_user_price' => $userPrice,
@@ -215,9 +215,9 @@ class MarketPicLipsyncAppRuntimeService
                 'upstream_task_id' => '',
                 'quantity' => $deferred ? 0 : $quantity,
                 'usage_unit' => (string)$market['sku']['usage_unit'],
-                'usage_snapshot' => ['settlement_basis' => $deferred ? 'awaiting_actual_usage' : 'submit_snapshot'],
+                'usage_snapshot' => array_merge(['settlement_basis' => ($request['mode'] ?? 'audio') === 'text' ? 'script_estimate' : ($deferred ? 'awaiting_actual_usage' : 'submit_snapshot')], self::reservationQuantitySummary($request, $quantity)),
                 'price_snapshot' => self::snapshot($market),
-                'request_summary' => array_merge(self::requestSummary($request), ['input_audio_seconds' => $quantity]),
+                'request_summary' => array_merge(self::requestSummary($request), self::reservationQuantitySummary($request, $quantity)),
                 'response_summary' => [],
                 'run_status' => 'reserved',
                 'billing_status' => $deferred ? 'pending_usage' : 'reserved',
@@ -430,7 +430,21 @@ class MarketPicLipsyncAppRuntimeService
                 return;
             }
             $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
-            $quantity = self::inputSeconds($response) ?: (float)$consumption['quantity'];
+            $quantity = self::inputSeconds($response);
+            $basis = 'upstream_input_audio';
+            if ($quantity <= 0) {
+                $request = self::arrayValue($consumption['request_summary'] ?? []);
+                if (($request['mode'] ?? 'audio') === 'text') {
+                    // In text mode audio_url is a voice sample, not the generated
+                    // driving speech. Only a server-measured saved result can replace usage.
+                    $quantity = count($items) === 1 ? (float)($items[0]['measured_output_seconds'] ?? 0) : 0;
+                    $basis = 'measured_generated_video';
+                } else {
+                    $quantity = (float)$consumption['quantity'];
+                    $basis = 'measured_submit_audio';
+                }
+            }
+            if (!is_finite($quantity)) $quantity = 0;
             if ($quantity <= 0) throw new Exception('图片数字人任务缺少输入音频用量');
             $tenant = self::cost((float)($snapshot['platform_price'] ?? 0), $quantity, $snapshot);
             $user = self::cost((float)($snapshot['tenant_price'] ?? 0), $quantity, $snapshot);
@@ -442,7 +456,7 @@ class MarketPicLipsyncAppRuntimeService
                 'upstream_request_id' => $requestId ?: (string)$consumption['upstream_request_id'],
                 'upstream_task_id' => $taskId,
                 'quantity' => $quantity,
-                'usage_snapshot' => ['input_audio_seconds' => $quantity],
+                'usage_snapshot' => ['input_audio_seconds' => $quantity, 'settlement_basis' => $basis],
                 'response_summary' => ['videos' => $items],
                 'actual_tenant_cost' => $tenant,
                 'actual_user_price' => $user,
@@ -574,6 +588,7 @@ class MarketPicLipsyncAppRuntimeService
                 'storage_engine' => (string)($stored['storage_engine'] ?? 'local'),
                 'storage_domain' => (string)($stored['storage_domain'] ?? ''),
                 'width' => (int)($stored['width'] ?? 0), 'height' => (int)($stored['height'] ?? 0),
+                'measured_output_seconds' => (float)($stored['duration'] ?? 0),
             ];
         }
         return $items;
@@ -814,6 +829,13 @@ class MarketPicLipsyncAppRuntimeService
             'consume_no' => (string)$consumption['consume_no'],
             'billing_stage' => $stage,
         ];
+    }
+
+    private static function reservationQuantitySummary(array $request, float $quantity): array
+    {
+        return ($request['mode'] ?? 'audio') === 'text'
+            ? ['estimated_seconds' => $quantity, 'reference_sample_seconds' => (float)($request['reference_sample_seconds'] ?? 0)]
+            : ['input_audio_seconds' => $quantity];
     }
 
     private static function requestSummary(array $request): array

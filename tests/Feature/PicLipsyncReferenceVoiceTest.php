@@ -54,7 +54,8 @@ class PicLipsyncReferenceVoiceTest extends TestCase
             self::assertSame('直接朗读这段文案', $payload['content']);
             self::assertStringEndsWith($this->uri, $payload['audio_url']);
             self::assertSame(0, $prepared['audio_asset_id']);
-            self::assertEqualsWithDelta(1.25, $prepared['duration'], 0.001);
+            self::assertSame(2.0, $prepared['duration']);
+            self::assertEqualsWithDelta(1.25, $prepared['reference_sample_seconds'], 0.001);
             self::assertArrayNotHasKey('voice_id', $payload);
         }
     }
