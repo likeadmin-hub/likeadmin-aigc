@@ -78,9 +78,11 @@ final class ProductVideoJobs
                 $video=MicroVideoMedia::validateVideo($tenant,$user,(string)($r['videos'][0]['video_uri']??$r['videos'][0]['uri']??''));
                 $request['video_job_id']=(int)$prior['id'];
             }
+            if(in_array($action,['reference','chapters'],true))$request['images']=[];
             if($action==='plan'){
                 $v=$body['video_selection'];$model=MicroVideoCatalog::model($tenant,(string)($v['model_id']??''),false,'reference');
                 MicroVideoCatalog::spec($model,(string)($v['quality']??''),(string)($v['ratio']??''),(int)($v['duration']??0));
+                if(count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
                 $request['duration']=(int)$v['duration'];
             }
             $id=(string)($body['analysis_model_id']?:$settings['analysis_model_id']);$options=Text::mediaOptions($tenant,(bool)$video);
