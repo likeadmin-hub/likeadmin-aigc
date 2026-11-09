@@ -8,7 +8,10 @@ final class MicroVideoEntryPerformanceTest extends TestCase
 {
     public function testHomeCapabilitiesOnlyReadPublicSettingsWithoutLoadingModelCatalogues(): void
     {
-        $queries=[];\think\facade\Db::listen(function($sql)use(&$queries){$queries[]=$sql;});
+        $queries=[];\think\facade\Db::listen(function($sql)use(&$queries){
+            // A cold connection may report CONNECT and SHOW COLUMNS metadata.
+            if(preg_match('/^\s*(SELECT|INSERT|UPDATE|DELETE|REPLACE|ALTER|CREATE|DROP)\b/i',$sql))$queries[]=$sql;
+        });
         $home=\app\common\service\app\aigc_micro_video\MicroVideoWorkbench::capabilities(1,true);
         self::assertFalse($home['catalogue_complete']);
         self::assertNotEmpty($home['config']['target_duration_options']);
@@ -17,6 +20,7 @@ final class MicroVideoEntryPerformanceTest extends TestCase
         self::assertArrayNotHasKey('planning_template', $home['config']);
         self::assertLessThan(2000, strlen(json_encode($home)));
         self::assertLessThanOrEqual(1, count($queries), 'Home entry must not enumerate text/image/video SKU catalogues');
+        foreach($queries as $sql) self::assertStringContainsString('aigc_micro_video_config', $sql);
     }
     protected function setUp(): void
     {(new \think\App(dirname(__DIR__,2).'/'))->initialize();$db=config('database.connections.mysql');if($db['hostname']!=='127.0.0.1'||$db['database']!=='z_cn')self::markTestSkipped('Local read-only catalog verification');}
