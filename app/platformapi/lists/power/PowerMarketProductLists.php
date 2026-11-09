@@ -71,6 +71,11 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
 
     private function applyStatusFilter($query): void
     {
+        $catalog = (string)$this->request->get('catalog_type', '');
+        if (in_array($catalog, ['model','series'], true)) {
+            $factory = "(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(source_payload, '$.market_metadata.upstream_metadata.pricing.pricing_v2.resource_type')), '') = 'factory_model')";
+            $query->whereRaw($catalog === 'series' ? $factory : 'NOT '.$factory);
+        }
         $resourceType = (string)$this->request->get('resource_type', '');
         $status = $this->request->get('status', '');
         if ($resourceType !== PowerMarketService::TYPE_MODEL) {

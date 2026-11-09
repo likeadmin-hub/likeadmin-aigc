@@ -7,7 +7,7 @@ use think\facade\Db;
 /** Micro-specific durable admission around the existing shared market transport. */
 final class MicroVideoSubmission
 {
-    public static function applies(array $consumption): bool{return ($consumption['app_code']??'')===MicroVideoStore::APP;}
+    public static function applies(array $consumption): bool{return in_array($consumption['app_code']??'',[MicroVideoStore::APP,'aigc_product_video'],true);}
     public static function ambiguous(string $message): bool
     {
         return (bool)preg_match('/curl\s*(?:error\s*)?(?:16|18|28|35|52|55|56|92)|timed?\s*out|timeout|connection.*(?:reset|closed|aborted)|empty (?:reply|response)|recv failure|transfer closed|outstanding read data|视频 API 响应格式错误|图片模型未返回任务 ID 或结果|图片 API 响应格式错误|图片模型返回格式错误|图片模型响应格式错误|文本模型返回格式异常|文本模型未返回有效内容|超时|发送后.*断|未返回.*任务号|受理.*不明/iu',$message);
