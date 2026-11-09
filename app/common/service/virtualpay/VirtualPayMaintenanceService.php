@@ -6,6 +6,7 @@ use app\common\service\promotion\PackagePricingService as Price;
 /** Bounded outbox processing. A process lock and a bounded per-item lease protect slow calls. */
 final class VirtualPayMaintenanceService
 {
+    public const GENERAL_SHIPPING_PERMISSION_ERROR='微信通用发货接口未授权（48001），已停止自动重试；如需使用，请核对微信后台权限后点击重新核对。';
     private VirtualPayService $pay;
     public function __construct(?VirtualPayService $pay=null){$this->pay=$pay??new VirtualPayService();}
     public static function enqueue(int $id,string $kind): void
@@ -35,7 +36,7 @@ final class VirtualPayMaintenanceService
                 if(!$q)return null;$token=bin2hex(random_bytes(16));$generation=function_exists('aigc_runtime_generation')?(string)\aigc_runtime_generation():'';
                 Db::name('virtual_pay_work')->where('id',$q['id'])->update(['status'=>'running','lease_token'=>$token,'lease_until'=>time()+180,'generation'=>$generation,'attempts'=>(int)$q['attempts']+1,'updated_at'=>time()]);return $q+['token'=>$token];
             });if(!$job)break;
-            $error='';$complete=false;
+            $error='';$complete=false;$permissionDenied=false;
             try{
                 $i=Db::name('virtual_pay_intent')->where('id',$job['intent_id'])->find();if(!$i)throw new \RuntimeException('核对订单不存在');
                 // Named lock survives a lease timeout while a live owner is still in an external call.
@@ -51,10 +52,17 @@ final class VirtualPayMaintenanceService
                         default:throw new \RuntimeException('任务类型需要人工核对');
                     }
                 }finally{Db::query('SELECT RELEASE_LOCK(?)',[$key]);}
-            }catch(\Throwable $e){$error=VirtualPayPolicy::error($e);}
-            VirtualPayPolicy::assertRuntime();$attempt=(int)$job['attempts']+1;$manual=!$complete&&$attempt>=20;
+            }catch(\Throwable $e){
+                $permissionDenied=$job['kind']==='general_shipping'&&$e instanceof \RuntimeException&&$e->getCode()===48001;
+                $error=$permissionDenied?self::GENERAL_SHIPPING_PERMISSION_ERROR:VirtualPayPolicy::error($e);
+            }
+            VirtualPayPolicy::assertRuntime();$attempt=(int)$job['attempts']+1;$manual=!$complete&&($permissionDenied||$attempt>=20);
             Db::name('virtual_pay_work')->where(['id'=>$job['id'],'lease_token'=>$job['token']])->update(['status'=>$complete?'done':($manual?'manual':'pending'),'lease_token'=>'','lease_until'=>0,'next_at'=>time()+min(3600,15*(2**min(8,$attempt))),'last_error'=>$error,'updated_at'=>time()]);
             if($error!=='')Db::name('virtual_pay_intent')->where('id',$job['intent_id'])->update(['last_error'=>$error,'updated_at'=>time()]);
+            // A denied capability is neither a successful shipment nor proof that shipping is inapplicable.
+            // Preserve ambiguous upload states so a later retry remains query-only.
+            if($permissionDenied)Db::name('virtual_pay_intent')->where(['id'=>$job['intent_id'],'refund_status'=>'none'])->whereIn('general_shipping_status',['pending','manual'])->update(['general_shipping_status'=>'manual','updated_at'=>time()]);
+            elseif($complete&&$job['kind']==='general_shipping')Db::name('virtual_pay_intent')->where(['id'=>$job['intent_id'],'last_error'=>self::GENERAL_SHIPPING_PERMISSION_ERROR])->update(['last_error'=>'','updated_at'=>time()]);
             $complete?$done++:$pending++;
         }
         // Never-started orders can close locally. Launched ordinary orders use their original gateway context.

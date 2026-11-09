@@ -12,7 +12,12 @@ final class VirtualPayAdminService
         elseif($state==='pending')$query->where('status','pending');
         elseif($state==='refunded')$query->where('refund_status','success');
         $count=(clone $query)->count();$rows=$query->field('id,user_id,biz_type,order_id,app_id,env,out_trade_no,amount_cents,platform,status,delivery_status,xpay_shipping_status,general_shipping_status,refund_status,recovery_status,created_at,paid_at,last_error,order_type')->order('id desc')->page(max(1,$page),20)->select()->toArray();
+        $permissionDeniedIds=array_column(array_filter($rows,static fn($r)=>$r['last_error']===VirtualPayMaintenanceService::GENERAL_SHIPPING_PERMISSION_ERROR),'id');
         foreach($rows as &$row){$row['last_error']=$row['last_error']===''?'':($row['refund_status']!=='none'?'退款或权益处理尚未完成，请核对原交易后重试；有疑问请联系平台管理员':($row['status']==='paid'?'已收到付款，权益或发货同步尚未完成，请点击重新核对；请勿重复收款':'支付结果暂未确认，请点击重新核对或联系平台管理员'));$row['order_amount']=Money::amount((int)$row['amount_cents']);unset($row['amount_cents']);$row['can_refund']=$row['status']==='paid'&&(int)$row['order_type']!==7&&in_array($row['refund_status'],['none','manual'],true);$row['can_retry']=$row['refund_status']!=='success';}unset($row);
+        foreach($rows as &$row){
+            $permissionError=in_array($row['id'],$permissionDeniedIds,true);
+            if($permissionError&&$row['refund_status']==='none')$row['last_error']=($row['delivery_status']==='granted'?'权益已到账。':'').VirtualPayMaintenanceService::GENERAL_SHIPPING_PERMISSION_ERROR;
+        }unset($row);
         $events=Db::name('virtual_pay_event')->where('tenant_id',$tenant)->whereIn('status',['attention','failed','manual'])->field('id,event,intent_id,status,message,created_at')->order('id desc')->limit(30)->select()->toArray();
         foreach($events as &$event){$event['message']=$event['status']==='attention'?'请在微信平台核对投诉或风控事项':'通知处理尚未完成，请核对对应订单后重试或联系平台管理员';unset($event['status']);}unset($event);
         $ordinary=Db::name('package_payment_receipt')->where(['tenant_id'=>$tenant,'status'=>'manual'])->field('id,snapshot_id,channel,amount_cents,message,created_at')->order('id desc')->limit(30)->select()->toArray();
@@ -24,6 +29,7 @@ final class VirtualPayAdminService
         Db::transaction(function()use($tenant,$actor,$id){$i=VirtualPayRefundService::owned($tenant,$id,true);
             $kind=$i['refund_status']!=='none'?'refund':($i['status']==='pending'?'payment':($i['delivery_status']!=='granted'?'delivery':'xpay_shipping'));
             $kinds=$kind==='xpay_shipping'?['xpay_shipping','general_shipping']:[$kind];
+            if(in_array('general_shipping',$kinds,true))Db::name('virtual_pay_intent')->where(['id'=>$id,'tenant_id'=>$tenant,'general_shipping_status'=>'manual'])->update(['general_shipping_status'=>'pending','updated_at'=>time()]);
             foreach($kinds as $k){VirtualPayMaintenanceService::enqueue($id,$k);Db::name('virtual_pay_work')->where(['intent_id'=>$id,'kind'=>$k])->where('status','<>','running')->update(['status'=>'pending','attempts'=>0,'next_at'=>time(),'last_error'=>'','updated_at'=>time()]);}
             VirtualPayRefundService::audit($i,'manual_retry',$actor,'已安排按原交易重新核对，核对不会直接修改到账结果');
         });
