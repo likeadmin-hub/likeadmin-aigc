@@ -176,6 +176,38 @@
       "scene": "platform_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.catalog/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:catalog:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_product_video.catalog/save",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:catalog:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_product_video.catalog/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:catalog:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_product_video.catalog/import",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:catalog:import:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
     }
   ]
 }

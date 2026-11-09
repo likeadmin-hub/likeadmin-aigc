@@ -43,6 +43,8 @@ final class MicroVideoMedia
                 'uri' => $uri, 'url' => $url,
                 'name' => mb_substr((string)($image['name'] ?? $file['name'] ?? basename($uri)), 0, 200),
                 'role' => mb_substr((string)($image['role'] ?? ''), 0, 100),
+                'reference_slot_id' => \app\common\service\ai\ReferenceMaterialSlot::id($image),
+                'mention_name' => mb_substr((string)($image['mention_name'] ?? ''),0,100),
                 // Persist these internal identities so a later worker can revalidate ownership.
                 'tenant_id' => $tenant, 'user_id' => $user, 'file_id' => (int)$file['id'],
             ] + $storage;
@@ -108,6 +110,20 @@ final class MicroVideoMedia
             if ($facts['duration'] > $maxSeconds + 0.1) throw new \InvalidArgumentException('参考视频请控制在 '.$maxSeconds.' 秒以内');
             return $facts + ['uri'=>$uri,'url'=>$url,'file_id'=>(int)$file['id'],'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user] + $storage;
         } finally { self::cleanup($workspace); }
+    }
+
+    public static function validateAudio(int $tenant,int $user,string $input,int $maxSeconds=60): array
+    {
+        $uri=self::canonicalUri($input);$file=self::ownedFile($tenant,$user,$uri,FileEnum::FILE_TYPE);$storage=self::storage($file,$tenant);$url=self::managedUrl($uri,$storage,$tenant);
+        if(preg_match('#^https?://#i',$input)&&!self::sameObjectUrl($input,$url))throw new RuntimeException('音频地址与所属素材不匹配');
+        $workspace=self::workspace();
+        try{
+            $path=$workspace.'/reference.audio';self::materialize($uri,$path,$tenant,$user);
+            $info=json_decode(self::run([self::binary('ffprobe'),'-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',$path],30),true);
+            $audio=array_filter($info['streams']??[],static fn($s)=>($s['codec_type']??'')==='audio');$duration=(float)($info['format']['duration']??0);
+            if(!$audio||!is_finite($duration)||$duration<=0||$duration>$maxSeconds+0.1)throw new \InvalidArgumentException('参考音频必须是有效音频，且不超过 '.$maxSeconds.' 秒');
+            return ['uri'=>$uri,'url'=>$url,'duration'=>$duration,'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>(int)$file['id']]+$storage;
+        }finally{self::cleanup($workspace);}
     }
 
     public static function videoInput(array $asset): string

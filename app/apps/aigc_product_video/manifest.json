@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "require_core": ">=1.0.0",
   "description": "基于商品素材创作视频，支持直接描述、智能分镜、参考视频分析和故事板预览。",
-  "changelog": "1. 支持普通模式和高级模式创作商品视频。\n2. 支持分析参考视频、生成分镜图和查看成片章节。",
+  "changelog": "1. 支持普通模式模板、描述优化与首尾帧创作。\n2. 高级模式支持商品识别、卖点、故事板和视频描述统一分析。\n3. 支持参考视频理解、素材角色、商品资料库和成片章节。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
@@ -39,6 +39,8 @@
       "product",
       "reference",
       "plan",
+      "analysis",
+      "optimize",
       "storyboard",
       "video",
       "chapters"
