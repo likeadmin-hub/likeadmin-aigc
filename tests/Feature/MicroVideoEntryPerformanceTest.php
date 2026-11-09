@@ -23,7 +23,12 @@ final class MicroVideoEntryPerformanceTest extends TestCase
         foreach($queries as $sql) self::assertStringContainsString('aigc_micro_video_config', $sql);
     }
     protected function setUp(): void
-    {(new \think\App(dirname(__DIR__,2).'/'))->initialize();$db=config('database.connections.mysql');if($db['hostname']!=='127.0.0.1'||$db['database']!=='z_cn')self::markTestSkipped('Local read-only catalog verification');}
+    {
+        (new \think\App(dirname(__DIR__,2).'/'))->initialize();
+        $db=config('database.connections.mysql');
+        $localHome=$this->getName()==='testHomeCapabilitiesOnlyReadPublicSettingsWithoutLoadingModelCatalogues'&&$db['database']==='x_cn';
+        if($db['hostname']!=='127.0.0.1'||($db['database']!=='z_cn'&&!$localHome))self::markTestSkipped('Local read-only catalog verification; SKU fixtures require z_cn');
+    }
     public function testImageCatalogUsesBatchedReadsAndPreservesLiveSkuPrices(): void
     {
         $queries=0;\think\facade\Db::listen(function()use(&$queries){$queries++;});
