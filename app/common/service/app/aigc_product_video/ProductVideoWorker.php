@@ -101,7 +101,8 @@ final class ProductVideoWorker
     {
         $id=(int)$row['id'];$fresh=ProductVideoJobs::table()->where('id',$id)->find();$c=self::consumption($fresh);
         if(!empty($result['images'])||!empty($result['videos'])){self::write($id,['receipt_json'=>ProductVideoPolicy::encode($result)]);if($c&&$c['billing_status']==='settled'){self::finish($row,$result,$c);return;}}
-        self::write($id,['status'=>'running','next_run_at'=>time()+15,'billing_status'=>$c['billing_status']??'pending']);
+        $uncertain=$c&&in_array($c['run_status'],['submitting','pending_confirmation'],true)&&empty($c['upstream_task_id']);
+        self::write($id,['status'=>$uncertain?'unknown':'running','error'=>$uncertain?'模型受理状态待核对，请勿重复提交':'','next_run_at'=>time()+15,'billing_status'=>$c['billing_status']??'pending']);
     }
     public static function parse(array $row,array $receipt): array
     {
