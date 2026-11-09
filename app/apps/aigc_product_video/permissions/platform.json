@@ -1,0 +1,27 @@
+[
+  {
+    "api_path": "app.aigc_product_video.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_product_video:config:detail"
+  },
+  {
+    "api_path": "app.aigc_product_video.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_product_video:config:setup"
+  },
+  {
+    "api_path": "app.aigc_product_video.config/models",
+    "api_method": "GET",
+    "permission_key": "aigc_product_video:config:models"
+  },
+  {
+    "api_path": "app.aigc_product_video.job/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_product_video:job:lists"
+  },
+  {
+    "api_path": "app.aigc_product_video.job/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_product_video:job:detail"
+  }
+]

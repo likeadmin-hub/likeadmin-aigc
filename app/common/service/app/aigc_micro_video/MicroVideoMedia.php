@@ -82,6 +82,33 @@ final class MicroVideoMedia
         } finally { self::cleanup($workspace); }
     }
 
+    /** Reusable owned video input; browser supplied metadata never authorizes media. */
+    public static function validateVideo(int $tenant, int $user, string $input, int $maxSeconds = 60): array
+    {
+        $uri = self::canonicalUri($input);
+        $file = self::ownedFile($tenant, $user, $uri, FileEnum::VIDEO_TYPE);
+        $storage = self::storage($file, $tenant);
+        $url = self::managedUrl($uri, $storage, $tenant);
+        if (preg_match('#^https?://#i', $input) && !self::sameObjectUrl($input, $url)) throw new RuntimeException('视频地址与所属素材不匹配');
+        $workspace = self::workspace();
+        try {
+            $path = $workspace.'/reference.mp4';
+            self::materialize($uri, $path, $tenant, $user);
+            $facts = self::probe($path);
+            if ($facts['duration'] > $maxSeconds + 0.1) throw new RuntimeException('参考视频请控制在 '.$maxSeconds.' 秒以内');
+            return $facts + ['uri'=>$uri,'url'=>$url,'file_id'=>(int)$file['id'],'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user] + $storage;
+        } finally { self::cleanup($workspace); }
+    }
+
+    public static function videoInput(array $asset): string
+    {
+        $fresh = self::validateVideo((int)$asset['tenant_id'], (int)$asset['user_id'], (string)$asset['uri']);
+        if ($fresh['storage_engine'] !== 'local') return $fresh['url'];
+        $path = self::localPath($fresh['uri']);
+        if (filesize($path) > 33554432) throw new RuntimeException('本地参考视频请压缩到 32MB 内，或使用已配置的云存储');
+        return 'data:video/mp4;base64,'.base64_encode(file_get_contents($path));
+    }
+
     public static function merge(array $task, array $segments): array
     {
         $tenant = (int)($task['tenant_id'] ?? 0); $user = (int)($task['user_id'] ?? 0);

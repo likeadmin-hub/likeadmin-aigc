@@ -1,0 +1,89 @@
+{
+  "code": "aigc_product_video",
+  "name": "商品视频",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "基于商品素材创作视频，支持直接描述、智能分镜、参考视频分析和故事板预览。",
+  "changelog": "1. 支持普通模式和高级模式创作商品视频。\n2. 支持分析参考视频、生成分镜图和查看成片章节。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 846,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_product_video",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [
+    {
+      "app_code": "aigc_video",
+      "name": "视频创作",
+      "required_for": "生成商品视频"
+    },
+    {
+      "app_code": "aigc_image",
+      "name": "图像创作",
+      "required_for": "生成故事板图片"
+    }
+  ],
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "product",
+      "reference",
+      "plan",
+      "storyboard",
+      "video",
+      "chapters"
+    ],
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_product_video",
+      "name": "商品视频",
+      "path": "/ai/tools/aigc_product_video",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 84,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_product_video_admin",
+      "name": "商品视频",
+      "path": "/apps/aigc_product_video/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 84,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_product_video",
+      "name": "商品视频",
+      "path": "/apps/aigc_product_video/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 846,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/aigc_product_video/pages/creator/index"
+          },
+          {
+            "name": "历史创作",
+            "path": "/apps/aigc_product_video/pages/tasks/index"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "source_menu_key": "aigc_product_video",
+    "app_code": "aigc_product_video",
+    "source": "app",
+    "type": "M",
+    "name": "商品视频",
+    "icon": "el-icon-VideoCamera",
+    "sort": 84,
+    "perms": "",
+    "paths": "aigc-product-video",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_product_video_config",
+        "app_code": "aigc_product_video",
+        "source": "app",
+        "type": "C",
+        "name": "创作配置",
+        "sort": 30,
+        "perms": "app.aigc_product_video.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_product_video/config"
+      },
+      {
+        "source_menu_key": "aigc_product_video_job",
+        "app_code": "aigc_product_video",
+        "source": "app",
+        "type": "C",
+        "name": "创作记录",
+        "sort": 10,
+        "perms": "app.aigc_product_video.job/lists",
+        "paths": "jobs",
+        "component": "apps/aigc_product_video/jobs"
+      }
+    ]
+  }
+]
