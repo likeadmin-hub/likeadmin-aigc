@@ -89,10 +89,33 @@ final class ProductVideoService
             return self::projectDto(self::owned($tenant,$user,$id));
         });
     }
-    public static function fromJob(int $tenant,int $user,int $jobId): array
+    public static function fromJob(int $tenant,int $user,int $jobId,bool $includeResult=false): array
     {
-        $job=ProductVideoJobs::owned($tenant,$user,$jobId);$request=ProductVideoPolicy::json($job['request_json']);
-        return self::save($tenant,$user,['title'=>'商品视频 · 再次编辑','body'=>$request['snapshot']??[]]);
+        $job=ProductVideoJobs::owned($tenant,$user,$jobId);$request=ProductVideoPolicy::json($job['request_json']);$body=(array)($request['snapshot']??[]);
+        if($includeResult)$body=self::applyResult($body,$job);
+        return self::save($tenant,$user,['title'=>'商品视频 · 再次编辑','body'=>$body]);
+    }
+    private static function applyResult(array $body,array $job): array
+    {
+        if(!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('任务完成后才能使用结果');
+        $result=ProductVideoPolicy::json($job['result_json']);
+        if($job['action']==='analysis'){
+            if(!empty($result['product_info']))$body['product_info']=$result['product_info'];
+            $plan=ProductVideoPolicy::plan($result,(int)$body['video_selection']['duration']);
+            $body['plan']=['data'=>$plan,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
+            if(!empty($result['images']))$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash($body['plan']),'job_id'=>(int)$job['id']];
+        }
+        elseif($job['action']==='optimize'){
+            if(($body['mode']??'normal')==='advanced'&&!empty($body['plan']))$body['plan']['data']['video_prompt']=$result['video_prompt'];
+            else $body['prompt']=$result['video_prompt'];
+            $body['prompt_review_images']=array_column($body['images'],'uri');
+        }
+        elseif($job['action']==='product')$body['product_info']=$result['product_info'];
+        elseif($job['action']==='reference')$body['reference_analysis']=['data'=>$result,'video_uri'=>$body['reference_video']['uri']??''];
+        elseif($job['action']==='plan')$body['plan']=['data'=>$result,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
+        elseif($job['action']==='storyboard')$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash((array)$body['plan']),'job_id'=>(int)$job['id']];
+        else throw new InvalidArgumentException('该结果可在历史创作中查看');
+        return $body;
     }
     public static function adopt(int $tenant,int $user,array $p): array
     {
@@ -100,19 +123,7 @@ final class ProductVideoService
             $job=ProductVideoJobs::owned($tenant,$user,(int)($p['job_id']??0));$project=self::owned($tenant,$user,(int)$job['project_id'],true);
             if(!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('任务完成后才能使用结果');
             if((int)$project['revision']!==(int)($p['revision']??0)||(int)$job['project_revision']!==(int)$project['revision'])throw new InvalidArgumentException('草稿已修改，结果已保留，请查看后手动合并');
-            $body=ProductVideoPolicy::json($project['body_json']);$result=ProductVideoPolicy::json($job['result_json']);
-            if($job['action']==='analysis'){
-                if(!empty($result['product_info']))$body['product_info']=$result['product_info'];
-                $plan=ProductVideoPolicy::plan($result,(int)$body['video_selection']['duration']);
-                $body['plan']=['data'=>$plan,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
-                if(!empty($result['images']))$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash($body['plan']),'job_id'=>(int)$job['id']];
-            }
-            elseif($job['action']==='optimize'){$body['prompt']=$result['video_prompt'];$body['prompt_review_images']=array_column($body['images'],'uri');}
-            elseif($job['action']==='product')$body['product_info']=$result['product_info'];
-            elseif($job['action']==='reference')$body['reference_analysis']=['data'=>$result,'video_uri'=>$body['reference_video']['uri']??''];
-            elseif($job['action']==='plan')$body['plan']=['data'=>$result,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
-            elseif($job['action']==='storyboard')$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash((array)$body['plan']),'job_id'=>(int)$job['id']];
-            else throw new InvalidArgumentException('该结果可在历史创作中查看');
+            $body=self::applyResult(ProductVideoPolicy::json($project['body_json']),$job);
             self::table('project')->where('id',$project['id'])->update(['revision'=>(int)$project['revision']+1,'body_json'=>ProductVideoPolicy::encode($body),'update_time'=>time()]);
             return self::projectDto(self::owned($tenant,$user,(int)$project['id']));
         });

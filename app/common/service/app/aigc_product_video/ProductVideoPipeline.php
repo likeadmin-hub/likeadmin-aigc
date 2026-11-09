@@ -13,6 +13,12 @@ final class ProductVideoPipeline
     {
         $plan=ProductVideoJobs::prepare($tenant,$user,array_replace($p,['action'=>'plan']));
         $body=$plan['request']['snapshot'];if($body['mode']!=='advanced')throw new InvalidArgumentException('请在高级模式使用智能分析');$settings=ProductVideoService::settings($tenant);
+        if(empty($body['generate_storyboard'])) {
+            $quote=$plan['quote'];$quote['notice']='识别商品与规划镜头按实际文字模型用量结算，本次不生成故事板图片';
+            $quote['phased_costs']=[['action'=>'plan','model_name'=>$quote['model_name'],'approximate'=>true,'user_charge_points'=>null]];
+            $request=['action'=>'analysis','plan_request'=>$plan['request'],'snapshot'=>$body,'project_revision'=>$plan['project']['revision'],'quote'=>$quote];
+            return ['project'=>$plan['project'],'request'=>$request,'quote'=>$quote,'hash'=>ProductVideoPolicy::requestKey($request)];
+        }
         $wanted=$body['image_selection'];$id=(string)($wanted['model_id']??$settings['default_image_model_id']);
         $models=MicroVideoFrameCatalog::models($tenant,1);$selected=null;
         foreach($models as $m){if($id!==''&&(string)$m['id']!==$id)continue;
@@ -28,7 +34,7 @@ final class ProductVideoPipeline
             }
         }
         if(!$selected)throw new InvalidArgumentException('请选择支持当前商品图和预估价的分镜图片模型');
-        $quote=$plan['quote'];$quote['tenant_cost_points']=$selected['quote']['tenant_cost_points']+0.01;$quote['precheck_user_points']=$selected['quote']['user_charge_points']+0.01;$quote['notice']='商品识别与文字方案按实际用量结算；分镜图单独按确认规格生成一次，使用 '.count($selected['images']).' 张商品参考图（共 '.count($body['images']).' 张）';
+        $quote=$plan['quote'];$quote['tenant_cost_points']=$selected['quote']['tenant_cost_points']+0.01;$quote['precheck_user_points']=$selected['quote']['user_charge_points']+0.01;$quote['notice']='商品识别与文字方案按实际用量结算；故事板图片额外收费，用于预览镜头，视频模型兼容时才会附作参考。使用 '.count($selected['images']).' 张商品参考图（共 '.count($body['images']).' 张）';
         $quote['phased_costs']=[['action'=>'plan','model_name'=>$quote['model_name'],'approximate'=>true,'user_charge_points'=>null],['action'=>'storyboard','model_name'=>$selected['label'],'approximate'=>false,'user_charge_points'=>$selected['quote']['user_charge_points']]];
         $request=['action'=>'analysis','plan_request'=>$plan['request'],'image_stage'=>$selected,'snapshot'=>$body,'project_revision'=>$plan['project']['revision'],'quote'=>$quote];
         return ['project'=>$plan['project'],'request'=>$request,'quote'=>$quote,'hash'=>ProductVideoPolicy::requestKey($request)];
@@ -71,6 +77,9 @@ final class ProductVideoPipeline
             $data=ProductVideoPolicy::json($plan['result_json']);$result=$data+['stages'=>[]];
             $body=$request['snapshot'];if(!empty($data['product_info']))$body['product_info']=$data['product_info'];
             $body['plan']=['data'=>$data,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$root['id']];
+            if(empty($request['image_stage'])){
+                ProductVideoWorker::write((int)$root['id'],['status'=>'success','result_json'=>ProductVideoPolicy::encode(array_replace($result,['stages'=>[['action'=>'plan','status'=>'success','billing_status'=>$plan['billing_status'],'user_charge_points'=>(float)$plan['user_charge_points']]]])),'billing_status'=>$plan['billing_status'],'user_charge_points'=>(float)$plan['user_charge_points'],'error'=>'']);return;
+            }
             $image=$request['image_stage'];$imageRequest=['action'=>'storyboard','snapshot'=>$body,'project_revision'=>$root['project_revision'],'selection'=>$image['selection'],'images'=>$image['images'],
                 'prompt'=>'为商品视频绘制一张按顺序排列的镜头故事板。参考商品外观必须一致，每格对应一个镜头，避免新增标识、文字和水印。分镜：'.ProductVideoPolicy::encode($data),
                 'plan_key'=>ProductVideoPolicy::hash($body['plan']),'quote'=>$image['quote']];
