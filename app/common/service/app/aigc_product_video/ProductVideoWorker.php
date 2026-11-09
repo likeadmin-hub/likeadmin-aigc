@@ -127,7 +127,9 @@ final class ProductVideoWorker
     private static function finish(array $row,array $receipt,array $consumption): void
     {
         $result=self::parse($row,$receipt);
-        self::write((int)$row['id'],['status'=>'success','result_json'=>ProductVideoPolicy::encode($result),'billing_status'=>'settled','user_charge_points'=>(float)$consumption['actual_user_price'],'error'=>'']);
-        if($row['action']==='video')ProductVideoPipeline::chapters($row,$result);
+        Db::transaction(static function()use($row,$result,$consumption){
+            self::write((int)$row['id'],['status'=>'success','result_json'=>ProductVideoPolicy::encode($result),'billing_status'=>'settled','user_charge_points'=>(float)$consumption['actual_user_price'],'error'=>'']);
+            if($row['action']==='video')ProductVideoPipeline::chapters($row,$result);
+        });
     }
 }
