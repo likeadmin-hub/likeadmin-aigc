@@ -1411,7 +1411,7 @@ class OpenPlatformService
         return root_path() . 'public/' . basename($artifactDir);
     }
     /** Build a consistent presentation row for a registered or discovered artifact. */
-    private static function inspectArtifact(array $row, ?array $formalManifest): array
+    private static function inspectArtifact(array $row, ?array $formalManifest, array &$manifests): array
     {
         $version = (string)($row['version'] ?? '');
         $artifactDir = (string)($row['artifact_dir'] ?? '');
@@ -1424,7 +1424,7 @@ class OpenPlatformService
                 $directory = $fallback;
             }
         }
-        $files = is_dir($directory) ? self::fileManifest($directory) : [];
+        $files = is_dir($directory) ? ($manifests[$directory] ??= self::fileManifest($directory)) : [];
         $metadataPath = $directory . '/.artifact.meta.json';
         $metadata = is_file($metadataPath) ? json_decode((string)file_get_contents($metadataPath), true) : null;
         $manifestHash = hash('sha256', json_encode($files, JSON_UNESCAPED_SLASHES));
@@ -1465,16 +1465,21 @@ class OpenPlatformService
      * have not been registered yet. Discovery is deliberately limited to the
      * two controlled artifact roots and never scans the formal mp-weixin tree.
      */
-    public static function artifacts(): array
+    public static function artifacts(bool $includeManifest = true, string $onlyVersion = ''): array
     {
+        if ($onlyVersion !== '' && !preg_match('/^\d+\.\d+\.\d+$/D', $onlyVersion)) throw new \InvalidArgumentException('版本号格式错误');
         $artifacts = [];
+        // Historical registry rows can share the formal directory. Hash its contents once
+        // within this listing, while every subsequent request still verifies fresh bytes.
+        $manifests = [];
         $formalDirectory = root_path() . 'public/mp-weixin';
-        $formalManifest = is_dir($formalDirectory) ? self::fileManifest($formalDirectory) : null;
+        $formalManifest = is_dir($formalDirectory) ? ($manifests[$formalDirectory] = self::fileManifest($formalDirectory)) : null;
         $registered = [];
         foreach (WechatArtifact::withoutGlobalScope()->order('version desc')->select()->toArray() as $row) {
             $version = (string)($row['version'] ?? '');
+            if ($onlyVersion !== '' && $version !== $onlyVersion) continue;
             $registered[$version] = true;
-            $artifacts[] = self::inspectArtifact($row, $formalManifest);
+            $artifacts[] = self::inspectArtifact($row, $formalManifest, $manifests);
         }
 
         $discovered = [];
@@ -1482,13 +1487,14 @@ class OpenPlatformService
         if (is_dir($publicRoot)) {
             foreach (scandir($publicRoot) ?: [] as $name) {
                 if (!preg_match('/^mp-weixin\.pre-release-(\d+\.\d+\.\d+)$/', $name, $match)) continue;
+                if ($onlyVersion !== '' && $match[1] !== $onlyVersion) continue;
                 if (!isset($discovered[$match[1]]) && is_dir($publicRoot . DIRECTORY_SEPARATOR . $name)) {
                     $discovered[$match[1]] = ['id' => 0, 'version' => $match[1], 'artifact_dir' => $name, 'promoted' => 0];
                 }
             }
         }
         foreach ($discovered as $version => $row) {
-            if (!isset($registered[$version])) $artifacts[] = self::inspectArtifact($row, $formalManifest);
+            if (!isset($registered[$version])) $artifacts[] = self::inspectArtifact($row, $formalManifest, $manifests);
         }
 
         // A promoted formal artifact is intentionally no longer present under
@@ -1499,16 +1505,18 @@ class OpenPlatformService
             ? json_decode((string)file_get_contents($formalMetadataPath), true)
             : null;
         $formalVersion = is_array($formalMetadata) ? (string)($formalMetadata['version'] ?? '') : '';
-        if (preg_match('/^\d+\.\d+\.\d+$/', $formalVersion) && !isset($registered[$formalVersion]) && !isset($discovered[$formalVersion])) {
+        if (preg_match('/^\d+\.\d+\.\d+$/', $formalVersion) && ($onlyVersion === '' || $onlyVersion === $formalVersion) && !isset($registered[$formalVersion]) && !isset($discovered[$formalVersion])) {
             $artifacts[] = self::inspectArtifact([
                 'id' => 0,
                 'version' => $formalVersion,
                 'artifact_dir' => 'mp-weixin',
                 'promoted' => 1,
-            ], $formalManifest);
+            ], $formalManifest, $manifests);
         }
 
         usort($artifacts, static fn(array $left, array $right): int => version_compare((string)$right['version'], (string)$left['version']));
+        if (!$includeManifest) foreach ($artifacts as &$artifact) unset($artifact['sha256_manifest']);
+        unset($artifact);
         return $artifacts;
     }
     /**
