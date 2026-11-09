@@ -26,7 +26,7 @@ final class ProductVideoPolicy
         $referenceMode=$body['reference_mode']??'reference';if(!in_array($referenceMode,['reference','start_end'],true))throw new InvalidArgumentException('参考素材方式无效');
         $templateCode=self::text($body['template_code']??'detail',50);$template=null;foreach(ProductVideoPrompts::templates() as $item)if($item['code']===$templateCode)$template=$item;if(!$template)throw new InvalidArgumentException('创作模板不存在，请重新选择');
         $out=['template_version'=>$template['version'],'normal_source'=>$normalSource,'reference_mode'=>$referenceMode,'market_region'=>self::text($body['market_region']??'',100),'audio'=>isset($body['audio'])?filter_var($body['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,
-            'analyze_chapters'=>!empty($body['analyze_chapters']),'prompt_review_images'=>array_values((array)($body['prompt_review_images']??[])),'generation_assets'=>(array)($body['generation_assets']??[]),'selected_mentions'=>(array)($body['selected_mentions']??[]),
+            'generate_storyboard'=>!empty($body['generate_storyboard']),'analyze_chapters'=>!empty($body['analyze_chapters']),'prompt_review_images'=>array_values((array)($body['prompt_review_images']??[])),'generation_assets'=>(array)($body['generation_assets']??[]),'selected_mentions'=>(array)($body['selected_mentions']??[]),
             'mode'=>$mode,'images'=>$images,'reference_video'=>$body['reference_video']??null,
             'product_info'=>self::text($body['product_info']??'',3000),'prompt'=>self::text($body['prompt']??'',12000),
             'requirements'=>self::text($body['requirements']??'',2000),'template_code'=>$templateCode,

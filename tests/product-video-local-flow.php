@@ -42,7 +42,7 @@ try{
     pvReject(fn()=>\app\common\service\app\aigc_product_video\ProductVideoWorker::wake(array_replace($c,['tenant_id'=>2]),$job['id']),'Cross-tenant callback');
     pvAssert(!\app\common\service\app\aigc_product_video\ProductVideoWorker::wake(array_replace($c,['id'=>2147480001]),$job['id']),'Unrelated receipt cannot wake this execution');
     // Exercise the durable advanced pipeline without calling any provider.
-    $advanced=array_replace($b,['mode'=>'advanced','planning_model_id'=>(string)$analysis[0]['id']]);
+    $advanced=array_replace($b,['generate_storyboard'=>true,'mode'=>'advanced','planning_model_id'=>(string)$analysis[0]['id']]);
     $ap=S::save(1,1,['body'=>$advanced]);$aa=['project_id'=>$ap['id'],'revision'=>$ap['revision'],'action'=>'analysis'];
     $aq=J::estimate(1,1,$aa);pvAssert(count($aq['phased_costs'])===2,'Analysis stage quote must disclose text and image costs');
     $aj=J::create(1,1,$aa+['quote_token'=>$aq['quote_token'],'idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16))]);
@@ -59,6 +59,18 @@ try{
     $partial=J::owned(1,1,$aj['id']);pvAssert($partial['status']==='partial'&&(float)$partial['user_charge_points']===2.,'Image failure must preserve paid text result');
     $adopted=S::adopt(1,1,['job_id'=>$aj['id'],'revision'=>$ap['revision']]);pvAssert($adopted['plan_fresh']&&$adopted['body']['plan']['data']['video_prompt']===$data['video_prompt'],'Partial analysis remains usable');
     $snapshot=S::fromJob(1,1,$aj['id']);pvAssert($snapshot['id']!==$ap['id']&&$snapshot['revision']===1,'Re-edit copies immutable submitted data into a new draft');
+    $forked=S::fromJob(1,1,$aj['id'],true);pvAssert($forked['plan_fresh']&&$forked['body']['plan']['data']['video_prompt']===$data['video_prompt'],'Completed analysis resumes with its result in a new draft');
+    pvAssert(S::owned(1,1,$ap['id'])['revision']===$adopted['revision'],'Fork cannot overwrite original draft');
+    // Default advanced planning is text only: no image quote or image generation stage.
+    $textOnly=S::save(1,1,['body'=>array_replace($advanced,['generate_storyboard'=>false,'image_selection'=>['model_id'=>'unavailable_fixture']])]);
+    $ta=['project_id'=>$textOnly['id'],'revision'=>$textOnly['revision'],'action'=>'analysis'];$tq=J::estimate(1,1,$ta);pvAssert(count($tq['phased_costs'])===1,'Default planning cannot silently charge for a storyboard image');
+    $tj=J::create(1,1,$ta+['quote_token'=>$tq['quote_token'],'idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16))]);$tr=J::owned(1,1,$tj['id']);
+    \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($tr);$tl=S::table('job_stage')->where('root_job_id',$tj['id'])->find();
+    J::table()->where('id',$tl['child_job_id'])->update(['status'=>'success','billing_status'=>'settled','user_charge_points'=>1,'result_json'=>P::encode($data)]);
+    \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($tr);pvAssert(J::owned(1,1,$tj['id'])['status']==='success'&&S::table('job_stage')->where('root_job_id',$tj['id'])->count()===1,'Text-only analysis completes without a hidden image stage');
+    pvAssert(J::lists(1,1,['group'=>'video'])['count']>0&&!in_array('analysis',array_column(J::lists(1,1,['group'=>'video'])['lists'],'action'),true),'Video history excludes helper operations');
+    pvAssert(!in_array('video',array_column(J::lists(1,1,['group'=>'helper'])['lists'],'action'),true),'Helper history excludes final videos');
+    pvReject(fn()=>J::lists(1,1,['group'=>'invalid']),'History group must be validated');
     pvReject(fn()=>S::fromJob(2,1,$aj['id']),'Cross tenant history reuse');
     pvReject(fn()=>P::key('pipeline_1234567890123'),'Public idempotency cannot collide with internal stages');
     echo "PASS local ownership, optimistic drafts, market quote, idempotency and queue isolation\n";
