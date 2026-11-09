@@ -41,11 +41,13 @@ class AppDisplayConfigService
         'aigc_video',
         'aigc_micro_video',
         'aigc_digital_human',
+        'aigc_pic_lipsync',
         'aigc_canvas',
         'aigc_llm',
         'aigc_short_drama',
         'aigc_geo',
         'aigc_music',
+        'aigc_music_cover',
         'image_human',
         'smart_clip',
         'aigc_hairstyle',
@@ -68,145 +70,153 @@ class AppDisplayConfigService
         'aigc_style_transfer',
     ];
 
+    /** Default display names follow the PC application entries. Tenant overrides remain authoritative. */
+    public const PC_APP_TITLES = [
+        'aigc_short_drama' => '短剧',
+        'smart_clip' => 'AI视频剪辑',
+        'aigc_image' => '图像创作',
+        'aigc_video' => '视频创作',
+        'aigc_music' => '音乐创作',
+        'aigc_pic_lipsync' => '图片数字人',
+        'image_human' => '全驱动数字人',
+        'aigc_digital_human' => '对口型数字人',
+        'aigc_canvas' => '画布',
+        'aigc_copywriting' => '智能文案',
+        'aigc_llm' => 'Agent对话',
+        'aigc_geo' => 'GEO营销',
+        'aigc_photo_restore' => '老照片修复',
+        'aigc_local_redraw' => '局部重绘',
+        'aigc_outpaint' => '无缝扩图',
+        'aigc_style_transfer' => '图片风格化',
+        'aigc_hairstyle' => 'AI换发型',
+        'aigc_image_translate' => '图片翻译',
+        'aigc_background_removal' => '图片去背景',
+        'aigc_one_click_cleanup' => '一键消除',
+        'aigc_product_suite' => 'AI商品套图',
+        'aigc_fashion_lookbook' => '服饰套图',
+        'aigc_product_multi_angle' => '商品多角度',
+        'aigc_micro_video' => '微视频',
+        'aigc_product_promo_video' => '产品宣传视频',
+        'aigc_action_transfer' => '动作迁移',
+        'aigc_model_wear' => '模特穿戴',
+        'aigc_person_replacement' => '动作替换',
+        'aigc_product_image' => 'AI商品图',
+        'aigc_watermark_removal' => '短视频去水印',
+        'aigc_music_cover' => '音乐翻唱',
+        'aigc_fitting' => 'AI试衣',
+    ];
+
     private const DEFAULTS = [
-        'aigc_copywriting' => ['title'=>'智能文案','description'=>'12类文案功能，选择模型，实时生成与改写。','sort'=>93],
+        'aigc_copywriting' => ['description'=>'12类文案功能，选择模型，实时生成与改写。','sort'=>93],
         'aigc_image' => [
-            'title' => '图片生成',
             'description' => '输入提示词或参考图，快速生成高质量图片。',
             'sort' => 100,
         ],
         'aigc_video' => [
-            'title' => '视频生成',
             'description' => '一键生成动态镜头与叙事短片。',
             'sort' => 95,
         ],
         'aigc_micro_video' => [
-            'title' => '微视频',
             'description' => '结合图片与主题规划镜头，生成连贯的完整视频。',
             'sort' => 94,
         ],
         'aigc_digital_human' => [
-            'title' => '数字人视频',
             'description' => '形象、音色与文案组合生成数字人视频。',
             'sort' => 90,
         ],
         'aigc_canvas' => [
-            'title' => '无限画布',
             'description' => '在画布中编排多节点 AI 创作流程。',
             'sort' => 85,
         ],
         'aigc_llm' => [
-            'title' => 'AIGC 对话',
             'description' => '多轮上下文大模型对话工作台。',
             'sort' => 80,
         ],
         'aigc_short_drama' => [
-            'title' => 'AI短剧',
             'description' => '从灵感、剧本到分镜和成片的一站式短剧创作。',
             'sort' => 79,
         ],
         'aigc_geo' => [
-            'title' => 'GEO营销优化系统',
             'description' => '围绕 AI 搜索曝光、内容生产、品牌管理、内容发布和付费投稿构建品牌增长闭环。',
             'sort' => 78,
         ],
         'image_human' => [
-            'title' => '全驱数字人',
             'description' => '上传人物图片与参考音频生成全驱动数字人视频。',
             'sort' => 75,
         ],
         'smart_clip' => [
-            'title' => 'AI视频剪辑',
             'description' => '上传视频或从作品带入素材，选择模板完成智能混剪。',
             'sort' => 70,
         ],
         'aigc_hairstyle' => [
-            'title' => 'AI换发型',
             'description' => '上传人物原图和发型参考图，一键生成自然换发型效果。',
             'sort' => 68,
         ],
         'aigc_fitting' => [
-            'title' => 'AI试衣',
             'description' => '上传服装图，选择模特或自定义模特生成真实试衣效果。',
             'sort' => 66,
         ],
         'aigc_product_image' => [
-            'title' => 'AI商品图',
             'description' => '上传商品图后选择场景模板或自定义场景，生成适合电商展示的商品图。',
             'sort' => 64,
         ],
         'aigc_photo_restore' => [
-            'title' => '老照片修复',
             'description' => '上传老照片后选择修复类型、模型和比例，生成清晰自然的修复作品。',
             'sort' => 63,
         ],
         'aigc_model_wear' => [
-            'title' => '模特穿戴',
             'description' => '上传模特图和穿戴图，选择生成质量与比例，生成自然的穿戴效果图。',
             'sort' => 62,
         ],
         'aigc_background_removal' => [
-            'title' => '图片去背景',
             'description' => '上传图片后智能抠图，快速生成干净透明背景素材。',
             'sort' => 61,
         ],
         'aigc_image_translate' => [
-            'title' => '图片翻译',
             'description' => '识别并翻译图片中的文字，保留原有画面排版风格。',
             'sort' => 60,
         ],
         'aigc_one_click_cleanup' => [
-            'title' => '一键消除',
             'description' => '批量清理图片中的水印、文字、贴纸和干扰元素。',
             'sort' => 59,
         ],
         'aigc_watermark_removal' => [
-            'title' => '短视频去水印',
             'description' => '输入短视频分享链接，快速生成无水印视频并支持下载。',
             'sort' => 58,
         ],
         'aigc_product_suite' => [
-            'title' => 'AI商品套图',
             'description' => '上传商品图后一键生成多张电商场景套图。',
             'sort' => 58,
         ],
         'aigc_product_multi_angle' => [
-            'title' => '商品多角度',
             'description' => '基于商品图生成正面、侧面、背面等多角度展示图。',
             'sort' => 57,
         ],
         'aigc_fashion_lookbook' => [
-            'title' => '服饰套图',
             'description' => '上传服饰和模特图，生成适合电商陈列的服饰套图。',
             'sort' => 56,
         ],
         'aigc_product_promo_video' => [
-            'title' => '产品宣传视频',
             'description' => '上传产品图片并选择脚本类型，生成产品宣传短视频。',
             'sort' => 55,
         ],
         'aigc_action_transfer' => [
-            'title' => '动作迁移',
             'description' => '上传参考人物图片和参考视频，将视频动作迁移到人物形象。',
             'sort' => 54,
         ],
         'aigc_person_replacement' => [
-            'title' => '动作替换',
             'description' => '上传参考人物图片和输入视频，将视频人物替换为目标形象。',
             'sort' => 53,
         ],
         'aigc_outpaint' => [
-            'title' => '无缝扩图',
             'description' => '上传图片后智能延展画面，生成自然连续的扩图结果。',
             'sort' => 52,
         ],
         'aigc_local_redraw' => [
-            'title' => '局部重绘',
             'description' => '上传图片并选择局部区域，按提示词重绘指定内容。',
             'sort' => 51,
         ],
         'aigc_style_transfer' => [
-            'title' => '图片风格化',
             'description' => '上传图片并选择风格模板，生成统一风格化作品。',
             'sort' => 50,
         ],
@@ -384,7 +394,7 @@ class AppDisplayConfigService
             'id' => 0,
             'tenant_id' => 0,
             'app_code' => $appCode,
-            'title' => $local['title'],
+            'title' => self::PC_APP_TITLES[$appCode] ?? ($local['title'] ?? $appCode),
             'description' => $local['description'],
             'cover_uri' => '',
             'icon_uri' => '',
@@ -401,7 +411,9 @@ class AppDisplayConfigService
             $manifest = is_array($appData['manifest_json'] ?? null) ? $appData['manifest_json'] : [];
             $manifestMeta = is_array($manifest['meta'] ?? null) ? $manifest['meta'] : [];
             if (!isset(self::DEFAULTS[$appCode])) {
-                $data['title'] = trim((string)($appData['name'] ?? $manifest['name'] ?? $data['title'])) ?: $data['title'];
+                if (!isset(self::PC_APP_TITLES[$appCode])) {
+                    $data['title'] = trim((string)($appData['name'] ?? $manifest['name'] ?? $data['title'])) ?: $data['title'];
+                }
                 $data['description'] = trim((string)($appData['description'] ?? $manifest['description'] ?? $data['description'])) ?: $data['description'];
             }
             $data['cover_uri'] = trim((string)($appData['cover'] ?? $manifest['cover'] ?? $manifestMeta['cover'] ?? $data['cover_uri']));
