@@ -12,7 +12,7 @@ final class MarketFileQaTokenPricing
         $rates = $declaration['effective_rate_config'];
         if (!is_array($rates) || !isset($rates['input'], $rates['output'])) throw new InvalidArgumentException('剧本解析输入输出费率不完整');
         $rates['cached_input'] ??= $rates['input'];
-        $size = (float)($sku['usage_unit_size'] ?? 0);
+        $size = (float)($declaration['usage_unit_size'] ?? $sku['usage_unit_size'] ?? 0);
         if (!is_finite($size) || $size <= 0) throw new InvalidArgumentException('剧本解析计费单位无效');
         $snapshot = ['version' => 1, 'usage_unit_size' => $size, 'upstream' => [], 'platform' => [], 'tenant' => [], 'rules' => []];
         foreach (['input', 'cached_input', 'output'] as $key) {

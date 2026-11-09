@@ -66,6 +66,14 @@ final class MarketFileQaTokenBillingTest extends TestCase
         $this->pricing([], [['scope_type' => 'sku', 'scope_id' => 257, 'mode' => 'manual', 'value' => '0']]);
     }
 
+    public function testFreshDeclarationRetainsItsBillingUnitWhenTheLocalCatalogueIsStale(): void
+    {
+        $pricing = Pricing::snapshot(['id' => 257, 'product_id' => 172, 'usage_unit_size' => 1000],
+            ['usage_unit_size' => 1000000, 'effective_rate_config' => ['input' => 2600, 'output' => 13000]], [], []);
+        self::assertSame(1000000., $pricing['usage_unit_size']);
+        self::assertSame(38.43, Pricing::amounts(['token_pricing' => $pricing], $this->receipt())[1]);
+    }
+
     /** @dataProvider scenarios */
     public function testLocalTransactionalSettlementAndDuplicateReceipts(string $scenario): void
     {

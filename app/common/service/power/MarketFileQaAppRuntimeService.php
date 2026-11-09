@@ -36,7 +36,7 @@ class MarketFileQaAppRuntimeService
             'resource_type' => 'app_api',
             'market_product_id' => (int)$market['product']['id'],
             'market_sku_id' => (int)$market['sku']['id'],
-            'token_pricing' => $market['token_pricing'],
+            'token_rates' => $market['token_pricing'] ? ['rates' => $market['token_pricing']['tenant'], 'usage_unit_size' => $market['token_pricing']['usage_unit_size']] : null,
             'usage_unit' => (string)$market['sku']['usage_unit'],
             'usage_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
         ]];
