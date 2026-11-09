@@ -54,6 +54,7 @@ final class ProductVideoJobs
             $wanted=(array)$body['video_selection'];$model=ProductVideoCatalog::model($tenant,$body);
             $spec=ProductVideoCatalog::spec($model,$body);
             if(($body['reference_mode']??'reference')!=='start_end'&&count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
+            if($body['mode']==='normal'&&$body['reference_mode']==='start_end')$images=ProductVideoPolicy::frames($images);
             $assets=[];foreach($images as $index=>$image)$assets[]=['type'=>'image','uri'=>$image['uri'],'role'=>$spec['generation_method']==='start_end'?($index===0?'first_frame_image':'last_frame_image'):($spec['generation_method']==='image_to_video'?'first_frame_image':'reference_image')]+$image;
             foreach($body['generation_assets'] as $asset)$assets[]=$asset;
             ProductVideoMaterials::assertMentions($body,$assets);
@@ -75,7 +76,7 @@ final class ProductVideoJobs
             $request['runtime']=MicroVideoCatalog::runtime($spec);$quote['approximate']=false;if($boardNotice!=='')$quote['notice']=$boardNotice;
             if(!empty($body['analyze_chapters'])){
                 $id=$body['analysis_model_id']?:$settings['analysis_model_id'];$options=Text::mediaOptions($tenant,true);if($id==='')$id=(string)($options[0]['id']??'');
-                if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException('请先选择成片分析模型，或关闭生成后分析章节');
+                if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException('成片分析配置暂不可用，请刷新后重试或联系管理员');
                 $analysis=Text::resolveModel($tenant,$id,true);$request['chapter_model']=['id'=>$id,'fingerprint'=>TextModelExecutionPolicy::fingerprint($analysis)];
                 $quote['phased_costs']=[['action'=>'video','model_name'=>$model['label'],'approximate'=>false,'user_charge_points'=>$quote['user_charge_points']],['action'=>'chapters','model_name'=>$analysis['name'],'approximate'=>true,'user_charge_points'=>null]];
                 $quote['notice']=($quote['notice']??'').'视频按当前规格生成一次；完成后分析真实成片章节，分析按实际模型用量另行结算';
@@ -116,11 +117,15 @@ final class ProductVideoJobs
             if($id==='')$id=(string)($options[0]['id']??'');
             if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException($video?'暂无上架的视频理解模型':'暂无上架的商品分析模型');
             $model=Text::resolveModel($tenant,$id,true);$request['selection']=['model_id'=>$id];$request['model_fingerprint']=TextModelExecutionPolicy::fingerprint($model);
-            $template=null;foreach(ProductVideoPrompts::templates() as $t)if($t['code']===$body['template_code'])$template=$t;
-            $reference=$body['reference_analysis'];if(($reference['video_uri']??'')!==($body['reference_video']['uri']??''))$reference=null;
-            $request['content']=ProductVideoPolicy::encode(['product_info'=>$body['product_info'],'requirements'=>$body['requirements'],'language'=>$body['language'],
-                'template'=>$template,'reference_observations'=>$reference['data']??null,'duration'=>$request['duration']??null,'ratio'=>$body['video_selection']['ratio']??'',
-                'prompt'=>($body['mode']==='advanced'?($body['plan']['data']['video_prompt']??$body['prompt']):$body['prompt']),'material_roles'=>array_map(static fn($a)=>array_intersect_key($a,array_flip(['type','mention_name','reference_slot_id','duration'])),$body['generation_assets']),'market_region'=>$body['market_region']??'','audio'=>$body['audio']??null,'image_slots'=>array_column($request['images'],'reference_slot_id'),'actual_duration'=>$video['duration']??null]);
+            // New product planning uses the product and generation settings only.
+            // Legacy reference observations remain stored/readable, but are never a hidden input.
+            $content=['product_info'=>$body['product_info'],'language'=>$body['language'],
+                'duration'=>$request['duration']??null,'ratio'=>$body['video_selection']['ratio']??'',
+                'material_roles'=>array_map(static fn($a)=>array_intersect_key($a,array_flip(['type','mention_name','reference_slot_id','duration'])),$body['generation_assets']),
+                'market_region'=>$body['market_region']??'','audio'=>$body['audio']??null,
+                'image_slots'=>array_column($request['images'],'reference_slot_id'),'actual_duration'=>$video['duration']??null];
+            if(in_array($action,['write','optimize'],true))$content['prompt']=$body['mode']==='advanced'?($body['plan']['data']['video_prompt']??$body['prompt']):$body['prompt'];
+            $request['content']=ProductVideoPolicy::encode($content);
             $request['video']=$video;$request['system']=ProductVideoPrompts::system($action);
             // Media token counts are supplier measured. A fictitious scalar quote would mislead users.
             $quote=['approximate'=>true,'user_charge_points'=>null,'tenant_cost_points'=>0,'model_name'=>$model['name'],
