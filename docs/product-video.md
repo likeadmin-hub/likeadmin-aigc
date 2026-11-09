@@ -4,7 +4,7 @@
 
 ## 接入和任务
 
-所有业务接口在 app.aigc_product_video 命名空间，用户任务与草稿按租户和用户隔离。任务先确认报价，再提交后台作业。图片和视频由公共市场运行时冻结、结算与持久化；文本按上游实际 Token 回执结算。视频分享页面不能代替媒体直链；现支持已上传媒体和通过公网安全校验的可下载视频，参考片最长 60 秒，本地输入上限 32MB。
+所有业务接口在 app.aigc_product_video 命名空间，用户任务与草稿按租户和用户隔离。任务先确认报价，再提交后台作业。图片和视频由公共市场运行时冻结、结算与持久化；文本按上游实际 Token 回执结算。视频分享页面不能代替媒体直链；现支持已上传媒体和通过公网安全校验的可下载视频，参考片最长 60 秒，上传上限 32MB。本地文件在分析前转成保留声音的 MP4，编码后严格小于 10MB；原文件保持不变。
 
 运行 `php think product-video:worker` 处理该应用的准备和生成作业；共享 AI 结果 worker 继续负责模型回调/结果与用量恢复。`--once` 仅处理一次，`--job=ID` 可限定任务。刷新页面和任务恢复不重新发起已受理的付费请求。创建结果不确定时保留任务与消费记录，等待核对。
 
@@ -16,4 +16,4 @@ PC 使用统一创作工作台；移动端有独立的纵向创作页面和安�
 
 ## 验证
 
-离线检查：tests/product-video-market-contract.php、tests/product-video-policy.php。真实生成按用户确认的市场报价执行；离线测试不证明成片质量、实际耗时或上游账单。
+离线检查：tests/product-video-market-contract.php、tests/product-video-policy.php。本地集成测试 `PRODUCT_VIDEO_LOCAL_TEST=x_cn php tests/product-video-local-flow.php` 仅在本机测试库运行，以事务回滚全部测试数据，不调用供应商。真实生成按用户确认的市场报价执行；离线测试不证明成片质量、实际耗时或上游账单。

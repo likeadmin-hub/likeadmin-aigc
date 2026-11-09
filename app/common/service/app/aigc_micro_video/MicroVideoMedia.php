@@ -90,12 +90,22 @@ final class MicroVideoMedia
         $storage = self::storage($file, $tenant);
         $url = self::managedUrl($uri, $storage, $tenant);
         if (preg_match('#^https?://#i', $input) && !self::sameObjectUrl($input, $url)) throw new RuntimeException('视频地址与所属素材不匹配');
+        $identity = [$tenant,$user,$file['id'],$uri,$file['update_time']??0,$storage];
+        if ($storage['storage_engine'] === 'local') {
+            $local = self::localPath($uri); $identity[] = [filemtime($local),filesize($local)];
+        }
+        $cacheKey = 'product_video_probe:'.hash('sha256', json_encode($identity));
+        $facts = null;
+        try { $facts = \think\facade\Cache::get($cacheKey); } catch (\Throwable) {}
         $workspace = self::workspace();
         try {
-            $path = $workspace.'/reference.mp4';
-            self::materialize($uri, $path, $tenant, $user);
-            $facts = self::probe($path);
-            if ($facts['duration'] > $maxSeconds + 0.1) throw new RuntimeException('参考视频请控制在 '.$maxSeconds.' 秒以内');
+            if (!is_array($facts)) {
+                $path = $workspace.'/reference.mp4';
+                self::materialize($uri, $path, $tenant, $user);
+                $facts = self::probe($path);
+                try { \think\facade\Cache::set($cacheKey,$facts,120); } catch (\Throwable) {}
+            }
+            if ($facts['duration'] > $maxSeconds + 0.1) throw new \InvalidArgumentException('参考视频请控制在 '.$maxSeconds.' 秒以内');
             return $facts + ['uri'=>$uri,'url'=>$url,'file_id'=>(int)$file['id'],'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user] + $storage;
         } finally { self::cleanup($workspace); }
     }
