@@ -37,4 +37,3 @@ WHERE `app_code` = 'image_human' AND BINARY `title` IN ('全驱数字人');
 UPDATE `la_tenant_app_config`
 SET `title` = '对口型数字人', `update_time` = UNIX_TIMESTAMP()
 WHERE `app_code` = 'aigc_digital_human' AND BINARY `title` IN ('数字人视频');
-
