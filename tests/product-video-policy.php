@@ -13,6 +13,7 @@ checkProductPolicy(str_contains(P::prompt($body),'0-2秒'),'Plan prompt must inc
 $changed=$body;$changed['video_selection']['ratio']='16:9';rejectsProductPolicy(fn()=>P::prompt($changed),'Ratio changes must invalidate plan');
 $signed=$body;$signed['images'][0]['url']='https://example.test/a?sig=new';checkProductPolicy(P::planKey($signed)===P::planKey($body),'Signed URL rotation must not invalidate authored plan');
 $changed=$body;$changed['images'][0]['uri']='uploads/other.png';checkProductPolicy(P::planKey($changed)!==P::planKey($body),'Product replacement must invalidate plan');
+$changed=$body;$changed['reference_analysis']=['data'=>['summary'=>'new observed pacing']];checkProductPolicy(P::planKey($changed)!==P::planKey($body),'Reference observation changes must invalidate plans');
 $request=['quote'=>['user_charge_points'=>5],'images'=>[['uri'=>'uploads/x.png','url'=>'https://test/a?expires=1']]];$new=$request;$new['images'][0]['url']='https://test/a?expires=2';checkProductPolicy(P::requestKey($request)===P::requestKey($new),'Ephemeral signatures must not change quotes');
 $row=['action'=>'plan','request_json'=>P::encode(['duration'=>5])];checkProductPolicy(count(W::parse($row,['content'=>P::encode($plan)])['shots'])===2,'Plan receipt parser lost shots');
 $row=['action'=>'reference','request_json'=>P::encode(['video'=>['duration'=>5]])];$result=W::parse($row,['content'=>P::encode($plan+['style'=>'平稳推近','audio'=>'轻音乐'])]);checkProductPolicy($result['style']==='平稳推近','Reference observations must survive');
