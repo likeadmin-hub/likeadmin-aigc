@@ -8,6 +8,16 @@ use think\facade\Db;
 
 final class ProductVideoWorker
 {
+    /** Callback handoff only: preserve the stage worker's lease and never call a provider here. */
+    public static function wake(array $consumption,int $id): bool
+    {
+        $row=ProductVideoJobs::table()->where('id',$id)->find();
+        if(!$row||$row['delete_time'])return true;
+        if(($consumption['app_code']??'')!==ProductVideoPolicy::APP||(int)$row['tenant_id']!==(int)$consumption['tenant_id']||(int)$row['user_id']!==(int)$consumption['user_id'])throw new RuntimeException('商品视频任务归属不一致');
+        if((int)$row['consumption_id']!==(int)$consumption['id'])return false;
+        if(in_array($row['status'],['queued','running','unknown'],true))ProductVideoJobs::table()->where(['id'=>$id,'consumption_id'=>$consumption['id'],'status'=>$row['status']])->update(['next_run_at'=>time(),'update_time'=>time()]);
+        return true;
+    }
     public static function tick(int $id=0): int
     {
         $q=ProductVideoJobs::table()->whereIn('status',['queued','running','unknown'])->where('delete_time',0)->where('next_run_at','<=',time())->where('lease_until','<',time());if($id)$q->where('id',$id);
