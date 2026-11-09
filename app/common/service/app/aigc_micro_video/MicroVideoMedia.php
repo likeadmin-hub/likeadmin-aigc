@@ -125,7 +125,7 @@ final class MicroVideoMedia
             $source = self::probe($path);
             if ($source['duration'] > 60.1) throw new RuntimeException('参考视频请控制在 60 秒以内');
             $output = $workspace.'/analysis.mp4';
-            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-i', $path,
+            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file,pipe', '-i', $path,
                 '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=640:640:force_original_aspect_ratio=decrease:force_divisible_by=2',
                 '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '600k', '-maxrate', '650k', '-bufsize', '1300k', '-r', '12',
                 '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-movflags', '+faststart', $output], 120);
@@ -395,7 +395,7 @@ final class MicroVideoMedia
 
     private static function probe(string $path): array
     {
-        $output = self::run([self::binary('ffprobe'), '-v', 'error', '-show_streams', '-show_format', '-of', 'json', $path], 60);
+        $output = self::run([self::binary('ffprobe'), '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_streams', '-show_format', '-of', 'json', $path], 60);
         $info = json_decode($output, true, 512, JSON_THROW_ON_ERROR); $video = null; $hasAudio = false;
         foreach ($info['streams'] ?? [] as $stream) {
             if (($stream['codec_type'] ?? '') === 'video' && empty($stream['disposition']['attached_pic']) && $video === null) $video = $stream;
