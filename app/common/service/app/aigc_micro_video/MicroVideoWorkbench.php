@@ -50,6 +50,7 @@ final class MicroVideoWorkbench
     public static function executionReferences(array $body): array
     {
         $body=MicroVideoWorkbenchPolicy::normalizeValues($body);
+        if(!empty($body['script']['requires_sync']))throw new InvalidArgumentException('正文与分镜尚未同步，请先整理剧本后继续');
         if(!empty($body['script_stale']))throw new InvalidArgumentException('商品或模板已更新，请确认并重新保存剧本后再执行');
         $segments=(array)($body['script']['segments']??[]);$scenes=[];foreach((array)($body['scenes']??[]) as $s)$scenes[(int)($s['sort']??0)]=$s;$roles=array_column((array)($body['roles']??[]),null,'role_id');$all=[];$out=[];
         foreach(array_values($segments) as $i=>$segment){$refs=(array)($body['images']??[]);$scene=$scenes[$i+1]??null;
