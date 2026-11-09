@@ -41,6 +41,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
                     continue;
                 }
                 $id = (int)$sku['product_id'];
+                if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
                 $price = (float)($sku['upstream_price'] ?? 0);
                 $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 $stats[$id]['min_price'] = isset($stats[$id]['min_price']) ? min($stats[$id]['min_price'], $price) : $price;
@@ -51,6 +52,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             $row = PowerMarketService::formatProduct($row);
             $row['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0);
             $row['min_price'] = (float)($stats[$id]['min_price'] ?? 0);
+            $row['has_token_rates'] = !empty($stats[$id]['has_token_rates']);
             $row['status'] = (int)($row['status'] ?? 0) === 1 && $row['sku_count'] > 0 ? 1 : 0;
             $row['status_text'] = $row['status'] === 1 ? '上架' : '下架';
         }

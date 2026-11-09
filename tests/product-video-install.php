@@ -10,7 +10,7 @@ $prefix='pvf_'.bin2hex(random_bytes(5)).'_';$code='aigc_product_video';$root=dir
 $pdo=new PDO('mysql:host=127.0.0.1;port='.($mysql['hostport']?:3306).';dbname=x_cn;charset=utf8mb4',$mysql['username'],$mysql['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::MYSQL_ATTR_MULTI_STATEMENTS=>true]);
 function pvInstallCheck(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);}
 try{
- $pdo->exec(str_replace('`la_','`'.$prefix,file_get_contents($root.'/public/install/db/like.sql')));
+ $pdo->exec(str_replace('la_',$prefix,file_get_contents($root.'/public/install/db/like.sql')));
  $cfg=$original;$cfg['connections']['mysql']['prefix']=$prefix;Config::set($cfg,'database');Db::connect(null,true);
  $app=Db::name('app')->where('code',$code)->find();pvInstallCheck($app && $app['status']==='installed' && (int)$app['is_builtin']===1,'Fresh app registry missing');
  $entries=Db::name('app_frontend_entry')->where('app_code',$code)->select()->toArray();pvInstallCheck(count($entries)===3,'Fresh frontend entry parity');
