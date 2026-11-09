@@ -59,7 +59,12 @@ final class VirtualPayService
         $r=$this->gateway->request($v,'/xpay/query_order',['openid'=>$intent['openid'],'env'=>(int)$intent['env'],'order_id'=>$intent['out_trade_no']]);VirtualPayPolicy::assertRuntime();$o=$r['order']??null;
         if(!is_array($o)||($o['order_id']??'')!==$intent['out_trade_no']||(int)($o['env_type']??0)!==(int)$intent['env']+1)throw new \RuntimeException('渠道订单身份或环境核对失败');
         if((int)($o['order_fee']??-1)!==(int)$intent['amount_cents']||(in_array((int)($o['status']??0),[2,3,4,5,8],true)&&(int)($o['paid_fee']??-1)!==(int)$intent['amount_cents']))throw new \RuntimeException('渠道订单金额核对失败');
-        if(isset($o['biz_meta'])&&$o['biz_meta']!==''&&$o['biz_meta']!==$intent['attach'])throw new \RuntimeException('渠道订单商品关联信息核对失败');return $o;
+        if(isset($o['biz_meta'])&&$o['biz_meta']!==''&&$o['biz_meta']!==$intent['attach']){
+            // WeChat query_order wraps requestVirtualPayment attach in a JSON object.
+            $meta=is_string($o['biz_meta'])?json_decode($o['biz_meta'],true):null;
+            if(!is_array($meta)||($meta['attach']??null)!==$intent['attach'])throw new \RuntimeException('渠道订单商品关联信息核对失败');
+        }
+        return $o;
     }
     public function reconcile(array $intent, string $expectedTransaction = ''): array
     {
