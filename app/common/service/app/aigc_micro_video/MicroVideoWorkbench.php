@@ -10,8 +10,14 @@ use InvalidArgumentException;
 /** Thin workbench adapters around existing execution/material authorities. */
 final class MicroVideoWorkbench
 {
-    public static function capabilities(int $tenant): array
+    public static function capabilities(int $tenant, bool $home = false): array
     {
+        if ($home) {
+            $settings = MicroVideoSettings::get($tenant);
+            $config = array_intersect_key($settings, array_flip(['status', 'target_duration_options', 'max_images', 'max_segments']));
+            $config += ['models' => [], 'directions' => [], 'frame_models' => [], 'default_model_id' => '', 'default_quality' => '', 'default_ratio' => '', 'frames_enabled' => 0];
+            return ['config' => $config, 'text_models' => [], 'image_models' => [], 'cross_apps' => [], 'catalogue_complete' => false];
+        }
         self::seed($tenant);$config=MicroVideoSettings::detail($tenant);$text=array_map(fn($m)=>['id'=>(string)$m['id'],'name'=>(string)$m['name']],MarketTextModelRuntimeService::textOptions($tenant));$cross=[];
         foreach(['aigc_short_drama'=>'短剧创作','image_human'=>'数字人','aigc_image'=>'商品图片','aigc_product_image'=>'AI商品图','aigc_fitting'=>'AI服饰'] as $code=>$label)$cross[]=['app_code'=>$code,'label'=>$label,'available'=>AppAccessService::tenantCanUse($tenant,$code,false)];
         $settings = MicroVideoSettings::get($tenant);
