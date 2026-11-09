@@ -42,7 +42,7 @@ class VirtualPayGateway
         $raw=json_encode($payload,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);$query=['access_token'=>$this->accessToken($v)];
         if($signed)$query['pay_sig']=hash_hmac('sha256',$path.'&'.$raw,VirtualPayConfigService::secret($v,'app_key'));
         $data=$this->send('POST',$path,$query,$raw);
-        if(isset($data['errcode'])&&(int)$data['errcode']!==0)throw new \RuntimeException('微信支付核对未完成（错误码'.(int)$data['errcode'].'），请稍后重试或联系管理员');
+        if(isset($data['errcode'])&&(int)$data['errcode']!==0)throw new \RuntimeException('微信支付核对未完成（错误码'.(int)$data['errcode'].'），请稍后重试或联系管理员',(int)$data['errcode']);
         return $data;
     }
 }

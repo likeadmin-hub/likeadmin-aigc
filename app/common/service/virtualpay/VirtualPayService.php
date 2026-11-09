@@ -59,7 +59,12 @@ final class VirtualPayService
         $r=$this->gateway->request($v,'/xpay/query_order',['openid'=>$intent['openid'],'env'=>(int)$intent['env'],'order_id'=>$intent['out_trade_no']]);VirtualPayPolicy::assertRuntime();$o=$r['order']??null;
         if(!is_array($o)||($o['order_id']??'')!==$intent['out_trade_no']||(int)($o['env_type']??0)!==(int)$intent['env']+1)throw new \RuntimeException('渠道订单身份或环境核对失败');
         if((int)($o['order_fee']??-1)!==(int)$intent['amount_cents']||(in_array((int)($o['status']??0),[2,3,4,5,8],true)&&(int)($o['paid_fee']??-1)!==(int)$intent['amount_cents']))throw new \RuntimeException('渠道订单金额核对失败');
-        if(isset($o['biz_meta'])&&$o['biz_meta']!==''&&$o['biz_meta']!==$intent['attach'])throw new \RuntimeException('渠道订单商品关联信息核对失败');return $o;
+        if(isset($o['biz_meta'])&&$o['biz_meta']!==''&&$o['biz_meta']!==$intent['attach']){
+            // WeChat query_order wraps requestVirtualPayment attach in a JSON object.
+            $meta=is_string($o['biz_meta'])?json_decode($o['biz_meta'],true):null;
+            if(!is_array($meta)||($meta['attach']??null)!==$intent['attach'])throw new \RuntimeException('渠道订单商品关联信息核对失败');
+        }
+        return $o;
     }
     public function reconcile(array $intent, string $expectedTransaction = ''): array
     {
@@ -110,6 +115,8 @@ final class VirtualPayService
         if(!$i)throw new \RuntimeException('尚未发起虚拟支付');
         if($query&&$i['refund_status']==='none'){try{$this->reconcile($i);}catch(\Throwable $e){VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['last_error'=>mb_substr($e->getMessage(),0,500),'updated_at'=>time()]);}}
         $i=Db::name('virtual_pay_intent')->where('id',$i['id'])->find();
-        return ['order_id'=>$id,'from'=>$from,'order_amount'=>\app\common\service\promotion\PackagePromotionPolicy::amount((int)$i['amount_cents']),'payment_status'=>$i['status'],'delivery_status'=>$i['delivery_status'],'shipping_status'=>$i['xpay_shipping_status'],'general_shipping_status'=>$i['general_shipping_status'],'refund_status'=>$i['refund_status'],'expires_at'=>(int)$i['expires_at'],'message'=>$i['last_error']!==''?'支付或交付仍在核对，请稍后查询或联系管理员':'','confirm_receipt'=>false];
+        $message=$i['last_error']!==''?'支付或交付仍在核对，请稍后查询或联系管理员':'';
+        if($i['last_error']===VirtualPayMaintenanceService::GENERAL_SHIPPING_PERMISSION_ERROR&&$i['status']==='paid'&&$i['delivery_status']==='granted'&&$i['xpay_shipping_status']==='confirmed'&&$i['refund_status']==='none')$message='权益已到账，微信虚拟支付已发货';
+        return ['order_id'=>$id,'from'=>$from,'order_amount'=>\app\common\service\promotion\PackagePromotionPolicy::amount((int)$i['amount_cents']),'payment_status'=>$i['status'],'delivery_status'=>$i['delivery_status'],'shipping_status'=>$i['xpay_shipping_status'],'general_shipping_status'=>$i['general_shipping_status'],'refund_status'=>$i['refund_status'],'expires_at'=>(int)$i['expires_at'],'message'=>$message,'confirm_receipt'=>false];
     }
 }

@@ -45,7 +45,7 @@ final class VirtualPayDeliveryService
         if((int)$o['status']===4){Db::name('virtual_pay_intent')->where('id',$id)->update(['xpay_shipping_status'=>'confirmed','updated_at'=>time()]);return true;}
         if(!in_array((int)$o['status'],[2,3],true))throw new \RuntimeException('渠道发货状态需要核对');
         $v=VirtualPayConfigService::version((int)$i['tenant_id'],(int)$i['config_version_id']);
-        $this->pay->gateway()->request($v,'/xpay/notify_provide_goods',['order_id'=>$i['out_trade_no'],'env'=>(int)$i['env']],false);
+        $this->pay->gateway()->request($v,'/xpay/notify_provide_goods',['order_id'=>$i['out_trade_no'],'env'=>(int)$i['env']]);
         VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$id)->update(['xpay_shipping_status'=>'confirming','updated_at'=>time()]);return false;
     }
 }
