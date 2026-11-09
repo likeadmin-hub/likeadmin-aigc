@@ -14,8 +14,13 @@ final class ProductVideoJobs
     {$q=self::table()->where(['id'=>$id,'delete_time'=>0]);if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);$row=$q->find();if(!$row)throw new InvalidArgumentException('创作任务不存在或无权访问');return $row;}
     public static function dto(array $row): array
     {
+        $result=ProductVideoService::publicBody(ProductVideoPolicy::json($row['result_json']),(int)$row['tenant_id']);
+        if($row['action']==='video'){
+            $link=ProductVideoService::table('job_stage')->where(['root_job_id'=>$row['id'],'stage'=>'chapters'])->find();
+            if($link){$child=self::table()->where('id',$link['child_job_id'])->find();if($child)$result['chapters']=['status'=>$child['status'],'data'=>ProductVideoPolicy::json($child['result_json']),'user_charge_points'=>(float)$child['user_charge_points'],'billing_status'=>$child['billing_status']];}
+        }
         return ['id'=>(int)$row['id'],'project_id'=>(int)$row['project_id'],'project_revision'=>(int)$row['project_revision'],'action'=>$row['action'],
-            'status'=>$row['status'],'result'=>ProductVideoService::publicBody(ProductVideoPolicy::json($row['result_json']),(int)$row['tenant_id']),
+            'status'=>$row['status'],'result'=>$result,
             'error'=>$row['error']===''?'':($row['status']==='unknown'?'模型受理或费用待核对，请保留此任务，勿重复提交':'创作未完成，请检查素材、模型或余额后重试'),
             'user_charge_points'=>(float)$row['user_charge_points'],'billing_status'=>$row['billing_status'],
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
@@ -49,7 +54,8 @@ final class ProductVideoJobs
             $storyboard=$body['storyboard'];
             if($body['mode']==='advanced'&&is_array($storyboard)&&($storyboard['input_key']??'')===ProductVideoPolicy::hash((array)$body['plan'])&&$spec['generation_method']!=='image_to_video'){
                 $extra=MicroVideoMedia::validateImages($tenant,$user,(array)($storyboard['images']??[]),1);
-                if(count($assets)+count($extra)<=(int)$model['max_reference_images']){
+                $capacity=(int)$model['max_reference_images'];foreach($model['material_modes']??[] as $native)if(($native['key']??'')===($spec['material_mode']??'')){$capacity=0;foreach($native['fields'] as $field)if($field['kind']==='image')$capacity+=(int)($field['maximum']??0);}
+                if(count($images)+count($extra)<=$capacity){
                     foreach($extra as $image)$assets[]=['type'=>'image','uri'=>$image['uri'],'role'=>'reference_image']+$image;
                     $prompt.='附加故事板仅供镜头参考，成片必须是单画面连续视频，不要出现网格、编号或多画面拼贴。';
                 }
@@ -57,7 +63,15 @@ final class ProductVideoJobs
             $selection=$spec+['model_id'=>$model['id'],'channel'=>$model['id'],'resolution'=>$spec['quality']];
             $request+=['selection'=>$selection,'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>$body['selected_mentions']];
             $quote=MicroVideoCatalog::runtime($spec)::quote($tenant,$selection+['prompt'=>$prompt,'reference_images'=>$request['reference_images'],'reference_assets'=>$assets]);
+            $request['selection']['market_sku_id']=(int)$quote['market_sku_id'];
             $request['runtime']=MicroVideoCatalog::runtime($spec);$quote['approximate']=false;
+            if(!empty($body['analyze_chapters'])){
+                $id=$body['analysis_model_id']?:$settings['analysis_model_id'];$options=Text::mediaOptions($tenant,true);if($id==='')$id=(string)($options[0]['id']??'');
+                if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException('请先选择成片分析模型，或关闭生成后分析章节');
+                $analysis=Text::resolveModel($tenant,$id,true);$request['chapter_model']=['id'=>$id,'fingerprint'=>TextModelExecutionPolicy::fingerprint($analysis)];
+                $quote['phased_costs']=[['action'=>'video','model_name'=>$model['label'],'approximate'=>false,'user_charge_points'=>$quote['user_charge_points']],['action'=>'chapters','model_name'=>$analysis['name'],'approximate'=>true,'user_charge_points'=>null]];
+                $quote['notice']='视频按当前规格生成一次；完成后分析真实成片章节，分析按实际模型用量另行结算';
+            }
         }elseif($action==='storyboard'){
             ProductVideoPolicy::prompt(array_replace($body,['mode'=>'advanced']));
             $models=MicroVideoFrameCatalog::compatible(MicroVideoFrameCatalog::models($tenant,1),[count($images)]);
@@ -89,7 +103,7 @@ final class ProductVideoJobs
                 if(count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
                 $request['duration']=(int)$v['duration'];
             }
-            $id=(string)($body['analysis_model_id']?:$settings['analysis_model_id']);$options=Text::mediaOptions($tenant,(bool)$video);
+            $id=(string)($video?($body['analysis_model_id']?:$settings['analysis_model_id']):($body['planning_model_id']?:$settings['planning_model_id']));$options=Text::mediaOptions($tenant,(bool)$video);
             if($id==='')$id=(string)($options[0]['id']??'');
             if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException($video?'暂无上架的视频理解模型':'暂无上架的商品分析模型');
             $model=Text::resolveModel($tenant,$id,true);$request['selection']=['model_id'=>$id];$request['model_fingerprint']=TextModelExecutionPolicy::fingerprint($model);
@@ -97,7 +111,7 @@ final class ProductVideoJobs
             $reference=$body['reference_analysis'];if(($reference['video_uri']??'')!==($body['reference_video']['uri']??''))$reference=null;
             $request['content']=ProductVideoPolicy::encode(['product_info'=>$body['product_info'],'requirements'=>$body['requirements'],'language'=>$body['language'],
                 'template'=>$template,'reference_observations'=>$reference['data']??null,'duration'=>$request['duration']??null,'ratio'=>$body['video_selection']['ratio']??'',
-                'prompt'=>$body['prompt'],'market_region'=>$body['market_region']??'','audio'=>$body['audio']??null,'image_slots'=>array_column($request['images'],'reference_slot_id'),'actual_duration'=>$video['duration']??null]);
+                'prompt'=>$body['prompt'],'material_roles'=>array_map(static fn($a)=>array_intersect_key($a,array_flip(['type','mention_name','reference_slot_id','duration'])),$body['generation_assets']),'market_region'=>$body['market_region']??'','audio'=>$body['audio']??null,'image_slots'=>array_column($request['images'],'reference_slot_id'),'actual_duration'=>$video['duration']??null]);
             $request['video']=$video;$request['system']=ProductVideoPrompts::system($action);
             // Media token counts are supplier measured. A fictitious scalar quote would mislead users.
             $quote=['approximate'=>true,'user_charge_points'=>null,'tenant_cost_points'=>0,'model_name'=>$model['name'],
@@ -136,5 +150,5 @@ final class ProductVideoJobs
     public static function recover(int $tenant,int $user,int $id): array
     {$row=self::owned($tenant,$user,$id);ProductVideoWorker::reconcile($row);return self::dto(self::owned($tenant,$user,$id));}
     public static function delete(int $tenant,int $user,int $id): void
-    {$row=self::owned($tenant,$user,$id);if(!in_array($row['status'],['success','partial','failed','canceled'],true))throw new InvalidArgumentException('任务尚未结束，请保留进度');self::table()->where('id',$id)->update(['delete_time'=>time(),'update_time'=>time()]);}
+    {$row=self::owned($tenant,$user,$id);if(($row['action']==='video')&&self::table()->whereIn('id',function($q)use($id){$q->name(ProductVideoPolicy::APP.'_job_stage')->where('root_job_id',$id)->field('child_job_id');})->whereIn('status',['queued','running','unknown'])->count())throw new InvalidArgumentException('成片章节仍在处理，请保留记录');if(!in_array($row['status'],['success','partial','failed','canceled'],true))throw new InvalidArgumentException('任务尚未结束，请保留进度');self::table()->where('id',$id)->update(['delete_time'=>time(),'update_time'=>time()]);}
 }

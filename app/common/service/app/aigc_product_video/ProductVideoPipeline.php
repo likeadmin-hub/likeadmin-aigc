@@ -33,7 +33,7 @@ final class ProductVideoPipeline
         $request=['action'=>'analysis','plan_request'=>$plan['request'],'image_stage'=>$selected,'snapshot'=>$body,'project_revision'=>$plan['project']['revision'],'quote'=>$quote];
         return ['project'=>$plan['project'],'request'=>$request,'quote'=>$quote,'hash'=>ProductVideoPolicy::requestKey($request)];
     }
-    private static function child(array $root,string $stage,array $request): array
+    public static function child(array $root,string $stage,array $request): array
     {
         return Db::transaction(static function()use($root,$stage,$request){
             ProductVideoJobs::table()->where('id',$root['id'])->lock(true)->find();
@@ -44,6 +44,24 @@ final class ProductVideoPipeline
             ProductVideoService::table('job_stage')->insert(['tenant_id'=>$root['tenant_id'],'user_id'=>$root['user_id'],'root_job_id'=>$root['id'],'stage'=>$stage,'child_job_id'=>$id,'create_time'=>time()]);
             return ProductVideoJobs::table()->where('id',$id)->find();
         });
+    }
+    public static function chapters(array $root,array $result): void
+    {
+        $request=ProductVideoPolicy::json($root['request_json']);if(empty($request['chapter_model']))return;
+        try {
+            $tenant=(int)$root['tenant_id'];$user=(int)$root['user_id'];
+            $uri=$result['videos'][0]['video_uri']??$result['videos'][0]['uri']??'';
+            $video=MicroVideoMedia::validateVideo($tenant,$user,(string)$uri);
+            $child=['action'=>'chapters','snapshot'=>$request['snapshot'],'project_revision'=>$root['project_revision'],'video_job_id'=>(int)$root['id'],
+                'selection'=>['model_id'=>$request['chapter_model']['id']],'model_fingerprint'=>$request['chapter_model']['fingerprint'],
+                'images'=>[],'video'=>$video,'system'=>ProductVideoPrompts::system('chapters'),
+                'content'=>ProductVideoPolicy::encode(['actual_duration'=>$video['duration']]),'quote'=>['approximate'=>true,'user_charge_points'=>null]];
+            self::child($root,'chapters',$child);
+        } catch(\Throwable $e) {
+            // A chapter failure never invalidates a playable, settled video.
+            $result['chapter_error']='成片已保存，自动章节暂未完成，可单独重新分析';
+            ProductVideoWorker::write((int)$root['id'],['result_json'=>ProductVideoPolicy::encode($result)]);
+        }
     }
     public static function run(array $root): void
     {

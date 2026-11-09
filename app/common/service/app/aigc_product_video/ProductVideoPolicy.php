@@ -17,7 +17,7 @@ final class ProductVideoPolicy
     public static function text($value,int $max): string
     {if(!is_string($value)&&!is_numeric($value))throw new InvalidArgumentException('内容格式不正确');$text=trim((string)$value);if(mb_strlen($text)>$max)throw new InvalidArgumentException('内容超过长度限制');return $text;}
     public static function key(string $value): string
-    {if(!preg_match('/^[a-zA-Z0-9_-]{16,100}$/D',$value))throw new InvalidArgumentException('请刷新后重新提交');return $value;}
+    {if(str_starts_with($value,'pipeline_')||!preg_match('/^[a-zA-Z0-9_-]{16,100}$/D',$value))throw new InvalidArgumentException('请刷新后重新提交');return $value;}
     public static function body(array $body): array
     {
         $mode=$body['mode']??'normal';if(!in_array($mode,['normal','advanced'],true))throw new InvalidArgumentException('创作模式无效');
@@ -26,12 +26,12 @@ final class ProductVideoPolicy
         $referenceMode=$body['reference_mode']??'reference';if(!in_array($referenceMode,['reference','start_end'],true))throw new InvalidArgumentException('参考素材方式无效');
         $templateCode=self::text($body['template_code']??'detail',50);$template=null;foreach(ProductVideoPrompts::templates() as $item)if($item['code']===$templateCode)$template=$item;if(!$template)throw new InvalidArgumentException('创作模板不存在，请重新选择');
         $out=['template_version'=>$template['version'],'normal_source'=>$normalSource,'reference_mode'=>$referenceMode,'market_region'=>self::text($body['market_region']??'',100),'audio'=>isset($body['audio'])?filter_var($body['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,
-            'generation_assets'=>(array)($body['generation_assets']??[]),'selected_mentions'=>(array)($body['selected_mentions']??[]),
+            'analyze_chapters'=>!empty($body['analyze_chapters']),'prompt_review_images'=>array_values((array)($body['prompt_review_images']??[])),'generation_assets'=>(array)($body['generation_assets']??[]),'selected_mentions'=>(array)($body['selected_mentions']??[]),
             'mode'=>$mode,'images'=>$images,'reference_video'=>$body['reference_video']??null,
             'product_info'=>self::text($body['product_info']??'',3000),'prompt'=>self::text($body['prompt']??'',12000),
             'requirements'=>self::text($body['requirements']??'',2000),'template_code'=>$templateCode,
             'language'=>self::text($body['language']??'中文',60),'plan'=>$body['plan']??null,'reference_analysis'=>$body['reference_analysis']??null,
-            'storyboard'=>$body['storyboard']??null,'analysis_model_id'=>self::text($body['analysis_model_id']??'',100),
+            'storyboard'=>$body['storyboard']??null,'analysis_model_id'=>self::text($body['analysis_model_id']??'',100),'planning_model_id'=>self::text($body['planning_model_id']??'',100),
             'image_selection'=>(array)($body['image_selection']??[]),'video_selection'=>(array)($body['video_selection']??[])];
         if(strlen(self::encode($out))>160000)throw new InvalidArgumentException('创作资料过大');return $out;
     }
@@ -82,9 +82,10 @@ final class ProductVideoPolicy
                 foreach(ProductVideoPrompts::templates() as $t)if($t['code']===$body['template_code'])return $base.$t['instruction'].($body['requirements']?:'');
                 throw new InvalidArgumentException('请选择可用的商品展示模板');
             }
+            if($body['prompt']!==''&&($body['prompt_review_images']??[])!==array_column($body['images'],'uri'))throw new InvalidArgumentException('商品已变化，请检查并确认视频描述');
             return $base.$body['prompt'];
         }
-        if(empty($body['plan'])&&$body['prompt']!=='')return $base.$body['prompt'];
+        if(empty($body['plan'])&&$body['prompt']!==''){if(($body['prompt_review_images']??[])!==array_column($body['images'],'uri'))throw new InvalidArgumentException('商品已变化，请检查并确认视频描述');return $base.$body['prompt'];}
         $duration=(int)($body['video_selection']['duration']??0);$plan=self::plan((array)($body['plan']['data']??[]),$duration);
         if(($body['plan']['input_key']??'')!==self::planKey($body))throw new InvalidArgumentException('商品资料或视频规格已变化，请更新分镜');
         $lines=[];foreach($plan['shots'] as $shot)$lines[]=$shot['start'].'-'.$shot['end'].'秒：'.$shot['description'];
