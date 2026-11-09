@@ -104,9 +104,29 @@ final class MicroVideoMedia
     {
         $fresh = self::validateVideo((int)$asset['tenant_id'], (int)$asset['user_id'], (string)$asset['uri']);
         if ($fresh['storage_engine'] !== 'local') return $fresh['url'];
-        $path = self::localPath($fresh['uri']);
-        if (filesize($path) > 33554432) throw new RuntimeException('本地参考视频请压缩到 32MB 内，或使用已配置的云存储');
-        return 'data:video/mp4;base64,'.base64_encode(file_get_contents($path));
+        return self::localVideoInput(self::localPath($fresh['uri']));
+    }
+
+    /** Keep local uploads inside the video-understanding API's encoded 10 MB limit. */
+    private static function localVideoInput(string $path): string
+    {
+        $workspace = self::workspace();
+        try {
+            $source = self::probe($path);
+            if ($source['duration'] > 60.1) throw new RuntimeException('参考视频请控制在 60 秒以内');
+            $output = $workspace.'/analysis.mp4';
+            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-i', $path,
+                '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=640:640:force_original_aspect_ratio=decrease:force_divisible_by=2',
+                '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '600k', '-maxrate', '650k', '-bufsize', '1300k', '-r', '12',
+                '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-movflags', '+faststart', $output], 120);
+            $normalized = self::probe($output);
+            if (abs($normalized['duration']-$source['duration']) > 0.25 || ($source['has_audio'] && !$normalized['has_audio'])) {
+                throw new RuntimeException('参考视频转码未完成，请重新上传');
+            }
+            $encoded = base64_encode(file_get_contents($output));
+            if (strlen($encoded) >= 10000000) throw new RuntimeException('参考视频过大，请缩短后再分析');
+            return 'data:video/mp4;base64,'.$encoded;
+        } finally { self::cleanup($workspace); }
     }
 
     public static function merge(array $task, array $segments): array

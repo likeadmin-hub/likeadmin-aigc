@@ -25,6 +25,7 @@ final class ProductVideoService
     }
     public static function setup(int $tenant,array $p): array
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenant,ProductVideoPolicy::APP,$p);
         $data=['status'=>empty($p['status'])?0:1];
         foreach(['analysis_model_id','default_video_model_id','default_image_model_id'] as $key)$data[$key]=ProductVideoPolicy::text($p[$key]??'',100);
         $values=['body_json'=>ProductVideoPolicy::encode($data),'update_time'=>time()];$q=self::table('config')->where('tenant_id',$tenant);
@@ -52,7 +53,11 @@ final class ProductVideoService
         if(!$r)throw new InvalidArgumentException('创作草稿不存在或无权访问');return $r;
     }
     public static function projectDto(array $row): array
-    {return ['id'=>(int)$row['id'],'title'=>$row['title'],'revision'=>(int)$row['revision'],'body'=>self::publicBody(ProductVideoPolicy::json($row['body_json']), (int)$row['tenant_id']),'update_time'=>(int)$row['update_time']];}
+    {
+        $body=ProductVideoPolicy::json($row['body_json']);
+        return ['id'=>(int)$row['id'],'title'=>$row['title'],'revision'=>(int)$row['revision'],'body'=>self::publicBody($body,(int)$row['tenant_id']),
+            'plan_fresh'=>($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body),'update_time'=>(int)$row['update_time']];
+    }
     public static function publicBody(array $body,int $tenant): array
     {
         $walk=static function($v)use(&$walk,$tenant){if(!is_array($v))return $v;
