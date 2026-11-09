@@ -115,6 +115,8 @@ final class VirtualPayService
         if(!$i)throw new \RuntimeException('尚未发起虚拟支付');
         if($query&&$i['refund_status']==='none'){try{$this->reconcile($i);}catch(\Throwable $e){VirtualPayPolicy::assertRuntime();Db::name('virtual_pay_intent')->where('id',$i['id'])->update(['last_error'=>mb_substr($e->getMessage(),0,500),'updated_at'=>time()]);}}
         $i=Db::name('virtual_pay_intent')->where('id',$i['id'])->find();
-        return ['order_id'=>$id,'from'=>$from,'order_amount'=>\app\common\service\promotion\PackagePromotionPolicy::amount((int)$i['amount_cents']),'payment_status'=>$i['status'],'delivery_status'=>$i['delivery_status'],'shipping_status'=>$i['xpay_shipping_status'],'general_shipping_status'=>$i['general_shipping_status'],'refund_status'=>$i['refund_status'],'expires_at'=>(int)$i['expires_at'],'message'=>$i['last_error']!==''?'支付或交付仍在核对，请稍后查询或联系管理员':'','confirm_receipt'=>false];
+        $message=$i['last_error']!==''?'支付或交付仍在核对，请稍后查询或联系管理员':'';
+        if($i['last_error']===VirtualPayMaintenanceService::GENERAL_SHIPPING_PERMISSION_ERROR&&$i['status']==='paid'&&$i['delivery_status']==='granted'&&$i['xpay_shipping_status']==='confirmed'&&$i['refund_status']==='none')$message='权益已到账，微信虚拟支付已发货';
+        return ['order_id'=>$id,'from'=>$from,'order_amount'=>\app\common\service\promotion\PackagePromotionPolicy::amount((int)$i['amount_cents']),'payment_status'=>$i['status'],'delivery_status'=>$i['delivery_status'],'shipping_status'=>$i['xpay_shipping_status'],'general_shipping_status'=>$i['general_shipping_status'],'refund_status'=>$i['refund_status'],'expires_at'=>(int)$i['expires_at'],'message'=>$message,'confirm_receipt'=>false];
     }
 }
