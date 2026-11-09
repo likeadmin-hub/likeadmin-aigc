@@ -9223,8 +9223,12 @@ class AigcShortDramaService
     private static function fileQaParsePlan(array $result, array $request, string $fallbackTitle): array
     {
         $source = is_array($result['short_drama_plan'] ?? null) ? $result['short_drama_plan'] : (is_array($result['plan'] ?? null) ? $result['plan'] : $result);
-        $episodes = ShortDramaSourceBoundary::episodes(array_values(array_filter((array)($source['episodes'] ?? []), 'is_array')),
-            (string)($request['parse_mode'] ?? $result['parse_mode'] ?? ''));
+        $episodes = array_values(array_filter((array)($source['episodes'] ?? []), 'is_array'));
+        $uploadText = $request['_file_parse_fallback']['text'] ?? $request['_file_parse_model']['text'] ?? '';
+        if (is_string($uploadText) && $uploadText !== '') {
+            $episodes = ShortDramaUploadedSourceAlignment::map($episodes, $uploadText);
+        }
+        $episodes = ShortDramaSourceBoundary::episodes($episodes, (string)($request['parse_mode'] ?? $result['parse_mode'] ?? ''));
         $count = count($episodes);
         if ($count < 1 || $count > self::SCRIPT_MAX_EPISODES || (int)($source['episode_count'] ?? $count) !== $count) {
             throw new Exception('解析结果的有效剧集数必须为 1～' . self::SCRIPT_MAX_EPISODES . '，且与 episodes 一致');
@@ -18782,6 +18786,15 @@ class AigcShortDramaService
         return $message !== '' ? mb_substr($message, 0, 200) : self::SAFE_ERROR;
     }
 
+    private static function scriptTaskError(string $message, array $request): string
+    {
+        if (self::isMarketFileQaParseRequest($request) && !ShortDramaFileModelParser::applies($request)
+            && empty($request['_file_parse_fallback']['model'])) {
+            return ShortDramaUploadedScriptApi::error(self::friendlyGenerationError($message));
+        }
+        return self::scriptPlanProviderError($message);
+    }
+
     /**
      * Keep the provider contract deliberately small. A full production plan
      * contains verbose per-shot image and video prompts, which can exceed the
@@ -23756,7 +23769,7 @@ class AigcShortDramaService
             'stream_checkpoint' => ShortDramaScriptPreview::project((array)($storedResult['__script_checkpoint'] ?? [])),
             'recovery_info' => ShortDramaScriptPreview::recoveryInfo($storedResult, $status, (string)($task['error'] ?? '')),
             'error' => in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
-                ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
+                ? self::scriptTaskError((string)($task['error'] ?? ''), $request)
                 : '',
         ];
         if (in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true) && !$isStoryWorkspace

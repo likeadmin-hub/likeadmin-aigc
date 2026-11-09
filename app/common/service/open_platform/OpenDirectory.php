@@ -49,7 +49,7 @@ final class OpenDirectory
     {
         $skus=array_values(array_filter($product['skus'],fn($s)=>!empty($s['sale_status'])));
         if(!$skus)return [];
-        $matrix=array_map(fn($sku)=>['sku_key'=>$sku['sku_key'],'unit_price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size'],'params'=>OpenStore::json($sku['locked_params']??[])],$skus);
+        $matrix=array_map(fn($sku)=>['sku_key'=>$sku['sku_key'],'unit_price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size'],'params'=>OpenStore::json($sku['locked_params']??[])]+(isset($sku['token_rates']) ? ['effective_rate_config'=>$sku['token_rates']['sale']] : []),$skus);
         $units=array_unique(array_column($skus,'usage_unit'));
         $type=count($units)===1?match($units[0]){'input_second'=>5,'output_second'=>6,'character'=>4,'token'=>1,default=>count($skus)===1?2:3}:3;
         // Parameter tiers and cached/reasoning rates must not overwrite a base token rate by row order.
@@ -60,6 +60,13 @@ final class OpenDirectory
         $price=['billing_type'=>$type,'fixed_points'=>$type===2&&count($skus)===1?$rate($skus[0]):0,'pricing_matrix'=>$matrix];
         if($type===1){$price['per_1k_input']=$rate($input,1000000);$price['per_1k_output']=$rate($output,1000000);foreach($skus as $sku)if(preg_match('/cache/i',$sku['sku_key'])&&!OpenStore::json($sku['locked_params']??[]))$price['cached_input_per_1m']=$rate($sku,1000000);}
         elseif(in_array($type,[5,6],true)){$price['per_1k_input']=$type===5?$rate($input):0.;$price['per_1k_output']=$type===6?$rate($output):0.;}
+        if ($type === 1 && isset($input['token_rates'])) {
+            $rates = $input['token_rates']['sale'];
+            $scale = 1000000 / $input['token_rates']['usage_unit_size'];
+            $price['per_1k_input'] = $rates['input'] * $scale;
+            $price['per_1k_output'] = $rates['output'] * $scale;
+            $price['cached_input_per_1m'] = $rates['cached_input'] * $scale;
+        }
         return $price;
     }
     public static function filterDetail(string $path,array $data,array $products): array

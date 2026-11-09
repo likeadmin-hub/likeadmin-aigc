@@ -292,7 +292,15 @@ final class OpenManagement
         if(($config['executor']??'')==='directory'||empty($config['billable']))return ['billable'=>false,'reserved_points'=>0.,'pricing_mode'=>'free','items'=>[],'currency'=>'points'];
         if(!in_array($config['role'],['submit','resource'],true))throw new OpenException('invalid_request','任务操作请查询原任务账单');
         $budget=OpenMarketBilling::quote($tenantId,$op,$params);$items=[];$variable=false;
-        foreach($budget['snapshot']['rules']??[] as $rule){$variable=$variable||$rule['basis']==='usage';$items[]=['sku_key'=>$rule['sku_key'],'unit_price'=>(float)$rule['prices']['user'],'usage_unit'=>$rule['usage_unit'],'usage_unit_size'=>(float)$rule['unit_size'],'reserved_units'=>(float)$rule['units']];}
+        foreach ($budget['snapshot']['rules'] ?? [] as $rule) {
+            $split = $rule['basis'] === 'file_qa_tokens';
+            $variable = $variable || $split || $rule['basis'] === 'usage';
+            $item = ['sku_key' => $rule['sku_key'], 'usage_unit' => $rule['usage_unit'], 'usage_unit_size' => (float)$rule['unit_size'],
+                'reserved_units' => (float)($split ? $rule['max_units'] : $rule['units'])];
+            if ($split) $item['effective_rate_config'] = $rule['token_pricing']['tenant'];
+            else $item['unit_price'] = (float)$rule['prices']['user'];
+            $items[] = $item;
+        }
         return ['billable'=>true,'reserved_points'=>$budget['user'],'pricing_mode'=>$variable?'reservation':'fixed','items'=>$items,'currency'=>'points'];
     }
 

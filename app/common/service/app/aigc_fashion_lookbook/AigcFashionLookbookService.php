@@ -26,6 +26,9 @@ class AigcFashionLookbookService
     public const IMAGE_APP_CODE = 'aigc_image';
 
     private const MAX_CLOTHES_IMAGES = 6;
+    private const OUTFIT = 'outfit';
+    private const INDIVIDUAL = 'individual';
+    private const OUTFIT_INSTRUCTION = '第一张参考图是模特，其余参考图是同一套穿搭的服装与配饰。将所有单品同时穿戴在这一个模特身上，保留模特身份、身形和各单品的颜色、材质、图案与细节。有鞋时让双脚入镜，有包或饰品时清楚展示。只生成一张完整穿搭照片，不拼图、不分格。';
     private const DEFAULT_PROMPT_TEMPLATE = '基于用户上传的模特图和当前服饰图生成自然真实的服饰穿搭图。保持模特身份、姿态、身形比例、面部特征和画面光线稳定，将当前服饰图中的版型、材质、颜色、纹理、图案和细节准确融合到同一张模特图上，形成适合电商详情页、穿搭种草和服饰套图展示的高质量图片。{user_prompt}';
     private const DEFAULT_NEGATIVE_PROMPT = '服装变形，身体比例异常，手部畸形，多余肢体，低清晰度，文字，水印，严重穿模，脸部扭曲，材质错误，颜色失真，背景杂乱';
 
@@ -206,7 +209,7 @@ class AigcFashionLookbookService
         $prepared['clothes_images'] = $materials['clothes_images'];
         if ($preset !== null) $prepared['model_snapshot'] = array_intersect_key($preset->toArray(), array_flip(['id', 'name', 'model_image', 'cover_image']));
         $prepared['model_image'] = $preset === null ? $materials['model_image'] : (string)$preset['model_image'];
-        $prepared['image_payload']['reference_images'] = [$prepared['model_image'], $prepared['clothes_images'][0]];
+        $prepared['image_payload']['reference_images'] = self::referenceGroups($prepared)[0];
         $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
         if (($single['settlement_mode'] ?? '') !== 'reserved') throw new Exception('服饰套图暂不支持实际用量图片 SKU');
         return ['prepared' => $prepared, 'estimate' => self::buildEstimate($prepared, $single)];
@@ -221,7 +224,7 @@ class AigcFashionLookbookService
         };
         $prepared['clothes_images'] = array_map($materialize, $prepared['clothes_images']);
         $prepared['model_image'] = $materialize($prepared['model_image']);
-        $prepared['image_payload']['reference_images'] = [$prepared['model_image'], $prepared['clothes_images'][0]];
+        $prepared['image_payload']['reference_images'] = self::referenceGroups($prepared)[0];
         return $prepared;
     }
 
@@ -248,10 +251,10 @@ class AigcFashionLookbookService
                 else $task->save(['image_task_ids' => $imageTaskIds, 'update_time' => time()]);
                 return $task;
             }, true);
-        foreach ($prepared['clothes_images'] as $index => $clothesImage) {
+        foreach (self::referenceGroups($prepared) as $index => $references) {
             if ($frozen !== null) \app\common\service\open_platform\OpenImageBatchDispatch::heartbeat($tenantId, $userId);
             try {
-                $payload = array_merge($prepared['image_payload'], ['reference_images' => [$prepared['model_image'], $clothesImage]]);
+                $payload = array_merge($prepared['image_payload'], ['reference_images' => $references]);
                 $result = $frozen !== null
                     ? AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $payload, AppSalePriceService::imageOverride($estimate['tenant_unit_price']), self::APP_CODE, $handoff)
                     : AigcImageService::generateWithBillingOverride($tenantId, $userId, $payload, [
@@ -262,7 +265,8 @@ class AigcFashionLookbookService
             } catch (\Throwable $e) {
                 \app\common\service\open_platform\OpenCallContext::rethrowLostAuthority($e);
                 \app\common\service\open_platform\OpenCallContext::assertCurrentLease();
-                $submitErrors[] = '第' . ((int)$index + 1) . '张服饰图提交失败：' . $e->getMessage();
+                $label = ($prepared['try_on_mode'] ?? self::INDIVIDUAL) === self::OUTFIT ? '一次穿戴' : '第' . ($index + 1) . '张服饰图';
+                $submitErrors[] = $label . '提交失败：' . $e->getMessage();
                 break;
             }
         }
@@ -342,6 +346,7 @@ class AigcFashionLookbookService
             throw new Exception('任务不存在');
         }
         return self::generate($tenantId, (int)$task['user_id'], [
+            'try_on_mode' => $task['try_on_mode'] ?? self::INDIVIDUAL,
             'clothes_images' => $task['clothes_images'],
             'model_image' => $task['model_image'],
             'ratio' => $task['ratio'],
@@ -417,6 +422,17 @@ class AigcFashionLookbookService
         }
     }
 
+    /** A recipe without a mode was accepted before outfit support and must keep its original billing. */
+    private static function referenceGroups(array $prepared): array
+    {
+        $clothes = $prepared['clothes_images'];
+        $model = $prepared['model_image'] === '' ? [] : [$prepared['model_image']];
+        if (($prepared['try_on_mode'] ?? self::INDIVIDUAL) === self::OUTFIT || !$clothes) {
+            return [array_merge($model, $clothes)];
+        }
+        return array_map(static fn(string $item): array => array_merge($model, [$item]), $clothes);
+    }
+
     private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImages, bool $readOnly = false): array
     {
         $config = self::config($tenantId, $readOnly);
@@ -436,10 +452,21 @@ class AigcFashionLookbookService
         $quality = (string)($config['default_quality'] ?: ($config['config_json']['quality'] ?? ''));
         $ratio = trim((string)($params['ratio'] ?? $config['default_ratio'] ?? $config['config_json']['ratio'] ?? ''));
         $userPrompt = mb_substr(trim((string)($params['prompt'] ?? $params['user_prompt'] ?? '')), 0, 1000);
+        $mode = $params['try_on_mode'] ?? self::OUTFIT;
+        if (!in_array($mode, [self::OUTFIT, self::INDIVIDUAL], true)) {
+            throw new Exception('请选择一次穿戴或分开穿戴');
+        }
+        $inputs = ['try_on_mode' => $mode, 'clothes_images' => $clothesImages, 'model_image' => $modelImage];
+        $template = (string)$config['prompt_template'];
+        if ($mode === self::OUTFIT) {
+            $template = $template === self::DEFAULT_PROMPT_TEMPLATE
+                ? self::OUTFIT_INSTRUCTION . '{user_prompt}'
+                : $template . ' ' . self::OUTFIT_INSTRUCTION;
+        }
         $imagePayload = [
-            'prompt' => self::renderPrompt((string)$config['prompt_template'], ['user_prompt' => $userPrompt]),
+            'prompt' => self::renderPrompt($template, ['user_prompt' => $userPrompt]),
             'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt']),
-            'reference_images' => array_values(array_filter([$modelImage, $clothesImages[0] ?? ''])),
+            'reference_images' => self::referenceGroups($inputs)[0],
             'channel' => $channel,
             'quality' => $quality,
             'ratio' => $ratio,
@@ -447,9 +474,13 @@ class AigcFashionLookbookService
             'style' => 'fashion_lookbook',
         ];
         $resolved = AigcImageChannelService::resolveSelection($tenantId, $imagePayload);
-        return [
-            'clothes_images' => $clothesImages,
-            'model_image' => $modelImage,
+        $limit = (int)$resolved['channel']['max_reference_images'];
+        if (count($imagePayload['reference_images']) > $limit) {
+            throw new Exception($mode === self::OUTFIT && $limit >= 2
+                ? '当前模型一次穿戴最多支持' . ($limit - 1) . '张服饰图，请减少素材或选择分开穿戴'
+                : '当前模型支持的参考图数量不足，请更换模型');
+        }
+        return $inputs + [
             'model_snapshot' => self::findModelSnapshot($tenantId, $modelImage),
             'user_prompt' => $userPrompt,
             'unit_price' => AppSalePriceService::normalize($config['unit_price'] ?? null),
@@ -468,12 +499,13 @@ class AigcFashionLookbookService
 
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
-        $quantity = max(1, count($prepared['clothes_images']));
+        $quantity = count(self::referenceGroups($prepared));
         $tenantUnitCost = round((float)($imageEstimate['platform_unit_cost'] ?? 0), 2);
         $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0), (bool)($imageEstimate['follow_market_prices'] ?? false));
         return array_merge($imageEstimate, [
             'quantity' => $quantity,
-            'clothes_count' => $quantity,
+            'clothes_count' => count($prepared['clothes_images']),
+            'try_on_mode' => $prepared['try_on_mode'],
             'target_width' => $prepared['width'],
             'target_height' => $prepared['height'],
             'size_key' => $prepared['size_key'],
@@ -510,7 +542,8 @@ class AigcFashionLookbookService
             'quality' => (string)($firstImageTask['quality'] ?? $prepared['image_payload']['quality']),
             'quality_label' => $prepared['quality_label'],
             'ratio' => (string)($firstImageTask['ratio'] ?? $prepared['image_payload']['ratio']),
-            'quantity' => count($prepared['clothes_images']),
+            'quantity' => $estimate['quantity'],
+            'try_on_mode' => $prepared['try_on_mode'] ?? self::INDIVIDUAL,
             'unit_price' => $estimate['tenant_unit_price'],
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
