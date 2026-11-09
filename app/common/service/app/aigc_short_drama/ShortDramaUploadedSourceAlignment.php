@@ -36,7 +36,8 @@ final class ShortDramaUploadedSourceAlignment
             return $episodes;
         }
 
-        $sections = array_values(ShortDramaSourceBoundary::sections($source));
+        // Heading discovery uses logical lines; emitted ranges still slice the untouched source bytes.
+        $sections = array_values(ShortDramaSourceBoundary::sections(str_replace(["\r\n", "\r"], "\n", $source)));
         if ($sections && count($sections) !== count($episodes)) self::fail();
         if (count(array_unique($bodies)) === 1 && $bodies[0] === $document) {
             if ($sections) {
