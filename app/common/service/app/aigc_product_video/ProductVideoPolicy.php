@@ -35,6 +35,19 @@ final class ProductVideoPolicy
             'image_selection'=>(array)($body['image_selection']??[]),'video_selection'=>(array)($body['video_selection']??[])];
         if(strlen(self::encode($out))>160000)throw new InvalidArgumentException('创作资料过大');return $out;
     }
+    /** Preserve explicit roles: removing a first frame must never promote a tail frame. */
+    public static function frames(array $images): array
+    {
+        if(count($images)<1||count($images)>2)throw new InvalidArgumentException('首尾帧模式需要首帧，尾帧可选，最多两张图片');
+        $explicit=array_filter($images,static fn($i)=>in_array($i['role']??'',['first_frame_image','last_frame_image'],true));
+        if(!$explicit)return $images; // Legacy drafts used ordered image slots.
+        $slots=[];foreach($images as $image){$role=$image['role']??'';
+            if(!in_array($role,['first_frame_image','last_frame_image'],true)||isset($slots[$role]))throw new InvalidArgumentException('请重新确认首帧与尾帧图片');
+            $slots[$role]=$image;
+        }
+        if(!isset($slots['first_frame_image']))throw new InvalidArgumentException('请上传首帧图片');
+        return array_values(array_intersect_key(array_replace(['first_frame_image'=>null,'last_frame_image'=>null],$slots),$slots));
+    }
     /** All plan-dependent inputs, including ratio and model/SKU identity, participate. */
     public static function planKey(array $body): string
     {

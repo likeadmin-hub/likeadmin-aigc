@@ -61,7 +61,11 @@ try{
     $snapshot=S::fromJob(1,1,$aj['id']);pvAssert($snapshot['id']!==$ap['id']&&$snapshot['revision']===1,'Re-edit copies immutable submitted data into a new draft');
     $forked=S::fromJob(1,1,$aj['id'],true);pvAssert($forked['plan_fresh']&&$forked['body']['plan']['data']['video_prompt']===$data['video_prompt'],'Completed analysis resumes with its result in a new draft');
     pvAssert(S::owned(1,1,$ap['id'])['revision']===$adopted['revision'],'Fork cannot overwrite original draft');
-    // Default advanced planning is text only: no image quote or image generation stage.
+    $legacyInputs=array_replace($advanced,['reference_video'=>['uri'=>'legacy-reference.mp4'],'reference_analysis'=>['video_uri'=>'legacy-reference.mp4','data'=>['summary'=>'Legacy pacing must not leak']],'requirements'=>'Hidden old requirement']);
+    $isolated=S::save(1,1,['body'=>$advanced]);S::table('project')->where('id',$isolated['id'])->update(['body_json'=>P::encode($legacyInputs)]);$prepared=J::prepare(1,1,['project_id'=>$isolated['id'],'revision'=>$isolated['revision'],'action'=>'plan']);
+    $content=P::json($prepared['request']['content']);pvAssert(!array_intersect_key($content,array_flip(['reference_observations','template','requirements','prompt'])),'New product analysis cannot inherit hidden replication/template inputs');
+    pvAssert($prepared['request']['snapshot']['reference_analysis']['data']['summary']==='Legacy pacing must not leak','Legacy observation data remains preserved');
+    // Legacy API callers can still request text-only planning without an image stage.
     $textOnly=S::save(1,1,['body'=>array_replace($advanced,['generate_storyboard'=>false,'image_selection'=>['model_id'=>'unavailable_fixture']])]);
     $ta=['project_id'=>$textOnly['id'],'revision'=>$textOnly['revision'],'action'=>'analysis'];$tq=J::estimate(1,1,$ta);pvAssert(count($tq['phased_costs'])===1,'Default planning cannot silently charge for a storyboard image');
     $tj=J::create(1,1,$ta+['quote_token'=>$tq['quote_token'],'idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16))]);$tr=J::owned(1,1,$tj['id']);

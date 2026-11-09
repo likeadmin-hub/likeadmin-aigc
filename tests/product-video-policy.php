@@ -18,6 +18,10 @@ $request=['quote'=>['user_charge_points'=>5],'images'=>[['uri'=>'uploads/x.png',
 $row=['action'=>'plan','request_json'=>P::encode(['duration'=>5])];checkProductPolicy(count(W::parse($row,['content'=>P::encode($plan)])['shots'])===2,'Plan receipt parser lost shots');
 $row=['action'=>'reference','request_json'=>P::encode(['video'=>['duration'=>5]])];$result=W::parse($row,['content'=>P::encode($plan+['style'=>'平稳推近','audio'=>'轻音乐'])]);checkProductPolicy($result['style']==='平稳推近','Reference observations must survive');
 $invalid=$plan;$invalid['shots'][1]['end']=9;rejectsProductPolicy(fn()=>W::parse($row,['content'=>P::encode($invalid)]),'Actual chapters must stay inside media duration');
+checkProductPolicy(P::frames([['uri'=>'legacy-first'],['uri'=>'legacy-last']])[0]['uri']==='legacy-first','Legacy frame order must remain compatible');
+rejectsProductPolicy(fn()=>P::frames([['uri'=>'tail','role'=>'last_frame_image']]),'Removing first frame cannot promote tail');
+$frames=P::frames([['uri'=>'tail','role'=>'last_frame_image'],['uri'=>'first','role'=>'first_frame_image']]);
+checkProductPolicy(array_column($frames,'uri')===['first','tail'],'Explicit roles must determine submission order');
 $manifest=json_decode(file_get_contents(dirname(__DIR__).'/app/apps/aigc_product_video/manifest.json'),true,512,JSON_THROW_ON_ERROR);
 checkProductPolicy($manifest['code']===P::APP && count($manifest['frontend_entries'])===3,'Independent application entries missing');
 $schema=file_get_contents(dirname(__DIR__).'/app/apps/aigc_product_video/migrations/install.sql');$install=file_get_contents(dirname(__DIR__).'/public/install/db/like.sql');
