@@ -57,7 +57,7 @@ final class FileQaMarketPricingTest extends TestCase
             self::assertSame('2600.000000', $platform['token_rates']['cost']['input']);
             self::assertSame('13000.000000', $tenant['token_rates']['sale']['output']);
             self::assertArrayNotHasKey('effective_rate_config', $tenant['source_payload']);
-            $path = $api === 'parse' ? 'data.result.usage.total_tokens' : 'data.usage.total_tokens';
+            $path = 'data.result.usage.total_tokens';
             $op = ['executor' => 'json', 'billable' => true, 'product_id' => $id,
                 'billing' => [['sku_id' => $skuId, 'basis' => 'usage', 'max_units' => 11000, 'usage_path' => $path]]];
             $budget = OpenMarketBilling::quote(1, $op, []);
@@ -72,7 +72,8 @@ final class FileQaMarketPricingTest extends TestCase
             OpenMarketBilling::settle($request, []);
             self::assertSame('pending_usage', OpenStore::table('request')->where('id', $request['id'])->value('billing_status'));
             $usage = ['usage' => ['input_tokens' => 10000, 'output_tokens' => 1000, 'total_tokens' => 11000]];
-            $receipt = ['data' => $api === 'parse' ? ['result' => $usage] : $usage];
+            $result = $api === 'parse' ? ['episodes' => [['episode_no' => 1]]] : ['answer' => '文档摘要'];
+            $receipt = ['data' => ['result' => $result + $usage, 'usage' => ['points_cost' => 999]]];
             OpenMarketBilling::settle($request, $receipt);
             OpenMarketBilling::settle($request, $receipt);
             $bill = Db::name('ai_consumption_log')->where('consume_no', $rid)->find();
