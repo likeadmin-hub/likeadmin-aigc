@@ -161,6 +161,11 @@ final class MicroVideoWorkbenchRecords
                 if($shots){$body['segments']=[];$body=MicroVideoTemplate::normalize($body);$body['requires_sync']=false;}
                 else $body['requires_sync']=true;
             }
+            elseif($initial&&($body['script']??'')===($trusted['script']??'')&&MicroVideoWorkbenchPolicy::hash($body['segments']??[])!==MicroVideoWorkbenchPolicy::hash(MicroVideoTemplate::normalize($trusted)['segments']??[])){
+                $body['script']=MicroVideoTemplate::text((array)($body['segments']??[]));
+                $body['default_duration']=array_sum(array_column((array)($body['segments']??[]),'duration'));
+                unset($body['requires_sync']);
+            }
             $body=MicroVideoTemplate::normalize($body);
         }
         // Snapshots are authoritative. Strip stale or malicious client copies before image validation.
@@ -183,6 +188,8 @@ final class MicroVideoWorkbenchRecords
             if((int)$selected['user_id']!==$owner)$snap=MicroVideoWorkbenchAssets::cloneBody($tenant,$owner,(int)$selected['id'],$snap,(int)$selected['user_id']);
             $body[$ref]=['id'=>(int)$selected['id'],'revision'=>$revision];$body[$ref.'_snapshot']=['title'=>$v['title'],'body'=>$snap];
         }
+        if($kind==='project'&&!empty($body['apply_template_values']))$body=MicroVideoTemplate::bind($body);
+        unset($body['apply_template_values']);
         return MicroVideoWorkbenchPolicy::normalizeValues($body);
     }
     /** Recursively validate any images field, including nested scenes and roles. Browser metadata never grants access. */
