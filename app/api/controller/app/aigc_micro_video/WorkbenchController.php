@@ -42,7 +42,7 @@ class WorkbenchController extends BaseApiController
     }
     public function capabilities()
     {
-        try {$tenant=(int)$this->request->tenantId;$user=(int)$this->userId;$admin=false;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",W::capabilities($tenant));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
+        try {$tenant=(int)$this->request->tenantId;$user=(int)$this->userId;$admin=false;MicroVideoService::available($tenant);$p=$this->request->get();return $this->success("操作成功",W::capabilities($tenant, (string)($p['home'] ?? '') === '1'));}catch(\Throwable $e){return $this->fail(MicroVideoService::friendly($e));}
     }
     public function jobs()
     {

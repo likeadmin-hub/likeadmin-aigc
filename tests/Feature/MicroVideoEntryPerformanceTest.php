@@ -6,6 +6,18 @@ use app\common\service\app\aigc_micro_video\MicroVideoCatalog as C;
 use app\common\service\power\MarketImageModelRuntimeService as R;
 final class MicroVideoEntryPerformanceTest extends TestCase
 {
+    public function testHomeCapabilitiesOnlyReadPublicSettingsWithoutLoadingModelCatalogues(): void
+    {
+        $queries=[];\think\facade\Db::listen(function($sql)use(&$queries){$queries[]=$sql;});
+        $home=\app\common\service\app\aigc_micro_video\MicroVideoWorkbench::capabilities(1,true);
+        self::assertFalse($home['catalogue_complete']);
+        self::assertNotEmpty($home['config']['target_duration_options']);
+        self::assertSame([], $home['config']['models']);
+        self::assertSame([], $home['image_models']);
+        self::assertArrayNotHasKey('planning_template', $home['config']);
+        self::assertLessThan(2000, strlen(json_encode($home)));
+        self::assertLessThanOrEqual(1, count($queries), 'Home entry must not enumerate text/image/video SKU catalogues');
+    }
     protected function setUp(): void
     {(new \think\App(dirname(__DIR__,2).'/'))->initialize();$db=config('database.connections.mysql');if($db['hostname']!=='127.0.0.1'||$db['database']!=='z_cn')self::markTestSkipped('Local read-only catalog verification');}
     public function testImageCatalogUsesBatchedReadsAndPreservesLiveSkuPrices(): void

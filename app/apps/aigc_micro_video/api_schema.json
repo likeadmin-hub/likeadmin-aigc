@@ -277,6 +277,7 @@
       "api_path": "app.aigc_micro_video.workbench/capabilities",
       "api_method": "GET",
       "permission_key": "aigc_micro_video:workbench:capabilities:user",
+      "description": "工作台能力；可选 home=1 仅返回首页公开配置及 catalogue_complete=false，编辑项目需读取默认完整能力。",
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
