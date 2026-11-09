@@ -2,6 +2,7 @@
 // Explicit local-only integration test. All fixture rows roll back; no provider is called.
 require dirname(__DIR__).'/vendor/autoload.php';
 $app=new think\App();$app->initialize();
+set_exception_handler(static function(Throwable $e):void{fwrite(STDERR,'FAIL '.get_class($e).': '.mb_substr($e->getMessage(),0,200).PHP_EOL);exit(1);});
 use app\common\service\app\aigc_product_video\{ProductVideoService as S,ProductVideoJobs as J,ProductVideoPolicy as P};
 use app\common\service\app\aigc_micro_video\MicroVideoMedia;
 use think\facade\Db;
@@ -35,5 +36,10 @@ try{
     $adopted=S::adopt(1,1,['job_id'=>$textJob['id'],'revision'=>$p['revision']]);pvAssert($adopted['body']['product_info']==='白色商品样本' && $adopted['revision']===$p['revision']+1,'Owned result adoption');
     pvReject(fn()=>S::adopt(1,1,['job_id'=>$textJob['id'],'revision'=>$adopted['revision']]),'An old result cannot overwrite a newer draft');
     J::table()->where('id',$job['id'])->update(['status'=>'unknown']);$recovered=J::recover(1,1,$job['id']);pvAssert($recovered['status']==='unknown' && !J::owned(1,1,$job['id'])['consumption_id'],'Uncertain reconciliation cannot resubmit a provider call');
+    J::table()->where('id',$job['id'])->update(['consumption_id'=>2147480000,'next_run_at'=>time()+100]);
+    $c=['id'=>2147480000,'app_code'=>P::APP,'tenant_id'=>1,'user_id'=>1];
+    pvAssert(\app\common\service\app\aigc_product_video\ProductVideoWorker::wake($c,$job['id']),'Owned callback wake');
+    pvReject(fn()=>\app\common\service\app\aigc_product_video\ProductVideoWorker::wake(array_replace($c,['tenant_id'=>2]),$job['id']),'Cross-tenant callback');
+    pvAssert(!\app\common\service\app\aigc_product_video\ProductVideoWorker::wake(array_replace($c,['id'=>2147480001]),$job['id']),'Unrelated receipt cannot wake this execution');
     echo "PASS local ownership, optimistic drafts, market quote, idempotency and queue isolation\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $file)unlink($file);rmdir($dir);}
