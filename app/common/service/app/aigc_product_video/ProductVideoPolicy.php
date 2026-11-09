@@ -35,7 +35,8 @@ final class ProductVideoPolicy
     {
         $inputs=array_intersect_key($body,array_flip(['product_info','requirements','template_code','language','video_selection']));
         $inputs['images']=array_map(static fn($i)=>array_intersect_key($i,array_flip(['uri','role'])),$body['images']??[]);
-        $inputs['reference_video']=$body['reference_video']['uri']??'';return self::hash($inputs);
+        $inputs['reference_video']=$body['reference_video']['uri']??'';
+        $inputs['reference_analysis']=$body['reference_analysis']??null;return self::hash($inputs);
     }
     public static function requestKey(array $request): string
     {
