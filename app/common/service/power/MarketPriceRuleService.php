@@ -67,6 +67,14 @@ final class MarketPriceRuleService
         if ($id <= 0) return $snapshot;
         $sku = Db::name('power_market_sku')->where('id', $id)->find();
         if (!$sku) throw new RuntimeException('计费规格不存在');
+        if (($snapshot['basis'] ?? '') === 'file_qa_tokens') {
+            $rates = MarketFileQaTokenPricing::display($sku, $owner);
+            $frozen = $snapshot['token_pricing'];
+            if (!$rates || !$rates['valid'] || $rates['usage_unit_size'] !== $frozen['usage_unit_size']
+                || $rates['cost'] !== $frozen['platform'] || $rates['sale'] !== $frozen['tenant']) {
+                throw new RuntimeException('文件应用费率已更新，请刷新报价后重新提交');
+            }
+        }
         $configured = Db::name('tenant_power_market_sku_price')->where(['tenant_id' => $owner, 'sku_id' => $id])->find();
         $quote = self::tenant($owner, $sku, $configured ?: null);
         if (!$quote['valid']) throw new RuntimeException('当前手动售价低于进货价，请先调整价格或恢复价格');
@@ -206,11 +214,18 @@ final class MarketPriceRuleService
         foreach ($rows as $sku) {
             $before = $owner === 0 ? self::platform($sku, $ownRules) : self::tenant($owner, $sku, $bySku[$sku['id']] ?? null, $ownRules, $platformRules)['tenant'];
             $after = $owner === 0 ? self::platform($sku, $newRules) : self::tenant($owner, $sku, $bySku[$sku['id']] ?? null, $newRules, $platformRules)['tenant'];
-            if ($before['price'] !== $after['price']) $changed++;
+            $tokenRates = MarketFileQaTokenPricing::display($sku, $owner, $platformRules, $ownRules);
+            $extra = [];
+            if ($tokenRates !== null) {
+                $next = MarketFileQaTokenPricing::display($sku, $owner, $owner === 0 ? $newRules : $platformRules, $newRules);
+                $extra['token_rates'] = ['cost' => $next['cost'], 'before' => $tokenRates['sale'], 'after' => $next['sale']];
+                $after['valid'] = $next['valid'];
+                if ($tokenRates['sale'] !== $next['sale']) $changed++;
+            } elseif ($before['price'] !== $after['price']) $changed++;
             if (!$after['valid']) $invalid++;
             $preview[] = ['sku_id' => (int)$sku['id'], 'product_id' => (int)$sku['product_id'], 'name' => $sku['product_name'], 'title' => $sku['title'],
                 'usage_unit' => $sku['usage_unit'], 'usage_unit_size' => $sku['usage_unit_size'], 'base_price' => $after['base'],
-                'before' => $before['price'], 'after' => $after['price'], 'valid' => $after['valid'], 'rule' => $after['rule']];
+                'before' => $before['price'], 'after' => $after['price'], 'valid' => $after['valid'], 'rule' => $after['rule']] + $extra;
         }
         $newByKey = []; foreach ($newRules as $rule) $newByKey[$rule['scope_type'].':'.$rule['scope_id']] = $rule;
         $overrides = 0; foreach ($ownRules as $rule) { $new = $newByKey[$rule['scope_type'].':'.$rule['scope_id']] ?? null; if ($rule['scope_type'] !== 'global' && (!$new || $new['mode'] !== $rule['mode'] || (string)$new['value'] !== (string)$rule['value'])) $overrides++; }
