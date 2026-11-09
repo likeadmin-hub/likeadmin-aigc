@@ -4,6 +4,15 @@ namespace app\common\service\app\aigc_short_drama;
 /** Uploads and explicit retries share the application API route, never an LLM fallback. */
 final class ShortDramaUploadedScriptApi
 {
+    public static function error(string $message): string
+    {
+        // result_invalid describes the file parser's output, not a text-model credential.
+        if (preg_match('/^result_invalid\s*[:：]/i', trim($message))) {
+            return '剧本解析服务返回的结果未通过校验，请重试；若持续失败，请联系管理员检查解析服务';
+        }
+        return $message;
+    }
+
     public static function request(array $request): array
     {
         $source = (array)($request['_file_parse_fallback'] ?? []);

@@ -20,7 +20,7 @@ final class OpenCatalog
             $category=$model?(string)($product['model_type']??'other'):(string)(\app\common\service\power\PowerMarketService::appCategory($product)['category_code']??'other');
             if(!isset($labels[$category]))$category='other';
             $ops=$byProduct[$id]??[];$enabled=$global['enabled']&&$local['enabled']&&in_array((string)$id,$global['models'],true)&&in_array((string)$id,$local['models'],true);
-            $prices=[];foreach($product['skus'] as $sku)$prices[]=['sku_key'=>$sku['sku_key'],'price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size']];
+            $prices=[];foreach($product['skus'] as $sku)$prices[]=['sku_key'=>$sku['sku_key'],'price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size']]+(isset($sku['token_rates']) ? ['effective_rate_config'=>$sku['token_rates']['sale']] : []);
             $items[]=['kind'=>'market','code'=>'market_product_'.$id,'product_id'=>$id,'name'=>$product['name'],'resource_type'=>$product['resource_type'],'model_code'=>$product['upstream_model_code']??'','app_code'=>$product['upstream_app_code']??'','api_code'=>$product['upstream_api_code']??'','category_code'=>$category,'category_name'=>$labels[$category],'description'=>$product['description']??'','available'=>$enabled&&count($ops)>0,'reason'=>!$ops?'接口尚未发布':(!$enabled?'本站尚未开通此 API':''),'prices'=>$prices,'operations'=>$ops];
         }
         return $items;

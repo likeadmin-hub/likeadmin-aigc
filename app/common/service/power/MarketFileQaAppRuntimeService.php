@@ -12,6 +12,7 @@ use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\MarketAppGateService;
 use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\point\PointService;
+use app\common\service\app\UpstreamPricingService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 use think\facade\Db;
@@ -35,8 +36,9 @@ class MarketFileQaAppRuntimeService
             'resource_type' => 'app_api',
             'market_product_id' => (int)$market['product']['id'],
             'market_sku_id' => (int)$market['sku']['id'],
+            'token_rates' => $market['token_pricing'] ? ['rates' => $market['token_pricing']['tenant'], 'usage_unit_size' => $market['token_pricing']['usage_unit_size']] : null,
             'usage_unit' => (string)$market['sku']['usage_unit'],
-            'usage_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
+            'usage_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($market['sku']),
         ]];
     }
 
@@ -45,7 +47,7 @@ class MarketFileQaAppRuntimeService
         $market = self::resolve($tenantId, $selection);
         return [
             'billing_unit' => (string)$market['sku']['usage_unit'],
-            'billing_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
+            'billing_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($market['sku']),
             'quantity' => 0,
             'tenant_unit_points' => self::points((float)$market['sku']['sale_points']),
             'user_unit_points' => self::points((float)$market['tenant_price']),
@@ -55,6 +57,7 @@ class MarketFileQaAppRuntimeService
             'price_source' => 'power_market_app_api',
             'market_product_id' => (int)$market['product']['id'],
             'market_sku_id' => (int)$market['sku']['id'],
+            'token_pricing' => $market['token_pricing'],
             'market_snapshot' => self::snapshot($market),
         ];
     }
@@ -163,6 +166,14 @@ class MarketFileQaAppRuntimeService
             if ($timedOut) { self::fail($consumptionId, '剧本解析任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'error' => '剧本解析任务处理超时']; }
             return ['status' => 'running', 'provider_task_id' => $taskId];
         } catch (\Throwable $e) {
+            if (isset($status) && $status === 'success') {
+                // A supplier result is not locally complete until its bill commits.
+                Db::transaction(function () use ($consumptionId) {
+                    $locked = self::context($consumptionId, true);
+                    if ($locked === null || in_array((string)$locked['consumption']['run_status'], ['success', 'failed', 'canceled'], true)) return;
+                    $locked['consumption']->save(['billing_status' => 'settlement_failed', 'error_code' => 'settlement_failed', 'error_message' => '剧本解析结果已返回，积分结算未完成，请检查实际用量与余额', 'update_time' => time()]);
+                });
+            }
             if ($timedOut) self::fail($consumptionId, $e->getMessage(), 'timeout');
             return ['status' => 'running', 'provider_task_id' => $taskId];
         }
@@ -191,15 +202,23 @@ class MarketFileQaAppRuntimeService
             if (in_array((string)$c['run_status'], ['success', 'failed', 'canceled'], true)) return;
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $usage = MarketUsageSettlementService::tokenUsage($response);
-            $tenant = MarketUsageSettlementService::price((float)($snapshot['platform_price'] ?? 0), $usage, $snapshot);
-            $user = MarketUsageSettlementService::price((float)($snapshot['tenant_price'] ?? 0), $usage, $snapshot);
-            if ($usage <= 0 && ($tenant > 0 || $user > 0)) throw new Exception('剧本解析结果未返回实际 Token 用量');
+            $usageSnapshot = ['actual_token_usage' => $usage];
+            if (!empty($snapshot['token_pricing'])) {
+                [$tenant, $user, $breakdown] = MarketFileQaTokenPricing::amounts($snapshot, $response);
+                $usage = $breakdown['total_tokens'];
+                $usageSnapshot = ['actual_token_usage' => $usage, 'token_breakdown' => $breakdown, 'settlement_basis' => 'input_output_token_rates'];
+            } else {
+                // Historical receipts retain their original scalar-price contract.
+                $tenant = round(MarketUsageSettlementService::price((float)($snapshot['platform_price'] ?? 0), $usage, $snapshot), 2);
+                $user = round(MarketUsageSettlementService::price((float)($snapshot['tenant_price'] ?? 0), $usage, $snapshot), 2);
+                if ($usage <= 0 && ((float)($snapshot['platform_price'] ?? 0) > 0 || (float)($snapshot['tenant_price'] ?? 0) > 0)) throw new Exception('剧本解析结果未返回实际 Token 用量');
+            }
             if ($tenant > 0 || $user > 0) {
                 PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user);
                 PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user, (string)$c['consume_no'], '短剧剧本解析实际用量结算', self::extra($task, $c));
             }
             $now = time();
-            $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId, 'quantity' => $usage, 'usage_snapshot' => ['actual_token_usage' => $usage], 'response_summary' => ['parse_result' => $result, 'usage' => self::usage($response)], 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
+            $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'error_code' => '', 'error_message' => '', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId, 'quantity' => $usage, 'usage_snapshot' => $usageSnapshot, 'response_summary' => ['parse_result' => $result, 'usage' => self::usage($response)], 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'result_summary' => ['episode_count' => (int)($result['episode_count'] ?? 0)], 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['token_usage' => $usage]);
         });
@@ -216,10 +235,24 @@ class MarketFileQaAppRuntimeService
         if ($sku->isEmpty() || !MarketUsageSettlementService::isActualUsageSku($sku->toArray())) throw new Exception('剧本解析 Token 规格暂不可用');
         $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->findOrEmpty();
         if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('剧本解析规格暂不可用');
-        return ['product' => $product->toArray(), 'sku' => $sku->toArray(), 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
+        $skuData = $sku->toArray();
+        $declaration = self::arrayValue($skuData['source_payload'] ?? []);
+        // Older catalogues stored only the zero scalar placeholder. Read the
+        // current declaration without changing other products or historical prices.
+        if (!array_key_exists('effective_rate_config', $declaration) && (float)$skuData['upstream_price'] <= 0) {
+            $current = UpstreamPricingService::queryAppApi(self::UPSTREAM_APP_CODE, self::PARSE_API_CODE);
+            $resource = (array)($current['resource'] ?? []);
+            if (empty($current['available']) || ($resource['app_code'] ?? '') !== self::UPSTREAM_APP_CODE || ($resource['api_code'] ?? '') !== self::PARSE_API_CODE) throw new Exception('剧本解析计费规格暂不可用');
+            foreach ((array)($current['pricing_v2']['items'] ?? []) as $item) {
+                if (($item['sku_key'] ?? '') === $skuData['sku_key']) { $declaration = $item; break; }
+            }
+            if (!array_key_exists('effective_rate_config', $declaration)) throw new Exception('剧本解析计费费率不完整，请同步算力市场价格');
+        }
+        $tokenPricing = MarketFileQaTokenPricing::snapshot($skuData, $declaration, MarketPriceRuleService::rules(0), MarketPriceRuleService::rules($tenantId));
+        return ['product' => $product->toArray(), 'sku' => $skuData, 'tenant_price' => MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant), 'token_pricing' => $tokenPricing];
     }
 
-    private static function snapshot(array $market): array { $p = $market['product']; $s = $market['sku']; return ['product_id' => (int)$p['id'], 'sku_id' => (int)$s['id'], 'app_code' => self::UPSTREAM_APP_CODE, 'api_code' => self::PARSE_API_CODE, 'runtime_adapter' => 'file_qa', 'query_path' => '/api/v1/tasks/{task_id}', 'usage_unit' => (string)$s['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($s), 'platform_price' => (float)$s['sale_points'], 'tenant_price' => (float)$market['tenant_price']]; }
+    private static function snapshot(array $market): array { $p = $market['product']; $s = $market['sku']; return ['product_id' => (int)$p['id'], 'sku_id' => (int)$s['id'], 'app_code' => self::UPSTREAM_APP_CODE, 'api_code' => self::PARSE_API_CODE, 'runtime_adapter' => 'file_qa', 'query_path' => '/api/v1/tasks/{task_id}', 'usage_unit' => (string)$s['usage_unit'], 'usage_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($s), 'platform_price' => (float)$s['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'token_pricing' => $market['token_pricing'] ?? null]; }
     private static function payload(array $request, string $consumeNo): array { return ['file_urls' => array_values(array_filter(array_map('strval', (array)($request['file_urls'] ?? [])))), 'parse_mode' => (string)($request['parse_mode'] ?? 'split_by_ai'), 'preserve_original' => !empty($request['preserve_original']), 'metadata' => array_merge((array)($request['metadata'] ?? []), ['consume_no' => $consumeNo])]; }
     private static function requestSummary(array $request): array { return ['file_urls' => array_values(array_filter(array_map('strval', (array)($request['file_urls'] ?? [])))), 'parse_mode' => (string)($request['parse_mode'] ?? 'split_by_ai'), 'preserve_original' => !empty($request['preserve_original'])]; }
     private static function endpoint(string $api): string { return self::origin() . '/api/v1/apps/' . rawurlencode(self::UPSTREAM_APP_CODE) . '/' . rawurlencode($api); }
