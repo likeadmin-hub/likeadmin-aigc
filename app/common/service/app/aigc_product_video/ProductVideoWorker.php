@@ -49,6 +49,7 @@ final class ProductVideoWorker
         $id=(int)$row['id'];$tenant=(int)$row['tenant_id'];$user=(int)$row['user_id'];$r=ProductVideoPolicy::json($row['request_json']);$action=$row['action'];
         $media=in_array($action,['video','storyboard'],true);$runtime=$action==='storyboard'?Image::class:($r['runtime']??'');
         try{
+            if($action==='analysis'){ProductVideoPipeline::run($row);return;}
             $c=self::consumption($row);$receipt=ProductVideoPolicy::json($row['receipt_json']);
             if($receipt){if($c&&$c['billing_status']==='settled'){self::finish($row,$receipt,$c);return;}}
             if($c){
@@ -89,6 +90,7 @@ final class ProductVideoWorker
             if(!$c||$c['billing_status']!=='settled'){self::write($id,['status'=>'unknown','error'=>'已保留结果，等待实际用量结算','next_run_at'=>time()+30]);return;}
             self::finish($row,$result,$c);
         }catch(\Throwable $e){
+            if($action==='analysis'){self::write($id,['status'=>'unknown','error'=>'分析阶段状态待核对，请保留原任务','next_run_at'=>time()+30]);return;}
             if($e instanceof TextSettlementPending)self::write($id,['receipt_json'=>ProductVideoPolicy::encode($e->result)]);
             $fresh=ProductVideoJobs::table()->where('id',$id)->find();$c=self::consumption($fresh);$known=!$c||in_array($c['run_status'],['failed','canceled'],true)||$c['billing_status']==='settled';
             self::write($id,['status'=>$known?'failed':'unknown','error'=>mb_substr($e->getMessage(),0,1000),'billing_status'=>$c['billing_status']??'none','next_run_at'=>time()+60,'user_charge_points'=>(float)($c['actual_user_price']??0)]);
@@ -96,7 +98,7 @@ final class ProductVideoWorker
         }
     }
     private static function mediaRequest(string $action,array $r): array
-    {return $action==='storyboard'?ProductVideoJobs::imageRequest($r):array_intersect_key($r,array_flip(['prompt','reference_images','reference_assets']))+$r['selection'];}
+    {return $action==='storyboard'?ProductVideoJobs::imageRequest($r):array_intersect_key($r,array_flip(['prompt','reference_images','reference_assets','selected_mentions']))+$r['selection'];}
     private static function mediaResult(array $row,array $result): void
     {
         $id=(int)$row['id'];$fresh=ProductVideoJobs::table()->where('id',$id)->find();$c=self::consumption($fresh);
@@ -114,6 +116,7 @@ final class ProductVideoWorker
         if($action==='video'){if(empty($receipt['videos']))throw new RuntimeException('视频结果尚未入库');return ['videos'=>$receipt['videos']];}
         $text=trim((string)($receipt['content']??''));$text=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$text);$data=json_decode($text,true,64,JSON_THROW_ON_ERROR);
         if(!is_array($data)||array_is_list($data))throw new RuntimeException('分析结果格式不正确');
+        if($action==='optimize'){$value=ProductVideoPolicy::text($data['video_prompt']??'',12000);if($value==='')throw new RuntimeException('未返回有效视频描述');return ['video_prompt'=>$value];}
         if($action==='product'){$value=ProductVideoPolicy::text($data['product_info']??'',3000);if($value==='')throw new RuntimeException('未识别到商品信息');return ['product_info'=>$value];}
         if($action==='plan')return ProductVideoPolicy::plan($data,(int)$r['duration']);
         $duration=(float)$r['video']['duration'];$shots=[];$last=0.;

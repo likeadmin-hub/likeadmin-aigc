@@ -22,13 +22,14 @@ final class ProductVideoJobs
     }
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
-        $q=self::table()->where('delete_time',0);if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);
+        $q=self::table()->where('delete_time',0)->whereNotIn('id',function($q){$q->name(ProductVideoPolicy::APP.'_job_stage')->field('child_job_id');});if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);
         if(!empty($p['project_id']))$q->where('project_id',(int)$p['project_id']);
         $page=max(1,(int)($p['page_no']??1));$size=max(1,min(50,(int)($p['page_size']??20)));$count=(clone $q)->count();
         return ['lists'=>array_map([self::class,'dto'],$q->order('id','desc')->page($page,$size)->select()->toArray()),'count'=>$count,'page_no'=>$page,'page_size'=>$size];
     }
     public static function prepare(int $tenant,int $user,array $p): array
     {
+        if(($p['action']??'')==='analysis')return ProductVideoPipeline::prepare($tenant,$user,$p);
         ProductVideoService::available($tenant,$user);$project=ProductVideoService::owned($tenant,$user,(int)($p['project_id']??0));
         if((int)($p['revision']??0)!==(int)$project['revision'])throw new InvalidArgumentException('草稿已更新，请保存后重新报价');
         $action=(string)($p['action']??'');if(!in_array($action,ProductVideoPolicy::ACTIONS,true))throw new InvalidArgumentException('创作操作无效');
@@ -37,11 +38,14 @@ final class ProductVideoJobs
         if(in_array($action,['product','plan','storyboard','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
         $request['images']=$images;$settings=ProductVideoService::settings($tenant);
         if($action==='video'){
-            $prompt=ProductVideoPolicy::prompt($body);if($body['mode']==='normal'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
-            $wanted=(array)$body['video_selection'];$model=MicroVideoCatalog::model($tenant,(string)($wanted['model_id']??''),false,'reference');
-            $spec=MicroVideoCatalog::spec($model,(string)($wanted['quality']??''),(string)($wanted['ratio']??''),(int)($wanted['duration']??0));
-            if(count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
-            $assets=array_map(static fn($image)=>['type'=>'image','uri'=>$image['uri'],'role'=>$spec['generation_method']==='image_to_video'?'first_frame_image':'reference_image']+$image,$images);
+            $prompt=ProductVideoPolicy::prompt($body);if($body['mode']==='normal'&&($body['normal_source']??'prompt')==='prompt'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
+            $wanted=(array)$body['video_selection'];$model=ProductVideoCatalog::model($tenant,$body);
+            $spec=ProductVideoCatalog::spec($model,$body);
+            if(($body['reference_mode']??'reference')!=='start_end'&&count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
+            $assets=[];foreach($images as $index=>$image)$assets[]=['type'=>'image','uri'=>$image['uri'],'role'=>$spec['generation_method']==='start_end'?($index===0?'first_frame_image':'last_frame_image'):($spec['generation_method']==='image_to_video'?'first_frame_image':'reference_image')]+$image;
+            foreach($body['generation_assets'] as $asset)$assets[]=$asset;
+            ProductVideoMaterials::assertMentions($body,$assets);
+            if(($body['audio']??null)!==null){if(empty($model['supports_generate_audio']))throw new InvalidArgumentException('所选模型不支持声音开关，请使用自动声音设置');$spec['generate_audio']=(bool)$body['audio'];}
             $storyboard=$body['storyboard'];
             if($body['mode']==='advanced'&&is_array($storyboard)&&($storyboard['input_key']??'')===ProductVideoPolicy::hash((array)$body['plan'])&&$spec['generation_method']!=='image_to_video'){
                 $extra=MicroVideoMedia::validateImages($tenant,$user,(array)($storyboard['images']??[]),1);
@@ -51,7 +55,7 @@ final class ProductVideoJobs
                 }
             }
             $selection=$spec+['model_id'=>$model['id'],'channel'=>$model['id'],'resolution'=>$spec['quality']];
-            $request+=['selection'=>$selection,'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets];
+            $request+=['selection'=>$selection,'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>$body['selected_mentions']];
             $quote=MicroVideoCatalog::runtime($spec)::quote($tenant,$selection+['prompt'=>$prompt,'reference_images'=>$request['reference_images'],'reference_assets'=>$assets]);
             $request['runtime']=MicroVideoCatalog::runtime($spec);$quote['approximate']=false;
         }elseif($action==='storyboard'){
@@ -80,8 +84,8 @@ final class ProductVideoJobs
             }
             if(in_array($action,['reference','chapters'],true))$request['images']=[];
             if($action==='plan'){
-                $v=$body['video_selection'];$model=MicroVideoCatalog::model($tenant,(string)($v['model_id']??''),false,'reference');
-                MicroVideoCatalog::spec($model,(string)($v['quality']??''),(string)($v['ratio']??''),(int)($v['duration']??0));
+                $v=$body['video_selection'];$model=ProductVideoCatalog::model($tenant,$body);
+                ProductVideoCatalog::spec($model,$body);
                 if(count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
                 $request['duration']=(int)$v['duration'];
             }
@@ -93,12 +97,13 @@ final class ProductVideoJobs
             $reference=$body['reference_analysis'];if(($reference['video_uri']??'')!==($body['reference_video']['uri']??''))$reference=null;
             $request['content']=ProductVideoPolicy::encode(['product_info'=>$body['product_info'],'requirements'=>$body['requirements'],'language'=>$body['language'],
                 'template'=>$template,'reference_observations'=>$reference['data']??null,'duration'=>$request['duration']??null,'ratio'=>$body['video_selection']['ratio']??'',
-                'actual_duration'=>$video['duration']??null]);
+                'prompt'=>$body['prompt'],'market_region'=>$body['market_region']??'','audio'=>$body['audio']??null,'image_slots'=>array_column($request['images'],'reference_slot_id'),'actual_duration'=>$video['duration']??null]);
             $request['video']=$video;$request['system']=ProductVideoPrompts::system($action);
             // Media token counts are supplier measured. A fictitious scalar quote would mislead users.
             $quote=['approximate'=>true,'user_charge_points'=>null,'tenant_cost_points'=>0,'model_name'=>$model['name'],
                 'input'=>$model['input'],'output'=>$model['output'],'notice'=>'按模型实际输入和输出用量结算'];
         }
+        if($action==='optimize'&&$body['prompt']==='')throw new InvalidArgumentException('请先填写需要优化的视频描述');
         $request['quote']=$quote;return ['project'=>$project,'request'=>$request,'quote'=>$quote,'hash'=>ProductVideoPolicy::requestKey($request)];
     }
     public static function imageRequest(array $r): array
@@ -108,7 +113,7 @@ final class ProductVideoJobs
         $i=self::prepare($tenant,$user,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;
         ProductVideoService::table('quote')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$i['project']['id'],'token'=>$token,'input_hash'=>$i['hash'],'request_json'=>ProductVideoPolicy::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);
         $q=$i['quote'];return ['quote_token'=>$token,'expires_at'=>$expires,'action'=>$i['request']['action'],'approximate'=>$q['approximate'],'user_charge_points'=>$q['user_charge_points'],
-            'notice'=>$q['notice']??'按当前规格生成一次','model_name'=>$q['model_name']??''];
+            'notice'=>$q['notice']??'按当前规格生成一次','model_name'=>$q['model_name']??'','phased_costs'=>$q['phased_costs']??[]];
     }
     public static function create(int $tenant,int $user,array $p): array
     {
@@ -118,7 +123,7 @@ final class ProductVideoJobs
         $i=self::prepare($tenant,$user,$p);$token=(string)($p['quote_token']??'');
         $quote=ProductVideoService::table('quote')->where(['tenant_id'=>$tenant,'user_id'=>$user,'token'=>$token,'input_hash'=>$i['hash']])->find();
         if(!$quote||(int)$quote['expires_at']<time())throw new InvalidArgumentException('资料、规格或报价已变化，请重新确认');
-        $q=$i['quote'];PointService::assertCanConsumeAmounts($tenant,$user,(float)($q['tenant_cost_points']?:0.01),(float)($q['user_charge_points']??0.01));
+        $q=$i['quote'];PointService::assertCanConsumeAmounts($tenant,$user,(float)($q['tenant_cost_points']?:0.01),(float)($q['precheck_user_points']??$q['user_charge_points']??0.01));
         return Db::transaction(static function()use($tenant,$user,$p,$key,$i,$quote){
             $project=ProductVideoService::owned($tenant,$user,(int)$p['project_id'],true);if((int)$project['revision']!==(int)$p['revision'])throw new InvalidArgumentException('草稿已更新，请重新确认');
             $prior=self::table()->where(['tenant_id'=>$tenant,'user_id'=>$user,'idempotency_key'=>$key])->find();if($prior)return self::dto($prior);
@@ -131,5 +136,5 @@ final class ProductVideoJobs
     public static function recover(int $tenant,int $user,int $id): array
     {$row=self::owned($tenant,$user,$id);ProductVideoWorker::reconcile($row);return self::dto(self::owned($tenant,$user,$id));}
     public static function delete(int $tenant,int $user,int $id): void
-    {$row=self::owned($tenant,$user,$id);if(!in_array($row['status'],['success','failed','canceled'],true))throw new InvalidArgumentException('任务尚未结束，请保留进度');self::table()->where('id',$id)->update(['delete_time'=>time(),'update_time'=>time()]);}
+    {$row=self::owned($tenant,$user,$id);if(!in_array($row['status'],['success','partial','failed','canceled'],true))throw new InvalidArgumentException('任务尚未结束，请保留进度');self::table()->where('id',$id)->update(['delete_time'=>time(),'update_time'=>time()]);}
 }

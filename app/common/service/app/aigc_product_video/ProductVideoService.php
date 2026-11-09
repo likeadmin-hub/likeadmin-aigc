@@ -45,7 +45,7 @@ final class ProductVideoService
         if($kind==='image')return ['models'=>MicroVideoFrameCatalog::models($tenant,1)];
         if($kind==='analysis')return ['models'=>MarketTextModelRuntimeService::mediaOptions($tenant,true)];
         if($kind!=='video')throw new InvalidArgumentException('模型类型无效');
-        return ['models'=>MicroVideoCatalog::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='')];
+        return ['models'=>ProductVideoCatalog::models($tenant,$id)];
     }
     public static function owned(int $tenant,int $user,int $id,bool $lock=false): array
     {
@@ -77,6 +77,7 @@ final class ProductVideoService
         self::available($tenant,$user);$body=ProductVideoPolicy::body((array)($p['body']??[]));
         try { $body['images']=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15); }
         catch(\RuntimeException $e) { throw new InvalidArgumentException('商品图片不可用，请重新添加商品素材',0,$e); }
+        $body=ProductVideoMaterials::normalize($tenant,$user,$body);
         if($body['reference_video'])$body['reference_video']=MicroVideoMedia::validateVideo($tenant,$user,(string)($body['reference_video']['uri']??''));
         return Db::transaction(static function()use($tenant,$user,$p,$body){
             $id=(int)($p['id']??0);$title=ProductVideoPolicy::text($p['title']??'商品视频',100);
@@ -89,10 +90,17 @@ final class ProductVideoService
     {
         return Db::transaction(static function()use($tenant,$user,$p){
             $job=ProductVideoJobs::owned($tenant,$user,(int)($p['job_id']??0));$project=self::owned($tenant,$user,(int)$job['project_id'],true);
-            if($job['status']!=='success')throw new InvalidArgumentException('任务完成后才能使用结果');
+            if(!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('任务完成后才能使用结果');
             if((int)$project['revision']!==(int)($p['revision']??0)||(int)$job['project_revision']!==(int)$project['revision'])throw new InvalidArgumentException('草稿已修改，结果已保留，请查看后手动合并');
             $body=ProductVideoPolicy::json($project['body_json']);$result=ProductVideoPolicy::json($job['result_json']);
-            if($job['action']==='product')$body['product_info']=$result['product_info'];
+            if($job['action']==='analysis'){
+                if(!empty($result['product_info']))$body['product_info']=$result['product_info'];
+                $plan=ProductVideoPolicy::plan($result,(int)$body['video_selection']['duration']);
+                $body['plan']=['data'=>$plan,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
+                if(!empty($result['images']))$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash($body['plan']),'job_id'=>(int)$job['id']];
+            }
+            elseif($job['action']==='optimize')$body['prompt']=$result['video_prompt'];
+            elseif($job['action']==='product')$body['product_info']=$result['product_info'];
             elseif($job['action']==='reference')$body['reference_analysis']=['data'=>$result,'video_uri'=>$body['reference_video']['uri']??''];
             elseif($job['action']==='plan')$body['plan']=['data'=>$result,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
             elseif($job['action']==='storyboard')$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash((array)$body['plan']),'job_id'=>(int)$job['id']];
