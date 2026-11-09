@@ -28,7 +28,7 @@ final class ProductVideoPipeline
             }
         }
         if(!$selected)throw new InvalidArgumentException('请选择支持当前商品图和预估价的分镜图片模型');
-        $quote=$plan['quote'];$quote['tenant_cost_points']=$selected['quote']['tenant_cost_points']+0.01;$quote['precheck_user_points']=$selected['quote']['user_charge_points']+0.01;$quote['notice']='商品识别与文字方案按实际用量结算；分镜图单独按确认规格生成一次';
+        $quote=$plan['quote'];$quote['tenant_cost_points']=$selected['quote']['tenant_cost_points']+0.01;$quote['precheck_user_points']=$selected['quote']['user_charge_points']+0.01;$quote['notice']='商品识别与文字方案按实际用量结算；分镜图单独按确认规格生成一次，使用 '.count($selected['images']).' 张商品参考图（共 '.count($body['images']).' 张）';
         $quote['phased_costs']=[['action'=>'plan','model_name'=>$quote['model_name'],'approximate'=>true,'user_charge_points'=>null],['action'=>'storyboard','model_name'=>$selected['label'],'approximate'=>false,'user_charge_points'=>$selected['quote']['user_charge_points']]];
         $request=['action'=>'analysis','plan_request'=>$plan['request'],'image_stage'=>$selected,'snapshot'=>$body,'project_revision'=>$plan['project']['revision'],'quote'=>$quote];
         return ['project'=>$plan['project'],'request'=>$request,'quote'=>$quote,'hash'=>ProductVideoPolicy::requestKey($request)];
