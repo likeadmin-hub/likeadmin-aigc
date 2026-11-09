@@ -47,7 +47,7 @@ final class ProductVideoJobs
         $action=(string)($p['action']??'');if(!in_array($action,ProductVideoPolicy::ACTIONS,true))throw new InvalidArgumentException('创作操作无效');
         $body=ProductVideoPolicy::body(ProductVideoPolicy::json($project['body_json']));$request=['action'=>$action,'snapshot'=>$body,'project_revision'=>(int)$project['revision']];
         $images=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15);
-        if(in_array($action,['product','plan','storyboard','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
+        if(in_array($action,['product','plan','write','storyboard','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
         $request['images']=$images;$settings=ProductVideoService::settings($tenant);
         if($action==='video'){
             $prompt=ProductVideoPolicy::prompt($body);if($body['mode']==='normal'&&($body['normal_source']??'prompt')==='prompt'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
@@ -111,6 +111,7 @@ final class ProductVideoJobs
                 if(count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
                 $request['duration']=(int)$v['duration'];
             }
+            if(in_array($action,['write','optimize'],true))$request['duration']=(int)($body['video_selection']['duration']??0);
             $id=(string)($video?($body['analysis_model_id']?:$settings['analysis_model_id']):($body['planning_model_id']?:$settings['planning_model_id']));$options=Text::mediaOptions($tenant,(bool)$video);
             if($id==='')$id=(string)($options[0]['id']??'');
             if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException($video?'暂无上架的视频理解模型':'暂无上架的商品分析模型');

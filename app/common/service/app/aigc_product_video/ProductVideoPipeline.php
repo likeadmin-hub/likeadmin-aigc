@@ -85,7 +85,7 @@ final class ProductVideoPipeline
                 'plan_key'=>ProductVideoPolicy::hash($body['plan']),'quote'=>$image['quote']];
             $pictures=self::child($root,'storyboard',$imageRequest);$jobs[]=$pictures;
             if($pictures['status']==='success'){$result['images']=ProductVideoPolicy::json($pictures['result_json'])['images'];$status='success';}
-            elseif(in_array($pictures['status'],['failed','canceled'],true)){$status='partial';$result['notice']='文字方案已完成，分镜图未完成。可采用方案后单独重试分镜图。';}
+            elseif(in_array($pictures['status'],['failed','canceled'],true)){$status='partial';$result['notice']='文字方案已保留，故事板图片未完成。可继续生成视频，或单独重试故事板。';}
             elseif($pictures['status']==='unknown')$status='unknown';
         }elseif(in_array($plan['status'],['failed','canceled'],true))$status='failed';elseif($plan['status']==='unknown')$status='unknown';
         $points=0.;$pending=false;
