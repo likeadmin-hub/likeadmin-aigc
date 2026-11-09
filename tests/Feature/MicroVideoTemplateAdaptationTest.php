@@ -26,4 +26,33 @@ final class MicroVideoTemplateAdaptationTest extends TestCase
     }
     public function testUnfilledProductVariablesAreRejectedBeforeAnyExecution(): void
     {$this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage('模板变量：商品');W::executionReferences(['script'=>['text'=>'展示〔商品〕','segments'=>[]]]);}
+    public function testOptInLocalSaveBindsOnlyAuthorizedSnapshotsAndPreservesImmutableVersions(): void
+    {
+        if(getenv('MICRO_VIDEO_TRANSACTIONAL_TEST')!=='1')self::markTestSkipped('Opt-in local rollback fixture');
+        (new \think\App(dirname(__DIR__,2).'/'))->initialize();$db=config('database.connections.mysql');
+        if($db['hostname']!=='127.0.0.1'||!in_array($db['database'],['x_cn','z_cn'],true))self::markTestSkipped('Local development database only');
+        $records=\app\common\service\app\aigc_micro_video\MicroVideoWorkbenchRecords::class;
+        $tenant=random_int(900000000,999999999);$user=19;
+        self::assertSame(0,$records::table()->where('tenant_id',$tenant)->count());
+        \think\facade\Db::startTrans();
+        try{
+            $source=str_replace('开场','展示〔商品〕',$this->body()['script']['text']);
+            $template=$records::save($tenant,$user,['kind'=>'template','title'=>'Rollback template','body'=>['script'=>$source]]);
+            self::assertCount(1,$template['body']['segments']);self::assertSame(15,$template['body']['default_duration']);
+            $product=$records::save($tenant,$user,['kind'=>'product','title'=>'真实商品','body'=>['features'=>'真实特点']]);
+            $body=$this->body();$body['brief']=['goal'=>'验证模板'];$body['roles']=[];$body['scenes']=[];$body['images']=[];
+            $body['script']=['text'=>$source,'segments'=>$template['body']['segments']];$body['template']=['id'=>$template['id'],'revision'=>1];$body['product']=['id'=>$product['id'],'revision'=>1];
+            $body['product_snapshot']=['title'=>'伪造商品'];$body['apply_template_values']=true;
+            $project=$records::save($tenant,$user,['kind'=>'project','title'=>'Rollback project','body'=>$body]);
+            self::assertStringContainsString('真实商品',$project['body']['script']['text']);self::assertStringNotContainsString('伪造商品',$project['body']['script']['text']);
+            self::assertSame($project['body']['script']['text'],$project['body']['script']['segments'][0]['prompt']);self::assertArrayNotHasKey('apply_template_values',$project['body']);
+            $original=$project['body'];$next=$original;$next['script']['text']='改过但未整理的新正文';$next['script']['requires_sync']=false;
+            $project=$records::save($tenant,$user,['kind'=>'project','id'=>$project['id'],'revision'=>1,'title'=>$project['title'],'body'=>$next]);
+            self::assertTrue($project['body']['script']['requires_sync']);
+            $version=$records::versionRow($records::owned($tenant,$user,'project',$project['id']),1);
+            self::assertSame($original,\app\common\service\app\aigc_micro_video\MicroVideoStore::json($version['body_json']));
+        }finally{\think\facade\Db::rollback();}
+        self::assertSame(0,$records::table()->where('tenant_id',$tenant)->count());
+        self::assertSame(0,$records::table('version')->where('tenant_id',$tenant)->count());
+    }
 }
