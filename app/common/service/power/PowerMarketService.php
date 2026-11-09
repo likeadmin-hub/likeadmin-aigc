@@ -90,6 +90,7 @@ class PowerMarketService
                 $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
                 $data = ['sale_status' => (int)($price['sale_status'] ?? $price['status'] ?? 1) === 1 ? 1 : 0, 'update_time' => time()];
                 if ($writePrice) {
+                    if (isset($sku['source_payload']['effective_rate_config'])) throw new Exception('分项 Token 费率请使用溢价设置');
                     MarketPriceWriteInput::assertExpected($price, (float)$sku['sale_points']);
                     $sale = $price['sale_points'];
                     if ($sale < max(0, (float)($sku['upstream_price'] ?? 0))) throw new Exception('租户成本价不能低于上游结算价');
@@ -1120,7 +1121,9 @@ class PowerMarketService
                     // The old snapshot has only a masked key. The immutable pricing
                     // specification remains sufficient to generate a stable local key.
                     unset($sku['sku_key']);
-                    self::upsertSku($productId, $sku, []);
+                    self::upsertSku($productId, $sku, ['type' => $product['resource_type'], 'resource' => [
+                        'app_code' => $product['upstream_app_code'], 'api_code' => $product['upstream_api_code'],
+                    ]]);
                     $summary['skus']++;
                 }
                 $summary['products']++;
@@ -1353,6 +1356,12 @@ class PowerMarketService
         }
         $price = (array)($sku['price'] ?? []);
         $usageUnit = self::normalizedUsageUnit($sku, $item);
+        $source = self::skuSnapshot($sku);
+        $resource = $item['resource'] ?? [];
+        if (MarketFileQaTokenPricing::supports($item['type'] ?? '', $resource['app_code'] ?? '', $resource['api_code'] ?? '')
+            && $usageUnit === 'token' && (array_key_exists('effective_rate_config', $sku) || (float)($price['points'] ?? 0) === 0.0)) {
+            $source['effective_rate_config'] = MarketFileQaTokenPricing::rates($sku);
+        }
         $data = [
             'title' => trim((string)($sku['title'] ?? $key)),
             'billing_mode' => trim((string)($sku['billing_mode'] ?? 'fixed')),
@@ -1364,7 +1373,7 @@ class PowerMarketService
             'usage_unit_size' => MarketPricePolicy::databaseValue(max(1, (float)($sku['usage_unit_size'] ?? 1))),
             'upstream_price' => MarketPricePolicy::databaseValue(max(0, (float)($price['points'] ?? 0))),
             'price_hash' => sha1(json_encode($sku, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
-            'source_payload' => self::skuSnapshot($sku),
+            'source_payload' => $source,
             'status' => 1,
             'update_time' => time(),
         ];
@@ -1527,6 +1536,7 @@ class PowerMarketService
                 }
                 $productId = (int)$sku['product_id'];
                 $stats[$productId]['sku_count'] = (int)($stats[$productId]['sku_count'] ?? 0) + 1;
+                if (isset($sku['source_payload']['effective_rate_config'])) $stats[$productId]['has_token_rates'] = true;
                 $price = (float)($sku['upstream_price'] ?? 0);
                 $stats[$productId]['min_price'] = isset($stats[$productId]['min_price'])
                     ? min($stats[$productId]['min_price'], $price)
@@ -1567,6 +1577,7 @@ class PowerMarketService
             }
             $group = &$groups[$appCode];
             $productId = (int)$product['id'];
+            if (!empty($stats[$productId]['has_token_rates'])) $group['has_token_rates'] = true;
             $group['api_count']++;
             $group['sku_count'] += (int)($stats[$productId]['sku_count'] ?? 0);
             if (isset($stats[$productId]['min_price'])) {
@@ -1707,6 +1718,11 @@ class PowerMarketService
         $sku['upstream_price'] = round(max(0, (float)($sku['upstream_price'] ?? 0)), 6);
         $sku['sale_points'] = round(max(0, (float)($sku['sale_points'] ?? $sku['upstream_price'])), 6);
         $sku['sale_status'] = (int)($sku['sale_status'] ?? 1) === 1 ? 1 : 0;
+        $rates = MarketFileQaTokenPricing::display($sku, 0);
+        if ($rates !== null) {
+            $sku['token_rates'] = $rates;
+            $sku['pricing_valid'] = $rates['valid'];
+        }
         $sku['gross_margin_points'] = round($sku['sale_points'] - $sku['upstream_price'], 6);
         return $sku;
     }

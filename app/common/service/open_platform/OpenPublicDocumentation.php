@@ -52,7 +52,12 @@ final class OpenPublicDocumentation
                 $skuId=(int)($rule['sku_id']??0);if(isset($seen[$skuId]))continue;$seen[$skuId]=true;$sku=$skus[$skuId]??null;
                 if(!$sku||empty($sku['sale_status'])||!is_numeric($sku['sale_points']??null)||!is_numeric($sku['usage_unit_size']??null)||!is_finite((float)$sku['sale_points'])||!is_finite((float)$sku['usage_unit_size'])||(float)$sku['sale_points']<0||(float)$sku['usage_unit_size']<=0){$content.='| '.$name.' | SKU '.($skuId?:'—').' | 当前规格暂不可售，请确认在线预估 | — |'."\n";continue;}
                 $unit=match($sku['usage_unit']){'character'=>'字符','token'=>'Token','input_second'=>'输入秒','output_second'=>'输出秒','second','seconds','sec'=>'秒','image'=>'图片','per_call'=>($config['native_pricing']??'')===OpenNativeMarketPricing::ADAPTER&&($product['model_type']??'')==='image'?'成功图片':'次',default=>(string)$sku['usage_unit']};
-                $content.='| '.$name.' | '.self::cell((string)$sku['sku_key']).' | '.self::number((float)$sku['sale_points']).' 积分 | 每 '.self::number((float)$sku['usage_unit_size']).' '.self::cell($unit).' |'."\n";
+                $points = self::number((float)$sku['sale_points']);
+                if (isset($sku['token_rates'])) {
+                    $rates = $sku['token_rates']['sale'];
+                    $points = '输入 '.self::number((float)$rates['input']).' / 缓存输入 '.self::number((float)$rates['cached_input']).' / 输出 '.self::number((float)$rates['output']);
+                }
+                $content.='| '.$name.' | '.self::cell((string)$sku['sku_key']).' | '.$points.' 积分 | 每 '.self::number((float)$sku['usage_unit_size']).' '.self::cell($unit).' |'."\n";
             }
             if(!$seen)$content.='| '.$name.' | — | 暂无公开 SKU 单价，请查看在线预估 | — |'."\n";
         }

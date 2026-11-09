@@ -2,6 +2,7 @@
 namespace app\common\service\open_platform;
 use app\common\service\power\TenantPowerMarketService;
 use app\common\service\point\PointService;
+use app\common\service\power\MarketFileQaTokenPricing;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiAppTask;
 use think\facade\Db;
@@ -33,6 +34,15 @@ final class OpenMarketBilling
         $user=0.;$tenant=0.;$rules=[];$skus=array_column($product['skus'],null,'id');
         foreach($operation['billing'] as $rule){$sku=$skus[(int)$rule['sku_id']]??null;if(!$sku||empty($sku['sale_status']))throw new OpenException('pricing_unavailable','计费 SKU 已下架',503);OpenSkuConsistency::assert($sku);
             foreach(OpenStore::json($sku['locked_params']??[]) as $key=>$value){$parameterPath=$rule['parameter_paths'][$key]??$key;$actual=OpenSchema::get($params,$parameterPath);if($actual===null)$actual=$operation['when_defaults'][$parameterPath]??OpenSchema::get($operation['input']??[],'properties.'.$parameterPath.'.default');if($actual===null||$actual!=$value)throw new OpenException('invalid_sku','参数与已发布 SKU 不匹配');}
+            if (MarketFileQaTokenPricing::supports($product['resource_type'] ?? '', $product['upstream_app_code'] ?? '', $product['upstream_api_code'] ?? '')
+                && $sku['usage_unit'] === 'token' && (isset($sku['token_rates']) || (float)$sku['upstream_price'] === 0.0)) {
+                if (count($operation['billing']) !== 1) throw new OpenException('invalid_contract', '文件应用只能绑定一个分项 Token 规格');
+                $quote = OpenFileQaPricing::quote($rule, $sku);
+                $rules[] = $quote['rule'];
+                $user += $quote['user'];
+                $tenant += $quote['tenant'];
+                continue;
+            }
             $units=$rule['basis']==='usage'?(float)$rule['max_units']:(empty($rule['input_path'])?1:OpenSchema::get($params,$rule['input_path']));if(is_array($units))$units=count($units);if(!is_numeric($units)||(float)$units<0||(float)$units>(float)$rule['max_units'])throw new OpenException('invalid_usage','请求超出已发布计费边界');
             $size=max(1,(float)($sku['usage_unit_size']??1));$prices=['user'=>(float)$sku['sale_points'],'tenant'=>(float)$sku['platform_sale_points']];
             $entry=$rule+['units'=>(float)$units,'unit_size'=>$size,'prices'=>$prices,'sku_key'=>$sku['sku_key'],'usage_unit'=>$sku['usage_unit']];$rules[]=$entry;$user+=$prices['user']*(float)$units/$size;$tenant+=$prices['tenant']*(float)$units/$size;
@@ -62,7 +72,35 @@ final class OpenMarketBilling
         }
         Db::transaction(function()use($request,$result,$failed,$evidence){$owner=OpenStore::table('request')->where('request_id',$request['request_id'])->lock(true)->find();if(!$owner)throw new OpenException('not_found','计费请求不存在',404);OpenCallContext::assertLease($owner);$c=AiConsumptionLog::where(['tenant_id'=>$request['tenant_id'],'user_id'=>$request['user_id'],'consume_no'=>$request['request_id']])->lock(true)->findOrEmpty();if($c->isEmpty()||in_array($c['billing_status'],['settled','refunded'],true))return;
             $snapshot=OpenStore::json($c['price_snapshot']);$user=0.;$tenant=0.;$usage=[];
-            foreach($snapshot['rules']??[] as $rule){$units=$rule['basis']==='character_input'?OpenCharacterInputPricing::settledUnits($snapshot['character_input'],$failed):($rule['basis']==='native'?OpenNativeMarketPricing::settledUnits($snapshot['native_media'],$result,$failed,$evidence):($failed?0:($rule['basis']==='input'?$rule['units']:OpenSchema::get($result,$rule['usage_path']))));if(is_array($units))$units=count($units);if(!is_numeric($units)||(float)$units<0){$c->save(['billing_status'=>'pending_usage','run_status'=>'success']);OpenAdmission::finish($request['request_id'],['billing_status'=>'pending_usage','status'=>'success','next_run_time'=>time()+60]);return;}if((float)$units>(float)$rule['max_units'])throw new OpenException('usage_boundary_exceeded','可信用量超过契约边界，等待人工核对',502);$usage[]=['sku_id'=>$rule['sku_id'],'units'=>$units]+($evidence?['image_count'=>count($evidence['images']),'measured_images'=>$evidence['images']]:[]);if($rule['basis']==='native'){$user+=OpenNativeMarketPricing::settledPrice((float)$rule['prices']['user'],(float)$units,$snapshot['native_media'],$failed);$tenant+=OpenNativeMarketPricing::settledPrice((float)$rule['prices']['tenant'],(float)$units,$snapshot['native_media'],$failed);}elseif($rule['basis']==='character_input'){$user+=\app\common\service\power\MarketUsageSettlementService::price((float)$rule['prices']['user'],(float)$units,['usage_unit_size'=>$rule['unit_size']]);$tenant+=\app\common\service\power\MarketUsageSettlementService::price((float)$rule['prices']['tenant'],(float)$units,['usage_unit_size'=>$rule['unit_size']]);}else{$user+=(float)$units/$rule['unit_size']*$rule['prices']['user'];$tenant+=(float)$units/$rule['unit_size']*$rule['prices']['tenant'];}}
+            foreach($snapshot['rules']??[] as $rule){
+                if ($rule['basis'] === 'file_qa_tokens') {
+                    if ($failed) {
+                        $usage[] = ['sku_id' => $rule['sku_id'], 'units' => 0];
+                        continue;
+                    }
+                    $charge = OpenFileQaPricing::settle($rule, $result);
+                    if ($charge !== null) {
+                        $tenant += $charge['tenant'];
+                        $user += $charge['user'];
+                        $usage[] = $charge['usage'];
+                        continue;
+                    }
+                    $units = null;
+                } else {
+                    $units = match ($rule['basis']) {
+                        'character_input' => OpenCharacterInputPricing::settledUnits($snapshot['character_input'], $failed),
+                        'native' => OpenNativeMarketPricing::settledUnits($snapshot['native_media'], $result, $failed, $evidence),
+                        default => $failed ? 0 : ($rule['basis'] === 'input' ? $rule['units'] : OpenSchema::get($result, $rule['usage_path'])),
+                    };
+                }
+                if (is_array($units)) $units = count($units);
+                if (!is_numeric($units) || (float)$units < 0) {
+                    $c->save(['billing_status' => 'pending_usage', 'run_status' => 'success']);
+                    OpenAdmission::finish($request['request_id'], ['billing_status' => 'pending_usage', 'status' => 'success', 'next_run_time' => time() + 60]);
+                    return;
+                }
+                if ((float)$units > (float)$rule['max_units']) throw new OpenException('usage_boundary_exceeded', '可信用量超过契约边界，等待人工核对', 502);
+                $usage[]=['sku_id'=>$rule['sku_id'],'units'=>$units]+($evidence?['image_count'=>count($evidence['images']),'measured_images'=>$evidence['images']]:[]);if($rule['basis']==='native'){$user+=OpenNativeMarketPricing::settledPrice((float)$rule['prices']['user'],(float)$units,$snapshot['native_media'],$failed);$tenant+=OpenNativeMarketPricing::settledPrice((float)$rule['prices']['tenant'],(float)$units,$snapshot['native_media'],$failed);}elseif($rule['basis']==='character_input'){$user+=\app\common\service\power\MarketUsageSettlementService::price((float)$rule['prices']['user'],(float)$units,['usage_unit_size'=>$rule['unit_size']]);$tenant+=\app\common\service\power\MarketUsageSettlementService::price((float)$rule['prices']['tenant'],(float)$units,['usage_unit_size'=>$rule['unit_size']]);}else{$user+=(float)$units/$rule['unit_size']*$rule['prices']['user'];$tenant+=(float)$units/$rule['unit_size']*$rule['prices']['tenant'];}}
             $user=round($user,2);$tenant=round($tenant,2);PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$request['tenant_id'],(int)$request['user_id'],(float)$c['reserved_tenant_cost'],(float)$c['reserved_user_price'],$tenant,$user,$request['request_id'],'开放平台结算',['consumption_id'=>$c['id'],'app_code'=>'open_platform']);
             $status=$failed?'failed':'success';if(!$failed&&($snapshot['native_media']['kind']??'')==='image'&&!\app\common\service\power\MarketGenerationMeter::boundedToken((array)($snapshot['native_media']['market_snapshot']['billing_meter']??[]))&&($evidence?count($evidence['images'])<(int)($snapshot['native_media']['submitted_images']??0):(float)($usage[0]['units']??0)<(float)$snapshot['native_media']['submitted_units']))$status='partial_success';
             $state=$failed?'refunded':'settled';$c->save(['run_status'=>$failed?'failed':'success','billing_status'=>$state,'usage_snapshot'=>$usage,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$status,'progress'=>100,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);OpenAdmission::finish($request['request_id'],['status'=>$status,'billing_status'=>$state,'actual_user'=>$user,'actual_tenant'=>$tenant,'active'=>0,'budget_user'=>0,'budget_tenant'=>0,'finish_time'=>time(),'next_run_time'=>0]);

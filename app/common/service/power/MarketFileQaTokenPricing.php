@@ -6,20 +6,56 @@ use InvalidArgumentException;
 /** file_qa's zero scalar price is a placeholder when separate Token rates exist. */
 final class MarketFileQaTokenPricing
 {
-    public static function snapshot(array $sku, array $declaration, array $platformRules, array $tenantRules): ?array
+    public static function supports(string $type, string $app, string $api): bool
+    {
+        return $type === 'app_api' && $app === 'file_qa' && in_array($api, ['parse', 'chat'], true);
+    }
+
+    public static function storedDeclaration(array $sku): array
+    {
+        $source = $sku['source_payload'] ?? [];
+        return is_array($source) ? $source : (json_decode($source, true) ?: []);
+    }
+
+    public static function rates(array $declaration): array
+    {
+        $rates = $declaration['effective_rate_config'] ?? null;
+        if (!is_array($rates) || !isset($rates['input'], $rates['output'])) throw new InvalidArgumentException('文件应用输入输出费率不完整，请重新同步应用目录');
+        $size = $declaration['usage_unit_size'] ?? null;
+        if (!is_numeric($size) || !is_finite((float)$size) || (float)$size < 1) throw new InvalidArgumentException('文件应用 Token 计费单位无效');
+        return [
+            'input' => MarketPricePolicy::amount($rates['input']),
+            'cached_input' => MarketPricePolicy::amount($rates['cached_input'] ?? $rates['input']),
+            'output' => MarketPricePolicy::amount($rates['output']),
+        ];
+    }
+
+    /** Project only the cost and sale tiers visible to this market owner. */
+    public static function display(array $sku, int $owner, ?array $platformRules = null, ?array $tenantRules = null): ?array
+    {
+        $source = self::storedDeclaration($sku);
+        if (!array_key_exists('effective_rate_config', $source)) return null;
+        $pricing = self::snapshot($sku, $source, $platformRules ?? MarketPriceRuleService::rules(0),
+            $owner === 0 ? [] : ($tenantRules ?? MarketPriceRuleService::rules($owner)), false);
+        return ['cost' => $pricing[$owner === 0 ? 'upstream' : 'platform'], 'sale' => $pricing[$owner === 0 ? 'platform' : 'tenant'],
+            'usage_unit_size' => $pricing['usage_unit_size'], 'valid' => $pricing['valid']];
+    }
+
+    public static function snapshot(array $sku, array $declaration, array $platformRules, array $tenantRules, bool $strict = true): ?array
     {
         if (!array_key_exists('effective_rate_config', $declaration)) return null;
-        $rates = $declaration['effective_rate_config'];
-        if (!is_array($rates) || !isset($rates['input'], $rates['output'])) throw new InvalidArgumentException('剧本解析输入输出费率不完整');
-        $rates['cached_input'] ??= $rates['input'];
-        $size = (float)($declaration['usage_unit_size'] ?? $sku['usage_unit_size'] ?? 0);
-        if (!is_finite($size) || $size <= 0) throw new InvalidArgumentException('剧本解析计费单位无效');
-        $snapshot = ['version' => 1, 'usage_unit_size' => $size, 'upstream' => [], 'platform' => [], 'tenant' => [], 'rules' => []];
+        $declaration += ['usage_unit_size' => $sku['usage_unit_size'] ?? null];
+        $rates = self::rates($declaration);
+        $size = (float)$declaration['usage_unit_size'];
+        $snapshot = ['version' => 1, 'valid' => true, 'usage_unit_size' => $size, 'upstream' => [], 'platform' => [], 'tenant' => [], 'rules' => []];
         foreach (['input', 'cached_input', 'output'] as $key) {
-            $base = MarketPricePolicy::amount($rates[$key]);
+            $base = $rates[$key];
             $platform = MarketPricePolicy::resolve($base, $base, $platformRules, (int)$sku['product_id'], (int)$sku['id']);
             $tenant = MarketPricePolicy::resolve($platform['price'], $platform['price'], $tenantRules, (int)$sku['product_id'], (int)$sku['id']);
-            if (!$platform['valid'] || !$tenant['valid']) throw new InvalidArgumentException('剧本解析分项售价低于进货价，请先调整价格');
+            if (!$platform['valid'] || !$tenant['valid']) {
+                if ($strict) throw new InvalidArgumentException('文件应用分项售价低于进货价，请先调整价格');
+                $snapshot['valid'] = false;
+            }
             $snapshot['upstream'][$key] = $base;
             $snapshot['platform'][$key] = $platform['price'];
             $snapshot['tenant'][$key] = $tenant['price'];

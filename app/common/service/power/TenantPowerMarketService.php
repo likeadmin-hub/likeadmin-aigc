@@ -76,6 +76,7 @@ class TenantPowerMarketService
                 ];
             }
             $group = &$groups[$appCode];
+            if (!empty($product['has_token_rates'])) $group['has_token_rates'] = true;
             $group['api_count']++;
             $group['sku_count'] += (int)($product['sku_count'] ?? 0);
             if ((int)($product['sku_count'] ?? 0) > 0) {
@@ -279,6 +280,7 @@ class TenantPowerMarketService
                 $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
                 $sale = $writePrice ? $price['sale_points'] : (float)$current['tenant']['price'];
                 if ($writePrice) {
+                    if (isset($sku['source_payload']['effective_rate_config'])) throw new Exception('分项 Token 费率请使用溢价设置');
                     MarketPriceWriteInput::assertExpected($price, (float)$current['tenant']['price']);
                     if ($sale < (float)$current['platform']['price']) throw new Exception('租户售价不能低于平台成本价');
                     MarketPriceRuleService::manual($tenantId, $productId, $skuId, $sale);
@@ -416,7 +418,7 @@ class TenantPowerMarketService
                     continue;
                 }
                 $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
-                $platformPrice = max(0, (float)($sku['sale_points'] ?? 0));
+                if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
                 $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $tenantPrice);
                 $price = (float)$resolved['tenant']['price'];
                 $stats[$id]['min_price'] = isset($stats[$id]['min_price']) ? min($stats[$id]['min_price'], $price) : $price;
@@ -426,6 +428,7 @@ class TenantPowerMarketService
             $id = (int)$row['id'];
             $row = PowerMarketService::formatProduct($row);
             $row['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0);
+            if (!empty($stats[$id]['has_token_rates'])) $row['has_token_rates'] = true;
             $row['min_price'] = (float)($stats[$id]['min_price'] ?? 0);
             $row['platform_status'] = (int)($stats[$id]['platform_sku_count'] ?? 0) > 0 ? 1 : 0;
             $row['status'] = $row['sku_count'] > 0 ? 1 : 0;
@@ -453,11 +456,16 @@ class TenantPowerMarketService
             $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $price);
             $tenantSale = (float)$resolved['tenant']['price'];
             $sku['tenant_price_rule'] = $resolved['tenant'];
-            $sku['pricing_valid'] = $resolved['valid'];
+            $rates = MarketFileQaTokenPricing::display($sku, $tenantId);
+            if ($rates !== null) {
+                $sku['token_rates'] = $rates;
+                unset($sku['source_payload']['effective_rate_config']);
+            }
+            $sku['pricing_valid'] = $resolved['valid'] && ($rates['valid'] ?? true);
             $sku['platform_sale_points'] = $platformSale;
             $sku['sale_points'] = $tenantSale;
             $sku['platform_sale_status'] = $platformEnabled ? 1 : 0;
-            $sku['sale_status'] = $resolved['valid'] && $platformEnabled && (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0;
+            $sku['sale_status'] = $sku['pricing_valid'] && $platformEnabled && (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0;
             $sku['gross_margin_points'] = round($tenantSale - $platformSale, 6);
         }
         unset($sku);

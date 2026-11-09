@@ -38,7 +38,7 @@ class MarketFileQaAppRuntimeService
             'market_sku_id' => (int)$market['sku']['id'],
             'token_rates' => $market['token_pricing'] ? ['rates' => $market['token_pricing']['tenant'], 'usage_unit_size' => $market['token_pricing']['usage_unit_size']] : null,
             'usage_unit' => (string)$market['sku']['usage_unit'],
-            'usage_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
+            'usage_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($market['sku']),
         ]];
     }
 
@@ -47,7 +47,7 @@ class MarketFileQaAppRuntimeService
         $market = self::resolve($tenantId, $selection);
         return [
             'billing_unit' => (string)$market['sku']['usage_unit'],
-            'billing_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
+            'billing_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($market['sku']),
             'quantity' => 0,
             'tenant_unit_points' => self::points((float)$market['sku']['sale_points']),
             'user_unit_points' => self::points((float)$market['tenant_price']),
@@ -252,7 +252,7 @@ class MarketFileQaAppRuntimeService
         return ['product' => $product->toArray(), 'sku' => $skuData, 'tenant_price' => MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant), 'token_pricing' => $tokenPricing];
     }
 
-    private static function snapshot(array $market): array { $p = $market['product']; $s = $market['sku']; return ['product_id' => (int)$p['id'], 'sku_id' => (int)$s['id'], 'app_code' => self::UPSTREAM_APP_CODE, 'api_code' => self::PARSE_API_CODE, 'runtime_adapter' => 'file_qa', 'query_path' => '/api/v1/tasks/{task_id}', 'usage_unit' => (string)$s['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($s), 'platform_price' => (float)$s['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'token_pricing' => $market['token_pricing'] ?? null]; }
+    private static function snapshot(array $market): array { $p = $market['product']; $s = $market['sku']; return ['product_id' => (int)$p['id'], 'sku_id' => (int)$s['id'], 'app_code' => self::UPSTREAM_APP_CODE, 'api_code' => self::PARSE_API_CODE, 'runtime_adapter' => 'file_qa', 'query_path' => '/api/v1/tasks/{task_id}', 'usage_unit' => (string)$s['usage_unit'], 'usage_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($s), 'platform_price' => (float)$s['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'token_pricing' => $market['token_pricing'] ?? null]; }
     private static function payload(array $request, string $consumeNo): array { return ['file_urls' => array_values(array_filter(array_map('strval', (array)($request['file_urls'] ?? [])))), 'parse_mode' => (string)($request['parse_mode'] ?? 'split_by_ai'), 'preserve_original' => !empty($request['preserve_original']), 'metadata' => array_merge((array)($request['metadata'] ?? []), ['consume_no' => $consumeNo])]; }
     private static function requestSummary(array $request): array { return ['file_urls' => array_values(array_filter(array_map('strval', (array)($request['file_urls'] ?? [])))), 'parse_mode' => (string)($request['parse_mode'] ?? 'split_by_ai'), 'preserve_original' => !empty($request['preserve_original'])]; }
     private static function endpoint(string $api): string { return self::origin() . '/api/v1/apps/' . rawurlencode(self::UPSTREAM_APP_CODE) . '/' . rawurlencode($api); }
