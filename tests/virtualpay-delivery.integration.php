@@ -13,6 +13,11 @@ Db::startTrans();try{
  $g=new Gateway(static function($method,$path,$params,$body)use(&$f,&$query,&$shippingState,&$uploads,&$calls){$calls[]=$path;
   if($path==='/sns/jscode2session')return ['openid'=>$f['openid'],'session_key'=>'fixture-session'];
   if($path==='/xpay/query_order')return $query;
+  if($path==='/xpay/notify_provide_goods'){
+   $expected=hash_hmac('sha256',$path.'&'.$body,'fixture-private-appkey');
+   oemCheck(($params['pay_sig']??'')===$expected,'provide-goods compensation requires payment signature over exact body');
+   return ['errcode'=>0];
+  }
   if($path==='/wxa/sec/order/is_trade_managed')return ['errcode'=>0,'is_trade_managed'=>true];
   if($path==='/wxa/sec/order/get_order')return ['errcode'=>0,'order'=>['transaction_id'=>$query['order']['wxpay_order_id'],'order_state'=>$shippingState]];
   if($path==='/wxa/sec/order/upload_shipping_info'){$uploads++;$p=json_decode($body,true);oemCheck($p['logistics_type']===3&&$p['delivery_mode']===1&&!isset($p['shipping_list'][0]['tracking_no']),'virtual unified shipping without fake courier');throw new RuntimeException('Simulated lost response');}
