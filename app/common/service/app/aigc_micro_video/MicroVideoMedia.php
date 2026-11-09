@@ -118,7 +118,7 @@ final class MicroVideoMedia
         if(preg_match('#^https?://#i',$input)&&!self::sameObjectUrl($input,$url))throw new RuntimeException('音频地址与所属素材不匹配');
         $workspace=self::workspace();
         try{
-            $path=$workspace.'/reference.audio';self::materialize($uri,$path,$tenant,$user);
+            $path=$workspace.'/reference.audio';self::materialize($uri,$path,$tenant,$user,FileEnum::FILE_TYPE);
             $info=json_decode(self::run([self::binary('ffprobe'),'-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',$path],30),true);
             $audio=array_filter($info['streams']??[],static fn($s)=>($s['codec_type']??'')==='audio');$duration=(float)($info['format']['duration']??0);
             if(!$audio||!is_finite($duration)||$duration<=0||$duration>$maxSeconds+0.1)throw new \InvalidArgumentException('参考音频必须是有效音频，且不超过 '.$maxSeconds.' 秒');
@@ -311,7 +311,7 @@ final class MicroVideoMedia
         return 'data:' . $mime . ';base64,' . base64_encode($bytes);
     }
 
-    private static function materialize(string $uri, string $target, int $tenant, int $user): void
+    private static function materialize(string $uri, string $target, int $tenant, int $user, int $fileType = FileEnum::VIDEO_TYPE): void
     {
         if (str_starts_with($uri, 'data:video/')) {
             if (strlen($uri) > (int)(self::MAX_VIDEO_BYTES * 1.4) || !preg_match('#^data:video/[a-zA-Z0-9.+-]+;base64,(.+)$#s', $uri, $match)) throw new RuntimeException('视频数据无效或过大');
@@ -324,7 +324,7 @@ final class MicroVideoMedia
             $local = null;
             try {
                 $canonical = self::canonicalUri($uri);
-                $file = self::ownedFile($tenant, $user, $canonical, FileEnum::VIDEO_TYPE);
+                $file = self::ownedFile($tenant, $user, $canonical, $fileType);
                 $storage = self::storage($file, $tenant);
                 if ($storage['storage_engine'] === 'local' && (self::sameObjectUrl($uri, self::managedUrl($canonical, $storage, $tenant))
                     || self::sameObjectUrl($uri, FileService::format($storage['storage_domain'], $canonical)))) $local = self::localPath($canonical);
@@ -338,7 +338,13 @@ final class MicroVideoMedia
             $bytes = $response['body'];
         } else {
             $canonical = self::canonicalUri($uri);
-            self::ownedFile($tenant, $user, $canonical, FileEnum::VIDEO_TYPE);
+            $file = self::ownedFile($tenant, $user, $canonical, $fileType);
+            $storage = self::storage($file, $tenant);
+            if ($storage['storage_engine'] !== 'local') {
+                $response = OpenSafeHttp::get(self::managedUrl($canonical,$storage,$tenant),self::MAX_VIDEO_BYTES,120);
+                if ((int)$response['status'] < 200 || (int)$response['status'] >= 300 || $response['body'] === '' || file_put_contents($target,$response['body']) !== strlen($response['body'])) throw new RuntimeException('媒体文件下载失败');
+                return;
+            }
             $path = self::localPath($canonical);
             if (filesize($path) > self::MAX_VIDEO_BYTES || !copy($path, $target)) throw new RuntimeException('视频片段读取失败或过大');
             return;

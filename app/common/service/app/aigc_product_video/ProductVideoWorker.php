@@ -125,5 +125,9 @@ final class ProductVideoWorker
         return ['summary'=>ProductVideoPolicy::text($data['summary']??'',1500),'style'=>ProductVideoPolicy::text($data['style']??'',1500),'audio'=>ProductVideoPolicy::text($data['audio']??'',1500),'shots'=>$shots,'duration'=>$duration,'video_job_id'=>$r['video_job_id']??0];
     }
     private static function finish(array $row,array $receipt,array $consumption): void
-    {self::write((int)$row['id'],['status'=>'success','result_json'=>ProductVideoPolicy::encode(self::parse($row,$receipt)),'billing_status'=>'settled','user_charge_points'=>(float)$consumption['actual_user_price'],'error'=>'']);}
+    {
+        $result=self::parse($row,$receipt);
+        self::write((int)$row['id'],['status'=>'success','result_json'=>ProductVideoPolicy::encode($result),'billing_status'=>'settled','user_charge_points'=>(float)$consumption['actual_user_price'],'error'=>'']);
+        if($row['action']==='video')ProductVideoPipeline::chapters($row,$result);
+    }
 }

@@ -16,7 +16,7 @@ try{
     Db::name('tenant_file')->insert(['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>10,'name'=>'product-video-local-test','uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
     $models=S::models(1,'video')['models'];pvAssert(count($models)>0,'Callable video model required in local market');
     $m=$models[0];$full=S::models(1,'video',$m['id'])['models'][0];$spec=$full['specs'][0];
-    $b=P::body(['images'=>[['uri'=>$uri]],'prompt'=>'展示外观','video_selection'=>['model_id'=>$m['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$spec['duration']]]);
+    $b=P::body(['images'=>[['uri'=>$uri]],'prompt'=>'展示外观','prompt_review_images'=>[$uri],'video_selection'=>['model_id'=>$m['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$spec['duration']]]);
     $p=S::save(1,1,['body'=>$b]);pvAssert($p['revision']===1,'Draft insert revision');
     pvReject(fn()=>S::owned(2,1,$p['id']),'Tenant isolation');pvReject(fn()=>S::owned(1,999999,$p['id']),'User isolation');
     pvReject(fn()=>S::save(1,1,['id'=>$p['id'],'revision'=>0,'body'=>$b]),'Stale write rejection');
@@ -41,5 +41,25 @@ try{
     pvAssert(\app\common\service\app\aigc_product_video\ProductVideoWorker::wake($c,$job['id']),'Owned callback wake');
     pvReject(fn()=>\app\common\service\app\aigc_product_video\ProductVideoWorker::wake(array_replace($c,['tenant_id'=>2]),$job['id']),'Cross-tenant callback');
     pvAssert(!\app\common\service\app\aigc_product_video\ProductVideoWorker::wake(array_replace($c,['id'=>2147480001]),$job['id']),'Unrelated receipt cannot wake this execution');
+    // Exercise the durable advanced pipeline without calling any provider.
+    $advanced=array_replace($b,['mode'=>'advanced','planning_model_id'=>(string)$analysis[0]['id']]);
+    $ap=S::save(1,1,['body'=>$advanced]);$aa=['project_id'=>$ap['id'],'revision'=>$ap['revision'],'action'=>'analysis'];
+    $aq=J::estimate(1,1,$aa);pvAssert(count($aq['phased_costs'])===2,'Analysis stage quote must disclose text and image costs');
+    $aj=J::create(1,1,$aa+['quote_token'=>$aq['quote_token'],'idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16))]);
+    $root=J::owned(1,1,$aj['id']);
+    \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
+    \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
+    $links=S::table('job_stage')->where('root_job_id',$aj['id'])->select()->toArray();pvAssert(count($links)===1,'Plan stage must never duplicate');
+    $duration=(int)$spec['duration'];$data=['product_info'=>'白色商品','summary'=>'全貌到细节','video_prompt'=>'完整展示后特写','shots'=>[['start'=>0,'end'=>1,'description'=>'全貌'],['start'=>1,'end'=>$duration,'description'=>'细节']]];
+    J::table()->where('id',$links[0]['child_job_id'])->update(['status'=>'success','billing_status'=>'settled','user_charge_points'=>2,'result_json'=>P::encode($data)]);
+    \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
+    $links=S::table('job_stage')->where('root_job_id',$aj['id'])->order('id')->select()->toArray();pvAssert(count($links)===2,'Storyboard follows the successful text stage');
+    J::table()->where('id',$links[1]['child_job_id'])->update(['status'=>'failed','billing_status'=>'refunded']);
+    \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
+    $partial=J::owned(1,1,$aj['id']);pvAssert($partial['status']==='partial'&&(float)$partial['user_charge_points']===2.,'Image failure must preserve paid text result');
+    $adopted=S::adopt(1,1,['job_id'=>$aj['id'],'revision'=>$ap['revision']]);pvAssert($adopted['plan_fresh']&&$adopted['body']['plan']['data']['video_prompt']===$data['video_prompt'],'Partial analysis remains usable');
+    $snapshot=S::fromJob(1,1,$aj['id']);pvAssert($snapshot['id']!==$ap['id']&&$snapshot['revision']===1,'Re-edit copies immutable submitted data into a new draft');
+    pvReject(fn()=>S::fromJob(2,1,$aj['id']),'Cross tenant history reuse');
+    pvReject(fn()=>P::key('pipeline_1234567890123'),'Public idempotency cannot collide with internal stages');
     echo "PASS local ownership, optimistic drafts, market quote, idempotency and queue isolation\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $file)unlink($file);rmdir($dir);}

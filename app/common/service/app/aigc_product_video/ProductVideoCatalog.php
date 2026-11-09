@@ -27,7 +27,7 @@ final class ProductVideoCatalog
     {
         $s=$body['video_selection'];$mode=($body['mode']==='normal'&&($body['reference_mode']??'reference')==='start_end')?'start_end':'reference';
         $spec=MicroVideoCatalog::spec($m,(string)($s['quality']??''),(string)($s['ratio']??''),(int)($s['duration']??0),$mode);
-        $count=count($body['images']);if($mode==='start_end'){if($count<1||$count>2)throw new InvalidArgumentException('首尾帧模式需要首帧，尾帧可选，最多两张图片');return $spec;}
+        $count=count($body['images']);if($mode==='start_end'){if($count<1||$count>2)throw new InvalidArgumentException('首尾帧模式需要首帧，尾帧可选，最多两张图片');if($count===1){$spec['generation_method']='image_to_video';unset($spec['market_sku_id']);foreach($m['material_modes']??[] as $native)if($native['method']==='image_to_video'){$spec['material_mode']=$native['key'];break;}}return $spec;}
         if(empty($m['material_modes'])){if($count>(int)$m['max_reference_images']||$body['generation_assets'])throw new InvalidArgumentException('所选模型不支持当前参考素材');return $spec;}
         $counts=['image'=>$count,'video'=>0,'audio'=>0];foreach($body['generation_assets'] as $asset)$counts[$asset['type']]++;
         $candidates=[];
@@ -40,6 +40,7 @@ final class ProductVideoCatalog
         }
         if(!$candidates)throw new InvalidArgumentException('模型不支持当前图片、视频或音频组合，请调整素材');
         usort($candidates,static fn($a,$b)=>(($a['method']===$spec['generation_method'])?0:1)<=> (($b['method']===$spec['generation_method'])?0:1));
+        if($spec['generation_method']!==$candidates[0]['method'])unset($spec['market_sku_id']);
         $spec['generation_method']=$candidates[0]['method'];$spec['material_mode']=$candidates[0]['key'];return $spec;
     }
 }
