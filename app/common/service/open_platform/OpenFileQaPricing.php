@@ -30,8 +30,8 @@ final class OpenFileQaPricing
     {
         $path = substr($rule['usage_path'], 0, -strlen('.total_tokens'));
         $usage = OpenSchema::get($result, $path);
-        if (!is_array($usage) || !isset($usage['input_tokens']) && !isset($usage['prompt_tokens'])
-            || !isset($usage['output_tokens']) && !isset($usage['completion_tokens'])) return null;
+        if (!is_array($usage) || (!isset($usage['input_tokens']) && !isset($usage['prompt_tokens']))
+            || (!isset($usage['output_tokens']) && !isset($usage['completion_tokens']))) return null;
         [$tenant, $user, $breakdown] = MarketFileQaTokenPricing::amounts($rule, ['usage' => $usage]);
         if ($breakdown['total_tokens'] > $rule['max_units']) throw new OpenException('usage_boundary_exceeded', '实际 Token 超过契约上限，等待核对', 502);
         return ['tenant' => $tenant, 'user' => $user, 'usage' => [
