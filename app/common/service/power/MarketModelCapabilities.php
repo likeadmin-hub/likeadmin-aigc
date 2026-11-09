@@ -115,6 +115,12 @@ final class MarketModelCapabilities
                     $declared=array_merge(self::normalize($source['input_modalities']??[],'list')??[],self::normalize($source['capabilities']??[],'list')??[],array_keys($source)===array_keys(array_values($source))?(self::normalize($source,'list')??[]):[]);
                     if(array_intersect($expected,$declared)!==[]){$value=true;break;}
                 }
+                // A positive declared reference limit on a text model is an input contract.
+                // Never infer capability from a model name or overwrite an explicit false.
+                if ($value === null && ($product['model_type'] ?? '') === 'text') {
+                    $limit = ['supports_vision'=>'max_reference_images','supports_audio'=>'max_reference_audios','supports_video'=>'max_reference_videos'][$key];
+                    foreach ($sources as $source) if (is_numeric($source[$limit] ?? null) && (int)$source[$limit] > 0) {$value=true;break;}
+                }
             }
             $upstreamValue=$value;$origin=$value===null?'unknown':'upstream';
             $schemaKeys=['supports_tools'=>['tools','functions'],'supports_structured_output'=>['response_format'],'supports_streaming'=>['stream'],'supports_search'=>['enable_search'],'supports_reasoning'=>['enable_thinking']];

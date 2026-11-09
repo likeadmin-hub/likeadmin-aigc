@@ -231,6 +231,41 @@ class PowerMarketService
     }
 
     /** Model-only maintenance leaves application products and pricing untouched. */
+    /** Refresh one declared model series without retiring or repricing unrelated products. */
+    public static function syncModelSeriesFromUpstream(string $code): array
+    {
+        if ($code === '' || strlen($code) > 160) throw new Exception('模型编码无效');
+        $matches = array_values(array_filter(UpstreamPricingService::queryModels('text', true), static fn($m) =>
+            (string)($m['model_code'] ?? $m['code'] ?? $m['id'] ?? '') === $code));
+        if (!$matches) throw new Exception('上游目录尚未提供该模型系列');
+        $ids = [];
+        foreach ($matches as $model) {
+            $model = self::mergeDeveloperDocModelDetail($model);
+            $request = ['type'=>self::TYPE_MODEL, 'model'=>$code, 'channel'=>(string)($model['channel_code'] ?? ''),
+                'catalog_model'=>$model, 'market_metadata'=>[
+                    'model_name'=>$model['name'] ?? $code, 'model_type'=>'text', 'upstream_metadata'=>$model,
+                    'protocol'=>$model['protocol'] ?? '', 'protocols'=>$model['protocols'] ?? [],
+                    'capabilities'=>$model['capabilities'] ?? [], 'input_modalities'=>$model['input_modalities'] ?? [],
+                    'default_params'=>$model['default_params'] ?? [], 'params_schema'=>$model['params_schema'] ?? [],
+                    'max_tokens'=>$model['max_tokens'] ?? 0, 'context_window'=>self::modelContextWindow($model),
+                    'developer_doc_slug'=>$model['developer_doc_slug'] ?? '', 'api_doc'=>$model['api_doc'] ?? '',
+                ]];
+            $item = self::catalogPricingItem($request);
+            if (!$item) $item = UpstreamPricingService::queryModel($code, $request['channel']);
+            if (empty($item['available']) || empty($item['pricing_v2']['items'])) throw new Exception('上游模型计价尚未就绪');
+            $item['market_metadata'] = $request['market_metadata'];
+            $item['request'] = ['type'=>'model','model'=>$code,'channel'=>$request['channel']];
+            $ids[] = Db::transaction(static function() use ($item): int {
+                $product = self::upsertProduct(self::TYPE_MODEL, $item['resource'], $item, true);
+                if (!$product) throw new Exception('模型目录身份无效');
+                PowerMarketSku::where('product_id', $product['id'])->update(['status'=>0,'update_time'=>time()]);
+                foreach ($item['pricing_v2']['items'] as $sku) self::upsertSku((int)$product['id'], $sku, $item, 0);
+                return (int)$product['id'];
+            });
+        }
+        return ['model_code'=>$code,'product_ids'=>$ids];
+    }
+
     public static function syncFromUpstream(bool $modelsOnly = false): array
     {
         $requests = [];
@@ -1704,6 +1739,8 @@ class PowerMarketService
         // Preserve presence, including invalid declarations, so quote admission
         // fails closed rather than silently falling back to a different meter.
         if (array_key_exists('meter_contract', $sku)) $snapshot['meter_contract'] = $sku['meter_contract'];
+        // Model-series token SKUs retain distinct input/cache/output rates.
+        if (array_key_exists('effective_rate_config', $sku)) $snapshot['effective_rate_config'] = MarketFileQaTokenPricing::rates($sku);
         return $snapshot;
     }
 
