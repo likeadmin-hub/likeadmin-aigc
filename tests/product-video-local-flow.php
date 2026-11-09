@@ -27,5 +27,13 @@ try{
     pvReject(fn()=>J::delete(1,1,$job['id']),'Pending job retention');
     $p=S::save(1,1,['id'=>$p['id'],'revision'=>$p['revision'],'body'=>array_replace($b,['prompt'=>'新的外观描述'])]);
     pvReject(fn()=>J::estimate(1,1,$args),'Stale project quote');
+    $analysis=S::config(1)['analysis_models'];pvAssert(count($analysis)>0,'Local multimodal market model required');
+    $p=S::save(1,1,['id'=>$p['id'],'revision'=>$p['revision'],'body'=>array_replace($b,['analysis_model_id'=>(string)$analysis[0]['id']])]);
+    $textArgs=['project_id'=>$p['id'],'revision'=>$p['revision'],'action'=>'product'];$textQuote=J::estimate(1,1,$textArgs);pvAssert($textQuote['approximate'] && $textQuote['user_charge_points']===null,'Actual-usage analysis quote cannot invent a fixed amount');
+    $textJob=J::create(1,1,$textArgs+['quote_token'=>$textQuote['quote_token'],'idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16))]);
+    J::table()->where('id',$textJob['id'])->update(['status'=>'success','result_json'=>P::encode(['product_info'=>'白色商品样本'])]);
+    $adopted=S::adopt(1,1,['job_id'=>$textJob['id'],'revision'=>$p['revision']]);pvAssert($adopted['body']['product_info']==='白色商品样本' && $adopted['revision']===$p['revision']+1,'Owned result adoption');
+    pvReject(fn()=>S::adopt(1,1,['job_id'=>$textJob['id'],'revision'=>$adopted['revision']]),'An old result cannot overwrite a newer draft');
+    J::table()->where('id',$job['id'])->update(['status'=>'unknown']);$recovered=J::recover(1,1,$job['id']);pvAssert($recovered['status']==='unknown' && !J::owned(1,1,$job['id'])['consumption_id'],'Uncertain reconciliation cannot resubmit a provider call');
     echo "PASS local ownership, optimistic drafts, market quote, idempotency and queue isolation\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $file)unlink($file);rmdir($dir);}

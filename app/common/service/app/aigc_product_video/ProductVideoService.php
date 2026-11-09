@@ -73,7 +73,8 @@ final class ProductVideoService
     public static function save(int $tenant,int $user,array $p): array
     {
         self::available($tenant,$user);$body=ProductVideoPolicy::body((array)($p['body']??[]));
-        $body['images']=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15);
+        try { $body['images']=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15); }
+        catch(\RuntimeException $e) { throw new InvalidArgumentException('商品图片不可用，请重新添加商品素材',0,$e); }
         if($body['reference_video'])$body['reference_video']=MicroVideoMedia::validateVideo($tenant,$user,(string)($body['reference_video']['uri']??''));
         return Db::transaction(static function()use($tenant,$user,$p,$body){
             $id=(int)($p['id']??0);$title=ProductVideoPolicy::text($p['title']??'商品视频',100);
