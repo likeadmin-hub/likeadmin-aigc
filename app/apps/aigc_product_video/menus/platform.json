@@ -20,7 +20,21 @@
         "sort": 30,
         "perms": "app.aigc_product_video.config/detail",
         "paths": "config",
-        "component": "apps/aigc_product_video/config"
+        "component": "apps/aigc_product_video/config",
+        "children": [
+          {
+            "source_menu_key": "aigc_product_video_config_save",
+            "type": "A",
+            "name": "保存配置",
+            "perms": "app.aigc_product_video.config/setup"
+          },
+          {
+            "source_menu_key": "aigc_product_video_config_models",
+            "type": "A",
+            "name": "查看模型",
+            "perms": "app.aigc_product_video.config/models"
+          }
+        ]
       },
       {
         "source_menu_key": "aigc_product_video_job",
@@ -31,7 +45,15 @@
         "sort": 10,
         "perms": "app.aigc_product_video.job/lists",
         "paths": "jobs",
-        "component": "apps/aigc_product_video/jobs"
+        "component": "apps/aigc_product_video/jobs",
+        "children": [
+          {
+            "source_menu_key": "aigc_product_video_job_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_product_video.job/detail"
+          }
+        ]
       }
     ]
   }

@@ -26,4 +26,5 @@ expectProductVideo(abs($price['user_charge_points']-165.4)<0.000001,'Retail rate
 $legacy=['input'=>['platform_price'=>10,'tenant_price'=>20,'usage_unit_size'=>1000], 'output'=>['platform_price'=>30,'tenant_price'=>60,'usage_unit_size'=>1000]];
 $price=$quote->invoke(null,$legacy,1000,100,400);
 expectProductVideo($price['tenant_cost_points']===13.0 && $price['user_charge_points']===26.0,'Legacy scalar meters must keep existing behavior');
+expectProductVideo(\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies(['app_code'=>'aigc_product_video']),'New application must use durable submission admission');
 echo "PASS product video protocol, capability and token pricing contracts\n";
