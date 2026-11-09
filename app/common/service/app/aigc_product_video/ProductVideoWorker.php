@@ -116,7 +116,7 @@ final class ProductVideoWorker
         if($action==='video'){if(empty($receipt['videos']))throw new RuntimeException('视频结果尚未入库');return ['videos'=>$receipt['videos']];}
         $text=trim((string)($receipt['content']??''));$text=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$text);$data=json_decode($text,true,64,JSON_THROW_ON_ERROR);
         if(!is_array($data)||array_is_list($data))throw new RuntimeException('分析结果格式不正确');
-        if($action==='optimize'){$value=ProductVideoPolicy::text($data['video_prompt']??'',12000);if($value==='')throw new RuntimeException('未返回有效视频描述');return ['video_prompt'=>$value];}
+        if(in_array($action,['write','optimize'],true)){$value=ProductVideoPolicy::text($data['video_prompt']??'',12000);if($value==='')throw new RuntimeException('未返回有效视频描述');return ['video_prompt'=>$value];}
         if($action==='product'){$value=ProductVideoPolicy::text($data['product_info']??'',3000);if($value==='')throw new RuntimeException('未识别到商品信息');return ['product_info'=>$value];}
         if($action==='plan')return ProductVideoPolicy::plan($data,(int)$r['duration']);
         $duration=(float)$r['video']['duration'];$shots=[];$last=0.;

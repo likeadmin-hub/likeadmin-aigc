@@ -20,6 +20,7 @@ final class ProductVideoPrompts
         return $base.$truth.match($action){
             'product'=>'输出 {"product_info":"可见的类别、颜色、材质、结构和清晰文字"}。不编造功能。',
             'reference'=>'分析参考视频的实际画面与声音，输出 {"summary":"表现方式概述","style":"镜头与节奏","shots":[{"start":0,"end":3,"description":"观察到的镜头"}],"audio":"实际可听内容或无法确认"}。这是参考片观察，不是新商品事实。',
+            'write'=>'根据用户商品图片、已确认的商品事实和规格写一段可以直接生成商品视频的描述，包含主体动作、景别、运镜和声音要求，保留用户素材引用名称，不编造功效或承诺。输出 {"video_prompt":"完整视频描述"}。',
             'optimize'=>'根据商品事实、原始描述、规格和表达要求优化视频描述，保持已有素材引用名称不变，不添加无法确认的功效或承诺。输出 {"video_prompt":"可直接用于视频模型的完整描述"}。',
             'chapters'=>'分析所给成片，按实际镜头输出 {"summary":"成片概述","shots":[{"start":0,"end":3,"description":"实际画面"}]}。时间必须落在实际视频时长内。',
             default=>'按用户 duration 和 ratio 规划一条商品视频。总时长严格相等，2～16 镜从 0 连续排列，不重叠无空白。每镜描述主体动作、景别、运镜和场景，产品保持稳定。参考视频素材可参考其节奏，但生成新表达。输出 {"product_info":"用户确认或图片可见的商品事实","selling_points":[{"label":"事实支持的展示重点","source_slots":["图片槽位"]}],"video_prompt":"按镜头顺序描述的视频完整提示词，包含运镜和声音要求","summary":"创作概述","shots":[{"start":0,"end":3,"description":"可执行画面"}]}。',

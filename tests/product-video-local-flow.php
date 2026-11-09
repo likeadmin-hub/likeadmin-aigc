@@ -71,6 +71,11 @@ try{
     pvAssert(J::lists(1,1,['group'=>'video'])['count']>0&&!in_array('analysis',array_column(J::lists(1,1,['group'=>'video'])['lists'],'action'),true),'Video history excludes helper operations');
     pvAssert(!in_array('video',array_column(J::lists(1,1,['group'=>'helper'])['lists'],'action'),true),'Helper history excludes final videos');
     pvReject(fn()=>J::lists(1,1,['group'=>'invalid']),'History group must be validated');
+    $legacyPlan=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$ap['id'],'project_revision'=>1,'action'=>'plan','idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16)),'input_hash'=>str_repeat('b',64),'status'=>'success','request_json'=>P::encode(['snapshot'=>$advanced]),'receipt_json'=>'{}','result_json'=>P::encode($data),'create_time'=>time(),'update_time'=>time()]);
+    $continued=S::fromJob(1,1,$legacyPlan,true);pvAssert($continued['body']['product_info']===$data['product_info']&&$continued['plan_fresh'],'Legacy plan resumes with its identified product facts');
+    $wp=S::save(1,1,['body'=>array_replace($b,['prompt'=>''])]);$wa=['project_id'=>$wp['id'],'revision'=>$wp['revision'],'action'=>'write'];$wq=J::estimate(1,1,$wa);pvAssert($wq['approximate'],'Writing without an existing description uses disclosed actual-usage billing');
+    $wj=J::create(1,1,$wa+['quote_token'=>$wq['quote_token'],'idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16))]);J::table()->where('id',$wj['id'])->update(['status'=>'success','result_json'=>P::encode(['video_prompt'=>'展示商品全貌并推近细节'])]);
+    $written=S::adopt(1,1,['job_id'=>$wj['id'],'revision'=>$wp['revision']]);pvAssert($written['body']['prompt']==='展示商品全貌并推近细节'&&$written['body']['prompt_review_images']===[$uri],'Writing fills the current description and its material review state');
     pvReject(fn()=>S::fromJob(2,1,$aj['id']),'Cross tenant history reuse');
     pvReject(fn()=>P::key('pipeline_1234567890123'),'Public idempotency cannot collide with internal stages');
     echo "PASS local ownership, optimistic drafts, market quote, idempotency and queue isolation\n";

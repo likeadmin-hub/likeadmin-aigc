@@ -6,7 +6,7 @@ use InvalidArgumentException;
 final class ProductVideoPolicy
 {
     public const APP = 'aigc_product_video';
-    public const ACTIONS = ['product','reference','plan','analysis','optimize','storyboard','video','chapters'];
+    public const ACTIONS = ['product','reference','plan','analysis','write','optimize','storyboard','video','chapters'];
     public static function json($value): array {return is_array($value)?$value:(json_decode((string)$value,true)?:[]);}
     public static function encode(array $value): string {return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
     public static function hash(array $value): string
