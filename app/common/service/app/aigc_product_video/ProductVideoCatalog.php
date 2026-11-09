@@ -3,11 +3,15 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
 use app\common\service\app\aigc_micro_video\MicroVideoCatalog;
 use app\common\service\app\aigc_video\AigcVideoService;
-use app\common\service\power\MarketVideoRuntimeService;
+use app\common\service\power\{MarketVideoRuntimeService,MarketCatalogReadScope};
 use InvalidArgumentException;
 final class ProductVideoCatalog
 {
     public static function models(int $tenant,string $id=''): array
+    {
+        return MarketCatalogReadScope::run(static fn(): array => self::buildModels($tenant,$id));
+    }
+    private static function buildModels(int $tenant,string $id): array
     {
         $rows=MicroVideoCatalog::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='');
         $native=AigcVideoService::marketOptions($tenant)['channels']??[];$byId=[];foreach($native as $m)$byId[(string)$m['id']]=$m;

@@ -4,7 +4,7 @@ namespace app\common\service\app\aigc_product_video;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\aigc_micro_video\{MicroVideoMedia,MicroVideoCatalog,MicroVideoFrameCatalog};
-use app\common\service\power\MarketTextModelRuntimeService;
+use app\common\service\power\{MarketTextModelRuntimeService,MarketCatalogReadScope};
 use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;
 use InvalidArgumentException;
@@ -34,12 +34,12 @@ final class ProductVideoService
     }
     public static function config(int $tenant): array
     {
-        return AppDisplayConfigService::appendToConfig($tenant,ProductVideoPolicy::APP,self::settings($tenant)+[
+        return MarketCatalogReadScope::run(static fn(): array => AppDisplayConfigService::appendToConfig($tenant,ProductVideoPolicy::APP,self::settings($tenant)+[
             'templates'=>array_map(static function($t){unset($t['instruction']);return $t;},ProductVideoPrompts::templates()),
             'max_images'=>15,'reference_max_seconds'=>60,'reference_max_mb'=>32,
             'analysis_models'=>MarketTextModelRuntimeService::mediaOptions($tenant,true),
             'planning_models'=>MarketTextModelRuntimeService::mediaOptions($tenant,false),
-        ]);
+        ]));
     }
     public static function models(int $tenant,string $kind,string $id=''): array
     {
