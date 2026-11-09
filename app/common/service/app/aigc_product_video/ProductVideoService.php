@@ -65,6 +65,8 @@ final class ProductVideoService
             if(is_string($uri)&&$uri!==''&&isset($v['storage_engine'])){
                 $url=StorageSignedUrlService::resolve($uri,(string)($v['storage_scope']??'tenant'),(string)$v['storage_engine'],(string)($v['storage_domain']??''),$tenant);
                 $v['url']=$url?:FileService::format((string)($v['storage_domain']??''),$uri);
+                if(isset($v['video_uri'])||array_key_exists('video_url',$v))$v['video_url']=$v['url'];
+                if(isset($v['image_uri'])||array_key_exists('image_url',$v))$v['image_url']=$v['url'];
             }
             foreach(['tenant_id','user_id','file_id'] as $key)unset($v[$key]);
             foreach($v as $k=>$x)if(is_array($x))$v[$k]=$walk($x);return $v;};
