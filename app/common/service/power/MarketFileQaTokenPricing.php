@@ -11,12 +11,6 @@ final class MarketFileQaTokenPricing
         return $type === 'app_api' && $app === 'file_qa' && in_array($api, ['parse', 'chat'], true);
     }
 
-    public static function storedDeclaration(array $sku): array
-    {
-        $source = $sku['source_payload'] ?? [];
-        return is_array($source) ? $source : (json_decode($source, true) ?: []);
-    }
-
     public static function rates(array $declaration): array
     {
         $rates = $declaration['effective_rate_config'] ?? null;
@@ -33,7 +27,7 @@ final class MarketFileQaTokenPricing
     /** Project only the cost and sale tiers visible to this market owner. */
     public static function display(array $sku, int $owner, ?array $platformRules = null, ?array $tenantRules = null): ?array
     {
-        $source = self::storedDeclaration($sku);
+        $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
         if (!array_key_exists('effective_rate_config', $source)) return null;
         $pricing = self::snapshot($sku, $source, $platformRules ?? MarketPriceRuleService::rules(0),
             $owner === 0 ? [] : ($tenantRules ?? MarketPriceRuleService::rules($owner)), false);
