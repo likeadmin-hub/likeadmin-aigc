@@ -23,6 +23,7 @@ final class MicroVideoWorkbenchRecords
     private static function generatedProjectBody(array $record): array
     {
         $body=MicroVideoWorkbenchPolicy::normalizeValues(MicroVideoStore::json($record['body_json']));
+        if($record['kind']==='template')return MicroVideoTemplate::normalize($body);
         if($record['kind']!=='project'||empty($body['last_script_job_id'])||!is_array($body['script']??null))return $body;
         $job=MicroVideoWorkbenchJobs::table()->where(['id'=>(int)$body['last_script_job_id'],'tenant_id'=>$record['tenant_id'],'user_id'=>$record['user_id'],'project_id'=>$record['id'],'action'=>'rewrite','status'=>'success'])->find();
         if(!$job)return $body;
@@ -125,7 +126,10 @@ final class MicroVideoWorkbenchRecords
         return Db::transaction(function()use($tenant,$user,$p,$admin,$kind,$id,$title,$preparedBody,$restoreBody){
             $old=$id?self::owned($tenant,$user,$kind,$id,$admin,true,true):null;if($old)MicroVideoWorkbenchPolicy::revision($old,(int)($p['revision']??0));
             $owner=$old?(int)$old['user_id']:$user;if($kind==='project'&&$owner<=0)throw new InvalidArgumentException('项目必须属于用户，请使用用户创作入口');
-            $body=$preparedBody;if($kind==='project')$body=MicroVideoWorkbenchPolicy::dependencies($body,$old?MicroVideoStore::json($old['body_json']):[]);
+            $body=$preparedBody;if($kind==='project'){
+                $body=MicroVideoTemplate::synchronize($body,$old?MicroVideoStore::json($old['body_json']):[]);
+                $body=MicroVideoWorkbenchPolicy::dependencies($body,$old?MicroVideoStore::json($old['body_json']):[]);
+            }
             if($kind==='project'&&!empty($p['confirm_script'])&&$old){
                 $prior=MicroVideoStore::json($old['body_json']);
                 foreach(['script','product_snapshot','template_snapshot'] as $field)if(MicroVideoWorkbenchPolicy::hash($body[$field]??[])!==MicroVideoWorkbenchPolicy::hash($prior[$field]??[]))throw new InvalidArgumentException('资料已变化，请保存后重新核对剧本');
@@ -152,12 +156,33 @@ final class MicroVideoWorkbenchRecords
         if($kind==='template'){
             $trusted=$restoreBody??($initial?MicroVideoStore::json($initial['body_json']):[]);
             if(($trusted['protected_prompt']??false)===true&&is_string($trusted['internal_prompt']??null)&&trim($trusted['internal_prompt'])!==''){$body['internal_prompt']=$trusted['internal_prompt'];$body['protected_prompt']=true;}
+            if($initial&&($body['script']??'')!==($trusted['script']??'')&&MicroVideoWorkbenchPolicy::hash($body['segments']??[])===MicroVideoWorkbenchPolicy::hash($trusted['segments']??[])){
+                $shots=MicroVideoTemplate::shots((string)($body['script']??''));
+                if($shots){$body['segments']=[];$body=MicroVideoTemplate::normalize($body);$body['requires_sync']=false;}
+                else $body['requires_sync']=true;
+            }
+            $body=MicroVideoTemplate::normalize($body);
         }
         // Snapshots are authoritative. Strip stale or malicious client copies before image validation.
         if($kind==='project'){unset($body['template_snapshot'],$body['product_snapshot']);if(!empty($body['scenes']))unset($body['scene_reset']);}
         $body=MicroVideoWorkbenchPolicy::body($kind,$body);$body=self::images($tenant,$owner,$body);
         foreach(['cover_image','example_video'] as $field)if(isset($body[$field]))$body[$field]=MicroVideoWorkbenchAssets::decorative($tenant,$owner,(string)$body[$field],$field==='example_video');
-        if($kind==='project')foreach(['template','product'] as $ref){if(empty($body[$ref]['id']))continue;$prior=MicroVideoWorkbenchPolicy::normalizeValues($restoreBody??($initial?MicroVideoStore::json($initial['body_json']):[]));if(isset($prior[$ref.'_snapshot'])&&MicroVideoWorkbenchPolicy::hash($body[$ref])===MicroVideoWorkbenchPolicy::hash($prior[$ref]??[])){$body[$ref.'_snapshot']=self::images($tenant,$owner,$prior[$ref.'_snapshot']);continue;}$selected=self::owned($tenant,$owner,$ref,(int)$body[$ref]['id']);$revision=(int)($body[$ref]['revision']??$selected['revision']);$v=self::versionRow($selected,$revision);$snap=MicroVideoStore::json($v['body_json']);if((int)$selected['user_id']!==$owner)$snap=MicroVideoWorkbenchAssets::cloneBody($tenant,$owner,(int)$selected['id'],$snap,(int)$selected['user_id']);$body[$ref]=['id'=>(int)$selected['id'],'revision'=>$revision];$body[$ref.'_snapshot']=['title'=>$v['title'],'body'=>$snap];}
+        if($kind==='project')foreach(['template','product'] as $ref){
+            if(empty($body[$ref]['id']))continue;
+            $prior=MicroVideoWorkbenchPolicy::normalizeValues($restoreBody??($initial?MicroVideoStore::json($initial['body_json']):[]));
+            if(isset($prior[$ref.'_snapshot'])&&MicroVideoWorkbenchPolicy::hash($body[$ref])===MicroVideoWorkbenchPolicy::hash($prior[$ref]??[])){
+                $body[$ref.'_snapshot']=self::images($tenant,$owner,$prior[$ref.'_snapshot']);
+                continue;
+            }
+            $selected=self::owned($tenant,$owner,$ref,(int)$body[$ref]['id']);
+            $revision=(int)($body[$ref]['revision']??$selected['revision']);$v=self::versionRow($selected,$revision);$snap=MicroVideoStore::json($v['body_json']);
+            if($ref==='template'){
+                $snap=MicroVideoTemplate::normalize($snap);
+                if(!empty($snap['requires_sync']))throw new InvalidArgumentException('模板正文与分镜尚未同步，请先编辑模板');
+            }
+            if((int)$selected['user_id']!==$owner)$snap=MicroVideoWorkbenchAssets::cloneBody($tenant,$owner,(int)$selected['id'],$snap,(int)$selected['user_id']);
+            $body[$ref]=['id'=>(int)$selected['id'],'revision'=>$revision];$body[$ref.'_snapshot']=['title'=>$v['title'],'body'=>$snap];
+        }
         return MicroVideoWorkbenchPolicy::normalizeValues($body);
     }
     /** Recursively validate any images field, including nested scenes and roles. Browser metadata never grants access. */
