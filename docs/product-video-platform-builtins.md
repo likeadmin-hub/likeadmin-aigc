@@ -8,3 +8,11 @@
 - 下架/删除保留墓碑及历史媒体引用。系统删除原作品/素材记录时不会删除共享对象；外部 OSS 清理规则也要保留这些素材。文件依旧占用原 OSS 的一份容量，正常访问会消耗带宽/浏览器缓存，不是零存储或零流量。
 
 验证：`PRODUCT_VIDEO_LOCAL_TEST=x_cn php tests/product-video-builtins.php`（显式本地数据库、事务回滚、临时源目录、无联网/模型调用）；同时运行模板/资产/安装升级回归测试。不得把运行产生的媒体、数据库备份或编译输出作为源码交付。
+
+## Manual authoring and record administration
+
+Platform and tenant admins can upload product images and a preview video, then choose normal/advanced mode, description, audience and exact market model specifications. Advanced manual descriptions use the existing direct-description workflow and do not fabricate an AI analysis plan. Model capabilities determine the image limit. Parallel uploads preserve selection order, and templates cannot be saved during upload.
+
+Platform authoring always creates a platform builtin, independent of tenant query filters, and requires public OSS assets. Tenant authoring stays tenant-owned. File IDs are authorized by terminal, tenant and media type; browser URLs and storage fields cannot grant access.
+
+Video records support status, mode, user, time, description and real task identity queries. Record, system task and upstream task IDs are separate. Previews and common settings appear in the list. Deletion soft-deletes completed records only, retaining billing receipts, templates and physical files; active, uncertain or unfinished chapter tasks are protected.
