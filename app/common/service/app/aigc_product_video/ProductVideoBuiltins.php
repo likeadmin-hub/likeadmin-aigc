@@ -29,8 +29,10 @@ final class ProductVideoBuiltins
         self::internal(static function()use($all){foreach($all as $entry)Db::transaction(static function()use($entry){
             self::table()->extra('IGNORE')->insert(['builtin_key'=>$entry['key'],'tenant_id'=>0,'version'=>0,'source_hash'=>'','create_time'=>time(),'update_time'=>time()]);
             $link=self::table()->where('builtin_key',$entry['key'])->lock(true)->find();$hash=ProductVideoPolicy::hash($entry);
-            if($link['source_hash']===$hash&&$link['case_id']&&AppCase::where('id',$link['case_id'])->count())return;
-            $body=self::bodyFor(0,$entry,false);$media=$entry['media'];$selection=$body['video_selection'];
+            if((int)$link['version']>$entry['version'])throw new InvalidArgumentException('内置模板源定义版本较旧，请先合并平台已保存的内置配置');
+            $body=self::bodyFor(0,$entry,false);$current=$link['case_id']?AppCase::where('id',$link['case_id'])->find():null;
+            if($link['source_hash']===$hash&&$current&&($current['config_json']['generation_request']['model_id']??'')===($body['video_selection']['model_id']??''))return;
+            $media=$entry['media'];$selection=$body['video_selection'];
             $request=['model_id'=>$selection['model_id']??'','prompt'=>$body['prompt'],'quality'=>$selection['quality'],'ratio'=>$selection['ratio'],'duration'=>$selection['duration'],
                 'reference_images'=>array_column($body['images'],'uri'),'reference_assets'=>$body['images'],'advanced_params'=>['product_video'=>$body,'product_video_media'=>$media]];
             if($link['case_id'])AppCase::where(['id'=>$link['case_id'],'tenant_id'=>0,'app_code'=>ProductVideoPolicy::APP])->update(['delete_time'=>0]);
