@@ -81,6 +81,12 @@ final class MotionSyncJobs
             catch(\Throwable $e){Video::fail($consumptionId,'提交前素材已失效','invalid_material');self::syncConsumption(AiConsumptionLog::find($consumptionId)->toArray(),(int)$job['id']);return true;}
             $started=self::table()->where(['id'=>$job['id'],'status'=>'queued','submit_started_at'=>0])->update(['status'=>'running','submit_started_at'=>time(),'update_time'=>time()]);
             if(!$started)return true;
+            // CLI workers may have no request host. Keep the server-generated submit URL for local bytes.
+            foreach(['image','video'] as $kind)if(($body[$kind]['storage_engine']??'')==='local'&&!preg_match('~^https?://~i',(string)$body[$kind]['url'])){
+                $frozen=$saved['body'][$kind]??[];
+                if(($frozen['file_id']??0)!==($body[$kind]['file_id']??0)||!preg_match('~^https?://~i',(string)($frozen['url']??'')))throw new \RuntimeException('本地素材缺少可公开访问的提交地址');
+                $body[$kind]['url']=$frozen['url'];
+            }
             $request=$saved['request'];$request['reference_assets']=[];
             foreach(['image','video'] as $kind)$request['reference_assets'][]=array_replace($body[$kind],['type'=>$kind,'role'=>'reference_'.$kind]);
             try{Video::submit($consumptionId,$request);}catch(\Throwable $e){\think\facade\Log::warning('Motion sync submit: '.get_class($e));}

@@ -1,6 +1,6 @@
 <?php
 /** Local rollback acceptance; real shared billing, owned generated fixtures, no upstream submission. */
-require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();
+require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();request()->setDomain('https://motion-fixture.example');
 set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.get_class($e).': '.$e->getMessage().PHP_EOL);exit(1);});
 use think\facade\Db;
 use app\common\service\app\aigc_motion_sync\{MotionSyncService as S,MotionSyncJobs as J,MotionSyncTemplates as T};
