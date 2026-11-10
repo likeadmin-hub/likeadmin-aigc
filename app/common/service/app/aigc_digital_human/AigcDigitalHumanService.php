@@ -2480,7 +2480,7 @@ class AigcDigitalHumanService
         return $duration;
     }
 
-    private static function detectGenerateAudioDurationFromUri(string $audioUri, int $tenantId = 0): float
+    public static function detectGenerateAudioDurationFromUri(string $audioUri, int $tenantId = 0): float
     {
         $duration = AvatarGenerationDurationService::detect($audioUri);
         if ($duration > 0 || preg_match('~^https?://~i', $audioUri)) return $duration;
