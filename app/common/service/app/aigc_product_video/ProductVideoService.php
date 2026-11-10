@@ -100,7 +100,8 @@ final class ProductVideoService
         if(!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('任务完成后才能使用结果');
         $result=ProductVideoPolicy::json($job['result_json']);
         if(in_array($job['action'],['analysis','plan'],true)){
-            if(!empty($result['product_info'])&&($job['action']==='analysis'||empty($body['product_info'])))$body['product_info']=ProductVideoPolicy::text($result['product_info'],3000);
+            $productInfo=ProductVideoPolicy::text($result['product_info']??'',3000);
+            if($productInfo!==''&&($job['action']==='analysis'||empty($body['product_info'])))$body['product_info']=$productInfo;
             $plan=ProductVideoPolicy::plan($result,(int)$body['video_selection']['duration']);
             $plan['video_prompt']=ProductVideoPolicy::planDescription($plan);
             $body['prompt']=$plan['video_prompt'];

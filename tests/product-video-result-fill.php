@@ -25,6 +25,9 @@ foreach([null,''] as $legacyPrompt){
 $legacy=$apply->invoke(null,$body,['id'=>9,'action'=>'plan','status'=>'success','result_json'=>P::encode($data)]);
 resultFillAssert($legacy['product_info']===$body['product_info'],'Old plan results must preserve already confirmed product facts');
 resultFillAssert($legacy['prompt']===$data['video_prompt'],'Old plan results must also fill the description field');
+$uncertain=$data;$uncertain['product_info']='   ';
+$preserved=$apply->invoke(null,$body,['id'=>12,'action'=>'analysis','status'=>'success','result_json'=>P::encode($uncertain)]);
+resultFillAssert($preserved['product_info']===$body['product_info'],'Unconfirmed empty facts must not erase the existing product information');
 $optimized=$apply->invoke(null,$filled,['id'=>10,'action'=>'optimize','status'=>'success','result_json'=>P::encode(['video_prompt'=>'增强后的描述'])]);
 resultFillAssert($optimized['prompt']==='增强后的描述'&&$optimized['plan']['data']['video_prompt']===$optimized['prompt'],'Enhancement must not leave a stale normal-mode description');
 try{$apply->invoke(null,$body,['id'=>11,'action'=>'analysis','status'=>'running','result_json'=>P::encode($data)]);throw new LogicException('Active work must not fill the form');}
