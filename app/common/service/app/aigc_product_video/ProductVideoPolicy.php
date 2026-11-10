@@ -85,6 +85,15 @@ final class ProductVideoPolicy
         if($points)$result['selling_points']=$points;
         return $result;
     }
+    /** Keep older text plans usable in the description field as well as generation. */
+    public static function planDescription(array $plan): string
+    {
+        $prompt=self::text($plan['video_prompt']??'',12000);
+        if($prompt!=='')return $prompt;
+        $lines=[self::text($plan['summary']??'',1000)];
+        foreach($plan['shots']??[] as $shot)$lines[]=$shot['start'].'-'.$shot['end'].'秒：'.$shot['description'];
+        return self::text(implode("\n",array_filter($lines,static fn($line)=>$line!=='')),12000);
+    }
     public static function prompt(array $body): string
     {
         $base='以用户商品图片和已确认资料为准，保持商品轮廓、材质、颜色与标识一致，不添加未确认的价格、功效、认证、字幕或水印。';
