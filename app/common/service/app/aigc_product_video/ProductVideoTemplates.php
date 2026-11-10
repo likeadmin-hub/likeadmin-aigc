@@ -27,6 +27,7 @@ final class ProductVideoTemplates
             if(($body['mode']??'normal')==='advanced')$body['prompt']=(string)($data['video_prompt']??$body['prompt']);
             $body['plan']=['data'=>$data,'input_key'=>$fresh?ProductVideoPolicy::planKey($body):''];
         }
+        unset($body['product_url']);
         return $body;
     }
 
@@ -108,7 +109,7 @@ final class ProductVideoTemplates
     private static function persist(int $tenant,?array $old,array $source,array $media,int $jobId,array $params): array
     {
         $patch=(array)($params['configuration']??[]);$body=$source;
-        foreach(['mode','reference_mode','product_url','product_info','prompt','market_region','language','audio','analyze_chapters','video_selection'] as $key)if(array_key_exists($key,$patch))$body[$key]=$patch[$key];
+        foreach(['mode','reference_mode','product_info','prompt','market_region','language','audio','analyze_chapters','video_selection'] as $key)if(array_key_exists($key,$patch))$body[$key]=$patch[$key];
         // References can be reordered or removed; only the source's authorized objects can be published.
         if(isset($patch['images'])){
             $allowed=array_column($source['images'],null,'uri');$images=[];
