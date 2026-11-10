@@ -113,9 +113,8 @@ final class ProductVideoTemplates
     {
         if(!empty($params['id']))throw new InvalidArgumentException('新增模板不能携带原模板 ID');
         $body=ProductVideoPolicy::body((array)($params['configuration']??[]));
-        if($body['mode']!=='normal')throw new InvalidArgumentException('手动新增请使用普通模式；高级模式模板请从完成分析的视频记录设置');
         $body['images']=ProductVideoAdminMedia::images($scope,$body['images']);
-        if($body['reference_mode']==='start_end')foreach($body['images'] as $i=>&$image)$image['role']=$i===0?'first_frame_image':'last_frame_image';unset($image);
+        if($body['mode']==='normal'&&$body['reference_mode']==='start_end')foreach($body['images'] as $i=>&$image)$image['role']=$i===0?'first_frame_image':'last_frame_image';unset($image);
         $body['selected_mentions']=array_map(static fn($i)=>['name'=>$i['mention_name'],'type'=>'image','reference_slot_id'=>$i['reference_slot_id'],'uri'=>$i['uri']],$body['images']);
         $body=self::snapshot($body);$media=ProductVideoAdminMedia::asset($scope,(array)($params['preview']??[]),20);
         return Db::transaction(static function()use($scope,$body,$media,$params){

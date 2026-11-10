@@ -35,7 +35,7 @@ final class ProductVideoBuiltinCatalog
         $body=ProductVideoTemplates::snapshot((array)($data['configuration']??[]));
         $body['images']=array_map([self::class,'publicAsset'],$body['images']);
         if(!$body['images']||$body['prompt']==='')throw new InvalidArgumentException('内置模板缺少商品素材或视频描述');
-        if($body['mode']==='advanced'&&(!is_array($body['plan'])||($body['plan']['input_key']??'')!==ProductVideoPolicy::planKey($body)))throw new InvalidArgumentException('高级模式模板需要有效的智能分析方案，请从完成智能分析并生成成功的视频重新设置模板');
+        if($body['mode']==='advanced'&&is_array($body['plan'])&&($body['plan']['input_key']??'')!==ProductVideoPolicy::planKey($body))throw new InvalidArgumentException('高级模式模板需要有效的智能分析方案，请从完成智能分析并生成成功的视频重新设置模板');
         $identity=array_intersect_key((array)($data['model_identity']??[]),array_flip(['source_code','upstream_resource_key','resource_type','upstream_app_code']));
         if(empty($identity['source_code'])||empty($identity['upstream_resource_key']))throw new InvalidArgumentException('内置模板缺少算力市场模型标识');
         foreach($identity as $value)if(!is_string($value)||strlen($value)>191)throw new InvalidArgumentException('内置模型标识无效');
