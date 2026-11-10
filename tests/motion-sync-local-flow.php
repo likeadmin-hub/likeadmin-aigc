@@ -65,6 +65,16 @@ try{
     $template=T::save(1,['title'=>'本地动作灵感','configuration'=>$config,'preview'=>['file_id'=>$uploads[20]],'sort'=>9]);
     $remix=T::remix(1,1,$template['id']);msCheck($remix['id']!==$project['id']&&$remix['body']['prompt']===$body['prompt']&&$remix['body']['orientation']==='video','Full independent remix failed');
     T::status(1,$template['id'],0);msReject(fn()=>T::remix(1,1,$template['id']),'Disabled template remixed');msReject(fn()=>T::detail(2,$template['id']),'Cross-tenant template accepted');T::delete(1,$template['id']);msCheck(is_file($dir.'/motion.mp4'),'Soft-delete removed shared bytes');
+    // Tenant administrators can inspect published platform templates, but cannot mutate their source.
+    $platform=[];foreach([[10,$image],[20,$video]] as [$type,$uri])$platform[$type]=Db::name('file')->insertGetId(['source_id'=>0,'source'=>0,'type'=>$type,'name'=>'Shared motion fixture','uri'=>$uri,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
+    $shared=T::save(0,['title'=>'平台共享联调','configuration'=>array_replace($body,['image'=>['file_id'=>$platform[10]],'video'=>['file_id'=>$platform[20]]]),'preview'=>['file_id'=>$platform[20]]]);
+    $visible=T::lists(1,['keyword'=>'平台共享联调']);msCheck(in_array($shared['id'],array_column($visible['lists'],'id'),true)&&T::detail(1,$shared['id'])['readonly'],'Published platform template is not visible as read-only');
+    msReject(fn()=>T::save(1,['id'=>$shared['id'],'title'=>'非法修改']),'Tenant changed a platform template');msReject(fn()=>T::status(1,$shared['id'],0),'Tenant disabled a platform template');msReject(fn()=>T::delete(1,$shared['id']),'Tenant deleted a platform template');
+    T::status(0,$shared['id'],0);msReject(fn()=>T::detail(1,$shared['id']),'Unpublished platform template exposed to tenant admin');
+    $display=\app\common\service\app\AppDisplayConfigService::detail(1,S::APP);
+    msReject(fn()=>S::setup(1,['status'=>1,'default_model_key'=>'missing-model','display_config'=>['title'=>'不应保存']]),'Invalid model configuration was accepted');
+    msCheck(\app\common\service\app\AppDisplayConfigService::detail(1,S::APP)['title']===$display['title'],'Rejected settings partially saved display metadata');
+    S::setup(1,['status'=>1,'default_model_key'=>$body['model_key'],'display_config'=>['title'=>'动作同步展示联调']]);msCheck(S::config(1)['display_config']['title']==='动作同步展示联调','Display configuration was not persisted through the app settings contract');
     // Simulate a confirmed, already stored provider receipt. Shared settlement and asset projection still run for real.
     $q=J::estimate(1,1,$args);$completed=J::create(1,1,$args+['quote_token'=>$q['token'],'idempotency_key'=>'ms_completed_'.bin2hex(random_bytes(12))]);$finished=J::owned(1,1,$completed['id']);
     $stored=\app\common\service\app\aigc_micro_video\MicroVideoMedia::validateVideo(1,1,$video);

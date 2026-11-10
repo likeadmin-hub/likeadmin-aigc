@@ -12,11 +12,11 @@ final class MotionSyncTemplates
     private static function row(int $scope,int $id,bool $public=false): array
     {
         $q=AppCase::where(['id'=>$id,'app_code'=>MotionSyncService::APP,'delete_time'=>0]);
-        if($public)$q->where('status',1)->whereIn('tenant_id',[0,$scope]);elseif($scope>0)$q->where('tenant_id',$scope);
+        if($public)$q->where('status',1)->whereIn('tenant_id',[0,$scope]);elseif($scope>0)$q->where(static fn($a)=>$a->where('tenant_id',$scope)->whereOr(static fn($b)=>$b->where(['tenant_id'=>0,'status'=>1])));
         $row=$q->find();if(!$row)throw new InvalidArgumentException('模板不存在或无权访问');return $row->toArray();
     }
     private static function storedBody(array $r): array{return (array)($r['config_json']['generation_request']['advanced_params']['motion_sync']??[]);}
-    public static function dto(array $r,bool $public=false): array
+    public static function dto(array $r,bool $public=false,int $viewer=0): array
     {
         $body=self::storedBody($r);$preview=(array)($r['config_json']['generation_request']['advanced_params']['motion_sync_media']??[]);
         $view=MotionSyncService::publicBody(['configuration'=>$body,'preview'=>$preview],(int)$r['tenant_id']);
@@ -24,16 +24,17 @@ final class MotionSyncTemplates
         $w=(int)($video['width']??0);$h=(int)($video['height']??0);
         $dto=['id'=>(int)$r['id'],'title'=>$r['title'],'configuration'=>$view['configuration'],'preview'=>$video,
             'media_type'=>'video','media_url'=>$video['url']??'','cover_url'=>$image['url']??'','width'=>$w,'height'=>$h,'ratio'=>$w>0&&$h>0?$w.':'.$h:'9:16','is_builtin'=>false];
-        if(!$public)$dto+=['tenant_id'=>(int)$r['tenant_id'],'status'=>(int)$r['status'],'sort'=>(int)$r['sort'],'source_task_id'=>(int)$r['source_task_id']];return $dto;
+        if(!$public)$dto+=['tenant_id'=>(int)$r['tenant_id'],'status'=>(int)$r['status'],'sort'=>(int)$r['sort'],'source_task_id'=>(int)$r['source_task_id'],'create_time'=>(int)$r['create_time'],'readonly'=>$viewer>0&&(int)$r['tenant_id']!==$viewer];return $dto;
     }
     public static function lists(int $scope,array $p,bool $public=false): array
     {
         if($public)MotionSyncService::available($scope);
-        $q=AppCase::where(['app_code'=>MotionSyncService::APP,'delete_time'=>0]);if($public)$q->where('status',1)->whereIn('tenant_id',[0,$scope]);elseif($scope>0)$q->where('tenant_id',$scope);
+        $q=AppCase::where(['app_code'=>MotionSyncService::APP,'delete_time'=>0]);if($public)$q->where('status',1)->whereIn('tenant_id',[0,$scope]);elseif($scope>0)$q->where(static fn($a)=>$a->where('tenant_id',$scope)->whereOr(static fn($b)=>$b->where(['tenant_id'=>0,'status'=>1])));
+        if(!$public&&$scope===0&&isset($p['tenant_id'])&&$p['tenant_id']!=='')$q->where('tenant_id',(int)$p['tenant_id']);
         if(!$public&&isset($p['status'])&&$p['status']!=='')$q->where('status',(int)$p['status']);
         if(($p['keyword']??'')!=='')$q->whereLike('title','%'.addcslashes(MotionSyncService::text($p['keyword'],100),'\\%_').'%');
         $count=(clone $q)->count();$page=max(1,(int)($p['page_no']??1));$size=max(1,min(30,(int)($p['page_size']??20)));
-        return ['lists'=>array_map(static fn($r)=>self::dto($r,$public),$q->order(['sort'=>'desc','id'=>'desc'])->page($page,$size)->select()->toArray()),'count'=>$count];
+        return ['lists'=>array_map(static fn($r)=>self::dto($r,$public,$scope),$q->order(['sort'=>'desc','id'=>'desc'])->page($page,$size)->select()->toArray()),'count'=>$count];
     }
     public static function galleryRow(array $row): array
     {
@@ -42,10 +43,13 @@ final class MotionSyncTemplates
         return $row;
     }
     public static function detail(int $scope,int $id,bool $public=false): array
-    {if($public)MotionSyncService::available($scope);return self::dto(self::row($scope,$id,$public),$public);}
+    {if($public)MotionSyncService::available($scope);return self::dto(self::row($scope,$id,$public),$public,$scope);}
+    private static function writable(int $scope,array $row): void
+    {if($scope>0&&(int)$row['tenant_id']!==$scope)throw new InvalidArgumentException('平台共享模板仅支持查看和使用，请创建自己的模板');}
     public static function save(int $scope,array $p): array
     {
         $old=!empty($p['id'])?self::row($scope,(int)$p['id']):null;$owner=$old?(int)$old['tenant_id']:$scope;
+        if($old)self::writable($scope,$old);
         $source=$old?self::storedBody($old):[];$body=MotionSyncService::body((array)($p['configuration']??$source));
         foreach(['image'=>10,'video'=>20] as $key=>$type){
             $input=(array)($body[$key]??[]);$previous=(array)($source[$key]??[]);
@@ -79,9 +83,9 @@ final class MotionSyncTemplates
         return self::persist((int)$job['tenant_id'],null,$body,$preview,$id,$p);
     }
     public static function status(int $scope,int $id,int $value): void
-    {$r=self::row($scope,$id);AppCaseService::setStatus((int)$r['tenant_id'],MotionSyncService::APP,$id,$value===1?1:0);}
+    {$r=self::row($scope,$id);self::writable($scope,$r);AppCaseService::setStatus((int)$r['tenant_id'],MotionSyncService::APP,$id,$value===1?1:0);}
     public static function delete(int $scope,int $id): void
-    {$r=self::row($scope,$id);AppCaseService::delete((int)$r['tenant_id'],MotionSyncService::APP,$id);}
+    {$r=self::row($scope,$id);self::writable($scope,$r);AppCaseService::delete((int)$r['tenant_id'],MotionSyncService::APP,$id);}
     public static function remix(int $tenant,int $user,int $id): array
     {
         MotionSyncService::available($tenant,$user);

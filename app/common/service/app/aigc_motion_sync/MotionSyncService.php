@@ -36,12 +36,14 @@ final class MotionSyncService
     { return AppDisplayConfigService::appendToConfig($tenant,self::APP,self::settings($tenant)+['models'=>Runtime::options($tenant)]); }
     public static function setup(int $tenant,array $p): array
     {
-        AppDisplayConfigService::saveFromConfigPayload($tenant,self::APP,$p);
         $data=['status'=>empty($p['status'])?0:1,'default_model_key'=>self::text($p['default_model_key']??'',100)];
         if($data['default_model_key']!==''&&!in_array($data['default_model_key'],array_column(Runtime::options($tenant),'model_key'),true))throw new InvalidArgumentException('默认动作模型不存在，请先同步算力超市');
+        return Db::transaction(static function()use($tenant,$p,$data){
+        AppDisplayConfigService::saveFromConfigPayload($tenant,self::APP,$p);
         $q=self::table('config')->where('tenant_id',$tenant);$v=['body_json'=>self::encode($data),'update_time'=>time()];
         if($q->find())$q->update($v);else self::table('config')->insert($v+['tenant_id'=>$tenant,'create_time'=>time()]);
         return $data;
+        });
     }
     public static function body(array $p): array
     {
