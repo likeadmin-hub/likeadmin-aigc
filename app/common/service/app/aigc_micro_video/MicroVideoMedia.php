@@ -436,9 +436,11 @@ final class MicroVideoMedia
     {
         $configured = getenv('MICRO_VIDEO_' . strtoupper($name));
         $candidates = $configured ? [$configured] : [];
+        $candidates[] = root_path() . 'runtime/bin/' . $name;
         foreach (explode(PATH_SEPARATOR, (string)getenv('PATH')) as $directory) if ($directory !== '') $candidates[] = rtrim($directory, '/') . '/' . $name;
         $candidates = array_merge($candidates, ['/opt/homebrew/bin/' . $name, '/usr/bin/' . $name, '/usr/local/bin/' . $name]);
-        foreach ($candidates as $candidate) if (is_file($candidate) && is_executable($candidate)) return $candidate;
+        // PHP-FPM may restrict some inherited PATH directories. Skip those candidates without aborting the probe.
+        foreach ($candidates as $candidate) if (@is_file($candidate) && @is_executable($candidate)) return $candidate;
         throw new RuntimeException('未找到视频处理程序：' . $name);
     }
 
