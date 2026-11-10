@@ -1,1 +1,1 @@
-<decoration-tab-page u-s="{{['d']}}" u-i="4961222f-0" bind:__l="__l"><tool-workbench wx:if="{{a}}" u-i="4961222f-1,4961222f-0" bind:__l="__l" u-p="{{a}}"/></decoration-tab-page>
+<decoration-tab-page u-s="{{['d']}}" u-i="508a0470-0" bind:__l="__l"><tool-workbench wx:if="{{a}}" u-i="508a0470-1,508a0470-0" bind:__l="__l" u-p="{{a}}"/></decoration-tab-page>
