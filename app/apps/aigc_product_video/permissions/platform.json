@@ -58,5 +58,10 @@
     "api_path": "app.aigc_product_video.case/delete",
     "api_method": "POST",
     "permission_key": "aigc_product_video:case:delete"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/builtin",
+    "api_method": "POST",
+    "permission_key": "aigc_product_video:case:builtin"
   }
 ]

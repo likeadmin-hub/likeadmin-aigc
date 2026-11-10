@@ -101,6 +101,12 @@
             "type": "A",
             "name": "删除模板",
             "perms": "app.aigc_product_video.case/delete"
+          },
+          {
+            "source_menu_key": "aigc_product_video_case_builtin",
+            "type": "A",
+            "name": "设置平台内置",
+            "perms": "app.aigc_product_video.case/builtin"
           }
         ]
       }
