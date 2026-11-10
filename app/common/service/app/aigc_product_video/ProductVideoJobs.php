@@ -34,10 +34,11 @@ final class ProductVideoJobs
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
         $q=self::table()->where('delete_time',0)->whereNotIn('id',function($q){$q->name(ProductVideoPolicy::APP.'_job_stage')->field('child_job_id');});if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);
-        $group=(string)($p['group']??'all');if(!in_array($group,['all','video','helper'],true))throw new InvalidArgumentException('任务分类无效');if($group==='video')$q->where('action','video');elseif($group==='helper')$q->where('action','<>','video');
+        $group=$admin?'video':(string)($p['group']??'all');if(!in_array($group,['all','video','helper'],true))throw new InvalidArgumentException('任务分类无效');if($group==='video')$q->where('action','video');elseif($group==='helper')$q->where('action','<>','video');
         if(!empty($p['project_id']))$q->where('project_id',(int)$p['project_id']);
         $page=max(1,(int)($p['page_no']??1));$size=max(1,min(50,(int)($p['page_size']??20)));$count=(clone $q)->count();
-        return ['lists'=>array_map([self::class,'dto'],$q->order('id','desc')->page($page,$size)->select()->toArray()),'count'=>$count,'page_no'=>$page,'page_size'=>$size];
+        $rows=$q->order('id','desc')->page($page,$size)->select()->toArray();
+        return ['lists'=>array_map(static function($row)use($admin){$dto=self::dto($row);if($admin)$dto+=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id']];return $dto;},$rows),'count'=>$count,'page_no'=>$page,'page_size'=>$size];
     }
     public static function prepare(int $tenant,int $user,array $p): array
     {

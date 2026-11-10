@@ -23,5 +23,40 @@
     "api_path": "app.aigc_product_video.job/detail",
     "api_method": "GET",
     "permission_key": "aigc_product_video:job:detail"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_product_video:case:lists"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_product_video:case:detail"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/options",
+    "api_method": "GET",
+    "permission_key": "aigc_product_video:case:options"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/fromJob",
+    "api_method": "POST",
+    "permission_key": "aigc_product_video:case:fromJob"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/save",
+    "api_method": "POST",
+    "permission_key": "aigc_product_video:case:save"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/status",
+    "api_method": "POST",
+    "permission_key": "aigc_product_video:case:status"
+  },
+  {
+    "api_path": "app.aigc_product_video.case/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_product_video:case:delete"
   }
 ]

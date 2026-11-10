@@ -52,6 +52,55 @@
             "type": "A",
             "name": "查看详情",
             "perms": "app.aigc_product_video.job/detail"
+          },
+          {
+            "source_menu_key": "aigc_product_video_case_fromJob",
+            "type": "A",
+            "name": "设为模板",
+            "perms": "app.aigc_product_video.case/fromJob"
+          },
+          {
+            "source_menu_key": "aigc_product_video_case_options",
+            "type": "A",
+            "name": "查看模板模型",
+            "perms": "app.aigc_product_video.case/options"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_product_video_cases",
+        "app_code": "aigc_product_video",
+        "source": "app",
+        "type": "C",
+        "name": "灵感模板",
+        "sort": 20,
+        "perms": "app.aigc_product_video.case/lists",
+        "paths": "cases",
+        "component": "apps/aigc_product_video/cases",
+        "children": [
+          {
+            "source_menu_key": "aigc_product_video_case_detail",
+            "type": "A",
+            "name": "查看模板",
+            "perms": "app.aigc_product_video.case/detail"
+          },
+          {
+            "source_menu_key": "aigc_product_video_case_save",
+            "type": "A",
+            "name": "编辑模板",
+            "perms": "app.aigc_product_video.case/save"
+          },
+          {
+            "source_menu_key": "aigc_product_video_case_status",
+            "type": "A",
+            "name": "启停模板",
+            "perms": "app.aigc_product_video.case/status"
+          },
+          {
+            "source_menu_key": "aigc_product_video_case_delete",
+            "type": "A",
+            "name": "删除模板",
+            "perms": "app.aigc_product_video.case/delete"
           }
         ]
       }

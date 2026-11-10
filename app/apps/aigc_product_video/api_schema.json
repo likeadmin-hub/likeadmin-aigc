@@ -216,6 +216,142 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_product_video.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:lists:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_product_video.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_product_video.case/remix",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:remix:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_product_video.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/options",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:options",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:fromJob",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/options",
+      "api_method": "GET",
+      "permission_key": "aigc_product_video:case:options",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:fromJob",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
     }
   ]
 }
