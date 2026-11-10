@@ -31,14 +31,40 @@ final class ProductVideoJobs
             'user_charge_points'=>(float)$row['user_charge_points'],'billing_status'=>$row['billing_status'],
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
+    public static function adminDto(array $row): array
+    {
+        $dto=self::dto($row);$request=ProductVideoPolicy::json($row['request_json']);$snapshot=(array)($request['snapshot']??[]);
+        $trace=!empty($row['consumption_id'])?Db::name('ai_consumption_log')->where(['id'=>$row['consumption_id'],'tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::APP])->field('app_task_id,upstream_task_id,upstream_request_id,model_code')->find():null;
+        return $dto+['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id'],'app_task_id'=>(int)($trace['app_task_id']??$row['app_task_id']),
+            'upstream_task_id'=>(string)($trace['upstream_task_id']??''),'upstream_request_id'=>(string)($trace['upstream_request_id']??''),
+            'model_name'=>(string)($request['quote']['model_name']??$trace['model_code']??''),
+            'market_region'=>$snapshot['market_region']??'','language'=>$snapshot['language']??'','reference_mode'=>$snapshot['reference_mode']??'reference'];
+    }
+    public static function adminDelete(int $scope,int $id): void
+    {
+        $row=self::owned($scope,0,$id,true);if($row['action']!=='video')throw new InvalidArgumentException('创作记录仅允许管理视频任务');
+        self::delete((int)$row['tenant_id'],(int)$row['user_id'],$id);
+    }
+
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
         $q=self::table()->where('delete_time',0)->whereNotIn('id',function($q){$q->name(ProductVideoPolicy::APP.'_job_stage')->field('child_job_id');});if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);
         $group=$admin?'video':(string)($p['group']??'all');if(!in_array($group,['all','video','helper'],true))throw new InvalidArgumentException('任务分类无效');if($group==='video')$q->where('action','video');elseif($group==='helper')$q->where('action','<>','video');
+        if($admin){
+            if(!empty($p['user_id']))$q->where('user_id',(int)$p['user_id']);
+            if(($p['status']??'')!==''){if(!in_array($p['status'],['queued','running','unknown','success','partial','failed','canceled'],true))throw new InvalidArgumentException('任务状态无效');$q->where('status',$p['status']);}
+            if(($p['mode']??'')!==''){if(!in_array($p['mode'],['normal','advanced'],true))throw new InvalidArgumentException('创作模式无效');$q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(request_json,'$.snapshot.mode'))=?",[$p['mode']]);}
+            foreach(['start_time'=>'>=','end_time'=>'<='] as $key=>$op)if(!empty($p[$key]))$q->where('create_time',$op,(int)$p[$key]);
+            $keyword=trim((string)($p['keyword']??''));
+            if($keyword!==''){
+                $keyword=ProductVideoPolicy::text($keyword,160);$trace=Db::name('ai_consumption_log')->where('app_code',ProductVideoPolicy::APP)->where(static function($c)use($keyword){$c->where('upstream_task_id',$keyword)->whereOr('upstream_request_id',$keyword);});if($tenant>0)$trace->where('tenant_id',$tenant);
+                $ids=$trace->column('id');$q->where(static function($match)use($keyword,$ids){$match->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(request_json,'$.snapshot.prompt')) LIKE ?",['%'.addcslashes($keyword,'\\%_').'%']);if(ctype_digit($keyword))$match->whereOr('id',(int)$keyword)->whereOr('app_task_id',(int)$keyword);if($ids)$match->whereOr('consumption_id','in',$ids);});
+            }
+        }
         if(!empty($p['project_id']))$q->where('project_id',(int)$p['project_id']);
         $page=max(1,(int)($p['page_no']??1));$size=max(1,min(50,(int)($p['page_size']??20)));$count=(clone $q)->count();
         $rows=$q->order('id','desc')->page($page,$size)->select()->toArray();
-        return ['lists'=>array_map(static function($row)use($admin){$dto=self::dto($row);if($admin)$dto+=['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id']];return $dto;},$rows),'count'=>$count,'page_no'=>$page,'page_size'=>$size];
+        return ['lists'=>array_map(static function($row)use($admin){return $admin?self::adminDto($row):self::dto($row);},$rows),'count'=>$count,'page_no'=>$page,'page_size'=>$size];
     }
     public static function prepare(int $tenant,int $user,array $p): array
     {
