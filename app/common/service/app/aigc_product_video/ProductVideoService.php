@@ -99,20 +99,22 @@ final class ProductVideoService
     {
         if(!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('任务完成后才能使用结果');
         $result=ProductVideoPolicy::json($job['result_json']);
-        if($job['action']==='analysis'){
-            if(!empty($result['product_info']))$body['product_info']=$result['product_info'];
+        if(in_array($job['action'],['analysis','plan'],true)){
+            if(!empty($result['product_info'])&&($job['action']==='analysis'||empty($body['product_info'])))$body['product_info']=ProductVideoPolicy::text($result['product_info'],3000);
             $plan=ProductVideoPolicy::plan($result,(int)$body['video_selection']['duration']);
+            $plan['video_prompt']=ProductVideoPolicy::planDescription($plan);
+            $body['prompt']=$plan['video_prompt'];
+            $body['prompt_review_images']=array_column($body['images'],'uri');
             $body['plan']=['data'=>$plan,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
             if(!empty($result['images']))$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash($body['plan']),'job_id'=>(int)$job['id']];
         }
         elseif(in_array($job['action'],['write','optimize'],true)){
             if(($body['mode']??'normal')==='advanced'&&!empty($body['plan']))$body['plan']['data']['video_prompt']=$result['video_prompt'];
-            else $body['prompt']=$result['video_prompt'];
+            $body['prompt']=$result['video_prompt'];
             $body['prompt_review_images']=array_column($body['images'],'uri');
         }
         elseif($job['action']==='product')$body['product_info']=$result['product_info'];
         elseif($job['action']==='reference')$body['reference_analysis']=['data'=>$result,'video_uri'=>$body['reference_video']['uri']??''];
-        elseif($job['action']==='plan'){if(empty($body['product_info'])&&!empty($result['product_info']))$body['product_info']=$result['product_info'];$body['plan']=['data'=>$result,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];}
         elseif($job['action']==='storyboard')$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash((array)$body['plan']),'job_id'=>(int)$job['id']];
         else throw new InvalidArgumentException('该结果可在历史创作中查看');
         return $body;
