@@ -3,10 +3,24 @@
 namespace Tests\Feature;
 
 use app\common\service\power\MarketOtherModelCategory;
+use app\common\service\power\PowerMarketService;
 use PHPUnit\Framework\TestCase;
 
 class MarketOtherModelCategoryTest extends TestCase
 {
+    public function testEmptyOptionalTokenRatesDoNotRejectSecondOrImagePricedSpecifications(): void
+    {
+        $method = new \ReflectionMethod(PowerMarketService::class, 'skuSnapshot');
+        $method->setAccessible(true);
+        foreach (['input_second','output_second','image','per_call','business_unit'] as $unit) {
+            $snapshot = $method->invoke(null, ['sku_key'=>'native','usage_unit'=>$unit,'effective_rate_config'=>[]]);
+            self::assertSame($unit, $snapshot['usage_unit']);
+            self::assertArrayNotHasKey('effective_rate_config', $snapshot);
+        }
+        $this->expectException(\InvalidArgumentException::class);
+        $method->invoke(null, ['usage_unit'=>'token','usage_unit_size'=>1000,'effective_rate_config'=>[]]);
+    }
+
     public function testUsesPublishedGroupsAndModelBindingsInsteadOfNamesOrLocalIds(): void
     {
         $tree = [

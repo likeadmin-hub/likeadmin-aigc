@@ -1772,7 +1772,12 @@ class PowerMarketService
         // fails closed rather than silently falling back to a different meter.
         if (array_key_exists('meter_contract', $sku)) $snapshot['meter_contract'] = $sku['meter_contract'];
         // Model-series token SKUs retain distinct input/cache/output rates.
-        if (array_key_exists('effective_rate_config', $sku)) $snapshot['effective_rate_config'] = MarketFileQaTokenPricing::rates($sku);
+        // Non-Token SKUs can carry an empty optional rates field in the upstream
+        // response. A Token SKU still requires complete rates even when empty.
+        if (array_key_exists('effective_rate_config', $sku)
+            && (($sku['usage_unit'] ?? '') === 'token' || !in_array($sku['effective_rate_config'], [[], null], true))) {
+            $snapshot['effective_rate_config'] = MarketFileQaTokenPricing::rates($sku);
+        }
         return $snapshot;
     }
 
