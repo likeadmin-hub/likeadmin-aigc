@@ -3,13 +3,15 @@
 namespace app\platformapi\lists\power;
 
 use app\common\lists\ListsSearchInterface;
+use app\common\lists\ListsExtendInterface;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\service\power\PowerMarketService;
 use app\common\service\power\MarketModelSource;
+use app\common\service\power\MarketOtherModelCategory;
 use app\platformapi\lists\BaseAdminDataLists;
 
-class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchInterface
+class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchInterface, ListsExtendInterface
 {
     public function setSearch(): array
     {
@@ -74,7 +76,15 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
     private function applyStatusFilter($query): void
     {
         $catalog = (string)$this->request->get('catalog_type', '');
+        if ($catalog === 'other') {
+            $query->where('resource_type', PowerMarketService::TYPE_MODEL)->where('model_type', 'other');
+            $category = trim((string)$this->request->get('other_category_code', ''));
+            if ($category !== '') {
+                $query->whereRaw("COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(source_payload, '$.market_metadata.other_category.code')), ''), 'uncategorized') = ?", [$category]);
+            }
+        }
         if (in_array($catalog, ['model','series'], true)) {
+            $query->whereIn('model_type', ['text', 'image', 'video']);
             $factory = "(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(source_payload, '$.market_metadata.upstream_metadata.pricing.pricing_v2.resource_type')), '') = 'factory_model')";
             $query->whereRaw($catalog === 'series' ? $factory : 'NOT '.$factory);
         }
@@ -109,5 +119,13 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
         if ($enabledProductIds !== []) {
             $query->whereNotIn('id', $enabledProductIds);
         }
+    }
+
+    public function extend(): array
+    {
+        if ($this->request->get('catalog_type', '') !== 'other') return [];
+        $products = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'other', 'status' => 1])
+            ->field('source_payload')->select()->toArray();
+        return ['other_categories' => MarketOtherModelCategory::options($products)];
     }
 }
