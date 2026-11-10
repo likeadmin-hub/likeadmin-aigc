@@ -98,6 +98,7 @@ class FileLogic extends BaseLogic
         }
 
         foreach ($result as $item) {
+            if (\app\common\service\app\aigc_product_video\ProductVideoBuiltinCatalog::mediaUrl((string)$item['uri'], (string)($item['storage_engine'] ?? ''), (string)($item['storage_domain'] ?? ''))) continue;
             try {
                 $storageDriver = new StorageDriver(StorageConfigService::getStoredFileConfig(
                     (int)(request()->tenantId ?? 0),

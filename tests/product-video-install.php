@@ -15,7 +15,7 @@ try{
  $app=Db::name('app')->where('code',$code)->find();pvInstallCheck($app && $app['status']==='installed' && (int)$app['is_builtin']===1,'Fresh app registry missing');
  $entries=Db::name('app_frontend_entry')->where('app_code',$code)->select()->toArray();pvInstallCheck(count($entries)===3,'Fresh frontend entry parity');
  foreach(json_decode(file_get_contents($root.'/app/apps/'.$code.'/api_schema.json'),true)['apis'] as $api){$n=Db::name('app_api')->where(['app_code'=>$code,'api_path'=>$api['api_path'],'scene'=>$api['scene'],'permission_key'=>$api['permission_key'],'api_method'=>$api['api_method']])->count();pvInstallCheck($n===1,'Fresh API missing '.$api['scene'].'/'.$api['api_path']);}
- foreach(['config','project','job','quote'] as $suffix)pvInstallCheck(count(Db::query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[$prefix.$code.'_'.$suffix]))===1,'Fresh app table missing');
+ foreach(['config','project','job','quote','builtin'] as $suffix)pvInstallCheck(count(Db::query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[$prefix.$code.'_'.$suffix]))===1,'Fresh app table missing');
  foreach([600001,600002] as $id)Db::name('tenant')->insert(['id'=>$id,'sn'=>'pvf_'.$id,'name'=>'Product video fixture','tactics'=>$id===600002?1:0,'create_time'=>time(),'update_time'=>time()]);
  $pdo->exec('CREATE TABLE `'.$prefix.'tenant_system_menu_pvf_600002` LIKE `'.$prefix.'tenant_system_menu`');
  D::syncTenantDefaults(600001,'pvf_600001',false);D::syncTenantDefaults(600002,'pvf_600002',true);
