@@ -149,7 +149,7 @@ class MarketApplicationFoundationContractTest extends TestCase
 
     public function testReclassifiedFactoryModelsNeverBecomeTextPriceProducts(): void
     {
-        foreach (['audio', 'video_tool', 'motion_control', 'other', 'embedding'] as $category) {
+        foreach (['audio', 'video_tool', 'motion_control', 'embedding'] as $category) {
             $model = ['model_code'=>'synthetic-model','type_code'=>$category,'pricing'=>['pricing_v2'=>[
                 'resource_type'=>'factory_model','resource_id'=>1,'items'=>[['sku_key'=>'synthetic','usage_unit'=>'second','price'=>['points'=>1]]]
             ]]];
@@ -165,14 +165,18 @@ class MarketApplicationFoundationContractTest extends TestCase
 
     public function testSyncTypeRespectsPublishedClassificationAndKnownLegacyRequestContext(): void
     {
-        foreach (['text','image','video'] as $type) {
+        foreach (['text','image','video','other'] as $type) {
             self::assertSame($type, $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>strtoupper($type)], ['model_type'=>'text']));
             self::assertSame($type, $this->invoke(PowerMarketService::class, 'syncModelType', [], ['model_type'=>$type]));
         }
         self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', [], []));
-        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', [], ['upstream_metadata'=>['type_code'=>'other'],'model_type'=>'video']));
+        self::assertSame('other', $this->invoke(PowerMarketService::class, 'syncModelType', [], ['upstream_metadata'=>['type_code'=>'other'],'model_type'=>'video']));
         self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>['video']], ['model_type'=>'video']));
-        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'other'], ['upstream_metadata'=>['type_code'=>'video'],'model_type'=>'video']));
+        self::assertSame('other', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'other'], ['upstream_metadata'=>['type_code'=>'video'],'model_type'=>'video']));
+        self::assertSame('other', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'video'], ['catalog_model_type'=>'other','model_type'=>'other']));
+        self::assertSame('other', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'video'], ['fallback_model_type'=>'other']));
+        self::assertSame('image', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'video'], ['catalog_model_type'=>'image','fallback_model_type'=>'other']));
+        self::assertSame('', $this->invoke(PowerMarketService::class, 'syncModelType', ['type_code'=>'video'], ['catalog_model_type'=>'embedding']));
     }
 
     public function testApplicationCategoryIsFlattenedAndReturnedForImageVideoAndAudioApps(): void
