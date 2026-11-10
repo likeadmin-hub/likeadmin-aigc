@@ -70,7 +70,7 @@ class AppCaseService
     private static function caseScope($query, int $tenantId, array $codes, bool $public): void
     {
         $ids = [];
-        if ($public && in_array('aigc_product_video', $codes, true)) {
+        if ($public && in_array('aigc_product_video', $codes, true) && AppAccessService::tenantCanUse($tenantId, 'aigc_product_video', false) && (int)\app\common\service\app\aigc_product_video\ProductVideoService::settings($tenantId)['status'] === 1) {
             ProductVideoBuiltins::sync();
             $ids = ProductVideoBuiltins::ids();
         }
