@@ -71,8 +71,8 @@ try{C::withDirectory($dir,static function()use($dir){
  yes($advancedCopy['body']['mode']==='advanced'&&$advancedCopy['plan_fresh'],'Advanced one-click draft retains a fresh executable plan');
  yes($advancedCopy['body']['plan']['data']===$advanced['plan']['data'],'Advanced planning script and shot structure survive cross-tenant restoration');
  yes($advancedCopy['body']['video_selection']===$advanced['video_selection'],'Advanced plan keeps the exact market model and specification');
- reject(fn()=>T::save(0,['id'=>$advancedBuiltin['id'],'builtin_version'=>1,'configuration'=>['market_region'=>'新的市场']]),'Platform cannot publish an advanced template with an invalidated plan');
- yes(T::detail($target,$advancedBuiltin['id'],true)['builtin_version']===1,'Rejected advanced edit leaves the published definition intact');
+ $direct=T::save(0,['id'=>$advancedBuiltin['id'],'builtin_version'=>1,'configuration'=>['market_region'=>'新的市场']]);yes($direct['configuration']['plan']===null&&$direct['configuration']['prompt']!=='','An edited advanced description can use the native direct-script workflow without a fabricated AI plan');
+ yes(T::detail($target,$advancedBuiltin['id'],true)['builtin_version']===2,'Advanced direct-script edit updates the portable definition');
  $adminImage=Db::name('file')->insertGetId(['source'=>0,'source_id'=>0,'type'=>10,'name'=>'shared admin image','uri'=>$uri,'storage_scope'=>'platform','storage_engine'=>$engine,'storage_domain'=>$domain,'create_time'=>time(),'update_time'=>time()]);
  $adminVideo=Db::name('file')->insertGetId(['source'=>0,'source_id'=>0,'type'=>20,'name'=>'shared admin preview','uri'=>$mediaUri,'storage_scope'=>'platform','storage_engine'=>$engine,'storage_domain'=>$domain,'create_time'=>time(),'update_time'=>time()]);
  $manualBody=$body;$manualBody['images']=[['file_id'=>$adminImage]];$manual=T::create(0,['title'=>'手动平台内置模板','configuration'=>$manualBody,'preview'=>['file_id'=>$adminVideo],'confirm_public_media'=>true]);
