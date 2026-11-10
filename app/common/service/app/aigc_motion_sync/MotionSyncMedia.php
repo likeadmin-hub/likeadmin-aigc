@@ -13,8 +13,8 @@ final class MotionSyncMedia
     {
         if($body['image']){
             $image=MicroVideoMedia::validateImages($tenant,$user,[$body['image']],1)[0];
-            $key='motion_image_facts:'.hash('sha256',json_encode([$tenant,$user,$image]));$facts=\think\facade\Cache::get($key);
-            if(!is_array($facts)){$facts=StudioMediaService::facts($tenant,$image,10);\think\facade\Cache::set($key,$facts,120);}
+            $key='motion_image_facts:'.hash('sha256',json_encode([$tenant,$user,$image]));$facts=null;try{$facts=\think\facade\Cache::get($key);}catch(\Throwable){}
+            if(!is_array($facts)){$facts=StudioMediaService::facts($tenant,$image,10);try{\think\facade\Cache::set($key,$facts,120);}catch(\Throwable){}}
             $body['image']=array_replace($image,$facts);
         }
         if($body['video'])$body['video']=MicroVideoMedia::validateVideo($tenant,$user,(string)($body['video']['uri']??$body['video']['url']??''),30,

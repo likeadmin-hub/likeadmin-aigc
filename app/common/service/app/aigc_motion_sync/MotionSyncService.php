@@ -55,7 +55,7 @@ final class MotionSyncService
     {
         try { return MotionSyncMedia::validate($tenant,$user,$body); }
         catch(InvalidArgumentException $e){throw $e;}
-        catch(\Throwable $e){\think\facade\Log::warning('Motion sync material: '.get_class($e));throw new InvalidArgumentException('素材暂时无法读取，请重新选择或联系管理员',0,$e);}
+        catch(\Throwable $e){\think\facade\Log::warning('Motion sync material: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());throw new InvalidArgumentException('素材暂时无法读取，请重新选择或联系管理员',0,$e);}
     }
     public static function model(int $tenant,array $body): array
     {
