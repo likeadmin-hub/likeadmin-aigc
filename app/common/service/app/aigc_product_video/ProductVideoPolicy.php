@@ -62,7 +62,7 @@ final class ProductVideoPolicy
         $stable=static function($v)use(&$stable){if(!is_array($v))return $v;foreach(['url','video_url','image_url'] as $k)unset($v[$k]);foreach($v as $k=>$x)if(is_array($x))$v[$k]=$stable($x);return $v;};
         return self::hash($stable($request));
     }
-    public static function plan(array $plan,int $duration): array
+    public static function plan(array $plan,int $duration,array $context=[]): array
     {
         $shots=$plan['shots']??null;if(!is_array($shots)||count($shots)<2||count($shots)>16)throw new InvalidArgumentException('分镜需要 2～16 个镜头');
         $end=0.;$out=[];
@@ -70,7 +70,8 @@ final class ProductVideoPolicy
             if(!is_array($shot)||!is_numeric($shot['start']??null)||!is_numeric($shot['end']??null))throw new InvalidArgumentException('分镜时间格式不正确');
             $start=(float)$shot['start'];$next=(float)$shot['end'];
             if(!is_finite($start)||!is_finite($next)||abs($start-$end)>0.01||$next<=$start||$next>$duration+0.01)throw new InvalidArgumentException('分镜时间需要从 0 秒连续覆盖视频时长');
-            $description=self::text($shot['description']??'',1800);if($description==='')throw new InvalidArgumentException('请补充分镜画面');
+            if(array_key_exists('action',$shot)&&($context['audio']??null)===false)$shot['sound']='无声';
+            $description=ProductVideoAnalysis::shotDescription($shot);if($description==='')throw new InvalidArgumentException('请补充分镜画面');
             $out[]=['id'=>'shot_'.($index+1),'start'=>$start,'end'=>$next,'description'=>$description];$end=$next;
         }
         if(abs($end-$duration)>0.01)throw new InvalidArgumentException('分镜总时长与生成时长不一致');
@@ -80,8 +81,12 @@ final class ProductVideoPolicy
             $points[]=['id'=>'point_'.($index+1),'label'=>$label,'source_slots'=>array_values(array_filter(array_map(static fn($v)=>self::text($v,128),(array)($point['source_slots']??[]))))];
         }
         $result=['summary'=>self::text($plan['summary']??'',1000),'shots'=>$out,'duration'=>$duration];
-        if(isset($plan['product_info']))$result['product_info']=self::text($plan['product_info'],3000);
-        if(isset($plan['video_prompt']))$result['video_prompt']=self::text($plan['video_prompt'],12000);
+        if(isset($plan['product_info'])||array_key_exists('product_profile',$plan))$result['product_info']=ProductVideoAnalysis::productInfo($plan);
+        if(ProductVideoAnalysis::structuredPlan($plan)){
+            $brief=$plan['creative_brief']??[];
+            if(!is_array($brief)||($brief!==[]&&array_is_list($brief)))throw new InvalidArgumentException('视频整体描述格式不正确');
+            $result['video_prompt']=ProductVideoAnalysis::videoDescription($result,$brief,$context);
+        }elseif(isset($plan['video_prompt']))$result['video_prompt']=self::text($plan['video_prompt'],12000);
         if($points)$result['selling_points']=$points;
         return $result;
     }
@@ -110,7 +115,6 @@ final class ProductVideoPolicy
         if(empty($body['plan'])&&$body['prompt']!==''){if(($body['prompt_review_images']??[])!==array_column($body['images'],'uri'))throw new InvalidArgumentException('商品已变化，请检查并确认视频描述');return $base.$body['prompt'];}
         $duration=(int)($body['video_selection']['duration']??0);$plan=self::plan((array)($body['plan']['data']??[]),$duration);
         if(($body['plan']['input_key']??'')!==self::planKey($body))throw new InvalidArgumentException('商品资料或视频规格已变化，请更新分镜');
-        $lines=[];foreach($plan['shots'] as $shot)$lines[]=$shot['start'].'-'.$shot['end'].'秒：'.$shot['description'];
-        return $base.($body['plan']['data']['video_prompt']??$plan['summary'])."\n".implode("\n",$lines);
+        return $base.self::planDescription($plan);
     }
 }
