@@ -352,10 +352,8 @@ final class MicroVideoMedia
     private static function binary(string $name): string
     {
         $configured = getenv('MICRO_VIDEO_' . strtoupper($name));
-        $candidates = $configured ? [$configured] : [];
-        foreach (explode(PATH_SEPARATOR, (string)getenv('PATH')) as $directory) if ($directory !== '') $candidates[] = rtrim($directory, '/') . '/' . $name;
-        $candidates = array_merge($candidates, ['/opt/homebrew/bin/' . $name, '/usr/bin/' . $name, '/usr/local/bin/' . $name]);
-        foreach ($candidates as $candidate) if (is_file($candidate) && is_executable($candidate)) return $candidate;
+        $binary = \app\common\service\MediaBinaryService::resolve($name, $configured ? [$configured] : []);
+        if ($binary !== '') return $binary;
         throw new RuntimeException('未找到视频处理程序：' . $name);
     }
 
