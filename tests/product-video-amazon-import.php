@@ -33,6 +33,11 @@ foreach (['Own Cup', '杯盖可拆卸', '450 ml', '包装包含', 'B012345678'] 
 aiCheck(!str_contains($metadata['product_info'], '\\n'), 'Product details contain real newlines');
 $encoded = str_replace("'colorImages':" . json_encode(['initial' => $gallery, 'other-color' => [['hiRes' => 'https://m.media-amazon.com/images/I/other.jpg']]]), "'colorImages':{'initial':A.$.parseJSON('" . str_replace(['\\', "'"], ['\\\\', "\\'"], json_encode($gallery)) . "')}", $html);
 aiCheck(count(Amazon::metadata($encoded, $base)['images']) === 9, 'Current parseJSON-wrapped gallery imports every current image without executing scripts');
+$trail = str_replace('<a id="bylineInfo">Visit the Own Cup Store</a>', '<div id="productBrandLogo_feature_div"><img alt="Own Cup"/></div>', $html);
+$trail = str_replace('<div id="productDescription">包装包含杯子和杯盖。</div>', '<div id="trailProductDescription_feature_div"><div data-card-metrics-id="own"><style>never import CSS</style><script>never import JS</script><p>包装包含杯子和杯盖。</p><ul><li>可拆卸杯盖</li></ul></div></div>', $trail);
+$trailMetadata = Amazon::metadata($trail, $base);
+aiCheck(str_contains($trailMetadata['product_info'], 'Own Cup') && str_contains($trailMetadata['product_info'], '包装包含'), 'Current fashion/trail brand and description sections are supported');
+aiCheck(!str_contains($trailMetadata['product_info'], 'never import'), 'Page script/style contents cannot enter product information');
 aiReject(fn() => Amazon::metadata('<title>Robot Check</title>', $base), 'Challenge page cannot be reported as a successful product');
 aiCheck(Import::capacity(['max_reference_images' => 1]) === 1 && Import::capacity(['max_reference_images' => 9]) === 9 && Import::capacity(['max_reference_images' => 999]) === 15, 'Capacity comes from a server model with the app ceiling');
 aiReject(fn() => Import::capacity(['max_reference_images' => 0]), 'Unloaded/unsupported model cannot invent capacity');

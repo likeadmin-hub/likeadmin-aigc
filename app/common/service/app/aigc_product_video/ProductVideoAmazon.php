@@ -101,15 +101,15 @@ final class ProductVideoAmazon
         try { $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING); }
         finally { libxml_clear_errors(); libxml_use_internal_errors($previous); }
         $xpath = new \DOMXPath($doc);
-        $text = static fn(string $path): string => self::text($xpath->query($path)->item(0)?->textContent ?? '');
+        $text = static fn(string $path): string => self::nodeText($xpath->query($path)->item(0));
         // Generic metadata is a fallback; the product gallery and product sections take priority.
         $fallback = ProductVideoProducts::metadata($html, $base);
         $name = $text('//*[@id="productTitle"]') ?: $fallback['name'];
-        $brand = $text('//*[@id="bylineInfo"]');
+        $brand = $text('//*[@id="bylineInfo"]') ?: $text('//*[@id="productBrandLogo_feature_div"]//img/@alt');
         $brand = preg_replace('/^(?:Visit the\s+)|\s+Store$|^(?:Brand|品牌)\s*[:：]\s*/iu', '', $brand);
         $bullets = []; $details = [];
-        foreach ($xpath->query('//*[@id="feature-bullets"]//li') as $node) {
-            $value = self::text($node->textContent);
+        foreach ($xpath->query('//*[@id="feature-bullets" or @id="featurebullets_feature_div" or @id="productFactsDesktopExpander" or @id="trailProductDescription_feature_div"]//li') as $node) {
+            $value = self::nodeText($node);
             if ($value !== '' && !preg_match('/make sure this fits|see more product details/i', $value)) $bullets[] = mb_substr($value, 0, 450);
         }
         foreach ($xpath->query('//*[starts-with(@id,"productDetails_")]//tr') as $node) {
@@ -122,6 +122,11 @@ final class ProductVideoAmazon
         foreach ($xpath->query('//*[@id="detailBullets_feature_div"]//li') as $node) {
             $value = self::text($node->textContent);
             if ($value !== '' && !preg_match('/customer reviews|best sellers rank/i', $value)) $details[] = $value;
+        }
+        foreach ($xpath->query('//*[@id="trailProductSpecs_feature_div"]//*[contains(@class,"attributeRow__")]') as $node) {
+            $key = self::nodeText($xpath->query('.//*[contains(@class,"attributeLabelWrapper__")]', $node)->item(0));
+            $value = self::nodeText($xpath->query('.//*[contains(@class,"attributeValueWrapper__")]', $node)->item(0));
+            if ($key !== '' && $value !== '') $details[] = $key . '：' . $value;
         }
         $images = []; $seen = [];
         $add = static function ($url) use (&$images, &$seen) {
@@ -160,7 +165,7 @@ final class ProductVideoAmazon
         $lines[] = '【商品编号】' . $target['asin'];
         if ($bullets) $lines[] = "【商品卖点】\n" . implode("\n", array_map(static fn($v) => '• ' . $v, array_slice(array_unique($bullets), 0, 8)));
         if ($details) $lines[] = "【商品规格】\n" . implode("\n", array_map(static fn($v) => mb_substr($v, 0, 300), array_slice(array_unique($details), 0, 10)));
-        $description = $text('//*[@id="productDescription"]');
+        $description = $text('//*[@id="productDescription"]') ?: $text('//*[@id="trailProductDescription_feature_div"]//*[@data-card-metrics-id]');
         if ($description !== '') $lines[] = '【商品介绍】' . mb_substr($description, 0, 1200);
         elseif (!$bullets && $fallback['product_info'] !== $name) $lines[] = $fallback['product_info'];
         return ['name' => mb_substr($name, 0, 100), 'product_info' => mb_substr(implode("\n", $lines), 0, 3000), 'images' => array_slice($images, 0, 60), 'source_url' => $target['url'], 'asin' => $target['asin']];
@@ -169,6 +174,17 @@ final class ProductVideoAmazon
     private static function text(string $value): string
     {
         return trim(preg_replace('/[\s\x{200e}\x{200f}]+/u', ' ', html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    }
+
+    private static function nodeText(?\DOMNode $node): string
+    {
+        if (!$node) return '';
+        $clone = $node->cloneNode(true);
+        if ($clone instanceof \DOMElement) {
+            $xpath = new \DOMXPath($clone->ownerDocument);
+            foreach (iterator_to_array($xpath->query('.//script|.//style|.//noscript|.//template|.//button', $clone)) as $child) $child->parentNode->removeChild($child);
+        }
+        return self::text($clone->textContent);
     }
 
     /** Some current Amazon pages wrap the gallery JSON in A.$.parseJSON('...'). */
