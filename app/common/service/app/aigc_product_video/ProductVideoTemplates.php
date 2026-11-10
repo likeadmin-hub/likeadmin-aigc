@@ -17,7 +17,8 @@ final class ProductVideoTemplates
         $body=ProductVideoPolicy::body($input);
         $fresh=!empty($body['plan'])&&($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body);
         $body['images']=array_map(static fn($image)=>array_intersect_key((array)$image,array_flip(['uri','name','role','reference_slot_id','mention_name','storage_scope','storage_engine','storage_domain'])), $body['images']);
-        $body['video_selection']=array_intersect_key($body['video_selection'],array_flip(['model_id','quality','ratio','duration']));
+        $selection=$body['video_selection'];$body['video_selection']=[];
+        foreach(['model_id','quality','ratio','duration'] as $key)if(array_key_exists($key,$selection))$body['video_selection'][$key]=$selection[$key];
         $body['normal_source']='prompt';$body['requirements']='';$body['reference_video']=null;$body['reference_analysis']=null;$body['generation_assets']=[];
         $body['analysis_model_id']='';$body['planning_model_id']='';
         $body['prompt_review_images']=array_column($body['images'],'uri');
