@@ -3,8 +3,8 @@
   "name": "商品视频",
   "version": "1.0.0",
   "require_core": ">=1.0.0",
-  "description": "基于商品素材创作视频，支持直接描述、商品智能分析、分镜预览与视频生成。",
-  "changelog": "1. 普通、高级模式统一商品素材、商品信息、视频描述与生成配置的流程。\n2. 高级智能分析生成商品信息、分镜图和视频描述，分别展示模型费用。\n3. 移除独立参考视频分析配置，保留历史记录；首尾帧使用独立槽位。",
+  "description": "基于商品素材创作视频，支持商品信息识别、视频描述生成与商品视频创作。",
+  "changelog": "1. 普通模式直接描述，高级模式智能分析商品素材。\n2. 智能分析完成后自动回填商品信息和视频描述，可修改后生成视频。\n3. 移除分镜图片生成和相关模型配置。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
@@ -26,11 +26,6 @@
       "app_code": "aigc_video",
       "name": "视频创作",
       "required_for": "生成商品视频"
-    },
-    {
-      "app_code": "aigc_image",
-      "name": "图像创作",
-      "required_for": "生成故事板图片"
     }
   ],
   "billing": {
@@ -42,7 +37,6 @@
       "analysis",
       "write",
       "optimize",
-      "storyboard",
       "video",
       "chapters"
     ],

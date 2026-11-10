@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
-use app\common\service\app\aigc_micro_video\{MicroVideoMedia,MicroVideoCatalog,MicroVideoFrameCatalog};
+use app\common\service\app\aigc_micro_video\{MicroVideoMedia,MicroVideoCatalog};
 use app\common\service\power\{MarketTextModelRuntimeService,MarketCatalogReadScope};
 use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;
@@ -21,13 +21,13 @@ final class ProductVideoService
     public static function settings(int $tenant): array
     {
         $global=self::table('config')->where('tenant_id',0)->find();$r=$tenant>0?self::table('config')->where('tenant_id',$tenant)->find():null;
-        return array_replace(['status'=>1,'analysis_model_id'=>'','planning_model_id'=>'','default_video_model_id'=>'','default_image_model_id'=>''],ProductVideoPolicy::json($global['body_json']??'{}'),ProductVideoPolicy::json($r['body_json']??'{}'));
+        return array_intersect_key(array_replace(['status'=>1,'analysis_model_id'=>'','planning_model_id'=>'','default_video_model_id'=>''],ProductVideoPolicy::json($global['body_json']??'{}'),ProductVideoPolicy::json($r['body_json']??'{}')),array_flip(['status','analysis_model_id','planning_model_id','default_video_model_id']));
     }
     public static function setup(int $tenant,array $p): array
     {
         AppDisplayConfigService::saveFromConfigPayload($tenant,ProductVideoPolicy::APP,$p);
         $data=['status'=>empty($p['status'])?0:1];
-        foreach(['analysis_model_id','planning_model_id','default_video_model_id','default_image_model_id'] as $key)$data[$key]=ProductVideoPolicy::text($p[$key]??'',100);
+        foreach(['analysis_model_id','planning_model_id','default_video_model_id'] as $key)$data[$key]=ProductVideoPolicy::text($p[$key]??'',100);
         $values=['body_json'=>ProductVideoPolicy::encode($data),'update_time'=>time()];$q=self::table('config')->where('tenant_id',$tenant);
         if($q->find())$q->update($values);else self::table('config')->insert($values+['tenant_id'=>$tenant,'create_time'=>time()]);
         return $data;
@@ -43,7 +43,6 @@ final class ProductVideoService
     }
     public static function models(int $tenant,string $kind,string $id=''): array
     {
-        if($kind==='image')return ['models'=>MicroVideoFrameCatalog::models($tenant,1)];
         if($kind==='planning')return ['models'=>MarketTextModelRuntimeService::mediaOptions($tenant,false)];
         if($kind==='analysis')return ['models'=>MarketTextModelRuntimeService::mediaOptions($tenant,true)];
         if($kind!=='video')throw new InvalidArgumentException('模型类型无效');
@@ -56,10 +55,10 @@ final class ProductVideoService
     }
     public static function projectDto(array $row): array
     {
-        $body=ProductVideoPolicy::json($row['body_json']);
+        $body=array_diff_key(ProductVideoPolicy::json($row['body_json']),array_flip(['storyboard','generate_storyboard','image_selection']));
         return ['id'=>(int)$row['id'],'title'=>$row['title'],'revision'=>(int)$row['revision'],'body'=>self::publicBody($body,(int)$row['tenant_id']),
             'plan_fresh'=>($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body),
-            'storyboard_fresh'=>!empty($body['storyboard'])&&($body['storyboard']['input_key']??'')===ProductVideoPolicy::hash((array)($body['plan']??[])),'update_time'=>(int)$row['update_time']];
+            'update_time'=>(int)$row['update_time']];
     }
     public static function publicBody(array $body,int $tenant): array
     {
@@ -107,7 +106,6 @@ final class ProductVideoService
             $body['prompt']=$plan['video_prompt'];
             $body['prompt_review_images']=array_column($body['images'],'uri');
             $body['plan']=['data'=>$plan,'input_key'=>ProductVideoPolicy::planKey($body),'job_id'=>(int)$job['id']];
-            if(!empty($result['images']))$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash($body['plan']),'job_id'=>(int)$job['id']];
         }
         elseif(in_array($job['action'],['write','optimize'],true)){
             if(($body['mode']??'normal')==='advanced'&&!empty($body['plan']))$body['plan']['data']['video_prompt']=$result['video_prompt'];
@@ -116,7 +114,6 @@ final class ProductVideoService
         }
         elseif($job['action']==='product')$body['product_info']=$result['product_info'];
         elseif($job['action']==='reference')$body['reference_analysis']=['data'=>$result,'video_uri'=>$body['reference_video']['uri']??''];
-        elseif($job['action']==='storyboard')$body['storyboard']=['images'=>$result['images'],'input_key'=>ProductVideoPolicy::hash((array)$body['plan']),'job_id'=>(int)$job['id']];
         else throw new InvalidArgumentException('该结果可在历史创作中查看');
         return $body;
     }

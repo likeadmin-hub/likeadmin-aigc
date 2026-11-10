@@ -44,7 +44,7 @@ try{
     // Exercise the durable advanced pipeline without calling any provider.
     $advanced=array_replace($b,['generate_storyboard'=>true,'mode'=>'advanced','planning_model_id'=>(string)$analysis[0]['id']]);
     $ap=S::save(1,1,['body'=>$advanced]);$aa=['project_id'=>$ap['id'],'revision'=>$ap['revision'],'action'=>'analysis'];
-    $aq=J::estimate(1,1,$aa);pvAssert(count($aq['phased_costs'])===2,'Analysis stage quote must disclose text and image costs');
+    $aq=J::estimate(1,1,$aa);pvAssert(count($aq['phased_costs'])===1,'Analysis must quote only text even when an old client requests storyboard images');
     $aj=J::create(1,1,$aa+['quote_token'=>$aq['quote_token'],'idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16))]);
     $root=J::owned(1,1,$aj['id']);
     \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
@@ -53,11 +53,16 @@ try{
     $duration=(int)$spec['duration'];$data=['product_info'=>'白色商品','summary'=>'全貌到细节','video_prompt'=>'完整展示后特写','shots'=>[['start'=>0,'end'=>1,'description'=>'全貌'],['start'=>1,'end'=>$duration,'description'=>'细节']]];
     J::table()->where('id',$links[0]['child_job_id'])->update(['status'=>'success','billing_status'=>'settled','user_charge_points'=>2,'result_json'=>P::encode($data)]);
     \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
-    $links=S::table('job_stage')->where('root_job_id',$aj['id'])->order('id')->select()->toArray();pvAssert(count($links)===2,'Storyboard follows the successful text stage');
-    J::table()->where('id',$links[1]['child_job_id'])->update(['status'=>'failed','billing_status'=>'refunded']);
-    \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
-    $partial=J::owned(1,1,$aj['id']);pvAssert($partial['status']==='partial'&&(float)$partial['user_charge_points']===2.,'Image failure must preserve paid text result');
-    $adopted=S::adopt(1,1,['job_id'=>$aj['id'],'revision'=>$ap['revision']]);pvAssert($adopted['plan_fresh']&&$adopted['body']['plan']['data']['video_prompt']===$data['video_prompt'],'Partial analysis remains usable');
+    $links=S::table('job_stage')->where('root_job_id',$aj['id'])->order('id')->select()->toArray();pvAssert(count($links)===1,'Analysis must not create any image stage');
+    $completed=J::owned(1,1,$aj['id']);pvAssert($completed['status']==='success'&&(float)$completed['user_charge_points']===2.,'Analysis charges only its completed text stage');
+    pvReject(fn()=>J::estimate(1,1,['project_id'=>$ap['id'],'revision'=>$ap['revision'],'action'=>'storyboard']),'Retired image creation must be rejected');
+    pvReject(fn()=>S::models(1,'image'),'Retired image catalog must not be exposed');
+    pvReject(fn()=>\app\common\service\app\aigc_product_video\ProductVideoPipeline::child($root,'storyboard',[]),'The pipeline must reject a new image child');
+    // An unsubmitted legacy image row is canceled without contacting a model.
+    $oldImage=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$ap['id'],'project_revision'=>$ap['revision'],'action'=>'storyboard','idempotency_key'=>'pv_local_'.bin2hex(random_bytes(16)),'input_hash'=>str_repeat('c',64),'status'=>'queued','request_json'=>'{}','receipt_json'=>'{}','result_json'=>'{}','create_time'=>time(),'update_time'=>time()]);
+    \app\common\service\app\aigc_product_video\ProductVideoWorker::tick($oldImage);
+    $retired=J::owned(1,1,$oldImage);pvAssert($retired['status']==='canceled'&&$retired['billing_status']==='none'&&!$retired['consumption_id'],'An unsubmitted retired image cannot spend points');
+    $adopted=S::adopt(1,1,['job_id'=>$aj['id'],'revision'=>$ap['revision']]);pvAssert($adopted['plan_fresh']&&$adopted['body']['plan']['data']['video_prompt']===$data['video_prompt'],'Text analysis remains usable');
     $snapshot=S::fromJob(1,1,$aj['id']);pvAssert($snapshot['id']!==$ap['id']&&$snapshot['revision']===1,'Re-edit copies immutable submitted data into a new draft');
     $forked=S::fromJob(1,1,$aj['id'],true);pvAssert($forked['plan_fresh']&&$forked['body']['plan']['data']['video_prompt']===$data['video_prompt'],'Completed analysis resumes with its result in a new draft');
     pvAssert(S::owned(1,1,$ap['id'])['revision']===$adopted['revision'],'Fork cannot overwrite original draft');
