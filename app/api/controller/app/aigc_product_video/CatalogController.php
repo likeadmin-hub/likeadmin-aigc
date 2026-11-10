@@ -8,5 +8,5 @@ class CatalogController extends BaseApiController
     public function lists(){return $this->respond(fn()=>P::lists((int)$this->request->tenantId,$this->userId,$this->request->get()));}
     public function save(){return $this->respond(fn()=>P::save((int)$this->request->tenantId,$this->userId,$this->request->post()));}
     public function delete(){return $this->respond(function(){P::delete((int)$this->request->tenantId,$this->userId,(int)$this->request->post('id'));return [];});}
-    public function import(){return $this->respond(fn()=>P::import((int)$this->request->tenantId,$this->userId,(string)$this->request->post('url','')));}
+    public function import(){return $this->respond(fn()=>P::import((int)$this->request->tenantId,$this->userId,(string)$this->request->post('url',''),$this->request->post()));}
 }
