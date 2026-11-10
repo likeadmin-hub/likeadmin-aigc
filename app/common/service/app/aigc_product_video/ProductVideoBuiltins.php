@@ -23,7 +23,7 @@ final class ProductVideoBuiltins
     public static function ids(): array {return array_map('intval',self::table()->whereNotNull('case_id')->column('case_id'));}
     public static function sync(bool $force=false): void
     {
-        if(self::$writing)return;$all=ProductVideoBuiltinCatalog::all();if(!$all)return;
+        if(self::$writing)return;if($force)ProductVideoBuiltinCatalog::refresh();$all=ProductVideoBuiltinCatalog::all();if(!$all)return;
         $key='product_video_builtin:'.hash('sha256',ProductVideoBuiltinCatalog::directory().'|'.config('database.connections.mysql.prefix'));$hash=ProductVideoPolicy::hash($all);
         if(!$force&&Cache::get($key)===$hash)return;
         self::internal(static function()use($all){foreach($all as $entry)Db::transaction(static function()use($entry){
@@ -77,7 +77,7 @@ final class ProductVideoBuiltins
     {
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认将商品素材作为平台共享素材');
         $lock=SubmitLockService::acquire('product_video_builtin_source');
-        try{return Db::transaction(static function()use($sourceId,$params){
+        try{ProductVideoBuiltinCatalog::refresh();return Db::transaction(static function()use($sourceId,$params){
             $source=AppCase::where(['id'=>$sourceId,'app_code'=>ProductVideoPolicy::APP,'delete_time'=>0])->lock(true)->find();
             if(!$source||(int)$source['tenant_id']<=0)throw new InvalidArgumentException('请选择租户已有的商品视频模板');
             $source=$source->toArray();$existing=self::table()->where('source_case_id',$sourceId)->find();$all=ProductVideoBuiltinCatalog::all();$prior=$existing?($all[$existing['builtin_key']]??null):null;
@@ -103,7 +103,7 @@ final class ProductVideoBuiltins
     {
         if($scope!==0)throw new InvalidArgumentException('平台内置模板由平台统一维护，租户只能查看和使用');
         $lock=SubmitLockService::acquire('product_video_builtin_source');
-        try{return Db::transaction(static function()use($id,$params,$action){
+        try{ProductVideoBuiltinCatalog::refresh();return Db::transaction(static function()use($id,$params,$action){
             $entry=self::definition($id);if(!$entry)throw new InvalidArgumentException('内置模板定义不存在');
             if((int)($params['builtin_version']??0)!==$entry['version'])throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
             if($action==='save'){
