@@ -17418,6 +17418,11 @@ class AigcShortDramaService
     private static function normalizeEpisodeSettings(array $params): array
     {
         $requestedCount = (int)($params['episode_count'] ?? 0);
+        // A series child explicitly switches to single-film production. Inherited
+        // import/planning markers must not turn it back into a series outline.
+        if (array_key_exists('multi_episode', $params) && !$params['multi_episode'] && $requestedCount <= 1) {
+            return ['multi_episode' => false, 'episode_count' => 1];
+        }
         if ((!empty($params['_short_drama_episode_batch']) || !empty($params['_canvas_series_planning']) || ShortDramaImportedScript::allowsSingleEpisode($params)) && $requestedCount === 1) {
             return ['multi_episode' => true, 'episode_count' => 1];
         }

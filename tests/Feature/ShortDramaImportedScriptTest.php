@@ -6,6 +6,24 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaImportedScriptTest extends TestCase
 {
+    public function testImportedEpisodeProductionRemainsSingleThroughRequestNormalization(): void
+    {
+        $service = \app\common\service\app\aigc_short_drama\AigcShortDramaService::class;
+        $normalize = new \ReflectionMethod($service, 'normalizeCreateRequest');
+        foreach (['_imported_outline_snapshot' => ['episode_count' => 1], 'imported_script' => true,
+            '_canvas_series_planning' => true, '_short_drama_episode_batch' => true] as $marker => $value) {
+            $parent = ['multi_episode' => true, 'episode_count' => 1, $marker => $value];
+            $child = array_replace($parent, ['multi_episode' => false, 'episode_count' => 1]);
+            $request = $normalize->invoke(null, $child, []);
+            self::assertFalse($request['multi_episode'], $marker);
+            self::assertSame(1, $request['episode_count']);
+            self::assertSame('production', $request['multi_episode_stage']);
+            self::assertSame('', $request['workflow_variant']);
+            self::assertSame('', $request['episode_workflow']);
+            self::assertFalse(\app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::enabled($request));
+        }
+    }
+
     public function testSingleEpisodeApiReceiptSurvivesNormalizationDraftAndOutlineConfirmation(): void
     {
         $raw = ['title'=>'旧信','type_judgement'=>'悬疑','core_theme'=>'寻找真相','story_outline'=>'调查员在旧宅发现旧信并找到故人。',
