@@ -64,13 +64,15 @@ try{C::withDirectory($dir,static function()use($dir){
  $private=new ReflectionMethod(B::class,'shared');$private->setAccessible(true);reject(fn()=>$private->invoke(null,['uri'=>'uploads/not-shared.png','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''],0),'Private or local source cannot be promoted');
  yes(!method_exists(\app\tenantapi\controller\app\aigc_product_video\CaseController::class,'builtin'),'Tenant has no builtin publish route');
  // An advanced template carries a fresh text plan across model-ID remapping as well.
- $advanced=$body;$advanced['mode']='advanced';$advanced['plan']=['data'=>['summary'=>'展示已确认商品细节','duration'=>$spec['duration'],'shots'=>[['start'=>0,'end'=>$spec['duration']/2,'description'=>'展示商品轮廓'],['start'=>$spec['duration']/2,'end'=>$spec['duration'],'description'=>'展示商品细节']],'video_prompt'=>'展示 @图片1 的商品轮廓，然后展示商品细节。'],'input_key'=>P::planKey($advanced)];
+ $advanced=$project['body'];$advanced['mode']='advanced';$advanced['plan']=['data'=>['summary'=>'展示已确认商品细节','duration'=>$spec['duration'],'shots'=>[['start'=>0,'end'=>$spec['duration']/2,'description'=>'展示商品轮廓'],['start'=>$spec['duration']/2,'end'=>$spec['duration'],'description'=>'展示商品细节']],'video_prompt'=>'展示 @图片1 的商品轮廓，然后展示商品细节。'],'input_key'=>P::planKey($advanced)];
  $advanced['prompt']=$advanced['plan']['data']['video_prompt'];
  $advancedJob=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$project['id'],'project_revision'=>1,'action'=>'video','status'=>'success','idempotency_key'=>'pv_advanced_builtin_'.bin2hex(random_bytes(12)),'input_hash'=>str_repeat('c',64),'request_json'=>P::encode(['snapshot'=>$advanced]),'receipt_json'=>'{}','result_json'=>P::encode(['videos'=>[['uri'=>$mediaUri,'storage_scope'=>$storage['scope'],'storage_engine'=>$engine,'storage_domain'=>$domain]]]),'create_time'=>time(),'update_time'=>time()]);
  $advancedSource=T::fromJob(0,$advancedJob,['title'=>'高级模式内置事务测试']);$advancedBuiltin=B::publish($advancedSource['id'],['confirm_public_media'=>true]);$advancedCopy=T::remix($target,$user,$advancedBuiltin['id']);
  yes($advancedCopy['body']['mode']==='advanced'&&$advancedCopy['plan_fresh'],'Advanced one-click draft retains a fresh executable plan');
  yes($advancedCopy['body']['plan']['data']===$advanced['plan']['data'],'Advanced planning script and shot structure survive cross-tenant restoration');
  yes($advancedCopy['body']['video_selection']===$advanced['video_selection'],'Advanced plan keeps the exact market model and specification');
+ reject(fn()=>T::save(0,['id'=>$advancedBuiltin['id'],'builtin_version'=>1,'configuration'=>['market_region'=>'新的市场']]),'Platform cannot publish an advanced template with an invalidated plan');
+ yes(T::detail($target,$advancedBuiltin['id'],true)['builtin_version']===1,'Rejected advanced edit leaves the published definition intact');
 
  });echo "PASS $checks platform builtin publication, cross-tenant remix, source updates and shared OSS protection checks\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $f)unlink($f);rmdir($dir);}
