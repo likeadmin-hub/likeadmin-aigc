@@ -14,7 +14,7 @@ final class WorkspaceMediaPickerService
 {
     private const SIZE = 20;
     private const TYPES = ['image', 'video', 'audio', 'document'];
-    private const VIDEO = ['video','digital_human','image_human','pic_lipsync','action_transfer','person_replacement','product_promo_video','watermark_removal','smart_clip'];
+    private const VIDEO = ['video','digital_human','image_human','pic_lipsync','action_transfer','motion_sync','person_replacement','product_promo_video','watermark_removal','smart_clip'];
 
     /** Resolve the exact picker identity using the same source/ownership/visibility rules as listing.
      * Storage coordinates are returned only to server callers; no client URL is trusted. */
@@ -164,9 +164,9 @@ final class WorkspaceMediaPickerService
             $spec = ['table'=>$app.'_result','join'=>$app.'_task','name'=>$title,'type'=>"'$type'",'uri'=>'r.'.$type.'_uri','saved'=>!$available];
             if ($source === 'music_cover') $spec['uri'] = "COALESCE(NULLIF(r.audio_uri,''),r.audio_url)";
             if (in_array($source,['music','music_cover'],true)) { $spec['mime']='r.mime_type'; $spec['size']='r.file_size'; }
-            if (in_array($source,['image','video'],true)) { $spec['width']='r.width'; $spec['height']='r.height'; }
-            if (in_array($source,['digital_human','image_human','action_transfer','person_replacement','product_promo_video','smart_clip'],true)) $spec['cover']='r.cover_uri';
-            if (in_array($source,['digital_human','image_human','action_transfer','person_replacement','smart_clip','music','music_cover'],true)) $spec['duration']='r.duration';
+            if (in_array($source,['image','video','motion_sync'],true)) { $spec['width']='r.width'; $spec['height']='r.height'; }
+            if (in_array($source,['digital_human','image_human','action_transfer','motion_sync','person_replacement','product_promo_video','smart_clip'],true)) $spec['cover']='r.cover_uri';
+            if (in_array($source,['digital_human','image_human','action_transfer','motion_sync','person_replacement','smart_clip','music','music_cover'],true)) $spec['duration']='r.duration';
             if ($source==='product_promo_video') $spec['duration']='t.duration';
             if ($type==='image' && $source!=='image') $spec['alias']="CONCAT('image:result:',r.image_result_id)";
             if ($source==='product_promo_video') $spec['alias']="CONCAT('video:result:',r.video_result_id)";

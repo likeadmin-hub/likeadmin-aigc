@@ -275,6 +275,7 @@ class AppCaseService
 
     private static function formatRow(array $row): array
     {
+        if (($row['app_code']??'') === 'aigc_motion_sync') return \app\common\service\app\aigc_motion_sync\MotionSyncTemplates::galleryRow($row);
         $row = CaseGenerationService::present($row);
         $cover = (string)($row['cover_uri'] ?? '');
         $media = (string)($row['media_uri'] ?? '');

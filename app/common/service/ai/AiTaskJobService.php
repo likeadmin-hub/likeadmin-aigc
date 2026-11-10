@@ -15,6 +15,7 @@ class AiTaskJobService
     public const TYPE_IMAGE_SUBMIT_RETRY = 'image_submit_retry';
     // A distinct type keeps pre-upgrade workers from treating music exports as generation.
     public const TYPE_MUSIC_OPERATION = 'music_operation';
+    public const TYPE_MOTION_SYNC_SUBMIT = 'motion_sync_submit';
     public const TYPE_SMART_CLIP = 'native_smart_clip';
     public const TYPE_PROCESS_RESULT = 'process_result';
     public const TYPE_TRANSFER_RESULT = 'transfer_result';
@@ -183,7 +184,7 @@ class AiTaskJobService
                     })->whereOr(function ($expired) use ($now) {
                         $expired->where('status', 'running')->where('lease_expire_time', '<=', $now);
                     });
-                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_IMAGE_SUBMIT_RETRY, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
+                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_IMAGE_SUBMIT_RETRY, self::TYPE_MUSIC_OPERATION, self::TYPE_MOTION_SYNC_SUBMIT, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
                     ->when($appCode !== '', function ($query) use ($appCode) {
                         $query->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
                     })
@@ -264,6 +265,7 @@ class AiTaskJobService
         if ($type === self::TYPE_QUERY_RESULT) {
             return self::queryResult((int)$job['consumption_id'], (int)$job['attempts']);
         }
+        if ($type === self::TYPE_MOTION_SYNC_SUBMIT) return \app\common\service\app\aigc_motion_sync\MotionSyncJobs::run((int)$job['consumption_id']);
         if ($type === self::TYPE_SMART_CLIP) return \app\common\service\app\smart_clip\SmartClipTaskRuntime::run((int)$job['app_task_id']);
         if ($type === self::TYPE_IMAGE_SUBMIT_RETRY) {
             return \app\common\service\power\MarketImageModelRuntimeService::resumeDeferredSubmit((int)$job['consumption_id'], (array)$job['payload']);
@@ -393,7 +395,7 @@ class AiTaskJobService
 
     private static function rescheduleDelay(array $job, int $delay): int
     {
-        if (!in_array((string)($job['job_type'] ?? ''), [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT], true)) {
+        if (!in_array((string)($job['job_type'] ?? ''), [self::TYPE_QUERY_RESULT, self::TYPE_MUSIC_OPERATION, self::TYPE_MOTION_SYNC_SUBMIT, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT], true)) {
             return max(1, $delay);
         }
 

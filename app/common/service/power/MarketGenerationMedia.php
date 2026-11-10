@@ -47,6 +47,15 @@ final class MarketGenerationMedia
         }
     }
 
+    /** Internal scope for media already measured from authorized bytes by an app service. Never accept browser facts here. */
+    public static function withVerifiedVideo(string $url, float $seconds, callable $operation): mixed
+    {
+        if (!preg_match('~^https?://~i', $url) || !is_finite($seconds) || $seconds <= 0) throw new InvalidArgumentException('实测视频信息无效');
+        $previous = self::$storedVideoSeconds;
+        self::$storedVideoSeconds[$url] = $seconds;
+        try { return $operation(); } finally { self::$storedVideoSeconds = $previous; }
+    }
+
     public static function seconds(array $input, bool $estimateWithoutTimedInput = false, ?callable $probe = null): float
     {
         $totals=['video'=>0.0,'audio'=>0.0];$count=0;

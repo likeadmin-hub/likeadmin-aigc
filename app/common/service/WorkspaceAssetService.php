@@ -19,7 +19,7 @@ final class WorkspaceAssetService
         'music' => 'aigc_music', 'music_cover' => 'aigc_music_cover',
         'product_image' => 'aigc_product_image', 'product_suite' => 'aigc_product_suite',
         'product_multi_angle' => 'aigc_product_multi_angle', 'product_promo_video' => 'aigc_product_promo_video',
-        'product_video' => 'aigc_product_video',
+        'product_video' => 'aigc_product_video', 'motion_sync' => 'aigc_motion_sync',
         'fashion_lookbook' => 'aigc_fashion_lookbook', 'model_wear' => 'aigc_model_wear',
         'local_redraw' => 'aigc_local_redraw', 'outpaint' => 'aigc_outpaint',
         'photo_restore' => 'aigc_photo_restore', 'image_translate' => 'aigc_image_translate',
@@ -232,7 +232,7 @@ final class WorkspaceAssetService
         if (!$record) return;
         $taskId = $kind === 'task' ? (int)$id : (int)($record['task_id'] ?? 0);
         $task = !in_array($source, ['short_drama', 'canvas'], true) && $taskId ? Db::name($prefix.'_task')->where($owner)->where('id',$taskId)->lock(true)->find() : null;
-        if ($kind === 'task' && !$restore && in_array($task['status'] ?? '', ['pending','running','queued','waiting_tasks'], true)) throw new InvalidArgumentException('任务仍在执行，请完成后再删除作品');
+        if ($kind === 'task' && !$restore && in_array($task['status'] ?? '', ['pending','running','queued','waiting_tasks','unknown'], true)) throw new InvalidArgumentException('任务仍在执行，请完成后再删除作品');
         Db::name($table)->where($owner)->where('id',(int)$id)->where('delete_time',$restore ? $stamp : 0)->update(['delete_time'=>$restore ? 0 : $stamp]);
         if (!$task || in_array($source, ['short_drama', 'canvas'], true)) return;
         if ($kind === 'task' && $source === 'fitting') {
@@ -252,7 +252,7 @@ final class WorkspaceAssetService
                 Db::name($prefix.'_result')->where($owner)->where('id',$result['id'])->update(['delete_time'=>$restore ? 0 : $stamp]);
             }
         } elseif (!$restore) {
-            if (!in_array($task['status'], ['pending','running','queued','waiting_tasks'], true) && !Db::name($prefix.'_result')->where($owner)->where('task_id',$taskId)->where('delete_time',0)->count())
+            if (!in_array($task['status'], ['pending','running','queued','waiting_tasks','unknown'], true) && !Db::name($prefix.'_result')->where($owner)->where('task_id',$taskId)->where('delete_time',0)->count())
                 Db::name($prefix.'_task')->where($owner)->where('id',$taskId)->where('delete_time',0)->update(['delete_time'=>$stamp]);
         } elseif ((int)$task['delete_time'] > 0) {
             $explicit = Db::name(self::TABLE)->where($owner+['asset_ref'=>$source.':task:'.$taskId])->find();

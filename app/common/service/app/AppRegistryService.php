@@ -420,6 +420,7 @@ class AppRegistryService
             throw new RuntimeException('应用不存在');
         }
 
+        if ($appCode === 'aigc_motion_sync' && $clearData && Db::name('aigc_motion_sync_task')->whereIn('status',['queued','running','unknown'])->count()) throw new RuntimeException('动作同步仍有未完成任务，暂不能清理数据');
         $app->status = self::STATUS_REMOVED;
         $app->update_time = time();
         $app->save();
@@ -937,6 +938,13 @@ class AppRegistryService
 
     private static function clearAppBusinessData(string $appCode): void
     {
+        if ($appCode === 'aigc_motion_sync') {
+            foreach (['task','result','project'] as $suffix) Db::name($appCode.'_'.$suffix)->where('delete_time',0)->update(['delete_time'=>time()]);
+            Db::name($appCode.'_quote')->where('id','>',0)->delete();
+            Db::name($appCode.'_config')->where('id','>',0)->delete();
+            AppCase::where('app_code',$appCode)->update(['delete_time'=>time()]);
+            return;
+        }
         if ($appCode === 'aigc_pic_lipsync') {
             \app\common\service\app\aigc_pic_lipsync\AigcPicLipsyncAdminService::clearData();
             return;
