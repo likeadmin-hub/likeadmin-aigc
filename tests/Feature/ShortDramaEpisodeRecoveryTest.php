@@ -76,6 +76,59 @@ class ShortDramaEpisodeRecoveryTest extends TestCase
         self::assertSame('failed',Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->value('status'));
         self::assertSame('pending',Db::name('aigc_short_drama_episode_job')->where('id',$episode['queue_job_id'])->value('status'));
     }
+    public function testMisroutedImportedChildRequiresConfirmationBeforeCreatingProductionVersion(): void
+    {
+        $f = $this->fixture('failed');
+        $request = ['_generation_version'=>3, 'episode_id'=>$f['ep'], 'multi_episode'=>true,
+            'episode_count'=>2, 'multi_episode_stage'=>'story', 'workflow_variant'=>'story_outline_v2',
+            'series_context'=>['current_episode'=>['story_outline'=>'已确认的本集剧情']]];
+        Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->update([
+            'status'=>'success', 'request_json'=>json_encode($request)]);
+        $before = Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find();
+        $episode = Db::name('aigc_short_drama_episode_task')->where('id',$f['ep'])->find();
+        try {
+            Episodes::retry(2000000725,7,$f['ep']);
+            self::fail('A changed production context must be confirmed before new work is queued');
+        } catch (\RuntimeException $e) {
+            self::assertSame(409,$e->getCode());
+            self::assertSame(\app\common\service\app\aigc_short_drama\ShortDramaPlanningUnit::CHANGED_CONTEXT_CONFIRMATION,$e->getMessage());
+        }
+        self::assertSame($before,Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find());
+        self::assertSame($episode,Db::name('aigc_short_drama_episode_task')->where('id',$f['ep'])->find());
+        self::assertSame(1,Db::name('aigc_short_drama_episode_job')->where('project_id',$f['p'])->count());
+    }
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testConfirmedImportedChildRecoveryQueuesSingleProductionAndPreservesPaidHistory(): void
+    {
+        require __DIR__.'/../fixtures/short_drama_creation_only_provider.php';
+        $f = $this->fixture('failed');
+        $request = ['prompt'=>'主角找到旧信。', '_generation_version'=>3, '_input_contract_version'=>31,
+            'episode_id'=>$f['ep'], 'multi_episode'=>true, 'episode_count'=>2, 'multi_episode_stage'=>'story',
+            'workflow_variant'=>'story_outline_v2', 'episode_workflow'=>'outline_queue',
+            'series_context'=>['current_episode'=>['story_outline'=>'主角找到旧信。']]];
+        Db::name('aigc_short_drama_project')->where('id',$f['c'])->update(['multi_episode'=>1,'episode_count'=>2]);
+        Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->update([
+            'status'=>'success','request_json'=>json_encode($request)]);
+        Db::name('aigc_short_drama_planning_unit')->insert($this->scope+['task_id'=>$f['task'],
+            'unit_key'=>'v3_policy2_story','status'=>'received','request_json'=>'{"paid":true}','result_json'=>'{"receipt":1}']);
+        $before = Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find();
+        $receipt = Db::name('aigc_short_drama_planning_unit')->where('task_id',$f['task'])->find();
+        $result = Episodes::retry(2000000725,7,$f['ep'],true);
+        self::assertNotSame($f['task'],$result['task_id']);
+        $child = Db::name('aigc_short_drama_script_task')->where('task_id',$result['task_id'])->find();
+        $next = json_decode($child['request_json'],true);
+        self::assertFalse($next['multi_episode']);self::assertSame(1,$next['episode_count']);
+        self::assertSame('production',$next['multi_episode_stage']);self::assertSame('',$next['workflow_variant']);
+        self::assertSame('pending',$child['status']);self::assertSame('none',$child['billing_status']);
+        self::assertSame((int)$f['ep'],(int)$next['episode_id']);
+        $project = Db::name('aigc_short_drama_project')->where('id',$f['c'])->find();
+        self::assertSame(0,(int)$project['multi_episode']);self::assertSame(1,(int)$project['episode_count']);
+        self::assertSame($before,Db::name('aigc_short_drama_script_task')->where('task_id',$f['task'])->find());
+        self::assertSame($receipt,Db::name('aigc_short_drama_planning_unit')->where('task_id',$f['task'])->find());
+        self::assertSame('failed',Db::name('aigc_short_drama_episode_job')->where('id',$f['job'])->value('status'));
+    }
     public function testSetupFailureEndsAllActiveStatesAndPreservesHistoricalContent(): void
     {
         $f=$this->fixture(); // Empty prompt fails before resolving a model or submitting anything.
