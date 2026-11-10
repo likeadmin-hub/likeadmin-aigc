@@ -15,6 +15,7 @@ try{
  $params=['title'=>'手动模板事务测试','configuration'=>$body,'preview'=>['file_id'=>$video]];
  $template=T::create(1,$params);check($template['source_job_id']===0&&!$template['is_builtin'],'Tenant can create a manual template without generating a job');
  check($template['configuration']['images'][0]['uri']===$uri&&$template['cover_url']==='http://localhost/'.$uri,'Admin media authority ignores spoofed URI and browser storage metadata');
+ check($template['configuration']['images'][0]['mention_name']==='图片1','Manual authoring retains the canonical image mention identity');
  check($template['media_url']==='http://localhost/uploads/pv_admin_preview.mp4','Preview video uses managed storage coordinates');
  check($template['configuration']['market_region']==='英国'&&$template['configuration']['language']==='英语','Manual audience configuration saved');
  $copy=T::remix(1,1,$template['id']);check($copy['body']['images'][0]['uri']===$uri&&$copy['body']['prompt']===$body['prompt'],'Manual admin template grants authorized image references to the user draft');

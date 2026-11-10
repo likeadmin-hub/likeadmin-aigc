@@ -28,6 +28,8 @@ final class ProductVideoMaterials
     public static function assertMentions(array $body,array $assets): void
     {
         $slots=array_column($assets,'reference_slot_id');$prompt=$body['mode']==='advanced'?($body['plan']['data']['video_prompt']??$body['prompt']):$body['prompt'];
+        preg_match_all('/@(已移除图片[0-9]+|图片[0-9]+)(?![0-9])/u',$prompt,$tokens);$names=array_column($assets,'mention_name');
+        foreach($tokens[1] as $name)if(!in_array($name,$names,true))throw new InvalidArgumentException('描述引用的 '.$name.' 不存在，请按当前素材重新选择引用');
         foreach($body['selected_mentions'] as $mention)if(($mention['name']??'')!==''&&str_contains($prompt,'@'.$mention['name'])&&!in_array($mention['reference_slot_id']??'',$slots,true))throw new InvalidArgumentException('描述引用的 '.$mention['name'].' 已移除，请更新描述或重新添加素材');
     }
 }
