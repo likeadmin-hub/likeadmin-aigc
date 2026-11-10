@@ -53,11 +53,9 @@ final class MotionSyncService
     }
     public static function validateMedia(int $tenant,int $user,array $body): array
     {
-        try {
-            if($body['image'])$body['image']=MicroVideoMedia::validateImages($tenant,$user,[$body['image']],1)[0];
-            if($body['video'])$body['video']=MicroVideoMedia::validateVideo($tenant,$user,(string)($body['video']['uri']??$body['video']['url']??''),30);
-        } catch(\Throwable $e) { throw new InvalidArgumentException('素材不可用，请重新上传当前账号的角色图片和动作视频',0,$e); }
-        return $body;
+        try { return MotionSyncMedia::validate($tenant,$user,$body); }
+        catch(InvalidArgumentException $e){throw $e;}
+        catch(\Throwable $e){\think\facade\Log::warning('Motion sync material: '.get_class($e));throw new InvalidArgumentException('素材暂时无法读取，请重新选择或联系管理员',0,$e);}
     }
     public static function model(int $tenant,array $body): array
     {
@@ -70,6 +68,7 @@ final class MotionSyncService
     }
     public static function request(int $tenant,array $body): array
     {
+        MotionSyncMedia::assertFacts($body);
         if(!$body['image']||!$body['video'])throw new InvalidArgumentException('请添加一张角色图片和一个动作视频');
         $seconds=(float)($body['video']['duration']??0);$max=$body['orientation']==='image'?10:30;
         if(!is_finite($seconds)||$seconds<3||$seconds>$max+0.1)throw new InvalidArgumentException('当前朝向的动作视频须为 3～'.$max.' 秒');

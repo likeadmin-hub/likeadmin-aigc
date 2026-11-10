@@ -85,7 +85,7 @@ final class MicroVideoMedia
     }
 
     /** Reusable owned video input; browser supplied metadata never authorizes media. */
-    public static function validateVideo(int $tenant, int $user, string $input, int $maxSeconds = 60): array
+    public static function validateVideo(int $tenant, int $user, string $input, int $maxSeconds = 60, ?callable $readObject = null): array
     {
         $uri = self::canonicalUri($input);
         $file = self::ownedFile($tenant, $user, $uri, FileEnum::VIDEO_TYPE);
@@ -96,14 +96,18 @@ final class MicroVideoMedia
         if ($storage['storage_engine'] === 'local') {
             $local = self::localPath($uri); $identity[] = [filemtime($local),filesize($local)];
         }
-        $cacheKey = 'product_video_probe:'.hash('sha256', json_encode($identity));
+        $cacheKey = 'owned_video_probe_v2:'.hash('sha256', json_encode($identity));
         $facts = null;
         try { $facts = \think\facade\Cache::get($cacheKey); } catch (\Throwable) {}
         $workspace = self::workspace();
         try {
             if (!is_array($facts)) {
                 $path = $workspace.'/reference.mp4';
-                self::materialize($uri, $path, $tenant, $user);
+                if ($readObject !== null && $storage['storage_engine'] !== 'local') {
+                    $bytes=$readObject($file,$storage);
+                    if(!is_string($bytes)||$bytes===''||strlen($bytes)>self::MAX_VIDEO_BYTES||file_put_contents($path,$bytes)!==strlen($bytes))throw new RuntimeException('托管视频读取失败');
+                    unset($bytes);
+                } else self::materialize($uri, $path, $tenant, $user);
                 $facts = self::probe($path);
                 try { \think\facade\Cache::set($cacheKey,$facts,120); } catch (\Throwable) {}
             }
@@ -425,7 +429,7 @@ final class MicroVideoMedia
         }
         $duration = (float)($info['format']['duration'] ?? $video['duration'] ?? 0);
         if (!$video || (int)($video['width'] ?? 0) <= 0 || (int)($video['height'] ?? 0) <= 0 || !is_finite($duration) || $duration <= 0) throw new RuntimeException('视频文件损坏或没有有效视频轨道');
-        return ['duration' => $duration, 'video_duration' => (float)($video['duration'] ?? $duration), 'width' => (int)$video['width'], 'height' => (int)$video['height'], 'has_audio' => $hasAudio, 'format' => (string)($info['format']['format_name'] ?? '')];
+        return ['file_size'=>(int)filesize($path),'mime_type'=>(string)mime_content_type($path),'duration' => $duration, 'video_duration' => (float)($video['duration'] ?? $duration), 'width' => (int)$video['width'], 'height' => (int)$video['height'], 'has_audio' => $hasAudio, 'format' => (string)($info['format']['format_name'] ?? '')];
     }
 
     private static function binary(string $name): string

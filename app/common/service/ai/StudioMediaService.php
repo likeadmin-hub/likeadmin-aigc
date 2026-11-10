@@ -37,14 +37,13 @@ final class StudioMediaService
                 $path=realpath(public_path().ltrim($uri,'/'));$root=realpath(public_path());
                 if(!$path||!$root||!str_starts_with($path,$root.DIRECTORY_SEPARATOR)||!is_file($path))throw new InvalidArgumentException('素材文件不存在');
             }else{
-                $url=StorageSignedUrlService::resolve($uri,$asset['storage_scope'],$asset['storage_engine'],$asset['storage_domain'],$scope)?:FileService::format($asset['storage_domain'],$uri);
-                $bytes=OpenSafeHttp::get($url,($type===10?10:200)*1024*1024,30)['body'];$temporary=tempnam(sys_get_temp_dir(),'studio-media-');
+                $bytes=\app\common\service\storage\ManagedStorageReader::read($asset,$scope,($type===10?10:100)*1024*1024,30);$temporary=tempnam(sys_get_temp_dir(),'studio-media-');
                 if(!$temporary||file_put_contents($temporary,$bytes)!==strlen($bytes))throw new InvalidArgumentException('无法读取素材');$path=$temporary;unset($bytes);
             }
             if(filesize($path)>($type===10?10:200)*1024*1024)throw new InvalidArgumentException('素材大小超出限制');
             if($type===20)return MarketGenerationMedia::localFacts($path,'video');
             $size=@getimagesize($path);if(!$size||!in_array($size['mime']??'',['image/jpeg','image/png','image/webp'],true))throw new InvalidArgumentException('请上传有效 JPG、PNG 或 WebP 图片');
-            return ['width'=>$size[0],'height'=>$size[1]];
+            return ['width'=>$size[0],'height'=>$size[1],'file_size'=>(int)filesize($path),'mime_type'=>$size['mime']];
         }finally{if($temporary)@unlink($temporary);}
     }
     public static function grant(int $tenant,int $user,int $sourceScope,array $asset,int $type): array
