@@ -31,6 +31,8 @@ aiCheck(str_contains($metadata['images'][1], 'SL1000'), 'Null hiRes falls back t
 aiCheck(!str_contains(implode(',', $metadata['images']), 'other.jpg') && !str_contains(implode(',', $metadata['images']), 'ad.jpg'), 'Other variants and recommendations excluded');
 foreach (['Own Cup', '杯盖可拆卸', '450 ml', '包装包含', 'B012345678'] as $text) aiCheck(str_contains($metadata['product_info'], $text), 'Product facts filled from page sections');
 aiCheck(!str_contains($metadata['product_info'], '\\n'), 'Product details contain real newlines');
+$encoded = str_replace("'colorImages':" . json_encode(['initial' => $gallery, 'other-color' => [['hiRes' => 'https://m.media-amazon.com/images/I/other.jpg']]]), "'colorImages':{'initial':A.$.parseJSON('" . str_replace(['\\', "'"], ['\\\\', "\\'"], json_encode($gallery)) . "')}", $html);
+aiCheck(count(Amazon::metadata($encoded, $base)['images']) === 9, 'Current parseJSON-wrapped gallery imports every current image without executing scripts');
 aiReject(fn() => Amazon::metadata('<title>Robot Check</title>', $base), 'Challenge page cannot be reported as a successful product');
 aiCheck(Import::capacity(['max_reference_images' => 1]) === 1 && Import::capacity(['max_reference_images' => 9]) === 9 && Import::capacity(['max_reference_images' => 999]) === 15, 'Capacity comes from a server model with the app ceiling');
 aiReject(fn() => Import::capacity(['max_reference_images' => 0]), 'Unloaded/unsupported model cannot invent capacity');

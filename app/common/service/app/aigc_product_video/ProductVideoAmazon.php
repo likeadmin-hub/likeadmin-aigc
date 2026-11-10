@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\common\service\app\aigc_product_video;
 
-use app\common\service\open_platform\OpenSafeHttp;
+use app\common\service\open_platform\{OpenSafeHttp, OpenPolicy, OpenException};
 use InvalidArgumentException;
 
 /** Public product pages only. Never execute page scripts or collect related-product images. */
@@ -53,11 +53,12 @@ final class ProductVideoAmazon
     {
         $deadline = microtime(true) + ($image ? 12 : 22);
         for ($redirect = 0; $redirect < 5; $redirect++) {
+            if (!$image) $url = self::target($url)['url'];
             $host = strtolower((string)parse_url($url, PHP_URL_HOST));
             if ($image ? !self::imageUrl($url) : (!self::productHost($host) && !in_array($host, self::SHORT_HOSTS, true))) {
                 throw new InvalidArgumentException('商品链接跳转到了不支持的地址');
             }
-            [$host, $ip] = OpenSafeHttp::resolve($url);
+            [$host, $ip] = self::address($url);
             $body = ''; $headers = []; $maximum = $image ? 10485760 : 4194304;
             $timeout = (int)ceil($deadline - microtime(true));
             if ($timeout < 1) throw new InvalidArgumentException('亚马逊读取超时，请稍后重试');
@@ -147,6 +148,7 @@ final class ProductVideoAmazon
                 // Other color keys contain unselected variants. Only import the current initial gallery.
                 foreach ((array)($gallery['initial'] ?? []) as $image) if (is_array($image)) $add(($image['hiRes'] ?? '') ?: ($image['large'] ?? ''));
             }
+            foreach (self::encodedInitial($content) as $image) if (is_array($image)) $add(($image['hiRes'] ?? '') ?: ($image['large'] ?? ''));
             foreach (self::values($content, 'imageGalleryData') as $gallery) foreach ($gallery as $image) if (is_array($image)) $add(($image['hiRes'] ?? '') ?: ($image['mainUrl'] ?? $image['large'] ?? ''));
         }
         if (!$images) foreach ($fallback['images'] as $url) $add($url);
@@ -167,6 +169,56 @@ final class ProductVideoAmazon
     private static function text(string $value): string
     {
         return trim(preg_replace('/[\s\x{200e}\x{200f}]+/u', ' ', html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    }
+
+    /** Some current Amazon pages wrap the gallery JSON in A.$.parseJSON('...'). */
+    private static function encodedInitial(string $script): array
+    {
+        if (!preg_match('/["\']colorImages["\']\s*:\s*\{\s*["\']initial["\']\s*:\s*(?:[\w$]+\.)*(?:parseJSON|parse)\s*\(\s*(["\'])/', $script, $match, PREG_OFFSET_CAPTURE)) return [];
+        $quote = $match[1][0]; $start = $match[1][1] + 1; $value = '';
+        for ($i = $start, $end = min(strlen($script), $start + 524288); $i < $end; $i++) {
+            $c = $script[$i];
+            if ($c === $quote) return (array)json_decode($value, true, 32);
+            if ($c !== '\\') { $value .= $c; continue; }
+            if (++$i >= $end) return [];
+            $escape = $script[$i];
+            if ($escape === 'u') {
+                $sequence = substr($script, $i - 1, 6); $decoded = json_decode('"' . $sequence . '"');
+                if (!is_string($decoded)) return [];
+                $value .= $decoded; $i += 4;
+            } elseif ($escape === 'x') {
+                $hex = substr($script, $i + 1, 2); if (!ctype_xdigit($hex)) return [];
+                $value .= chr(hexdec($hex)); $i += 2;
+            } else $value .= ['n'=>"\n",'r'=>"\r",'t'=>"\t",'b'=>"\x08",'f'=>"\x0c"][$escape] ?? $escape;
+        }
+        return [];
+    }
+
+    /** Optional per-app public DNS for local fake-IP proxies; all returned IPs remain validated and pinned. */
+    private static function address(string $url): array
+    {
+        try { return OpenSafeHttp::resolve($url); }
+        catch (OpenException $e) { if (!env('product_video.import_public_dns', false)) throw $e; }
+        $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+        $cacheKey = 'product_video_public_dns_v1:' . hash('sha256', $host);
+        $ips = \think\facade\Cache::get($cacheKey);
+        if (!is_array($ips) || !$ips) {
+            $body = ''; $curl = curl_init('https://dns.google/resolve?name=' . rawurlencode($host) . '&type=A&edns_client_subnet=0.0.0.0%2F0');
+            curl_setopt_array($curl, [CURLOPT_RESOLVE => ['dns.google:443:8.8.8.8'], CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+                CURLOPT_FOLLOWLOCATION => false, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_TIMEOUT => 6,
+                CURLOPT_WRITEFUNCTION => static function ($ch, $bytes) use (&$body) { if (strlen($body) + strlen($bytes) > 65536) return 0; $body .= $bytes; return strlen($bytes); }]);
+            try { $ok = curl_exec($curl); $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE); }
+            finally { curl_close($curl); }
+            $data = json_decode($body, true);
+            if (!$ok || $status !== 200 || ($data['Status'] ?? -1) !== 0) throw new InvalidArgumentException('商品域名暂时无法解析，请稍后重试');
+            $ips = [];
+            foreach ($data['Answer'] ?? [] as $answer) if (($answer['type'] ?? 0) === 1) $ips[] = (string)($answer['data'] ?? '');
+        }
+        if (!$ips) throw new InvalidArgumentException('商品域名暂时无法解析，请稍后重试');
+        foreach ($ips as $ip) if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) || !OpenPolicy::isPublicIp($ip)) throw new InvalidArgumentException('商品域名未返回有效公网地址');
+        \think\facade\Cache::set($cacheKey, $ips, 60);
+        return [$host, $ips[0]];
     }
 
     /** Read bounded JSON values inside scripts without eval, regex object matching or executing JS. */
