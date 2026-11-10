@@ -10,8 +10,9 @@ use app\platformapi\lists\power\PowerMarketProductLists;
 use think\facade\Db;
 
 $config = config('database.connections.mysql');
-if (($config['hostname'] ?? '') !== '127.0.0.1' || ($config['database'] ?? '') !== 'z_cn') {
-    throw new RuntimeException('Rollback regression requires the local z_cn database');
+if (($config['hostname'] ?? '') !== '127.0.0.1' || !in_array($config['database'] ?? '', ['x_cn', 'z_cn'], true)) {
+    fwrite(STDERR, "Rollback regression requires a local x_cn/z_cn database\n");
+    exit(1);
 }
 $call = static function ($method, ...$args) {
     $m = new ReflectionMethod(PowerMarketService::class, $method);
