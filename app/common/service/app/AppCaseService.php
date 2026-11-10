@@ -9,6 +9,7 @@ use app\common\service\FileService;
 use app\common\service\case_gallery\CaseGenerationService;
 use Exception;
 use app\common\service\app\aigc_product_video\ProductVideoBuiltins;
+use app\common\service\app\aigc_product_video\ProductVideoService;
 
 class AppCaseService
 {
@@ -70,7 +71,9 @@ class AppCaseService
     private static function caseScope($query, int $tenantId, array $codes, bool $public): void
     {
         $ids = [];
-        if ($public && in_array('aigc_product_video', $codes, true) && AppAccessService::tenantCanUse($tenantId, 'aigc_product_video', false) && (int)\app\common\service\app\aigc_product_video\ProductVideoService::settings($tenantId)['status'] === 1) {
+        if ($public && in_array('aigc_product_video', $codes, true)
+            && AppAccessService::tenantCanUse($tenantId, 'aigc_product_video', false)
+            && (int)ProductVideoService::settings($tenantId)['status'] === 1) {
             ProductVideoBuiltins::sync();
             $ids = ProductVideoBuiltins::ids();
         }
@@ -170,7 +173,7 @@ class AppCaseService
     public static function setStatus(int $tenantId, string $appCode, int $id, int $status): void
     {
         $row = self::findRow($tenantId, $appCode, $id);
-            self::assertWritable($row);
+        self::assertWritable($row);
         $row->status = $status ? 1 : 0;
         $row->update_time = time();
         $row->save();
@@ -179,7 +182,7 @@ class AppCaseService
     public static function setStatusByAppCodes(int $tenantId, array $appCodes, int $id, int $status): void
     {
         $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
-            self::assertWritable($row);
+        self::assertWritable($row);
         $row->status = $status ? 1 : 0;
         $row->update_time = time();
         $row->save();
@@ -188,7 +191,7 @@ class AppCaseService
     public static function delete(int $tenantId, string $appCode, int $id): void
     {
         $row = self::findRow($tenantId, $appCode, $id);
-            self::assertWritable($row);
+        self::assertWritable($row);
         $row->delete_time = time();
         $row->update_time = time();
         $row->save();
@@ -197,7 +200,7 @@ class AppCaseService
     public static function deleteByAppCodes(int $tenantId, array $appCodes, int $id): void
     {
         $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
-            self::assertWritable($row);
+        self::assertWritable($row);
         $row->delete_time = time();
         $row->update_time = time();
         $row->save();
