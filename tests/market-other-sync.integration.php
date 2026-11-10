@@ -36,7 +36,7 @@ $before = [PowerMarketProduct::count(), PowerMarketSku::count()];
 Db::startTrans();
 try {
     $product = $call('upsertProduct','model',$resource,$item,true);
-    $sku = ['sku_key'=>'720p','title'=>'720P','price'=>['points'=>2]];
+    $sku = ['sku_key'=>'720p','title'=>'720P','usage_unit'=>'output_second','effective_rate_config'=>[],'price'=>['points'=>2]];
     $call('upsertSku',(int)$product->id,$sku,$item,1);
     $saved = PowerMarketSku::where('product_id',$product->id)->find();
     $saved->save(['sale_points'=>7,'sale_status'=>0]);
