@@ -45,6 +45,10 @@ try{
     msReject(fn()=>J::delete(1,1,$row['id']),'Unknown task deleted');msReject(fn()=>J::cancel(1,1,$row['id']),'Unknown task canceled');msReject(fn()=>S::fromJob(1,1,$row['id']),'Unknown submission regenerated');
     $prior=$row;J::syncConsumption(array_replace($c,['id'=>$row['consumption_id'],'tenant_id'=>2]),(int)$row['id']);msCheck(J::owned(1,1,$row['id'])['status']==='unknown','Cross-tenant projection mutated task');
     $safe=J::dto(J::owned(1,1,$row['id']));msCheck(!isset($safe['upstream_task_id'],$safe['pricing_snapshot'])&&!isset($safe['configuration']['image']['file_id']),'Private diagnostics leaked');
+    $admin=J::lists(0,0,['keyword'=>'','tenant_id'=>1,'user_id'=>1,'status'=>'unknown','start_time'=>time()-60,'end_time'=>time()+1],true);
+    msCheck(in_array((int)$row['id'],array_column($admin['lists'],'id'),true),'Platform record filters failed');
+    foreach(['id','app_task_id'] as $identity){$search=J::lists(1,0,['keyword'=>(string)$row[$identity]],true);msCheck(in_array((int)$row['id'],array_column($search['lists'],'id'),true),'Admin task identity search failed');}
+    $foreign=J::lists(2,0,['keyword'=>(string)$row['id']],true);msCheck(!in_array((int)$row['id'],array_column($foreign['lists'],'id'),true),'Tenant admin record search crossed its scope');
     // Admin manual templates, complete remix, source-task snapshot, soft deletion.
     $uploads=[];foreach([[10,$image],[20,$video]] as [$type,$uri])$uploads[$type]=Db::name('tenant_file')->insertGetId(['tenant_id'=>1,'source_id'=>0,'source'=>0,'type'=>$type,'name'=>'Admin motion fixture','uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
     $config=array_replace($body,['image'=>['file_id'=>$uploads[10]],'video'=>['file_id'=>$uploads[20]]]);

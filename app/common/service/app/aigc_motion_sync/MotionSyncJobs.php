@@ -143,7 +143,7 @@ final class MotionSyncJobs
         $q=self::table()->where('delete_time',0);if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);
         if($admin){foreach(['tenant_id','user_id'] as $key)if(!empty($p[$key])&&($key!=='tenant_id'||$tenant===0))$q->where($key,(int)$p[$key]);
             foreach(['start_time'=>'>=','end_time'=>'<='] as $key=>$op)if(!empty($p[$key]))$q->where('create_time',$op,(int)$p[$key]);
-            $search=self::text($p['keyword']??'',160);if($search!==''){$ids=Db::name('ai_consumption_log')->where('app_code',MotionSyncService::APP)->where(static fn($a)=>$a->where('upstream_task_id',$search)->whereOr('upstream_request_id',$search))->column('id');
+            $search=MotionSyncService::text($p['keyword']??'',160);if($search!==''){$ids=Db::name('ai_consumption_log')->where('app_code',MotionSyncService::APP)->where(static fn($a)=>$a->where('upstream_task_id',$search)->whereOr('upstream_request_id',$search))->column('id');
                 $q->where(static function($a)use($search,$ids){$a->whereLike('prompt','%'.addcslashes($search,'\\%_').'%');if(ctype_digit($search))$a->whereOr('id',(int)$search)->whereOr('app_task_id',(int)$search);if($ids)$a->whereOr('consumption_id','in',$ids);});}
         }
         if(($p['status']??'')!==''){if(!in_array($p['status'],['queued','running','unknown','success','failed','canceled'],true))throw new InvalidArgumentException('任务状态无效');$q->where('status',$p['status']);}
