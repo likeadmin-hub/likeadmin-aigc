@@ -32,6 +32,9 @@ try{
     $row=J::owned(1,1,$task['id']);$c=Db::name('ai_consumption_log')->where('id',$row['consumption_id'])->find();msCheck($c['run_status']==='reserved'&&$c['upstream_task_id']==='','Create performed upstream work');
     msCheck((float)Db::name('user')->where('id',1)->value('user_money')<$userBefore,'User points not frozen');msCheck((float)Db::name('tenant')->where('id',1)->value('point_balance')<$tenantBefore,'Tenant points not frozen');
     msCheck(Db::name('ai_task_job')->where(['consumption_id'=>$c['id'],'job_type'=>'motion_sync_submit'])->count()===1,'Initial durable job missing');
+    $captured=S::json($row['request_json']);$prepared=V::prepareRequest(S::json($c['price_snapshot']),$captured['request']);$wire=\app\common\service\power\MarketModelTaskRequest::payload($prepared->nativeInput);
+    msCheck($wire['mode']===$body['quality']&&$wire['character_orientation']==='video'&&count($wire['input_urls'])===1&&count($wire['video_urls'])===1,'Native API payload does not match the form');
+    msCheck(!array_intersect(['duration','aspect_ratio','generate_audio','keep_original_sound','audio_urls','first_frame_image','last_frame_image'],array_keys($wire)),'Undeclared capabilities leaked to the provider wire');
     msReject(fn()=>J::delete(1,1,$task['id']),'Queued task was deleted');msReject(fn()=>J::create(1,1,array_replace($params,['idempotency_key'=>'ms_other_'.bin2hex(random_bytes(12))])),'Consumed quote reused');
     $cancel=J::cancel(1,1,$task['id']);J::run((int)$c['id']);msCheck($cancel['status']==='canceled','Cancellation status mismatch');
     msCheck((float)Db::name('user')->where('id',1)->value('user_money')===$userBefore,'User refund mismatch');msCheck((float)Db::name('tenant')->where('id',1)->value('point_balance')===$tenantBefore,'Tenant refund mismatch');
@@ -48,5 +51,19 @@ try{
     $template=T::save(1,['title'=>'本地动作灵感','configuration'=>$config,'preview'=>['file_id'=>$uploads[20]],'sort'=>9]);
     $remix=T::remix(1,1,$template['id']);msCheck($remix['id']!==$project['id']&&$remix['body']['prompt']===$body['prompt']&&$remix['body']['orientation']==='video','Full independent remix failed');
     T::status(1,$template['id'],0);msReject(fn()=>T::remix(1,1,$template['id']),'Disabled template remixed');msReject(fn()=>T::detail(2,$template['id']),'Cross-tenant template accepted');T::delete(1,$template['id']);msCheck(is_file($dir.'/motion.mp4'),'Soft-delete removed shared bytes');
-    echo "PASS measured media, native model scope, drafts, quote/idempotency, durable queue, freeze/refund, unknown retention, tenant isolation, templates and complete remix (no provider calls)\n";
+    // Simulate a confirmed, already stored provider receipt. Shared settlement and asset projection still run for real.
+    $q=J::estimate(1,1,$args);$completed=J::create(1,1,$args+['quote_token'=>$q['token'],'idempotency_key'=>'ms_completed_'.bin2hex(random_bytes(12))]);$finished=J::owned(1,1,$completed['id']);
+    $stored=\app\common\service\app\aigc_micro_video\MicroVideoMedia::validateVideo(1,1,$video);
+    $result=array_replace($stored,['video_uri'=>$stored['uri'],'video_url'=>$stored['url']]);
+    $settle=new ReflectionMethod(V::class,'settle');$settle->setAccessible(true);$settle->invoke(null,(int)$finished['consumption_id'],[$result],'fixture-request','fixture-upstream',['status'=>'completed']);
+    $consumption=Db::name('ai_consumption_log')->where('id',$finished['consumption_id'])->find();msCheck($consumption['billing_status']==='settled','Successful receipt was delivered before settlement');
+    J::syncConsumption($consumption,(int)$finished['id']);J::syncConsumption($consumption,(int)$finished['id']);$success=J::owned(1,1,$finished['id']);
+    msCheck($success['status']==='success'&&S::table('result')->where('task_id',$finished['id'])->count()===1,'Managed result projection was not idempotent');
+    $results=J::dto($success)['videos'];$ref='motion_sync:result:'.$results[0]['id']; // Prove the shared source can be resolved without any private provider data.
+    $page=\app\common\service\WorkspaceMediaPickerService::page(1,1,['tab'=>'assets','types'=>'video','search'=>'保持角色外观']);
+    msCheck(in_array($ref,array_column($page['lists'],'id'),true),'Completed result missing from shared asset picker');
+    S::save(1,1,['id'=>$project['id'],'revision'=>$project['revision'],'body'=>array_replace($body,['prompt'=>'后来修改的草稿'])]);
+    $published=T::fromJob(1,(int)$success['id'],['title'=>'完成记录转模板']);msCheck($published['configuration']['prompt']===$body['prompt'],'Template used the mutable draft instead of the submitted snapshot');
+    J::delete(1,1,(int)$success['id']);msCheck(T::detail(1,$published['id'])['id']===$published['id']&&is_file($dir.'/motion.mp4'),'History deletion damaged a published template');
+    echo "PASS measured media, native model scope, drafts, quote/idempotency, durable queue, freeze/refund, unknown retention, tenant isolation, templates, complete remix, settled success, shared assets and submitted snapshots (no provider calls)\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $file)unlink($file);rmdir($dir);}
