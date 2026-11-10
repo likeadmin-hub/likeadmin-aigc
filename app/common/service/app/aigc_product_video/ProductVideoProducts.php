@@ -25,8 +25,11 @@ final class ProductVideoProducts
     public static function delete(int $tenant,int $user,int $id): void
     {ProductVideoService::table('product')->where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->update(['delete_time'=>time(),'update_time'=>time()]);}
     /** Parse supported product pages only. Video-sharing pages are deliberately not a media source. */
-    public static function import(int $tenant,int $user,string $url): array
+    public static function import(int $tenant,int $user,string $url,array $params=[]): array
     {
+        if(!empty($params['async'])||!empty($params['import_id']))return ProductVideoImport::handle($tenant,$user,$params+['url'=>$url]);
+        $host=strtolower((string)parse_url(trim($url),PHP_URL_HOST));
+        if(ProductVideoAmazon::productHost($host)||in_array($host,['a.co','amzn.to','amzn.eu','amzn.asia'],true))return ProductVideoImport::synchronous($tenant,$user,$url,$params);
         ProductVideoService::available($tenant,$user);$url=ProductVideoPolicy::text($url,2000);$host=strtolower((string)parse_url($url,PHP_URL_HOST));$path=(string)parse_url($url,PHP_URL_PATH);
         $amazon=preg_match('/(?:^|\.)amazon\.(?:com|co\.uk|de|fr|it|es|co\.jp|ca|com\.au|in|com\.br|com\.mx|sg|ae|sa)$/D',$host);
         $shop=preg_match('/(?:^|\.)tiktok(?:globalshop)?\.com$/D',$host);
@@ -44,7 +47,7 @@ final class ProductVideoProducts
     }
     public static function metadata(string $html,string $base): array
     {
-        if(strlen($html)>2097152)throw new InvalidArgumentException('商品页面过大');$doc=new \DOMDocument();$prior=libxml_use_internal_errors(true);
+        if(strlen($html)>4194304)throw new InvalidArgumentException('商品页面过大');$doc=new \DOMDocument();$prior=libxml_use_internal_errors(true);
         try{$doc->loadHTML('<?xml encoding="utf-8" ?>'.$html,LIBXML_NONET|LIBXML_NOERROR|LIBXML_NOWARNING);}finally{libxml_clear_errors();libxml_use_internal_errors($prior);}
         $product=null;$walk=static function($node,int $depth=0)use(&$walk,&$product){if($depth>8||!is_array($node)||$product)return;$types=(array)($node['@type']??[]);if(in_array('Product',$types,true)){$product=$node;return;}foreach(array_slice($node,0,200) as $value)if(is_array($value))$walk($value,$depth+1);};
         foreach($doc->getElementsByTagName('script') as $script)if(strtolower($script->getAttribute('type'))==='application/ld+json'){$decoded=json_decode($script->textContent,true,32);$walk($decoded);}
