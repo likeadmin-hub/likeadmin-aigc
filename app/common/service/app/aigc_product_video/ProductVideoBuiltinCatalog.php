@@ -9,12 +9,15 @@ final class ProductVideoBuiltinCatalog
 {
     private static ?string $testDirectory=null;
     private static array $memo=[];
+    private static float $checkedAt=0;
+    private static ?array $assets=null;
+    public static function refresh(): void {self::$memo=[];self::$assets=null;self::$checkedAt=0;}
     public static function directory(): string {return self::$testDirectory??base_path().'apps/aigc_product_video/data/inspirations';}
     public static function withDirectory(string $directory,callable $call): mixed
     {
         if(PHP_SAPI!=='cli')throw new InvalidArgumentException('目录仅允许在控制台测试中指定');
-        $old=self::$testDirectory;self::$testDirectory=$directory;self::$memo=[];
-        try{return $call();}finally{self::$testDirectory=$old;self::$memo=[];}
+        $old=self::$testDirectory;self::$testDirectory=$directory;self::refresh();
+        try{return $call();}finally{self::$testDirectory=$old;self::refresh();}
     }
     public static function key(string $key): string
     {if(!preg_match('/^builtin-[a-f0-9]{24}$/D',$key))throw new InvalidArgumentException('内置模板标识无效');return $key;}
@@ -42,16 +45,19 @@ final class ProductVideoBuiltinCatalog
     }
     public static function all(): array
     {
+        // One filesystem scan serves all gallery URLs in a request; long workers recheck updates.
+        if(self::$memo&&microtime(true)-self::$checkedAt<1)return reset(self::$memo);
+        self::$checkedAt=microtime(true);
         $files=glob(self::directory().'/*.json')?:[];sort($files);if(count($files)>500)throw new InvalidArgumentException('内置模板目录超出数量限制');
-        $stamp=[];$bytes=0;foreach($files as $file){clearstatcache(true,$file);$size=filesize($file);if(is_link($file)||$size>196608)throw new InvalidArgumentException('内置模板文件无效');$bytes+=$size;$stamp[]=[$file,filemtime($file),$size];}
+        $stamp=[];$bytes=0;foreach($files as $file){clearstatcache(true,$file);$size=filesize($file);if(is_link($file)||$size>196608)throw new InvalidArgumentException('内置模板文件无效');$bytes+=$size;$stamp[]=[$file,filemtime($file),fileinode($file),$size];}
         if($bytes>16777216)throw new InvalidArgumentException('内置配置目录过大');
         $key=hash('sha256',json_encode($stamp));if(isset(self::$memo[$key]))return self::$memo[$key];
         $all=[];foreach($files as $file){$data=self::validate(json_decode(file_get_contents($file),true,64,JSON_THROW_ON_ERROR));if(basename($file)!==$data['key'].'.json'||isset($all[$data['key']]))throw new InvalidArgumentException('内置模板文件标识冲突');$all[$data['key']]=$data;}
-        self::$memo=[$key=>$all];return $all;
+        self::$assets=null;self::$memo=[$key=>$all];return $all;
     }
     public static function write(array $data): array
     {
-        $data=self::validate($data);$dir=self::directory();if(!is_dir($dir)||is_link($dir)||!is_writable($dir))throw new InvalidArgumentException('内置模板目录不可写，请联系安装维护者检查权限');
+        self::refresh();$data=self::validate($data);$dir=self::directory();if(!is_dir($dir)||is_link($dir)||!is_writable($dir))throw new InvalidArgumentException('内置模板目录不可写，请联系安装维护者检查权限');
         $path=$dir.'/'.$data['key'].'.json';if(is_link($path))throw new InvalidArgumentException('内置模板文件无效');
         // Older drafts can continue using references removed from a newer template revision.
         $old=self::all()[$data['key']]??[];$pins=[];
@@ -62,16 +68,19 @@ final class ProductVideoBuiltinCatalog
         $text=json_encode($data,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
         if(strlen($text)>196608)throw new InvalidArgumentException('内置模板配置过大');$temp=tempnam($dir,'.inspiration-');
         try{if($temp===false||file_put_contents($temp,$text,LOCK_EX)!==strlen($text)||!chmod($temp,0644)||!rename($temp,$path))throw new InvalidArgumentException('内置模板保存失败，原定义已保留');}
-        finally{if($temp&&is_file($temp))unlink($temp);self::$memo=[];}
+        finally{if($temp&&is_file($temp))unlink($temp);self::refresh();}
         return $data;
     }
     /** Approved platform references bypass tenant credentials; no signed URL is persisted. */
     public static function mediaUrl(string $uri,string $engine,string $domain): ?string
     {
         if(!in_array($engine,['aliyun','qcloud','qiniu'],true)||$domain==='')return null;
-        foreach(self::all() as $entry)foreach(array_merge($entry['configuration']['images'],[$entry['media']],$entry['retained_media']) as $asset){
-            if(ltrim($uri,'/')===$asset['uri']&&$engine===$asset['storage_engine']&&rtrim($domain,'/')===$asset['storage_domain'])return $asset['storage_domain'].'/'.$asset['uri'];
+        $all=self::all();
+        if(self::$assets===null){
+            self::$assets=[];
+            foreach($all as $entry)foreach(array_merge($entry['configuration']['images'],[$entry['media']],$entry['retained_media']) as $asset)
+                self::$assets[$asset['storage_engine'].'|'.$asset['storage_domain'].'|'.$asset['uri']]=$asset['storage_domain'].'/'.$asset['uri'];
         }
-        return null;
+        return self::$assets[$engine.'|'.rtrim($domain,'/').'|'.ltrim($uri,'/')]??null;
     }
 }
