@@ -26,4 +26,8 @@ $manifest=json_decode(file_get_contents(dirname(__DIR__).'/app/apps/aigc_product
 checkProductPolicy($manifest['code']===P::APP && count($manifest['frontend_entries'])===3,'Independent application entries missing');
 $schema=file_get_contents(dirname(__DIR__).'/app/apps/aigc_product_video/migrations/install.sql');$install=file_get_contents(dirname(__DIR__).'/public/install/db/like.sql');
 foreach(['config','project','job','quote'] as $table)checkProductPolicy(str_contains($schema,'la_aigc_product_video_'.$table)&&str_contains($install,'la_aigc_product_video_'.$table),'Fresh/application schema parity missing');
+checkProductPolicy(!in_array('storyboard',P::ACTIONS,true),'Removed image action cannot remain callable');
+$retired=P::body(['generate_storyboard'=>true,'image_selection'=>['model_id'=>'old'],'storyboard'=>['images'=>[['uri'=>'old.png']]]]);
+foreach(['generate_storyboard','image_selection','storyboard'] as $key)checkProductPolicy(!array_key_exists($key,$retired),'Retired image option must not enter new requests');
+checkProductPolicy(!in_array('aigc_image',array_column($manifest['dependencies'],'app_code'),true),'Product video must no longer depend on image generation');
 echo "PASS product video plan, stale state, signed media, receipt and install contracts\n";

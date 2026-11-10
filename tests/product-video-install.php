@@ -29,6 +29,12 @@ try{
  $grant=Db::name('tenant_app')->where(['tenant_id'=>600001,'app_code'=>$code])->find();pvInstallCheck($grant['shelf_status']==='off' && $grant['enable_status']==='disabled','Upgrade changed tenant shelf choice');
  pvInstallCheck(Db::name('app_api')->where('app_code',$code)->count()===count(json_decode(file_get_contents($root.'/app/apps/'.$code.'/api_schema.json'),true)['apis']),'Repeated install duplicated APIs');
  pvInstallCheck(in_array('aigc_product_video_job',\app\common\service\ai\AiTaskBusinessResultService::businessTables(),true),'Shared result adapter missing');
+ Db::name($code.'_config')->insert(['tenant_id'=>600002,'body_json'=>'{"status":1,"analysis_model_id":"keep-model","default_image_model_id":"removed-model"}','create_time'=>1,'update_time'=>2]);
+ for($i=0;$i<2;$i++)\app\common\service\database\SqlMigrationExecutor::execute(file_get_contents($root.'/upgrade/upgrade_20261110_product_video_remove_storyboard.sql'),$prefix);
+ $clean=json_decode(Db::name($code.'_config')->where('tenant_id',600002)->value('body_json'),true);
+ pvInstallCheck(!isset($clean['default_image_model_id'])&&$clean['analysis_model_id']==='keep-model'&&$clean['status']===1,'Retired image setting cleanup must preserve unrelated owned choices');
+ $manifest=json_decode(Db::name('app_version')->where(['app_code'=>$code,'version'=>'1.0.0'])->value('manifest_json'),true);
+ pvInstallCheck(!in_array('storyboard',$manifest['billing']['actions'],true)&&!in_array('aigc_image',array_column($manifest['dependencies'],'app_code'),true),'Registry metadata must match the text-only workflow');
  echo "PASS product video fresh registry/schema/APIs, shared/split new tenants, repeat upgrade and owned configuration\n";
 }finally{
  Config::set($original,'database');Db::connect(null,true);

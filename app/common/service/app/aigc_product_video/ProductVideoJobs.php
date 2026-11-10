@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
-use app\common\service\app\aigc_micro_video\{MicroVideoMedia,MicroVideoCatalog,MicroVideoFrameCatalog};
-use app\common\service\power\{MarketTextModelRuntimeService as Text,MarketImageModelRuntimeService as Image,MarketUsageSettlementService as Usage,TextModelExecutionPolicy};
+use app\common\service\app\aigc_micro_video\{MicroVideoMedia,MicroVideoCatalog};
+use app\common\service\power\{MarketTextModelRuntimeService as Text,MarketUsageSettlementService as Usage,TextModelExecutionPolicy};
 use app\common\service\point\PointService;
 use InvalidArgumentException;
 use think\facade\Db;
@@ -47,7 +47,7 @@ final class ProductVideoJobs
         $action=(string)($p['action']??'');if(!in_array($action,ProductVideoPolicy::ACTIONS,true))throw new InvalidArgumentException('创作操作无效');
         $body=ProductVideoPolicy::body(ProductVideoPolicy::json($project['body_json']));$request=['action'=>$action,'snapshot'=>$body,'project_revision'=>(int)$project['revision']];
         $images=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15);
-        if(in_array($action,['product','plan','write','storyboard','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
+        if(in_array($action,['product','plan','write','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
         $request['images']=$images;$settings=ProductVideoService::settings($tenant);
         if($action==='video'){
             $prompt=ProductVideoPolicy::prompt($body);if($body['mode']==='normal'&&($body['normal_source']??'prompt')==='prompt'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
@@ -59,21 +59,11 @@ final class ProductVideoJobs
             foreach($body['generation_assets'] as $asset)$assets[]=$asset;
             ProductVideoMaterials::assertMentions($body,$assets);
             if(($body['audio']??null)!==null){if(empty($model['supports_generate_audio']))throw new InvalidArgumentException('所选模型不支持声音开关，请使用自动声音设置');$spec['generate_audio']=(bool)$body['audio'];}
-            $storyboard=$body['storyboard'];$boardNotice='';
-            if($body['mode']==='advanced'&&is_array($storyboard)&&($storyboard['input_key']??'')===ProductVideoPolicy::hash((array)$body['plan'])&&$spec['generation_method']!=='image_to_video'){
-                $extra=MicroVideoMedia::validateImages($tenant,$user,(array)($storyboard['images']??[]),1);
-                $capacity=(int)$model['max_reference_images'];foreach($model['material_modes']??[] as $native)if(($native['key']??'')===($spec['material_mode']??'')){$capacity=0;foreach($native['fields'] as $field)if($field['kind']==='image')$capacity+=(int)($field['maximum']??0);}
-                if(count($images)+count($extra)<=$capacity){
-                    $boardNotice='本次会将故事板作为额外图片参考提交。';
-                    foreach($extra as $image)$assets[]=['type'=>'image','uri'=>$image['uri'],'role'=>'reference_image']+$image;
-                    $prompt.='附加故事板仅供镜头参考，成片必须是单画面连续视频，不要出现网格、编号或多画面拼贴。';
-                }else $boardNotice='本次图片数量已达模型上限，故事板仅供预览，不提交视频模型。';
-            }elseif($body['mode']==='advanced'&&$storyboard){$boardNotice='本次故事板已过期或模型不支持额外参考，仅供预览，不提交视频模型。';}
             $selection=$spec+['model_id'=>$model['id'],'channel'=>$model['id'],'resolution'=>$spec['quality']];
             $request+=['selection'=>$selection,'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>$body['selected_mentions']];
             $quote=MicroVideoCatalog::runtime($spec)::quote($tenant,$selection+['prompt'=>$prompt,'reference_images'=>$request['reference_images'],'reference_assets'=>$assets]);
             $request['selection']['market_sku_id']=(int)$quote['market_sku_id'];
-            $request['runtime']=MicroVideoCatalog::runtime($spec);$quote['approximate']=false;if($boardNotice!=='')$quote['notice']=$boardNotice;
+            $request['runtime']=MicroVideoCatalog::runtime($spec);$quote['approximate']=false;
             if(!empty($body['analyze_chapters'])){
                 $id=$body['analysis_model_id']?:$settings['analysis_model_id'];$options=Text::mediaOptions($tenant,true);if($id==='')$id=(string)($options[0]['id']??'');
                 if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException('成片分析配置暂不可用，请刷新后重试或联系管理员');
@@ -81,18 +71,6 @@ final class ProductVideoJobs
                 $quote['phased_costs']=[['action'=>'video','model_name'=>$model['label'],'approximate'=>false,'user_charge_points'=>$quote['user_charge_points']],['action'=>'chapters','model_name'=>$analysis['name'],'approximate'=>true,'user_charge_points'=>null]];
                 $quote['notice']=($quote['notice']??'').'视频按当前规格生成一次；完成后分析真实成片章节，分析按实际模型用量另行结算';
             }
-        }elseif($action==='storyboard'){
-            ProductVideoPolicy::prompt(array_replace($body,['mode'=>'advanced']));
-            $models=MicroVideoFrameCatalog::compatible(MicroVideoFrameCatalog::models($tenant,1),[count($images)]);
-            $wanted=(array)$body['image_selection'];$id=(string)($wanted['model_id']??$settings['default_image_model_id']);$model=null;
-            foreach($models as $candidate)if($candidate['id']===$id||($id===''&&$model===null))$model=$candidate;
-            if(!$model)throw new InvalidArgumentException('暂无支持当前商品图片数量的分镜图片模型');
-            $spec=null;foreach($model['specs'] as $candidate)if(($wanted['quality']??$candidate['quality'])===$candidate['quality']&&($wanted['ratio']??'16:9')===$candidate['ratio']){$spec=$candidate;break;}
-            if(!$spec)throw new InvalidArgumentException('分镜图片模型不支持当前画质或比例');
-            $selection=['model_id'=>$model['id'],'market_sku_id'=>$spec['market_sku_id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio']];
-            $prompt='为商品短视频绘制一张按镜头顺序排列的故事板。以参考商品为准保持外观一致，每格清晰表现一个镜头，避免额外文字和水印。分镜内容：'.ProductVideoPolicy::encode($body['plan']['data']);
-            $request+=['selection'=>$selection,'prompt'=>$prompt,'plan_key'=>ProductVideoPolicy::hash((array)$body['plan'])];
-            $quote=Image::quote($tenant,$selection+self::imageRequest($request),1);$quote['approximate']=false;
         }else{
             $video=null;
             if($action==='reference'){
@@ -134,8 +112,6 @@ final class ProductVideoJobs
         if($action==='optimize'&&trim((string)($body['mode']==='advanced'?($body['plan']['data']['video_prompt']??$body['prompt']):$body['prompt']))==='')throw new InvalidArgumentException('请先填写需要优化的视频描述');
         $request['quote']=$quote;return ['project'=>$project,'request'=>$request,'quote'=>$quote,'hash'=>ProductVideoPolicy::requestKey($request)];
     }
-    public static function imageRequest(array $r): array
-    {return ['prompt'=>$r['prompt'],'quantity'=>1,'reference_images'=>MicroVideoMedia::visionInputs($r['images'])];}
     public static function estimate(int $tenant,int $user,array $p): array
     {
         $i=self::prepare($tenant,$user,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;

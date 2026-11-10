@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
 use app\common\service\app\aigc_micro_video\MicroVideoMedia;
-use app\common\service\power\{MarketTextModelRuntimeService as Text,MarketImageModelRuntimeService as Image,TextModelExecutionPolicy,TextSettlementPending};
+use app\common\service\power\{MarketTextModelRuntimeService as Text,MarketImageModelRuntimeService as LegacyImageRuntime,TextModelExecutionPolicy,TextSettlementPending};
 use RuntimeException;
 use think\facade\Db;
 
@@ -47,8 +47,9 @@ final class ProductVideoWorker
     {
         if(in_array($row['status'],['success','canceled'],true))return;
         $id=(int)$row['id'];$tenant=(int)$row['tenant_id'];$user=(int)$row['user_id'];$r=ProductVideoPolicy::json($row['request_json']);$action=$row['action'];
-        $media=in_array($action,['video','storyboard'],true);$runtime=$action==='storyboard'?Image::class:($r['runtime']??'');
+        $media=$action==='video';$runtime=$r['runtime']??'';
         try{
+            if($action==='storyboard'){self::retiredImage($row);return;}
             if($action==='analysis'){ProductVideoPipeline::run($row);return;}
             $c=self::consumption($row);$receipt=ProductVideoPolicy::json($row['receipt_json']);
             if($receipt){if($c&&$c['billing_status']==='settled'){self::finish($row,$receipt,$c);return;}}
@@ -65,12 +66,11 @@ final class ProductVideoWorker
             ProductVideoService::available($tenant,$user);
             self::write($id,['status'=>'running','error'=>'']);
             if($media){
-                $payload=self::mediaRequest($action,$r);$fresh=$action==='storyboard'?Image::quote($tenant,$r['selection']+$payload,1):$runtime::quote($tenant,$r['selection']+$payload);
+                $payload=self::mediaRequest($action,$r);$fresh=$runtime::quote($tenant,$r['selection']+$payload);
                 foreach(['tenant_cost_points','user_charge_points','market_sku_id'] as $field)if((string)($fresh[$field]??'')!==(string)($r['quote'][$field]??''))throw new RuntimeException('模型报价已变化，请重新确认');
                 $reserve=Db::transaction(static function()use($id,$tenant,$user,$r,$action,$payload,$runtime){
                     $job=ProductVideoJobs::table()->where('id',$id)->lock(true)->find();if($job['consumption_id'])return ['consumption_id'=>(int)$job['consumption_id']];
-                    $value=$action==='storyboard'?Image::reserve($tenant,$user,'storyboard',(string)$id,$r['selection'],$payload,1,ProductVideoPolicy::APP,'aigc_product_video_job'):
-                        $runtime::reserve($tenant,$user,ProductVideoPolicy::APP,'video','aigc_product_video_job',(string)$id,$r['selection'],$payload);
+                    $value=$runtime::reserve($tenant,$user,ProductVideoPolicy::APP,'video','aigc_product_video_job',(string)$id,$r['selection'],$payload);
                     self::write($id,['consumption_id'=>$value['consumption_id'],'app_task_id'=>$value['app_task_id']]);return $value;
                 });
                 self::mediaResult($row,$runtime::submit((int)$reserve['consumption_id'],$payload));return;
@@ -97,8 +97,25 @@ final class ProductVideoWorker
             \think\facade\Log::warning('Product video job '.$id.': '.get_class($e));
         }
     }
+    /** Settlement-only compatibility. Never reserve, submit or retry an image request. */
+    private static function retiredImage(array $row): void
+    {
+        $id=(int)$row['id'];$c=self::consumption($row);
+        if(!$c){self::write($id,['status'=>'canceled','billing_status'=>'none','user_charge_points'=>0,'error'=>'该功能已移除']);return;}
+        Db::transaction(static function()use($row,$c){
+            $locked=Db::name('ai_consumption_log')->where(['id'=>$c['id'],'tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::APP])->lock(true)->find();
+            if(!$locked||!empty($locked['upstream_task_id'])||!empty($locked['upstream_request_id']))return;
+            if($locked['run_status']==='reserved')LegacyImageRuntime::cancel((int)$locked['id']);
+            elseif($locked['run_status']==='retrying_submit')LegacyImageRuntime::fail((int)$locked['id'],'该功能已移除，未提交的任务已退回','feature_removed');
+        });
+        $c=self::consumption($row);
+        if(in_array($c['run_status'],['failed','canceled'],true)){
+            self::write($id,['status'=>$c['run_status'],'billing_status'=>$c['billing_status'],'user_charge_points'=>(float)$c['actual_user_price'],'error'=>'该功能已移除']);return;
+        }
+        self::mediaResult($row,LegacyImageRuntime::refresh((int)$c['id']));
+    }
     private static function mediaRequest(string $action,array $r): array
-    {return $action==='storyboard'?ProductVideoJobs::imageRequest($r):array_intersect_key($r,array_flip(['prompt','reference_images','reference_assets','selected_mentions']))+$r['selection'];}
+    {return array_intersect_key($r,array_flip(['prompt','reference_images','reference_assets','selected_mentions']))+$r['selection'];}
     private static function mediaResult(array $row,array $result): void
     {
         $id=(int)$row['id'];$fresh=ProductVideoJobs::table()->where('id',$id)->find();$c=self::consumption($fresh);
