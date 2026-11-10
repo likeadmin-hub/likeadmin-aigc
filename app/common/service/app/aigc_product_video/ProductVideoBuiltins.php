@@ -41,7 +41,7 @@ final class ProductVideoBuiltins
                 'status'=>$entry['deleted']?0:$entry['status'],'sort'=>$entry['sort'],'source_task_id'=>0,'source_result_id'=>0]);
             self::table()->where('builtin_key',$entry['key'])->update(['case_id'=>(int)$saved['id'],'version'=>$entry['version'],'source_hash'=>$hash,'update_time'=>time()]);
             if($entry['deleted'])AppCase::where('id',$saved['id'])->update(['delete_time'=>time()]);
-        });});Cache::set($key,$hash,60);
+        });});if(!$force)Cache::set($key,$hash,60);
     }
     private static function modelId(array $identity): string
     {
