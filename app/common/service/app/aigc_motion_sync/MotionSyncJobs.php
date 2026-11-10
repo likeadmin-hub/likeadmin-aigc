@@ -56,6 +56,12 @@ final class MotionSyncJobs
                     'create_time'=>time(),'update_time'=>time()]);
                 $request['idempotency_key']=$key;
                 $reservation=MotionSyncService::measured($body,static fn()=>Video::reserve($tenant,$user,MotionSyncService::APP,'video','aigc_motion_sync_task',(string)$id,$request,$request));
+                $frozen=AiConsumptionLog::find((int)$reservation['consumption_id']);
+                $snapshot=(array)$frozen['price_snapshot'];$priced=(array)$quote['market_snapshot'];
+                if(abs((float)$frozen['reserved_user_price']-(float)$quote['user_charge_points'])>0.000001
+                    ||abs((float)$frozen['reserved_tenant_cost']-(float)$quote['tenant_cost_points'])>0.000001
+                    ||(int)($snapshot['sku_id']??0)!==(int)$quote['market_sku_id']
+                    ||($snapshot['locked_params']??[])!==($priced['locked_params']??[]))throw new InvalidArgumentException('模型或价格已更新，请重新报价');
                 Video::linkBusinessTask((int)$reservation['app_task_id'],$id);
                 self::table()->where('id',$id)->update(['app_task_id'=>$reservation['app_task_id'],'consumption_id'=>$reservation['consumption_id'],'billing_status'=>'reserved','user_charge_points'=>$quote['user_charge_points']]);
                 MotionSyncService::table('quote')->where('id',$q['id'])->update(['consumed_task_id'=>$id]);
