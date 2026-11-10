@@ -74,6 +74,15 @@ final class ProductVideoTemplates
         return $dto;
     }
 
+    /** Shared homepage galleries must resolve these objects with their stored storage coordinates. */
+    public static function galleryRow(array $row): array
+    {
+        $view=self::present($row,true);
+        $row['cover_url']=$view['cover_url'];$row['media_url']=$view['media_url'];
+        $row['reference_image_urls']=array_column($view['configuration']['images'],'url');
+        return $row;
+    }
+
     public static function fromJob(int $scope,int $id,array $params): array
     {
         $job=ProductVideoJobs::owned($scope,0,$id,true);
@@ -99,14 +108,14 @@ final class ProductVideoTemplates
     private static function persist(int $tenant,?array $old,array $source,array $media,int $jobId,array $params): array
     {
         $patch=(array)($params['configuration']??[]);$body=$source;
-        foreach(['mode','reference_mode','product_info','prompt','market_region','language','audio','analyze_chapters','video_selection'] as $key)if(array_key_exists($key,$patch))$body[$key]=$patch[$key];
+        foreach(['mode','reference_mode','product_url','product_info','prompt','market_region','language','audio','analyze_chapters','video_selection'] as $key)if(array_key_exists($key,$patch))$body[$key]=$patch[$key];
         // References can be reordered or removed; only the source's authorized objects can be published.
         if(isset($patch['images'])){
             $allowed=array_column($source['images'],null,'uri');$images=[];
             foreach((array)$patch['images'] as $asset){$uri=(string)($asset['uri']??'');if(!isset($allowed[$uri]))throw new InvalidArgumentException('模板素材必须来自原视频记录');$images[]=$allowed[$uri];}
             $body['images']=$images;
         }
-        if(($body['reference_mode']??'reference')==='start_end'&&$body['mode']==='normal')foreach($body['images'] as $i=>&$image)$image['role']=$i===0?'first_frame_image':'last_frame_image';unset($image);
+        if(($body['reference_mode']??'reference')==='start_end'&&$body['mode']==='normal'&&($source['reference_mode']!=='start_end'||$source['mode']!=='normal'))foreach($body['images'] as $i=>&$image)$image['role']=$i===0?'first_frame_image':'last_frame_image';unset($image);
         if(ProductVideoPolicy::planKey($body)!==ProductVideoPolicy::planKey($source)||($body['plan']['input_key']??'')!==ProductVideoPolicy::planKey($source))$body['plan']=null;
         elseif(is_array($body['plan']))$body['plan']['data']['video_prompt']=$body['prompt'];
         $body=self::snapshot($body);
