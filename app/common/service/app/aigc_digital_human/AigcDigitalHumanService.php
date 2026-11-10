@@ -2482,10 +2482,7 @@ class AigcDigitalHumanService
 
     public static function detectGenerateAudioDurationFromUri(string $audioUri, int $tenantId = 0): float
     {
-        $duration = AvatarGenerationDurationService::detect($audioUri);
-        if ($duration > 0 || preg_match('~^https?://~i', $audioUri)) return $duration;
-        $url = self::storedAudioUrl($audioUri, $tenantId);
-        return $url !== '' ? AvatarGenerationDurationService::detect($url) : 0;
+        return \app\common\service\AudioDurationService::detect($audioUri, $tenantId);
     }
 
     private static function detectAudioDurationFromUri(string $audioUri, int $tenantId = 0): int
@@ -2620,21 +2617,8 @@ class AigcDigitalHumanService
 
     private static function detectAudioDurationByFfprobe(string $filePath): int
     {
-        if (!function_exists('exec')) {
-            return 0;
-        }
-        $ffprobe = self::findExecutable(['ffprobe', '/usr/bin/ffprobe', '/usr/local/bin/ffprobe', '/opt/homebrew/bin/ffprobe']);
-        if ($ffprobe === '') {
-            return 0;
-        }
-        $output = [];
-        $code = 1;
-        @exec(escapeshellarg($ffprobe) . ' -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ' . escapeshellarg($filePath), $output, $code);
-        if ($code !== 0 || empty($output)) {
-            return 0;
-        }
-        $duration = (float)trim((string)$output[0]);
-        return $duration > 0 ? max(1, (int)round($duration)) : 0;
+        $seconds = \app\common\service\MediaDurationService::detect($filePath);
+        return $seconds > 0 ? max(1, (int)round($seconds)) : 0;
     }
 
     private static function detectAudioDurationByFfprobeData(string $data): int

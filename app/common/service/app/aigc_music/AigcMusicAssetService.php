@@ -44,6 +44,11 @@ class AigcMusicAssetService
         } catch (\Throwable) {
             $driver->setUploadFile('iFile');
         }
+        // Cloud drivers never create public/$uri. Measure the original upload before it moves.
+        $info = $driver->getFileInfo();
+        $duration = MediaDurationService::detect((string)($info['realPath'] ?? ''));
+        if ($duration <= 0) throw new Exception('无法检测音频时长，请上传可播放的音频');
+        $fileSize = max(0, (int)($info['size'] ?? 0));
         if (!$driver->upload($saveDir)) {
             throw new Exception($driver->getError() ?: '音频上传失败');
         }
@@ -52,9 +57,6 @@ class AigcMusicAssetService
         $scope = $config['scope'] ?? 'platform';
         $engine = $config['default'] ?? 'local';
         $domain = StorageConfigService::getEffectiveDomain($tenantId);
-        $publicPath = public_path() . ltrim($uri, '/');
-        $duration = is_file($publicPath) ? MediaDurationService::detect($publicPath) : 0;
-        $fileSize = is_file($publicPath) ? (int)filesize($publicPath) : 0;
         TenantFile::create([
             'tenant_id' => $tenantId,
             'upload_origin' => 'local',
@@ -114,6 +116,10 @@ class AigcMusicAssetService
         } else {
             throw new \app\common\service\open_platform\OpenException('not_found', '音频文件不存在或不属于当前用户', 404);
         }
+        $duration = \app\common\service\AudioDurationService::detect($uri, $tenantId, [
+            'storage_scope'=>$scope, 'storage_engine'=>$engine, 'storage_domain'=>$domain,
+        ]);
+        if ($duration <= 0) throw new Exception('无法检测音频时长，请选择可播放的音频');
         return self::createAsset($tenantId, $userId, [
             'asset_type' => $params['asset_type'] ?? 'reference_audio',
             'source_action' => $params['source_action'] ?? 'register_audio',
@@ -125,7 +131,7 @@ class AigcMusicAssetService
             'storage_domain' => $domain,
             'mime_type' => $params['mime_type'] ?? self::mimeByExt(pathinfo((string)parse_url($uri, PHP_URL_PATH), PATHINFO_EXTENSION)),
             'file_size' => (int)($params['file_size'] ?? 0),
-            'duration' => (float)($params['duration'] ?? 0),
+            'duration' => $duration,
             'auth_status' => $params['auth_status'] ?? 'pending',
             'audit_status' => 'pending',
             'audit_json' => self::authorizationPayload($params),

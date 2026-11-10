@@ -15,6 +15,11 @@ namespace app\common\service\storage {
     final class StorageConfigService
     {
         public static function currentTenantId(): int { return 0; }
+        public static function getEffectiveDefault(?int $tenantId = null): string { return 'aliyun'; }
+        public static function getEffectiveConfig(?int $tenantId = null): array {
+            return ['scope'=>'tenant', 'default'=>'aliyun', 'engine'=>['aliyun'=>['domain'=>'https://original-storage.invalid']]];
+        }
+        public static function getEffectiveDomain(?int $tenantId = null): string { return 'https://original-storage.invalid'; }
         public static function getStoredFileConfig(?int $tenantId, string $scope, string $engine): array
         {
             return ['engine' => [$engine => ['private_access' => false]]];
@@ -33,7 +38,7 @@ namespace {
     ]]], 'database');
     \think\facade\Db::setConfig($config);
     foreach (['tenant_file', 'file'] as $table) {
-        \think\facade\Db::execute('CREATE TABLE la_' . $table . ' (id INTEGER PRIMARY KEY, tenant_id INTEGER, uri TEXT, storage_scope TEXT, storage_engine TEXT, storage_domain TEXT, delete_time INTEGER DEFAULT NULL)');
+        \think\facade\Db::execute('CREATE TABLE la_' . $table . ' (id INTEGER PRIMARY KEY, tenant_id INTEGER, source INTEGER DEFAULT 0, source_id INTEGER DEFAULT 0, upload_origin TEXT, cid INTEGER, type INTEGER, name TEXT, create_time INTEGER, uri TEXT, storage_scope TEXT, storage_engine TEXT, storage_domain TEXT, delete_time INTEGER DEFAULT NULL)');
     }
     $uri = 'uploads/cloud-duration-regression.wav';
     $row = ['tenant_id' => 2, 'uri' => $uri, 'storage_scope' => 'tenant',
