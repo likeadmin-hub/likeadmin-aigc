@@ -28,6 +28,16 @@ try{
     msReject(fn()=>S::save(1,1,['id'=>$project['id'],'revision'=>0,'body'=>$body]),'Stale draft accepted');
     $args=['project_id'=>$project['id'],'revision'=>$project['revision']];$quote=J::estimate(1,1,$args);msCheck($quote['quantity']>=3&&$quote['quantity']<4,'Measured duration quote mismatch');
     $userBefore=(float)Db::name('user')->where('id',1)->value('user_money');$tenantBefore=(float)Db::name('tenant')->where('id',1)->value('point_balance');
+    // Zero balances exist only inside this rollback fixture; no ledger or account mutation is committed.
+    $taskCount=S::table('task')->count();
+    foreach([['user','user_money',$userBefore],['tenant','point_balance',$tenantBefore]] as [$account,$balance,$before]){
+        Db::name($account)->where('id',1)->update([$balance=>0]);$rejected=false;
+        try{J::create(1,1,$args+['quote_token'=>$quote['token'],'idempotency_key'=>'ms_shortage_'.bin2hex(random_bytes(12))]);}
+        catch(Throwable $e){msCheck(str_contains($e->getMessage(),'不足'),'Shortage failed for an unrelated reason');$rejected=true;}
+        msCheck($rejected&&S::table('task')->count()===$taskCount,'Insufficient balance created a task');
+        msCheck(!(int)S::table('quote')->where('token',$quote['token'])->value('consumed_task_id'),'Rejected submission consumed its quote');
+        Db::name($account)->where('id',1)->update([$balance=>$before]);
+    }
     $params=$args+['quote_token'=>$quote['token'],'idempotency_key'=>'ms_fixture_'.bin2hex(random_bytes(12))];$task=J::create(1,1,$params);$again=J::create(1,1,$params);msCheck($again['id']===$task['id'],'Duplicate submission created another task');
     $row=J::owned(1,1,$task['id']);$c=Db::name('ai_consumption_log')->where('id',$row['consumption_id'])->find();msCheck($c['run_status']==='reserved'&&$c['upstream_task_id']==='','Create performed upstream work');
     msCheck((float)Db::name('user')->where('id',1)->value('user_money')<$userBefore,'User points not frozen');msCheck((float)Db::name('tenant')->where('id',1)->value('point_balance')<$tenantBefore,'Tenant points not frozen');
