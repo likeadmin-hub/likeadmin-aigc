@@ -17,7 +17,8 @@ class MediaDurationService
         if ($ext === 'mp3' || self::looksLikeMp3($filePath)) {
             return self::estimateMp3($filePath);
         }
-        if ($ext === 'wav') {
+        $header = @file_get_contents($filePath, false, null, 0, 12);
+        if ($ext === 'wav' || ($header !== false && substr($header, 0, 4) === 'RIFF' && substr($header, 8, 4) === 'WAVE')) {
             return self::estimateWav($filePath);
         }
         return 0;
@@ -25,15 +26,28 @@ class MediaDurationService
 
     private static function probe(string $filePath): float
     {
-        if (!function_exists('shell_exec')) {
-            return 0;
-        }
-        $command = 'ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ' . escapeshellarg($filePath) . ' 2>/dev/null';
-        $output = trim((string)@shell_exec($command));
-        if ($output === '' || !is_numeric($output)) {
-            return 0;
-        }
-        return round(max(0, (float)$output), 2);
+        if (!function_exists('proc_open')) return 0;
+        $binary = MediaBinaryService::resolve('ffprobe');
+        if ($binary === '') return 0;
+        // Untrusted media may be a playlist. Local bytes must not open network or nested file references.
+        $args = [$binary, '-v', 'error', '-protocol_whitelist', 'file', '-format_whitelist',
+            'mov,matroska,webm,mp3,wav,ogg,flac,aac,avi', '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1', $filePath];
+        $process = proc_open($args, [0=>['file','/dev/null','r'],1=>['pipe','w'],2=>['pipe','w']], $pipes);
+        if (!is_resource($process)) return 0;
+        stream_set_blocking($pipes[1], false); stream_set_blocking($pipes[2], false);
+        $started = microtime(true); $out = ''; $errors = ''; $code = -1;
+        try {
+            do {
+                $out .= stream_get_contents($pipes[1]); $errors .= stream_get_contents($pipes[2]);
+                if (strlen($out)>65536 || strlen($errors)>65536 || microtime(true)-$started>15) { proc_terminate($process,9); return 0; }
+                $state = proc_get_status($process);
+                if (!$state['running']) { $code=$state['exitcode']; $out.=stream_get_contents($pipes[1]); break; }
+                usleep(20000);
+            } while (true);
+        } finally { fclose($pipes[1]); fclose($pipes[2]); proc_close($process); }
+        $out = trim($out);
+        return $code === 0 && is_numeric($out) && is_finite((float)$out) ? round(max(0,(float)$out),2) : 0;
     }
 
     private static function looksLikeMp3(string $filePath): bool

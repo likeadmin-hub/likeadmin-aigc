@@ -1599,7 +1599,7 @@ class ImageHumanService
 
     private static function detectAudioDurationFromUri(string $audioUri, int $tenantId = 0): float
     {
-        $precise = \app\common\service\app\aigc_digital_human\AvatarGenerationDurationService::detect($audioUri);
+        $precise = AigcDigitalHumanService::detectGenerateAudioDurationFromUri($audioUri, $tenantId);
         if ($precise > 0) return $precise;
         if ($audioUri === '') {
             return 0;

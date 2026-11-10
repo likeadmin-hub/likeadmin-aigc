@@ -330,6 +330,15 @@ class ShortDramaEpisodeService
                 $old = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
                 if (!$old->isEmpty()) {
                     $request = self::decode($old['request_json']);
+                    // Older imported children were normalized back into series
+                    // planning. Their paid story receipts cannot produce a film.
+                    $recoverProduction = empty($row['completed_once']) && !empty($request['series_context']['current_episode'])
+                        && (!empty($request['multi_episode']) || (int)($request['episode_count'] ?? 1) > 1);
+                    if ($recoverProduction) {
+                        if (!$confirmInterrupted) throw new \RuntimeException(ShortDramaPlanningUnit::CHANGED_CONTEXT_CONFIRMATION, 409);
+                        $request = array_replace($request, ['multi_episode'=>false, 'episode_count'=>1,
+                            'multi_episode_stage'=>'production', 'workflow_variant'=>'', 'episode_workflow'=>'']);
+                    }
                     $previousReviewBase = $request['revision_base_result'] ?? [];
                     $wasBlockReview = !empty($request['_continuity_review_only']);
                     // Failed user revisions must keep their original instruction.
@@ -363,7 +372,7 @@ class ShortDramaEpisodeService
                             unset($request['revision_target']);
                         }
                     }
-                    if ((int)($request['_generation_version'] ?? 0) >= 3
+                    if (!$recoverProduction && (int)($request['_generation_version'] ?? 0) >= 3
                         && $originalContext === ($request['series_context'] ?? [])
                         && (!$review || ($wasBlockReview && $previousReviewBase === ($request['revision_base_result'] ?? [])))) {
                         ShortDramaPlanningUnit::prepareExplicitRetry($tenantId, $userId, (string)$row['task_id'], $confirmInterrupted);
@@ -377,6 +386,8 @@ class ShortDramaEpisodeService
                         // Changed source/continuity needs a new version. Do not silently
                         // bypass the interrupted-request confirmation in this branch.
                         ShortDramaPlanningUnit::prepareExplicitRetry($tenantId,$userId,(string)$row['task_id'],$confirmInterrupted,true,true);
+                        if ($recoverProduction) AigcShortDramaProject::where(['id'=>$row['production_project_id'],
+                            'tenant_id'=>$tenantId, 'user_id'=>$userId, 'delete_time'=>0])->update(['multi_episode'=>0, 'episode_count'=>1]);
                         $created = AigcShortDramaService::createScriptPlan($tenantId, $userId, $request, (int)$row['production_project_id'], $request);
                         $newTask = $created['task_id'];
                     }

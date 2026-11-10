@@ -108,8 +108,8 @@ class AigcPicLipsyncAdminService
         if (!in_array($ext,['wav','mp3','m4a','aac','ogg','flac','opus'],true)) throw new Exception('参考音频格式不支持');
         $config=\app\common\service\storage\StorageConfigService::getEffectiveConfig($tenantId);
         $storage=$storageSnapshot??($row?$row->toArray():['storage_scope'=>$config['scope'],'storage_engine'=>$config['default'],'storage_domain'=>\app\common\service\storage\StorageConfigService::getEffectiveDomain($tenantId)]);
-        $path=public_path().ltrim($audio,'/');
-        $duration=is_file($path)?\app\common\service\MediaDurationService::detect($path):0;
+        $duration=\app\common\service\AudioDurationService::detect($audio,$tenantId,$storage);
+        if ($duration<=0) throw new Exception('无法检测参考音频时长，请选择可播放的音频');
         $data=['tenant_id'=>$tenantId,'user_id'=>0,'source'=>'official','name'=>mb_substr(trim((string)($params['name']??'公共参考音色')),0,80)?:'公共参考音色',
             'audio_uri'=>$audio,'cover_uri'=>self::sampleUri((string)($params['cover_uri']??'')),'gender'=>(string)($params['gender']??''),'age_group'=>(string)($params['age_group']??''),
             'storage_scope'=>$storage['storage_scope'],'storage_engine'=>$storage['storage_engine'],'storage_domain'=>$storage['storage_domain'],

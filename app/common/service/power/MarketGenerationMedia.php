@@ -97,8 +97,7 @@ final class MarketGenerationMedia
     {
         static $cache=[];$key=$kind.':'.hash('sha256',$url);
         if(isset($cache[$key]))return $cache[$key];
-        $binary='';
-        foreach([root_path().'runtime/bin/ffprobe','/usr/bin/ffprobe','/usr/local/bin/ffprobe','/www/server/ffmpeg/bin/ffprobe'] as $candidate)if(@is_executable($candidate)){$binary=$candidate;break;}
+        $binary=\app\common\service\MediaBinaryService::resolve('ffprobe');
         if($binary==='' || !function_exists('proc_open'))throw new InvalidArgumentException('媒体时长校验组件未配置，请联系管理员');
         $path=tempnam(sys_get_temp_dir(),'market-media-');
         if($path===false)throw new InvalidArgumentException('无法准备素材时长校验');
@@ -116,8 +115,7 @@ final class MarketGenerationMedia
     public static function localFacts(string $path,string $kind='video'): array
     {
         if(!in_array($kind,['video','audio','visual'],true)||preg_match('~^[a-z][a-z0-9+.-]*://~i',$path)||!is_file($path)||!is_readable($path)||is_link($path))throw new InvalidArgumentException('媒体本地文件无效');
-        $binary='';
-        foreach([root_path().'runtime/bin/ffprobe','/usr/bin/ffprobe','/usr/local/bin/ffprobe','/www/server/ffmpeg/bin/ffprobe'] as $candidate)if(@is_executable($candidate)){$binary=$candidate;break;}
+        $binary=\app\common\service\MediaBinaryService::resolve('ffprobe');
         if($binary==='' || !function_exists('proc_open'))throw new InvalidArgumentException('媒体时长校验组件未配置，请联系管理员');
         $process=proc_open([$binary,'-v','error','-protocol_whitelist','file','-format_whitelist','mov,matroska,webm,mp3,wav,ogg,flac,aac,avi','-show_entries','format=duration:stream=codec_type,width,height','-of','json',$path],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
         if(!is_resource($process))throw new InvalidArgumentException('媒体时长校验启动失败');
