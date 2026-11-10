@@ -79,11 +79,12 @@ final class ProductVideoBuiltins
         $lock=SubmitLockService::acquire('product_video_builtin_source');
         try{ProductVideoBuiltinCatalog::refresh();return Db::transaction(static function()use($sourceId,$params){
             $source=AppCase::where(['id'=>$sourceId,'app_code'=>ProductVideoPolicy::APP,'delete_time'=>0])->lock(true)->find();
-            if(!$source||(int)$source['tenant_id']<=0)throw new InvalidArgumentException('请选择租户已有的商品视频模板');
+            if(!$source)throw new InvalidArgumentException('请选择租户已有的商品视频模板');
             $source=$source->toArray();$existing=self::table()->where('source_case_id',$sourceId)->find();$all=ProductVideoBuiltinCatalog::all();$prior=$existing?($all[$existing['builtin_key']]??null):null;
             if((int)($params['expected_version']??0)!==(int)($prior['version']??0))throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
             $extra=$source['config_json']['generation_request']['advanced_params'];$body=ProductVideoTemplates::snapshot($extra['product_video']);
-            $body['images']=\app\common\service\app\aigc_micro_video\MicroVideoMedia::validateImages((int)$source['tenant_id'],self::sourceUser($source),$body['images'],15);
+            if((int)$source['source_task_id']>0)$body['images']=\app\common\service\app\aigc_micro_video\MicroVideoMedia::validateImages((int)$source['tenant_id'],self::sourceUser($source),$body['images'],15);
+            else {foreach($body['images'] as $image)ProductVideoAdminMedia::verifyStored((int)$source['tenant_id'],$image,10);ProductVideoAdminMedia::verifyStored((int)$source['tenant_id'],$extra['product_video_media'],20);}
             $model=ProductVideoCatalog::model((int)$source['tenant_id'],$body);ProductVideoCatalog::spec($model,$body);
             $fresh=!empty($body['plan'])&&($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body);$identity=self::identity((string)$body['video_selection']['model_id']);
             $body['images']=array_map(static fn($a)=>self::shared($a,(int)$source['tenant_id']),$body['images']);$body=ProductVideoTemplates::snapshot($body);$body['video_selection']['model_id']='';
@@ -97,7 +98,7 @@ final class ProductVideoBuiltins
     }
     private static function sourceUser(array $case): int
     {
-        $job=ProductVideoJobs::owned((int)$case['tenant_id'],0,(int)$case['source_task_id'],true);return (int)$job['user_id'];
+        $job=ProductVideoJobs::table()->where(['tenant_id'=>$case['tenant_id'],'id'=>$case['source_task_id'],'action'=>'video'])->find();if(!$job)throw new InvalidArgumentException('模板来源记录不可用，请重新上传素材建立模板');return (int)$job['user_id'];
     }
     public static function change(int $scope,int $id,array $params,string $action='save'): array
     {
@@ -108,6 +109,8 @@ final class ProductVideoBuiltins
             if((int)($params['builtin_version']??0)!==$entry['version'])throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
             if($action==='save'){
                 $saved=self::internal(static fn()=>ProductVideoTemplates::saveBuiltinRow($id,$params));$body=$saved['configuration'];
+                $body['images']=array_map(static fn($a)=>self::shared($a,0),$body['images']);
+                $case=AppCase::where('id',$id)->find();$entry['media']=self::shared($case['config_json']['generation_request']['advanced_params']['product_video_media'],0);
                 $fresh=!empty($body['plan'])&&($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body);$entry['model_identity']=self::identity((string)$body['video_selection']['model_id']);$body['video_selection']['model_id']='';
                 if($fresh)$body['plan']['input_key']=ProductVideoPolicy::planKey($body);$entry['configuration']=$body;
                 foreach(['title','status','sort'] as $field)$entry[$field]=$saved[$field];$entry['model_name']=$saved['model_name'];

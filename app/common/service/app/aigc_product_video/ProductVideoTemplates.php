@@ -109,6 +109,23 @@ final class ProductVideoTemplates
         }finally{SubmitLockService::release($lock);}
     }
 
+    public static function create(int $scope,array $params): array
+    {
+        if(!empty($params['id']))throw new InvalidArgumentException('新增模板不能携带原模板 ID');
+        $body=ProductVideoPolicy::body((array)($params['configuration']??[]));
+        if($body['mode']!=='normal')throw new InvalidArgumentException('手动新增请使用普通模式；高级模式模板请从完成分析的视频记录设置');
+        $body['images']=ProductVideoAdminMedia::images($scope,$body['images']);
+        if($body['reference_mode']==='start_end')foreach($body['images'] as $i=>&$image)$image['role']=$i===0?'first_frame_image':'last_frame_image';unset($image);
+        $body['selected_mentions']=array_map(static fn($i)=>['name'=>$i['mention_name'],'type'=>'image','reference_slot_id'=>$i['reference_slot_id'],'uri'=>$i['uri']],$body['images']);
+        $body=self::snapshot($body);$media=ProductVideoAdminMedia::asset($scope,(array)($params['preview']??[]),20);
+        return Db::transaction(static function()use($scope,$body,$media,$params){
+            $saved=self::persist($scope,null,$body,$media,0,$params);
+            if($scope>0)return $saved;
+            $builtin=ProductVideoBuiltins::publish($saved['id'],$params);
+            AppCase::where('id',$saved['id'])->update(['delete_time'=>time()]);return $builtin;
+        });
+    }
+
     public static function save(int $scope,array $params): array
     {
         $old=self::row($scope,(int)($params['id']??0));if(ProductVideoBuiltins::info((int)$old['id']))return ProductVideoBuiltins::change($scope,(int)$old['id'],$params);$extra=$old['config_json']['generation_request']['advanced_params'];
@@ -125,11 +142,12 @@ final class ProductVideoTemplates
     private static function persist(int $tenant,?array $old,array $source,array $media,int $jobId,array $params): array
     {
         $patch=(array)($params['configuration']??[]);$body=$source;
+        if(!empty($params['preview']['file_id']))$media=ProductVideoAdminMedia::asset($tenant,(array)$params['preview'],20);
         foreach(['mode','reference_mode','product_info','prompt','market_region','language','audio','analyze_chapters','video_selection'] as $key)if(array_key_exists($key,$patch))$body[$key]=$patch[$key];
         // References can be reordered or removed; only the source's authorized objects can be published.
         if(isset($patch['images'])){
             $allowed=array_column($source['images'],null,'uri');$images=[];
-            foreach((array)$patch['images'] as $asset){$uri=(string)($asset['uri']??'');if(!isset($allowed[$uri]))throw new InvalidArgumentException('模板素材必须来自原视频记录');$images[]=$allowed[$uri];}
+            foreach((array)$patch['images'] as $asset){$uri=(string)($asset['uri']??'');if(isset($allowed[$uri]))$images[]=$allowed[$uri];else $images[]=ProductVideoAdminMedia::asset($tenant,(array)$asset,10);}
             $body['images']=$images;
         }
         if(($body['reference_mode']??'reference')==='start_end'&&$body['mode']==='normal'&&($source['reference_mode']!=='start_end'||$source['mode']!=='normal'))foreach($body['images'] as $i=>&$image)$image['role']=$i===0?'first_frame_image':'last_frame_image';unset($image);
@@ -186,6 +204,7 @@ final class ProductVideoTemplates
 
     public static function options(int $scope,array $params): array
     {
+        if(empty($params['id'])&&empty($params['job_id']))return ProductVideoService::models($scope,'video',(string)($params['model_id']??''));
         $row=!empty($params['job_id'])?ProductVideoJobs::owned($scope,0,(int)$params['job_id'],true):self::row($scope,(int)($params['id']??0));
         return ProductVideoService::models($scope>0?$scope:(int)$row['tenant_id'],'video',(string)($params['model_id']??''));
     }
@@ -193,6 +212,6 @@ final class ProductVideoTemplates
     public static function adminDetail(int $scope,int $id): array
     {
         $job=ProductVideoJobs::owned($scope,0,$id,true);if($job['action']!=='video')throw new InvalidArgumentException('创作记录仅展示视频任务');
-        return ProductVideoJobs::dto($job)+['tenant_id'=>(int)$job['tenant_id'],'user_id'=>(int)$job['user_id'],'configuration'=>ProductVideoService::publicBody(self::configuration($job),(int)$job['tenant_id'])];
+        return ProductVideoJobs::adminDto($job)+['tenant_id'=>(int)$job['tenant_id'],'user_id'=>(int)$job['user_id'],'configuration'=>ProductVideoService::publicBody(self::configuration($job),(int)$job['tenant_id'])];
     }
 }
