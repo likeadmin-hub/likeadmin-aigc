@@ -119,7 +119,7 @@ final class ProductVideoTemplates
         $body['selected_mentions']=array_map(static fn($i)=>['name'=>$i['mention_name'],'type'=>'image','reference_slot_id'=>$i['reference_slot_id'],'uri'=>$i['uri']],$body['images']);
         $body=self::snapshot($body);$media=ProductVideoAdminMedia::asset($scope,(array)($params['preview']??[]),20);
         return Db::transaction(static function()use($scope,$body,$media,$params){
-            $saved=self::persist($scope,null,$body,$media,0,$params);
+            $saved=self::persist($scope,null,$body,$media,0,array_replace($params,['configuration'=>$body]));
             if($scope>0)return $saved;
             $builtin=ProductVideoBuiltins::publish($saved['id'],$params);
             AppCase::where('id',$saved['id'])->update(['delete_time'=>time()]);return $builtin;
@@ -147,7 +147,7 @@ final class ProductVideoTemplates
         // References can be reordered or removed; only the source's authorized objects can be published.
         if(isset($patch['images'])){
             $allowed=array_column($source['images'],null,'uri');$images=[];
-            foreach((array)$patch['images'] as $asset){$uri=(string)($asset['uri']??'');if(isset($allowed[$uri]))$images[]=$allowed[$uri];else $images[]=ProductVideoAdminMedia::asset($tenant,(array)$asset,10);}
+            foreach((array)$patch['images'] as $asset){$uri=(string)($asset['uri']??'');if(isset($allowed[$uri])){$canonical=$allowed[$uri];if(isset($asset['mention_name']))$canonical['mention_name']=ProductVideoPolicy::text($asset['mention_name'],100);$images[]=$canonical;}else $images[]=ProductVideoAdminMedia::asset($tenant,(array)$asset,10);}
             $body['images']=$images;
         }
         if(($body['reference_mode']??'reference')==='start_end'&&$body['mode']==='normal'&&($source['reference_mode']!=='start_end'||$source['mode']!=='normal'))foreach($body['images'] as $i=>&$image)$image['role']=$i===0?'first_frame_image':'last_frame_image';unset($image);
