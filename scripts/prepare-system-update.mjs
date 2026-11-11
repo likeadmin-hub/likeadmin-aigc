@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { decorationPresetAssets } from './decoration-preset-assets.mjs'
 import { assertSnapshotMigrationCoverage, snapshotCoreSql } from './snapshot-migration-coverage.mjs'
+import { requiresCopywriting, copywritingDependencyFiles } from './system-update-app-dependencies.mjs'
 const args=process.argv.slice(2)
 const option=(key,fallback='')=>{const i=args.indexOf(key);return i<0?fallback:args[i+1]}
 const repo=path.resolve(option('--repo',path.join(path.dirname(fileURLToPath(import.meta.url)),'..')))
@@ -133,6 +134,18 @@ try {
         }
     }
     if(!bridge){
+        // This completion hook runs even when the app is unchanged since the
+        // predecessor. Ship its complete runtime, seed data and contracts.
+        const updater='app/common/service/update/SystemPackageUpdateService.php'
+        if(fs.existsSync(path.join(repo,updater)) && requiresCopywriting(fs.readFileSync(path.join(repo,updater),'utf8'))){
+            for(const relative of copywritingDependencyFiles(repo)){
+                copy(relative,'files/'+relative)
+                if(!coverage.some(row=>row.path===relative))coverage.push({path:relative,delivery:'required-copywriting-runtime-dependency'})
+            }
+            const guard='scripts/system-update-app-dependencies.mjs'
+            copy(guard,'files/'+guard)
+            if(!coverage.some(row=>row.path===guard))coverage.push({path:guard,delivery:'required-packaging-guard'})
+        }
         // Never deliver a default template without its built-in imagery. Copy
         // individual dependencies rather than replacing public/resource, which
         // can also contain tenant-managed files on historical installations.
