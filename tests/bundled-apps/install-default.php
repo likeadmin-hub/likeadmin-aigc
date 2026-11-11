@@ -101,7 +101,13 @@ try{
  $tenantMenu=Db::name('tenant_system_menu')->insertGetId(['tenant_id'=>123456,'name'=>'Owned archive link','source'=>'tenant','app_code'=>'aigc_micro_video','source_menu_key'=>'custom','type'=>'C']);
  $retire=file_get_contents($root.'/upgrade/upgrade_20261111_retire_micro_video.sql');check($retire===file_get_contents($root.'/public/upgrade/upgrade_20261111_retire_micro_video.sql'),'Retirement upgrade mirror differs');
  $retirementPlan=app\common\service\database\RuntimeMigrationPlan::build($retire);
- for($i=0;$i<2;$i++)app\common\service\database\SqlMigrationExecutor::execute($retirementPlan['complete'],$prefix);
+ check(app\common\service\database\SqlMigrationExecutor::split($retire)!==[], 'System updater would skip comment-only retirement');
+ $migrationRoot=sys_get_temp_dir().'/retired-system-sql-'.bin2hex(random_bytes(6));mkdir($migrationRoot.'/sql/before',0700,true);
+ try{
+  file_put_contents($migrationRoot.'/sql/before/retire.sql',$retire);
+  $runner=new ReflectionMethod(app\common\service\update\SystemPackageUpdateService::class,'applySqlGroup');$runner->setAccessible(true);
+  for($i=0;$i<2;$i++)$runner->invoke(new app\common\service\update\SystemPackageUpdateService(),$migrationRoot,['package_mode'=>'incremental','sql_order'=>['sql/before/retire.sql']],'before');
+ }finally{unlink($migrationRoot.'/sql/before/retire.sql');rmdir($migrationRoot.'/sql/before');rmdir($migrationRoot.'/sql');rmdir($migrationRoot);}
  check(Db::name('app')->where('code','aigc_micro_video')->value('status')==='removed','Upgraded app was not retired');
  check(Db::table($archive)->value('payload')==='paid historical receipt','Retirement changed paid history');
  check(!Db::name('tenant_system_menu')->where('id',$oldMenu)->find(),'Retired app menu remains');
