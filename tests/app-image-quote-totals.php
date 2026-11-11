@@ -22,4 +22,5 @@ foreach(explode(' ','product_image local_redraw one_click_cleanup product_suite 
 }
 imageCheck(Sale::singleImageCost(['quantity'=>1,'tenant_cost_points'=>0])===0.0,'Explicit free cost');
 foreach([['tenant_cost_points'=>null],['tenant_cost_points'=>-1],['tenant_cost_points'=>' '],['tenant_cost_points'=>INF],['quantity'=>2,'tenant_cost_points'=>10],['settlement_mode'=>'actual_usage','tenant_cost_points'=>0]] as $invalid){$rejected=false;try{Sale::singleImageCost($invalid);}catch(InvalidArgumentException){$rejected=true;}imageCheck($rejected,'Unknown totals and non-single recipes must not be fabricated');}
+imageCheck(Sale::singleImageSalePrice(0,['platform_unit_cost'=>10])===0.0,'An explicit application free price does not need an inherited sale price');
 echo 'PASS '.$n.' image price, native surcharge, precision and batch handoff checks across 13 tools'.PHP_EOL;

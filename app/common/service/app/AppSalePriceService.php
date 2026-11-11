@@ -38,7 +38,9 @@ class AppSalePriceService
 
     public static function singleImageSalePrice(mixed $price, array $quote): float
     {
-        return self::resolve($price, self::imageAmount($quote, 'user_charge_points', 'tenant_unit_price'), (bool)($quote['follow_market_prices'] ?? false));
+        $configured = self::normalize($price);
+        if (empty($quote['follow_market_prices']) && $configured !== null) return $configured;
+        return self::imageAmount($quote, 'user_charge_points', 'tenant_unit_price');
     }
 
     private static function imageAmount(array $quote, string $total, string $legacyUnit): float
