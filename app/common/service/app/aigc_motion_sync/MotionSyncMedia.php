@@ -11,24 +11,24 @@ final class MotionSyncMedia
     /** The tool accepts a conservative common subset. Version-specific requirements are checked separately. */
     public static function validate(int $tenant,int $user,array $body): array
     {
-        // Source definitions contain measured facts from approved publication, never browser metadata.
-        // Owned receipts are still checked; cross-site reuse needs no source bucket credentials.
-        foreach(['image'=>10,'video'=>20] as $kind=>$type){
-            $a=(array)($body[$kind]??[]);$p=\app\common\service\app\StudioBuiltinCatalog::asset((string)($a['uri']??''),(string)($a['storage_engine']??''),(string)($a['storage_domain']??''));
-            if(!$p)continue;
-            StudioMediaService::verify($tenant,array_replace($a,['user_id'=>$user]),$type);
-            if(!isset($p['mime_type'],$p['file_size'],$p['width'],$p['height'])||($type===20&&!isset($p['duration'])))continue;
-            $body[$kind]=array_replace($a,$p,['url'=>$p['storage_domain'].'/'.$p['uri']]);
-        }
         if($body['image']){
             $image=MicroVideoMedia::validateImages($tenant,$user,[$body['image']],1)[0];
+            $approved=\app\common\service\app\StudioBuiltinCatalog::asset($image['uri'],$image['storage_engine'],$image['storage_domain']);
             $key='motion_image_facts:'.hash('sha256',json_encode([$tenant,$user,$image]));$facts=null;try{$facts=\think\facade\Cache::get($key);}catch(\Throwable){}
+            if($approved&&($approved['type']??'')==='image'&&isset($approved['mime_type'],$approved['file_size'],$approved['width'],$approved['height']))$facts=array_intersect_key($approved,array_flip(['mime_type','file_size','width','height']));
             if(!is_array($facts)){$facts=StudioMediaService::facts($tenant,$image,10);try{\think\facade\Cache::set($key,$facts,120);}catch(\Throwable){}}
             $body['image']=array_replace($image,$facts);
         }
-        $sharedVideo=$body['video']?\app\common\service\app\StudioBuiltinCatalog::asset((string)$body['video']['uri'],(string)$body['video']['storage_engine'],(string)$body['video']['storage_domain']):null;
-        if($body['video']&&(!isset($sharedVideo['mime_type'],$sharedVideo['file_size'],$sharedVideo['width'],$sharedVideo['height'],$sharedVideo['duration'])))$body['video']=MicroVideoMedia::validateVideo($tenant,$user,(string)($body['video']['uri']??$body['video']['url']??''),30,
-            static fn(array $file,array $storage): string=>ManagedStorageReader::read(array_replace($file,$storage),$tenant,100*1024*1024,60));
+        if($body['video']){
+            // Public DTOs deliberately omit file IDs. Recover the exact owned receipt first.
+            $input=(string)($body['video']['uri']??$body['video']['url']??'');
+            $file=\think\facade\Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>20,'uri'=>$input])->whereRaw('(delete_time IS NULL OR delete_time=0)')->find();
+            $approved=$file?\app\common\service\app\StudioBuiltinCatalog::asset((string)$file['uri'],(string)$file['storage_engine'],(string)$file['storage_domain']):null;
+            if($approved&&($approved['type']??'')==='video'&&isset($approved['mime_type'],$approved['file_size'],$approved['width'],$approved['height'],$approved['duration']))
+                $body['video']=$approved+['file_id'=>(int)$file['id'],'tenant_id'=>$tenant,'user_id'=>$user,'url'=>$approved['storage_domain'].'/'.$approved['uri']];
+            else $body['video']=MicroVideoMedia::validateVideo($tenant,$user,$input,30,
+                static fn(array $file,array $storage): string=>ManagedStorageReader::read(array_replace($file,$storage),$tenant,100*1024*1024,60));
+        }
         self::assertFacts($body);
         return $body;
     }
