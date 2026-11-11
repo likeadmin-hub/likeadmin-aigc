@@ -1,7 +1,7 @@
 <?php
 // Local transactional fixtures only. No provider or paid generation is called.
 require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();
-set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.get_class($e).': '.mb_substr($e->getMessage(),0,300).PHP_EOL);exit(1);});
+set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.get_class($e).': '.mb_substr($e->getMessage(),0,300).' at '.basename($e->getFile()).':'.$e->getLine().PHP_EOL);exit(1);});
 use app\common\service\app\aigc_story_commerce\{StoryCommerceService as S,StoryCommerceJobs as J,StoryCommercePolicy as P,StoryCommerceCatalog as C,StoryCommerceWorker as W,StoryCommerceTemplates as T};
 use app\common\service\ai\AiTaskJobService as Queue;
 use think\facade\Db;
@@ -89,4 +89,4 @@ $queue=Db::name('ai_task_job')->where('idempotency_key','story_commerce:'.$vj['i
  T::save(1,['id'=>$template['id'],'configuration'=>$noneBody]);$noneRemix=T::remix(1,1,$template['id']);scAssert($noneRemix['script_fresh']&&$noneRemix['body']['style_id']===P::NO_STYLE&&$noneRemix['body']['custom_style']===''&&$noneRemix['body']['script']===$none['script'],'Templates preserve no style through historical copy and remix');
  S::setup(1,['default_style_id'=>P::NO_STYLE]);scAssert(S::config(1)['default_style_id']===P::NO_STYLE,'Tenant can explicitly default to no style');
  echo "PASS transactional draft ownership, native model quote, genre/style context, idempotency, queue dispatch, double-payer freeze/refund, stale adoption, historical template remix and asset integration; no provider called\n";
-}finally{Db::rollback();foreach(['product.png','product2.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
+}catch(Throwable $error){$fixtureFailure=$error;throw $error;}finally{try{Db::rollback();}catch(Throwable $rollbackError){if(!isset($fixtureFailure))throw $rollbackError;}foreach(['product.png','product2.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
