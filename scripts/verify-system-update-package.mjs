@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 import { assertSnapshotMigrationCoverage, snapshotCoreSql } from './snapshot-migration-coverage.mjs'
+import { assertCopywritingDependencies } from './system-update-app-dependencies.mjs'
 
 const target = process.argv[2]
 const delegated = process.argv.includes('--bootstrap-inner')
@@ -146,6 +147,7 @@ verifyMigrationSources(absoluteTarget,stat.isDirectory(),updateManifest,normaliz
 verifyPlatformEntrypoints(absoluteTarget, stat.isDirectory(), normalized, updateManifest)
 const signatureFiles = normalizeSignature(signature)
 verifySubmitLockDependency(absoluteTarget, stat.isDirectory(), normalized)
+assertCopywritingDependencies(normalized, file => readPackageText(absoluteTarget, stat.isDirectory(), file), updateManifest.version)
 if (!signatureFiles.length) {
     fail('signature.json has no file checksum entries')
 }
