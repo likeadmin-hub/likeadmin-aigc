@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();
+set_exception_handler(static function(Throwable $error): void { fwrite(STDERR, 'FAIL '.$error->getMessage().PHP_EOL); exit(1); });
 use think\facade\Db;
 use app\common\service\app\{RetiredAppService,AppAccessStateService};
 $apply=in_array('--apply',$argv,true);$backup='';foreach($argv as $arg)if(str_starts_with($arg,'--backup-dir='))$backup=substr($arg,13);

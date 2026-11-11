@@ -11,6 +11,7 @@ use app\common\model\update\UpdateTask;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppAccessStateService;
 use app\common\service\app\DefaultAppService;
+use app\common\service\app\RetiredAppService;
 use app\common\service\database\SqlMigrationExecutor;
 use RuntimeException;
 use think\facade\Db;
@@ -21,11 +22,11 @@ class AppPackageUpdateService
     /** Read-only catalog: files on disk do not imply installation or tenant entitlement. */
     public function localCatalog(array $registered): array
     {
-        $byCode=[];foreach($registered as $row)if(!\app\common\service\app\RetiredAppService::contains((string)$row['code']))$byCode[$row['code']]=$row;
+        $byCode=[];foreach($registered as $row)if(!RetiredAppService::contains((string)$row['code']))$byCode[$row['code']]=$row;
         $builder=new BundledAppPackageService(root_path(),dirname(rtrim(base_path(),'/')));
         foreach(glob(base_path().'apps/*/manifest.json')?:[] as $file){
             $code=basename(dirname($file));
-            if(\app\common\service\app\RetiredAppService::contains($code))continue;
+            if(RetiredAppService::contains($code))continue;
             try{$manifest=$builder->manifest($code);AppRegistryService::assertRuntimeMigrationsReady($code);$available=true;}
             catch(Throwable $error){continue;}
             if(!$manifest)continue;
@@ -39,7 +40,7 @@ class AppPackageUpdateService
     public function prepareLocalPackage(string $appCode): array
     {
         AppRegistryService::assertValidCode($appCode);
-        \app\common\service\app\RetiredAppService::assertActive($appCode);
+        RetiredAppService::assertActive($appCode);
         AppRegistryService::assertCoreCompatible(AppRegistryService::getManifest($appCode));
         AppRegistryService::assertRuntimeMigrationsReady($appCode);
         $current=(string)(App::where('code',$appCode)->value('current_version')?:'');
@@ -70,20 +71,26 @@ class AppPackageUpdateService
 
     public function cloudLists(array $params = []): array
     {
-        return (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/lists'), $params);
+        $result = (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/lists'), $params);
+        $filter = static fn(array $rows): array => array_values(array_filter($rows, static fn($row) =>
+            !is_array($row) || !RetiredAppService::contains((string)($row['app_code'] ?? $row['code'] ?? ''))));
+        if (array_is_list($result)) return $filter($result);
+        foreach (['lists', 'apps'] as $key) if (isset($result[$key]) && is_array($result[$key])) $result[$key] = $filter($result[$key]);
+        if (isset($result['data']['lists']) && is_array($result['data']['lists'])) $result['data']['lists'] = $filter($result['data']['lists']);
+        return $result;
     }
 
     public function cloudDetail(string $appCode): array
     {
         AppRegistryService::assertValidCode($appCode);
-        \app\common\service\app\RetiredAppService::assertActive($appCode);
+        RetiredAppService::assertActive($appCode);
         return (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/detail'), ['app_code' => $appCode]);
     }
 
     public function downloadCloudPackage(string $appCode, string $targetVersion, string $action): array
     {
         AppRegistryService::assertValidCode($appCode);
-        \app\common\service\app\RetiredAppService::assertActive($appCode);
+        RetiredAppService::assertActive($appCode);
         if ($targetVersion === '') {
             throw new RuntimeException('请选择目标版本');
         }
@@ -152,6 +159,7 @@ class AppPackageUpdateService
             $extractor->verifySignatureManifest($extract['path']);
             $manifest = $this->readManifest($extract['path']);
             AppRegistryService::assertValidCode((string)$manifest['code']);
+            RetiredAppService::assertActive((string)$manifest['code']);
             if ($expectedAppCode !== '' && $manifest['code'] !== $expectedAppCode) {
                 throw new RuntimeException('应用包 app_code 与预期不一致');
             }
