@@ -45,9 +45,9 @@ class AppSalePriceService
 
     private static function imageAmount(array $quote, string $total, string $legacyUnit): float
     {
-        if (($quote['settlement_mode'] ?? 'reserved') !== 'reserved') throw new InvalidArgumentException('该工具需要可预估的图片模型报价');
         if (isset($quote['quantity']) && (int)$quote['quantity'] !== 1) throw new InvalidArgumentException('需要单张原生请求报价');
         $raw = array_key_exists($total, $quote) ? $quote[$total] : ($quote[$legacyUnit] ?? null);
+        if (($quote['settlement_mode'] ?? 'reserved') === 'actual_usage' && (float)($raw ?? 0) === 0.0 && (!isset($quote[$legacyUnit]) || (float)$quote[$legacyUnit] > 0)) throw new InvalidArgumentException('图片模型按实际用量结算，当前无法预估总额');
         if ($raw === null || $raw === '' || !is_numeric($raw) || !is_finite((float)$raw) || (float)$raw < 0) throw new InvalidArgumentException('图片模型完整报价不可用');
         return (float)$raw;
     }
