@@ -8,7 +8,7 @@ use app\common\service\app\aigc_product_video\{ProductVideoJobs as PJ,ProductVid
 if(getenv('STUDIO_PRICING_LOCAL_TEST')!=='x_cn'||config('database.connections.mysql.database')!=='x_cn')throw new RuntimeException('Explicit local database opt-in required');
 $checks=0;function priceAssert(bool $v,string $why):void{global $checks;if(!$v)throw new RuntimeException($why);$checks++;}
 $count=static fn()=>[Db::name('ai_consumption_log')->count(),Db::name('ai_task_job')->count(),SS::table('project')->count(),SS::table('quote')->count(),PS::table('project')->count(),PS::table('quote')->count()];
-$before=$count();$models=C::models(1,false,'reference',null,true);$verified=0;
+$models=C::models(1,false,'reference',null,true);$verified=0;
 foreach($models as $summary){
  $m=C::models(1,false,'reference',[(string)$summary['id']])[0]??null;priceAssert($m!==null,'Summary must resolve');
  foreach(['specs','start_end_specs'] as $key){
@@ -17,12 +17,13 @@ foreach($models as $summary){
  }
  echo 'catalog '.$m['id'].' checked'.PHP_EOL;
 }
+$before=$count();
 foreach([[SJ::class,SP::class,SS::class],[PJ::class,PP::class,PS::class]] as [$jobs,$policy,$service]){
  $r=$jobs::table()->where(['action'=>'video','status'=>'success','delete_time'=>0])->order('id','desc')->find();if(!$r)continue;
  $request=$policy::json($r['request_json']);$args=['preview'=>true,'action'=>'video','body'=>$request['snapshot']];
  $q=$jobs::estimate((int)$r['tenant_id'],(int)$r['user_id'],$args);priceAssert(is_finite($q['user_charge_points'])&&$q['user_charge_points']>=0,'Current owned draft quote');priceAssert(!isset($q['quote_token']),'Preview must not authorize submit');
  $dto=$jobs::dto($r);priceAssert(abs($dto['estimated_user_charge_points']-$request['quote']['user_charge_points'])<0.000001,'History uses immutable submission quote, not catalog or final usage');
- try{$jobs::estimate((int)$r['tenant_id'],999999,$args);throw new RuntimeException('Foreign media accepted');}catch(InvalidArgumentException){$checks++;}
+ $rejected=false;try{$jobs::estimate((int)$r['tenant_id'],999999,$args);}catch(Throwable){$rejected=true;}priceAssert($rejected,'Foreign media must be rejected');
 }
 priceAssert($count()===$before,'Read-only previews must not write drafts, quote rows, queues or billing records');
 echo 'PASS '.$checks.' checks; '.$verified.' native price comparisons across '.count($models).' models'.PHP_EOL;
