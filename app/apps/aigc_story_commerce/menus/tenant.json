@@ -109,6 +109,25 @@
             "perms": "app.aigc_story_commerce.job/delete"
           }
         ]
+      },
+      {
+        "source_menu_key": "aigc_story_commerce_genres",
+        "app_code": "aigc_story_commerce",
+        "source": "app",
+        "type": "C",
+        "name": "剧情类型与编剧规则",
+        "sort": 0,
+        "perms": "app.aigc_story_commerce.config/genres",
+        "paths": "genres",
+        "component": "apps/aigc_story_commerce/genres",
+        "children": [
+          {
+            "source_menu_key": "aigc_story_commerce_save_genres",
+            "type": "A",
+            "name": "保存编剧规则",
+            "perms": "app.aigc_story_commerce.config/saveGenres"
+          }
+        ]
       }
     ]
   }

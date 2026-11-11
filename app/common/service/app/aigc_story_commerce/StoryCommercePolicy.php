@@ -16,7 +16,7 @@ final class StoryCommercePolicy
             'style_id'=>self::text($p['style_id']??'',80),'custom_style'=>self::text($p['custom_style']??'',500),
             'language'=>self::text($p['language']??'中文',60),'market_region'=>self::text($p['market_region']??'',100),
             'audio'=>isset($p['audio'])?filter_var($p['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,
-            'video_selection'=>(array)($p['video_selection']??[]),'script'=>(array)($p['script']??[]),
+            'video_selection'=>(array)($p['video_selection']??[]),'script'=>is_string($p['script']??null)?self::text($p['script'],6000):(array)($p['script']??[]),
             'script_input_key'=>self::text($p['script_input_key']??'',64),'genre_snapshot'=>(array)($p['genre_snapshot']??[]),'style_snapshot'=>(array)($p['style_snapshot']??[])];
     }
     public static function inputKey(array $b): string {
@@ -47,17 +47,28 @@ final class StoryCommercePolicy
         $characters=[];foreach(array_slice((array)($p['characters']??[]),0,4) as $i=>$c)$characters[]=['id'=>'character_'.($i+1),'name'=>self::text($c['name']??'',80),'appearance'=>self::text($c['appearance']??'',600)];
         return ['summary'=>self::text($p['summary']??'',1000),'characters'=>$characters,'shots'=>$out,'ending'=>self::text($p['ending']??'',600)];
     }
+    /** PC accepts an editable text script; existing structured scripts remain valid. */
+    public static function scriptValue($value,int $duration,array $body): array|string
+    {
+        if(!is_string($value))return self::script((array)$value,$duration,$body);
+        $text=self::text($value,6000);
+        if($text==='')throw new InvalidArgumentException('请填写剧情脚本');
+        if(str_contains($text,'@已移除图片'))throw new InvalidArgumentException('脚本引用的商品素材已移除，请更新脚本');
+        preg_match_all('/@图片(\d+)(?!\d)/u',$text,$matches);
+        foreach($matches[1] as $n)if(!isset($body['images'][(int)$n-1]))throw new InvalidArgumentException('脚本引用的商品图片不存在');
+        return $text;
+    }
     public static function prompt(array $b): string {
         if(($b['script_input_key']??'')!==self::inputKey($b))throw new InvalidArgumentException('创作条件已变化，请重新分析或确认已修改的脚本');
-        $s=self::script($b['script'],(int)($b['video_selection']['duration']??0),$b);
+        $s=self::scriptValue($b['script'],(int)($b['video_selection']['duration']??0),$b);
         $lines=['根据已确认商品素材创作剧情带货短片。商品外观、结构、配色、标识、用途与已确认事实保持一致；不编造功效、价格、认证和未展示的结构。',
             '商品事实：'.$b['product_info'],'剧情类型：'.($b['genre_snapshot']['name']??''),'剧情规则：'.($b['genre_snapshot']['instruction']??''),
             '统一画风：'.($b['style_snapshot']['name']??'').'；'.($b['style_snapshot']['prompt']??''),'语言：'.$b['language'].'；地区：'.$b['market_region'],
-            '总时长：'.($b['video_selection']['duration']??'').'秒；比例：'.($b['video_selection']['ratio']??''),'剧情：'.$s['summary']];
-        foreach($s['characters'] as $c)$lines[]=$c['name'].'：'.$c['appearance'];
+            '总时长：'.($b['video_selection']['duration']??'').'秒；比例：'.($b['video_selection']['ratio']??''),'剧情：'.(is_string($s)?$s:$s['summary'])];
+        foreach(is_array($s)?$s['characters']:[] as $c)$lines[]=$c['name'].'：'.$c['appearance'];
         foreach($b['images'] as $i=>$image)$lines[]='@图片'.($i+1).' 是商品参考图，保持该商品一致。';
-        foreach($s['shots'] as $i=>$shot)$lines[]='【镜头'.($i+1).'｜'.$shot['start'].'-'.$shot['end'].'秒】画面：'.$shot['action'].'；台词：'.$shot['dialogue'].'；商品展示：'.$shot['product_point'].'；商品参考：'.implode('、',array_map(static fn($slot)=>'@图片'.(array_search($slot,array_column($b['images'],'reference_slot_id'),true)+1),$shot['source_slots'])).'；镜头：'.$shot['camera'].'；声音：'.$shot['sound'];
-        $lines[]='结尾：'.$s['ending'];$lines[]=($b['audio']??null)===false?'无声，不生成任何人声、配乐或音效。':'声音遵守当前模型原生能力；不额外叠加未经要求的字幕、水印和价格。';
+        foreach(is_array($s)?$s['shots']:[] as $i=>$shot)$lines[]='【镜头'.($i+1).'｜'.$shot['start'].'-'.$shot['end'].'秒】画面：'.$shot['action'].'；台词：'.$shot['dialogue'].'；商品展示：'.$shot['product_point'].'；商品参考：'.implode('、',array_map(static fn($slot)=>'@图片'.(array_search($slot,array_column($b['images'],'reference_slot_id'),true)+1),$shot['source_slots'])).'；镜头：'.$shot['camera'].'；声音：'.$shot['sound'];
+        if(is_array($s))$lines[]='结尾：'.$s['ending'];$lines[]=($b['audio']??null)===false?'无声，不生成任何人声、配乐或音效。':'声音遵守当前模型原生能力；不额外叠加未经要求的字幕、水印和价格。';
         return self::text(implode("\n",$lines),12000);
     }
 }

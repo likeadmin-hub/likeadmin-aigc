@@ -26,4 +26,9 @@ $method=new ReflectionMethod(app\common\service\power\MarketVideoRuntimeService:
 foreach(['aigc_story_commerce','aigc_product_video','aigc_motion_sync','aigc_short_drama'] as $code)scCheck($method->invoke(null,$code),'Final works must enter durable storage: '.$code);
 $mentions=$script;$mentions['shots'][0]['action']='展示 @图片1';scCheck(P::script($mentions,10,$b)['shots'][0]['source_slots']===['product_1'],'Text mentions must bind to real stable slots');
 $mentions['shots'][0]['action']='展示 @图片99';scReject(fn()=>P::script($mentions,10,$b),'Unknown image ordinal must be rejected');
+$plain=$b;$plain['script']='开门时找不到钥匙，拿起 @图片1 的商品后发现钥匙就在旁边，自然收尾。';
+scCheck(P::scriptValue($plain['script'],10,$plain)===$plain['script'],'Text scripts must remain user-editable');
+scCheck(str_contains(P::prompt($plain),$plain['script']),'Generation must use the exact confirmed text script');
+scCheck(P::body($plain)['script']===$plain['script'],'Persisted text must survive normalization');
+scReject(fn()=>P::scriptValue('展示 @图片9',10,$plain),'Text scripts cannot reference absent images');
 echo "PASS story script continuity, input freshness, silent mode, stable references, analysis parse, independent routes and installation source parity\n";
