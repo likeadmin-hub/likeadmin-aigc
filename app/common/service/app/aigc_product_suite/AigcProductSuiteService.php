@@ -557,8 +557,8 @@ class AigcProductSuiteService
     private static function buildEstimate(array $prepared, array $singleEstimate): array
     {
         $quantity = max(1, count($prepared['modules']));
-        $platformUnitCost = round((float)($singleEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($singleEstimate['tenant_unit_price'] ?? 0), (bool)($singleEstimate['follow_market_prices'] ?? false));
+        $platformUnitCost = round(AppSalePriceService::singleImageCost($singleEstimate), 6);
+        $userUnitPrice = AppSalePriceService::singleImageSalePrice($prepared['unit_price'], $singleEstimate);
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
             'module_count' => $quantity,
@@ -570,9 +570,9 @@ class AigcProductSuiteService
             'platform_unit_cost' => $platformUnitCost,
             'tenant_unit_price' => $userUnitPrice,
             'unit_price' => $userUnitPrice,
-            'tenant_cost_points' => round($platformUnitCost * $quantity, 2),
-            'user_charge_points' => round($userUnitPrice * $quantity, 2),
-            'display_points' => round($userUnitPrice * $quantity, 2),
+            'tenant_cost_points' => round($platformUnitCost * $quantity, 6),
+            'user_charge_points' => round($userUnitPrice * $quantity, 6),
+            'display_points' => round($userUnitPrice * $quantity, 6),
         ]);
     }
 

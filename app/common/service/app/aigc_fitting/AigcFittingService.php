@@ -566,17 +566,17 @@ class AigcFittingService
             throw new Exception('AI fitting does not support actual-usage image SKUs');
         }
         $quantity = max(1, (int)($prepared['image_payload']['quantity'] ?? 1));
-        $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0), (bool)($imageEstimate['follow_market_prices'] ?? false));
+        $tenantUnitCost = AppSalePriceService::singleImageCost($imageEstimate);
+        $userUnitPrice = AppSalePriceService::singleImageSalePrice($prepared['unit_price'], $imageEstimate);
         return array_merge($imageEstimate, [
             'mode' => $prepared['mode'],
             'mode_label' => self::MODE_LABELS[$prepared['mode']] ?? '单图',
             'quantity' => $quantity,
             'platform_unit_cost' => $tenantUnitCost,
             'tenant_unit_price' => $userUnitPrice,
-            'tenant_cost_points' => round($tenantUnitCost * $quantity, 2),
-            'user_charge_points' => round($userUnitPrice * $quantity, 2),
-            'display_points' => round($userUnitPrice * $quantity, 2),
+            'tenant_cost_points' => round($tenantUnitCost * $quantity, 6),
+            'user_charge_points' => round($userUnitPrice * $quantity, 6),
+            'display_points' => round($userUnitPrice * $quantity, 6),
         ]);
     }
 

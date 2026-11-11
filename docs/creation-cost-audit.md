@@ -39,3 +39,5 @@
 `STUDIO_PRICING_LOCAL_TEST=x_cn php tests/studio-pricing-preview.php` 比较当前可用目录各清晰度/比例的最短和最长时长与原生准入报价，并验证只读预览不写任务/报价/计费数据。另运行商品视频、剧情带货本地流程、计量规则和 PC 报价相关回归。所有验证按仓库规范在本地 develop 集成后执行。
 
 接口兼容：`job/estimate` 可选 `{preview:true, action:'video', body:{...}}` 仅返回 `{user_charge_points,notice}`，无 quote_token；旧 `{project_id,revision,action}` 正式报价协议不变，无迁移或新权限。
+
+补充核对：13 个图片工具的后端封装曾从基础单价重新组装费用，可能遗漏参考图/尺寸计量附加金额，导致预估偏低或原生提交拒绝成本覆盖。现在单次原生请求使用完整 `tenant_cost_points`，跟随市场或未配置售价时使用完整用户报价，显式应用售价/免费0继续生效；批量按独立请求数汇总，内部保留六位精度。无界实际用量模型不伪装为固定免费报价。这一处修改作用于未来报价与正常提交，不补扣历史任务。
