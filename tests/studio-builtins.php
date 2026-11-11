@@ -52,6 +52,9 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
         rejects(fn()=>$templates::save($target,['id'=>$id,'title'=>'租户不能改内置']),'Tenant cannot maintain a platform definition');
         rejects(fn()=>AppCaseService::setStatus(0,$app,$id,0),'Generic case manager cannot bypass source versioning');
         $copy=$templates::remix($target,$user,$id);check($copy['id']>0,'Other tenant receives an independent draft');
+        $draftService=$app===M::APP?M::class:S::class;
+        $resaved=$draftService::save($target,$user,['id'=>$copy['id'],'revision'=>$copy['revision'],'body'=>$copy['body'],'confirm_script'=>true]);
+        check($resaved['revision']===$copy['revision']+1,'Redacted PC/mobile draft round-trips without source-site file IDs');
         $listed=AppCaseService::lists($target,$app,['page_no'=>1],true);check(in_array($id,array_column($listed['lists'],'id'),true),'Shared inspiration gallery includes the enabled builtin');
         $url=StorageSignedUrlService::resolve($image['uri'],'platform',$engine,$domain,$target);check($url===$domain.'/'.$image['uri'],'Public source origin resolves without target credentials');
         $updated=$templates::save(0,['id'=>$id,'title'=>'内置修订版','builtin_version'=>1]);check($updated['builtin_version']===2,'Platform metadata edit increments the source revision');
