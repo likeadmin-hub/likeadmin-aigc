@@ -392,6 +392,14 @@
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_product_video.case/builtinFromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_product_video:case:builtinFromJob",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
     }
   ]
 }

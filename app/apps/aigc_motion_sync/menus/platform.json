@@ -76,6 +76,15 @@
             "type": "A",
             "name": "删除记录",
             "perms": "app.aigc_motion_sync.case/delete"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_builtin",
+            "app_code": "aigc_motion_sync",
+            "source": "app",
+            "type": "A",
+            "name": "维护平台内置模板",
+            "perms": "app.aigc_motion_sync.case/builtin",
+            "sort": 0
           }
         ]
       },
@@ -101,6 +110,15 @@
             "type": "A",
             "name": "删除记录",
             "perms": "app.aigc_motion_sync.job/delete"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_builtinFromJob",
+            "app_code": "aigc_motion_sync",
+            "source": "app",
+            "type": "A",
+            "name": "设为内置模板",
+            "perms": "app.aigc_motion_sync.case/builtinFromJob",
+            "sort": 0
           }
         ]
       }

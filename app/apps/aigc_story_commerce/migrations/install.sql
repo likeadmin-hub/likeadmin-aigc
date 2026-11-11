@@ -27,3 +27,17 @@ CREATE TABLE IF NOT EXISTS `la_aigc_story_commerce_quote` (
  `consumed_job_id` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL DEFAULT 0,
  PRIMARY KEY (`id`), UNIQUE KEY `uk_token` (`token`), KEY `idx_expiry` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='剧情带货确认报价';
+
+-- BEGIN portable inspiration mapping
+CREATE TABLE IF NOT EXISTS `la_app_builtin_inspiration` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `app_code` varchar(64) NOT NULL,
+ `builtin_key` varchar(64) NOT NULL, `tenant_id` int unsigned NOT NULL DEFAULT 0,
+ `case_id` int unsigned DEFAULT NULL, `source_case_id` int unsigned DEFAULT NULL,
+ `source_tenant_id` int unsigned NOT NULL DEFAULT 0, `source_job_id` int unsigned DEFAULT NULL,
+ `version` int unsigned NOT NULL DEFAULT 0, `source_hash` varchar(64) NOT NULL DEFAULT '',
+ `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_builtin` (`app_code`,`builtin_key`),
+ UNIQUE KEY `uk_case` (`case_id`), UNIQUE KEY `uk_source` (`app_code`,`source_case_id`),
+ UNIQUE KEY `uk_job` (`app_code`,`source_tenant_id`,`source_job_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台跨站点内置灵感模板映射';
+-- END portable inspiration mapping

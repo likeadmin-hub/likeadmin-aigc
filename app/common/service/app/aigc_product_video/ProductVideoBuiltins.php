@@ -20,6 +20,19 @@ final class ProductVideoBuiltins
     {$old=self::$writing;self::$writing=true;try{return $call();}finally{self::$writing=$old;}}
     public static function info(int $caseId): ?array
     {return self::table()->where('case_id',$caseId)->find()?:null;}
+    public static function fromJob(int $id,array $params): array
+    {
+        if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认将商品素材作为跨站点公开共享素材');
+        $job=ProductVideoJobs::owned(0,0,$id,true);
+        if($job['action']!=='video'||!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('仅已完成视频可以设为内置模板');
+        $lock=SubmitLockService::acquire('product_video_builtin_job_'.$id);
+        try{return Db::transaction(static function()use($job,$id,$params){
+            $sources=AppCase::where(['tenant_id'=>$job['tenant_id'],'app_code'=>ProductVideoPolicy::APP,'source_task_id'=>$id])->column('id');
+            $link=$sources?self::table()->whereIn('source_case_id',$sources)->find():null;
+            if($link){self::sync(true);return ProductVideoTemplates::detail(0,(int)$link['case_id']);}
+            $case=ProductVideoTemplates::fromJob(0,$id,$params);return self::publish((int)$case['id'],$params);
+        });}finally{SubmitLockService::release($lock);}
+    }
     public static function ids(): array {return array_map('intval',self::table()->whereNotNull('case_id')->column('case_id'));}
     public static function sync(bool $force=false): void
     {

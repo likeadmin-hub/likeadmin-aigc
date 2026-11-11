@@ -1,8 +1,12 @@
 """Regenerate source SQL registry rows from the application contract; never publishes anything."""
 from pathlib import Path
 import json
+import sys
 root = Path(__file__).resolve().parents[1]
-code = 'aigc_story_commerce'
+code = sys.argv[1] if len(sys.argv)>1 else 'aigc_story_commerce'
+assert code in ['aigc_story_commerce','aigc_motion_sync']
+marker = 'story commerce' if code=='aigc_story_commerce' else 'motion sync'
+upgrade = 'upgrade_20261111_aigc_story_commerce.sql' if code=='aigc_story_commerce' else 'upgrade_20261110_aigc_motion_sync.sql'
 app = root / 'app/apps' / code
 manifest = json.loads((app / 'manifest.json').read_text())
 schema = json.loads((app / 'api_schema.json').read_text())
@@ -14,7 +18,7 @@ def q(value):
     return "'" + str(value).replace('\\', '\\\\').replace("'", "''") + "'"
 def insert(table, data):
     return f'INSERT IGNORE INTO `la_{table}` (' + ','.join('`'+k+'`' for k in data) + ') VALUES (' + ','.join('UNIX_TIMESTAMP()' if v == '__NOW__' else q(v) for v in data.values()) + ');'
-lines = ['-- BEGIN story commerce application bootstrap (idempotent source registration)']
+lines = [f'-- BEGIN {marker} application bootstrap (idempotent source registration)']
 lines.append(insert('app', dict(code=code,name=manifest['name'],icon=manifest['icon'],description=manifest['description'],category='aigc',cover='',client_tags='platform,tenant,pc,uniapp',is_builtin=1,sort=manifest['sort'],current_version=manifest['version'],status='installed',expire_policy='allow',install_time='__NOW__',update_time='__NOW__')))
 lines.append(insert('app_version', dict(app_code=code,version=manifest['version'],require_core=manifest['require_core'],package_path='local',manifest_json=manifest,changelog=manifest['changelog'],status=1,create_time='__NOW__')))
 for entry in manifest['frontend_entries']:
@@ -37,12 +41,12 @@ for terminal, table in [('tenant','tenant_system_menu'),('platform','system_menu
             menu(child, item['source_menu_key'])
     for item in json.loads((app / 'menus' / f'{terminal}.json').read_text()):
         menu(item)
-lines.append('-- END story commerce application bootstrap')
+lines.append(f'-- END {marker} application bootstrap')
 bootstrap = '\n'.join(lines)+'\n'
 (app / 'bootstrap.sql').write_text(bootstrap)
-for name in ['public/install/db/like.sql','upgrade/upgrade_20261111_aigc_story_commerce.sql','public/upgrade/upgrade_20261111_aigc_story_commerce.sql']:
+for name in ['public/install/db/like.sql','upgrade/'+upgrade,'public/upgrade/'+upgrade]:
     path = root / name
     raw = path.read_text()
-    start = raw.index('-- BEGIN story commerce application bootstrap')
-    end = raw.index('-- END story commerce application bootstrap', start)+len('-- END story commerce application bootstrap')
+    start = raw.index(f'-- BEGIN {marker} application bootstrap')
+    end = raw.index(f'-- END {marker} application bootstrap', start)+len(f'-- END {marker} application bootstrap')
     path.write_text(raw[:start]+bootstrap.rstrip('\n')+raw[end:])

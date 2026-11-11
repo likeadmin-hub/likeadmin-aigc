@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "require_core": ">=1.0.0",
   "description": "将动作视频同步到角色图片，支持朝向控制、清晰度选择和灵感同款。",
-  "changelog": "1. 上传角色图片和动作视频，生成动作同步作品。\n2. 支持历史创作、灵感模板及完整配置同款。",
+  "changelog": "1. 上传角色图片和动作视频，生成动作同步作品。\n2. 支持历史创作、灵感模板及完整配置同款。\n3. 平台可将已完成作品直接设为内置模板，公开素材与创作配置随更新供不同站点复用。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

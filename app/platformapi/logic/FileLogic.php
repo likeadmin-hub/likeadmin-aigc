@@ -68,7 +68,7 @@ class FileLogic extends BaseLogic
     {
         $result = File::whereIn('id', $params['ids'])->select();
         foreach ($result as $item) {
-            if (\app\common\service\app\aigc_product_video\ProductVideoBuiltinCatalog::mediaUrl((string)$item['uri'], (string)($item['storage_engine'] ?? ''), (string)($item['storage_domain'] ?? ''))) continue;
+            if (\app\common\service\app\SharedInspirationMedia::url((string)$item['uri'], (string)($item['storage_engine'] ?? ''), (string)($item['storage_domain'] ?? ''))) continue;
             $StorageDriver = new StorageDriver(StorageConfigService::getStoredFileConfig(
                 null,
                 (string)($item['storage_scope'] ?? ''),

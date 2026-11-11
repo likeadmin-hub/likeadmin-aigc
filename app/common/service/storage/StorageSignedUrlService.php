@@ -28,7 +28,7 @@ final class StorageSignedUrlService
             return null;
         }
         if ($scope === 'platform') {
-            $shared = \app\common\service\app\aigc_product_video\ProductVideoBuiltinCatalog::mediaUrl($uri, $engine, $domain);
+            $shared = \app\common\service\app\SharedInspirationMedia::url($uri, $engine, $domain);
             if ($shared !== null) return $shared;
         }
         $config = StorageConfigService::getStoredFileConfig($tenantId, $scope, $engine);

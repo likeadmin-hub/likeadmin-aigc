@@ -198,6 +198,7 @@ class AppRegistryService
             'create_time' => $time,
         ]);
         if ($appCode === 'aigc_product_video') \app\common\service\app\aigc_product_video\ProductVideoBuiltins::sync(true);
+        if (in_array($appCode, StudioBuiltinCatalog::APPS, true)) StudioBuiltinTemplates::sync($appCode,true);
         self::syncApiSchema($manifest);
         self::syncFrontendEntries($manifest);
         AppMenuService::syncPlatformMenus($appCode);

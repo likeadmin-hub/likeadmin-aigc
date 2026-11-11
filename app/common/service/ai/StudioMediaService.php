@@ -20,6 +20,10 @@ final class StudioMediaService
     }
     public static function verify(int $scope,array $asset,int $type): array
     {
+        if($scope===0&&($asset['storage_scope']??'')==='platform'){
+            $shared=\app\common\service\app\StudioBuiltinCatalog::asset((string)($asset['uri']??''),(string)($asset['storage_engine']??''),(string)($asset['storage_domain']??''));
+            if($shared){if(($shared['type']??'')!==($type===10?'image':'video'))throw new InvalidArgumentException('内置素材类型不匹配');return array_replace($asset,$shared);}
+        }
         $q=Db::name($scope>0?'tenant_file':'file')->where(['id'=>(int)($asset['file_id']??0),'type'=>$type])->whereRaw('(delete_time IS NULL OR delete_time=0)');
         if($scope>0)$q->where('tenant_id',$scope);$file=$q->find();
         if(!$file)throw new InvalidArgumentException('模板素材已不可用，请重新上传');
@@ -30,7 +34,10 @@ final class StudioMediaService
     }
     public static function facts(int $scope,array $asset,int $type): array
     {
-        self::verify($scope,$asset,$type);$uri=(string)$asset['uri'];$temporary=null;
+        $asset=self::verify($scope,$asset,$type);
+        $shared=\app\common\service\app\StudioBuiltinCatalog::asset((string)($asset['uri']??''),(string)($asset['storage_engine']??''),(string)($asset['storage_domain']??''));
+        if($shared&&isset($shared['mime_type'],$shared['file_size'],$shared['width'],$shared['height'])&&($type===10||isset($shared['duration'])))return array_intersect_key($shared,array_flip(['mime_type','file_size','width','height','duration']));
+        $uri=(string)$asset['uri'];$temporary=null;
         try{
             if($asset['storage_engine']==='local'){
                 if(str_contains($uri,'..')||preg_match('~^[a-z]+://~i',$uri)||str_contains($uri,"\0"))throw new InvalidArgumentException('素材路径无效');
@@ -48,7 +55,7 @@ final class StudioMediaService
     }
     public static function grant(int $tenant,int $user,int $sourceScope,array $asset,int $type): array
     {
-        if($sourceScope!==0&&$sourceScope!==$tenant)throw new InvalidArgumentException('不能引用其他租户素材');self::verify($sourceScope,$asset,$type);
+        if($sourceScope!==0&&$sourceScope!==$tenant)throw new InvalidArgumentException('不能引用其他租户素材');$asset=self::verify($sourceScope,$asset,$type);
         $key=['tenant_id'=>$tenant,'user_id'=>$user];
         $where=['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>$type]+array_intersect_key($asset,array_flip(['uri','storage_scope','storage_engine','storage_domain']));
         $old=Db::name('tenant_file')->where($where)->whereRaw('(delete_time IS NULL OR delete_time=0)')->find();

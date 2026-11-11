@@ -58,5 +58,15 @@
     "api_path": "app.aigc_motion_sync.case/delete",
     "api_method": "POST",
     "permission_key": "aigc_motion_sync:case:delete"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/builtin",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:case:builtin"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/builtinFromJob",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:case:builtinFromJob"
   }
 ]

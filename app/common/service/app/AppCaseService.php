@@ -70,6 +70,11 @@ class AppCaseService
     /** Only the enabled public gallery may cross into explicitly published platform cases. */
     private static function caseScope($query, int $tenantId, array $codes, bool $public): void
     {
+        $studio=[];
+        if($public)foreach(StudioBuiltinCatalog::APPS as $code){
+            $service=$code==='aigc_motion_sync'?\app\common\service\app\aigc_motion_sync\MotionSyncService::class:\app\common\service\app\aigc_story_commerce\StoryCommerceService::class;
+            if(in_array($code,$codes,true)&&AppAccessService::tenantCanUse($tenantId,$code,false)&&(int)$service::settings($tenantId)['status']===1){StudioBuiltinTemplates::sync($code);$studio[$code]=StudioBuiltinTemplates::ids($code);}
+        }
         $ids = [];
         if ($public && in_array('aigc_product_video', $codes, true)
             && AppAccessService::tenantCanUse($tenantId, 'aigc_product_video', false)
@@ -77,8 +82,9 @@ class AppCaseService
             ProductVideoBuiltins::sync();
             $ids = ProductVideoBuiltins::ids();
         }
-        $query->where(static function ($scope) use ($tenantId, $ids) {
+        $query->where(static function ($scope) use ($tenantId, $ids, $studio) {
             $scope->where('tenant_id', $tenantId);
+            foreach($studio as $code=>$sharedIds)if($sharedIds)$scope->whereOr(static fn($shared)=>$shared->where('tenant_id',0)->where('app_code',$code)->whereIn('id',$sharedIds)->where('status',1));
             if ($ids) $scope->whereOr(static function ($shared) use ($ids) {
                 $shared->where('tenant_id', 0)->where('app_code', 'aigc_product_video')->whereIn('id', $ids)->where('status', 1);
             });
@@ -87,6 +93,7 @@ class AppCaseService
 
     private static function assertWritable(AppCase $row): void
     {
+        if(in_array($row['app_code'],StudioBuiltinCatalog::APPS,true)&&!StudioBuiltinTemplates::writing()&&StudioBuiltinTemplates::info((string)$row['app_code'],(int)$row['id']))throw new Exception('请在对应应用的灵感模板管理中维护平台内置模板');
         if ($row['app_code'] === 'aigc_product_video' && !ProductVideoBuiltins::writing() && ProductVideoBuiltins::info((int)$row['id'])) {
             throw new Exception('请在商品视频灵感模板管理中维护平台内置模板');
         }

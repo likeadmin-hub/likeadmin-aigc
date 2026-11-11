@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS `la_app_builtin_inspiration` (
+ `id` int unsigned NOT NULL AUTO_INCREMENT, `app_code` varchar(64) NOT NULL,
+ `builtin_key` varchar(64) NOT NULL, `tenant_id` int unsigned NOT NULL DEFAULT 0,
+ `case_id` int unsigned DEFAULT NULL, `source_case_id` int unsigned DEFAULT NULL,
+ `source_tenant_id` int unsigned NOT NULL DEFAULT 0, `source_job_id` int unsigned DEFAULT NULL,
+ `version` int unsigned NOT NULL DEFAULT 0, `source_hash` varchar(64) NOT NULL DEFAULT '',
+ `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0,
+ PRIMARY KEY (`id`), UNIQUE KEY `uk_builtin` (`app_code`,`builtin_key`),
+ UNIQUE KEY `uk_case` (`case_id`), UNIQUE KEY `uk_source` (`app_code`,`source_case_id`),
+ UNIQUE KEY `uk_job` (`app_code`,`source_tenant_id`,`source_job_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台跨站点内置灵感模板映射';
+
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_motion_sync','app.aigc_motion_sync.case/builtin','POST','aigc_motion_sync:case:builtin','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_motion_sync','app.aigc_motion_sync.case/builtinFromJob','POST','aigc_motion_sync:case:builtinFromJob','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='aigc_motion_sync' AND p.source_menu_key='aigc_motion_sync_case' LIMIT 1),'A','维护平台内置模板','',0,'app.aigc_motion_sync.case/builtin','','','','',0,1,0,'aigc_motion_sync','app','aigc_motion_sync_case_builtin',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM DUAL WHERE (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='aigc_motion_sync' AND p.source_menu_key='aigc_motion_sync_case' LIMIT 1) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='aigc_motion_sync' AND m.source_menu_key='aigc_motion_sync_case_builtin');
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='aigc_motion_sync' AND p.source_menu_key='aigc_motion_sync_job' LIMIT 1),'A','设为内置模板','',0,'app.aigc_motion_sync.case/builtinFromJob','','','','',0,1,0,'aigc_motion_sync','app','aigc_motion_sync_case_builtinFromJob',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM DUAL WHERE (SELECT p.id FROM `la_system_menu` p WHERE p.app_code='aigc_motion_sync' AND p.source_menu_key='aigc_motion_sync_job' LIMIT 1) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code='aigc_motion_sync' AND m.source_menu_key='aigc_motion_sync_case_builtinFromJob');

@@ -24,6 +24,8 @@ try{C::withDirectory($dir,static function()use($dir){
  $normal=T::fromJob(0,$job,['title'=>'内置模板事务测试']);reject(fn()=>B::publish($normal['id'],[]),'Explicit public media consent required');
  reject(fn()=>T::detail($target,$normal['id'],true),'Other tenant private templates remain isolated');
  $jobs=J::table()->count();$builtin=B::publish($normal['id'],['confirm_public_media'=>true]);$id=$builtin['id'];
+ yes(B::fromJob($job,['confirm_public_media'=>true])['id']===$id,'Record shortcut reuses an existing builtin');
+ reject(fn()=>B::fromJob($job,[]),'Record shortcut requires explicit public media confirmation');
  yes($id!==$normal['id']&&$builtin['tenant_id']===0&&$builtin['is_builtin']===true,'Independent platform-owned template');
  yes($builtin['builtin_version']===1,'Initial source version');
  $row=Db::name('app_case')->where('id',$id)->find();yes((int)$row['source_task_id']===0&&(int)$row['source_result_id']===0,'Global record has no tenant job identity');

@@ -6,11 +6,13 @@ use app\common\service\app\AppCaseService;
 use app\common\service\ai\StudioMediaService as Media;
 use InvalidArgumentException;
 use think\facade\Db;
+use app\common\service\app\StudioBuiltinTemplates as Builtins;
 
 final class MotionSyncTemplates
 {
     private static function row(int $scope,int $id,bool $public=false): array
     {
+        Builtins::sync(MotionSyncService::APP);
         $q=AppCase::where(['id'=>$id,'app_code'=>MotionSyncService::APP,'delete_time'=>0]);
         if($public)$q->where('status',1)->whereIn('tenant_id',[0,$scope]);elseif($scope>0)$q->where(static fn($a)=>$a->where('tenant_id',$scope)->whereOr(static fn($b)=>$b->where(['tenant_id'=>0,'status'=>1])));
         $row=$q->find();if(!$row)throw new InvalidArgumentException('模板不存在或无权访问');return $row->toArray();
@@ -23,11 +25,13 @@ final class MotionSyncTemplates
         $image=$view['configuration']['image']??[];$video=$view['preview'];
         $w=(int)($video['width']??0);$h=(int)($video['height']??0);
         $dto=['id'=>(int)$r['id'],'title'=>$r['title'],'configuration'=>$view['configuration'],'preview'=>$video,
-            'media_type'=>'video','media_url'=>$video['url']??'','cover_url'=>$image['url']??'','width'=>$w,'height'=>$h,'ratio'=>$w>0&&$h>0?$w.':'.$h:'9:16','is_builtin'=>false];
+            'media_type'=>'video','media_url'=>$video['url']??'','cover_url'=>$image['url']??'','width'=>$w,'height'=>$h,'ratio'=>$w>0&&$h>0?$w.':'.$h:'9:16','is_builtin'=>(bool)($builtin=Builtins::info(MotionSyncService::APP,(int)$r['id'])),'builtin_version'=>(int)($builtin['version']??0)];
+        if(!$public&&$viewer===0&&!$builtin)$dto['published_builtin_version']=(int)(Builtins::table()->where(['app_code'=>MotionSyncService::APP,'source_case_id'=>$r['id']])->value('version')?:0);
         if(!$public)$dto+=['tenant_id'=>(int)$r['tenant_id'],'status'=>(int)$r['status'],'sort'=>(int)$r['sort'],'source_task_id'=>(int)$r['source_task_id'],'create_time'=>(int)$r['create_time'],'readonly'=>$viewer>0&&(int)$r['tenant_id']!==$viewer];return $dto;
     }
     public static function lists(int $scope,array $p,bool $public=false): array
     {
+        Builtins::sync(MotionSyncService::APP);
         if($public)MotionSyncService::available($scope);
         $q=AppCase::where(['app_code'=>MotionSyncService::APP,'delete_time'=>0]);if($public)$q->where('status',1)->whereIn('tenant_id',[0,$scope]);elseif($scope>0)$q->where(static fn($a)=>$a->where('tenant_id',$scope)->whereOr(static fn($b)=>$b->where(['tenant_id'=>0,'status'=>1])));
         if(!$public&&$scope===0&&isset($p['tenant_id'])&&$p['tenant_id']!=='')$q->where('tenant_id',(int)$p['tenant_id']);
@@ -48,6 +52,7 @@ final class MotionSyncTemplates
     {if($scope>0&&(int)$row['tenant_id']!==$scope)throw new InvalidArgumentException('平台共享模板仅支持查看和使用，请创建自己的模板');}
     public static function save(int $scope,array $p): array
     {
+        if(!empty($p['id'])&&Builtins::info(MotionSyncService::APP,(int)$p['id']))return Builtins::change(MotionSyncService::APP,$scope,(int)$p['id'],$p,'save');
         $old=!empty($p['id'])?self::row($scope,(int)$p['id']):null;$owner=$old?(int)$old['tenant_id']:$scope;
         if($old)self::writable($scope,$old);
         $source=$old?self::storedBody($old):[];$body=MotionSyncService::body((array)($p['configuration']??$source));
@@ -82,14 +87,14 @@ final class MotionSyncTemplates
         if(!$file)throw new InvalidArgumentException('作品尚未完整存储，请稍后重试');$preview+=['file_id'=>(int)$file['id'],'tenant_id'=>(int)$job['tenant_id'],'user_id'=>(int)$job['user_id']];
         return self::persist((int)$job['tenant_id'],null,$body,$preview,$id,$p);
     }
-    public static function status(int $scope,int $id,int $value): void
-    {$r=self::row($scope,$id);self::writable($scope,$r);AppCaseService::setStatus((int)$r['tenant_id'],MotionSyncService::APP,$id,$value===1?1:0);}
-    public static function delete(int $scope,int $id): void
-    {$r=self::row($scope,$id);self::writable($scope,$r);AppCaseService::delete((int)$r['tenant_id'],MotionSyncService::APP,$id);}
+    public static function status(int $scope,int $id,int $value,array $params=[]): void
+    {if(Builtins::info(MotionSyncService::APP,$id)){Builtins::change(MotionSyncService::APP,$scope,$id,$params+['status'=>$value],'status');return;}$r=self::row($scope,$id);self::writable($scope,$r);AppCaseService::setStatus((int)$r['tenant_id'],MotionSyncService::APP,$id,$value===1?1:0);}
+    public static function delete(int $scope,int $id,array $params=[]): void
+    {if(Builtins::info(MotionSyncService::APP,$id)){Builtins::change(MotionSyncService::APP,$scope,$id,$params,'delete');return;}$r=self::row($scope,$id);self::writable($scope,$r);AppCaseService::delete((int)$r['tenant_id'],MotionSyncService::APP,$id);}
     public static function remix(int $tenant,int $user,int $id): array
     {
         MotionSyncService::available($tenant,$user);
-        return Db::transaction(static function()use($tenant,$user,$id){$r=self::row($tenant,$id,true);$body=MotionSyncService::body(self::storedBody($r));MotionSyncService::request($tenant,$body);
+        return Db::transaction(static function()use($tenant,$user,$id){$r=self::row($tenant,$id,true);$entry=Builtins::definition(MotionSyncService::APP,$id);$body=$entry?Builtins::bodyFor(MotionSyncService::APP,$tenant,$entry):MotionSyncService::body(self::storedBody($r));MotionSyncService::request($tenant,$body);
             foreach(['image'=>10,'video'=>20] as $key=>$type)$body[$key]=Media::grant($tenant,$user,(int)$r['tenant_id'],$body[$key],$type);
             return MotionSyncService::save($tenant,$user,['body'=>$body]);
         });

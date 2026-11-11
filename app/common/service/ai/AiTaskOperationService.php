@@ -317,7 +317,7 @@ class AiTaskOperationService
         $uri = ltrim((string)($asset['local_uri'] ?? ''), '/');
         $engine = trim((string)($asset['storage_engine'] ?? ''));
         if ($uri === '' || $engine === '') return;
-        if (\app\common\service\app\aigc_product_video\ProductVideoBuiltinCatalog::mediaUrl($uri, $engine, (string)($asset['storage_domain'] ?? ''))) return;
+        if (\app\common\service\app\SharedInspirationMedia::url($uri, $engine, (string)($asset['storage_domain'] ?? ''))) return;
         $config = StorageConfigService::getStoredFileConfig((int)($asset['tenant_id'] ?? 0), (string)($asset['storage_scope'] ?? ''), $engine);
         if (!isset($config['engine'][$engine])) return;
         (new StorageDriver($config, $engine))->delete($uri);
