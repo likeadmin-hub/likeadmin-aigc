@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\ai\ReferenceMaterialSlot;
 use InvalidArgumentException;
 final class ProductVideoMaterials
@@ -11,7 +11,7 @@ final class ProductVideoMaterials
         $extras=[];if(count($body['generation_assets'])>20)throw new InvalidArgumentException('参考视频和音频总数最多 20 个');
         foreach($body['generation_assets'] as $asset){
             $type=$asset['type']??'';if(!in_array($type,['video','audio'],true))throw new InvalidArgumentException('参考媒体类型无效');
-            $canonical=$type==='video'?MicroVideoMedia::validateVideo($tenant,$user,(string)($asset['uri']??'')):MicroVideoMedia::validateAudio($tenant,$user,(string)($asset['uri']??''));
+            $canonical=$type==='video'?StudioMediaInputService::validateVideo($tenant,$user,(string)($asset['uri']??'')):StudioMediaInputService::validateAudio($tenant,$user,(string)($asset['uri']??''));
             $extras[]=$canonical+['type'=>$type,'role'=>'reference_'.$type,'reference_slot_id'=>ReferenceMaterialSlot::id($asset),'mention_name'=>ProductVideoPolicy::text($asset['mention_name']??'',100)];
         }
         $body['generation_assets']=$extras;$used=[];$names=[];$mentions=[];$numbers=['image'=>0,'video'=>0,'audio'=>0];$labels=['image'=>'图片','video'=>'视频','audio'=>'音频'];

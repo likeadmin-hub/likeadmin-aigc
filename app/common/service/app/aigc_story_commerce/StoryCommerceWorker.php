@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_story_commerce;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\power\{MarketTextModelRuntimeService as Text,TextModelExecutionPolicy,TextSettlementPending};
 use RuntimeException;
 use think\facade\Db;
@@ -83,7 +83,7 @@ final class StoryCommerceWorker
             $model=Text::resolveModel($tenant,$r['selection']['model_id'],true);
             if(!hash_equals($r['model_fingerprint'],TextModelExecutionPolicy::fingerprint($model)))throw new RuntimeException('分析模型或费率已变化，请重新确认');
             $content=[['type'=>'text','text'=>$r['content']]];
-            foreach(MicroVideoMedia::visionInputs($r['images']) as $url)$content[]=['type'=>'image_url','image_url'=>['url'=>$url]];
+            foreach(StudioMediaInputService::visionInputs($r['images']) as $url)$content[]=['type'=>'image_url','image_url'=>['url'=>$url]];
             $result=Text::generate($tenant,$user,['content'=>$r['content'],'messages'=>[['role'=>'user','content'=>$content]],'system_prompt'=>$r['system'],
                 'model_id'=>$r['selection']['model_id'],'requires_vision'=>true,'source_app_code'=>StoryCommercePolicy::APP,'business_table'=>'aigc_story_commerce_job','business_id'=>$id,
                 'action_code'=>$action,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_disable_compatibility_retry'=>true,'_require_final_content'=>true,

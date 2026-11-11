@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_story_commerce;
-use app\common\service\app\aigc_micro_video\MicroVideoCatalog;
+use app\common\service\ai\StudioVideoCatalogService;
 use app\common\service\power\{MarketTextModelRuntimeService as Text,TextModelExecutionPolicy};
 use app\common\service\point\PointService;
 use app\common\service\ai\AiTaskJobService as Queue;
@@ -35,7 +35,7 @@ final class StoryCommerceJobs
         $r=['action'=>$action,'snapshot'=>$b,'project_revision'=>(int)$project['revision'],'images'=>$b['images']];
         if($action==='video'){
             $prompt=StoryCommercePolicy::prompt($b);$assets=[];foreach($b['images'] as $i=>$image)$assets[]=array_replace($image,['type'=>'image','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image']);
-            $r+=['selection'=>$selection,'runtime'=>MicroVideoCatalog::runtime($selection),'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>array_map(static fn($a)=>['name'=>$a['mention_name'],'type'=>'image','reference_slot_id'=>$a['reference_slot_id'],'uri'=>$a['uri']],$assets)];
+            $r+=['selection'=>$selection,'runtime'=>StudioVideoCatalogService::runtime($selection),'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>array_map(static fn($a)=>['name'=>$a['mention_name'],'type'=>'image','reference_slot_id'=>$a['reference_slot_id'],'uri'=>$a['uri']],$assets)];
             $quote=$r['runtime']::quote($t,$selection+['prompt'=>$prompt,'reference_images'=>$r['reference_images'],'reference_assets'=>$assets]);$quote['approximate']=false;$r['selection']['market_sku_id']=(int)$quote['market_sku_id'];
         }else{
             $id=(string)StoryCommerceService::settings($t)['planning_model_id'];$options=Text::mediaOptions($t,false);if($id==='')$id=(string)($options[0]['id']??'');if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException('暂无已上架的图像理解模型，请联系管理员');
@@ -52,7 +52,7 @@ final class StoryCommerceJobs
         $b=StoryCommerceService::normalize($t,$u,(array)($p['body']??[]));
         $selection=StoryCommerceCatalog::selection($t,$b);$b['script_input_key']=StoryCommercePolicy::inputKey($b);$prompt=StoryCommercePolicy::prompt($b);$assets=[];
         foreach($b['images'] as $image)$assets[]=array_replace($image,['type'=>'image','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image']);
-        $q=MicroVideoCatalog::runtime($selection)::quote($t,$selection+['prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets]);
+        $q=StudioVideoCatalogService::runtime($selection)::quote($t,$selection+['prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets]);
         return ['user_charge_points'=>(float)$q['user_charge_points'],'notice'=>!empty($q['market_snapshot']['requires_actual_duration'])?'按实际成片时长结算':''];
     }
     public static function estimate(int $t,int $u,array $p): array {if(!empty($p['preview']))return self::preview($t,$u,$p);$i=self::prepare($t,$u,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;StoryCommerceService::table('quote')->insert(['tenant_id'=>$t,'user_id'=>$u,'project_id'=>$i['project']['id'],'token'=>$token,'input_hash'=>$i['hash'],'request_json'=>StoryCommercePolicy::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);return ['quote_token'=>$token,'expires_at'=>$expires]+array_intersect_key($i['quote'],array_flip(['approximate','user_charge_points','notice','model_name']));}

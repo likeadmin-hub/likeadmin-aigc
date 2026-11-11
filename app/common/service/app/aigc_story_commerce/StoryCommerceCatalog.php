@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_story_commerce;
-use app\common\service\app\aigc_micro_video\MicroVideoCatalog;
+use app\common\service\ai\StudioVideoCatalogService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\power\{MarketCatalogReadScope,MarketVideoRuntimeService};
@@ -35,7 +35,7 @@ final class StoryCommerceCatalog
     }
     public static function models(int $tenant,string $id=''): array {
         return MarketCatalogReadScope::run(static function()use($tenant,$id){
-            $rows=MicroVideoCatalog::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='');
+            $rows=StudioVideoCatalogService::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='');
             if($id==='')return $rows;
             $native=AigcVideoService::marketOptions($tenant)['channels']??[];$by=[];foreach($native as $m)$by[(string)$m['id']]=$m;
             foreach($rows as &$m){$m['material_modes']=$by[(string)$m['id']]['material_modes']??[];
@@ -47,7 +47,7 @@ final class StoryCommerceCatalog
     public static function selection(int $tenant,array $b): array {
         $s=$b['video_selection'];$model=null;foreach(self::models($tenant,(string)($s['model_id']??'')) as $m)if((string)$m['id']===(string)($s['model_id']??''))$model=$m;
         if(!$model)throw new InvalidArgumentException('所选视频模型不可用，不会自动替换');
-        $spec=MicroVideoCatalog::spec($model,(string)($s['quality']??''),(string)($s['ratio']??''),(int)($s['duration']??0),'reference');
+        $spec=StudioVideoCatalogService::spec($model,(string)($s['quality']??''),(string)($s['ratio']??''),(int)($s['duration']??0),'reference');
         $n=count($b['images']);if(!$n||$n>(int)$model['max_reference_images'])throw new InvalidArgumentException('商品图片数量超出当前模型支持范围');
         if(!empty($model['material_modes'])){
             $chosen=null;foreach($model['material_modes'] as $mode){

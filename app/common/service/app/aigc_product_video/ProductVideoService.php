@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
-use app\common\service\app\aigc_micro_video\{MicroVideoMedia,MicroVideoCatalog};
+use app\common\service\ai\{StudioMediaInputService,StudioVideoCatalogService};
 use app\common\service\power\{MarketTextModelRuntimeService,MarketCatalogReadScope};
 use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;
@@ -77,10 +77,10 @@ final class ProductVideoService
     public static function save(int $tenant,int $user,array $p): array
     {
         self::available($tenant,$user);$body=ProductVideoPolicy::body((array)($p['body']??[]));
-        try { $body['images']=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15); }
+        try { $body['images']=StudioMediaInputService::validateImages($tenant,$user,$body['images'],15); }
         catch(\RuntimeException $e) { throw new InvalidArgumentException('商品图片不可用，请重新添加商品素材',0,$e); }
         $body=ProductVideoMaterials::normalize($tenant,$user,$body);
-        if($body['reference_video'])$body['reference_video']=MicroVideoMedia::validateVideo($tenant,$user,(string)($body['reference_video']['uri']??''));
+        if($body['reference_video'])$body['reference_video']=StudioMediaInputService::validateVideo($tenant,$user,(string)($body['reference_video']['uri']??''));
         return Db::transaction(static function()use($tenant,$user,$p,$body){
             $id=(int)($p['id']??0);$title=ProductVideoPolicy::text($p['title']??'商品视频',100);
             if($id){$old=self::owned($tenant,$user,$id,true);if((int)($p['revision']??0)!==(int)$old['revision'])throw new InvalidArgumentException('草稿已更新，请刷新后继续');$revision=(int)$old['revision']+1;self::table('project')->where('id',$id)->update(['body_json'=>ProductVideoPolicy::encode($body),'title'=>$title,'revision'=>$revision,'update_time'=>time()]);}

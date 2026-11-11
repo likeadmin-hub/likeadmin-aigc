@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
 
 use app\common\service\app\aigc_image\AigcImageAssetService;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\SubmitLockService;
 use InvalidArgumentException;
 use think\facade\Cache;
@@ -125,7 +125,7 @@ final class ProductVideoImport
         if ($done) {
             $model = ProductVideoCatalog::model($tenant, ['video_selection' => ['model_id' => $session['model_id']]]);
             $maximum = self::capacity($model);
-            $images = MicroVideoMedia::validateImages($tenant, $user, array_slice($session['images'], 0, $maximum), $maximum);
+            $images = StudioMediaInputService::validateImages($tenant, $user, array_slice($session['images'], 0, $maximum), $maximum);
             $value += ['name' => $session['name'], 'product_info' => $session['product_info'],
                 'images' => ProductVideoService::publicBody($images, $tenant), 'notice' => $session['skipped'] ? '部分图片未能读取，已导入可用的商品图片' : ''];
             $value['maximum'] = $maximum;

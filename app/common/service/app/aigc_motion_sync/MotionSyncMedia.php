@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_motion_sync;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\ai\StudioMediaService;
 use app\common\service\storage\ManagedStorageReader;
 use InvalidArgumentException;
@@ -12,7 +12,7 @@ final class MotionSyncMedia
     public static function validate(int $tenant,int $user,array $body): array
     {
         if($body['image']){
-            $image=MicroVideoMedia::validateImages($tenant,$user,[$body['image']],1)[0];
+            $image=StudioMediaInputService::validateImages($tenant,$user,[$body['image']],1)[0];
             $approved=\app\common\service\app\StudioBuiltinCatalog::asset($image['uri'],$image['storage_engine'],$image['storage_domain']);
             $key='motion_image_facts:'.hash('sha256',json_encode([$tenant,$user,$image]));$facts=null;try{$facts=\think\facade\Cache::get($key);}catch(\Throwable){}
             if($approved&&($approved['type']??'')==='image'&&isset($approved['mime_type'],$approved['file_size'],$approved['width'],$approved['height']))$facts=array_intersect_key($approved,array_flip(['mime_type','file_size','width','height']));
@@ -26,7 +26,7 @@ final class MotionSyncMedia
             $approved=$file?\app\common\service\app\StudioBuiltinCatalog::asset((string)$file['uri'],(string)$file['storage_engine'],(string)$file['storage_domain']):null;
             if($approved&&($approved['type']??'')==='video'&&isset($approved['mime_type'],$approved['file_size'],$approved['width'],$approved['height'],$approved['duration']))
                 $body['video']=array_replace($approved,array_intersect_key($file,array_flip(['storage_scope','storage_engine','storage_domain'])),['file_id'=>(int)$file['id'],'tenant_id'=>$tenant,'user_id'=>$user,'url'=>$approved['storage_domain'].'/'.$approved['uri']]);
-            else $body['video']=MicroVideoMedia::validateVideo($tenant,$user,$input,30,
+            else $body['video']=StudioMediaInputService::validateVideo($tenant,$user,$input,30,
                 static fn(array $file,array $storage): string=>ManagedStorageReader::read(array_replace($file,$storage),$tenant,100*1024*1024,60));
         }
         self::assertFacts($body);

@@ -77,7 +77,7 @@ try{
     S::setup(1,['status'=>1,'default_model_key'=>$body['model_key'],'display_config'=>['title'=>'动作同步展示联调']]);msCheck(S::config(1)['display_config']['title']==='动作同步展示联调','Display configuration was not persisted through the app settings contract');
     // Simulate a confirmed, already stored provider receipt. Shared settlement and asset projection still run for real.
     $q=J::estimate(1,1,$args);$completed=J::create(1,1,$args+['quote_token'=>$q['token'],'idempotency_key'=>'ms_completed_'.bin2hex(random_bytes(12))]);$finished=J::owned(1,1,$completed['id']);
-    $stored=\app\common\service\app\aigc_micro_video\MicroVideoMedia::validateVideo(1,1,$video);
+    $stored=\app\common\service\ai\StudioMediaInputService::validateVideo(1,1,$video);
     $result=array_replace($stored,['video_uri'=>$stored['uri'],'video_url'=>$stored['url']]);
     $settle=new ReflectionMethod(V::class,'settle');$settle->setAccessible(true);$settle->invoke(null,(int)$finished['consumption_id'],[$result],'fixture-request','fixture-upstream',['status'=>'completed']);
     $consumption=Db::name('ai_consumption_log')->where('id',$finished['consumption_id'])->find();msCheck($consumption['billing_status']==='settled','Successful receipt was delivered before settlement');

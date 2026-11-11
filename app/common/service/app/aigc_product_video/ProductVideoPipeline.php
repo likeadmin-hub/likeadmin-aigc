@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use InvalidArgumentException;
 use think\facade\Db;
 
@@ -37,7 +37,7 @@ final class ProductVideoPipeline
         try {
             $tenant=(int)$root['tenant_id'];$user=(int)$root['user_id'];
             $uri=$result['videos'][0]['video_uri']??$result['videos'][0]['uri']??'';
-            $video=MicroVideoMedia::validateVideo($tenant,$user,(string)$uri);
+            $video=StudioMediaInputService::validateVideo($tenant,$user,(string)$uri);
             $child=['action'=>'chapters','snapshot'=>$request['snapshot'],'project_revision'=>$root['project_revision'],'video_job_id'=>(int)$root['id'],
                 'selection'=>['model_id'=>$request['chapter_model']['id']],'model_fingerprint'=>$request['chapter_model']['fingerprint'],
                 'images'=>[],'video'=>$video,'system'=>ProductVideoPrompts::system('chapters'),

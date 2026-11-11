@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
-use app\common\service\app\aigc_micro_video\{MicroVideoMedia,MicroVideoCatalog};
+use app\common\service\ai\{StudioMediaInputService,StudioVideoCatalogService};
 use app\common\service\power\{MarketTextModelRuntimeService as Text,MarketUsageSettlementService as Usage,TextModelExecutionPolicy};
 use app\common\service\point\PointService;
 use InvalidArgumentException;
@@ -76,7 +76,7 @@ final class ProductVideoJobs
         if(!$preview&&(int)($p['revision']??0)!==(int)$project['revision'])throw new InvalidArgumentException('草稿已更新，请保存后重新报价');
         $action=(string)($p['action']??'');if(!in_array($action,ProductVideoPolicy::ACTIONS,true))throw new InvalidArgumentException('创作操作无效');
         $body=ProductVideoPolicy::body(ProductVideoPolicy::json($project['body_json']));$request=['action'=>$action,'snapshot'=>$body,'project_revision'=>(int)$project['revision']];
-        $images=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15);
+        $images=StudioMediaInputService::validateImages($tenant,$user,$body['images'],15);
         if(in_array($action,['product','plan','write','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
         $request['images']=$images;$settings=ProductVideoService::settings($tenant);
         if($action==='video'){
@@ -91,9 +91,9 @@ final class ProductVideoJobs
             if(($body['audio']??null)!==null){if(empty($model['supports_generate_audio']))throw new InvalidArgumentException('所选模型不支持声音开关，请使用自动声音设置');$spec['generate_audio']=(bool)$body['audio'];}
             $selection=$spec+['model_id'=>$model['id'],'channel'=>$model['id'],'resolution'=>$spec['quality']];
             $request+=['selection'=>$selection,'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>$body['selected_mentions']];
-            $quote=MicroVideoCatalog::runtime($spec)::quote($tenant,$selection+['prompt'=>$prompt,'reference_images'=>$request['reference_images'],'reference_assets'=>$assets]);
+            $quote=StudioVideoCatalogService::runtime($spec)::quote($tenant,$selection+['prompt'=>$prompt,'reference_images'=>$request['reference_images'],'reference_assets'=>$assets]);
             $request['selection']['market_sku_id']=(int)$quote['market_sku_id'];
-            $request['runtime']=MicroVideoCatalog::runtime($spec);$quote['approximate']=false;
+            $request['runtime']=StudioVideoCatalogService::runtime($spec);$quote['approximate']=false;
             if(!empty($body['analyze_chapters'])){
                 $id=$body['analysis_model_id']?:$settings['analysis_model_id'];$options=Text::mediaOptions($tenant,true);if($id==='')$id=(string)($options[0]['id']??'');
                 if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException('成片分析配置暂不可用，请刷新后重试或联系管理员');
@@ -105,12 +105,12 @@ final class ProductVideoJobs
             $video=null;
             if($action==='reference'){
                 if(!$body['reference_video'])throw new InvalidArgumentException('请先添加参考视频');
-                $video=MicroVideoMedia::validateVideo($tenant,$user,(string)$body['reference_video']['uri']);
+                $video=StudioMediaInputService::validateVideo($tenant,$user,(string)$body['reference_video']['uri']);
             }
             if($action==='chapters'){
                 $prior=self::owned($tenant,$user,(int)($p['video_job_id']??0));$r=ProductVideoPolicy::json($prior['result_json']);
                 if($prior['action']!=='video'||$prior['status']!=='success'||(int)$prior['project_id']!==(int)$project['id'])throw new InvalidArgumentException('请先选择本草稿已完成的视频');
-                $video=MicroVideoMedia::validateVideo($tenant,$user,(string)($r['videos'][0]['video_uri']??$r['videos'][0]['uri']??''));
+                $video=StudioMediaInputService::validateVideo($tenant,$user,(string)($r['videos'][0]['video_uri']??$r['videos'][0]['uri']??''));
                 $request['video_job_id']=(int)$prior['id'];
             }
             if(in_array($action,['reference','chapters'],true))$request['images']=[];

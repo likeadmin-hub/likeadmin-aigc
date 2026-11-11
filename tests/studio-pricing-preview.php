@@ -2,7 +2,7 @@
 // Read-only local audit. Quote validation never reserves, submits or contacts a provider.
 require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();
 use think\facade\Db;
-use app\common\service\app\aigc_micro_video\MicroVideoCatalog as C;
+use app\common\service\ai\StudioVideoCatalogService as C;
 use app\common\service\app\aigc_story_commerce\{StoryCommerceJobs as SJ,StoryCommercePolicy as SP,StoryCommerceService as SS};
 use app\common\service\app\aigc_product_video\{ProductVideoJobs as PJ,ProductVideoPolicy as PP,ProductVideoService as PS};
 if(getenv('STUDIO_PRICING_LOCAL_TEST')!=='x_cn'||config('database.connections.mysql.database')!=='x_cn')throw new RuntimeException('Explicit local database opt-in required');

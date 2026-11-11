@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace app\common\service\app\aigc_story_commerce;
 use app\common\service\app\{AppAccessService,AppDisplayConfigService};
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;
@@ -38,7 +38,7 @@ final class StoryCommerceService
     }
     public static function models(int $t,string $kind,string $id=''): array {return ['models'=>$kind==='planning'?MarketTextModelRuntimeService::mediaOptions($t,false):StoryCommerceCatalog::models($t,$id)];}
     public static function normalize(int $t,int $u,array $b): array {
-        $b=StoryCommercePolicy::body($b);$b['images']=MicroVideoMedia::validateImages($t,$u,$b['images'],15);$used=[];
+        $b=StoryCommercePolicy::body($b);$b['images']=StudioMediaInputService::validateImages($t,$u,$b['images'],15);$used=[];
         foreach($b['images'] as $i=>&$img){$slot=ReferenceMaterialSlot::id($img)?:'sc_'.substr(hash('sha256',$img['uri'].'|'.$i),0,24);if(isset($used[$slot]))throw new InvalidArgumentException('商品素材槽位重复');$used[$slot]=true;$img['reference_slot_id']=$slot;$img['mention_name']='图片'.($i+1);}unset($img);
         $b['genre_snapshot']=self::genre($t,$b);$b['style_snapshot']=StoryCommerceCatalog::style($t,$b);return $b;
     }

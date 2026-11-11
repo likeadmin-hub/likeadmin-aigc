@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\open_platform\OpenSafeHttp;
 use InvalidArgumentException;
@@ -16,7 +16,7 @@ final class ProductVideoProducts
     public static function save(int $tenant,int $user,array $p): array
     {
         ProductVideoService::available($tenant,$user);$name=ProductVideoPolicy::text($p['name']??'',100);if($name==='')throw new InvalidArgumentException('请填写商品名称');
-        $body=['images'=>MicroVideoMedia::validateImages($tenant,$user,(array)($p['images']??[]),15),'product_info'=>ProductVideoPolicy::text($p['product_info']??'',3000)];if(!$body['images'])throw new InvalidArgumentException('请添加商品图片');
+        $body=['images'=>StudioMediaInputService::validateImages($tenant,$user,(array)($p['images']??[]),15),'product_info'=>ProductVideoPolicy::text($p['product_info']??'',3000)];if(!$body['images'])throw new InvalidArgumentException('请添加商品图片');
         $data=['name'=>$name,'body_json'=>ProductVideoPolicy::encode($body),'update_time'=>time()];$id=(int)($p['id']??0);
         if($id){$q=ProductVideoService::table('product')->where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0]);if(!$q->find())throw new InvalidArgumentException('商品资料不存在');$q->update($data);}
         else $id=ProductVideoService::table('product')->insertGetId($data+['tenant_id'=>$tenant,'user_id'=>$user,'create_time'=>time()]);
@@ -43,7 +43,7 @@ final class ProductVideoProducts
             }catch(\Throwable){}
         }
         if(!$images)throw new InvalidArgumentException('商品图片下载失败，请改用本地上传');
-        return ['name'=>$data['name'],'product_info'=>$data['product_info'],'images'=>ProductVideoService::publicBody(MicroVideoMedia::validateImages($tenant,$user,$images,6),$tenant),'notice'=>'请核对导入的商品信息，仅保留已确认的事实'];
+        return ['name'=>$data['name'],'product_info'=>$data['product_info'],'images'=>ProductVideoService::publicBody(StudioMediaInputService::validateImages($tenant,$user,$images,6),$tenant),'notice'=>'请核对导入的商品信息，仅保留已确认的事实'];
     }
     public static function metadata(string $html,string $base): array
     {

@@ -6,7 +6,7 @@ use app\common\model\app\AppCase;
 use app\common\service\app\{StudioBuiltinTemplates as B,StudioBuiltinCatalog as C,AppCaseService,SharedInspirationMedia};
 use app\common\service\app\aigc_story_commerce\{StoryCommerceService as S,StoryCommercePolicy as P,StoryCommerceCatalog as SC,StoryCommerceTemplates as ST};
 use app\common\service\app\aigc_motion_sync\{MotionSyncService as M,MotionSyncTemplates as MT};
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\power\MarketMotionSyncRuntimeService;
 use app\common\service\storage\{StorageConfigService,StorageSignedUrlService};
 set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.get_class($e).': '.$e->getMessage().' at '.basename($e->getFile()).':'.$e->getLine().PHP_EOL);exit(1);});
@@ -30,7 +30,7 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
     $project=S::save(1,1,['body'=>$body,'confirm_script'=>true]);$body=P::json(S::owned(1,1,$project['id'])['body_json']);
     $storyJob=S::table('job')->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$project['id'],'project_revision'=>1,'action'=>'video','status'=>'success','idempotency_key'=>'story_builtin_'.bin2hex(random_bytes(10)),'input_hash'=>str_repeat('a',64),'request_json'=>P::encode(['snapshot'=>$body]),'receipt_json'=>'{}','result_json'=>P::encode(['videos'=>[$preview+['video_uri'=>$preview['uri']]]]),'create_time'=>$now,'update_time'=>$now]);
     // Cache already measured source media, just as an existing completed motion job does.
-    $im=MicroVideoMedia::validateImages(1,1,[$image],1)[0];$imageFacts=['width'=>320,'height'=>320,'file_size'=>3000,'mime_type'=>'image/png'];
+    $im=StudioMediaInputService::validateImages(1,1,[$image],1)[0];$imageFacts=['width'=>320,'height'=>320,'file_size'=>3000,'mime_type'=>'image/png'];
     $key='motion_image_facts:'.hash('sha256',json_encode([1,1,$im]));$cacheKeys[]=$key;Cache::set($key,$imageFacts,120);
     $videoFacts=['width'=>320,'height'=>320,'file_size'=>4800,'mime_type'=>'video/mp4','duration'=>3.2];
     $key='owned_video_probe_v2:'.hash('sha256',json_encode([1,1,$receipts[$video['uri']],$video['uri'],$now,$coords]));$cacheKeys[]=$key;Cache::set($key,$videoFacts,120);

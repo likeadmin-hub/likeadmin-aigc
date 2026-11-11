@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_motion_sync;
 
 use app\common\service\app\{AppAccessService,AppDisplayConfigService};
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\power\{MarketMotionSyncRuntimeService as Runtime,MarketGenerationMedia,MarketGenerationSchema};
 use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;

@@ -4,7 +4,7 @@ require dirname(__DIR__).'/vendor/autoload.php';
 $app=new think\App();$app->initialize();
 set_exception_handler(static function(Throwable $e):void{fwrite(STDERR,'FAIL '.get_class($e).': '.mb_substr($e->getMessage(),0,200).PHP_EOL);exit(1);});
 use app\common\service\app\aigc_product_video\{ProductVideoService as S,ProductVideoJobs as J,ProductVideoPolicy as P};
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use think\facade\Db;
 if(getenv('PRODUCT_VIDEO_LOCAL_TEST')!=='x_cn'||config('database.connections.mysql.database')!=='x_cn')throw new RuntimeException('Explicit local test opt-in required');
 function pvAssert(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);}

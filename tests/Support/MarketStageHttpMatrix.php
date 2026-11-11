@@ -76,7 +76,7 @@ function runMarketStageHttpMatrix(MarketWorkerFixture $f,string $api,string $suf
     $options=app\common\service\app\aigc_video\AigcVideoService::marketOptions($tenant);
     $chosen=array_values(array_filter($options['channels']??[],fn($row)=>$row['id']===$model));
     MarketWorkerFixture::check(count($chosen)===1,'Private micro model missing from shared options');
-    try { app\common\service\app\aigc_micro_video\MicroVideoCatalog::quote($tenant,['quality'=>'720P','ratio'=>'1:1','duration'=>2,'generation_method'=>'image_to_video','resource_type'=>'model','market_product_id'=>(int)$product['id']],$model); }
+    try { app\common\service\ai\StudioVideoCatalogService::quote($tenant,['quality'=>'720P','ratio'=>'1:1','duration'=>2,'generation_method'=>'image_to_video','resource_type'=>'model','market_product_id'=>(int)$product['id']],$model); }
     catch(Throwable $e){throw new RuntimeException('Private micro admission: '.$e->getMessage());}
     app\common\service\app\aigc_micro_video\MicroVideoSettings::save($tenant,['video_model_ids'=>[$model],'default_model_id'=>$model,'default_quality'=>'720P','default_ratio'=>'1:1','target_duration_options'=>[4],'frames_enabled'=>0]);
     $form=['model_id'=>$model,'quality'=>'720P','ratio'=>'1:1','target_duration'=>4,'mode'=>'theme','theme'=>'Synthetic colored blocks','images'=>[['uri'=>$image]],'direction_id'=>0,'idempotency_key'=>'private-micro-plan'];

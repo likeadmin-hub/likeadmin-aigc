@@ -96,7 +96,7 @@ final class ProductVideoBuiltins
             $source=$source->toArray();$existing=self::table()->where('source_case_id',$sourceId)->find();$all=ProductVideoBuiltinCatalog::all();$prior=$existing?($all[$existing['builtin_key']]??null):null;
             if((int)($params['expected_version']??0)!==(int)($prior['version']??0))throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
             $extra=$source['config_json']['generation_request']['advanced_params'];$body=ProductVideoTemplates::snapshot($extra['product_video']);
-            if((int)$source['source_task_id']>0)$body['images']=\app\common\service\app\aigc_micro_video\MicroVideoMedia::validateImages((int)$source['tenant_id'],self::sourceUser($source),$body['images'],15);
+            if((int)$source['source_task_id']>0)$body['images']=\app\common\service\ai\StudioMediaInputService::validateImages((int)$source['tenant_id'],self::sourceUser($source),$body['images'],15);
             else {foreach($body['images'] as $image)ProductVideoAdminMedia::verifyStored((int)$source['tenant_id'],$image,10);ProductVideoAdminMedia::verifyStored((int)$source['tenant_id'],$extra['product_video_media'],20);}
             $model=ProductVideoCatalog::model((int)$source['tenant_id'],$body);ProductVideoCatalog::spec($model,$body);
             $fresh=!empty($body['plan'])&&($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body);$identity=self::identity((string)$body['video_selection']['model_id']);

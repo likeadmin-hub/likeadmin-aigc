@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
-use app\common\service\app\aigc_micro_video\MicroVideoCatalog;
+use app\common\service\ai\StudioVideoCatalogService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\power\{MarketVideoRuntimeService,MarketCatalogReadScope};
 use InvalidArgumentException;
@@ -13,7 +13,7 @@ final class ProductVideoCatalog
     }
     private static function buildModels(int $tenant,string $id): array
     {
-        $rows=MicroVideoCatalog::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='');
+        $rows=StudioVideoCatalogService::models($tenant,false,'reference',$id!==''?[$id]:null,$id==='');
         $native=AigcVideoService::marketOptions($tenant)['channels']??[];$byId=[];foreach($native as $m)$byId[(string)$m['id']]=$m;
         foreach($rows as &$m){$source=$byId[(string)$m['id']]??[];$m['max_reference_videos']=(int)($source['max_reference_videos']??0);$m['max_reference_audios']=(int)($source['max_reference_audios']??0);
             if($id!==''){
@@ -30,7 +30,7 @@ final class ProductVideoCatalog
     public static function spec(array $m,array $body): array
     {
         $s=$body['video_selection'];$mode=($body['mode']==='normal'&&($body['reference_mode']??'reference')==='start_end')?'start_end':'reference';
-        $spec=MicroVideoCatalog::spec($m,(string)($s['quality']??''),(string)($s['ratio']??''),(int)($s['duration']??0),$mode);
+        $spec=StudioVideoCatalogService::spec($m,(string)($s['quality']??''),(string)($s['ratio']??''),(int)($s['duration']??0),$mode);
         $count=count($body['images']);if($mode==='start_end'){ProductVideoPolicy::frames($body['images']);if($body['generation_assets'])throw new InvalidArgumentException('首尾帧模式不支持额外的视频或音频，请调整素材');if($count===1){$spec['generation_method']='image_to_video';unset($spec['market_sku_id']);foreach($m['material_modes']??[] as $native)if($native['method']==='image_to_video'){$spec['material_mode']=$native['key'];break;}}return $spec;}
         if(empty($m['material_modes'])){if($count>(int)$m['max_reference_images']||$body['generation_assets'])throw new InvalidArgumentException('所选模型不支持当前参考素材');return $spec;}
         $counts=['image'=>$count,'video'=>0,'audio'=>0];foreach($body['generation_assets'] as $asset)$counts[$asset['type']]++;

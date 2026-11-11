@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace app\common\service\app\aigc_product_video;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\power\{MarketTextModelRuntimeService as Text,MarketImageModelRuntimeService as LegacyImageRuntime,TextModelExecutionPolicy,TextSettlementPending};
 use RuntimeException;
 use think\facade\Db;
@@ -78,8 +78,8 @@ final class ProductVideoWorker
             $model=Text::resolveModel($tenant,$r['selection']['model_id'],true);
             if(!hash_equals($r['model_fingerprint'],TextModelExecutionPolicy::fingerprint($model)))throw new RuntimeException('分析模型或费率已变化，请重新确认');
             $content=[['type'=>'text','text'=>$r['content']]];
-            foreach(MicroVideoMedia::visionInputs($r['images']) as $url)$content[]=['type'=>'image_url','image_url'=>['url'=>$url]];
-            if($r['video'])$content[]=['type'=>'video_url','video_url'=>['url'=>MicroVideoMedia::videoInput($r['video'])]];
+            foreach(StudioMediaInputService::visionInputs($r['images']) as $url)$content[]=['type'=>'image_url','image_url'=>['url'=>$url]];
+            if($r['video'])$content[]=['type'=>'video_url','video_url'=>['url'=>StudioMediaInputService::videoInput($r['video'])]];
             $result=Text::generate($tenant,$user,['content'=>$r['content'],'messages'=>[['role'=>'user','content'=>$content]],'system_prompt'=>$r['system'],
                 'model_id'=>$r['selection']['model_id'],'requires_vision'=>true,'source_app_code'=>ProductVideoPolicy::APP,'business_table'=>'aigc_product_video_job','business_id'=>$id,
                 'action_code'=>$action,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_disable_compatibility_retry'=>true,'_require_final_content'=>true,
@@ -128,7 +128,7 @@ final class ProductVideoWorker
         $r=ProductVideoPolicy::json($row['request_json']);$action=$row['action'];
         if($action==='storyboard'){
             $refs=[];foreach($receipt['images']??[] as $image)$refs[]=['uri'=>$image['image_uri']??$image['uri']??''];
-            if(!$refs)throw new RuntimeException('分镜图片尚未入库');return ['images'=>MicroVideoMedia::validateImages((int)$row['tenant_id'],(int)$row['user_id'],$refs,1)];
+            if(!$refs)throw new RuntimeException('分镜图片尚未入库');return ['images'=>StudioMediaInputService::validateImages((int)$row['tenant_id'],(int)$row['user_id'],$refs,1)];
         }
         if($action==='video'){if(empty($receipt['videos']))throw new RuntimeException('视频结果尚未入库');return ['videos'=>$receipt['videos']];}
         $text=trim((string)($receipt['content']??''));$text=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$text);$data=json_decode($text,true,64,JSON_THROW_ON_ERROR);
