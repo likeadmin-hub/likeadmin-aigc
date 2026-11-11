@@ -34,12 +34,11 @@ try{
     R::setStatus($code,R::STATUS_DISABLED);msiCheck(!R::isInstalled($code),'Disable lifecycle');
     R::setStatus($code,R::STATUS_INSTALLED);msiCheck(R::isInstalled($code),'Enable lifecycle');
     $project=Db::name($code.'_project')->insertGetId(['tenant_id'=>600801,'user_id'=>1,'body_json'=>'{}','revision'=>1,'create_time'=>time(),'update_time'=>time()]);
-    R::uninstall($code,false);msiCheck(Db::name($code.'_project')->where('id',$project)->count()===1,'Soft uninstall must preserve drafts');
-    msiCheck(Db::name('app_frontend_entry')->where('app_code',$code)->count()===4,'Soft uninstall retains declared entries');
-    R::installFromLocal($code);msiCheck(R::isInstalled($code),'Reinstallation lifecycle');
-    R::uninstall($code,true);msiCheck((int)Db::name($code.'_project')->where('id',$project)->value('delete_time')>0,'Clear-data lifecycle must soft delete business records');
-    foreach(['tenant_app','app_frontend_entry','app_api'] as $table)msiCheck(Db::name($table)->where('app_code',$code)->count()===0,'Clear-data scope: '.$table);
-    echo "PASS fresh full install, new shared/split tenant grants, menus, mobile pages, repeat install, shelf preservation, enable/disable and soft/clear uninstall\n";
+    $protected=false;try{R::uninstall($code,false);}catch(RuntimeException $e){$protected=str_contains($e->getMessage(),'系统应用');}
+    msiCheck($protected,'Built-in default app must retain uninstall protection');
+    msiCheck(Db::name($code.'_project')->where('id',$project)->count()===1,'Protected uninstall must preserve drafts');
+    msiCheck(Db::name('app_frontend_entry')->where('app_code',$code)->count()===4,'Protected uninstall retains declared entries');
+    echo "PASS fresh full install, new shared/split tenant grants, menus, mobile pages, repeat install, shelf preservation, enable/disable and protected built-in uninstall\n";
 }finally{
     Config::set($original,'database');Db::connect(null,true);
     $statement=$pdo->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,?)=?');$statement->execute([strlen($prefix),$prefix]);
