@@ -17,7 +17,7 @@ final class StoryCommerceTemplates
     public static function adminDetail(int $scope,int $id): array {$r=StoryCommerceJobs::owned($scope,0,$id,true);return StoryCommerceJobs::dto($r,true);}
     private static function writable(int $scope,array $r): void {if($scope>0&&(int)$r['tenant_id']!==$scope)throw new InvalidArgumentException('平台共享模板仅供查看和使用');}
     public static function save(int $scope,array $p): array {
-        $old=!empty($p['id'])?self::row($scope,(int)$p['id']):null;if($old)self::writable($scope,$old);$owner=$old?(int)$old['tenant_id']:$scope;$source=$old?self::stored($old):[];$b=StoryCommercePolicy::body((array)($p['configuration']??$source));
+        $old=!empty($p['id'])?self::row($scope,(int)$p['id']):null;if($old)self::writable($scope,$old);$owner=$old?(int)$old['tenant_id']:$scope;$source=$old?self::stored($old):[];if($old&&!array_key_exists('configuration',$p))return self::persist($owner,$old,$source,(array)($old['config_json']['generation_request']['advanced_params']['story_commerce_media']??[]),(int)$old['source_task_id'],$p);$b=StoryCommercePolicy::body((array)($p['configuration']??$source));
         foreach($b['images'] as $i=>&$image){$slot=$image['reference_slot_id']??'sc_template_'.$i;$previous=[];foreach($source['images']??[] as $saved)if(($saved['reference_slot_id']??'')===$slot){$previous=$saved;break;}$image=!empty($image['file_id'])?Media::adminAsset($owner,$image,10):(($previous&&$previous['uri']===($image['uri']??''))?Media::verify($owner,$previous,10):throw new InvalidArgumentException('请通过素材库选择有权使用的商品图片'));$image['reference_slot_id']=$slot;$image['mention_name']='图片'.($i+1);}unset($image);
         $b['genre_snapshot']=StoryCommerceService::genre($owner,$b);$b['style_snapshot']=StoryCommerceCatalog::style($owner,$b);StoryCommerceCatalog::selection($owner,$b);$b['script']=StoryCommercePolicy::script($b['script'],(int)$b['video_selection']['duration'],$b);$b['script_input_key']=StoryCommercePolicy::inputKey($b);
         $previous=(array)($old['config_json']['generation_request']['advanced_params']['story_commerce_media']??[]);$media=!empty($p['preview']['file_id'])?Media::adminAsset($owner,(array)$p['preview'],20):$previous;if(!$media)throw new InvalidArgumentException('请添加真实预览作品');Media::verify($owner,$media,20);
@@ -53,7 +53,7 @@ final class StoryCommerceTemplates
     public static function remix(int $t,int $u,int $id): array {
         StoryCommerceService::available($t,$u);$r=self::row($t,$id,true);$b=self::stored($r);$owner=(int)$r['tenant_id'];
         foreach($b['images'] as &$image)$image=Media::grant($t,$u,$owner,$image,10);unset($image);
-        if($owner!==$t){$b['style_id']='';$b['custom_style']=trim(($b['style_snapshot']['name']??'')."\n".($b['style_snapshot']['prompt']??''));$b['story_type']='custom';$b['custom_story']=$b['genre_snapshot']['instruction']??'';}
+        $b=StoryCommerceService::historicalBody($t,$b);
         return StoryCommerceService::save($t,$u,['body'=>$b,'confirm_script'=>true]);
     }
     public static function status(int $s,int $id,int $v): void {$r=self::row($s,$id);self::writable($s,$r);AppCaseService::setStatus((int)$r['tenant_id'],StoryCommercePolicy::APP,$id,$v===1?1:0);}

@@ -60,5 +60,19 @@ final class StoryCommerceService
         return Db::transaction(static function()use($t,$u,$p,$b){$id=(int)($p['id']??0);$v=['body_json'=>StoryCommercePolicy::encode($b),'update_time'=>time()];if($id){$old=self::owned($t,$u,$id,true);if((int)($p['revision']??0)!==(int)$old['revision'])throw new InvalidArgumentException('草稿已更新，请刷新后继续');self::table('project')->where('id',$id)->update($v+['revision'=>(int)$old['revision']+1]);}else $id=self::table('project')->insertGetId($v+['tenant_id'=>$t,'user_id'=>$u,'revision'=>1,'create_time'=>time()]);return self::projectDto(self::owned($t,$u,$id));});
     }
     public static function adopt(int $t,int $u,array $p): array {return Db::transaction(static function()use($t,$u,$p){$j=StoryCommerceJobs::owned($t,$u,(int)($p['job_id']??0));$r=self::owned($t,$u,(int)$j['project_id'],true);if($j['action']!=='analysis'||$j['status']!=='success')throw new InvalidArgumentException('分析完成后才能回填');if((int)$r['revision']!==(int)($p['revision']??0)||(int)$r['revision']!==(int)$j['project_revision'])throw new InvalidArgumentException('草稿已有修改，分析结果已保留');$b=StoryCommercePolicy::json($r['body_json']);$result=StoryCommercePolicy::json($j['result_json']);$b['product_info']=$result['product_info'];$b['script']=$result['script'];$b['script_input_key']=StoryCommercePolicy::inputKey($b);self::table('project')->where('id',$r['id'])->update(['body_json'=>StoryCommercePolicy::encode($b),'revision'=>$r['revision']+1,'update_time'=>time()]);return self::projectDto(self::owned($t,$u,(int)$r['id']));});}
-    public static function fromJob(int $t,int $u,int $id,bool $includeResult=false): array {$j=StoryCommerceJobs::owned($t,$u,$id);if(in_array($j['status'],['queued','running','unknown'],true))throw new InvalidArgumentException('任务状态待核对，暂不可重新编辑');$b=StoryCommercePolicy::json($j['request_json'])['snapshot']??[];if($includeResult&&$j['action']==='analysis'&&$j['status']==='success'){$result=StoryCommercePolicy::json($j['result_json']);$b['product_info']=$result['product_info'];$b['script']=$result['script'];}return self::save($t,$u,['body'=>$b,'confirm_script'=>$j['action']==='video'||$includeResult]);}
+    /** Historical copies retain the approved creative rules if a library entry later changes. */
+    public static function historicalBody(int $tenant,array $body): array
+    {
+        $oldGenre=$body['genre_snapshot']??[];$oldStyle=$body['style_snapshot']??[];
+        try{$current=self::genre($tenant,$body);}catch(\InvalidArgumentException){$current=[];}
+        if(($current['name']??'')!==($oldGenre['name']??'')||($current['instruction']??'')!==($oldGenre['instruction']??'')){
+            $body['story_type']='custom';$body['custom_story']=trim(($oldGenre['name']??'')."\n".($oldGenre['instruction']??''));
+        }
+        try{$current=StoryCommerceCatalog::style($tenant,$body);}catch(\InvalidArgumentException){$current=[];}
+        if(($current['name']??'')!==($oldStyle['name']??'')||($current['prompt']??'')!==($oldStyle['prompt']??'')){
+            $body['style_id']='';$body['custom_style']=trim(($oldStyle['name']??'')."\n".($oldStyle['prompt']??''));
+        }
+        return $body;
+    }
+    public static function fromJob(int $t,int $u,int $id,bool $includeResult=false): array {$j=StoryCommerceJobs::owned($t,$u,$id);if(in_array($j['status'],['queued','running','unknown'],true))throw new InvalidArgumentException('任务状态待核对，暂不可重新编辑');$b=StoryCommercePolicy::json($j['request_json'])['snapshot']??[];if($includeResult&&$j['action']==='analysis'&&$j['status']==='success'){$result=StoryCommercePolicy::json($j['result_json']);$b['product_info']=$result['product_info'];$b['script']=$result['script'];}return self::save($t,$u,['body'=>self::historicalBody($t,$b),'confirm_script'=>$j['action']==='video'||$includeResult]);}
 }
