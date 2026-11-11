@@ -13,7 +13,7 @@ final class StoryCommercePolicy
     public static function body(array $p): array {
         $images=$p['images']??[];if(!is_array($images)||count($images)>15)throw new InvalidArgumentException('商品图片数量不正确');
         return ['images'=>$images,'product_info'=>self::text($p['product_info']??'',3000),'requirements'=>self::text($p['requirements']??'',2000),
-            'story_type'=>self::text($p['story_type']??'comedy',80),'custom_story'=>self::text($p['custom_story']??'',1000),
+            'story_type'=>self::text($p['story_type']??'comedy',80),'custom_story'=>self::text($p['custom_story']??'',3000),
             'style_id'=>self::text($p['style_id']??'',80),'custom_style'=>($p['style_id']??'')===self::NO_STYLE?'':self::text($p['custom_style']??'',500),
             'language'=>self::text($p['language']??'中文',60),'market_region'=>self::text($p['market_region']??'',100),
             'audio'=>isset($p['audio'])?filter_var($p['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,

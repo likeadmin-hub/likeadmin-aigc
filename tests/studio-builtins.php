@@ -25,6 +25,7 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
     $video=['uri'=>$prefix.'.mp4','name'=>'reviewed motion']+$coords;$preview=['uri'=>$prefix.'_preview.mp4']+$coords;
     $receipts=[];foreach([[$image,10],[$video,20],[$preview,20]] as [$asset,$type])$receipts[$asset['uri']]=Db::name('tenant_file')->insertGetId(['tenant_id'=>1,'source'=>1,'source_id'=>1,'type'=>$type,'name'=>'reviewed fixture','uri'=>$asset['uri'],'create_time'=>$now,'update_time'=>$now,'delete_time'=>0]+$coords);
     $model=SC::models(1)[0];$model=SC::models(1,(string)$model['id'])[0];$spec=$model['specs'][0];
+    $longRule=str_repeat('保持剧情因果。',180);$genres=S::settings(1)['genres'];foreach($genres as &$g)if($g['code']==='comedy')$g['instruction']=$longRule;unset($g);S::setup(1,['genres'=>$genres]);
     $body=P::body(['images'=>[$image],'style_id'=>P::NO_STYLE,'product_info'=>'已确认的商品','requirements'=>'胶片质感','script'=>'胶片风格，围绕 @图片1 讲述一个小误会。','video_selection'=>['model_id'=>$model['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$spec['duration']]]);
     $project=S::save(1,1,['body'=>$body,'confirm_script'=>true]);$body=P::json(S::owned(1,1,$project['id'])['body_json']);
     $storyJob=S::table('job')->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$project['id'],'project_revision'=>1,'action'=>'video','status'=>'success','idempotency_key'=>'story_builtin_'.bin2hex(random_bytes(10)),'input_hash'=>str_repeat('a',64),'request_json'=>P::encode(['snapshot'=>$body]),'receipt_json'=>'{}','result_json'=>P::encode(['videos'=>[$preview+['video_uri'=>$preview['uri']]]]),'create_time'=>$now,'update_time'=>$now]);
@@ -55,6 +56,7 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
         rejects(fn()=>$templates::save($target,['id'=>$id,'title'=>'租户不能改内置']),'Tenant cannot maintain a platform definition');
         rejects(fn()=>AppCaseService::setStatus(0,$app,$id,0),'Generic case manager cannot bypass source versioning');
         $copy=$templates::remix($target,$user,$id);check($copy['id']>0,'Other tenant receives an independent draft');
+        if($app===S::APP)check(str_contains($copy['body']['genre_snapshot']['instruction'],$longRule),'A different site retains the full configured narrative rule instead of truncating it');
         $draftService=$app===M::APP?M::class:S::class;
         $resaved=$draftService::save($target,$user,['id'=>$copy['id'],'revision'=>$copy['revision'],'body'=>$copy['body'],'confirm_script'=>true]);
         check($resaved['revision']===$copy['revision']+1,'Redacted PC/mobile draft round-trips without source-site file IDs');
