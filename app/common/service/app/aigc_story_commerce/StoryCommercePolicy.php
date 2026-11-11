@@ -12,7 +12,7 @@ final class StoryCommercePolicy
     public static function hash(array $v): string { $sort=static function($x)use(&$sort){if(!is_array($x))return $x;if(!array_is_list($x))ksort($x);return array_map($sort,$x);};return hash('sha256',self::encode($sort($v))); }
     public static function body(array $p): array {
         $images=$p['images']??[];if(!is_array($images)||count($images)>15)throw new InvalidArgumentException('商品图片数量不正确');
-        return ['images'=>$images,'product_info'=>self::text($p['product_info']??'',3000),'requirements'=>self::text($p['requirements']??'',2000),
+        return ['images'=>$images,'product_info'=>self::productInfo($p['product_info']??''),'product_observations'=>self::text($p['product_observations']??'',3000),'requirements'=>self::text($p['requirements']??'',2000),
             'story_type'=>self::text($p['story_type']??'comedy',80),'custom_story'=>self::text($p['custom_story']??'',3000),
             'style_id'=>self::text($p['style_id']??'',80),'custom_style'=>($p['style_id']??'')===self::NO_STYLE?'':self::text($p['custom_style']??'',500),
             'language'=>self::text($p['language']??'中文',60),'market_region'=>self::text($p['market_region']??'',100),
@@ -20,8 +20,23 @@ final class StoryCommercePolicy
             'video_selection'=>(array)($p['video_selection']??[]),'script'=>is_string($p['script']??null)?self::text($p['script'],6000):(array)($p['script']??[]),
             'script_input_key'=>self::text($p['script_input_key']??'',64),'genre_snapshot'=>(array)($p['genre_snapshot']??[]),'style_snapshot'=>(array)($p['style_snapshot']??[])];
     }
+    /** User-confirmed wording is retained verbatim, including line breaks and surrounding whitespace. */
+    private static function productInfo($value): string
+    {
+        self::text($value,3000);
+        if(mb_strlen((string)$value)>3000)throw new InvalidArgumentException('商品名称和卖点超过长度限制');
+        return (string)$value;
+    }
+    /** Old accepted analyses used product_info for AI text. Read it as a supplement only. */
+    public static function analysisObservations(array $result): string
+    {
+        if(array_key_exists('product_observations',$result))return self::text($result['product_observations'],3000);
+        if(array_key_exists('product_info',$result))return self::text($result['product_info'],3000);
+        throw new InvalidArgumentException('分析未返回商品识别补充');
+    }
     public static function inputKey(array $b): string {
         $v=array_intersect_key($b,array_flip(['product_info','requirements','story_type','custom_story','style_id','custom_style','genre_snapshot','style_snapshot','language','market_region','audio','video_selection']));
+        if(($b['product_observations']??'')!=='')$v['product_observations']=$b['product_observations'];
         $v['images']=array_map(static fn($i)=>array_intersect_key($i,array_flip(['uri','reference_slot_id','role'])), $b['images']);return self::hash($v);
     }
     public static function script(array $p,int $duration,array $body): array {
@@ -63,7 +78,8 @@ final class StoryCommercePolicy
         if(($b['script_input_key']??'')!==self::inputKey($b))throw new InvalidArgumentException('创作条件已变化，请重新分析或确认已修改的脚本');
         $s=self::scriptValue($b['script'],(int)($b['video_selection']['duration']??0),$b);
         $lines=['根据已确认商品素材创作剧情带货短片。商品外观、结构、配色、标识、用途与已确认事实保持一致；不编造功效、价格、认证和未展示的结构。',
-            '商品事实：'.$b['product_info'],'剧情类型：'.($b['genre_snapshot']['name']??''),'剧情规则：'.($b['genre_snapshot']['instruction']??''),
+            '用户填写的商品名称和已确认卖点（优先采用，保持原意）：'.$b['product_info'],
+            'AI 图片识别补充（仅作图片可见特征参考，不替代用户确认信息；冲突时采用用户确认信息，不扩展未知功效）：'.($b['product_observations']??''),'剧情类型：'.($b['genre_snapshot']['name']??''),'剧情规则：'.($b['genre_snapshot']['instruction']??''),
             ($b['style_id']??'')===self::NO_STYLE
                 ?'画面风格：未指定预设。遵循已确认脚本和用户补充要求中的风格描述；未描述时，根据剧情与商品自行设计连贯一致的视觉风格。'
                 :'统一画面风格：'.($b['style_snapshot']['name']??'').'；'.($b['style_snapshot']['prompt']??''),

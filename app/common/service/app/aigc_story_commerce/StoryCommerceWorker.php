@@ -114,8 +114,8 @@ final class StoryCommerceWorker
         if($row['action']==='video'){if(empty($receipt['videos']))throw new RuntimeException('视频尚未完成入库');return ['videos'=>$receipt['videos']];}
         $r=StoryCommercePolicy::json($row['request_json']);$text=trim((string)($receipt['content']??''));$text=preg_replace('/^```(?:json)?\s*|\s*```$/u','',$text);$data=json_decode($text,true,64,JSON_THROW_ON_ERROR);
         if(!is_array($data)||array_is_list($data))throw new RuntimeException('剧情分析返回格式不正确');
-        $facts=StoryCommercePolicy::text($data['product_info']??'',3000);if($facts==='')throw new RuntimeException('分析未返回有效商品事实');
-        return ['product_info'=>$facts,'script'=>StoryCommercePolicy::script((array)($data['script']??[]),(int)$r['snapshot']['video_selection']['duration'],$r['snapshot'])];
+        $observations=StoryCommercePolicy::analysisObservations($data);
+        return ['product_observations'=>$observations,'script'=>StoryCommercePolicy::script((array)($data['script']??[]),(int)$r['snapshot']['video_selection']['duration'],$r['snapshot'])];
     }
     private static function finish(array $row,array $receipt,array $consumption): void
     {
