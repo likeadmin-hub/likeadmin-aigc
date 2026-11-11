@@ -18,6 +18,12 @@ try{
  $b=P::body(['images'=>[['uri'=>$uri,'reference_slot_id'=>'product_slot']],'product_info'=>'白色商品样本','requirements'=>'一次暖心误会','story_type'=>'comedy','style_id'=>(string)$styles[0]['id'],'language'=>'中文','market_region'=>'中国','video_selection'=>['model_id'=>(string)$m['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$seconds]]);
  $project=S::save(1,1,['body'=>$b]);scAssert($project['revision']===1,'Independent draft');scFails(fn()=>S::owned(2,1,$project['id']),'Tenant ownership');scFails(fn()=>S::owned(1,999999,$project['id']),'User ownership');scFails(fn()=>S::save(1,1,['id'=>$project['id'],'revision'=>0,'body'=>$b]),'Stale write');
  $bad=$b;$bad['style_id']='99999999999';scFails(fn()=>S::save(1,1,['body'=>$bad]),'Disabled or foreign styles');
+ if($m['max_reference_images']>1){
+   copy($dir.'/product.png',$dir.'/product2.png');$second=$folder.'/product2.png';Db::name('tenant_file')->insert(['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>10,'name'=>'story-commerce-second-image','uri'=>$second,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
+   $multi=$b;$multi['images'][]=['uri'=>$second,'reference_slot_id'=>'second_product_slot'];$multi['script']='依次展示 @图片1 和 @图片2，保持商品身份一致。';$multi=S::save(1,1,['body'=>$multi,'confirm_script'=>true]);
+   scAssert(count($multi['body']['images'])===2,'A multi-reference model must preserve both owned images');$multiSelection=C::selection(1,$multi['body']);scAssert($multiSelection['generation_method']!=='image_to_video','Multiple references must not be submitted as one first frame');
+   $multiQuote=J::estimate(1,1,['project_id'=>$multi['id'],'revision'=>$multi['revision'],'action'=>'video']);scAssert(isset($multiQuote['quote_token']),'Native admission must price the multi-image mode without a provider call');
+ }
  $args=['project_id'=>$project['id'],'revision'=>1,'action'=>'analysis'];$q=J::estimate(1,1,$args);scAssert($q['approximate']&&$q['user_charge_points']===null,'Analysis discloses actual-usage billing');
  // Admission checks use actual payer rates; all balance changes remain inside the rollback.
  foreach([['user','user_money'],['tenant','point_balance']] as [$table,$field]){
@@ -68,4 +74,4 @@ $queue=Db::name('ai_task_job')->where('idempotency_key','story_commerce:'.$vj['i
  T::save(1,['id'=>$template['id'],'configuration'=>$noneBody]);$noneRemix=T::remix(1,1,$template['id']);scAssert($noneRemix['script_fresh']&&$noneRemix['body']['style_id']===P::NO_STYLE&&$noneRemix['body']['custom_style']===''&&$noneRemix['body']['script']===$none['script'],'Templates preserve no style through historical copy and remix');
  S::setup(1,['default_style_id'=>P::NO_STYLE]);scAssert(S::config(1)['default_style_id']===P::NO_STYLE,'Tenant can explicitly default to no style');
  echo "PASS transactional draft ownership, native model quote, genre/style context, idempotency, queue dispatch, double-payer freeze/refund, stale adoption, historical template remix and asset integration; no provider called\n";
-}finally{Db::rollback();foreach(['product.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
+}finally{Db::rollback();foreach(['product.png','product2.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
