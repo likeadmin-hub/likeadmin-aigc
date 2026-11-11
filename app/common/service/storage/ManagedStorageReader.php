@@ -15,6 +15,11 @@ final class ManagedStorageReader
         if(!in_array($scope,['tenant','platform'],true)||!in_array($engine,['aliyun','qcloud','qiniu'],true)
             ||!str_starts_with($key,'uploads/')||str_contains($key,'//')||preg_match('~[\x00-\x20\x7f\\\\%?#:]|(?:^|/)\.\.?(/|$)~',$key)
             ||$maxBytes<=0||$maxBytes>268435456)throw new RuntimeException('托管素材身份无效');
+        if($scope==='platform'&&($public=\app\common\service\app\SharedInspirationMedia::url($key,$engine,(string)($receipt['storage_domain']??'')))){
+            $bytes=OpenSafeHttp::get($public,$maxBytes,$timeout)['body'];
+            if(!is_string($bytes)||$bytes===''||strlen($bytes)>$maxBytes)throw new RuntimeException('共享素材读取失败或超出限制');
+            return $bytes;
+        }
         $config=StorageConfigService::getStoredFileConfig($tenant,$scope,$engine);
         $storage=(array)($config['engine'][$engine]??[]);
         if(($config['scope']??'')!==$scope||($config['default']??'')!==$engine
