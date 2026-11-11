@@ -37,10 +37,6 @@ final class AppAvailabilityConfigService
         if ($queries) {
             foreach (Db::query(implode(' UNION ALL ', $queries), $bindings) as $row) {
                 $value = $row['switch_value'];
-                if ($row['app_code'] === 'aigc_micro_video') {
-                    $config = json_decode((string)$value, true);
-                    $value = is_array($config) && array_key_exists('status', $config) ? $config['status'] : 1;
-                }
                 if ((int)$value !== 1) $closed[] = $row['app_code'];
             }
         }
@@ -54,7 +50,6 @@ final class AppAvailabilityConfigService
         $prefix = (string)($connection['prefix'] ?? '');
         $sources = [];
         foreach (self::STATUS_APPS as $code) $sources[$code] = [$prefix.$code.'_config', 'status'];
-        $sources['aigc_micro_video'] = [$prefix.'aigc_micro_video_config', 'config_json'];
         $tables = array_column($sources, 0);
         $columns = Db::query('SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('.implode(',', array_fill(0, count($tables), '?')).') AND COLUMN_NAME IN (\'status\',\'config_json\')', $tables);
         $present = [];

@@ -24,7 +24,6 @@ class AppAccessService
     public const DEFAULT_AIGC_APP_CODES = [
         'aigc_image',
         'aigc_video',
-        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_pic_lipsync',
         'aigc_canvas',
@@ -40,7 +39,6 @@ class AppAccessService
         'aigc_copywriting',
         'aigc_image',
         'aigc_video',
-        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_pic_lipsync',
         'aigc_canvas',
@@ -100,6 +98,7 @@ class AppAccessService
 
     public static function tenantCanManage(int $tenantId, string $appCode): bool
     {
+        if (RetiredAppService::contains($appCode)) return false;
         if ($tenantId > 0 && self::isDefaultApp($appCode)
             && App::where('code', $appCode)->whereIn('status', [AppRegistryService::STATUS_INSTALLED, AppRegistryService::STATUS_DISABLED])->count() > 0) {
             return true;
@@ -109,6 +108,7 @@ class AppAccessService
 
     public static function tenantCanUse(int $tenantId, string $appCode, bool $initialize = true): bool
     {
+        if (RetiredAppService::contains($appCode)) return false;
         if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
             if ($initialize) DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
         }
@@ -159,7 +159,7 @@ class AppAccessService
         $installedApps = App::whereIn('status', $requireShelf
             ? [AppRegistryService::STATUS_INSTALLED]
             : [AppRegistryService::STATUS_INSTALLED, AppRegistryService::STATUS_DISABLED])->column('*', 'code');
-        $installed = array_keys($installedApps);
+        $installed = array_values(array_diff(array_keys($installedApps),RetiredAppService::CODES));
         if (empty($installed)) {
             return [];
         }

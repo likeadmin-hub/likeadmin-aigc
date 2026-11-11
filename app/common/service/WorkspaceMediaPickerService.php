@@ -176,7 +176,7 @@ final class WorkspaceMediaPickerService
             if ($source==='product_promo_video') $spec['alias']="CONCAT('video:result:',r.video_result_id)";
             $sources[$stream]=$spec;
         }
-        if (in_array('video',$types,true) && (in_array('aigc_micro_video',$enabled,true) || in_array('micro_video:task',$saved,true))) {
+        if (in_array('video',$types,true) && (in_array('aigc_micro_video',$enabled,true) || in_array('micro_video:task',$saved,true)) && \app\common\service\app\RetiredAppService::historyAvailable()) {
             $sources['micro_video:task']=['table'=>'aigc_micro_video_task','type'=>"'video'",'name'=>'r.title','uri'=>'r.result_uri','cover'=>'r.cover_uri',
                 'where'=>"r.status='success'",'saved'=>!in_array('aigc_micro_video',$enabled,true)];
         }

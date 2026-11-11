@@ -39,6 +39,7 @@ final class WorkspaceAssetService
         foreach ($refs as $ref) {
             if (!is_string($ref) || !preg_match('/^(?:[a-z_]+:(result|task):[1-9][0-9]{0,10}|(?:canvas|product_video|story_commerce):task:[1-9][0-9]{0,10}:[1-9][0-9]{0,4})$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
             [$source, $kind] = explode(':', $ref);
+            if($source==='micro_video'&&!\app\common\service\app\RetiredAppService::historyAvailable())throw new InvalidArgumentException('历史作品不存在');
             if ($source !== 'upload' && !isset(self::SOURCES[$source]) && !isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产标识无效');
             if ($source === 'canvas' && $kind === 'task' && count(explode(':', $ref)) !== 4) throw new InvalidArgumentException('资产标识无效');
             if (in_array($source,['product_video','story_commerce'],true) && ($kind !== 'task' || count(explode(':',$ref)) !== 4)) throw new InvalidArgumentException('资产标识无效');

@@ -133,6 +133,7 @@ class AppRegistryService
 
     public static function getManifest(string $appCode): array
     {
+        RetiredAppService::assertActive($appCode);
         $path = self::manifestPath($appCode);
         if (!is_file($path)) {
             throw new RuntimeException('应用清单不存在: ' . $appCode);
@@ -381,6 +382,7 @@ class AppRegistryService
 
     public static function setStatus(string $appCode, string $status): void
     {
+        RetiredAppService::assertActive($appCode);
         AppAccessStateService::withSwitchLock(fn() => self::saveStatus($appCode, $status));
     }
 
@@ -414,6 +416,7 @@ class AppRegistryService
 
     private static function uninstallLocked(string $appCode, bool $clearData): void
     {
+        RetiredAppService::assertActive($appCode);
         self::assertValidCode($appCode);
         self::assertNotBuiltin($appCode);
         $app = App::where('code', $appCode)->findOrEmpty();
@@ -1091,11 +1094,6 @@ class AppRegistryService
             AigcProductMultiAngleView::where('id', '>', 0)->delete();
             AigcProductMultiAngleTask::where('id', '>', 0)->delete();
             AigcProductMultiAngleResult::where('id', '>', 0)->delete();
-        }
-        if ($appCode === 'aigc_micro_video') {
-            foreach (['attempt', 'segment', 'task', 'direction', 'config'] as $suffix) {
-                Db::name('aigc_micro_video_' . $suffix)->where('id', '>', 0)->delete();
-            }
         }
         if ($appCode === 'aigc_product_promo_video') {
             AigcProductPromoVideoConfig::where('id', '>', 0)->delete();

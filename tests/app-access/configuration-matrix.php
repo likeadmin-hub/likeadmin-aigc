@@ -9,7 +9,7 @@ $configApps = [
  'aigc_one_click_cleanup','aigc_product_multi_angle','aigc_product_promo_video','aigc_action_transfer',
  'aigc_outpaint','aigc_product_suite','aigc_local_redraw','aigc_person_replacement','aigc_short_drama',
  'aigc_background_removal','aigc_fashion_lookbook','aigc_geo','aigc_model_wear','aigc_music',
- 'aigc_music_cover','aigc_watermark_removal','aigc_pic_lipsync','image_human','smart_clip','aigc_micro_video',
+ 'aigc_music_cover','aigc_watermark_removal','aigc_pic_lipsync','image_human','smart_clip',
 ];
 foreach ($configApps as $code) {
  $table=$code.'_config';
@@ -83,17 +83,7 @@ foreach($allConfigCodes as $code) {
   check(Access::tenantCanUse(9101,$code,false),'service reopen stale '.$scope.'/'.$code);
  }
 }
-// JSON is the micro-video service's actual source; unrelated nested fields are not switches.
-foreach([0, '0', false, null] as $status) {
- Db::name('aigc_micro_video_config')->insert(['tenant_id'=>9101,'config_json'=>json_encode(['status'=>$status])]);
- check(!Access::tenantCanUse(9101,'aigc_micro_video',false),'JSON closed value bypassed '.json_encode($status));
- Db::name('aigc_micro_video_config')->where('tenant_id',9101)->delete();
-}
-foreach(['{}','{"max_images":12}','invalid-json','{"status":1}'] as $json) {
- Db::name('aigc_micro_video_config')->insert(['tenant_id'=>9101,'config_json'=>$json]);
- check(Access::tenantCanUse(9101,'aigc_micro_video',false),'JSON owning default changed '.$json);
- Db::name('aigc_micro_video_config')->where('tenant_id',9101)->delete();
-}
+check(!Access::tenantCanUse(9101,'aigc_micro_video',false),'Retired tool cannot be admitted');
 Db::name('aigc_image_config')->insert(['tenant_id'=>9101,'status'=>1,'config_json'=>'{"status":0}']);
 check(Access::tenantCanUse(9101,'aigc_image',false),'unowned nested status treated as app switch');
 Db::name('aigc_image_config')->where('tenant_id',9101)->delete();

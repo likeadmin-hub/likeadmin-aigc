@@ -18,6 +18,10 @@ class SqlMigrationExecutor
         bool $ignoreDuplicateColumn = true,
         string $prefixStyle = 'mysql'
     ): void {
+        if (preg_match('/^-- likeadmin:retire-micro-video-v1\s*$/m', $content)) {
+            \app\common\service\app\RetiredAppService::apply($prefix, $connection);
+            return;
+        }
         if (preg_match('/^-- likeadmin:seed-builtin-distribution-posters-v1\s*$/m', $content)) {
             \app\common\service\distribution\BuiltinPosterService::migrate($prefix, $connection);
             return;
@@ -32,13 +36,7 @@ class SqlMigrationExecutor
         }
         if (!class_exists(CanvasConversationSchema::class)) require_once __DIR__.'/CanvasConversationSchema.php';
         $content = CanvasConversationSchema::expand($content);
-        if (!class_exists(MicroVideoFrameSchema::class)) require_once __DIR__.'/MicroVideoFrameSchema.php';
-        $content = MicroVideoFrameSchema::expand($content);
         foreach (self::split($content) as $sql) {
-            if (MicroVideoFrameSchema::isOwnerSql($sql)) {
-                MicroVideoFrameSchema::ensureOwner($prefix, $connection);
-                continue;
-            }
             if (CanvasConversationSchema::isOwnerSql($sql)) {
                 CanvasConversationSchema::ensureOwner($prefix, $connection);
                 continue;

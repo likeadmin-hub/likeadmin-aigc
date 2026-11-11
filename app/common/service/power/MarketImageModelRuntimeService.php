@@ -588,13 +588,13 @@ class MarketImageModelRuntimeService
      *
      * @return array{response:array<string,mixed>,attempts:int}
      */
-    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false,bool $microVideo = false): array
+    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false,bool $durableSubmission = false): array
     {
         $attempt = 0;
         while ($attempt < self::SUBMIT_MAX_ATTEMPTS) {
             $attempt++;
             try {
-                return ['response' => $microVideo?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
+                return ['response' => $durableSubmission?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
                 MarketProviderReceipt::record($consumptionId,(int)$e->getCode(),$e->receipt());
                 if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;

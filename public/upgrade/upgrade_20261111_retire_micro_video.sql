@@ -1,0 +1,2 @@
+-- likeadmin:retire-micro-video-v1
+-- Disable this retired product only; keep business history, billing ledgers and managed assets.

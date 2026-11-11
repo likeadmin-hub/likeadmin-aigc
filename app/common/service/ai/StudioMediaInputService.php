@@ -4,8 +4,6 @@ declare(strict_types=1);
 namespace app\common\service\ai;
 
 use app\common\enum\FileEnum;
-use app\common\service\app\aigc_image\AigcImageAssetService;
-use app\common\service\app\aigc_video\AigcVideoAssetService;
 use app\common\service\FileService;
 use app\common\service\open_platform\OpenSafeHttp;
 use app\common\service\storage\StorageConfigService;
@@ -66,22 +64,6 @@ final class StudioMediaInputService
                 ? self::imageData(self::localPath($fresh['uri'])) : $fresh['url'];
         }
         return $result;
-    }
-
-    public static function persistSegment(int $tenant, int $user, string $uri, int $taskId, int $segmentId): array
-    {
-        if ($tenant <= 0 || $user <= 0 || $taskId <= 0 || $segmentId <= 0) throw new RuntimeException('视频片段身份无效');
-        $workspace = self::workspace();
-        try {
-            $source = $workspace . '/source.mp4';
-            self::materialize($uri, $source, $tenant, $user);
-            $media = self::probe($source);
-            $stored = self::persistVideo($source, $tenant, $user);
-            return [
-                'video_uri' => $stored['uri'], 'video_url' => self::managedUrl($stored['uri'], $stored, $tenant),
-                'duration' => $media['duration'], 'width' => $media['width'], 'height' => $media['height'],
-            ] + self::storageFields($stored);
-        } finally { self::cleanup($workspace); }
     }
 
     /** Reusable owned video input; browser supplied metadata never authorizes media. */
@@ -156,47 +138,6 @@ final class StudioMediaInputService
             $encoded = base64_encode(file_get_contents($output));
             if (strlen($encoded) >= 10000000) throw new RuntimeException('参考视频过大，请缩短后再分析');
             return 'data:video/mp4;base64,'.$encoded;
-        } finally { self::cleanup($workspace); }
-    }
-
-    public static function merge(array $task, array $segments): array
-    {
-        $tenant = (int)($task['tenant_id'] ?? 0); $user = (int)($task['user_id'] ?? 0);
-        if ($tenant <= 0 || $user <= 0 || !$segments) throw new RuntimeException('待合并视频片段无效');
-        usort($segments, static fn(array $a, array $b): int => (int)($a['sort'] ?? 0) <=> (int)($b['sort'] ?? 0));
-        $workspace = self::workspace();
-        try {
-            $inputs = []; $sharedBoundaries = [];
-            foreach ($segments as $index => $segment) {
-                if (isset($segment['status']) && $segment['status'] !== 'success') throw new RuntimeException('仅成功片段可以合并');
-                if (isset($segment['task_id']) && (int)$segment['task_id'] !== (int)($task['id'] ?? 0)) throw new RuntimeException('视频片段不属于当前任务');
-                $uri = self::canonicalUri((string)($segment['video_uri'] ?? ''));
-                $file = self::ownedFile($tenant, $user, $uri, FileEnum::VIDEO_TYPE);
-                $storage = self::storage($file, $tenant);
-                foreach (array_keys(self::storageFields($storage)) as $key) {
-                    if (isset($segment[$key]) && (string)$segment[$key] !== $storage[$key]) throw new RuntimeException('视频片段存储信息已变化');
-                }
-                $source = $workspace . '/source-' . $index . '.mp4';
-                self::materialize($storage['storage_engine'] === 'local' ? $uri : self::managedUrl($uri, $storage, $tenant), $source, $tenant, $user);
-                $inputs[] = $source;
-                if ($index > 0 && ($task['generation_mode'] ?? '') === 'start_end') {
-                    $anchor = (int)($segment['first_frame_id'] ?? 0);
-                    $sharedBoundaries[$index] = $anchor > 0 && $anchor === (int)($segments[$index - 1]['last_frame_id'] ?? 0);
-                }
-            }
-            $merged = self::concatLocal($inputs, $workspace, $sharedBoundaries);
-            $poster = $workspace . '/poster.jpg';
-            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-i', $merged['path'], '-frames:v', '1', '-q:v', '2', $poster], 90);
-            if (!is_file($poster) || !@getimagesize($poster)) throw new RuntimeException('视频封面生成失败');
-            // Publish only fully validated media. The caller marks the task successful after both uploads.
-            $stored = self::persistVideo($merged['path'], $tenant, $user);
-            $cover = AigcImageAssetService::persistGeneratedImage('data:image/jpeg;base64,' . base64_encode((string)file_get_contents($poster)), $tenant, $user);
-            if (empty($cover['stored'])) throw new RuntimeException('视频封面持久化失败');
-            return [
-                'uri' => $stored['uri'], 'url' => self::managedUrl($stored['uri'], $stored, $tenant),
-                'cover_uri' => $cover['uri'], 'cover_url' => self::managedUrl($cover['uri'], $cover, $tenant),
-                'duration' => $merged['duration'], 'width' => $merged['width'], 'height' => $merged['height'],
-            ] + self::storageFields($stored);
         } finally { self::cleanup($workspace); }
     }
 
@@ -356,69 +297,6 @@ final class StudioMediaInputService
         if ($bytes === '' || strlen($bytes) > self::MAX_VIDEO_BYTES || file_put_contents($target, $bytes) !== strlen($bytes)) throw new RuntimeException('视频片段下载失败或过大');
     }
 
-    private static function persistVideo(string $path, int $tenant, int $user): array
-    {
-        if (filesize($path) > self::MAX_VIDEO_BYTES) throw new RuntimeException('视频文件超过存储限制');
-        $stored = AigcVideoAssetService::persistGeneratedVideoFile($path, $tenant, $user);
-        if (empty($stored['stored']) || empty($stored['uri'])) throw new RuntimeException('视频持久化失败');
-        return $stored;
-    }
-
-    /** Only shared-anchor repeated prefixes may be removed. Never speed up or pad footage. */
-    private static function concatLocal(array $inputs, string $workspace, array $sharedBoundaries = []): array
-    {
-        if (!$inputs) throw new RuntimeException('没有可合并的视频片段');
-        $ffmpeg = self::binary('ffmpeg'); $normalized = []; $expected = 0.0; $removed = 0.0; $width = 0; $height = 0;
-        foreach ($inputs as $index => $input) {
-            $probe = self::probe($input);
-            $trimFrames = $index > 0 && !empty($sharedBoundaries[$index]) ? self::repeatedBoundaryFrames($inputs[$index - 1], $input) : 0;
-            $trimSeconds = $trimFrames / 30; $removed += $trimSeconds; $expected += $probe['duration'] - $trimSeconds;
-            if ($index === 0) { $width = max(2, (int)(round($probe['width'] / 2) * 2)); $height = max(2, (int)(round($probe['height'] / 2) * 2)); }
-            $path = $workspace . '/normalized-' . $index . '.mp4';
-            $command = [$ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-i', $input];
-            if (!$probe['has_audio']) {
-                // A silent transport track preserves the next clip's audio start on a mixed timeline.
-                $command = array_merge($command, ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo:d=' . sprintf('%.9F', $probe['video_duration'])]);
-            }
-            $command = array_merge($command, ['-map', '0:v:0', '-map', $probe['has_audio'] ? '0:a:0' : '1:a:0',
-                '-vf', 'scale=' . $width . ':' . $height . ':flags=lanczos,setsar=1,fps=30' . ($trimFrames ? ',trim=start_frame=' . $trimFrames : '') . ',setpts=PTS-STARTPTS',
-                '-af', ($trimFrames ? 'atrim=start=' . sprintf('%.9F', $trimSeconds) . ',' : '') . 'aresample=48000:async=0,asetpts=PTS-STARTPTS', '-r', '30', '-fps_mode', 'cfr',
-                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-video_track_timescale', '90000',
-                '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', $path]);
-            self::run($command, 900);
-            self::probe($path);
-            $normalized[] = "file '" . basename($path) . "'";
-        }
-        $list = $workspace . '/concat.txt';
-        if (file_put_contents($list, implode("\n", $normalized) . "\n") === false) throw new RuntimeException('合并清单写入失败');
-        $partial = $workspace . '/merged.partial.mp4';
-        self::run([$ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', $list, '-map', '0:v:0', '-map', '0:a:0', '-c', 'copy', '-movflags', '+faststart', $partial], 900);
-        $final = self::probe($partial);
-        if (!str_contains($final['format'], 'mp4') || abs($final['duration'] - $expected) > max(0.3, count($inputs) * 0.12)) throw new RuntimeException('合并视频时长校验失败');
-        $path = $workspace . '/merged.mp4';
-        if (!rename($partial, $path)) throw new RuntimeException('合并视频发布失败');
-        return ['path' => $path, 'deduplicated_duration' => $removed] + $final;
-    }
-
-    private static function repeatedBoundaryFrames(string $previous, string $next): int
-    {
-        // Inspect only 0.25 seconds at the join, never deduplicate the whole movie.
-        $before = self::probe($previous); $after = self::probe($next);
-        if ($before['video_duration'] < 0.5 || $after['video_duration'] < 0.5) return 0;
-        $ffmpeg = self::binary('ffmpeg'); $filter = 'scale=96:54:flags=area,format=gray,fps=30'; $bytes = 96 * 54;
-        $tail = self::run([$ffmpeg, '-v', 'error', '-ss', sprintf('%.9F', max(0, $before['video_duration'] - 0.5)), '-i', $previous, '-an', '-vf', $filter, '-f', 'rawvideo', 'pipe:1'], 60);
-        $head = self::run([$ffmpeg, '-v', 'error', '-i', $next, '-t', '0.25', '-an', '-vf', $filter, '-f', 'rawvideo', 'pipe:1'], 60);
-        if (strlen($tail) < $bytes || strlen($tail) % $bytes !== 0 || strlen($head) % $bytes !== 0) throw new RuntimeException('衔接画面检查失败');
-        $last = substr($tail, -$bytes); $count = 0;
-        for ($frame = 0; $frame < min(7, intdiv(strlen($head), $bytes)); $frame++) {
-            $difference = 0; $changed = 0; $offset = $frame * $bytes;
-            for ($pixel = 0; $pixel < $bytes; $pixel++) { $delta = abs(ord($last[$pixel]) - ord($head[$offset + $pixel])); $difference += $delta; if ($delta > 8) $changed++; }
-            if ($difference / $bytes > 2 || $changed / $bytes > 0.01) break;
-            $count++;
-        }
-        return $count;
-    }
-
     private static function probe(string $path): array
     {
         $output = self::run([self::binary('ffprobe'), '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_streams', '-show_format', '-of', 'json', $path], 60);
@@ -434,7 +312,7 @@ final class StudioMediaInputService
 
     private static function binary(string $name): string
     {
-        $configured = getenv('MICRO_VIDEO_' . strtoupper($name));
+        $configured = getenv('STUDIO_MEDIA_' . strtoupper($name)) ?: getenv('MICRO_VIDEO_' . strtoupper($name));
         $binary = \app\common\service\MediaBinaryService::resolve($name, $configured ? [$configured] : []);
         if ($binary !== '') return $binary;
         throw new RuntimeException('未找到视频处理程序：' . $name);

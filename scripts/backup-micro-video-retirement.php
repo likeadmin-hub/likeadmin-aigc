@@ -18,5 +18,13 @@ Db::startTrans();try{
  $splits=Db::query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME LIKE ?',[$db,$prefix.'tenant_system_menu_%']);foreach($splits as $row){$table=$row['TABLE_NAME'];if(preg_match('/^[a-zA-Z0-9_]+$/',$table))$save($table,Db::table($table)->where(['app_code'=>'aigc_micro_video','source'=>'app'])->select()->toArray());}
  Db::rollback();
 }catch(Throwable $e){Db::rollback();throw $e;}
+// Preserve permission assignments for the app-owned menus removed during retirement.
+foreach(array_keys($manifest['files']) as $menu){
+ if(!str_contains($menu,'system_menu'))continue;
+ $rows=json_decode((string)file_get_contents($destination.'/'.$menu.'.json'),true,512,JSON_THROW_ON_ERROR);$ids=array_column($rows,'id');if(!$ids)continue;
+ $role=str_replace('system_menu','system_role_menu',$menu);
+ $present=Db::query('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=?',[$role,'menu_id']);
+ if($present)$save($role,Db::table($role)->whereIn('menu_id',$ids)->select()->toArray());
+}
 file_put_contents($destination.'/manifest.json',json_encode($manifest,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));chmod($destination.'/manifest.json',0600);
 echo json_encode(['backup'=>$destination,'tables'=>count($manifest['files']),'rows'=>array_sum(array_column($manifest['files'],'rows'))],JSON_UNESCAPED_UNICODE).PHP_EOL;

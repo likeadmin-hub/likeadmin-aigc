@@ -28,69 +28,6 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
     $same=$post('aigc_digital_human.generate/index',$form);$check($same['task_id']===$id,'TTS duplicate resubmitted');
     $report['avatar_text']=['normal_http_tts_query_audio_storage_lipsync_worker_result'=>true,'same_body_no_second_tts'=>true,'history_detail_preserves_text_and_voice'=>true];
 
-    $report['phase']='micro_planning';
-    [$text]=$product('vision','text','synthetic-text',['supports_vision'=>true,'protocol'=>'openai_chat','max_output_tokens'=>8000,'context_window'=>64000],[],'token');
-    think\facade\Db::name('power_market_sku')->where('product_id',$text)->update(['usage_unit_size'=>1000]);
-    $modes=[['code'=>'reference_to_video','method'=>'image_reference','fields'=>[['field'=>'image_urls','kind'=>'image','role'=>'reference','required'=>true,'minimum'=>1,'maximum'=>2]]],['code'=>'image_to_video','method'=>'start_end','first_last_frame'=>'支持','fields'=>[['field'=>'first_frame','kind'=>'image','role'=>'first','required'=>true,'minimum'=>1,'maximum'=>1],['field'=>'last_frame','kind'=>'image','role'=>'last','required'=>true,'minimum'=>1,'maximum'=>1]]]];
-    [$video]=$product('frames_video','video','synthetic-video',['supported_durations'=>[2],'supported_resolutions'=>['720P'],'supported_ratios'=>['1:1'],'max_reference_images'=>2,'supports_first_last_frame'=>true,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'duration'=>['type'=>'integer','enum'=>[2]],'resolution'=>['type'=>'string','enum'=>['720P']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>2],'first_frame'=>['type'=>'string'],'last_frame'=>['type'=>'string']],'material_capabilities'=>['modes'=>$modes]],['duration'=>2,'resolution'=>'720P']);
-    [$frame]=$product('frames_image','image','synthetic-image',['max_reference_images'=>3,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'image_size'=>['type'=>'string','enum'=>['1K']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>3]]],['image_size'=>'1K','aspect_ratio'=>'1:1']);
-    $model='market_video_model:'.$video;$frameModel='market_image_model:'.$frame;
-    $report['phase']='micro_reference_admission';
-    app\common\service\ai\StudioVideoCatalogService::quote($t,['quality'=>'720P','ratio'=>'1:1','duration'=>2,'generation_method'=>'image_reference','resource_type'=>'model','market_product_id'=>$video],$model);
-    $report['phase']='micro_pair_admission';
-    app\common\service\ai\StudioVideoCatalogService::quote($t,['quality'=>'720P','ratio'=>'1:1','duration'=>2,'generation_method'=>'start_end','resource_type'=>'model','market_product_id'=>$video],$model);
-    app\common\service\app\aigc_micro_video\MicroVideoSettings::save($t,['video_model_ids'=>[$model],'default_model_id'=>$model,'default_quality'=>'720P','default_ratio'=>'1:1','vision_model_id'=>(string)$text,'script_model_id'=>(string)$text,'target_duration_options'=>[4],'frames_enabled'=>1,'frame_model_ids'=>[$frameModel],'default_frame_model_id'=>$frameModel,'default_frame_quality'=>'1k']);
-    $plan=$post('aigc_micro_video.plan/create',['model_id'=>$model,'quality'=>'720P','ratio'=>'1:1','target_duration'=>4,'mode'=>'theme','theme'=>'四秒彩色色块移动','images'=>[['uri'=>$image]],'direction_id'=>0,'idempotency_key'=>'deep-micro-plan']);$micro=(int)$plan['id'];
-    $f->start($file,'fixture_micro_runner','micro');
-    MarketWorkerFixture::wait(function()use($micro){$r=think\facade\Db::name('aigc_micro_video_task')->where('id',$micro)->find();if($r['status']==='waiting_continue')throw new RuntimeException('Micro planning: '.$r['error']);return $r['status']==='awaiting_confirmation';},'Unseeded planning did not finish',30);$f->stop('micro');
-    $detail=$get('aigc_micro_video.task/detail',$micro);$check(count($detail['segments'])===2,'Native text planning lost segments');
-    $textAttempts=think\facade\Db::name('aigc_micro_video_attempt')->where(['task_id'=>$micro,'segment_id'=>0])->whereIn('kind',['analysis','script'])->select()->toArray();
-    $check(count($textAttempts)===2&&array_column($textAttempts,'status')===['success','success'],'Planning attempts not both settled');
-    $report['text_settlements']=2;
-    $report['micro_planning']=['unseeded_analysis_and_script_native_transport'=>true,'usage_settlement_and_saved_receipts'=>true,'two_validated_timeline_segments'=>true];
-
-    $report['phase']='micro_frames';
-    $configured=$post('aigc_micro_video.frame/configure',['id'=>$micro,'plan_revision'=>$detail['plan_revision'],'generation_mode'=>'start_end','frame_model_id'=>$frameModel,'frame_quality'=>'1k']);
-    $quote=$post('aigc_micro_video.frame/estimate',['id'=>$micro,'plan_revision'=>$configured['plan_revision'],'frames_revision'=>$configured['frames_revision']]);
-    $request=['id'=>$micro,'plan_revision'=>$configured['plan_revision'],'frames_revision'=>$configured['frames_revision'],'quote_token'=>$quote['quote_token'],'idempotency_key'=>'deep-frames-generate'];
-    $post('aigc_micro_video.frame/generate',$request);$post('aigc_micro_video.frame/generate',$request);
-    $f->start($file,'fixture_micro_runner','micro');$f->start($file,'aigc_micro_video');
-    MarketWorkerFixture::wait(function()use($micro){$r=think\facade\Db::name('aigc_micro_video_task')->where('id',$micro)->find();if($r['frame_status']==='waiting_continue')throw new RuntimeException('Frame stage failed');return $r['frame_status']==='review';},'Three anchor images did not finish',65);
-    $f->stop('micro');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Frame jobs pending',20);$f->stop();
-    $detail=$get('aigc_micro_video.task/detail',$micro);$check(count($detail['frames'])===3&&array_column($detail['frames'],'status')===['success','success','success'],'Frame boundaries missing');
-    foreach(think\facade\Db::name('aigc_micro_video_attempt')->where(['task_id'=>$micro,'kind'=>'frame'])->select() as $attempt) {
-        $snapshot=json_decode($attempt['request_json'],true);
-        $check(!isset($snapshot['selection']['prompt'])&&!str_contains($snapshot['request']['prompt'],'Image boundary pricing'),'Frame quote placeholder entered execution');
-    }
-    $denied=callHttp($api,'/api/app.aigc_micro_video.generate/estimate'.$suffix,['id'=>$micro],$token);
-    $check($denied['code']!==1,'Video accepted unconfirmed anchor images');
-    if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')$detail=runMarketFrameRecoveryHttp($f,$api,$suffix,$token,$micro,$detail,$product,$report);
-    $ready=$post('aigc_micro_video.frame/confirm',['id'=>$micro,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision']]);
-    $quote=$post('aigc_micro_video.generate/estimate',['id'=>$micro,'plan_revision'=>$ready['plan_revision']]);
-    $confirm=['id'=>$micro,'plan_revision'=>$ready['plan_revision'],'quote_token'=>$quote['quote_token'],'idempotency_key'=>'deep-video-confirm'];$post('aigc_micro_video.generate/index',$confirm);$post('aigc_micro_video.generate/index',$confirm);
-    $f->start($file,'fixture_micro_runner','micro');$f->start($file,'aigc_micro_video');
-    MarketWorkerFixture::wait(function()use($micro){$r=think\facade\Db::name('aigc_micro_video_task')->where('id',$micro)->find();if($r['status']==='waiting_continue')throw new RuntimeException('Micro framed generation: '.$r['error']);return $r['status']==='success';},'Frame-driven segments/merge not finished',45);
-    $f->stop('micro');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Video jobs pending',20);$f->stop();
-    $detail=$get('aigc_micro_video.task/detail',$micro);$check($detail['result_url']!==''&&count($detail['generation_tasks'])>=5,'Micro canonical frame/video identities missing');
-    $report['micro_media_result_counts']=[];
-    foreach(think\facade\Db::name('aigc_micro_video_attempt')->where('task_id',$micro)->whereIn('kind',['frame','video'])->select() as $attempt) {
-        $view=app\common\service\ai\GenerationTaskResultService::read((int)$attempt['app_task_id'],$t,$u);
-        $report['micro_media_result_counts'][]=count($view['results']);
-        $check($view['status']==='success'&&count($view['results'])===1,'Micro completed media missing canonical stored result');
-    }
-    $report['micro_frames']=['three_ordered_anchors_two_video_segments_actual_merge'=>true,'frame_and_video_confirmation_replay'=>true,'reopen_keeps_generation_identities'=>true,'actual_duration'=>$detail['actual_duration']];
-    // Model a historical frame whose old worker wrote its file but skipped the
-    // canonical handoff. Remove only these private test rows, never the file.
-    $legacy=(int)think\facade\Db::name('aigc_micro_video_attempt')->where(['task_id'=>$micro,'kind'=>'frame'])->order('id')->value('consumption_id');
-    $billBefore=think\facade\Db::name('ai_consumption_log')->where('id',$legacy)->find();$submitsBefore=count(file($f->dir.'/submissions.jsonl'));
-    think\facade\Db::name('ai_task_job')->where('consumption_id',$legacy)->delete();
-    think\facade\Db::name('ai_task_result_asset')->where('consumption_id',$legacy)->delete();
-    $get('aigc_micro_video.task/detail',$micro);$f->start($file,'aigc_micro_video');
-    MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_result_asset')->where(['consumption_id'=>$legacy,'transfer_status'=>'stored'])->count()===1,'Legacy frame handoff not repaired',20);
-    MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Legacy frame repair pending',20);$f->stop();
-    $check($billBefore===think\facade\Db::name('ai_consumption_log')->where('id',$legacy)->find()&&$submitsBefore===count(file($f->dir.'/submissions.jsonl')),'Legacy repair changed bill or called supplier');
-    $report['micro_frames']['legacy_missing_handoff_recovered_without_submission_or_billing']=true;
-
     }
     $report['phase']='music_clone_exports';
     $dir=$f->dir.'/public/uploads/deep';if(!is_dir($dir))mkdir($dir,0700,true);copy($f->dir.'/synthetic.wav',$dir.'/input.wav');
@@ -124,7 +61,7 @@ function runMarketDeepHttpMatrix(MarketWorkerFixture $f,string $api,string $suff
         $report['music_exports'][$op]=['http_submit_native_worker_detail_replay'=>true,'owned_download_checksum'=>in_array($op,['wav','midi','mp4'],true)];
     }
     $calls=array_map(fn($line)=>json_decode($line,true),file($f->dir.'/deep-calls.jsonl'));$kinds=array_count_values(array_column($calls,'kind'));
-    $check(($kinds['tts']??0)===(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')==='1'?0:1)&&($kinds['text']??0)===(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')==='1'?0:2),'TTS or planning submitted twice');
+    $check(($kinds['tts']??0)===(getenv('AIGC_HTTP_DEEP_ONLY_MUSIC')==='1'?0:1)&&($kinds['text']??0)===0,'TTS or planning submitted twice');
     $report['supplier_call_counts']=$kinds;$report['music_operation_count']=8;$report['phase']='complete';
     $bills=think\facade\Db::name('ai_consumption_log')->select()->toArray();
     $check(count($bills)===count(file($f->dir.'/submissions.jsonl'))+($kinds['text']??0)+8,'Accepted supplier calls do not match local bills');

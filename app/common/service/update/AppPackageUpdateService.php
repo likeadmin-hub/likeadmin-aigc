@@ -21,10 +21,11 @@ class AppPackageUpdateService
     /** Read-only catalog: files on disk do not imply installation or tenant entitlement. */
     public function localCatalog(array $registered): array
     {
-        $byCode=[];foreach($registered as $row)$byCode[$row['code']]=$row;
+        $byCode=[];foreach($registered as $row)if(!\app\common\service\app\RetiredAppService::contains((string)$row['code']))$byCode[$row['code']]=$row;
         $builder=new BundledAppPackageService(root_path(),dirname(rtrim(base_path(),'/')));
         foreach(glob(base_path().'apps/*/manifest.json')?:[] as $file){
             $code=basename(dirname($file));
+            if(\app\common\service\app\RetiredAppService::contains($code))continue;
             try{$manifest=$builder->manifest($code);AppRegistryService::assertRuntimeMigrationsReady($code);$available=true;}
             catch(Throwable $error){continue;}
             if(!$manifest)continue;
@@ -38,6 +39,7 @@ class AppPackageUpdateService
     public function prepareLocalPackage(string $appCode): array
     {
         AppRegistryService::assertValidCode($appCode);
+        \app\common\service\app\RetiredAppService::assertActive($appCode);
         AppRegistryService::assertCoreCompatible(AppRegistryService::getManifest($appCode));
         AppRegistryService::assertRuntimeMigrationsReady($appCode);
         $current=(string)(App::where('code',$appCode)->value('current_version')?:'');
@@ -74,12 +76,14 @@ class AppPackageUpdateService
     public function cloudDetail(string $appCode): array
     {
         AppRegistryService::assertValidCode($appCode);
+        \app\common\service\app\RetiredAppService::assertActive($appCode);
         return (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/detail'), ['app_code' => $appCode]);
     }
 
     public function downloadCloudPackage(string $appCode, string $targetVersion, string $action): array
     {
         AppRegistryService::assertValidCode($appCode);
+        \app\common\service\app\RetiredAppService::assertActive($appCode);
         if ($targetVersion === '') {
             throw new RuntimeException('请选择目标版本');
         }

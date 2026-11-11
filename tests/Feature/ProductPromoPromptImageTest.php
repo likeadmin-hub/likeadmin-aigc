@@ -12,7 +12,7 @@ final class ProductPromoPromptImageTest extends TestCase
 {
     protected function setUp(): void
     {
-        class_alias(OfflinePromoPromptMedia::class, 'app\\common\\service\\app\\aigc_micro_video\\MicroVideoMedia');
+        class_alias(OfflinePromoPromptMedia::class, 'app\\common\\service\\ai\\StudioMediaInputService');
         class_alias(OfflinePromoPromptLlm::class, 'app\\common\\service\\app\\aigc_llm\\AigcLlmService');
         class_alias(OfflinePromoPromptAccess::class, 'app\\common\\service\\app\\AppAccessService');
         class_alias(OfflinePromoPromptType::class, 'app\\common\\model\\app\\aigc_product_promo_video\\AigcProductPromoVideoType');
