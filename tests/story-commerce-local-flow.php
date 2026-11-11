@@ -53,5 +53,10 @@ $queue=Db::name('ai_task_job')->where('idempotency_key','story_commerce:'.$vj['i
  $metadata=T::save(0,['id'=>$template['id'],'title'=>'平台修改名称','sort'=>5]);scAssert($metadata['title']==='平台修改名称','Platform can maintain tenant template metadata without foreign upload receipts');
  $settings=S::settings(1);foreach($settings['genres'] as &$g)if($g['code']==='comedy')$g['instruction']='替换后的新规则';unset($g);S::setup(1,['genres'=>$settings['genres']]);
  $historical=T::remix(1,1,$template['id']);scAssert($historical['body']['story_type']==='custom'&&str_contains($historical['body']['custom_story'],'喜剧短剧'),'Historical templates must retain original narrative rules after configuration changes');
+ $plainBody=$historical['body'];$plainBody['script']='同事误会商品不见了，镜头展示 @图片1，找到后轻松收尾。';
+ $plainDraft=S::save(1,1,['body'=>$plainBody,'confirm_script'=>true]);scAssert($plainDraft['script_fresh']&&$plainDraft['body']['script']===$plainBody['script'],'Direct text draft must round-trip without a hidden storyboard');
+ $plainQuote=J::estimate(1,1,['project_id'=>$plainDraft['id'],'revision'=>$plainDraft['revision'],'action'=>'video']);scAssert(isset($plainQuote['quote_token']),'Native quote must accept direct text');
+ $updated=T::save(1,['id'=>$template['id'],'title'=>'文本脚本模板','configuration'=>$plainBody]);scAssert($updated['configuration']['script']===$plainBody['script'],'Template must preserve direct text');
+ $copied=T::remix(1,1,$template['id']);scAssert($copied['script_fresh']&&$copied['body']['script']===$plainBody['script'],'Remix must restore the same editable text');
  echo "PASS transactional draft ownership, native model quote, genre/style context, idempotency, queue dispatch, double-payer freeze/refund, stale adoption, historical template remix and asset integration; no provider called\n";
 }finally{Db::rollback();foreach(['product.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
