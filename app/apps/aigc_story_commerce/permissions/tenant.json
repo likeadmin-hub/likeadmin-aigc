@@ -58,5 +58,10 @@
     "api_path": "app.aigc_story_commerce.case/delete",
     "api_method": "POST",
     "permission_key": "aigc_story_commerce:case:delete"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/options",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:case:options"
   }
 ]

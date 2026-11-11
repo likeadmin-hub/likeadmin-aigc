@@ -76,6 +76,12 @@
             "type": "A",
             "name": "删除记录",
             "perms": "app.aigc_story_commerce.case/delete"
+          },
+          {
+            "source_menu_key": "aigc_story_commerce_case_options",
+            "type": "A",
+            "name": "查看模板配置",
+            "perms": "app.aigc_story_commerce.case/options"
           }
         ]
       },

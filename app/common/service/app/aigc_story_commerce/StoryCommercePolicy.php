@@ -32,6 +32,13 @@ final class StoryCommercePolicy
             if(!is_finite($a)||!is_finite($z)||abs($a-$last)>.01||$z<=$a||$z>$duration+.01)throw new InvalidArgumentException('镜头须从 0 秒连续覆盖所选时长');
             $action=self::text($s['action']??'',1800);if($action==='')throw new InvalidArgumentException('请填写镜头画面和动作');
             $refs=array_values((array)($s['source_slots']??[]));if(array_diff($refs,$slots))throw new InvalidArgumentException('脚本引用的商品素材已移除，请更新脚本');
+            foreach(['action','dialogue','product_point','camera','sound'] as $field){
+                $value=(string)($s[$field]??'');
+                if(str_contains($value,'@已移除图片'))throw new InvalidArgumentException('脚本引用的商品素材已移除，请更新脚本');
+                preg_match_all('/@图片(\d+)(?!\d)/u',$value,$mentions);
+                foreach($mentions[1] as $number){$at=(int)$number-1;if(!isset($slots[$at]))throw new InvalidArgumentException('脚本引用的商品图片不存在');$refs[]=$slots[$at];}
+            }
+            $refs=array_values(array_unique($refs));
             $dialogue=self::text($s['dialogue']??'',600);if(($body['audio']??null)===false&&$dialogue!=='')throw new InvalidArgumentException('静音设置与台词冲突，请调整声音或台词');
             $out[]=['id'=>'shot_'.($i+1),'start'=>$a,'end'=>$z,'action'=>$action,'dialogue'=>$dialogue,'product_point'=>self::text($s['product_point']??'',400),
                 'camera'=>self::text($s['camera']??'',400),'sound'=>($body['audio']??null)===false?'无声':self::text($s['sound']??'',400),'source_slots'=>$refs];$last=$z;
@@ -49,7 +56,7 @@ final class StoryCommercePolicy
             '总时长：'.($b['video_selection']['duration']??'').'秒；比例：'.($b['video_selection']['ratio']??''),'剧情：'.$s['summary']];
         foreach($s['characters'] as $c)$lines[]=$c['name'].'：'.$c['appearance'];
         foreach($b['images'] as $i=>$image)$lines[]='@图片'.($i+1).' 是商品参考图，保持该商品一致。';
-        foreach($s['shots'] as $i=>$shot)$lines[]='【镜头'.($i+1).'｜'.$shot['start'].'-'.$shot['end'].'秒】画面：'.$shot['action'].'；台词：'.$shot['dialogue'].'；商品展示：'.$shot['product_point'].'；镜头：'.$shot['camera'].'；声音：'.$shot['sound'];
+        foreach($s['shots'] as $i=>$shot)$lines[]='【镜头'.($i+1).'｜'.$shot['start'].'-'.$shot['end'].'秒】画面：'.$shot['action'].'；台词：'.$shot['dialogue'].'；商品展示：'.$shot['product_point'].'；商品参考：'.implode('、',array_map(static fn($slot)=>'@图片'.(array_search($slot,array_column($b['images'],'reference_slot_id'),true)+1),$shot['source_slots'])).'；镜头：'.$shot['camera'].'；声音：'.$shot['sound'];
         $lines[]='结尾：'.$s['ending'];$lines[]=($b['audio']??null)===false?'无声，不生成任何人声、配乐或音效。':'声音遵守当前模型原生能力；不额外叠加未经要求的字幕、水印和价格。';
         return self::text(implode("\n",$lines),12000);
     }
