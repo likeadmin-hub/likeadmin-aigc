@@ -3841,7 +3841,7 @@ class MarketVideoRuntimeService
      */
     private static function requiresDurableResultStorage(string $appCode): bool
     {
-        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video', 'aigc_product_video', 'aigc_motion_sync'], true);
+        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video', 'aigc_product_video', 'aigc_motion_sync', 'aigc_story_commerce'], true);
     }
 
     private static function videos(array $data, int $tenantId, int $userId, bool $forceTransfer = false): array

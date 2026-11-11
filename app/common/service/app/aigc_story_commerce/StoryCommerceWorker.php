@@ -97,7 +97,7 @@ final class StoryCommerceWorker
             if($e instanceof TextSettlementPending)self::write($id,['receipt_json'=>StoryCommercePolicy::encode($e->result)]);
             $fresh=StoryCommerceJobs::table()->where('id',$id)->find();$c=self::consumption($fresh);$known=!$c||in_array($c['run_status'],['failed','canceled'],true)||$c['billing_status']==='settled';
             self::write($id,['status'=>$known?'failed':'unknown','error'=>mb_substr($e->getMessage(),0,1000),'billing_status'=>$c['billing_status']??'none','next_run_at'=>time()+60,'user_charge_points'=>(float)($c['actual_user_price']??0)]);
-            \think\facade\Log::warning('Product video job '.$id.': '.get_class($e));
+            \think\facade\Log::warning('Story commerce job '.$id.': '.get_class($e));
         }
     }
     private static function mediaRequest(string $action,array $r): array

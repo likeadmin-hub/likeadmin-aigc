@@ -6,7 +6,7 @@ use think\facade\{Db,Config};
 use app\common\service\app\{AppRegistryService as R,DefaultAppService as D,AppFrontendManifestService as F};
 $original=config('database');$mysql=$original['connections']['mysql'];$code='aigc_story_commerce';$root=dirname(__DIR__);
 if(getenv('STORY_COMMERCE_LOCAL_TEST')!=='x_cn'||$mysql['hostname']!=='127.0.0.1'||$mysql['database']!=='x_cn')throw new RuntimeException('Explicit local opt-in required');
-$prefix='msf_'.bin2hex(random_bytes(5)).'_';
+$prefix='scf_'.bin2hex(random_bytes(5)).'_';
 $pdo=new PDO('mysql:host=127.0.0.1;port='.($mysql['hostport']?:3306).';dbname=x_cn;charset=utf8mb4',$mysql['username'],$mysql['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::MYSQL_ATTR_MULTI_STATEMENTS=>true]);
 function msiCheck(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);}
 try{
@@ -31,7 +31,15 @@ try{
     msiCheck(Db::name('app_frontend_entry')->where('app_code',$code)->count()===4,'Repeated install duplicated entries');
     msiCheck(Db::name('tenant_app')->where(['tenant_id'=>600801,'app_code'=>$code])->value('shelf_status')==='off','Install overwrote tenant shelf choice');
     msiCheck(file_get_contents($root.'/upgrade/upgrade_20261111_aigc_story_commerce.sql')===file_get_contents($root.'/public/upgrade/upgrade_20261111_aigc_story_commerce.sql'),'Upgrade source drift');
-    echo "PASS fresh full install, new shared/split tenant grants, menus, mobile pages, repeat install and preserved tenant shelf state\n";
+    R::setStatus($code,R::STATUS_DISABLED);msiCheck(!R::isInstalled($code),'Disable lifecycle');
+    R::setStatus($code,R::STATUS_INSTALLED);msiCheck(R::isInstalled($code),'Enable lifecycle');
+    $project=Db::name($code.'_project')->insertGetId(['tenant_id'=>600801,'user_id'=>1,'body_json'=>'{}','revision'=>1,'create_time'=>time(),'update_time'=>time()]);
+    R::uninstall($code,false);msiCheck(Db::name($code.'_project')->where('id',$project)->count()===1,'Soft uninstall must preserve drafts');
+    msiCheck(Db::name('app_frontend_entry')->where('app_code',$code)->count()===4,'Soft uninstall retains declared entries');
+    R::installFromLocal($code);msiCheck(R::isInstalled($code),'Reinstallation lifecycle');
+    R::uninstall($code,true);msiCheck((int)Db::name($code.'_project')->where('id',$project)->value('delete_time')>0,'Clear-data lifecycle must soft delete business records');
+    foreach(['tenant_app','app_frontend_entry','app_api'] as $table)msiCheck(Db::name($table)->where('app_code',$code)->count()===0,'Clear-data scope: '.$table);
+    echo "PASS fresh full install, new shared/split tenant grants, menus, mobile pages, repeat install, shelf preservation, enable/disable and soft/clear uninstall\n";
 }finally{
     Config::set($original,'database');Db::connect(null,true);
     $statement=$pdo->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND LEFT(TABLE_NAME,?)=?');$statement->execute([strlen($prefix),$prefix]);
