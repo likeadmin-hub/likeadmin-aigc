@@ -28,6 +28,7 @@ final class ProductVideoJobs
         return ['id'=>(int)$row['id'],'presentation'=>$presentation,'project_id'=>(int)$row['project_id'],'project_revision'=>(int)$row['project_revision'],'action'=>$row['action'],
             'status'=>$row['status'],'result'=>$result,
             'error'=>$row['error']===''?'':($row['status']==='unknown'?'模型受理或费用待核对，请保留此任务，勿重复提交':'创作未完成，请检查素材、模型或余额后重试'),
+            'estimated_user_charge_points'=>isset($request['quote']['user_charge_points'])?(float)$request['quote']['user_charge_points']:null,
             'user_charge_points'=>(float)$row['user_charge_points'],'billing_status'=>$row['billing_status'],
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
@@ -66,11 +67,13 @@ final class ProductVideoJobs
         $rows=$q->order('id','desc')->page($page,$size)->select()->toArray();
         return ['lists'=>array_map(static function($row)use($admin){return $admin?self::adminDto($row):self::dto($row);},$rows),'count'=>$count,'page_no'=>$page,'page_size'=>$size];
     }
-    public static function prepare(int $tenant,int $user,array $p): array
+    public static function prepare(int $tenant,int $user,array $p,bool $preview=false): array
     {
         if(($p['action']??'')==='analysis')return ProductVideoPipeline::prepare($tenant,$user,$p);
-        ProductVideoService::available($tenant,$user);$project=ProductVideoService::owned($tenant,$user,(int)($p['project_id']??0));
-        if((int)($p['revision']??0)!==(int)$project['revision'])throw new InvalidArgumentException('草稿已更新，请保存后重新报价');
+        ProductVideoService::available($tenant,$user);
+        if($preview){if(($p['action']??'')!=='video')throw new InvalidArgumentException('仅支持视频预览报价');$project=['revision'=>0,'body_json'=>ProductVideoPolicy::encode(ProductVideoPolicy::body((array)($p['body']??[])))];}
+        else $project=ProductVideoService::owned($tenant,$user,(int)($p['project_id']??0));
+        if(!$preview&&(int)($p['revision']??0)!==(int)$project['revision'])throw new InvalidArgumentException('草稿已更新，请保存后重新报价');
         $action=(string)($p['action']??'');if(!in_array($action,ProductVideoPolicy::ACTIONS,true))throw new InvalidArgumentException('创作操作无效');
         $body=ProductVideoPolicy::body(ProductVideoPolicy::json($project['body_json']));$request=['action'=>$action,'snapshot'=>$body,'project_revision'=>(int)$project['revision']];
         $images=MicroVideoMedia::validateImages($tenant,$user,$body['images'],15);
@@ -141,6 +144,7 @@ final class ProductVideoJobs
     }
     public static function estimate(int $tenant,int $user,array $p): array
     {
+        if(!empty($p['preview'])){if(($p['action']??'')!=='video')throw new InvalidArgumentException('仅支持视频预览报价');$q=self::prepare($tenant,$user,$p,true)['quote'];return ['user_charge_points'=>(float)$q['user_charge_points'],'notice'=>!empty($q['market_snapshot']['requires_actual_duration'])?'按实际成片时长结算':''];}
         $i=self::prepare($tenant,$user,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;
         ProductVideoService::table('quote')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$i['project']['id'],'token'=>$token,'input_hash'=>$i['hash'],'request_json'=>ProductVideoPolicy::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);
         $q=$i['quote'];return ['quote_token'=>$token,'expires_at'=>$expires,'action'=>$i['request']['action'],'approximate'=>$q['approximate'],'user_charge_points'=>$q['user_charge_points'],

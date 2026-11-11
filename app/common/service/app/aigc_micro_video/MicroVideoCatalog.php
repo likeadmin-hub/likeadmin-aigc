@@ -20,7 +20,7 @@ final class MicroVideoCatalog
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',MicroVideoStore::encode($allowedIds));}
         $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset.($summary?':summary':'');if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
-        $sharedKey='micro_video_callable_models_v3:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
+        $sharedKey='micro_video_callable_models_v4:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
         $result=[];$options=AigcVideoService::marketOptions($tenant);
         foreach($options['channels']??[] as $model){
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
@@ -46,19 +46,18 @@ final class MicroVideoCatalog
                         // adapter permits image reference and start/end requests. Let
                         // the real read-only admission validator decide each exact
                         // mode/spec pair, including ratio and duration constraints.
-                        $pairKey=implode('|',[$s['market_sku_id'],$entry['quality'],$ratio]);
+                        $pairKey=implode('|',[$s['market_sku_id'],$entry['quality'],$ratio,$duration]);
                         if(!array_key_exists($pairKey,$validatedPairs)){
                             try{$referenceQuote=self::quote($tenant,$entry,(string)$model['id']);}catch(\Throwable){$validatedPairs[$pairKey]=false;continue;}
                             $frameQuote=null;if($hasFrames){try{$frameQuote=self::quote($tenant,array_replace($entry,['generation_method'=>'start_end']),(string)$model['id']);}catch(\Throwable){}}
                             $validatedPairs[$pairKey]=($mode!=='reference'&&!$frameQuote)?false:['duration'=>$duration,'reference'=>$referenceQuote,'frames'=>$frameQuote];
                         }
                         $pair=$validatedPairs[$pairKey];if($pair===false)continue;$reference=$pair['reference'];$frames=$pair['frames'];
-                        // Durations are the shared runtime's advertised options for
-                        // this same SKU. Validate mode/quality/ratio once, then scale
-                        // reserved second-based prices; exact admissions quote again.
-                        $scale=in_array($unit,['input_second','output_second','second'],true)?$duration/$pair['duration']:1;
-                        $refEntry=array_replace($entry,['market_sku_id'=>$reference['market_sku_id'],'user_charge_points'=>round($reference['user_charge_points']*$scale,4)]);
-                        $frameEntry=$frames?array_replace($entry,['generation_method'=>'start_end','market_sku_id'=>$frames['market_sku_id'],'user_charge_points'=>round($frames['user_charge_points']*$scale,4)]):null;
+                        // Alias SKUs may resolve to another SKU with a different meter.
+                        // Quote every advertised duration through admission; scaling the
+                        // source SKU's unit can overwrite a second-based quote with a call price.
+                        $refEntry=array_replace($entry,['market_sku_id'=>$reference['market_sku_id'],'user_charge_points'=>$reference['user_charge_points']]);
+                        $frameEntry=$frames?array_replace($entry,['generation_method'=>'start_end','market_sku_id'=>$frames['market_sku_id'],'user_charge_points'=>$frames['user_charge_points']]):null;
                         // App adapters can normalize text-priced aliases to the same
                         // reference SKU. Display and freeze that authoritative SKU.
                         $key=implode('|',[$entry['quality'],$ratio,$duration,$reference['market_sku_id'],($frames['market_sku_id']??0)]);$specs[$key]=$refEntry;if($frameEntry)$frameSpecs[$key]=$frameEntry;

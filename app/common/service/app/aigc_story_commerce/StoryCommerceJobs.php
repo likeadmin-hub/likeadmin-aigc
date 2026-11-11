@@ -14,6 +14,7 @@ final class StoryCommerceJobs
     public static function dto(array $r,bool $admin=false): array {
         $req=StoryCommercePolicy::json($r['request_json']);$t=(int)$r['tenant_id'];$b=$req['snapshot']??[];
         $v=['id'=>(int)$r['id'],'project_id'=>(int)$r['project_id'],'project_revision'=>(int)$r['project_revision'],'action'=>$r['action'],'status'=>$r['status'],'billing_status'=>$r['billing_status'],'user_charge_points'=>(float)$r['user_charge_points'],
+            'estimated_user_charge_points'=>isset($req['quote']['user_charge_points'])?(float)$req['quote']['user_charge_points']:null,
             'configuration'=>StoryCommerceService::publicBody($b,$t),'result'=>StoryCommerceService::publicBody(StoryCommercePolicy::json($r['result_json']),$t),
             'error'=>$r['error']===''?'':($r['status']==='unknown'?'任务受理或费用待核对，请勿重复提交':'创作未完成，请检查配置、素材或余额后重试'),'create_time'=>(int)$r['create_time']];
         if($admin){$c=!empty($r['consumption_id'])?Db::name('ai_consumption_log')->where(['id'=>$r['consumption_id'],'tenant_id'=>$t,'user_id'=>$r['user_id'],'app_code'=>StoryCommercePolicy::APP])->find():[];$v+=['tenant_id'=>$t,'user_id'=>(int)$r['user_id'],'app_task_id'=>(int)$r['app_task_id'],'consumption_id'=>(int)$r['consumption_id'],'upstream_task_id'=>$c['upstream_task_id']??'','model_name'=>$req['quote']['model_name']??''];}return $v;
@@ -45,7 +46,16 @@ final class StoryCommerceJobs
         $r['quote']=$quote;$stable=$r;unset($stable['images']);$clean=static function($x)use(&$clean){if(!is_array($x))return $x;unset($x['url'],$x['video_url'],$x['image_url']);foreach($x as $k=>$v)if(is_array($v))$x[$k]=$clean($v);return $x;};
         return ['project'=>$project,'request'=>$r,'quote'=>$quote,'hash'=>StoryCommercePolicy::hash($clean($stable))];
     }
-    public static function estimate(int $t,int $u,array $p): array {$i=self::prepare($t,$u,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;StoryCommerceService::table('quote')->insert(['tenant_id'=>$t,'user_id'=>$u,'project_id'=>$i['project']['id'],'token'=>$token,'input_hash'=>$i['hash'],'request_json'=>StoryCommercePolicy::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);return ['quote_token'=>$token,'expires_at'=>$expires]+array_intersect_key($i['quote'],array_flip(['approximate','user_charge_points','notice','model_name']));}
+    /** Current draft price only: no project, quote token, queue, balance or provider writes. */
+    public static function preview(int $t,int $u,array $p): array {
+        StoryCommerceService::available($t,$u);
+        $b=StoryCommerceService::normalize($t,$u,(array)($p['body']??[]));
+        $selection=StoryCommerceCatalog::selection($t,$b);$b['script_input_key']=StoryCommercePolicy::inputKey($b);$prompt=StoryCommercePolicy::prompt($b);$assets=[];
+        foreach($b['images'] as $image)$assets[]=array_replace($image,['type'=>'image','role'=>$selection['generation_method']==='image_to_video'?'first_frame_image':'reference_image']);
+        $q=MicroVideoCatalog::runtime($selection)::quote($t,$selection+['prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets]);
+        return ['user_charge_points'=>(float)$q['user_charge_points'],'notice'=>!empty($q['market_snapshot']['requires_actual_duration'])?'按实际成片时长结算':''];
+    }
+    public static function estimate(int $t,int $u,array $p): array {if(!empty($p['preview']))return self::preview($t,$u,$p);$i=self::prepare($t,$u,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;StoryCommerceService::table('quote')->insert(['tenant_id'=>$t,'user_id'=>$u,'project_id'=>$i['project']['id'],'token'=>$token,'input_hash'=>$i['hash'],'request_json'=>StoryCommercePolicy::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);return ['quote_token'=>$token,'expires_at'=>$expires]+array_intersect_key($i['quote'],array_flip(['approximate','user_charge_points','notice','model_name']));}
     public static function create(int $t,int $u,array $p): array {
         $key=(string)($p['idempotency_key']??'');if(!preg_match('/^[a-zA-Z0-9_-]{16,100}$/D',$key))throw new InvalidArgumentException('提交标识无效');
         $old=self::table()->where(['tenant_id'=>$t,'user_id'=>$u,'idempotency_key'=>$key])->find();if($old){if((int)$old['project_id']!==(int)($p['project_id']??0)||(int)$old['project_revision']!==(int)($p['revision']??0)||$old['action']!==($p['action']??''))throw new InvalidArgumentException('提交标识已用于其他配置');return self::dto($old);}
