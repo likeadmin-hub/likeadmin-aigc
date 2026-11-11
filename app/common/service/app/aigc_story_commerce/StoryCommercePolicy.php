@@ -5,6 +5,7 @@ use InvalidArgumentException;
 final class StoryCommercePolicy
 {
     public const APP='aigc_story_commerce';
+    public const NO_STYLE='__none__';
     public static function json($v): array { return is_array($v)?$v:(json_decode((string)$v,true)?:[]); }
     public static function encode(array $v): string {return json_encode($v,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
     public static function text($v,int $max=2000): string {if(!is_string($v)&&!is_numeric($v))throw new InvalidArgumentException('文字格式不正确');$v=trim((string)$v);if(mb_strlen($v)>$max)throw new InvalidArgumentException('文字超过长度限制');return $v;}
@@ -13,7 +14,7 @@ final class StoryCommercePolicy
         $images=$p['images']??[];if(!is_array($images)||count($images)>15)throw new InvalidArgumentException('商品图片数量不正确');
         return ['images'=>$images,'product_info'=>self::text($p['product_info']??'',3000),'requirements'=>self::text($p['requirements']??'',2000),
             'story_type'=>self::text($p['story_type']??'comedy',80),'custom_story'=>self::text($p['custom_story']??'',1000),
-            'style_id'=>self::text($p['style_id']??'',80),'custom_style'=>self::text($p['custom_style']??'',500),
+            'style_id'=>self::text($p['style_id']??'',80),'custom_style'=>($p['style_id']??'')===self::NO_STYLE?'':self::text($p['custom_style']??'',500),
             'language'=>self::text($p['language']??'中文',60),'market_region'=>self::text($p['market_region']??'',100),
             'audio'=>isset($p['audio'])?filter_var($p['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,
             'video_selection'=>(array)($p['video_selection']??[]),'script'=>is_string($p['script']??null)?self::text($p['script'],6000):(array)($p['script']??[]),
@@ -63,7 +64,10 @@ final class StoryCommercePolicy
         $s=self::scriptValue($b['script'],(int)($b['video_selection']['duration']??0),$b);
         $lines=['根据已确认商品素材创作剧情带货短片。商品外观、结构、配色、标识、用途与已确认事实保持一致；不编造功效、价格、认证和未展示的结构。',
             '商品事实：'.$b['product_info'],'剧情类型：'.($b['genre_snapshot']['name']??''),'剧情规则：'.($b['genre_snapshot']['instruction']??''),
-            '统一画风：'.($b['style_snapshot']['name']??'').'；'.($b['style_snapshot']['prompt']??''),'语言：'.$b['language'].'；地区：'.$b['market_region'],
+            ($b['style_id']??'')===self::NO_STYLE
+                ?'画面风格：未指定预设。遵循已确认脚本和用户补充要求中的风格描述；未描述时，根据剧情与商品自行设计连贯一致的视觉风格。'
+                :'统一画面风格：'.($b['style_snapshot']['name']??'').'；'.($b['style_snapshot']['prompt']??''),
+            '用户补充要求：'.$b['requirements'],'语言：'.$b['language'].'；地区：'.$b['market_region'],
             '总时长：'.($b['video_selection']['duration']??'').'秒；比例：'.($b['video_selection']['ratio']??''),'剧情：'.(is_string($s)?$s:$s['summary'])];
         foreach(is_array($s)?$s['characters']:[] as $c)$lines[]=$c['name'].'：'.$c['appearance'];
         foreach($b['images'] as $i=>$image)$lines[]='@图片'.($i+1).' 是商品参考图，保持该商品一致。';

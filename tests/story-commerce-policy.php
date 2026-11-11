@@ -1,6 +1,6 @@
 <?php
 require dirname(__DIR__).'/vendor/autoload.php';
-use app\common\service\app\aigc_story_commerce\{StoryCommercePolicy as P,StoryCommerceWorker as W,StoryCommercePrompts};
+use app\common\service\app\aigc_story_commerce\{StoryCommercePolicy as P,StoryCommerceCatalog as C,StoryCommerceWorker as W,StoryCommercePrompts};
 function scCheck(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);}
 function scReject(callable $f,string $why):void{try{$f();}catch(Throwable){return;}throw new RuntimeException($why);}
 $b=P::body(['images'=>[['uri'=>'uploads/product.png','reference_slot_id'=>'product_1']], 'product_info'=>'带分隔位的收纳包','requirements'=>'出门前找钥匙的误会','style_id'=>'1','video_selection'=>['model_id'=>'native','quality'=>'720p','ratio'=>'9:16','duration'=>10],
@@ -31,4 +31,16 @@ scCheck(P::scriptValue($plain['script'],10,$plain)===$plain['script'],'Text scri
 scCheck(str_contains(P::prompt($plain),$plain['script']),'Generation must use the exact confirmed text script');
 scCheck(P::body($plain)['script']===$plain['script'],'Persisted text must survive normalization');
 scReject(fn()=>P::scriptValue('展示 @图片9',10,$plain),'Text scripts cannot reference absent images');
+$auto=$plain;$auto['style_id']=P::NO_STYLE;$auto['custom_style']='旧的水墨风格';$auto=P::body($auto);$auto['style_snapshot']=C::style(1,$auto);$auto['script']='使用复古胶片风格展示 @图片1，自然收尾。';$auto['script_input_key']=P::inputKey($auto);
+scCheck($auto['custom_style']===''&&$auto['style_snapshot']['mode']==='auto'&&$auto['style_snapshot']['prompt']==='','No style must clear an old custom constraint');
+$autoPrompt=P::prompt($auto);scCheck(str_contains($autoPrompt,'未指定预设')&&str_contains($autoPrompt,$auto['script'])&&!str_contains($autoPrompt,'统一画面风格：无风格'),'Auto visuals must preserve user style without forcing a preset');
+$custom=$plain;$custom['style_id']='';$custom['custom_style']='纸雕风格';$custom['style_snapshot']=C::style(1,$custom);$custom['script_input_key']=P::inputKey($custom);scCheck(str_contains(P::prompt($custom),'纸雕风格'),'Explicit custom style must remain enforced');
+$modes=['max_reference_images'=>1,'material_modes'=>[
+ ['method'=>'image_to_video','fields'=>[['kind'=>'image','required'=>true,'minimum'=>1,'maximum'=>1]]],
+ ['method'=>'image_reference','fields'=>[['kind'=>'image','minimum'=>1,'maximum'=>9]]],
+ ['method'=>'omni_reference','fields'=>[['kind'=>'image','maximum'=>15],['kind'=>'video','required'=>true,'minimum'=>1]]],
+]];
+scCheck(C::imageLimit($modes)===9,'Image-only multi-reference mode must not inherit a one-image first-frame limit or required-video capacity');
+scCheck(C::imageLimit(['max_reference_images'=>4])===4,'Legacy model capacity remains compatible');
+scCheck(C::imageLimit(['material_modes'=>[$modes['material_modes'][2]]])===0,'A required video must not become a fake image-only ability');
 echo "PASS story script continuity, input freshness, silent mode, stable references, analysis parse, independent routes and installation source parity\n";

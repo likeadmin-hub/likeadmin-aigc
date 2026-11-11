@@ -8,11 +8,30 @@ use app\common\service\power\{MarketCatalogReadScope,MarketVideoRuntimeService};
 use InvalidArgumentException;
 final class StoryCommerceCatalog
 {
-    public static function styles(int $tenant): array {return AigcShortDramaService::configuredVisualStyles($tenant);}
+    public static function styles(int $tenant): array {return array_merge([
+        ['id'=>StoryCommercePolicy::NO_STYLE,'name'=>'无风格','description'=>'','image'=>''],
+    ],AigcShortDramaService::configuredVisualStyles($tenant));}
     public static function style(int $tenant,array $b): array {
-        if($b['style_id']===''){if($b['custom_style']==='')throw new InvalidArgumentException('请选择画风或填写自定义画风');return ['id'=>'','name'=>'自定义','prompt'=>$b['custom_style']];}
+        if($b['style_id']===StoryCommercePolicy::NO_STYLE)return ['id'=>StoryCommercePolicy::NO_STYLE,'name'=>'无风格','prompt'=>'','mode'=>'auto'];
+        if($b['style_id']===''){if($b['custom_style']==='')throw new InvalidArgumentException('请选择画面风格或填写自定义画面风格');return ['id'=>'','name'=>'自定义','prompt'=>$b['custom_style']];}
         foreach(self::styles($tenant) as $row)if((string)$row['id']===$b['style_id'])return ['id'=>(string)$row['id'],'name'=>$row['name'],'prompt'=>$row['description']];
-        throw new InvalidArgumentException('所选画风已停用或不可用，请重新选择');
+        throw new InvalidArgumentException('所选画面风格已停用或不可用，请重新选择');
+    }
+    /** Image-only creation may use a multi-reference mode even when single-image discovery chose a first frame. */
+    public static function imageLimit(array $model): int {
+        $modes=$model['material_modes']??[];
+        if(!$modes)return min(15,max(0,(int)($model['max_reference_images']??0)));
+        $limit=0;
+        foreach($modes as $mode){
+            if(!in_array($mode['method']??'', ['image_reference','image_to_video','omni_reference'],true))continue;
+            $max=0;$min=0;$other=false;
+            foreach($mode['fields']??[] as $field){
+                if(($field['kind']??'')==='image'){$max+=(int)($field['maximum']??$field['minimum']??0);$min+=max((int)($field['minimum']??0),empty($field['required'])?0:1);}
+                elseif(!empty($field['required'])||(int)($field['minimum']??0)>0)$other=true;
+            }
+            if(!$other&&$max>=max(1,$min))$limit=max($limit,$max);
+        }
+        return min(15,$limit);
     }
     public static function models(int $tenant,string $id=''): array {
         return MarketCatalogReadScope::run(static function()use($tenant,$id){
@@ -20,6 +39,7 @@ final class StoryCommerceCatalog
             if($id==='')return $rows;
             $native=AigcVideoService::marketOptions($tenant)['channels']??[];$by=[];foreach($native as $m)$by[(string)$m['id']]=$m;
             foreach($rows as &$m){$m['material_modes']=$by[(string)$m['id']]['material_modes']??[];
+                $m['max_reference_images']=self::imageLimit($m);
                 try{$m['supports_generate_audio']=MarketVideoRuntimeService::supportsGenerateAudio($tenant,['model_id'=>$m['id']]+($m['specs'][0]??[]));}catch(\Throwable){$m['supports_generate_audio']=false;}}
             return $rows;
         });

@@ -12,7 +12,8 @@ $folder='uploads/story_commerce_test_'.bin2hex(random_bytes(8));$dir=public_path
 Db::startTrans();
 try{
  Db::name('tenant_file')->insert(['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>10,'name'=>'story-commerce-local-test','uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
- $options=S::config(1);$styles=$options['styles'];scAssert(count($styles)>0&&count($options['genres'])===14,'Configured styles and narrative types');
+ $options=S::config(1);$styles=array_values(array_filter($options['styles'],static fn($s)=>$s['id']!==P::NO_STYLE));scAssert(count($styles)>0&&count($options['genres'])===14,'Configured styles and narrative types');
+ scAssert($options['styles'][0]['id']===P::NO_STYLE&&$options['styles'][0]['name']==='无风格','No style is available independently of tenant cover uploads');
  $m=C::models(1)[0];$m=C::models(1,(string)$m['id'])[0];$spec=$m['specs'][0];$seconds=(int)$spec['duration'];
  $b=P::body(['images'=>[['uri'=>$uri,'reference_slot_id'=>'product_slot']],'product_info'=>'白色商品样本','requirements'=>'一次暖心误会','story_type'=>'comedy','style_id'=>(string)$styles[0]['id'],'language'=>'中文','market_region'=>'中国','video_selection'=>['model_id'=>(string)$m['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$seconds]]);
  $project=S::save(1,1,['body'=>$b]);scAssert($project['revision']===1,'Independent draft');scFails(fn()=>S::owned(2,1,$project['id']),'Tenant ownership');scFails(fn()=>S::owned(1,999999,$project['id']),'User ownership');scFails(fn()=>S::save(1,1,['id'=>$project['id'],'revision'=>0,'body'=>$b]),'Stale write');
@@ -58,5 +59,13 @@ $queue=Db::name('ai_task_job')->where('idempotency_key','story_commerce:'.$vj['i
  $plainQuote=J::estimate(1,1,['project_id'=>$plainDraft['id'],'revision'=>$plainDraft['revision'],'action'=>'video']);scAssert(isset($plainQuote['quote_token']),'Native quote must accept direct text');
  $updated=T::save(1,['id'=>$template['id'],'title'=>'文本脚本模板','configuration'=>$plainBody]);scAssert($updated['configuration']['script']===$plainBody['script'],'Template must preserve direct text');
  $copied=T::remix(1,1,$template['id']);scAssert($copied['script_fresh']&&$copied['body']['script']===$plainBody['script'],'Remix must restore the same editable text');
+ $none=$plainBody;$none['style_id']=P::NO_STYLE;$none['custom_style']='旧风格必须清除';$none['requirements']='保留复古胶片质感';$none['script']='复古胶片风格，人物拿起 @图片1，自然收尾。';
+ $noneDraft=S::save(1,1,['body'=>$none,'confirm_script'=>true]);$noneBody=$noneDraft['body'];scAssert($noneDraft['script_fresh']&&$noneBody['custom_style']===''&&$noneBody['style_snapshot']['mode']==='auto','No-style draft is real, fresh and unconstrained');
+ scAssert(str_contains(P::prompt($noneBody),'未指定预设')&&str_contains(P::prompt($noneBody),$none['script']),'No-style native prompt keeps the exact user visual description');
+ $noneArgs=['project_id'=>$noneDraft['id'],'revision'=>$noneDraft['revision'],'action'=>'analysis'];$noneQuote=J::estimate(1,1,$noneArgs);$noneJob=J::create(1,1,$noneArgs+['quote_token'=>$noneQuote['quote_token'],'idempotency_key'=>'sc_test_'.bin2hex(random_bytes(16))]);
+ $noneRaw=J::owned(1,1,$noneJob['id']);$noneRequest=P::json($noneRaw['request_json']);$noneContent=P::json($noneRequest['content']);scAssert($noneContent['visual_style']['mode']==='auto'&&$noneContent['existing_script']===$none['script']&&$noneContent['requirements']===$none['requirements']&&!(int)$noneRaw['consumption_id'],'AI receives no preset plus both user style inputs without a provider call');
+ J::estimate(1,1,['project_id'=>$noneDraft['id'],'revision'=>$noneDraft['revision'],'action'=>'video']);
+ T::save(1,['id'=>$template['id'],'configuration'=>$noneBody]);$noneRemix=T::remix(1,1,$template['id']);scAssert($noneRemix['script_fresh']&&$noneRemix['body']['style_id']===P::NO_STYLE&&$noneRemix['body']['custom_style']===''&&$noneRemix['body']['script']===$none['script'],'Templates preserve no style through historical copy and remix');
+ S::setup(1,['default_style_id'=>P::NO_STYLE]);scAssert(S::config(1)['default_style_id']===P::NO_STYLE,'Tenant can explicitly default to no style');
  echo "PASS transactional draft ownership, native model quote, genre/style context, idempotency, queue dispatch, double-payer freeze/refund, stale adoption, historical template remix and asset integration; no provider called\n";
 }finally{Db::rollback();foreach(['product.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
