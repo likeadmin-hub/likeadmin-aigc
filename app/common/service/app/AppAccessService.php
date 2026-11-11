@@ -19,7 +19,7 @@ class AppAccessService
         'aigc_hairstyle', 'aigc_image_translate', 'aigc_local_redraw',
         'aigc_model_wear', 'aigc_one_click_cleanup', 'aigc_outpaint',
         'aigc_photo_restore', 'aigc_product_image', 'aigc_product_multi_angle',
-        'aigc_product_promo_video', 'aigc_product_video', 'aigc_motion_sync', 'aigc_product_suite', 'aigc_style_transfer',
+        'aigc_product_promo_video', 'aigc_product_video', 'aigc_story_commerce', 'aigc_motion_sync', 'aigc_product_suite', 'aigc_style_transfer',
     ];
     public const DEFAULT_AIGC_APP_CODES = [
         'aigc_image',

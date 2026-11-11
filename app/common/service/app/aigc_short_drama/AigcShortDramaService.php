@@ -17344,6 +17344,12 @@ class AigcShortDramaService
         }, $rows);
     }
 
+    /** Shared read adapter; the caller owns its app access checks. */
+    public static function configuredVisualStyles(int $tenantId): array
+    {
+        return self::styleOptions($tenantId);
+    }
+
     private static function styleOptions(int $tenantId): array
     {
         // Use the same library as tenant administration. Merging public rows

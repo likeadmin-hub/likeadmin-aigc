@@ -420,6 +420,7 @@ class AppRegistryService
             throw new RuntimeException('应用不存在');
         }
 
+        if ($appCode === 'aigc_story_commerce' && $clearData && Db::name('aigc_story_commerce_job')->whereIn('status',['queued','running','unknown'])->count()) throw new RuntimeException('剧情带货仍有未完成任务，暂不能清理数据');
         if ($appCode === 'aigc_motion_sync' && $clearData && Db::name('aigc_motion_sync_task')->whereIn('status',['queued','running','unknown'])->count()) throw new RuntimeException('动作同步仍有未完成任务，暂不能清理数据');
         $app->status = self::STATUS_REMOVED;
         $app->update_time = time();
@@ -938,6 +939,12 @@ class AppRegistryService
 
     private static function clearAppBusinessData(string $appCode): void
     {
+        if ($appCode === 'aigc_story_commerce') {
+            foreach (['job','project'] as $suffix) Db::name($appCode.'_'.$suffix)->where('delete_time',0)->update(['delete_time'=>time()]);
+            foreach (['quote','config'] as $suffix) Db::name($appCode.'_'.$suffix)->where('id','>',0)->delete();
+            AppCase::where('app_code',$appCode)->update(['delete_time'=>time()]);
+            return;
+        }
         if ($appCode === 'aigc_motion_sync') {
             foreach (['task','result','project'] as $suffix) Db::name($appCode.'_'.$suffix)->where('delete_time',0)->update(['delete_time'=>time()]);
             Db::name($appCode.'_quote')->where('id','>',0)->delete();

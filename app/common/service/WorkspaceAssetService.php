@@ -19,7 +19,7 @@ final class WorkspaceAssetService
         'music' => 'aigc_music', 'music_cover' => 'aigc_music_cover',
         'product_image' => 'aigc_product_image', 'product_suite' => 'aigc_product_suite',
         'product_multi_angle' => 'aigc_product_multi_angle', 'product_promo_video' => 'aigc_product_promo_video',
-        'product_video' => 'aigc_product_video', 'motion_sync' => 'aigc_motion_sync',
+        'story_commerce' => 'aigc_story_commerce', 'product_video' => 'aigc_product_video', 'motion_sync' => 'aigc_motion_sync',
         'fashion_lookbook' => 'aigc_fashion_lookbook', 'model_wear' => 'aigc_model_wear',
         'local_redraw' => 'aigc_local_redraw', 'outpaint' => 'aigc_outpaint',
         'photo_restore' => 'aigc_photo_restore', 'image_translate' => 'aigc_image_translate',
@@ -37,11 +37,11 @@ final class WorkspaceAssetService
         $refs = $params['refs'] ?? [];
         if (!is_array($refs) || !$refs || count($refs) > 100) throw new InvalidArgumentException('每次请选择1至100项资产');
         foreach ($refs as $ref) {
-            if (!is_string($ref) || !preg_match('/^(?:[a-z_]+:(result|task):[1-9][0-9]{0,10}|(?:canvas|product_video):task:[1-9][0-9]{0,10}:[1-9][0-9]{0,4})$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
+            if (!is_string($ref) || !preg_match('/^(?:[a-z_]+:(result|task):[1-9][0-9]{0,10}|(?:canvas|product_video|story_commerce):task:[1-9][0-9]{0,10}:[1-9][0-9]{0,4})$/D', $ref)) throw new InvalidArgumentException('资产标识无效');
             [$source, $kind] = explode(':', $ref);
             if ($source !== 'upload' && !isset(self::SOURCES[$source]) && !isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产标识无效');
             if ($source === 'canvas' && $kind === 'task' && count(explode(':', $ref)) !== 4) throw new InvalidArgumentException('资产标识无效');
-            if ($source === 'product_video' && ($kind !== 'task' || count(explode(':',$ref)) !== 4)) throw new InvalidArgumentException('资产标识无效');
+            if (in_array($source,['product_video','story_commerce'],true) && ($kind !== 'task' || count(explode(':',$ref)) !== 4)) throw new InvalidArgumentException('资产标识无效');
             if (($source === 'fitting' || isset(self::TASK_OUTPUTS[$source])) && $kind !== 'task') throw new InvalidArgumentException('资产标识无效');
             if (in_array($source, ['short_drama', 'upload', 'agent'], true) && $kind !== 'result') throw new InvalidArgumentException('资产标识无效');
         }
@@ -119,6 +119,7 @@ final class WorkspaceAssetService
     public static function taskOutputs(int $tenant, int $user, string $source, int $page): array
     {
         self::identity($tenant, $user);
+        if ($source==='story_commerce') return WorkspaceStoryCommerceAssetService::lists($tenant,$user,$page);
         if ($source==='product_video') return WorkspaceProductVideoAssetService::lists($tenant,$user,$page);
         if (!isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产来源无效');
         $rows = self::taskOutputQuery($tenant, $user, $source)->order('id', 'desc')
@@ -208,7 +209,7 @@ final class WorkspaceAssetService
         if (!$stamp) return;
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return;
-        if ($source === 'product_video') return; // Per-output library state; never delete the job or a physical video.
+        if (in_array($source,['product_video','story_commerce'],true)) return; // Per-output library state; never delete the job or a physical video.
         // Agent-only documents/speech have no generation task to delete. Library state is authoritative.
         if ($source === 'agent') return;
         if (isset(self::TASK_OUTPUTS[$source])) {
@@ -268,6 +269,7 @@ final class WorkspaceAssetService
     {
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return WorkspaceCanvasAssetService::owned($tenant, $user, $ref);
+        if ($source === 'story_commerce') return WorkspaceStoryCommerceAssetService::owned($tenant,$user,$ref);
         if ($source === 'product_video') return WorkspaceProductVideoAssetService::owned($tenant,$user,$ref);
         if (isset(self::TASK_OUTPUTS[$source])) {
             $row = self::taskOutputQuery($tenant, $user, $source, $includeDeleted)->where('id', (int)$id)->find();

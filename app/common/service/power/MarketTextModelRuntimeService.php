@@ -151,6 +151,9 @@ class MarketTextModelRuntimeService
 
     private static function preserveUncertainSubmission(bool $tenantAdmin,string $action,array $params,string $message,bool $operatorProbe=false): bool
     {
+        if (($params['source_app_code'] ?? '') === 'aigc_story_commerce' && !empty($params['_story_commerce_preserve_uncertain'])) {
+            return \app\common\service\app\aigc_micro_video\MicroVideoSubmission::ambiguous($message);
+        }
         if (($params['source_app_code'] ?? '') === 'aigc_product_video' && !empty($params['_product_video_preserve_uncertain'])) {
             return \app\common\service\app\aigc_micro_video\MicroVideoSubmission::ambiguous($message);
         }

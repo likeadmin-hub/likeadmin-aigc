@@ -23,7 +23,7 @@ final class WorkspaceMediaPickerService
         if ($tenant < 1 || $user < 1) throw new InvalidArgumentException('请先登录');
         if (!preg_match('/^([a-z_]+:(?:result|task)):([1-9][0-9]{0,10})(?::([1-9][0-9]{0,4}))?$/D', $id, $match)) throw new InvalidArgumentException('素材标识无效');
         $stream=$match[1];
-        if (in_array($stream,['canvas:task','product_video:task'],true) !== isset($match[3])) throw new InvalidArgumentException('素材标识无效');
+        if (in_array($stream,['canvas:task','product_video:task','story_commerce:task'],true) !== isset($match[3])) throw new InvalidArgumentException('素材标识无效');
         $sources=$stream==='upload:result' ? [$stream=>self::uploads()] : self::assets($tenant,$user,self::TYPES);
         if (!isset($sources[$stream])) throw new InvalidArgumentException('素材不存在或无权引用');
         $hidden=Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$id])->whereRaw('(hidden_at > 0 OR trashed_at > 0)')->count();
@@ -139,9 +139,13 @@ final class WorkspaceMediaPickerService
         foreach (WorkspaceAssetService::SOURCES as $source => $app) {
             // Fitting results are owned image results; saved stand-alone Agent artifacts are handled below.
             if (in_array($source, ['fitting','agent'], true)) continue;
-            $stream = $source==='product_video' ? 'product_video:task' : $source.':result';
+            $stream = in_array($source,['product_video','story_commerce'],true) ? $source.':task' : $source.':result';
             $available = $source === 'canvas' || (in_array($app,$enabled,true) && MembershipService::userCanUseApp($tenant,$user,$app));
             if (!$available && !in_array($stream,$saved,true) && !($source==='canvas' && in_array('canvas:task',$saved,true))) continue;
+            if ($source==='story_commerce') {
+                if (in_array('video',$types,true)) $sources[$stream]=WorkspaceStoryCommerceAssetService::pickerSource(!$available);
+                continue;
+            }
             if ($source==='product_video') {
                 if (in_array('video',$types,true)) $sources[$stream]=WorkspaceProductVideoAssetService::pickerSource(!$available);
                 continue;
@@ -217,7 +221,7 @@ final class WorkspaceMediaPickerService
             }
             if ($s['saved'] ?? false) {
                 $state = Db::name('user_asset_state')->getTable();
-                $ref = in_array($stream,['canvas:task','product_video:task'],true) ? "a.asset_ref LIKE CONCAT('$stream:',r.id,':%')" : "a.asset_ref=CONCAT('$stream:',r.id)";
+                $ref = in_array($stream,['canvas:task','product_video:task','story_commerce:task'],true) ? "a.asset_ref LIKE CONCAT('$stream:',r.id,':%')" : "a.asset_ref=CONCAT('$stream:',r.id)";
                 $conditions[] = "EXISTS (SELECT 1 FROM `$state` a WHERE a.tenant_id=r.tenant_id AND a.user_id=r.$owner AND $ref AND a.hidden_at=0 AND a.trashed_at=0 AND (a.favorite=1 OR a.label<>''))";
             }
             $stamp = 'COALESCE(r.create_time,0)';
@@ -247,6 +251,7 @@ final class WorkspaceMediaPickerService
 
     private static function outputs(int $tenant, int $user, array $row): array
     {
+        if ($row['stream']==='story_commerce:task') return WorkspaceStoryCommerceAssetService::pickerOutputs($tenant,$user,$row);
         if ($row['stream']==='product_video:task') return WorkspaceProductVideoAssetService::pickerOutputs($tenant,$user,$row);
         $type = $row['type'];
         $ref = $row['stream'].':'.$row['id'];

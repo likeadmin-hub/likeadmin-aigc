@@ -291,6 +291,7 @@ class AppCaseService
         $row['cover_path'] = $cover;
         $row['media_path'] = $media !== '' ? $media : $cover;
         $row['config_fields'] = self::configFields($config, (string)($row['media_type'] ?? self::MEDIA_IMAGE));
+        if (($row['app_code'] ?? '') === 'aigc_story_commerce' && isset($config['generation_request']['advanced_params']['story_commerce'])) return \app\common\service\app\aigc_story_commerce\StoryCommerceTemplates::galleryRow($row);
         if (($row['app_code'] ?? '') === 'aigc_product_video' && isset($config['generation_request']['advanced_params']['product_video'])) return \app\common\service\app\aigc_product_video\ProductVideoTemplates::galleryRow($row);
         return $row;
     }
