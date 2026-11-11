@@ -25,7 +25,7 @@ final class MotionSyncMedia
             $file=\think\facade\Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>20,'uri'=>$input])->whereRaw('(delete_time IS NULL OR delete_time=0)')->find();
             $approved=$file?\app\common\service\app\StudioBuiltinCatalog::asset((string)$file['uri'],(string)$file['storage_engine'],(string)$file['storage_domain']):null;
             if($approved&&($approved['type']??'')==='video'&&isset($approved['mime_type'],$approved['file_size'],$approved['width'],$approved['height'],$approved['duration']))
-                $body['video']=$approved+['file_id'=>(int)$file['id'],'tenant_id'=>$tenant,'user_id'=>$user,'url'=>$approved['storage_domain'].'/'.$approved['uri']];
+                $body['video']=array_replace($approved,array_intersect_key($file,array_flip(['storage_scope','storage_engine','storage_domain'])),['file_id'=>(int)$file['id'],'tenant_id'=>$tenant,'user_id'=>$user,'url'=>$approved['storage_domain'].'/'.$approved['uri']]);
             else $body['video']=MicroVideoMedia::validateVideo($tenant,$user,$input,30,
                 static fn(array $file,array $storage): string=>ManagedStorageReader::read(array_replace($file,$storage),$tenant,100*1024*1024,60));
         }

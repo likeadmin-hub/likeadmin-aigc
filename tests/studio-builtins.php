@@ -60,6 +60,12 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
         $draftService=$app===M::APP?M::class:S::class;
         $resaved=$draftService::save($target,$user,['id'=>$copy['id'],'revision'=>$copy['revision'],'body'=>$copy['body'],'confirm_script'=>true]);
         check($resaved['revision']===$copy['revision']+1,'Redacted PC/mobile draft round-trips without source-site file IDs');
+        if($app===M::APP){
+            $owned=['tenant_id'=>$target,'source'=>1,'source_id'=>$user,'type'=>20,'uri'=>$video['uri']];Db::name('tenant_file')->where($owned)->update(['storage_scope'=>'tenant']);
+            $receiptDraft=M::save($target,$user,['id'=>$resaved['id'],'revision'=>$resaved['revision'],'body'=>$resaved['body']]);
+            check($receiptDraft['body']['video']['storage_scope']==='tenant','Approved facts must not replace the actual owned receipt storage scope');
+            Db::name('tenant_file')->where($owned)->update(['storage_scope'=>'platform']);
+        }
         $listed=AppCaseService::lists($target,$app,['page_no'=>1],true);check(in_array($id,array_column($listed['lists'],'id'),true),'Shared inspiration gallery includes the enabled builtin');
         $url=StorageSignedUrlService::resolve($image['uri'],'platform',$engine,$domain,$target);check($url===$domain.'/'.$image['uri'],'Public source origin resolves without target credentials');
         $updated=$templates::save(0,['id'=>$id,'title'=>'内置修订版','builtin_version'=>1]);check($updated['builtin_version']===2,'Platform metadata edit increments the source revision');
