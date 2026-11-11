@@ -41,9 +41,12 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
     $money=Db::name('user')->where('id',1)->value('user_money');$points=Db::name('tenant')->where('id',1)->value('point_balance');
     foreach([[S::APP,ST::class,$storyJob],[M::APP,MT::class,$motionJob]] as [$app,$templates,$job]){
         rejects(fn()=>B::fromJob($app,$job,[]),'Explicit public media consent is mandatory');
-        $builtin=B::fromJob($app,$job,['confirm_public_media'=>true,'title'=>'平台审核内置 '.$app]);$id=$builtin['id'];
+        rejects(fn()=>B::fromJob($app,$job,['confirm_public_media'=>true],$target),'Tenant cannot publish another tenant job');
+        $builtin=B::fromJob($app,$job,['confirm_public_media'=>true,'title'=>'租户确认内置 '.$app],1);$id=$builtin['id'];
         check($builtin['is_builtin']&&$builtin['tenant_id']===0&&$builtin['builtin_version']===1,'Independent platform template with stable version');
-        check(B::fromJob($app,$job,['confirm_public_media'=>true])['id']===$id,'Repeated record action is idempotent');
+        check(B::fromJob($app,$job,['confirm_public_media'=>true],1)['id']===$id,'Repeated record action is idempotent');
+        $link=B::info($app,$id);$sourceId=(int)$link['source_case_id'];rejects(fn()=>B::publish($app,$sourceId,['confirm_public_media'=>true],$target),'Tenant cannot publish another tenant template');
+        check($templates::detail(1,$sourceId)['published_builtin_version']===1,'Source tenant can see the version for a controlled update');
         $entries=C::all($app);check(count($entries)===1,'One authored definition per source job');$entry=array_values($entries)[0];$text=json_encode($entry);
         foreach(['file_id','user_id','tenant_id','job_id','quote_token','api_key'] as $field)check(!str_contains($text,'"'.$field.'"'),'Portable source excludes '.$field);
         if($app===S::APP)check($entry['configuration']['video_selection']['model_id']===''&&$entry['configuration']['script']===$body['script'],'Story preserves exact script and remaps the local model');
@@ -76,7 +79,7 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
         Db::name('tenant_file')->where('tenant_id',1)->whereIn('uri',[$image['uri'],$video['uri'],$preview['uri']])->update(['delete_time'=>0]);
     }
     check(Db::name('user')->where('id',1)->value('user_money')===$money&&Db::name('tenant')->where('id',1)->value('point_balance')===$points,'Publication and remix do not charge either payer');
-    foreach(C::APPS as $app){check(!method_exists('app\\tenantapi\\controller\\app\\'.$app.'\\CaseController','builtinFromJob'),'Tenant API has no platform publication endpoint');}
+    foreach(C::APPS as $app){check(method_exists('app\\tenantapi\\controller\\app\\'.$app.'\\CaseController','builtinFromJob'),'Tenant API declares the own-record publication endpoint');check(!method_exists('app\\platformapi\\controller\\app\\'.$app.'\\CaseController','builtinFromJob'),'Platform records do not expose the relocated action');}
     foreach([['uri'=>'a.png','storage_engine'=>'local','storage_domain'=>''],['uri'=>'a.png?signature=secret','storage_engine'=>$engine,'storage_domain'=>$domain],['uri'=>'a.png','storage_engine'=>$engine,'storage_domain'=>'https://127.0.0.1']] as $bad)rejects(fn()=>C::publicAsset($bad),'Local, signed or unsafe objects are not portable');
 });});echo "PASS $checks portable studio source, model identity, complete remix, platform permissions, idempotent replay, versioning, source-independent media and object protection checks; no network/provider calls\n";
 }finally{Db::rollback();foreach($cacheKeys as $key)Cache::delete($key);foreach(['motion','story','site-b'] as $d){foreach(glob($root.'/'.$d.'/*') as $f)unlink($f);rmdir($root.'/'.$d);}rmdir($root);}

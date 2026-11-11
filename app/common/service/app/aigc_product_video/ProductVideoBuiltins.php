@@ -20,17 +20,17 @@ final class ProductVideoBuiltins
     {$old=self::$writing;self::$writing=true;try{return $call();}finally{self::$writing=$old;}}
     public static function info(int $caseId): ?array
     {return self::table()->where('case_id',$caseId)->find()?:null;}
-    public static function fromJob(int $id,array $params): array
+    public static function fromJob(int $id,array $params,int $scope=0): array
     {
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认将商品素材作为跨站点公开共享素材');
-        $job=ProductVideoJobs::owned(0,0,$id,true);
+        $job=ProductVideoJobs::owned($scope,0,$id,true);
         if($job['action']!=='video'||!in_array($job['status'],['success','partial'],true))throw new InvalidArgumentException('仅已完成视频可以设为内置模板');
         $lock=SubmitLockService::acquire('product_video_builtin_job_'.$id);
-        try{return Db::transaction(static function()use($job,$id,$params){
+        try{return Db::transaction(static function()use($job,$id,$params,$scope){
             $sources=AppCase::where(['tenant_id'=>$job['tenant_id'],'app_code'=>ProductVideoPolicy::APP,'source_task_id'=>$id])->column('id');
             $link=$sources?self::table()->whereIn('source_case_id',$sources)->find():null;
-            if($link){self::sync(true);return ProductVideoTemplates::detail(0,(int)$link['case_id']);}
-            $case=ProductVideoTemplates::fromJob(0,$id,$params);return self::publish((int)$case['id'],$params);
+            if($link){self::sync(true);return ProductVideoTemplates::detail($scope,(int)$link['case_id']);}
+            $case=ProductVideoTemplates::fromJob($scope,$id,$params);return self::publish((int)$case['id'],$params,$scope);
         });}finally{SubmitLockService::release($lock);}
     }
     public static function ids(): array {return array_map('intval',self::table()->whereNotNull('case_id')->column('case_id'));}
@@ -86,12 +86,12 @@ final class ProductVideoBuiltins
         if(!$p)throw new InvalidArgumentException('视频模型尚未同步到算力市场');
         return array_intersect_key($p,array_flip(['source_code','upstream_resource_key','resource_type','upstream_app_code']));
     }
-    public static function publish(int $sourceId,array $params): array
+    public static function publish(int $sourceId,array $params,int $scope=0): array
     {
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认将商品素材作为平台共享素材');
         $lock=SubmitLockService::acquire('product_video_builtin_source');
-        try{ProductVideoBuiltinCatalog::refresh();return Db::transaction(static function()use($sourceId,$params){
-            $source=AppCase::where(['id'=>$sourceId,'app_code'=>ProductVideoPolicy::APP,'delete_time'=>0])->lock(true)->find();
+        try{ProductVideoBuiltinCatalog::refresh();return Db::transaction(static function()use($sourceId,$params,$scope){
+            $query=AppCase::where(['id'=>$sourceId,'app_code'=>ProductVideoPolicy::APP,'delete_time'=>0]);if($scope>0)$query->where('tenant_id',$scope);$source=$query->lock(true)->find();
             if(!$source)throw new InvalidArgumentException('请选择租户已有的商品视频模板');
             $source=$source->toArray();$existing=self::table()->where('source_case_id',$sourceId)->find();$all=ProductVideoBuiltinCatalog::all();$prior=$existing?($all[$existing['builtin_key']]??null):null;
             if((int)($params['expected_version']??0)!==(int)($prior['version']??0))throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
@@ -106,7 +106,7 @@ final class ProductVideoBuiltins
                 'title'=>$source['title'],'status'=>(int)$source['status'],'sort'=>(int)$source['sort'],'deleted'=>false,'model_name'=>$model['label'],'model_identity'=>$identity,'configuration'=>$body,
                 'media'=>self::shared($extra['product_video_media'],(int)$source['tenant_id'])]);
             self::sync(true);$link=self::table()->where('builtin_key',$entry['key'])->find();self::table()->where('builtin_key',$entry['key'])->update(['source_case_id'=>$sourceId,'source_tenant_id'=>(int)$source['tenant_id']]);
-            return ProductVideoTemplates::detail(0,(int)$link['case_id']);
+            return ProductVideoTemplates::detail($scope,(int)$link['case_id']);
         });}finally{SubmitLockService::release($lock);}
     }
     private static function sourceUser(array $case): int

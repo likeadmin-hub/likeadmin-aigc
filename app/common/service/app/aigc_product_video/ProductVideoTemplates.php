@@ -79,7 +79,7 @@ final class ProductVideoTemplates
         $dto=['id'=>(int)$row['id'],'title'=>$row['title'],'prompt'=>$body['prompt'],'configuration'=>ProductVideoService::publicBody($body,(int)$row['tenant_id']),
             'media_type'=>'video','media_url'=>$media['url']??$media['video_url']??'','cover_url'=>$cover['url']??'',
             'is_builtin'=>(bool)$builtin,'builtin_version'=>(int)($builtin['version']??0),'readonly'=>!$public&&$scope>0&&(bool)$builtin,'ratio'=>$body['video_selection']['ratio']??'','model_name'=>$row['config_json']['model_name']??'','create_time'=>(int)$row['create_time']];
-        if(!$public&&$scope===0&&!$builtin)$dto['published_builtin_version']=(int)(ProductVideoBuiltins::table()->where('source_case_id',$row['id'])->value('version')?:0);
+        if(!$public&&!$builtin&&($scope===0||$scope===(int)$row['tenant_id']))$dto['published_builtin_version']=(int)(ProductVideoBuiltins::table()->where('source_case_id',$row['id'])->value('version')?:0);
         if(!$public)$dto+=['tenant_id'=>(int)$row['tenant_id'],'source_job_id'=>(int)$row['source_task_id'],'status'=>(int)$row['status'],'sort'=>(int)$row['sort']];
         return $dto;
     }

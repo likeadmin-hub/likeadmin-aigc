@@ -26,7 +26,7 @@ final class MotionSyncTemplates
         $w=(int)($video['width']??0);$h=(int)($video['height']??0);
         $dto=['id'=>(int)$r['id'],'title'=>$r['title'],'configuration'=>$view['configuration'],'preview'=>$video,
             'media_type'=>'video','media_url'=>$video['url']??'','cover_url'=>$image['url']??'','width'=>$w,'height'=>$h,'ratio'=>$w>0&&$h>0?$w.':'.$h:'9:16','is_builtin'=>(bool)($builtin=Builtins::info(MotionSyncService::APP,(int)$r['id'])),'builtin_version'=>(int)($builtin['version']??0)];
-        if(!$public&&$viewer===0&&!$builtin)$dto['published_builtin_version']=(int)(Builtins::table()->where(['app_code'=>MotionSyncService::APP,'source_case_id'=>$r['id']])->value('version')?:0);
+        if(!$public&&!$builtin&&($viewer===0||$viewer===(int)$r['tenant_id']))$dto['published_builtin_version']=(int)(Builtins::table()->where(['app_code'=>MotionSyncService::APP,'source_case_id'=>$r['id']])->value('version')?:0);
         if(!$public)$dto+=['tenant_id'=>(int)$r['tenant_id'],'status'=>(int)$r['status'],'sort'=>(int)$r['sort'],'source_task_id'=>(int)$r['source_task_id'],'create_time'=>(int)$r['create_time'],'readonly'=>$viewer>0&&(int)$r['tenant_id']!==$viewer];return $dto;
     }
     public static function lists(int $scope,array $p,bool $public=false): array

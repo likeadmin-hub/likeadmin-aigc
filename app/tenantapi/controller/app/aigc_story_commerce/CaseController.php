@@ -6,6 +6,10 @@ use app\common\service\app\aigc_story_commerce\StoryCommerceJobs as J;
 use app\common\service\app\aigc_story_commerce\StoryCommerceTemplates as T;
 class CaseController extends BaseAdminController
 {
+    private function builtinScope(): int {$tenant=(int)$this->request->tenantId;if($tenant<1)throw new \InvalidArgumentException('租户身份无效');\app\common\service\app\aigc_story_commerce\StoryCommerceService::available($tenant);return $tenant;}
+    public function builtin(){return $this->respond(fn()=>\app\common\service\app\StudioBuiltinTemplates::publish(\app\common\service\app\aigc_story_commerce\StoryCommerceService::APP,(int)$this->request->post('id',0),$this->request->post(),$this->builtinScope()));}
+    public function builtinFromJob(){return $this->respond(fn()=>\app\common\service\app\StudioBuiltinTemplates::fromJob(\app\common\service\app\aigc_story_commerce\StoryCommerceService::APP,(int)$this->request->post('job_id',0),$this->request->post(),$this->builtinScope()));}
+
     private function respond(callable $call){try{return $this->success('操作成功',$call());}catch(\InvalidArgumentException|\app\common\service\ai\PreSubmissionRejected $e){return $this->fail($e->getMessage());}catch(\Throwable $e){\think\facade\Log::warning('Story commerce API: '.get_class($e));return $this->fail('操作暂未完成，请稍后重试');}}
     public function options(){return $this->respond(fn()=>S::config((int)$this->request->tenantId)+S::models((int)$this->request->tenantId,'video',(string)$this->request->get('model_id','')));}
     public function lists(){return $this->respond(fn()=>T::lists((int)$this->request->tenantId,$this->request->get()));}

@@ -26,13 +26,15 @@
             "source_menu_key": "aigc_motion_sync_config_models",
             "type": "A",
             "name": "查看模型",
-            "perms": "app.aigc_motion_sync.config/models"
+            "perms": "app.aigc_motion_sync.config/models",
+            "children": []
           },
           {
             "source_menu_key": "aigc_motion_sync_config_setup",
             "type": "A",
             "name": "保存配置",
-            "perms": "app.aigc_motion_sync.config/setup"
+            "perms": "app.aigc_motion_sync.config/setup",
+            "children": []
           }
         ]
       },
@@ -51,40 +53,36 @@
             "source_menu_key": "aigc_motion_sync_case_detail",
             "type": "A",
             "name": "查看详情",
-            "perms": "app.aigc_motion_sync.case/detail"
+            "perms": "app.aigc_motion_sync.case/detail",
+            "children": []
           },
           {
             "source_menu_key": "aigc_motion_sync_case_save",
             "type": "A",
             "name": "编辑模板",
-            "perms": "app.aigc_motion_sync.case/save"
+            "perms": "app.aigc_motion_sync.case/save",
+            "children": []
           },
           {
             "source_menu_key": "aigc_motion_sync_case_fromJob",
             "type": "A",
             "name": "设为模板",
-            "perms": "app.aigc_motion_sync.case/fromJob"
+            "perms": "app.aigc_motion_sync.case/fromJob",
+            "children": []
           },
           {
             "source_menu_key": "aigc_motion_sync_case_status",
             "type": "A",
             "name": "上下架模板",
-            "perms": "app.aigc_motion_sync.case/status"
+            "perms": "app.aigc_motion_sync.case/status",
+            "children": []
           },
           {
             "source_menu_key": "aigc_motion_sync_case_delete",
             "type": "A",
             "name": "删除记录",
-            "perms": "app.aigc_motion_sync.case/delete"
-          },
-          {
-            "source_menu_key": "aigc_motion_sync_case_builtin",
-            "app_code": "aigc_motion_sync",
-            "source": "app",
-            "type": "A",
-            "name": "维护平台内置模板",
-            "perms": "app.aigc_motion_sync.case/builtin",
-            "sort": 0
+            "perms": "app.aigc_motion_sync.case/delete",
+            "children": []
           }
         ]
       },
@@ -103,22 +101,15 @@
             "source_menu_key": "aigc_motion_sync_job_detail",
             "type": "A",
             "name": "查看详情",
-            "perms": "app.aigc_motion_sync.job/detail"
+            "perms": "app.aigc_motion_sync.job/detail",
+            "children": []
           },
           {
             "source_menu_key": "aigc_motion_sync_job_delete",
             "type": "A",
             "name": "删除记录",
-            "perms": "app.aigc_motion_sync.job/delete"
-          },
-          {
-            "source_menu_key": "aigc_motion_sync_case_builtinFromJob",
-            "app_code": "aigc_motion_sync",
-            "source": "app",
-            "type": "A",
-            "name": "设为内置模板",
-            "perms": "app.aigc_motion_sync.case/builtinFromJob",
-            "sort": 0
+            "perms": "app.aigc_motion_sync.job/delete",
+            "children": []
           }
         ]
       }

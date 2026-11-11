@@ -23,8 +23,8 @@ try{C::withDirectory($dir,static function()use($dir){
  $project=S::save(1,1,['body'=>$body]);$job=J::table()->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$project['id'],'project_revision'=>1,'action'=>'video','status'=>'success','idempotency_key'=>'pv_builtin_'.bin2hex(random_bytes(12)),'input_hash'=>str_repeat('b',64),'request_json'=>P::encode(['snapshot'=>$project['body']]),'receipt_json'=>'{}','result_json'=>P::encode(['videos'=>[['uri'=>$mediaUri,'storage_scope'=>$storage['scope'],'storage_engine'=>$engine,'storage_domain'=>$domain]]]),'create_time'=>time(),'update_time'=>time()]);
  $normal=T::fromJob(0,$job,['title'=>'内置模板事务测试']);reject(fn()=>B::publish($normal['id'],[]),'Explicit public media consent required');
  reject(fn()=>T::detail($target,$normal['id'],true),'Other tenant private templates remain isolated');
- $jobs=J::table()->count();$builtin=B::publish($normal['id'],['confirm_public_media'=>true]);$id=$builtin['id'];
- yes(B::fromJob($job,['confirm_public_media'=>true])['id']===$id,'Record shortcut reuses an existing builtin');
+ $jobs=J::table()->count();$builtin=B::publish($normal['id'],['confirm_public_media'=>true],1);$id=$builtin['id'];
+ yes(B::fromJob($job,['confirm_public_media'=>true],1)['id']===$id,'Record shortcut reuses an existing builtin');
  reject(fn()=>B::fromJob($job,[]),'Record shortcut requires explicit public media confirmation');
  yes($id!==$normal['id']&&$builtin['tenant_id']===0&&$builtin['is_builtin']===true,'Independent platform-owned template');
  yes($builtin['builtin_version']===1,'Initial source version');
@@ -64,7 +64,7 @@ try{C::withDirectory($dir,static function()use($dir){
  $unrelated='uploads/pv_unrelated_'.bin2hex(random_bytes(6)).'.txt';file_put_contents(public_path().$unrelated,'local fixture');try{$method->invoke(null,['local_uri'=>$unrelated,'tenant_id'=>1,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'']);yes(!is_file(public_path().$unrelated),'Unrelated managed local asset retains normal physical deletion');}finally{if(is_file(public_path().$unrelated))unlink(public_path().$unrelated);}
  $broken=$retained;$broken['model_identity']['upstream_resource_key']='missing-builtin-model';reject(fn()=>B::bodyFor($target,$broken),'Missing target market model never silently falls back');
  $private=new ReflectionMethod(B::class,'shared');$private->setAccessible(true);reject(fn()=>$private->invoke(null,['uri'=>'uploads/not-shared.png','storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>''],0),'Private or local source cannot be promoted');
- yes(!method_exists(\app\tenantapi\controller\app\aigc_product_video\CaseController::class,'builtin'),'Tenant has no builtin publish route');
+ yes(method_exists(\app\tenantapi\controller\app\aigc_product_video\CaseController::class,'builtin'),'Tenant has a scoped builtin publish route');reject(fn()=>B::publish($normal['id'],['confirm_public_media'=>true],$target),'Tenant cannot export another tenant template');reject(fn()=>B::fromJob($job,['confirm_public_media'=>true],$target),'Tenant cannot export another tenant record');
  // An advanced template carries a fresh text plan across model-ID remapping as well.
  $advanced=$project['body'];$advanced['mode']='advanced';$advanced['plan']=['data'=>['summary'=>'展示已确认商品细节','duration'=>$spec['duration'],'shots'=>[['start'=>0,'end'=>$spec['duration']/2,'description'=>'展示商品轮廓'],['start'=>$spec['duration']/2,'end'=>$spec['duration'],'description'=>'展示商品细节']],'video_prompt'=>'展示 @图片1 的商品轮廓，然后展示商品细节。'],'input_key'=>P::planKey($advanced)];
  $advanced['prompt']=$advanced['plan']['data']['video_prompt'];

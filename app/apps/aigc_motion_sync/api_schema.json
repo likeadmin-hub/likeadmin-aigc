@@ -317,7 +317,7 @@
       "api_path": "app.aigc_motion_sync.case/builtin",
       "api_method": "POST",
       "permission_key": "aigc_motion_sync:case:builtin",
-      "scene": "platform_admin",
+      "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
     },
@@ -325,7 +325,7 @@
       "api_path": "app.aigc_motion_sync.case/builtinFromJob",
       "api_method": "POST",
       "permission_key": "aigc_motion_sync:case:builtinFromJob",
-      "scene": "platform_admin",
+      "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
     }

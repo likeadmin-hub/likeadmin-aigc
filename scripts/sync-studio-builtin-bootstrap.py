@@ -32,26 +32,30 @@ all_sql=[]
 for code in ['aigc_product_video','aigc_motion_sync','aigc_story_commerce']:
     app=root/'app/apps'/code
     schema=json.loads((app/'api_schema.json').read_text())
-    menus=json.loads((app/'menus/platform.json').read_text())
-    routes=[a for a in schema['apis'] if a['scene']=='platform_admin' and a['api_path'] in [f'app.{code}.case/builtin',f'app.{code}.case/builtinFromJob']]
+    menus=json.loads((app/'menus/tenant.json').read_text())
+    routes=[a for a in schema['apis'] if a['scene']=='tenant_admin' and a['api_path'] in [f'app.{code}.case/builtin',f'app.{code}.case/builtinFromJob']]
     lines=[] if code=='aigc_product_video' else [ddl]
+    moved=[f'app.{code}.case/builtinFromJob']+([] if code=='aigc_product_video' else [f'app.{code}.case/builtin'])
+    lines.append(f"DELETE FROM `la_app_api` WHERE app_code={q(code)} AND scene='platform_admin' AND api_path IN ("+','.join(q(x) for x in moved)+');')
+    lines.append(f"DELETE FROM `la_system_menu` WHERE app_code={q(code)} AND source='app' AND perms IN ("+','.join(q(x) for x in moved)+');')
     for a in routes:
         lines.append('INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('+','.join(q(v) for v in [code,a['api_path'],a['api_method'],a['permission_key'],a['scene']])+',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());')
     def visit(items,parent=None):
         for m in items:
             if m.get('perms') in [a['api_path'] for a in routes]:
-                pid=f"(SELECT p.id FROM `la_system_menu` p WHERE p.app_code={q(code)} AND p.source_menu_key={q(parent)} LIMIT 1)"
-                lines.append('INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT '+','.join([pid,q('A'),q(m['name']),q(''),'0',q(m['perms']),q(''),q(''),q(''),q(''),'0','1','0',q(code),q('app'),q(m['source_menu_key']),'0','UNIX_TIMESTAMP()','UNIX_TIMESTAMP()'])+f' FROM DUAL WHERE {pid} IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.app_code={q(code)} AND m.source_menu_key={q(m["source_menu_key"])});')
+                pid=f"(SELECT p.id FROM `la_tenant_system_menu` p WHERE p.app_code={q(code)} AND p.tenant_id=t.tenant_id AND p.source_menu_key={q(parent)} LIMIT 1)"
+                lines.append('INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) SELECT '+','.join(['t.tenant_id',pid,q('A'),q(m['name']),q(''),'0',q(m['perms']),q(''),q(''),q(''),q(''),'0','1','0',q(code),q('app'),q(m['source_menu_key']),'0','UNIX_TIMESTAMP()','UNIX_TIMESTAMP()'])+f' FROM (SELECT 0 AS tenant_id UNION SELECT id FROM `la_tenant` WHERE tactics<>1) t WHERE {pid} IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` m WHERE m.app_code={q(code)} AND m.tenant_id=t.tenant_id AND m.source_menu_key={q(m["source_menu_key"])});')
             visit(m.get('children',[]),m.get('source_menu_key'))
     visit(menus)
     text='\n'.join(lines)+'\n'
     (app/'migrations/20261111_zz_portable_inspirations.sql').write_text(text)
+    (app/'migrations/20261111_zzz_tenant_builtin_entry.sql').write_text(text)
     if code!='aigc_product_video':
         replace_block(app/'migrations/install.sql','portable inspiration mapping',ddl)
         directory=app/'data/inspirations'; directory.mkdir(parents=True,exist_ok=True)
         (directory/'README.md').write_text('''# 跨独立站点内置灵感模板
 
-平台后台“设为内置模板”生成此目录中的 JSON 源定义。图片、动作参考视频和预览成片继续引用原公开 OSS/COS/七牛文件，不包含媒体二进制、存储密钥、临时签名或本站上传记录 ID。
+租户后台“设为内置模板”从本站记录或模板生成此目录中的 JSON 源定义，须有相应后台权限并确认素材可跨站点公开共享。图片、动作参考视频和预览成片继续引用原公开 OSS/COS/七牛文件，不包含媒体二进制、存储密钥、临时签名或本站上传记录 ID。
 
 新建及更新的 JSON 需纳入下一次源码交付；其他站点更新后自动同步为平台模板，已启用应用的租户可查看和同款。目标站点需同步、上架相同模型及规格，不会自动替换模型。普通租户模板不会自动公开。
 

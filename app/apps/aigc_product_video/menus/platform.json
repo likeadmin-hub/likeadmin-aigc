@@ -26,13 +26,15 @@
             "source_menu_key": "aigc_product_video_config_save",
             "type": "A",
             "name": "保存配置",
-            "perms": "app.aigc_product_video.config/setup"
+            "perms": "app.aigc_product_video.config/setup",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_config_models",
             "type": "A",
             "name": "查看模型",
-            "perms": "app.aigc_product_video.config/models"
+            "perms": "app.aigc_product_video.config/models",
+            "children": []
           }
         ]
       },
@@ -51,34 +53,29 @@
             "source_menu_key": "aigc_product_video_job_detail",
             "type": "A",
             "name": "查看详情",
-            "perms": "app.aigc_product_video.job/detail"
+            "perms": "app.aigc_product_video.job/detail",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_case_fromJob",
             "type": "A",
             "name": "设为模板",
-            "perms": "app.aigc_product_video.case/fromJob"
+            "perms": "app.aigc_product_video.case/fromJob",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_case_options",
             "type": "A",
             "name": "查看模板模型",
-            "perms": "app.aigc_product_video.case/options"
+            "perms": "app.aigc_product_video.case/options",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_job_delete",
             "type": "A",
             "name": "删除创作记录",
-            "perms": "app.aigc_product_video.job/delete"
-          },
-          {
-            "source_menu_key": "aigc_product_video_case_builtinFromJob",
-            "app_code": "aigc_product_video",
-            "source": "app",
-            "type": "A",
-            "name": "设为内置模板",
-            "perms": "app.aigc_product_video.case/builtinFromJob",
-            "sort": 0
+            "perms": "app.aigc_product_video.job/delete",
+            "children": []
           }
         ]
       },
@@ -97,37 +94,43 @@
             "source_menu_key": "aigc_product_video_case_detail",
             "type": "A",
             "name": "查看模板",
-            "perms": "app.aigc_product_video.case/detail"
+            "perms": "app.aigc_product_video.case/detail",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_case_save",
             "type": "A",
             "name": "编辑模板",
-            "perms": "app.aigc_product_video.case/save"
+            "perms": "app.aigc_product_video.case/save",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_case_status",
             "type": "A",
             "name": "启停模板",
-            "perms": "app.aigc_product_video.case/status"
+            "perms": "app.aigc_product_video.case/status",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_case_delete",
             "type": "A",
             "name": "删除模板",
-            "perms": "app.aigc_product_video.case/delete"
+            "perms": "app.aigc_product_video.case/delete",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_case_builtin",
             "type": "A",
             "name": "设置平台内置",
-            "perms": "app.aigc_product_video.case/builtin"
+            "perms": "app.aigc_product_video.case/builtin",
+            "children": []
           },
           {
             "source_menu_key": "aigc_product_video_case_create",
             "type": "A",
             "name": "新增模板",
-            "perms": "app.aigc_product_video.case/create"
+            "perms": "app.aigc_product_video.case/create",
+            "children": []
           }
         ]
       }

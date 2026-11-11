@@ -96,12 +96,13 @@ final class StudioBuiltinTemplates
         if(!isset($config['engine'][$engine])||rtrim((string)($settings['domain']??''),'/')!==rtrim((string)($asset['storage_domain']??''),'/')||!empty($settings['private_access'])||!empty($settings['private']))throw new InvalidArgumentException('内置模板须使用持久化的公开 OSS 素材，私有素材不能直接共享');
         return StudioBuiltinCatalog::publicAsset($asset);
     }
-    public static function publish(string $app,int $id,array $params): array
+    public static function publish(string $app,int $id,array $params,int $scope=0): array
     {
         self::service($app);if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认素材可作为跨站点公开共享素材');
         $lock=SubmitLockService::acquire($app.'_builtin_source');
-        try{return Db::transaction(static function()use($app,$id,$params){
-            $source=AppCase::where(['id'=>$id,'app_code'=>$app,'delete_time'=>0])->lock(true)->find();if(!$source)throw new InvalidArgumentException('模板不存在');$source=$source->toArray();
+        try{return Db::transaction(static function()use($app,$id,$params,$scope){
+            $query=AppCase::where(['id'=>$id,'app_code'=>$app,'delete_time'=>0]);if($scope>0)$query->where('tenant_id',$scope);
+            $source=$query->lock(true)->find();if(!$source)throw new InvalidArgumentException('模板不存在或不属于当前租户');$source=$source->toArray();
             if(self::info($app,$id))throw new InvalidArgumentException('该记录已经是内置模板，请在模板列表维护');
             $link=self::table()->where(['app_code'=>$app,'source_case_id'=>$id])->find();$prior=$link?(StudioBuiltinCatalog::all($app)[$link['builtin_key']]??null):null;
             if((int)($params['expected_version']??0)!==(int)($prior['version']??0))throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
@@ -114,24 +115,24 @@ final class StudioBuiltinTemplates
             $entry=StudioBuiltinCatalog::write($app,['schema_version'=>1,'app_code'=>$app,'key'=>$prior['key']??'builtin-'.bin2hex(random_bytes(12)),'version'=>(int)($prior['version']??0)+1,
                 'title'=>$source['title'],'status'=>(int)$source['status'],'sort'=>(int)$source['sort'],'deleted'=>false,'model_identity'=>$identity,'configuration'=>$b,'media'=>self::shared($owner,$media)]);
             self::sync($app);self::table()->where(['app_code'=>$app,'builtin_key'=>$entry['key']])->update(['source_case_id'=>$id,'source_tenant_id'=>$owner]);
-            $id=(int)self::table()->where(['app_code'=>$app,'builtin_key'=>$entry['key']])->value('case_id');$service=self::service($app);return $service::detail(0,$id);
+            $id=(int)self::table()->where(['app_code'=>$app,'builtin_key'=>$entry['key']])->value('case_id');$service=self::service($app);return $service::detail($scope,$id);
         });}finally{SubmitLockService::release($lock);}
     }
-    public static function fromJob(string $app,int $id,array $params): array
+    public static function fromJob(string $app,int $id,array $params,int $scope=0): array
     {
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认素材可作为跨站点公开共享素材');
-        $service=self::service($app);$job=$app===Motion::APP?MotionSyncJobs::owned(0,0,$id,true):StoryCommerceJobs::owned(0,0,$id,true);
+        $service=self::service($app);$job=$app===Motion::APP?MotionSyncJobs::owned($scope,0,$id,true):StoryCommerceJobs::owned($scope,0,$id,true);
         if($job['status']!=='success'||($app===Story::APP&&$job['action']!=='video'))throw new InvalidArgumentException('仅已完成视频可以设为内置模板');
         $lock=SubmitLockService::acquire($app.'_builtin_job_'.$id);
-        try{return Db::transaction(static function()use($app,$id,$params,$service,$job){
+        try{return Db::transaction(static function()use($app,$id,$params,$service,$job,$scope){
             $link=self::table()->where(['app_code'=>$app,'source_job_id'=>$id,'source_tenant_id'=>(int)$job['tenant_id']])->find();
-            if($link){self::sync($app);return $service::detail(0,(int)$link['case_id']);}
+            if($link){self::sync($app);return $service::detail($scope,(int)$link['case_id']);}
             $sources=AppCase::where(['app_code'=>$app,'tenant_id'=>$job['tenant_id'],'source_task_id'=>$id])->column('id');
             $linked=$sources?self::table()->where('app_code',$app)->whereIn('source_case_id',$sources)->find():null;
-            if($linked){self::table()->where('id',$linked['id'])->update(['source_job_id'=>$id]);self::sync($app);return $service::detail(0,(int)$linked['case_id']);}
-            $case=$service::fromJob(0,$id,$params);$prior=self::table()->where(['app_code'=>$app,'source_case_id'=>(int)$case['id']])->find();
-            if($prior){self::table()->where('id',$prior['id'])->update(['source_job_id'=>$id]);return $service::detail(0,(int)$prior['case_id']);}
-            $out=self::publish($app,(int)$case['id'],$params);self::table()->where(['app_code'=>$app,'case_id'=>$out['id']])->update(['source_job_id'=>$id]);return $out;
+            if($linked){self::table()->where('id',$linked['id'])->update(['source_job_id'=>$id]);self::sync($app);return $service::detail($scope,(int)$linked['case_id']);}
+            $case=$service::fromJob($scope,$id,$params);$prior=self::table()->where(['app_code'=>$app,'source_case_id'=>(int)$case['id']])->find();
+            if($prior){self::table()->where('id',$prior['id'])->update(['source_job_id'=>$id]);return $service::detail($scope,(int)$prior['case_id']);}
+            $out=self::publish($app,(int)$case['id'],$params,$scope);self::table()->where(['app_code'=>$app,'case_id'=>$out['id']])->update(['source_job_id'=>$id]);return $out;
         });}finally{SubmitLockService::release($lock);}
     }
     public static function change(string $app,int $scope,int $id,array $params,string $action): array
