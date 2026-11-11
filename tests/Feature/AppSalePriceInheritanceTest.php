@@ -47,7 +47,7 @@ class AppSalePriceInheritanceTest extends TestCase
         $prepared = [
             'unit_price' => $price, 'width' => 1024, 'height' => 1024, 'size_key' => '1:1',
             'source_images' => ['a', 'b'], 'modules' => ['a', 'b'], 'module_codes' => ['a', 'b'],
-            'views' => ['a', 'b'], 'view_codes' => ['a', 'b'], 'clothes_images' => ['a', 'b'], 'model_image' => '',
+            'views' => ['a', 'b'], 'view_codes' => ['a', 'b'], 'clothes_images' => ['a', 'b'], 'model_image' => '', 'try_on_mode' => 'individual',
             'options' => [], 'option_codes' => [], 'price_package' => ['code' => 'test', 'name' => 'test'],
             'image_payload' => ['quantity' => 2], 'mode' => 'single',
         ];
