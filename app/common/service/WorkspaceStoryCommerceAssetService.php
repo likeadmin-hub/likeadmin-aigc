@@ -47,7 +47,7 @@ final class WorkspaceStoryCommerceAssetService
             if((int)($row['tenant_id']??0)!==$tenant||(int)($row['user_id']??0)!==$user||($row['action']??'')!=='video'
                 ||!in_array($row['status']??'',['success','partial'],true)||!empty($row['delete_time']))continue;
             $request=$requests[$index];$snapshot=$request['snapshot']??[];
-            $selection=array_intersect_key((array)($request['selection']??$snapshot['video_selection']??[]),array_flip(['model_id','quality','resolution','ratio','duration','generate_audio']));
+            $selection=array_intersect_key((array)($snapshot['video_selection']??$request['selection']??[]),array_flip(['model_id','quality','resolution','ratio','duration','generate_audio']));
             $prompt=StoryCommercePolicy::prompt($snapshot);
             $result=StoryCommercePolicy::json($row['result_json']??'{}');
             if(!is_array($result['videos']??null)||!array_is_list($result['videos']))continue;

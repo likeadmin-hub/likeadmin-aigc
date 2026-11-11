@@ -7,7 +7,7 @@ use app\common\service\app\aigc_story_commerce\StoryCommerceTemplates as T;
 class CaseController extends BaseAdminController
 {
     private function respond(callable $call){try{return $this->success('操作成功',$call());}catch(\InvalidArgumentException|\app\common\service\ai\PreSubmissionRejected $e){return $this->fail($e->getMessage());}catch(\Throwable $e){\think\facade\Log::warning('Story commerce API: '.get_class($e));return $this->fail('操作暂未完成，请稍后重试');}}
-    public function options(){return $this->respond(fn()=>S::config(0)+S::models(0,'video'));}
+    public function options(){return $this->respond(fn()=>S::config(max(0,(int)$this->request->get('tenant_id',0)))+S::models(max(0,(int)$this->request->get('tenant_id',0)),'video',(string)$this->request->get('model_id','')));}
     public function lists(){return $this->respond(fn()=>T::lists(0,$this->request->get()));}
     public function detail(){return $this->respond(fn()=>T::detail(0,(int)$this->request->get('id',0)));}
     public function save(){return $this->respond(fn()=>T::save(0,$this->request->post()));}
