@@ -21,8 +21,10 @@ $before=$count();
 foreach([[SJ::class,SP::class,SS::class],[PJ::class,PP::class,PS::class]] as [$jobs,$policy,$service]){
  $r=$jobs::table()->where(['action'=>'video','status'=>'success','delete_time'=>0])->order('id','desc')->find();if(!$r)continue;
  $request=$policy::json($r['request_json']);$args=['preview'=>true,'action'=>'video','body'=>$request['snapshot']];
+ // Historic works may outlive their input uploads. Those inputs must remain unquotable.
+ if($jobs===PJ::class){$source=SJ::table()->where(['action'=>'video','status'=>'success','delete_time'=>0])->order('id','desc')->find();$body=SP::json($source['request_json'])['snapshot'];$r['tenant_id']=$source['tenant_id'];$r['user_id']=$source['user_id'];$args['body']=PP::body(['mode'=>'normal','images'=>$body['images'],'video_selection'=>$body['video_selection'],'prompt'=>'按商品素材展示外观，保持标识和结构一致。']);}
  $q=$jobs::estimate((int)$r['tenant_id'],(int)$r['user_id'],$args);priceAssert(is_finite($q['user_charge_points'])&&$q['user_charge_points']>=0,'Current owned draft quote');priceAssert(!isset($q['quote_token']),'Preview must not authorize submit');
- $dto=$jobs::dto($r);priceAssert(abs($dto['estimated_user_charge_points']-$request['quote']['user_charge_points'])<0.000001,'History uses immutable submission quote, not catalog or final usage');
+ $dto=$jobs::dto($jobs::table()->where('id',$r['id'])->find());priceAssert(abs($dto['estimated_user_charge_points']-$request['quote']['user_charge_points'])<0.000001,'History uses immutable submission quote, not catalog or final usage');
  $rejected=false;try{$jobs::estimate((int)$r['tenant_id'],999999,$args);}catch(Throwable){$rejected=true;}priceAssert($rejected,'Foreign media must be rejected');
 }
 priceAssert($count()===$before,'Read-only previews must not write drafts, quote rows, queues or billing records');
