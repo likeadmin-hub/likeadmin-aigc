@@ -76,7 +76,7 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
                 'attempt' => 1,
                 'request_json' => json_encode(['unit' => $status]),
                 'result_json' => $status === 'received' ? json_encode(['ok' => true]) : '',
-                'error' => $status === 'failed' ? 'fixture failure' : '',
+                'error' => $status === 'failed' ? 'Could not resolve host: fixture.invalid' : '',
                 'create_time' => $now + $index,
                 'update_time' => $now + $index,
             ]);
@@ -92,12 +92,12 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
             \app\common\service\app\aigc_short_drama\AigcShortDramaService::retry($this->tenant, 7, $this->taskId);
             self::fail('Continue accepted while the stopped provider request was still in flight');
         } catch (\Exception $error) {
-            self::assertStringContainsString('不能安全重试', $error->getMessage());
+            self::assertStringContainsString('仍在收尾', $error->getMessage());
         }
         self::assertSame('canceled', Db::name('aigc_short_drama_script_task')->where($scope)->value('status'));
         self::assertSame('running', Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', 'continue_running')->value('status'));
         // Simulate the durable receipt being finalized after cancellation.
-        Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', 'continue_running')->update(['status' => 'failed', 'error' => 'stopped', 'update_time' => time()]);
+        Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', 'continue_running')->update(['status' => 'failed', 'error' => 'Could not resolve host: fixture.invalid', 'update_time' => time()]);
 
         $resumed = \app\common\service\app\aigc_short_drama\AigcShortDramaService::retry($this->tenant, 7, $this->taskId);
         self::assertSame($this->taskId, $resumed['task_id']);
