@@ -59,6 +59,34 @@ test('dependency changes cannot silently ship without standalone runtime', () =>
         assert.match(result.stderr,/Composer runtime changes require --composer-runtime/)
     } finally { fs.rmSync(f.dir,{recursive:true,force:true}) }
 })
+test('retired app keeps immutable historical SQL without reinstalling or replaying it', () => {
+    const f=fixture(),out=path.join(f.dir,'retired-stage')
+    const git=(...args)=>execFileSync('git',args,{cwd:f.repo,encoding:'utf8',stdio:'pipe'})
+    const historical='app/apps/aigc_micro_video/migrations/install.sql'
+    try {
+        f.write('config/project.php',"<?php return ['version'=>'1.0.391'];")
+        f.write(historical,'CREATE TABLE IF NOT EXISTS la_aigc_micro_video_task(id int);\n')
+        f.write('app/apps/aigc_micro_video/manifest.json','{"code":"aigc_micro_video","is_builtin":1}')
+        git('add','config/project.php','app/apps/aigc_micro_video');git('commit','-m','historical retired app')
+        const base=git('rev-parse','HEAD').trim()
+        fs.unlinkSync(path.join(f.repo,'app/apps/aigc_micro_video/manifest.json'))
+        f.write('upgrade/upgrade_20261111_retire_micro_video.sql','-- likeadmin:retire-micro-video-v1\nSELECT 1;\n')
+        git('add','app/apps/aigc_micro_video/manifest.json','upgrade/upgrade_20261111_retire_micro_video.sql');git('commit','-m','retire admission and retain history bytes')
+        const run=destination=>spawnSync(process.execPath,[script.pathname,'--repo',f.repo,'--base-ref',base,'--base-version','1.0.391','--version','1.0.392','--out-dir',destination,'--composer-runtime'],{encoding:'utf8'})
+        const result=run(out);assert.equal(result.status,0,result.stderr)
+        const manifest=JSON.parse(fs.readFileSync(path.join(out,'update.json')))
+        assert.deepEqual(manifest.sql_order,['sql/structure/upgrade_20261111_retire_micro_video.sql'])
+        assert.ok(manifest.delete_files.includes('app/apps/aigc_micro_video/manifest.json'))
+        assert.equal(manifest.delete_files.includes(historical),false)
+        assert.equal(fs.existsSync(path.join(out,'files/app/apps/aigc_micro_video')),false,'Retirement cannot publish an installable app or historical SQL')
+        f.write(historical,'SELECT 2;\n');git('add',historical);git('commit','-m','invalid historical rewrite')
+        const changed=run(path.join(f.dir,'changed-history'))
+        assert.notEqual(changed.status,0);assert.match(changed.stderr,/Historical migration changed/)
+        fs.unlinkSync(path.join(f.repo,historical));git('add',historical);git('commit','-m','invalid historical removal')
+        const removed=run(path.join(f.dir,'removed-history'))
+        assert.notEqual(removed.status,0);assert.match(removed.stderr,/Historical migration changed/)
+    } finally { fs.rmSync(f.dir,{recursive:true,force:true}) }
+})
 test('changed app submitters include their unchanged submit-lock dependency', () => {
     const f=fixture(),out=path.join(f.dir,'submit-lock-stage')
     try {
