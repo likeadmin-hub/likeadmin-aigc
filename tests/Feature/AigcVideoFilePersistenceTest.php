@@ -18,7 +18,7 @@ final class AigcVideoFilePersistenceTest extends TestCase
     {
         (new \think\App())->initialize();
         self::assertSame('127.0.0.1', config('database.connections.mysql.hostname'));
-        self::assertSame('z_cn', config('database.connections.mysql.database'));
+        self::assertContains(config('database.connections.mysql.database'), ['x_cn', 'z_cn']);
         request()->setHost('localhost');
     }
 

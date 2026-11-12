@@ -134,6 +134,8 @@ class GenerationTaskResultTest extends TestCase
     /** @dataProvider handoffs */
     public function testRetiredVideoReceiptsKeepPaidArchiveWithoutWakingAWorker(string $kind,string $state,bool $bound,bool $wake): void
     {
+        if(getenv('AIGC_TRANSFER_CHILD_DB_TESTS')!=='1')$this->markTestSkipped('Explicit local database fixture required');
+        (new \think\App())->initialize();
         if(!\app\common\service\app\RetiredAppService::historyAvailable($kind))$this->markTestSkipped('No legacy archive in this installation');
         $this->fixture(function($t,$c,$a,$owner)use($kind,$state,$bound,$wake){
             $parent=$this->schemaRow('aigc_micro_video_task',$owner+['idempotency_key'=>'unify-micro-'.bin2hex(random_bytes(6)),

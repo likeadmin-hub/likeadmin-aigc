@@ -29,7 +29,8 @@ final class AppDisplayPcTitlesTest extends TestCase
     {
         $defaults = new \ReflectionMethod(AppDisplayConfigService::class, 'defaultConfig');
         $defaults->setAccessible(true);
-        self::assertCount(32, AppDisplayConfigService::PC_APP_TITLES);
+        self::assertCount(31, AppDisplayConfigService::PC_APP_TITLES);
+        self::assertArrayNotHasKey('aigc_micro_video', AppDisplayConfigService::PC_APP_TITLES);
         foreach (AppDisplayConfigService::PC_APP_TITLES as $code => $title) {
             self::assertContains($code, AppDisplayConfigService::DEFAULT_APP_CODES);
             $row = $defaults->invoke(null, $code);
