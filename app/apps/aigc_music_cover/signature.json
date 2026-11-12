@@ -14,6 +14,7 @@
     "migrations/upgrade_20260822_seedsvc.sql": "e9b04c5d284853b17effa2d52fcb2b03db90fea55a46b502fb809e26d73217ae",
     "migrations/upgrade_20260825_release.sql": "b986b8f0f91e5951e433d04298c9da3fcd63365648569118182e552a3b755c97",
     "migrations/upgrade_20260826_default_plan.sql": "b2e98186e21eb0c7022878ecc9b230f447b78a2da80af3b86270a517712409ea",
+    "migrations/upgrade_20261103_generation_snapshot_capacity_aigc_music_cover.sql": "aa7a7ed471c9526e4f26488975586192e62238f20766c7da850835b64f0860c2",
     "permissions/tenant.json": "993f097c2f77ad0cf237fb5e8fe27a306f0667ddd528def6f3af3a681913798d"
   }
 }

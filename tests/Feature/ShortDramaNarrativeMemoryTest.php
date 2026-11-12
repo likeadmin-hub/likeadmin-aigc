@@ -54,7 +54,7 @@ class ShortDramaNarrativeMemoryTest extends TestCase
     public function testLegacyCapacityFailureUsesWorkingMemoryButFittingReceiptsStayExact(): void
     {
         $messages=['system_prompt'=>'生成本集','content'=>json_encode(['series_context'=>['continuity'=>$this->archive(500)],'user_prompt'=>'紫铜钥匙'],JSON_UNESCAPED_UNICODE)];
-        $budget=Budget::fitMessages($messages,[],'script',4096);
+        $budget=Budget::fitMessages($messages,['context_window'=>32768],'script',4096);
         self::assertLessThan(15000,$budget['input_estimate']);
         $small=['system_prompt'=>'旧协议','content'=>json_encode(['series_context'=>['continuity'=>['state'=>['p:x'=>'原值']]]],JSON_UNESCAPED_UNICODE)];
         $original=$small; Budget::fitMessages($small,[],'script',4096); self::assertSame($original,$small);

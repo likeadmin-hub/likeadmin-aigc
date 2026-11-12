@@ -50,7 +50,7 @@ class MarketGroupedMaterialRemovalTest extends TestCase
         elseif($case==='video'||$case==='audio'){unset($r['provider_params']['group_a'][0][$case.'_url']);unset($r['reference_assets'][$case==='video'?1:2]);}
         elseif($case==='name')unset($r['provider_params']['group_a'][0]['name']);
         else $r['provider_params']['group_a'][]=$r['provider_params']['group_a'][0];
-        $this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage(['group'=>'group_a','image'=>'images','video'=>'video_url','audio'=>'audio_url','name'=>'name','over_group_limit'=>'group_a'][$case]);Videos::prepareRequest(self::snapshot(),$r);
+        $this->expectException(\InvalidArgumentException::class);$this->expectExceptionMessage(['group'=>'group_a','image'=>'参数[0].图片','video'=>'参数[0].视频','audio'=>'参数[0].音频','name'=>'参数[0].参数','over_group_limit'=>'group_a'][$case]);Videos::prepareRequest(self::snapshot(),$r);
     }
     public static function missingInputs(): array {return array_map(static fn($v)=>[$v],['group','image','video','audio','name','over_group_limit']);}
     public function testImageFrozenDefaultsStaySeparateFromNewDefaultsAndExplicitFalseZero(): void

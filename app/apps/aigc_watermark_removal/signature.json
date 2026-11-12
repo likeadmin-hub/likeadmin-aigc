@@ -13,6 +13,7 @@
     "menus/tenant.json": "da04a7abe1c16ca276a6ff62992c91a4fe95c68ac4608357e5fb89565199c2ea",
     "migrations/install.sql": "e0a6d6209cdf8f4bdb69246552e0d4599e58d0cbcc1c7bca011ab0a5d02e8ab9",
     "migrations/upgrade_20260826_default_plan.sql": "1869c56a7b27e1966b352cc352e6c53a5662e8ebcc34428ca4b034ee597ebd63",
+    "migrations/upgrade_20261103_generation_snapshot_capacity_aigc_watermark_removal.sql": "bd935daf386fd09ac8c03d1558cab1b4800d341054bb75ae9e44ff5e50be29e5",
     "permissions/tenant.json": "f7872a2fef43613e2ae285318b5b658035e7c11a86eddcdc266ebbb8467da340"
   }
 }

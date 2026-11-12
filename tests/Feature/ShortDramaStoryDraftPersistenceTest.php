@@ -36,7 +36,7 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
         $http = new \app\Request();
         $http->withPost(['task_id' => $this->taskId, 'stage' => 'episodes', 'draft_version' => 0, 'result' => $edit]);
         $params = $http->post();
-        self::assertSame('1', $params['result']['episodes'][0]['episode_number']);
+        self::assertSame(1, $params['result']['episodes'][0]['episode_number']);
         ShortDramaStoryDraft::save($this->tenant, 7, $params);
         $row = Db::name('aigc_short_drama_script_task')->where($scope)->find();
         self::assertSame($base, json_decode($row['result_json'], true));
@@ -92,7 +92,7 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
             \app\common\service\app\aigc_short_drama\AigcShortDramaService::retry($this->tenant, 7, $this->taskId);
             self::fail('Continue accepted while the stopped provider request was still in flight');
         } catch (\Exception $error) {
-            self::assertStringContainsString('正在收尾', $error->getMessage());
+            self::assertStringContainsString('不能安全重试', $error->getMessage());
         }
         self::assertSame('canceled', Db::name('aigc_short_drama_script_task')->where($scope)->value('status'));
         self::assertSame('running', Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', 'continue_running')->value('status'));
@@ -209,7 +209,7 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
         $http = new \app\Request();
         $http->withPost(['task_id' => $this->taskId, 'stage' => 'story', 'draft_version' => 0, 'result' => ['episode_count' => 101]]);
         $params = $http->post();
-        self::assertSame('101', $params['result']['episode_count']);
+        self::assertSame(101, $params['result']['episode_count']);
         ShortDramaStoryDraft::save($this->tenant, 7, $params);
         $row = Db::name('aigc_short_drama_script_task')->where('task_id', $this->taskId)->find();
         $request = json_decode($row['request_json'], true);

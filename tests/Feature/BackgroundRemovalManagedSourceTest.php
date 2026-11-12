@@ -19,6 +19,7 @@ final class BackgroundRemovalManagedSourceTest extends TestCase
 
     public function testRelativeFileReadsCannotEscapeTheManagedPublicRoot(): void
     {
+        (new \think\App())->initialize();
         $read=new ReflectionMethod(AigcBackgroundRemovalService::class,'readImageContent');
         self::assertSame('',$read->invoke(null,'../composer.json'));
         self::assertSame('',$read->invoke(null,'/../../etc/passwd'));

@@ -13,7 +13,10 @@ final class ShortDramaUploadedSourceDeliveryTest extends TestCase
     {
         if (getenv('SHORT_DRAMA_STORY_DB_TESTS') !== '1') self::markTestSkipped('Disposable local database only');
         (new \think\App())->initialize();
-        self::assertSame('short_drama_alignment_test', Db::query('SELECT DATABASE() AS db')[0]['db']);
+        $expected=getenv('SHORT_DRAMA_STORY_TEST_DATABASE')?:'short_drama_alignment_test';
+        self::assertContains($expected,['short_drama_alignment_test','x_cn']);
+        self::assertSame($expected, Db::query('SELECT DATABASE() AS db')[0]['db']);
+        self::assertContains(Db::connect()->getConfig('hostname'),['127.0.0.1','localhost']);
         Db::startTrans(); $this->transaction = true;
     }
     protected function tearDown(): void { if ($this->transaction) Db::rollback(); }

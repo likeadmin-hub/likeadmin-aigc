@@ -22,7 +22,7 @@ final class OfficialAccountSettingDomainTest extends TestCase
                 'type' => 'sqlite', 'database' => ':memory:', 'prefix' => 'la_',
             ]],
         ], 'database');
-        Db::execute('CREATE TABLE la_tenant (id INTEGER PRIMARY KEY, tactics INTEGER DEFAULT 0, delete_time INTEGER)');
+        Db::execute('CREATE TABLE la_tenant (id INTEGER PRIMARY KEY, sn TEXT DEFAULT '', domain TEXT DEFAULT '', tactics INTEGER DEFAULT 0, delete_time INTEGER)');
         Db::execute('CREATE TABLE la_tenant_config (id INTEGER PRIMARY KEY, tenant_id INTEGER, type TEXT, name TEXT, value TEXT)');
         Db::name('tenant')->insert(['id' => 1]);
         $_SERVER['SERVER_NAME'] = 'opc.example.com';

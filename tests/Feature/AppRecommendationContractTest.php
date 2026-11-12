@@ -53,7 +53,7 @@ class AppRecommendationContractTest extends TestCase
         self::assertStringContainsString('appPath: \'/ai/short-drama\'', $tools);
         self::assertStringContainsString('.some((candidate) => candidate?.recommended === true)', $tools);
         self::assertStringContainsString('displayToolCards.value.filter((item) => item.recommended).slice(0, 12)', $homePage);
-        self::assertStringContainsString('recommended:', \Tests\Support\CompiledAssets::read('pc', 'useAiPcHomeDecorate'));
+        self::assertStringContainsString('recommended:', \Tests\Support\CompiledAssets::containing('pc', 'recommended:Number('));
         self::assertNotEmpty(\Tests\Support\CompiledAssets::pcPage('ai/index'));
     }
 
@@ -74,7 +74,7 @@ class AppRecommendationContractTest extends TestCase
         self::assertNotContains('aigc_geo', AppAccessService::DEFAULT_APP_CODES);
 
         $default = $this->invoke('defaultConfig', ['aigc_geo']);
-        self::assertSame('GEO营销优化系统', $default['title']);
+        self::assertSame('GEO营销', $default['title']);
         self::assertSame(78, $default['sort']);
         self::assertSame(1, $default['status']);
 

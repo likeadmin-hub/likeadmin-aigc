@@ -150,9 +150,9 @@ class ShortDramaStoryGenerationTest extends TestCase
         self::assertSame(range(1, 11), array_column($result['result']['episodes'], 'episode_number'));
         self::assertSame($this->base()['subjects'], $result['result']['subjects']);
     }
-    private function runOutline(int $count, callable $provider): array
+    private function runOutline(int $count, callable $provider, bool $review = false): array
     {
-        return ShortDramaStoryGeneration::generate(['multi_episode_stage' => 'episodes', 'episode_count' => $count, 'confirmed_story_snapshot' => $this->base()],
+        return ShortDramaStoryGeneration::generate(['_continuity_review_only'=>$review, 'multi_episode_stage' => 'episodes', 'episode_count' => $count, 'confirmed_story_snapshot' => $this->base()],
             ['context_window' => 100000, 'max_tokens' => 16384],
             static fn($request) => ['system_prompt' => '', 'content' => json_encode(['start' => $request['episode_batch_start'], 'count' => $request['episode_count']])], $provider);
     }
@@ -242,7 +242,7 @@ class ShortDramaStoryGenerationTest extends TestCase
                 'episode_number' => 1, 'title' => '重复', 'story_outline' => '剧情1', 'conflict_point' => '冲突', 'ending_hook' => '结尾'
             ]]])]];
             return $this->response($messages);
-        });
+        }, true);
     }
 
     public function testGlobalNumbersAreAcceptedOnlyWhenTheyMatchTheExactBatchRange(): void

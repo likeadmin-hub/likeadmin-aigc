@@ -17,6 +17,8 @@ final class MiniProgramPopupTest extends TestCase
         Config::set(['default' => 'popup_test', 'connections' => ['popup_test' => [
             'type' => 'sqlite', 'database' => ':memory:', 'prefix' => 'la_', 'fields_strict' => true, 'fields_cache' => false,
         ]]], 'database');
+        Db::execute("CREATE TABLE la_tenant (id INTEGER PRIMARY KEY, sn TEXT DEFAULT '', domain TEXT DEFAULT '', delete_time INTEGER)");
+        Db::name('tenant')->insertAll([['id'=>1,'sn'=>'t1'],['id'=>2,'sn'=>'t2'],['id'=>3,'sn'=>'t3']]);
         Db::execute('CREATE TABLE la_wechat_authorizers (id INTEGER PRIMARY KEY, tenant_id INTEGER, authorizer_type TEXT, authorization_status INTEGER)');
         Db::execute('CREATE TABLE la_wechat_credentials (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, settings_json TEXT, create_time INTEGER, update_time INTEGER)');
     }
