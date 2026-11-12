@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {execFileSync,spawnSync} from 'node:child_process'
 import {fileURLToPath} from 'node:url'
+import {copywritingDependencyFiles} from '../../scripts/system-update-app-dependencies.mjs'
 const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..')
 const names=[
 '20261011_open_platform.sql','20261011_open_platform_delivery.sql','20261011_open_platform_docs.sql',
@@ -18,8 +19,10 @@ function fixture(){
  const git=(...args)=>execFileSync('git',['-c','user.name=Fixture','-c','user.email=fixture@example.invalid',...args],{cwd:dir,encoding:'utf8'})
  git('init','-q');write('config/project.php',"<?php return ['version'=>'1.0.391'];\n")
  const updater='app/common/service/update/SystemPackageUpdateService.php';write(updater,fs.readFileSync(path.join(source,updater)))
+ for(const relative of copywritingDependencyFiles(source))write(relative,fs.readFileSync(path.join(source,relative)))
+ write('scripts/system-update-app-dependencies.mjs',fs.readFileSync(path.join(source,'scripts/system-update-app-dependencies.mjs')))
  const historical='app/apps/aigc_video/migrations/install.sql';write(historical,'CREATE TABLE IF NOT EXISTS la_aigc_video_config (config_json TEXT);\n')
- git('add','config/project.php',historical,updater);git('commit','-qm','Fixture391');const base=git('rev-parse','HEAD').trim()
+ git('add','config/project.php','app','scripts/system-update-app-dependencies.mjs');git('commit','-qm','Fixture391');const base=git('rev-parse','HEAD').trim()
  for(const name of names){
   let input='upgrade/'+name
   if(name.includes('open_platform'))input='app/apps/open_platform/migrations/'+name
