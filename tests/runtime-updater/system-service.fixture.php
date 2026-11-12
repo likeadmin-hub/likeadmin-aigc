@@ -198,7 +198,36 @@ $hashes=[]; foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterato
 writeFixture($package . '/signature.json', json_encode(['sha256'=>$hashes]));
 $archive = $site . '/package.tar';
 $tar = new PharData($archive); $tar->buildFromDirectory($package); unset($tar);
-if(getenv('FIXTURE_OFFICIAL_ARCHIVE')){$archive=getenv('FIXTURE_OFFICIAL_ARCHIVE');$zip=new ZipArchive();verify($zip->open($archive)===true,'Official ZIP unavailable');$manifest=json_decode($zip->getFromName('update.json'),true,512,JSON_THROW_ON_ERROR);$zip->close();verify($manifest['base_version']===$from && $manifest['version']===$to,'Official version chain differs');}
+if(getenv('FIXTURE_OFFICIAL_ARCHIVE')){
+    $archive=getenv('FIXTURE_OFFICIAL_ARCHIVE');$zip=new ZipArchive();verify($zip->open($archive)===true,'Official ZIP unavailable');
+    $manifest=json_decode($zip->getFromName('update.json'),true,512,JSON_THROW_ON_ERROR);
+    if(in_array($case,['precommit-exit','commit-reply-failure'],true)){
+        // These faults previously modified only the unused synthetic payload,
+        // then the official archive silently replaced it. Derive an isolated
+        // fault archive and authenticate its exact digest with the fixture key.
+        $faultRoot=$site.'/official-fault-payload';mkdir($faultRoot,0755,true);verify($zip->extractTo($faultRoot),'Fault archive extraction failed');$zip->close();
+        $marker=var_export($site.'/runtime/fixture-'.$case.'-reached',true);
+        $relative=$case==='precommit-exit'?'app/common/service/app/AppRegistryService.php':'app/common/service/update/SystemPackageUpdateService.php';
+        $path=$faultRoot.'/files/'.$relative;$code=is_file($path)?file_get_contents($path):file_get_contents('/repo/'.$relative);$count=0;
+        if($case==='precommit-exit'){
+            $code=preg_replace('/(public static function installFromLocalWithResult\([^\{]*\{)/s',"$1\n        file_put_contents(".$marker.",'1'); exit(79);",$code,1,$count);
+        }else{
+            $at=strpos($code,'public function completeBootstrap(');verify($at!==false,'Completion fault target missing');
+            $head=substr($code,0,$at);$tail=substr($code,$at);
+            $tail=preg_replace('/Db::commit\(\);/',"Db::commit(); file_put_contents(".$marker.",'1'); throw new \\RuntimeException('fixture committed reply lost');",$tail,1,$count);$code=$head.$tail;
+        }
+        verify($count===1,'Official payload fault was not inserted');writeFixture($path,$code);
+        $signature=json_decode(file_get_contents($faultRoot.'/signature.json'),true,512,JSON_THROW_ON_ERROR);$hashes=[];$files=[];
+        foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($faultRoot,FilesystemIterator::SKIP_DOTS)) as $file){
+            $relative=substr($file->getPathname(),strlen($faultRoot)+1);if(!$file->isFile()||$relative==='signature.json')continue;
+            $hashes[$relative]=hash_file('sha256',$file->getPathname());$files[]=['path'=>$relative,'sha256'=>$hashes[$relative],'size'=>$file->getSize()];
+        }
+        ksort($hashes);usort($files,static fn($a,$b)=>strcmp($a['path'],$b['path']));$signature['sha256']=$hashes;$signature['files']=$files;
+        writeFixture($faultRoot.'/signature.json',json_encode($signature));$archive=$site.'/official-fault.zip';$zip=new ZipArchive();verify($zip->open($archive,ZipArchive::CREATE|ZipArchive::OVERWRITE)===true,'Fault ZIP creation failed');
+        foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($faultRoot,FilesystemIterator::SKIP_DOTS)) as $file)if($file->isFile())$zip->addFile($file->getPathname(),substr($file->getPathname(),strlen($faultRoot)+1));$zip->close();
+    }else{$zip->close();}
+    verify($manifest['base_version']===$from && $manifest['version']===$to,'Official version chain differs');
+}
 $id = Db::name('update_package')->insertGetId(['package_id'=>'fixture-' . $case,'type'=>'system','source'=>'cloud','app_code'=>'','version'=>$to,
     'format'=>getenv('FIXTURE_OFFICIAL_ARCHIVE')?'zip':'tar','local_path'=>$archive,'sha256'=>hash_file('sha256',$archive),'package_size'=>filesize($archive),
     'manifest_json'=>'{}','status'=>'downloaded','create_time'=>time(),'update_time'=>time()]);
@@ -256,6 +285,7 @@ if($canonical && $case==='success'){
 }
 try { $result = $service->apply($id);if(is_resource($liveWorker))verify(proc_get_status($liveWorker)['running'],'Update terminated live worker'); } catch (Throwable $e) { $failure = $e; }
 finally{if(is_resource($liveWorker)){file_put_contents($site.'/idle-worker-exit','1');foreach($workerPipes as $pipe)fclose($pipe);proc_close($liveWorker);}}
+if(getenv('FIXTURE_OFFICIAL_ARCHIVE')&&in_array($case,['precommit-exit','commit-reply-failure'],true))verify(is_file($site.'/runtime/fixture-'.$case.'-reached'),'Official payload fault was never reached');
 if ($case==='recovery412') {
     verify($failure && str_contains($failure->getMessage(),'新迁移不支持会话变量或动态 SQL'),'Original release did not reproduce OPC failure: '.($failure?->getMessage()??''));
     $failed=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply','status'=>'failed'])->order('id','desc')->find();
