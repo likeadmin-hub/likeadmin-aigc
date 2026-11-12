@@ -120,8 +120,9 @@ class PromptMentionShortcutContractTest extends TestCase
         self::assertStringContainsString('canvas-node-audio-lyrics-textarea', $node);
         foreach (['prompt', 'lyrics'] as $field) {
             self::assertStringContainsString('@keydown="handleAudioMentionKeydown($event, \'' . $field . '\')"', $node);
-            self::assertStringContainsString('@beforeinput="handleAudioMentionBeforeInput($event, \'' . $field . '\')"', $node);
         }
+        self::assertMatchesRegularExpression('/function handleAudioPromptInput[\s\S]{0,300}syncMentionTrigger\(\)/', $node);
+        self::assertMatchesRegularExpression('/function handleAudioLyricsInput[\s\S]{0,300}syncMentionTrigger\(\)/', $node);
         self::assertStringContainsString('textarea.setSelectionRange(start + inserted.length, start + inserted.length)', $node);
         self::assertStringContainsString('if (!insertAudioMention(item)) appendMentionToComposer(item)', $node);
         self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('pc', 'home-agent__reference-tags'));
