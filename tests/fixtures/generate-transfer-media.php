@@ -17,4 +17,9 @@ foreach(['mp4','webm','mov','m4v','mp3','wav','ogg','flac','aac','m4a','opus']as
  $probe=json_decode($run(['ffprobe','-v','error','-show_entries','format=duration','-of','json',$path]),true,512,JSON_THROW_ON_ERROR);
  if((float)($probe['format']['duration']??0)<0.9)throw new RuntimeException('Fixture has no playable duration: '.$ext);
 }
-echo "PASS 11 real media containers generated and probed\n";
+$path=$destination.'/measured-1.04.mp4';
+$run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','lavfi','-i','color=c=blue:s=32x32:r=25','-t','1.04','-c:v','libx264','-threads','1','-pix_fmt','yuv420p',$path]);
+$probe=json_decode($run(['ffprobe','-v','error','-show_entries','format=duration','-of','json',$path]),true,512,JSON_THROW_ON_ERROR);
+if(abs((float)$probe['format']['duration']-1.04)>0.000001)throw new RuntimeException('Measured fixture duration changed');
+chmod($path,0600);
+echo "PASS 11 real media containers and exact 1.04-second video generated and probed\n";
