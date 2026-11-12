@@ -107,14 +107,15 @@ class PromptMentionShortcutContractTest extends TestCase
 
     public function testInfiniteCanvasAgentAndAudioPromptsReactToAt(): void
     {
-        $agent = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/CanvasAgentEntryComposer.vue')
-            . \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/composables/useCanvasAgentPanelState.ts');
+        $agent = \Tests\Support\CompiledAssets::source('pc/apps/aigc_llm/components/HomeAgentComposer.vue');
         $node = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/native/CanvasNode.vue');
-        self::assertStringContainsString('handleComposerInput', $agent);
-        self::assertStringContainsString('prefix.lastIndexOf(\'@\')', $agent);
-        self::assertStringContainsString('composerMentionOpen.value = true', $agent);
-        self::assertStringContainsString('selectedComposerMentions()', $agent);
-        self::assertStringContainsString('visible_nodes', $agent);
+        $project = \Tests\Support\CompiledAssets::source('pc/pages/app/aigc_canvas/project/[id].vue');
+        self::assertStringContainsString('composerTrigger(editorContent.value', $agent);
+        self::assertStringContainsString('function editorInput()', $agent);
+        self::assertStringContainsString('function openMentions()', $agent);
+        self::assertStringContainsString('replaceComposerToken(editorContent.value', $agent);
+        self::assertStringContainsString('provide(agentProjectReferencePickerKey', $project);
+        self::assertStringContainsString('resolve: resolveCanvasAgentReference', $project);
         self::assertStringContainsString('canvas-node-audio-prompt-textarea', $node);
         self::assertStringContainsString('canvas-node-audio-lyrics-textarea', $node);
         foreach (['prompt', 'lyrics'] as $field) {
@@ -123,7 +124,7 @@ class PromptMentionShortcutContractTest extends TestCase
         }
         self::assertStringContainsString('textarea.setSelectionRange(start + inserted.length, start + inserted.length)', $node);
         self::assertStringContainsString('if (!insertAudioMention(item)) appendMentionToComposer(item)', $node);
-        self::assertStringContainsString('agent-composer-mention-menu', \Tests\Support\CompiledAssets::read('pc', 'projects', 'js', ['agent-composer']));
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('pc', 'home-agent__reference-tags'));
     }
 
     public function testInfiniteCanvasAtFallbackIsLoadedFromTheActualPcEntry(): void

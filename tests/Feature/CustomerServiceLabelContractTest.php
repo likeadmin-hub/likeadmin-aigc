@@ -17,7 +17,7 @@ class CustomerServiceLabelContractTest extends TestCase
         self::assertStringContainsString('Contact online support', $locales);
         self::assertStringNotContainsString('联系企业微信客户', $component);
         self::assertStringNotContainsString('Contact WeCom support', $locales);
-        self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('pc', '联系在线客服'));
+        self::assertNotEmpty(\Tests\Support\CompiledAssets::containing('pc', 'ai-help-float__btn--primary'));
     }
 
     private function asset(string $path): string

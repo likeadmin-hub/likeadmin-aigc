@@ -81,7 +81,7 @@ class AppRecommendationContractTest extends TestCase
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/tenantapi/controller/AppController.php');
         self::assertIsString($source);
         self::assertStringContainsString('DISPLAY_MANAGED_APP_CODES', $source);
-        self::assertStringContainsString("'aigc_geo'", $source);
+        self::assertContains('aigc_geo', AppAccessService::DISPLAY_MANAGED_APP_CODES);
         self::assertStringContainsString('AppDisplayConfigService::save', $source);
 
         $myAppAsset = \Tests\Support\CompiledAssets::vitePage('admin', 'app/my/index');
