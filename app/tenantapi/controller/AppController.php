@@ -23,7 +23,7 @@ class AppController extends BaseAdminController
     {
         $name = trim((string)$this->request->get('name', ''));
         $isBuyFilter = $this->request->get('is_buy', '');
-        $apps = App::whereIn('status', ['installed', 'disabled'])->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
+        $apps = App::whereNotIn('code', \app\common\service\app\RetiredAppService::CODES)->whereIn('status', ['installed', 'disabled'])->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
         $tenantApps = TenantApp::where('tenant_id', $this->tenantId)->column('*', 'app_code');
         $paidOrderExpires = self::paidOrderExpireMap($this->tenantId);
         $displayMap = AppDisplayConfigService::map($this->tenantId, array_column($apps, 'code') ?: []);
@@ -91,7 +91,7 @@ class AppController extends BaseAdminController
 
     public function my()
     {
-        $lists = TenantApp::where('tenant_id', $this->tenantId)->order('id', 'desc')->select()->toArray();
+        $lists = TenantApp::whereNotIn('app_code', \app\common\service\app\RetiredAppService::CODES)->where('tenant_id', $this->tenantId)->order('id', 'desc')->select()->toArray();
         $paidOrderExpires = self::paidOrderExpireMap($this->tenantId);
         $lists = array_values(array_filter($lists, function ($item) use ($paidOrderExpires) {
             $appCode = (string)($item['app_code'] ?? '');
@@ -100,7 +100,7 @@ class AppController extends BaseAdminController
                 || self::isValidPaidTenantApp($item, $paidOrderExpires);
         }));
         $apps = App::whereIn('code', array_column($lists, 'app_code') ?: [''])->column('*', 'code');
-        $builtinApps = App::whereIn('status', ['installed', 'disabled'])
+        $builtinApps = App::whereNotIn('code', \app\common\service\app\RetiredAppService::CODES)->whereIn('status', ['installed', 'disabled'])
             ->whereIn('code', AppAccessService::DEFAULT_APP_CODES)
             ->order(['sort' => 'desc', 'id' => 'desc'])
             ->select()

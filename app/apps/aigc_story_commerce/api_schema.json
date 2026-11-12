@@ -1,0 +1,365 @@
+{
+  "app_code": "aigc_story_commerce",
+  "apis": [
+    {
+      "api_path": "app.aigc_story_commerce.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:config:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:config:models:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.project/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:project:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.project/save",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:project:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.project/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:project:fromJob:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.project/adopt",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:project:adopt:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:job:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/create",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:job:create:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:job:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:job:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/recover",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:job:recover:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:job:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:lists:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/remix",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:remix:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:config:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:config:setup",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:config:models",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:job:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:job:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:job:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:fromJob",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/options",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:options",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:config:models",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:job:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:job:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:job:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:fromJob",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/options",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:case:options",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/genres",
+      "api_method": "GET",
+      "permission_key": "aigc_story_commerce:config:genres",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.config/saveGenres",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:config:saveGenres",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/builtin",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:builtin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_story_commerce.case/builtinFromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_story_commerce:case:builtinFromJob",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}

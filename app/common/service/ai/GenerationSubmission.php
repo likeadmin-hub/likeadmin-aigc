@@ -18,8 +18,6 @@ final class GenerationSubmission
         $routes = [
             'app.aigc_canvas.generate/image', 'app.aigc_canvas.generate/video', 'app.aigc_canvas.generate/music',
             'app.aigc_short_drama.canvas/run',
-            'app.aigc_micro_video.plan/create', 'app.aigc_micro_video.prompt/write',
-            'app.aigc_micro_video.frame/generate', 'app.aigc_micro_video.generate/index', 'app.aigc_micro_video.task/retry',
             'app.aigc_music_cover.task/retry',
             'app.aigc_music.lyrics/index', 'app.aigc_music.mashup_lyrics/index', 'app.image_human.generate/submit',
             'app.aigc_music.export/wav', 'app.aigc_music.export/midi', 'app.aigc_music.export/mp4', 'app.aigc_music.export/vox', 'app.aigc_music.export/timing',

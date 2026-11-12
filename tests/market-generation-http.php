@@ -68,7 +68,6 @@ if(($argv[1]??'')==='--worker') {
         $command=new app\common\command\ShortDramaCanvasAgentWorker();
         exit($command->run(new think\console\Input(['--sleep=1']),new think\console\Output('console')));
     }
-    if($argv[4]==='fixture_micro_runner') {while(true){app\common\service\app\aigc_micro_video\MicroVideoWorker::tick();usleep(100000);}}
     if($argv[4]==='fixture_drama_planning_runner') {
         $command=new app\common\command\ShortDramaPlanningWorker();
         exit($command->run(new think\console\Input([]),new think\console\Output('console')));
@@ -105,8 +104,8 @@ try {
     $fixtureApps=['aigc_canvas','aigc_video','aigc_short_drama','aigc_image','aigc_product_image','aigc_product_suite'];
     if(getenv('AIGC_HTTP_TOOL_MATRIX')==='1')$fixtureApps=array_unique(array_merge($fixtureApps,array_map(static fn($code)=>'aigc_'.$code,['style_transfer','photo_restore','model_wear','background_removal','image_translate','one_click_cleanup','product_multi_angle','fashion_lookbook','outpaint','local_redraw','fitting','product_promo_video'])));
     if(getenv('AIGC_HTTP_RECOVERY_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['smart_clip','open_platform']);
-    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music','aigc_digital_human','aigc_micro_video']);
-    if(getenv('AIGC_HTTP_STAGE_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music_cover','aigc_digital_human','aigc_micro_video']);
+    if(getenv('AIGC_HTTP_DEEP_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music','aigc_digital_human']);
+    if(getenv('AIGC_HTTP_STAGE_MATRIX')==='1')$fixtureApps=array_merge($fixtureApps,['aigc_music_cover','aigc_digital_human']);
     if(getenv('AIGC_HTTP_AGENT_MATRIX')==='1')$fixtureApps[]='aigc_llm';
     foreach($fixtureApps as$code) {
         Db::name('app')->insert(['code'=>$code,'name'=>'Private fixture','status'=>'installed','is_builtin'=>1,'current_version'=>'0.0.0','install_time'=>time(),'update_time'=>time()]);

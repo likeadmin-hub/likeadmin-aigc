@@ -330,8 +330,8 @@ class AigcOutpaintService
 
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
-        $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0), (bool)($imageEstimate['follow_market_prices'] ?? false));
+        $tenantUnitCost = AppSalePriceService::singleImageCost($imageEstimate);
+        $userUnitPrice = AppSalePriceService::singleImageSalePrice($prepared['unit_price'], $imageEstimate);
         return array_merge($imageEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
@@ -340,11 +340,11 @@ class AigcOutpaintService
             'price_package' => $prepared['price_package'],
             'price_package_code' => $prepared['price_package']['code'] ?? '',
             'price_package_name' => $prepared['price_package']['name'] ?? '',
-            'platform_unit_cost' => round($tenantUnitCost, 2),
-            'tenant_unit_price' => round($userUnitPrice, 2),
-            'tenant_cost_points' => round($tenantUnitCost, 2),
-            'user_charge_points' => round($userUnitPrice, 2),
-            'display_points' => round($userUnitPrice, 2),
+            'platform_unit_cost' => round($tenantUnitCost, 6),
+            'tenant_unit_price' => round($userUnitPrice, 6),
+            'tenant_cost_points' => round($tenantUnitCost, 6),
+            'user_charge_points' => round($userUnitPrice, 6),
+            'display_points' => round($userUnitPrice, 6),
         ]);
     }
 

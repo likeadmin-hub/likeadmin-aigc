@@ -8,10 +8,9 @@ final class RuntimeMigrationPlan
 {
     public static function build(string $content): array
     {
+        if (preg_match('/^-- likeadmin:retire-micro-video-v1\s*$/m', $content)) return ['prepare'=>'','complete'=>$content,'tables'=>[]];
         if (!class_exists(CanvasConversationSchema::class)) require_once __DIR__.'/CanvasConversationSchema.php';
         $content = CanvasConversationSchema::expand($content);
-        if (!class_exists(MicroVideoFrameSchema::class)) require_once __DIR__.'/MicroVideoFrameSchema.php';
-        $content = MicroVideoFrameSchema::expand($content);
         $prepare = []; $complete = []; $tables = [];
         if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
         if (!class_exists(RuntimeGenerationSnapshotCapacity::class)) require_once __DIR__.'/RuntimeGenerationSnapshotCapacity.php';
@@ -38,8 +37,7 @@ final class RuntimeMigrationPlan
                 // The executor reads the original column/engine and performs only
                 // this reviewed, lossless capacity increase (or a true no-op).
                 $prepare[] = $sql;
-            } elseif (MicroVideoFrameSchema::isOwnerSql($sql)) {
-                $prepare[] = $sql;
+
             } elseif (CanvasConversationSchema::isOwnerSql($sql)) {
                 // Only the reviewed owner-index widening is accepted; the executor verifies live metadata.
                 $prepare[] = $sql;

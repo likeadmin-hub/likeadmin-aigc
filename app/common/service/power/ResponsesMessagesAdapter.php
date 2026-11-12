@@ -22,6 +22,7 @@ final class ResponsesMessagesAdapter
                 foreach ($content as &$part) {
                     if (($part['type'] ?? '') === 'text') $part['type'] = $message['role'] === 'assistant' ? 'output_text' : 'input_text';
                     elseif (($part['type'] ?? '') === 'image_url') $part = ['type' => 'input_image', 'image_url' => $part['image_url']['url'], 'detail' => $part['image_url']['detail'] ?? 'auto'];
+                    elseif (($part['type'] ?? '') === 'video_url') $part = ['type' => 'input_video', 'video_url' => $part['video_url']['url']];
                 }
                 unset($part);
             }

@@ -133,6 +133,7 @@ class AppRegistryService
 
     public static function getManifest(string $appCode): array
     {
+        RetiredAppService::assertActive($appCode);
         $path = self::manifestPath($appCode);
         if (!is_file($path)) {
             throw new RuntimeException('应用清单不存在: ' . $appCode);
@@ -197,6 +198,8 @@ class AppRegistryService
             'status' => 1,
             'create_time' => $time,
         ]);
+        if ($appCode === 'aigc_product_video') \app\common\service\app\aigc_product_video\ProductVideoBuiltins::sync(true);
+        if (in_array($appCode, StudioBuiltinCatalog::APPS, true)) StudioBuiltinTemplates::sync($appCode,true);
         self::syncApiSchema($manifest);
         self::syncFrontendEntries($manifest);
         AppMenuService::syncPlatformMenus($appCode);
@@ -379,6 +382,7 @@ class AppRegistryService
 
     public static function setStatus(string $appCode, string $status): void
     {
+        RetiredAppService::assertActive($appCode);
         AppAccessStateService::withSwitchLock(fn() => self::saveStatus($appCode, $status));
     }
 
@@ -412,6 +416,7 @@ class AppRegistryService
 
     private static function uninstallLocked(string $appCode, bool $clearData): void
     {
+        RetiredAppService::assertActive($appCode);
         self::assertValidCode($appCode);
         self::assertNotBuiltin($appCode);
         $app = App::where('code', $appCode)->findOrEmpty();
@@ -419,6 +424,8 @@ class AppRegistryService
             throw new RuntimeException('应用不存在');
         }
 
+        if ($appCode === 'aigc_story_commerce' && $clearData && Db::name('aigc_story_commerce_job')->whereIn('status',['queued','running','unknown'])->count()) throw new RuntimeException('剧情带货仍有未完成任务，暂不能清理数据');
+        if ($appCode === 'aigc_motion_sync' && $clearData && Db::name('aigc_motion_sync_task')->whereIn('status',['queued','running','unknown'])->count()) throw new RuntimeException('动作同步仍有未完成任务，暂不能清理数据');
         $app->status = self::STATUS_REMOVED;
         $app->update_time = time();
         $app->save();
@@ -936,6 +943,19 @@ class AppRegistryService
 
     private static function clearAppBusinessData(string $appCode): void
     {
+        if ($appCode === 'aigc_story_commerce') {
+            foreach (['job','project'] as $suffix) Db::name($appCode.'_'.$suffix)->where('delete_time',0)->update(['delete_time'=>time()]);
+            foreach (['quote','config'] as $suffix) Db::name($appCode.'_'.$suffix)->where('id','>',0)->delete();
+            AppCase::where('app_code',$appCode)->update(['delete_time'=>time()]);
+            return;
+        }
+        if ($appCode === 'aigc_motion_sync') {
+            foreach (['task','result','project'] as $suffix) Db::name($appCode.'_'.$suffix)->where('delete_time',0)->update(['delete_time'=>time()]);
+            Db::name($appCode.'_quote')->where('id','>',0)->delete();
+            Db::name($appCode.'_config')->where('id','>',0)->delete();
+            AppCase::where('app_code',$appCode)->update(['delete_time'=>time()]);
+            return;
+        }
         if ($appCode === 'aigc_pic_lipsync') {
             \app\common\service\app\aigc_pic_lipsync\AigcPicLipsyncAdminService::clearData();
             return;
@@ -1074,11 +1094,6 @@ class AppRegistryService
             AigcProductMultiAngleView::where('id', '>', 0)->delete();
             AigcProductMultiAngleTask::where('id', '>', 0)->delete();
             AigcProductMultiAngleResult::where('id', '>', 0)->delete();
-        }
-        if ($appCode === 'aigc_micro_video') {
-            foreach (['attempt', 'segment', 'task', 'direction', 'config'] as $suffix) {
-                Db::name('aigc_micro_video_' . $suffix)->where('id', '>', 0)->delete();
-            }
         }
         if ($appCode === 'aigc_product_promo_video') {
             AigcProductPromoVideoConfig::where('id', '>', 0)->delete();

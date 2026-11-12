@@ -1,0 +1,62 @@
+[
+  {
+    "api_path": "app.aigc_motion_sync.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_motion_sync:config:detail"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.config/models",
+    "api_method": "GET",
+    "permission_key": "aigc_motion_sync:config:models"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:config:setup"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.job/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_motion_sync:job:detail"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.job/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_motion_sync:job:lists"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.job/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:job:delete"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_motion_sync:case:lists"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_motion_sync:case:detail"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/save",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:case:save"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/fromJob",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:case:fromJob"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/status",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:case:status"
+  },
+  {
+    "api_path": "app.aigc_motion_sync.case/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_motion_sync:case:delete"
+  }
+]

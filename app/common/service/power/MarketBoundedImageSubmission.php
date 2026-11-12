@@ -17,7 +17,7 @@ final class MarketBoundedImageSubmission
     {
         return Db::transaction(function()use($id){
             $c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty())return false;
-            // Gateway, admin and MicroVideo retain their own admission/lease policies.
+            // Gateway, admin and composed studios retain their own admission/lease policies.
             if(!self::applies((array)$c['price_snapshot'])||OpenCallContext::id()!==''||OpenSubmission::linked($c->toArray()))return true;
             if($c['run_status']!=='reserved'||$c['billing_status']!=='reserved')return false;
             $c->save(['run_status'=>'submitting','finish_time'=>0,'update_time'=>time()]);return true;

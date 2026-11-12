@@ -3,13 +3,15 @@
 namespace app\platformapi\lists\power;
 
 use app\common\lists\ListsSearchInterface;
+use app\common\lists\ListsExtendInterface;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\service\power\PowerMarketService;
 use app\common\service\power\MarketModelSource;
+use app\common\service\power\MarketOtherModelCategory;
 use app\platformapi\lists\BaseAdminDataLists;
 
-class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchInterface
+class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchInterface, ListsExtendInterface
 {
     public function setSearch(): array
     {
@@ -41,6 +43,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
                     continue;
                 }
                 $id = (int)$sku['product_id'];
+                if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
                 $price = (float)($sku['upstream_price'] ?? 0);
                 $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 $stats[$id]['min_price'] = isset($stats[$id]['min_price']) ? min($stats[$id]['min_price'], $price) : $price;
@@ -51,6 +54,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             $row = PowerMarketService::formatProduct($row);
             $row['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0);
             $row['min_price'] = (float)($stats[$id]['min_price'] ?? 0);
+            $row['has_token_rates'] = !empty($stats[$id]['has_token_rates']);
             $row['status'] = (int)($row['status'] ?? 0) === 1 && $row['sku_count'] > 0 ? 1 : 0;
             $row['status_text'] = $row['status'] === 1 ? '上架' : '下架';
         }
@@ -71,6 +75,19 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
 
     private function applyStatusFilter($query): void
     {
+        $catalog = (string)$this->request->get('catalog_type', '');
+        if ($catalog === 'other') {
+            $query->where('resource_type', PowerMarketService::TYPE_MODEL)->where('model_type', 'other');
+            $category = trim((string)$this->request->get('other_category_code', ''));
+            if ($category !== '') {
+                $query->whereRaw("COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(source_payload, '$.market_metadata.other_category.code')), ''), 'uncategorized') = ?", [$category]);
+            }
+        }
+        if (in_array($catalog, ['model','series'], true)) {
+            $query->whereIn('model_type', ['text', 'image', 'video']);
+            $factory = "(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(source_payload, '$.market_metadata.upstream_metadata.pricing.pricing_v2.resource_type')), '') = 'factory_model')";
+            $query->whereRaw($catalog === 'series' ? $factory : 'NOT '.$factory);
+        }
         $resourceType = (string)$this->request->get('resource_type', '');
         $status = $this->request->get('status', '');
         if ($resourceType !== PowerMarketService::TYPE_MODEL) {
@@ -102,5 +119,13 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
         if ($enabledProductIds !== []) {
             $query->whereNotIn('id', $enabledProductIds);
         }
+    }
+
+    public function extend(): array
+    {
+        if ($this->request->get('catalog_type', '') !== 'other') return [];
+        $products = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'other', 'status' => 1])
+            ->field('source_payload')->select()->toArray();
+        return ['other_categories' => MarketOtherModelCategory::options($products)];
     }
 }

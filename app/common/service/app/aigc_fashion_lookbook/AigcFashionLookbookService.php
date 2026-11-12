@@ -500,8 +500,8 @@ class AigcFashionLookbookService
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
         $quantity = count(self::referenceGroups($prepared));
-        $tenantUnitCost = round((float)($imageEstimate['platform_unit_cost'] ?? 0), 2);
-        $userUnitPrice = AppSalePriceService::resolve($prepared['unit_price'], (float)($imageEstimate['tenant_unit_price'] ?? 0), (bool)($imageEstimate['follow_market_prices'] ?? false));
+        $tenantUnitCost = round(AppSalePriceService::singleImageCost($imageEstimate), 6);
+        $userUnitPrice = AppSalePriceService::singleImageSalePrice($prepared['unit_price'], $imageEstimate);
         return array_merge($imageEstimate, [
             'quantity' => $quantity,
             'clothes_count' => count($prepared['clothes_images']),
@@ -512,9 +512,9 @@ class AigcFashionLookbookService
             'platform_unit_cost' => $tenantUnitCost,
             'tenant_unit_price' => $userUnitPrice,
             'unit_price' => $userUnitPrice,
-            'tenant_cost_points' => round($tenantUnitCost * $quantity, 2),
-            'user_charge_points' => round($userUnitPrice * $quantity, 2),
-            'display_points' => round($userUnitPrice * $quantity, 2),
+            'tenant_cost_points' => round($tenantUnitCost * $quantity, 6),
+            'user_charge_points' => round($userUnitPrice * $quantity, 6),
+            'display_points' => round($userUnitPrice * $quantity, 6),
         ]);
     }
 

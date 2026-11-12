@@ -25,7 +25,7 @@ class AppController extends BaseAdminController
 
     public function lists()
     {
-        $lists = (new AppPackageUpdateService())->localCatalog(App::order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
+        $lists = (new AppPackageUpdateService())->localCatalog(App::whereNotIn('code', \app\common\service\app\RetiredAppService::CODES)->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
         foreach ($lists as &$item) {
             if (!DefaultAppService::isDefaultApp((string)($item['code'] ?? ''))) {
                 $item['is_builtin'] = 0;

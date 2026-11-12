@@ -17,7 +17,8 @@ EPISODE_MATCH="$SERVER_DIR/think short-drama:episode-worker"
 PLANNING_MATCH="$SERVER_DIR/think short-drama:planning-worker"
 SHORT_DRAMA_AGENT_MATCH="$SERVER_DIR/think short-drama:canvas-agent-worker"
 HOME_AGENT_MATCH="$SERVER_DIR/think home-agent:worker"
-MICRO_VIDEO_MATCH="$SERVER_DIR/think micro-video:worker"
+RETIRED_VIDEO_MATCH="$SERVER_DIR/think micro-video:worker"
+PRODUCT_VIDEO_MATCH="$SERVER_DIR/think product-video:worker"
 DECORATION_AGENT_MATCH="$SERVER_DIR/think decoration:agent-worker"
 OEM_BRAND_MATCH="$SERVER_DIR/think brand:worker"
 COPYWRITING_MATCH="$SERVER_DIR/think copywriting:worker"
@@ -46,10 +47,10 @@ stop_pid() {
     kill -0 "$target" 2>/dev/null || return 0
     command=$(ps -p "$target" -o command= 2>/dev/null || true)
     case "$command" in
-        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$HOME_AGENT_MATCH"*|*"$MICRO_VIDEO_MATCH"*|*"$DECORATION_AGENT_MATCH"*|*"$OEM_BRAND_MATCH"*|*"$COPYWRITING_MATCH"*)
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$HOME_AGENT_MATCH"*|*"$RETIRED_VIDEO_MATCH"*|*"$PRODUCT_VIDEO_MATCH"*|*"$DECORATION_AGENT_MATCH"*|*"$OEM_BRAND_MATCH"*|*"$COPYWRITING_MATCH"*)
             kill -TERM "$target" 2>/dev/null || true
             grace=20
-            case "$command" in *"$HOME_AGENT_MATCH"*|*"$MICRO_VIDEO_MATCH"*|*"$COPYWRITING_MATCH"*) grace=1800 ;; esac
+            case "$command" in *"$HOME_AGENT_MATCH"*|*"$RETIRED_VIDEO_MATCH"*|*"$PRODUCT_VIDEO_MATCH"*|*"$COPYWRITING_MATCH"*) grace=1800 ;; esac
             i=0
             while kill -0 "$target" 2>/dev/null && [ "$i" -lt "$grace" ]; do sleep 1; i=$((i + 1)); done
             kill -0 "$target" 2>/dev/null && kill -KILL "$target" 2>/dev/null || true
@@ -66,7 +67,7 @@ ps -axo pid=,command= | while IFS= read -r line; do
     pid=$(printf '%s\n' "$line" | awk '{print $1}')
     command=${line#"$pid"}
     case "$command" in
-        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$HOME_AGENT_MATCH"*|*"$MICRO_VIDEO_MATCH"*|*"$DECORATION_AGENT_MATCH"*|*"$OEM_BRAND_MATCH"*|*"$COPYWRITING_MATCH"*) stop_pid "$pid" ;;
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$HOME_AGENT_MATCH"*|*"$RETIRED_VIDEO_MATCH"*|*"$PRODUCT_VIDEO_MATCH"*|*"$DECORATION_AGENT_MATCH"*|*"$OEM_BRAND_MATCH"*|*"$COPYWRITING_MATCH"*) stop_pid "$pid" ;;
     esac
 done
 
@@ -77,7 +78,7 @@ log_startup "exec: $PHP_BIN $SERVER_DIR/think ai:task-worker"
 
 # One Baota Supervisor entry owns the general task worker, short-drama queues,
 # short-drama Agent conversation queue, home creation
-# Agent, micro-video, decoration Agent, OEM, and smart copywriting queue. Keep every
+# Agent, decoration Agent, OEM, and smart copywriting queue. Keep every
 # child in this script's process group so one restart starts the complete set
 # and no queue is silently left behind.
 pids=""
@@ -134,7 +135,7 @@ pids="$pids $!"
 pids="$pids $!"
 AGENT_PHP_BIN="$PHP_BIN" sh "$SERVER_DIR/scripts/home-agent-php.sh" "$SERVER_DIR/think" home-agent:worker >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"
-AGENT_PHP_BIN="$PHP_BIN" sh "$SERVER_DIR/scripts/home-agent-php.sh" "$SERVER_DIR/think" micro-video:worker >> "$LOG_FILE" 2>&1 &
+AGENT_PHP_BIN="$PHP_BIN" sh "$SERVER_DIR/scripts/home-agent-php.sh" "$SERVER_DIR/think" product-video:worker >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"
 "$PHP_BIN" "$SERVER_DIR/think" decoration:agent-worker --sleep=2 >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"

@@ -19,12 +19,11 @@ class AppAccessService
         'aigc_hairstyle', 'aigc_image_translate', 'aigc_local_redraw',
         'aigc_model_wear', 'aigc_one_click_cleanup', 'aigc_outpaint',
         'aigc_photo_restore', 'aigc_product_image', 'aigc_product_multi_angle',
-        'aigc_product_promo_video', 'aigc_product_suite', 'aigc_style_transfer',
+        'aigc_product_promo_video', 'aigc_product_video', 'aigc_story_commerce', 'aigc_motion_sync', 'aigc_product_suite', 'aigc_style_transfer',
     ];
     public const DEFAULT_AIGC_APP_CODES = [
         'aigc_image',
         'aigc_video',
-        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_pic_lipsync',
         'aigc_canvas',
@@ -40,7 +39,6 @@ class AppAccessService
         'aigc_copywriting',
         'aigc_image',
         'aigc_video',
-        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_pic_lipsync',
         'aigc_canvas',
@@ -100,6 +98,7 @@ class AppAccessService
 
     public static function tenantCanManage(int $tenantId, string $appCode): bool
     {
+        if (RetiredAppService::contains($appCode)) return false;
         if ($tenantId > 0 && self::isDefaultApp($appCode)
             && App::where('code', $appCode)->whereIn('status', [AppRegistryService::STATUS_INSTALLED, AppRegistryService::STATUS_DISABLED])->count() > 0) {
             return true;
@@ -109,6 +108,7 @@ class AppAccessService
 
     public static function tenantCanUse(int $tenantId, string $appCode, bool $initialize = true): bool
     {
+        if (RetiredAppService::contains($appCode)) return false;
         if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
             if ($initialize) DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
         }
@@ -159,7 +159,7 @@ class AppAccessService
         $installedApps = App::whereIn('status', $requireShelf
             ? [AppRegistryService::STATUS_INSTALLED]
             : [AppRegistryService::STATUS_INSTALLED, AppRegistryService::STATUS_DISABLED])->column('*', 'code');
-        $installed = array_keys($installedApps);
+        $installed = array_values(array_diff(array_keys($installedApps),RetiredAppService::CODES));
         if (empty($installed)) {
             return [];
         }

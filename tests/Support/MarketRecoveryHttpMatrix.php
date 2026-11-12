@@ -1,37 +1,5 @@
 <?php
 /** Private HTTP recovery checks. No real supplier tasks, prices or user projects. */
-function runMarketFrameRecoveryHttp($f,$api,$suffix,$token,$id,$detail,$product,array &$report): array
-{
-    $post=fn($route,$p)=>dataHttp($api,'/api/app.aigc_micro_video.'.$route.$suffix,$p,$token);
-    $get=fn()=>dataHttp($api,'/api/app.aigc_micro_video.task/detail'.$suffix.'&id='.$id,[],$token,'GET');
-    $check=fn($ok,$why)=>MarketWorkerFixture::check((bool)$ok,$why);$old=$detail['frames'];
-    $generate=function(array $current,?array $ids,string $key)use($f,$post,$get,$id){
-        $p=['id'=>$id,'plan_revision'=>$current['plan_revision'],'frames_revision'=>$current['frames_revision']];if($ids!==null)$p['frame_ids']=$ids;
-        $q=$post('frame/estimate',$p);$p+=['quote_token'=>$q['quote_token'],'idempotency_key'=>$key];$post('frame/generate',$p);$post('frame/generate',$p);
-        $file=dirname(__DIR__).'/market-generation-http.php';$f->start($file,'fixture_micro_runner','micro');$f->start($file,'aigc_micro_video');
-        MarketWorkerFixture::wait(function()use($id){$r=think\facade\Db::name('aigc_micro_video_task')->where('id',$id)->find();if($r['frame_status']==='waiting_continue')throw new RuntimeException('Replacement frame failed');return $r['frame_status']==='review';},'Replacement frames did not finish',65);
-        $f->stop('micro');MarketWorkerFixture::wait(fn()=>think\facade\Db::name('ai_task_job')->where('status','<>','success')->count()===0,'Replacement result jobs pending',20);$f->stop();return $get();
-    };
-    $p=['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision'],'frame_id'=>$old[1]['id'],'prompt'=>'同一彩色色块在中央，替换这一锚图。','reference_indices'=>[0]];
-    $edited=$post('frame/save',$p);$check($edited['frames'][0]['id']===$old[0]['id']&&$edited['frames'][1]['version']===$old[1]['version']+1&&$edited['frames'][2]['version']===$old[2]['version']+1,'Frame replacement invalidated wrong boundaries');
-    $stale=callHttp($api,'/api/app.aigc_micro_video.frame/generate'.$suffix,['id'=>$id,'plan_revision'=>$detail['plan_revision'],'frames_revision'=>$detail['frames_revision'],'quote_token'=>'expired-frame-quote','idempotency_key'=>'recovery-stale-frame'],$token);$check($stale['code']!==1,'Stale frame revision generated');
-    $middle=$generate($edited,[$edited['frames'][1]['id']],'recovery-middle-frame');
-    $check($middle['frames'][2]['status']==='stale','Dependent tail accepted without regeneration');
-    $tail=$post('frame/save',['id'=>$id,'plan_revision'=>$middle['plan_revision'],'frames_revision'=>$middle['frames_revision'],'frame_id'=>$middle['frames'][2]['id'],'prompt'=>'最终尾帧的色块静止在右侧。','reference_indices'=>[0]]);
-    $check(array_slice(array_column($tail['frames'],'id'),0,2)===array_slice(array_column($middle['frames'],'id'),0,2),'Tail edit invalidated independent prefix');
-    $ready=$generate($tail,[$tail['frames'][2]['id']],'recovery-tail-frame');
-    $check($ready['frames'][1]['image_url']!==$old[1]['image_url']&&$ready['frames'][0]['image_url']===$old[0]['image_url'],'Replacement lost independent anchor or reused old generated image');
-    [$frame]=$product('replacement_image','image','synthetic-image',['max_reference_images'=>3,'params_schema'=>['prompt'=>['type'=>'string','required'=>true],'image_size'=>['type'=>'string','enum'=>['1K']],'aspect_ratio'=>['type'=>'string','enum'=>['1:1']],'image_urls'=>['type'=>'array','items'=>['type'=>'string'],'maxItems'=>3]]],['image_size'=>'1K','aspect_ratio'=>'1:1']);
-    $model='market_image_model:'.$frame;$cfg=app\common\service\app\aigc_micro_video\MicroVideoSettings::get($f->tenant);$cfg['frame_model_ids'][]=$model;app\common\service\app\aigc_micro_video\MicroVideoSettings::save($f->tenant,$cfg);
-    $replaced=$post('frame/configure',['id'=>$id,'plan_revision'=>$ready['plan_revision'],'generation_mode'=>'start_end','frame_model_id'=>$model,'frame_quality'=>'1k']);
-    $check($replaced['frames'][1]['prompt']===$ready['frames'][1]['prompt']&&$replaced['frames'][1]['reference_indices']===$ready['frames'][1]['reference_indices'],'Changing frame model discarded edited prompt/references');
-    $check(array_column($replaced['frames'],'status')===['stale','stale','stale'],'Changing frame model kept stale images ready');
-    $first=$post('frame/save',['id'=>$id,'plan_revision'=>$replaced['plan_revision'],'frames_revision'=>$replaced['frames_revision'],'frame_id'=>$replaced['frames'][0]['id'],'prompt'=>'首帧的色块静止在左侧。','reference_indices'=>[0]]);
-    $check(array_column($first['frames'],'status')===['stale','stale','stale']&&min(array_column($first['frames'],'version'))>min(array_column($replaced['frames'],'version')),'First edit did not replace all dependent versions');
-    $final=$generate($first,null,'recovery-model-frames');$check(array_column($final['frames'],'status')===['success','success','success'],'Replacement model results not ready');
-    $report['frame_recovery']=['middle_edit_preserves_prefix_invalidates_tail'=>true,'tail_edit_preserves_prefix'=>true,'first_edit_invalidates_all_dependents'=>true,'model_change_preserves_edited_inputs'=>true,'stale_revision_rejected'=>true,'individual_regeneration_and_same_key_replay'=>true,'model_replacement_regenerates_three_versions'=>true,'manual_boundary_file_upload'=>'No existing upload/replace endpoint; not introduced by this test'];return $final;
-}
-
 function runMarketRecoveryHttpMatrix($f,$api,$suffix,$token,$supplier,array &$report): void
 {
     $t=$f->tenant;$u=$f->user;$file=dirname(__DIR__).'/market-generation-http.php';

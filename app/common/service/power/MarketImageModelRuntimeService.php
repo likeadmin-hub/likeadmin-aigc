@@ -14,7 +14,7 @@ use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\point\PointService;
-use app\common\service\app\aigc_micro_video\MicroVideoSubmission;
+use app\common\service\ai\MarketVideoSubmissionService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 use think\facade\Cache;
@@ -465,7 +465,7 @@ class MarketImageModelRuntimeService
         if ((string)$consumption['run_status'] !== 'reserved') {
             return self::responseFromConsumption($consumption->toArray());
         }
-        $microSubmission=MicroVideoSubmission::applies($consumption->toArray());
+        $microSubmission=MarketVideoSubmissionService::applies($consumption->toArray());
         $price = (array)$consumption['price_snapshot'];
         $plan=null;$submitUrl=null;
         try {
@@ -508,7 +508,7 @@ class MarketImageModelRuntimeService
             if(MarketGenerationMeter::boundedToken((array)($price['billing_meter']??[]))&&in_array(self::status($response),['failed','error','canceled','cancelled'],true)){
                 self::fail($consumptionId,self::error($response),'upstream_failed');return self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             }
-            if($microSubmission)MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
+            if($microSubmission)MarketVideoSubmissionService::capture($consumptionId,$response,$taskId,self::requestId($response));
             if ($tenantAdminConsumption) {
                 $requestId = self::requestId($response);
                 AiConsumptionLog::where('id', $consumptionId)->update(['run_status' => 'running', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'update_time' => time()]);
@@ -573,7 +573,7 @@ class MarketImageModelRuntimeService
 
     private static function claimSubmission(int $id, array $price, bool $admin, bool $micro): bool
     {
-        if ($micro) return MicroVideoSubmission::begin($id);
+        if ($micro) return MarketVideoSubmissionService::begin($id);
         if (!$admin && self::requiresMeterReceipt($price)) return MarketBoundedImageSubmission::begin($id);
         // Exactly one durable claim precedes provider I/O, including ordinary image tasks.
         return (bool)AiConsumptionLog::where('id', $id)->where('run_status', 'reserved')->update([
@@ -588,13 +588,13 @@ class MarketImageModelRuntimeService
      *
      * @return array{response:array<string,mixed>,attempts:int}
      */
-    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false,bool $microVideo = false): array
+    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload, bool $singleAttempt = false,bool $durableSubmission = false): array
     {
         $attempt = 0;
         while ($attempt < self::SUBMIT_MAX_ATTEMPTS) {
             $attempt++;
             try {
-                return ['response' => $microVideo?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
+                return ['response' => $durableSubmission?self::request('POST',$url,$payload):self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
             } catch (MarketImageProviderRequestException $e) {
                 MarketProviderReceipt::record($consumptionId,(int)$e->getCode(),$e->receipt());
                 if (\app\common\service\open_platform\OpenCallContext::id() !== '') throw $e;
@@ -651,9 +651,9 @@ class MarketImageModelRuntimeService
     {
         if($error instanceof MarketImageProviderRequestException&&$error->wasAccepted()){
             $receipt=$error->receipt();$nested=is_array($receipt['data']??null)?$receipt['data']:[];$receipt=$nested+$receipt;
-            MicroVideoSubmission::capture($id,$receipt?:['accepted'=>true],self::taskId($receipt),self::requestId($receipt));
+            MarketVideoSubmissionService::capture($id,$receipt?:['accepted'=>true],self::taskId($receipt),self::requestId($receipt));
         }
-        return MicroVideoSubmission::hold($id,$error->getMessage());
+        return MarketVideoSubmissionService::hold($id,$error->getMessage());
     }
 
     private static function submitRetryDelayMs(int $attempt): int
@@ -841,9 +841,9 @@ class MarketImageModelRuntimeService
                 if(!$boundedToken||trim((string)$c['upstream_task_id'])===''||in_array($current['billing_status'],['settled','refunded'],true))return self::responseFromConsumption($current);
             }
         }
-        if(MicroVideoSubmission::pending($c->toArray()))return self::responseFromConsumption($c->toArray());
-        if(MicroVideoSubmission::applies($c->toArray())&&!$boundedToken){
-            $summary=(array)$c['response_summary'];$receipt=MicroVideoSubmission::receipt($c->toArray());
+        if(MarketVideoSubmissionService::pending($c->toArray()))return self::responseFromConsumption($c->toArray());
+        if(MarketVideoSubmissionService::applies($c->toArray())&&!$boundedToken){
+            $summary=(array)$c['response_summary'];$receipt=MarketVideoSubmissionService::receipt($c->toArray());
             try{
                 $images=(array)($summary['images']??[]);
                 if(!$images&&$receipt)$images=self::images($receipt,(int)$c['tenant_id'],(int)$c['user_id'],(array)$c['price_snapshot']);
@@ -858,11 +858,11 @@ class MarketImageModelRuntimeService
             $plan = MarketGenerationAdapterRegistry::transport((array)$c['price_snapshot'], 'query', $taskId);
             $response = self::request($plan['method'], self::origin() . $plan['path'], $plan['payload']);
             self::retainMeterReceipt($consumptionId,$response,$taskId,self::requestId($response));
-            $status = self::status($response); if(MicroVideoSubmission::applies($c->toArray())&&!in_array($status,['failed','error','canceled','cancelled'],true))MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
+            $status = self::status($response); if(MarketVideoSubmissionService::applies($c->toArray())&&!in_array($status,['failed','error','canceled','cancelled'],true))MarketVideoSubmissionService::capture($consumptionId,$response,$taskId,self::requestId($response));
             if($boundedToken&&in_array($status,['failed','error','canceled','cancelled'],true)){self::fail($consumptionId,self::error($response),'upstream_failed');return self::failureResponse($taskId,self::error($response));}
             $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id'], (array)$c['price_snapshot']);
             if(!$images&&$boundedToken)$images=(array)(((array)$c['response_summary'])['images']??[]);
-            if ($images !== []) { self::retainReadyImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); if(MicroVideoSubmission::applies($c->toArray()))self::enqueueResultJob($consumptionId,true); return $boundedToken?self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray()):['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
+            if ($images !== []) { self::retainReadyImages($consumptionId,$images);self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); if(MarketVideoSubmissionService::applies($c->toArray()))self::enqueueResultJob($consumptionId,true); return $boundedToken?self::responseFromConsumption(AiConsumptionLog::findOrEmpty($consumptionId)->toArray()):['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) {
                 $message = self::error($response);
                 self::fail($consumptionId, $message, 'upstream_failed');
@@ -2068,7 +2068,7 @@ class MarketImageModelRuntimeService
     private static function responseFromConsumption(array $c): array
     {
         $summary = self::arrayValue($c['response_summary'] ?? []);
-        $pendingMeter=self::requiresMeterReceipt((array)($c['price_snapshot']??[])) || MicroVideoSubmission::applies($c);
+        $pendingMeter=self::requiresMeterReceipt((array)($c['price_snapshot']??[])) || MarketVideoSubmissionService::applies($c);
         if($pendingMeter&&($c['billing_status']??'')!=='settled')$summary['images']=[];
         $response = [
             'status' => $pendingMeter&&!in_array($c['run_status'],['failed','canceled'],true)&&($c['billing_status']??'')!=='settled'?'running':(string)$c['run_status'],
@@ -2086,7 +2086,7 @@ class MarketImageModelRuntimeService
     }
     private static function retainReadyImages(int $id,array $images): void
     {
-        Db::transaction(function()use($id,$images){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||(!MicroVideoSubmission::applies($c->toArray())&&!self::requiresMeterReceipt((array)($c['price_snapshot']??[]))))return;$summary=(array)$c['response_summary'];$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);});
+        Db::transaction(function()use($id,$images){$c=AiConsumptionLog::lock(true)->findOrEmpty($id);if($c->isEmpty()||(!MarketVideoSubmissionService::applies($c->toArray())&&!self::requiresMeterReceipt((array)($c['price_snapshot']??[]))))return;$summary=(array)$c['response_summary'];$summary['images']=$images;$c->save(['response_summary'=>$summary,'update_time'=>time()]);});
     }
     private static function retainMeterReceipt(int $id,array $receipt,string $taskId,string $requestId): void
     {
@@ -2110,7 +2110,7 @@ class MarketImageModelRuntimeService
         // The micro stage owns provider polling. Completed local images still
         // need the common result job to register their canonical asset receipt.
         $micro=AiConsumptionLog::findOrEmpty($consumptionId);
-        if(!$micro->isEmpty()&&MicroVideoSubmission::applies($micro->toArray())
+        if(!$micro->isEmpty()&&MarketVideoSubmissionService::applies($micro->toArray())
             && (!$processResult || $micro['run_status']!=='success' || $micro['billing_status']!=='settled'))return;
         try {
             if ($processResult) {

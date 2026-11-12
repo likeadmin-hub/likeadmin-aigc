@@ -37,17 +37,23 @@ class MarketVideoRuntimeService
         return MarketCatalogReadScope::remember('video:' . $tenantId . ':' . $resourceType, static fn(): array => self::buildOptions($tenantId, $resourceType));
     }
 
-    private static function buildOptions(int $tenantId, string $resourceType): array
+    public static function motionSyncOptions(int $tenantId): array
+    {
+        return MarketCatalogReadScope::remember('motion_sync:'.$tenantId, static fn(): array => self::buildOptions($tenantId, PowerMarketService::TYPE_MODEL, 'aigc_motion_sync'));
+    }
+
+    private static function buildOptions(int $tenantId, string $resourceType, string $appCode = ''): array
     {
         $where = ['resource_type' => $resourceType, 'status' => 1];
         if ($resourceType === PowerMarketService::TYPE_MODEL) {
-            $where['model_type'] = 'video';
+            $where['model_type'] = $appCode === 'aigc_motion_sync' ? 'other' : 'video';
         }
         $products = PowerMarketProduct::where($where)->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
         $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'), ['sort' => 'desc', 'id' => 'asc']);
         $options = [];
         foreach ($products as $product) {
+            if ($appCode === 'aigc_motion_sync' && !MarketMotionSyncRuntimeService::supportsProduct($product)) continue;
             if ($resourceType === PowerMarketService::TYPE_APP_API
                 && (!self::isVideoGenerationApi($product) || !self::isSupportedAppProduct($product))) {
                 continue;
@@ -250,15 +256,16 @@ class MarketVideoRuntimeService
         return strtolower((string)($locked['model'] ?? '')) === $models[$mode];
     }
 
-    public static function quote(int $tenantId, array $selection): array
+    public static function quote(int $tenantId, array $selection, string $appCode = ''): array
     {
         $normalized = self::normalizeDurationSelection(
             $tenantId,
             $selection,
-            (int)self::value($selection, ['duration', 'seconds', 'video_duration'])
+            (int)self::value($selection, ['duration', 'seconds', 'video_duration']),
+            $appCode
         );
         $selection = array_replace($selection, $normalized);
-        $market = self::resolve($tenantId, $selection);
+        $market = self::resolve($tenantId, $selection, $appCode);
         // Quote the same validated reference set that reserve will submit.
         // Otherwise an impossible request can receive a misleading price.
         self::assertAssets($market, $selection);
@@ -361,10 +368,10 @@ class MarketVideoRuntimeService
      *
      * @return array{duration:int,market_product_id:int,market_sku_id:int,sku_id:int}
      */
-    public static function normalizeDurationSelection(int $tenantId, array $selection, int $requestedDuration = 0): array
+    public static function normalizeDurationSelection(int $tenantId, array $selection, int $requestedDuration = 0, string $appCode = ''): array
     {
         if (array_key_exists('duration', $selection) && (int)$selection['duration'] <= 0) {
-            $market = self::resolve($tenantId, self::withoutDuration($selection));
+            $market = self::resolve($tenantId, self::withoutDuration($selection), $appCode);
             $metadata = self::metadata($market['product']);
             if(MarketGenerationNativeContract::modes($metadata)!==[]){
                 $mode=MarketGenerationMaterials::select($metadata,$selection);
@@ -391,13 +398,13 @@ class MarketVideoRuntimeService
         // stale duration first, then negotiate a supported render duration.
         // This also keeps a locked-duration SKU authoritative.
         try {
-            $market = self::resolve($tenantId, $requestedSelection);
+            $market = self::resolve($tenantId, $requestedSelection, $appCode);
         } catch (Exception $error) {
             if ($requestedDuration <= 0) {
                 throw $error;
             }
             try {
-                $market = self::resolve($tenantId, self::withoutDuration($selection));
+                $market = self::resolve($tenantId, self::withoutDuration($selection), $appCode);
             } catch (Exception) {
                 throw $error;
             }
@@ -450,7 +457,7 @@ class MarketVideoRuntimeService
         // from disagreeing about the SKU or billed seconds.
         $normalizedSelection = self::withoutDuration($selection);
         $normalizedSelection['duration'] = max(1, min(60, $duration));
-        $market = self::resolve($tenantId, $normalizedSelection);
+        $market = self::resolve($tenantId, $normalizedSelection, $appCode);
 
         return [
             'duration' => (int)$normalizedSelection['duration'],
@@ -500,11 +507,11 @@ class MarketVideoRuntimeService
         if ($requestedDuration <= 0) {
             $requestedDuration = (int)self::value($selection, ['duration', 'seconds', 'video_duration']);
         }
-        $normalized = self::normalizeDurationSelection($tenantId, $selection, $requestedDuration);
+        $normalized = self::normalizeDurationSelection($tenantId, $selection, $requestedDuration, $appCode);
         $selection = array_replace($selection, $normalized);
         $request['duration'] = (int)$normalized['duration'];
         CanvasVideoPromptSubmissionGuard::assertPrepared($appCode, $selection);
-        $market = self::resolve($tenantId, $selection);
+        $market = self::resolve($tenantId, $selection, $appCode);
         if(MarketGenerationNativeContract::modes(self::metadata($market['product']))!==[])self::assertWholeDuration($originalDuration);
         self::assertAssets($market, $request);
         self::assertTextToVideoRatio($market, $request);
@@ -617,8 +624,8 @@ class MarketVideoRuntimeService
         $context = self::context($consumptionId, false);
         if ($context === null) throw new Exception('市场视频消耗记录不存在');
         if ((string)$context['consumption']['run_status'] !== 'reserved') return self::response($context['consumption']->toArray());
-        $microSubmission = \app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($context['consumption']->toArray());
-        if ($microSubmission && !\app\common\service\app\aigc_micro_video\MicroVideoSubmission::begin($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+        $microSubmission = \app\common\service\ai\MarketVideoSubmissionService::applies($context['consumption']->toArray());
+        if ($microSubmission && !\app\common\service\ai\MarketVideoSubmissionService::begin($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
         $snapshot = self::arrayValue($context['consumption']['price_snapshot'] ?? []);
         $reservedRequest = self::arrayValue($context['app_task']['request_summary'] ?? []);
         if ((int)($reservedRequest['duration'] ?? 0) > 0) {
@@ -631,7 +638,7 @@ class MarketVideoRuntimeService
             $response = self::submitRequest($snapshot, $request, (string)$context['consumption']['consume_no'], $consumptionId);
             $taskId = self::taskId($response);
             \app\common\service\open_platform\OpenSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
-            if ($microSubmission) \app\common\service\app\aigc_micro_video\MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
+            if ($microSubmission) \app\common\service\ai\MarketVideoSubmissionService::capture($consumptionId,$response,$taskId,self::requestId($response));
             $videos = self::videos(
                 $response,
                 (int)$context['consumption']['tenant_id'],
@@ -646,7 +653,7 @@ class MarketVideoRuntimeService
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption']; if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
                 $summary=['video_count' => count($videos), 'videos' => $videos];
-                if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) $summary += array_intersect_key(self::arrayValue($c['response_summary']), ['micro_provider_receipt'=>true]);
+                if (\app\common\service\ai\MarketVideoSubmissionService::applies($c->toArray())) $summary += array_intersect_key(self::arrayValue($c['response_summary']), ['micro_provider_receipt'=>true]);
                 $c->save(['run_status' => $videos === [] ? 'running' : 'success', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => $summary, 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'video_count' => count($videos)]);
             });
@@ -663,7 +670,7 @@ class MarketVideoRuntimeService
                 self::recordRefreshError($consumptionId,self::taskId($response),$e);
                 return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             }
-            if ($microSubmission && \app\common\service\app\aigc_micro_video\MicroVideoSubmission::hold($consumptionId,$e->getMessage())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+            if ($microSubmission && \app\common\service\ai\MarketVideoSubmissionService::hold($consumptionId,$e->getMessage())) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             if (\app\common\service\open_platform\OpenSubmission::holdUnknown($consumptionId)) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('视频任务提交失败');
@@ -675,7 +682,7 @@ class MarketVideoRuntimeService
         $context = self::context($consumptionId, false);
         if ($context === null) throw new Exception('市场视频消耗记录不存在');
         $c = $context['consumption'];
-        if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::pending($c->toArray())) return self::response($c->toArray());
+        if (\app\common\service\ai\MarketVideoSubmissionService::pending($c->toArray())) return self::response($c->toArray());
         if (\app\common\service\open_platform\OpenSubmission::pending($c->toArray())) return self::response($c->toArray());
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) {
             self::clearTerminalRefreshDiagnostics((int)$c['id']);
@@ -692,9 +699,9 @@ class MarketVideoRuntimeService
             }
         }
         $taskId = trim((string)$c['upstream_task_id']);
-        if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray())) {
+        if (\app\common\service\ai\MarketVideoSubmissionService::applies($c->toArray())) {
             $summary=self::arrayValue($c['response_summary']);
-            $receipt=\app\common\service\app\aigc_micro_video\MicroVideoSubmission::receipt($c->toArray());
+            $receipt=\app\common\service\ai\MarketVideoSubmissionService::receipt($c->toArray());
             try {
                 $completed=(array)($summary['videos']??[]);
                 if ($completed===[]&&$receipt!==null) $completed=self::videos($receipt,(int)$c['tenant_id'],(int)$c['user_id'],self::requiresDurableResultStorage((string)$context['app_task']['app_code']));
@@ -707,7 +714,7 @@ class MarketVideoRuntimeService
                 return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
             }
         }
-        if ($taskId === '' && ($receipt=(\app\common\service\app\aigc_micro_video\MicroVideoSubmission::receipt($c->toArray()) ?? \app\common\service\open_platform\OpenSubmission::receipt($c->toArray())))!==null) {
+        if ($taskId === '' && ($receipt=(\app\common\service\ai\MarketVideoSubmissionService::receipt($c->toArray()) ?? \app\common\service\open_platform\OpenSubmission::receipt($c->toArray())))!==null) {
             try{
                 $videos=self::videos($receipt,(int)$c['tenant_id'],(int)$c['user_id'],self::requiresDurableResultStorage((string)$context['app_task']['app_code']));
                 if($videos!==[]){
@@ -725,7 +732,7 @@ class MarketVideoRuntimeService
         try {
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $response = self::queryRequest($snapshot, $taskId);
-            if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray()) && empty($response['error']) && (!isset($response['code']) || !is_numeric($response['code']) || (int)$response['code']===1)) \app\common\service\app\aigc_micro_video\MicroVideoSubmission::capture($consumptionId,$response,$taskId,self::requestId($response));
+            if (\app\common\service\ai\MarketVideoSubmissionService::applies($c->toArray()) && empty($response['error']) && (!isset($response['code']) || !is_numeric($response['code']) || (int)$response['code']===1)) \app\common\service\ai\MarketVideoSubmissionService::capture($consumptionId,$response,$taskId,self::requestId($response));
             $videos = self::videos(
                 $response,
                 (int)$c['tenant_id'],
@@ -742,7 +749,7 @@ class MarketVideoRuntimeService
             }
             if ($videos !== []) {
                 self::settle($consumptionId, $videos, self::requestId($response), $taskId, $response);
-                if (\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c->toArray()) || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
+                if (\app\common\service\ai\MarketVideoSubmissionService::applies($c->toArray()) || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) return self::response(AiConsumptionLog::findOrEmpty($consumptionId)->toArray());
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $videos];
             }
             if ((self::isTokenSnapshot($snapshot) && ((string)$c['billing_status']==='pending_usage' || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? [])))) || !empty($snapshot['requires_actual_duration'])) {
@@ -894,15 +901,15 @@ class MarketVideoRuntimeService
         return is_finite($seconds) ? $seconds : 0.;
     }
 
-    private static function resolve(int $tenantId, array $selection): array
+    private static function resolve(int $tenantId, array $selection, string $appCode = ''): array
     {
         // Only the advisory catalog owns a read scope. Quotes outside it must
         // continue to resolve live availability and prices on every call.
-        return MarketCatalogReadScope::derive('video_market_resolution', [$tenantId, $selection],
-            static fn(): array => self::resolveUncached($tenantId, $selection));
+        return MarketCatalogReadScope::derive('video_market_resolution', [$tenantId, $selection, $appCode],
+            static fn(): array => self::resolveUncached($tenantId, $selection, $appCode));
     }
 
-    private static function resolveUncached(int $tenantId, array $selection): array
+    private static function resolveUncached(int $tenantId, array $selection, string $appCode = ''): array
     {
         $frozen=\app\common\service\open_platform\OpenVideoPricing::market($tenantId,$selection);
         if($frozen!==null){self::assertSkuMatchesSelection($frozen,$selection);return $frozen;}
@@ -912,7 +919,7 @@ class MarketVideoRuntimeService
             $sku = MarketCatalogReadScope::remember('video_sku:' . $skuId, static fn(): array => PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->find()?->toArray() ?? []);
             if ($sku === []) throw new Exception('所选视频规格已下架');
             $product = self::catalogProduct((int)$sku['product_id']);
-            if ($product === [] || !self::productAllowed($product, $resourceType)) throw new Exception('所选视频商品已下架');
+            if ($product === [] || !self::productAllowed($product, $resourceType, $appCode)) throw new Exception('所选视频商品已下架');
             $market = self::marketRow($tenantId, $product, $sku);
             try {
                 self::assertSkuMatchesSelection($market, $selection);
@@ -938,7 +945,7 @@ class MarketVideoRuntimeService
         }
         $productId = self::productId($selection); if ($productId <= 0) throw new Exception('请选择算力市场视频模型');
         $product = self::catalogProduct($productId);
-        if ($product === [] || !self::productAllowed($product, $resourceType)) throw new Exception('所选视频商品已下架');
+        if ($product === [] || !self::productAllowed($product, $resourceType, $appCode)) throw new Exception('所选视频商品已下架');
         return self::resolveProduct($tenantId, $product, $selection);
     }
 
@@ -978,10 +985,11 @@ class MarketVideoRuntimeService
         return $market;
     }
 
-    private static function productAllowed(array $product, string $wanted = ''): bool
+    private static function productAllowed(array $product, string $wanted = '', string $appCode = ''): bool
     {
         $type = (string)$product['resource_type'];
         if ($wanted !== '' && $type !== $wanted) return false;
+        if ($appCode === 'aigc_motion_sync') return MarketMotionSyncRuntimeService::supportsProduct($product);
         if ($type === PowerMarketService::TYPE_MODEL) return (string)$product['model_type'] === 'video';
         return $type === PowerMarketService::TYPE_APP_API && self::isSupportedAppProduct($product);
     }
@@ -3833,7 +3841,7 @@ class MarketVideoRuntimeService
      */
     private static function requiresDurableResultStorage(string $appCode): bool
     {
-        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video'], true);
+        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video', 'aigc_product_video', 'aigc_motion_sync', 'aigc_story_commerce'], true);
     }
 
     private static function videos(array $data, int $tenantId, int $userId, bool $forceTransfer = false): array
@@ -3970,7 +3978,7 @@ class MarketVideoRuntimeService
             'videos' => (array)($summary['videos'] ?? []),
         ];
         $snapshot=self::arrayValue($c['price_snapshot'] ?? []);
-        if ((\app\common\service\app\aigc_micro_video\MicroVideoSubmission::applies($c) || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) && ($c['billing_status']??'')!=='settled') {
+        if ((\app\common\service\ai\MarketVideoSubmissionService::applies($c) || MarketGenerationMeter::boundedToken((array)($snapshot['billing_meter'] ?? []))) && ($c['billing_status']??'')!=='settled') {
             $response['videos']=[];
             if (!in_array($response['status'],['failed','canceled','pending_confirmation','submitting'],true)) $response['status']='running';
         }

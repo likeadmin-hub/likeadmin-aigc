@@ -27,7 +27,7 @@ The following 29 apps each own `{app_code}_config.status`:
 | aigc_model_wear, aigc_music, aigc_music_cover, aigc_watermark_removal | table status column |
 | aigc_pic_lipsync, image_human, smart_clip | table status column |
 
-Micro-video is the 30th source: `aigc_micro_video_config.config_json.status`, read with the default and numeric conversion used by MicroVideoSettings/MicroVideoService. A missing key defaults to 1; numeric/string zero, false, and explicit null close service. A `config_json.status` key on a status-column app is not treated as a switch.
+Micro-video is retired and always denied, including stale registry entries. A `config_json.status` key on a status-column app is not treated as a switch.
 
 Canvas and copywriting have no separate application service-status field; they use registry, tenant entitlement/shelf/enable, and display controls. `system_default` retains its protected installed registry lifecycle. Open platform additionally has its existing API-publication authorization (`open_platform_setting.enabled` plus `config.tenant_enabled`); its console intentionally exposes an `enabled` state and remains readable when API publication is disabled. This change does not reinterpret that API authorization as a console visibility control.
 
@@ -35,6 +35,6 @@ The source inventory is deliberately explicit and read-only. Each availability r
 
 ## Matrix and preservation
 
-The matrix exercises every shipped manifest app plus the protected system app, platform/tenant display OFF, service OFF, a tenant ON under platform OFF, absent defaults, tenant isolation, reopen, PC/UniApp/tenant entry sources, direct config and generation middleware rejection, Agent tool admission, published tool admission, and history middleware exceptions. Micro-video JSON variants and a same-process optional table installation regression are included. MySQL's private general log confirms a full catalog issues one service-switch UNION instead of per-app queries.
+The matrix exercises every shipped manifest app plus the protected system app, platform/tenant display OFF, service OFF, a tenant ON under platform OFF, absent defaults, tenant isolation, reopen, PC/UniApp/tenant entry sources, direct config and generation middleware rejection, Agent tool admission, published tool admission, and history middleware exceptions. Retired application admission and a same-process optional table installation regression are included. MySQL's private general log confirms a full catalog issues one service-switch UNION instead of per-app queries.
 
 The pre-existing suite also verifies tenant switches survive default synchronization and actual updater SQL/DDL execution, owner management lists remain available, paid entitlement renewal survives updates, historical Agent events retain user ownership, and OEM contention requeues paid work. Current application migrations and system upgrade SQL were audited for unconditional UPDATEs of existing display/service status; none were found. This change does not write configuration or alter the existing updater snapshot contract.

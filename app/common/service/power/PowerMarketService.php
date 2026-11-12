@@ -13,6 +13,7 @@ class PowerMarketService
     public const SOURCE_LIKEADMIN_API = 'likeadmin_api';
     public const TYPE_MODEL = 'model';
     public const TYPE_APP_API = 'app_api';
+    public const MODEL_TYPES = ['text', 'image', 'video', 'other'];
     private const UPSTREAM_RETRY_ATTEMPTS = 2;
     private const UPSTREAM_PRICING_BATCH_SIZE = 25;
 
@@ -231,14 +232,52 @@ class PowerMarketService
     }
 
     /** Model-only maintenance leaves application products and pricing untouched. */
-    public static function syncFromUpstream(bool $modelsOnly = false): array
+    /** Refresh one declared model series without retiring or repricing unrelated products. */
+    public static function syncModelSeriesFromUpstream(string $code): array
     {
+        if ($code === '' || strlen($code) > 160) throw new Exception('模型编码无效');
+        $matches = array_values(array_filter(UpstreamPricingService::queryModels('text', true), static fn($m) =>
+            (string)($m['model_code'] ?? $m['code'] ?? $m['id'] ?? '') === $code));
+        if (!$matches) throw new Exception('上游目录尚未提供该模型系列');
+        $ids = [];
+        foreach ($matches as $model) {
+            $model = self::mergeDeveloperDocModelDetail($model);
+            $request = ['type'=>self::TYPE_MODEL, 'model'=>$code, 'channel'=>(string)($model['channel_code'] ?? ''),
+                'catalog_model'=>$model, 'market_metadata'=>[
+                    'model_name'=>$model['name'] ?? $code, 'model_type'=>'text', 'upstream_metadata'=>$model,
+                    'protocol'=>$model['protocol'] ?? '', 'protocols'=>$model['protocols'] ?? [],
+                    'capabilities'=>$model['capabilities'] ?? [], 'input_modalities'=>$model['input_modalities'] ?? [],
+                    'default_params'=>$model['default_params'] ?? [], 'params_schema'=>$model['params_schema'] ?? [],
+                    'max_tokens'=>$model['max_tokens'] ?? 0, 'context_window'=>self::modelContextWindow($model),
+                    'developer_doc_slug'=>$model['developer_doc_slug'] ?? '', 'api_doc'=>$model['api_doc'] ?? '',
+                ]];
+            $item = self::catalogPricingItem($request);
+            if (!$item) $item = UpstreamPricingService::queryModel($code, $request['channel']);
+            if (empty($item['available']) || empty($item['pricing_v2']['items'])) throw new Exception('上游模型计价尚未就绪');
+            $item['market_metadata'] = $request['market_metadata'];
+            $item['request'] = ['type'=>'model','model'=>$code,'channel'=>$request['channel']];
+            $ids[] = Db::transaction(static function() use ($item): int {
+                $product = self::upsertProduct(self::TYPE_MODEL, $item['resource'], $item, true);
+                if (!$product) throw new Exception('模型目录身份无效');
+                PowerMarketSku::where('product_id', $product['id'])->update(['status'=>0,'update_time'=>time()]);
+                foreach ($item['pricing_v2']['items'] as $sku) self::upsertSku((int)$product['id'], $sku, $item, 0);
+                return (int)$product['id'];
+            });
+        }
+        return ['model_code'=>$code,'product_ids'=>$ids];
+    }
+
+    public static function syncFromUpstream(bool $modelsOnly = false, ?array $modelTypes = null): array
+    {
+        $modelTypes = $modelTypes ?? self::MODEL_TYPES;
+        if ($modelTypes === [] || array_diff($modelTypes, self::MODEL_TYPES)) throw new Exception('模型同步分类无效');
+        $modelTypes = array_values(array_unique($modelTypes));
         $requests = [];
         $models = [];
         $syncedModelTypes = [];
         $emptyModelTypes = [];
         $typeErrors = [];
-        foreach (['text', 'image', 'video'] as $modelType) {
+        foreach ($modelTypes as $modelType) {
             try {
                 $remoteModels = self::withUpstreamRetry(fn() => UpstreamPricingService::queryModels($modelType, true));
                 $syncedModelTypes[] = $modelType;
@@ -285,6 +324,9 @@ class PowerMarketService
                     'model_name' => trim((string)($model['model_name'] ?? $model['name'] ?? $code)),
                     'model_description' => trim((string)($model['description'] ?? '')),
                     'model_type' => $modelType,
+                    // The current catalogue owns classification. pricing/batch may
+                    // still return a former image/video type after reclassification.
+                    'catalog_model_type' => $modelType,
                     'protocol' => (string)($model['protocol'] ?? ''),
                     'protocols' => is_array($model['protocols'] ?? null) ? $model['protocols'] : preg_split('/[,|\s]+/', (string)($model['protocols'] ?? ''), -1, PREG_SPLIT_NO_EMPTY),
                     'params_schema' => is_array($model['params_schema'] ?? null) ? $model['params_schema'] : [],
@@ -397,6 +439,14 @@ class PowerMarketService
                 $bound=MarketGenerationSourceIdentity::bind((array)($metadata['upstream_metadata'] ?? []),(array)($item['resource'] ?? []));
                 $bound=self::mergeDeveloperDocModelDetail($bound);
                 $metadata['upstream_metadata']=$bound;
+                if (($metadata['catalog_model_type'] ?? '') === 'other') {
+                    $categories = self::developerDocSlugMaps()['other_categories'];
+                    if ($categories['available']) {
+                        $metadata['other_category'] = $categories['models'][(int)($item['resource']['model_id'] ?? 0)] ?? [];
+                    } else {
+                        $typeErrors['other_categories'] = '其他分类目录暂不可用，已保留原分类';
+                    }
+                }
                 foreach (['params_schema','default_params','max_reference_images','max_reference_audios','max_reference_videos'] as $field) {
                     if (!self::metadataValuePresent($metadata[$field] ?? null) && self::metadataValuePresent($bound[$field] ?? null)) $metadata[$field]=$bound[$field];
                 }
@@ -461,7 +511,7 @@ class PowerMarketService
                 }
             }
 
-            foreach (['text', 'image', 'video'] as $modelType) {
+            foreach (self::MODEL_TYPES as $modelType) {
                 $scope = self::TYPE_MODEL . ':' . $modelType;
                 if (!isset($syncedScopes[$scope])) {
                     continue;
@@ -761,9 +811,11 @@ class PowerMarketService
         if ($maps !== null) {
             return $maps;
         }
-        $maps = ['app_api' => [], 'model' => []];
+        $maps = ['app_api' => [], 'model' => [], 'other_categories' => ['available' => false, 'models' => []]];
         try {
-            self::collectDeveloperDocSlugs(UpstreamPricingService::queryDeveloperDocTree(), $maps);
+            $tree = UpstreamPricingService::queryDeveloperDocTree();
+            self::collectDeveloperDocSlugs($tree, $maps);
+            $maps['other_categories'] = MarketOtherModelCategory::index($tree);
         } catch (\Throwable) {
         }
         return $maps;
@@ -882,7 +934,7 @@ class PowerMarketService
      */
     private static function retireExplicitlyUnavailableModels(array $modelTypes): int
     {
-        $modelTypes = array_values(array_intersect(['text', 'image', 'video'], array_unique($modelTypes)));
+        $modelTypes = array_values(array_intersect(self::MODEL_TYPES, array_unique($modelTypes)));
         if ($modelTypes === []) {
             return 0;
         }
@@ -1052,7 +1104,7 @@ class PowerMarketService
      */
     private static function appendExistingModelsForEmptyCatalogTypes(array &$requests, array $modelTypes): void
     {
-        $modelTypes = array_values(array_intersect(['text', 'image', 'video'], array_unique($modelTypes)));
+        $modelTypes = array_values(array_intersect(self::MODEL_TYPES, array_unique($modelTypes)));
         if ($modelTypes === []) {
             return;
         }
@@ -1070,8 +1122,11 @@ class PowerMarketService
             $channel = trim((string)($product['upstream_channel_code'] ?? ''));
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
             $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+            // Historical metadata must not impersonate a freshly fetched catalogue.
+            unset($metadata['catalog_model_type']);
             $modelType = self::normalizeModelType((string)($product['model_type'] ?? 'text'));
             $metadata['model_type'] = $modelType;
+            $metadata['fallback_model_type'] = $modelType;
             $requests[] = [
                 'local_key' => 'model:' . $model . ':' . $channel,
                 'type' => self::TYPE_MODEL,
@@ -1139,6 +1194,12 @@ class PowerMarketService
         $product['status_text'] = (int)($product['status'] ?? 0) === 1 ? '上架' : '下架';
         if (($product['resource_type'] ?? '') === self::TYPE_APP_API) {
             $product = array_merge($product, self::appCategory($product));
+        }
+        if (($product['resource_type'] ?? '') === self::TYPE_MODEL && ($product['model_type'] ?? '') === 'other') {
+            $category = MarketOtherModelCategory::category($product);
+            $product['other_category'] = $category;
+            $product['other_category_code'] = $category['code'];
+            $product['other_category_name'] = $category['name'];
         }
         $capability = self::capability($product);
         $product['capability'] = $capability;
@@ -1329,6 +1390,13 @@ class PowerMarketService
             $data['create_time'] = time();
             return PowerMarketProduct::create($data);
         }
+        if ($modelType === 'other' && !array_key_exists('other_category', $metadata)) {
+            // A document-tree outage must not erase the last known grouping.
+            $previous = self::arrayValue($row['source_payload']);
+            if (array_key_exists('other_category', $previous['market_metadata'] ?? [])) {
+                $data['source_payload']['market_metadata']['other_category'] = $previous['market_metadata']['other_category'];
+            }
+        }
         $data['source_payload'] = MarketModelCapabilityVerification::carryForward($data['source_payload'], $row->toArray(), $data);
         $data['source_payload'] = MarketModelCapabilities::carryForward($data['source_payload'], $row->toArray(), $data);
         $row->save($data);
@@ -1401,20 +1469,19 @@ class PowerMarketService
     private static function normalizeModelType(string $type): string
     {
         $type = strtolower(trim($type));
-        return in_array($type, ['text', 'image', 'video'], true) ? $type : 'text';
+        return in_array($type, self::MODEL_TYPES, true) ? $type : 'text';
     }
 
-    /** Only supported model categories enter price synchronization. An explicit
-     * upstream reclassification overrides stale local catalogue metadata. The
-     * request's known type remains a fallback for old responses without a type. */
+    /** The current catalogue owns type changes; an empty index preserves its last
+     * known type while pricing is refreshed. Legacy responses retain strict typing. */
     private static function syncModelType(array $resource, array $metadata = []): string
     {
-        foreach ([$resource['type_code'] ?? null, $metadata['upstream_metadata']['type_code'] ?? null, $metadata['model_type'] ?? null] as $raw) {
+        foreach ([$metadata['catalog_model_type'] ?? null, $metadata['fallback_model_type'] ?? null, $resource['type_code'] ?? null, $metadata['upstream_metadata']['type_code'] ?? null, $metadata['model_type'] ?? null] as $raw) {
             if ($raw === null || $raw === '') continue;
             if (!is_string($raw)) return '';
             $type = strtolower(trim($raw));
             if ($type === '') continue;
-            return in_array($type, ['text', 'image', 'video'], true) ? $type : '';
+            return in_array($type, self::MODEL_TYPES, true) ? $type : '';
         }
         return '';
     }
@@ -1704,6 +1771,13 @@ class PowerMarketService
         // Preserve presence, including invalid declarations, so quote admission
         // fails closed rather than silently falling back to a different meter.
         if (array_key_exists('meter_contract', $sku)) $snapshot['meter_contract'] = $sku['meter_contract'];
+        // Model-series token SKUs retain distinct input/cache/output rates.
+        // Non-Token SKUs can carry an empty optional rates field in the upstream
+        // response. A Token SKU still requires complete rates even when empty.
+        if (array_key_exists('effective_rate_config', $sku)
+            && (($sku['usage_unit'] ?? '') === 'token' || !in_array($sku['effective_rate_config'], [[], null], true))) {
+            $snapshot['effective_rate_config'] = MarketFileQaTokenPricing::rates($sku);
+        }
         return $snapshot;
     }
 

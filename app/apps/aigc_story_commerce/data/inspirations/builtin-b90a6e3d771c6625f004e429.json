@@ -1,0 +1,177 @@
+{
+    "schema_version": 1,
+    "app_code": "aigc_story_commerce",
+    "key": "builtin-b90a6e3d771c6625f004e429",
+    "version": 1,
+    "title": "贵妃嫌弃粗水泡坏茶叶，太监呈上现代黑色细嘴壶，贵妃用其细水慢冲后化解不满。",
+    "status": 1,
+    "sort": 0,
+    "deleted": false,
+    "model_identity": {
+        "resource_type": "model",
+        "source_code": "likeadmin_api",
+        "upstream_resource_key": "model:official-33-6cad7431442bbdab13:official",
+        "upstream_app_code": ""
+    },
+    "configuration": {
+        "images": [
+            {
+                "uri": "uploads/images/20261110/20261110142626cf46e8237.png",
+                "storage_scope": "platform",
+                "storage_engine": "aliyun",
+                "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+                "name": "b109742d54904ab08c1dbda064a37b07.png",
+                "role": "",
+                "reference_slot_id": "sc_2cd432b2-47d2-4cc9-a5a4-4711be4937e2",
+                "mention_name": "图片1",
+                "type": "image"
+            }
+        ],
+        "product_info": "黑色哑光细嘴壶，带盖与侧手柄，放置于带圆形区域和右侧旋钮的方形底座上。具体材质、品牌及加热功能未知。",
+        "requirements": "",
+        "story_type": "palace",
+        "custom_story": "",
+        "style_id": "__none__",
+        "custom_style": "",
+        "language": "中文",
+        "market_region": "",
+        "audio": null,
+        "video_selection": {
+            "quality": "480p",
+            "ratio": "9:16",
+            "duration": 15,
+            "model_id": ""
+        },
+        "script": {
+            "summary": "贵妃嫌弃粗水泡坏茶叶，太监呈上现代黑色细嘴壶，贵妃用其细水慢冲后化解不满。",
+            "characters": [
+                {
+                    "id": "character_1",
+                    "name": "贵妃",
+                    "appearance": "身着暗红色精致古装，头戴金饰，神情高傲且注重细节"
+                },
+                {
+                    "id": "character_2",
+                    "name": "太监",
+                    "appearance": "身着青色太监服，躬身低眉，动作麻利"
+                }
+            ],
+            "shots": [
+                {
+                    "id": "shot_1",
+                    "start": 0,
+                    "end": 3,
+                    "action": "冷调宫廷内，贵妃皱眉挥手，面前倒水湍急的普通大水壶被宫女撤下。",
+                    "dialogue": "贵妃：这粗水激得茶都浑了，重泡！",
+                    "product_point": "",
+                    "camera": "中景，固定镜头",
+                    "sound": "衣物摩擦声，贵妃略带愠怒的声音",
+                    "source_slots": []
+                },
+                {
+                    "id": "shot_2",
+                    "start": 3,
+                    "end": 6,
+                    "action": "太监双手呈上一个极简的黑色细嘴壶及方形底座，现代工业设计与古装环境形成强烈反差。",
+                    "dialogue": "太监：娘娘息怒，此黑壶嘴细如丝，正合慢冲之意。",
+                    "product_point": "展示黑色细嘴壶整体哑光外观及方形底座",
+                    "camera": "近景，推镜头",
+                    "sound": "太监恭敬的声音",
+                    "source_slots": [
+                        "sc_2cd432b2-47d2-4cc9-a5a4-4711be4937e2"
+                    ]
+                },
+                {
+                    "id": "shot_3",
+                    "start": 6,
+                    "end": 10,
+                    "action": "贵妃握住侧手柄提起黑壶，细长的壶嘴流出均匀细水，精准注入白瓷杯中。",
+                    "dialogue": "",
+                    "product_point": "展示细长壶嘴的出水形态和侧手柄握持方式",
+                    "camera": "特写，跟随水流微移",
+                    "sound": "细微且平稳的水流声",
+                    "source_slots": [
+                        "sc_2cd432b2-47d2-4cc9-a5a4-4711be4937e2"
+                    ]
+                },
+                {
+                    "id": "shot_4",
+                    "start": 10,
+                    "end": 13,
+                    "action": "贵妃轻抿一口茶水，眉头舒展，满意地看向太监。",
+                    "dialogue": "贵妃：这细水慢注，倒是解了本宫的燥。",
+                    "product_point": "",
+                    "camera": "近景，固定镜头",
+                    "sound": "贵妃舒缓的声音",
+                    "source_slots": []
+                },
+                {
+                    "id": "shot_5",
+                    "start": 13,
+                    "end": 15,
+                    "action": "贵妃将壶放回，镜头聚焦在黑色细嘴壶稳稳立于方形底座上，底座右侧旋钮清晰可见。",
+                    "dialogue": "太监：娘娘请享用。",
+                    "product_point": "展示方形底座及右侧旋钮细节",
+                    "camera": "特写，缓慢拉远",
+                    "sound": "壶底接触底座的轻微碰撞声",
+                    "source_slots": [
+                        "sc_2cd432b2-47d2-4cc9-a5a4-4711be4937e2"
+                    ]
+                }
+            ],
+            "ending": "贵妃享受细水慢冲的茶饮，黑色细嘴壶在宫廷背景下成为化解矛盾的雅致创意道具。"
+        },
+        "script_input_key": "a9aa7ad11ec44a81eec598ef89505a932dedc17a88f9caf42a8d05cd13569674",
+        "genre_snapshot": {
+            "code": "palace",
+            "name": "宫廷斗争",
+            "instruction": "使用宫廷人物关系与误会推进；现代商品可以是明确的创意道具，不伪造古代商品史实。",
+            "version": "a4c96143f33b752592993a4b78f09005a7d7ac988539f1e3894796e1ed76242e",
+            "status": 1,
+            "sort": 138
+        },
+        "style_snapshot": {
+            "id": "__none__",
+            "name": "无风格",
+            "prompt": "",
+            "mode": "auto"
+        }
+    },
+    "media": {
+        "uri": "uploads/aigc_video/20261111/20261111124812aba024742.mp4",
+        "storage_scope": "platform",
+        "storage_engine": "aliyun",
+        "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+        "width": 496,
+        "height": 864,
+        "duration": 15.104,
+        "type": "video",
+        "mime_type": "video/mp4",
+        "file_size": 5246184
+    },
+    "retained_media": [
+        {
+            "uri": "uploads/images/20261110/20261110142626cf46e8237.png",
+            "storage_scope": "platform",
+            "storage_engine": "aliyun",
+            "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+            "name": "b109742d54904ab08c1dbda064a37b07.png",
+            "role": "",
+            "reference_slot_id": "sc_2cd432b2-47d2-4cc9-a5a4-4711be4937e2",
+            "mention_name": "图片1",
+            "type": "image"
+        },
+        {
+            "uri": "uploads/aigc_video/20261111/20261111124812aba024742.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "aliyun",
+            "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+            "width": 496,
+            "height": 864,
+            "duration": 15.104,
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 5246184
+        }
+    ]
+}

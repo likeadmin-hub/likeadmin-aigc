@@ -1,0 +1,87 @@
+[
+  {
+    "api_path": "app.aigc_story_commerce.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:config:detail"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.config/models",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:config:models"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:config:setup"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.job/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:job:detail"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.job/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:job:lists"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.job/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:job:delete"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:case:lists"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:case:detail"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/save",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:case:save"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/fromJob",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:case:fromJob"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/status",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:case:status"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:case:delete"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/options",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:case:options"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.config/genres",
+    "api_method": "GET",
+    "permission_key": "aigc_story_commerce:config:genres"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.config/saveGenres",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:config:saveGenres"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/builtin",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:case:builtin"
+  },
+  {
+    "api_path": "app.aigc_story_commerce.case/builtinFromJob",
+    "api_method": "POST",
+    "permission_key": "aigc_story_commerce:case:builtinFromJob"
+  }
+]

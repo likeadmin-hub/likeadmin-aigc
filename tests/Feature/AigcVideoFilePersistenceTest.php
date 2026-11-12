@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 use app\common\enum\FileEnum;
 use app\common\service\app\aigc_video\AigcVideoAssetService;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
 
@@ -47,9 +47,9 @@ final class AigcVideoFilePersistenceTest extends TestCase
 
     public function testLargeVideoPublishesWithBoundedMemoryAndOwnedStorageReceipt(): void
     {
-        $binary = new ReflectionMethod(MicroVideoMedia::class, 'binary');
+        $binary = new ReflectionMethod(StudioMediaInputService::class, 'binary');
         $binary->setAccessible(true);
-        $run = new ReflectionMethod(MicroVideoMedia::class, 'run');
+        $run = new ReflectionMethod(StudioMediaInputService::class, 'run');
         $run->setAccessible(true);
         $path = $this->directory . '/large.mp4';
         $run->invoke(null, [$binary->invoke(null, 'ffmpeg'), '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=blue:s=160x90:r=30:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', $path], 60);

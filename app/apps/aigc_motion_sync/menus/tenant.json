@@ -1,0 +1,127 @@
+[
+  {
+    "source_menu_key": "aigc_motion_sync",
+    "app_code": "aigc_motion_sync",
+    "source": "app",
+    "type": "M",
+    "name": "动作同步",
+    "icon": "el-icon-VideoCamera",
+    "sort": 845,
+    "perms": "",
+    "paths": "aigc-motion-sync",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_motion_sync_config",
+        "app_code": "aigc_motion_sync",
+        "source": "app",
+        "type": "C",
+        "name": "创作配置",
+        "sort": 30,
+        "perms": "app.aigc_motion_sync.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_motion_sync/config",
+        "children": [
+          {
+            "source_menu_key": "aigc_motion_sync_config_models",
+            "type": "A",
+            "name": "查看模型",
+            "perms": "app.aigc_motion_sync.config/models"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_config_setup",
+            "type": "A",
+            "name": "保存配置",
+            "perms": "app.aigc_motion_sync.config/setup"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_motion_sync_case",
+        "app_code": "aigc_motion_sync",
+        "source": "app",
+        "type": "C",
+        "name": "灵感模板",
+        "sort": 20,
+        "perms": "app.aigc_motion_sync.case/lists",
+        "paths": "cases",
+        "component": "apps/aigc_motion_sync/cases",
+        "children": [
+          {
+            "source_menu_key": "aigc_motion_sync_case_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_motion_sync.case/detail"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_save",
+            "type": "A",
+            "name": "编辑模板",
+            "perms": "app.aigc_motion_sync.case/save"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_fromJob",
+            "type": "A",
+            "name": "设为模板",
+            "perms": "app.aigc_motion_sync.case/fromJob"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_status",
+            "type": "A",
+            "name": "上下架模板",
+            "perms": "app.aigc_motion_sync.case/status"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_delete",
+            "type": "A",
+            "name": "删除记录",
+            "perms": "app.aigc_motion_sync.case/delete"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_builtin",
+            "app_code": "aigc_motion_sync",
+            "source": "app",
+            "type": "A",
+            "name": "设为内置模板",
+            "perms": "app.aigc_motion_sync.case/builtin",
+            "sort": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_motion_sync_job",
+        "app_code": "aigc_motion_sync",
+        "source": "app",
+        "type": "C",
+        "name": "创作记录",
+        "sort": 10,
+        "perms": "app.aigc_motion_sync.job/lists",
+        "paths": "jobs",
+        "component": "apps/aigc_motion_sync/jobs",
+        "children": [
+          {
+            "source_menu_key": "aigc_motion_sync_job_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_motion_sync.job/detail"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_job_delete",
+            "type": "A",
+            "name": "删除记录",
+            "perms": "app.aigc_motion_sync.job/delete"
+          },
+          {
+            "source_menu_key": "aigc_motion_sync_case_builtinFromJob",
+            "app_code": "aigc_motion_sync",
+            "source": "app",
+            "type": "A",
+            "name": "设为内置模板",
+            "perms": "app.aigc_motion_sync.case/builtinFromJob",
+            "sort": 0
+          }
+        ]
+      }
+    ]
+  }
+]

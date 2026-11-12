@@ -39,6 +39,15 @@ class MarketTextModelRuntimeService
         return self::options($tenantId, false);
     }
 
+    public static function mediaOptions(int $tenantId, bool $video = false): array
+    {
+        return array_values(array_filter(self::options($tenantId, true), static function(array $model) use ($video): bool {
+            if (!$video) return true;
+            foreach ($model['capability_profile']['fields'] ?? [] as $field) if ($field['key'] === 'supports_video') return $field['value'] === true;
+            return false;
+        }));
+    }
+
     public static function modelGroups(int $tenantId): array
     {
         return [
@@ -142,8 +151,11 @@ class MarketTextModelRuntimeService
 
     private static function preserveUncertainSubmission(bool $tenantAdmin,string $action,array $params,string $message,bool $operatorProbe=false): bool
     {
-        if (($params['source_app_code'] ?? '') === 'aigc_micro_video' && !empty($params['_micro_video_preserve_uncertain'])) {
-            return \app\common\service\app\aigc_micro_video\MicroVideoSubmission::ambiguous($message);
+        if (($params['source_app_code'] ?? '') === 'aigc_story_commerce' && !empty($params['_story_commerce_preserve_uncertain'])) {
+            return \app\common\service\ai\MarketVideoSubmissionService::ambiguous($message);
+        }
+        if (($params['source_app_code'] ?? '') === 'aigc_product_video' && !empty($params['_product_video_preserve_uncertain'])) {
+            return \app\common\service\ai\MarketVideoSubmissionService::ambiguous($message);
         }
         return $tenantAdmin&&($action==='decoration_agent_text'||$operatorProbe)
             &&!empty($params['_decoration_preserve_uncertain'])
@@ -166,6 +178,9 @@ class MarketTextModelRuntimeService
         if ($resultValidator!==null && !is_callable($resultValidator)) throw new Exception('文本结果校验器无效');
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? [], !empty($params['_agent_tool_history']));
+        $hasVideo = false;
+        foreach ($messages as $message) foreach (is_array($message['content'] ?? null) ? $message['content'] : [] as $part)
+            if (in_array($part['type'] ?? '', ['video_url','input_video'], true)) $hasVideo = true;
         $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
         if ($operatorCapabilityProbe !== null) {
             self::assertVisionProbeScope($tenantId,$userId,$params,$tenantAdminConsumption);
@@ -177,11 +192,15 @@ class MarketTextModelRuntimeService
             ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
             : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)));
         if($operatorCapabilityProbe!==null)self::assertVisionProbeModel($operatorCapabilityProbe,$model);
+        if ($hasVideo && !in_array((string)$model['id'], array_column(self::mediaOptions($tenantId, true), 'id'), true)) throw new Exception('所选模型不支持视频理解，请选择视频分析模型');
+        if ($hasVideo && !in_array(self::protocolForModel($model), ['openai_chat','openai_responses'], true)) throw new Exception('该视频模型的输入协议尚未接入');
+        if ($hasVideo) $params['_disable_model_fallback'] = true;
         if ($executionPolicy !== null) $executionPolicy->assertModel($model, (string)($params['source_app_code'] ?? ''));
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
             $model['output']['tenant_price'] = 0;
+            $model['input']['cached_tenant_price'] = 0;
         }
         if ($executionPolicy !== null) $executionPolicy->prepareReceipt();
         $modelConfig = self::modelConfig($params);
@@ -322,7 +341,7 @@ class MarketTextModelRuntimeService
             if ($canSettle && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
             }
-            $actual = self::quote($model, $canSettle ? (int)$usage['prompt_tokens'] : 0, $canSettle ? (int)$usage['completion_tokens'] : 0);
+            $actual = self::quote($model, $canSettle ? (int)$usage['prompt_tokens'] : 0, $canSettle ? (int)$usage['completion_tokens'] : 0, $canSettle ? (int)($usage['cached_input_tokens'] ?? 0) : 0);
             try {
                 self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
             } catch (\Throwable $settlementError) {
@@ -571,7 +590,7 @@ class MarketTextModelRuntimeService
             if(!self::canSettleUsageFromSnapshot($snapshot,$usage))return 'pending_usage';
             if((int)$usage['prompt_tokens']<=0&&(int)$usage['completion_tokens']<=0)$usage['prompt_tokens']=(int)$usage['total_tokens'];
             if((string)$c['billing_status']==='settlement_failed')$c->save(['billing_status'=>'pending_usage']);
-            $actual=self::quote($snapshot,(int)$usage['prompt_tokens'],(int)$usage['completion_tokens']);
+            $actual=self::quote($snapshot,(int)$usage['prompt_tokens'],(int)$usage['completion_tokens'],(int)($usage['cached_input_tokens']??0));
             self::settle(['consumption'=>$c,'appTask'=>$task],$actual,$usage,$result,0);
             return (string)AiConsumptionLog::where('id',$consumptionId)->value('billing_status');
         });
@@ -610,7 +629,7 @@ class MarketTextModelRuntimeService
             if ($vision && !self::supportsVision($snapshot, $product)) {
                 continue;
             }
-            $prices = self::formatMarketPrices($catalogueSkus[(int)$product['id']]['available'] ?? []);
+            $prices = self::formatMarketPrices($catalogueSkus[(int)$product['id']]['available'] ?? [], $tenantId);
             if ($prices === []) {
                 continue;
             }
@@ -674,11 +693,23 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<string, array<string, mixed>> */
-    private static function formatMarketPrices(array $markets): array
+    private static function formatMarketPrices(array $markets, int $tenantId): array
     {
         $valid = [];
         foreach ($markets as $market) {
             $sku = $market['sku'];
+            $rates = MarketFileQaTokenPricing::display($sku, $tenantId);
+            if ($rates !== null) {
+                if (!$rates['valid']) continue;
+                $parts = [];
+                foreach (['input','output'] as $side) $parts[$side] = [
+                    'sku_id'=>(int)$sku['id'],'sku_key'=>(string)$sku['sku_key'],'usage_unit'=>'token',
+                    'usage_unit_size'=>$rates['usage_unit_size'],'token_rate_side'=>$side,
+                    'platform_price'=>(float)$rates['cost'][$side],'tenant_price'=>(float)$rates['sale'][$side],
+                    'cached_platform_price'=>(float)$rates['cost']['cached_input'],'cached_tenant_price'=>(float)$rates['sale']['cached_input'],
+                ];
+                return $parts;
+            }
             $valid[] = [
                 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'],
@@ -713,12 +744,13 @@ class MarketTextModelRuntimeService
         }
     }
 
-    private static function quote(array $model, int $inputTokens, int $outputTokens): array
+    private static function quote(array $model, int $inputTokens, int $outputTokens, int $cachedTokens = 0): array
     {
         $input = (array)$model['input']; $output = (array)$model['output'];
+        $cachedTokens = min($inputTokens, max(0, $cachedTokens));
         return [
-            'tenant_cost_points' => self::points($inputTokens * (float)$input['platform_price'] / MarketUsageSettlementService::unitSize($input) + $outputTokens * (float)$output['platform_price'] / MarketUsageSettlementService::unitSize($output)),
-            'user_charge_points' => self::points($inputTokens * (float)$input['tenant_price'] / MarketUsageSettlementService::unitSize($input) + $outputTokens * (float)$output['tenant_price'] / MarketUsageSettlementService::unitSize($output)),
+            'tenant_cost_points' => self::points((($inputTokens-$cachedTokens) * (float)$input['platform_price'] + $cachedTokens * (float)($input['cached_platform_price'] ?? $input['platform_price'])) / MarketUsageSettlementService::unitSize($input) + $outputTokens * (float)$output['platform_price'] / MarketUsageSettlementService::unitSize($output)),
+            'user_charge_points' => self::points((($inputTokens-$cachedTokens) * (float)$input['tenant_price'] + $cachedTokens * (float)($input['cached_tenant_price'] ?? $input['tenant_price'])) / MarketUsageSettlementService::unitSize($input) + $outputTokens * (float)$output['tenant_price'] / MarketUsageSettlementService::unitSize($output)),
             'prompt_tokens' => $inputTokens, 'completion_tokens' => $outputTokens,
         ];
     }
@@ -1955,7 +1987,10 @@ class MarketTextModelRuntimeService
         foreach(['prompt_tokens','input_tokens','completion_tokens','output_tokens','total_tokens','totalTokens'] as $key){
             if(isset($usage[$key])&&(!is_numeric($usage[$key])||!is_finite((float)$usage[$key])||(float)$usage[$key]<0||(float)$usage[$key]!==floor((float)$usage[$key])))$fields['valid']=false;
         }
+        $cached = $usage['cached_input_tokens'] ?? $usage['prompt_tokens_details']['cached_tokens'] ?? $usage['input_tokens_details']['cached_tokens'] ?? 0;
+        if (!is_numeric($cached) || (float)$cached < 0 || (float)$cached !== floor((float)$cached) || (float)$cached > $prompt) $fields['valid'] = false;
         return ['prompt_tokens' => max(0, $prompt), 'completion_tokens' => max(0, $completion), 'total_tokens' => max(0, (int)($usage['total_tokens'] ?? $usage['totalTokens'] ?? ($prompt + $completion))), 'provider_reported' => $usage['provider_reported'] ?? $usage !== [],
+            'cached_input_tokens'=>max(0, (int)$cached),
             'token_fields'=>$usage['token_fields']??$fields];
     }
 

@@ -1,0 +1,12 @@
+-- Remove the retired product-video image setting; historical projects, files and ledgers stay intact.
+UPDATE `la_aigc_product_video_config`
+SET `body_json`=JSON_REMOVE(`body_json`, '$.default_image_model_id'), `update_time`=UNIX_TIMESTAMP()
+WHERE JSON_VALID(`body_json`) AND JSON_CONTAINS_PATH(`body_json`, 'one', '$.default_image_model_id');
+UPDATE `la_app` SET `description`='基于商品素材创作视频，支持商品信息识别、视频描述生成与商品视频创作。', `update_time`=UNIX_TIMESTAMP()
+WHERE `code`='aigc_product_video' AND `description`='基于商品素材创作视频，支持直接描述、商品智能分析、分镜预览与视频生成。';
+UPDATE `la_tenant_app_config` SET `description`='基于商品素材创作视频，支持商品信息识别、视频描述生成与商品视频创作。', `update_time`=UNIX_TIMESTAMP()
+WHERE `app_code`='aigc_product_video' AND `description`='基于商品素材创作视频，支持直接描述、商品智能分析、分镜预览与视频生成。';
+UPDATE `la_app_version` SET `manifest_json`='{"code":"aigc_product_video","name":"商品视频","version":"1.0.0","require_core":">=1.0.0","description":"基于商品素材创作视频，支持商品信息识别、视频描述生成与商品视频创作。","changelog":"1. 普通模式直接描述，高级模式智能分析商品素材。\\n2. 智能分析完成后自动回填商品信息和视频描述，可修改后生成视频。\\n3. 移除分镜图片生成和相关模型配置。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","is_builtin":1,"expire_policy":"allow","sort":846,"frontends":["platform","tenant","pc","uniapp"],"api_prefix":"/app/aigc_product_video","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","dependencies":[{"app_code":"aigc_video","name":"视频创作","required_for":"生成商品视频"}],"billing":{"provider":"power_market","actions":["product","reference","plan","analysis","write","optimize","video","chapters"],"currency":"points"},"frontend_entries":[{"terminal":"pc","entry_key":"aigc_product_video","name":"商品视频","path":"/ai/tools/aigc_product_video","icon":"resource/image/common/menu_generator.png","sort":84,"status":1},{"terminal":"tenant","entry_key":"aigc_product_video_admin","name":"商品视频","path":"/apps/aigc_product_video/config","icon":"el-icon-VideoCamera","sort":84,"status":1},{"terminal":"uniapp","entry_key":"aigc_product_video","name":"商品视频","path":"/apps/aigc_product_video/pages/creator/index","icon":"resource/image/common/menu_generator.png","sort":846,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_product_video/pages/creator/index"},{"name":"历史创作","path":"/apps/aigc_product_video/pages/tasks/index"}]}}]}', `changelog`='1. 普通模式直接描述，高级模式智能分析商品素材。
+2. 智能分析完成后自动回填商品信息和视频描述，可修改后生成视频。
+3. 移除分镜图片生成和相关模型配置。'
+WHERE `app_code`='aigc_product_video' AND `version`='1.0.0';

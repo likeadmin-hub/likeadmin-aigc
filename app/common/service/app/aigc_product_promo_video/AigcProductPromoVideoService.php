@@ -13,7 +13,7 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_llm\AigcLlmService;
-use app\common\service\app\aigc_micro_video\MicroVideoMedia;
+use app\common\service\ai\StudioMediaInputService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -235,8 +235,8 @@ class AigcProductPromoVideoService
         if (preg_match('/^(?:blob|data):/i', $sourceImage)) {
             throw new Exception('产品图片尚未上传完成，请重新上传');
         }
-        $images = MicroVideoMedia::validateImages($tenantId, $userId, [['uri' => $sourceImage]], 1);
-        $references = MicroVideoMedia::visionInputs($images);
+        $images = StudioMediaInputService::validateImages($tenantId, $userId, [['uri' => $sourceImage]], 1);
+        $references = StudioMediaInputService::visionInputs($images);
         $type = self::resolveType($tenantId, self::normalizeTypeCode((string)($params['video_type_code'] ?? $params['type_code'] ?? '')));
         $ratio = trim((string)($params['ratio'] ?? '9:16'));
         $duration = max(0, (int)($params['duration'] ?? 5));

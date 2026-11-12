@@ -48,8 +48,10 @@ class AppAccessStateService
         try {
             return $operation();
         } finally {
+            $apps=array_values(array_diff($apps,RetiredAppService::CODES));
             if ($apps) Db::name('app')->whereIn('code', $apps)->update(['status' => AppRegistryService::STATUS_DISABLED]);
             foreach ($tenantApps as $row) {
+                if (RetiredAppService::contains((string)$row['app_code'])) continue;
                 $where = ['tenant_id' => $row['tenant_id'], 'app_code' => $row['app_code']];
                 unset($row['tenant_id'], $row['app_code']);
                 Db::name('tenant_app')->where($where)->update($row);

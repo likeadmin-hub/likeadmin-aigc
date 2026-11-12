@@ -15,6 +15,7 @@ class AppAccessMiddleware
             return JsonService::fail('旧版画布 Agent 接口已停用，请刷新后使用新版画布');
         }
         $appCode = $this->resolveAppCode($request->controller());
+        if (\app\common\service\app\RetiredAppService::contains($appCode)) return JsonService::fail('该工具已退役', ['app_disabled'=>1],0,1);
         $isDownload = $appCode === 'ai_tool_download';
         if ($isDownload) {
             // Existing single-use file tokens complete prior exports. New ZIPs belong
@@ -57,8 +58,6 @@ class AppAccessMiddleware
     private function isPublicConfigDetail($request, string $appCode): bool
     {
         if ($appCode === 'aigc_copywriting' && strtoupper($request->method()) === 'GET' && strtolower($request->controller()).'/'.strtolower($request->action()) === 'app.aigc_copywriting.config/preview') return true;
-        if ($appCode === 'aigc_micro_video' && strtoupper($request->method()) === 'GET'
-            && in_array(strtolower($request->controller()).'/'.strtolower($request->action()), ['app.aigc_micro_video.config/detail', 'app.aigc_micro_video.direction/lists'], true)) return true;
         return strtolower($request->controller()) === 'app.' . $appCode . '.config'
             && strtolower($request->action()) === 'detail'
             && strtoupper($request->method()) === 'GET';

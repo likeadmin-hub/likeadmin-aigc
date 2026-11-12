@@ -67,6 +67,20 @@ final class MarketPriceRuleService
         if ($id <= 0) return $snapshot;
         $sku = Db::name('power_market_sku')->where('id', $id)->find();
         if (!$sku) throw new RuntimeException('计费规格不存在');
+        if (isset($snapshot['token_rate_side'])) {
+            $side = $snapshot['token_rate_side'];
+            $rates = MarketFileQaTokenPricing::display($sku, $owner);
+            if (!in_array($side, ['input','output'], true) || !$rates || !$rates['valid']
+                || (float)$snapshot['usage_unit_size'] !== (float)$rates['usage_unit_size']
+                || MarketPricePolicy::amount($snapshot['platform_price']) !== $rates['cost'][$side]
+                || (($context['user_id'] ?? null) !== 0 && MarketPricePolicy::amount($snapshot['tenant_price']) !== $rates['sale'][$side])
+                || MarketPricePolicy::amount($snapshot['cached_platform_price']) !== $rates['cost']['cached_input']
+                || (($context['user_id'] ?? null) !== 0 && MarketPricePolicy::amount($snapshot['cached_tenant_price']) !== $rates['sale']['cached_input'])) {
+                throw new RuntimeException('模型分项费率已变化，请刷新报价后重新提交');
+            }
+            $snapshot['pricing_rules'] = ['token_rates'=>$rates];
+            return $snapshot;
+        }
         if (($snapshot['basis'] ?? '') === 'file_qa_tokens') {
             $rates = MarketFileQaTokenPricing::display($sku, $owner);
             $frozen = $snapshot['token_pricing'];

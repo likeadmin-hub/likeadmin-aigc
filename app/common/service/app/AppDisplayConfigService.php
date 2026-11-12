@@ -39,7 +39,6 @@ class AppDisplayConfigService
         'aigc_copywriting',
         'aigc_image',
         'aigc_video',
-        'aigc_micro_video',
         'aigc_digital_human',
         'aigc_pic_lipsync',
         'aigc_canvas',
@@ -95,7 +94,6 @@ class AppDisplayConfigService
         'aigc_product_suite' => 'AI商品套图',
         'aigc_fashion_lookbook' => '服饰套图',
         'aigc_product_multi_angle' => '商品多角度',
-        'aigc_micro_video' => '微视频',
         'aigc_product_promo_video' => '产品宣传视频',
         'aigc_action_transfer' => '动作迁移',
         'aigc_model_wear' => '模特穿戴',
@@ -115,10 +113,6 @@ class AppDisplayConfigService
         'aigc_video' => [
             'description' => '一键生成动态镜头与叙事短片。',
             'sort' => 95,
-        ],
-        'aigc_micro_video' => [
-            'description' => '结合图片与主题规划镜头，生成连贯的完整视频。',
-            'sort' => 94,
         ],
         'aigc_digital_human' => [
             'description' => '形象、音色与文案组合生成数字人视频。',

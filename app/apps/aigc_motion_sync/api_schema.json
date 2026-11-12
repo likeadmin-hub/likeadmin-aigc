@@ -1,0 +1,333 @@
+{
+  "app_code": "aigc_motion_sync",
+  "apis": [
+    {
+      "api_path": "app.aigc_motion_sync.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:config:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:config:models:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.project/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:project:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.project/save",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:project:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.project/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:project:fromJob:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:job:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/create",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:job:create:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:job:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:job:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/cancel",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:job:cancel:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/recover",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:job:recover:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:job:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:case:lists:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:case:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/remix",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:remix:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_motion_sync.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:config:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:config:models",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:config:setup",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:job:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:job:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:job:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:case:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:case:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:fromJob",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:config:models",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:job:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:job:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:job:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:case:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_motion_sync:case:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:fromJob",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/builtin",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:builtin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_motion_sync.case/builtinFromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_motion_sync:case:builtinFromJob",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}

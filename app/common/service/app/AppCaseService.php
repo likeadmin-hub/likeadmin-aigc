@@ -8,6 +8,8 @@ use app\common\model\app\aigc_video\AigcVideoResult;
 use app\common\service\FileService;
 use app\common\service\case_gallery\CaseGenerationService;
 use Exception;
+use app\common\service\app\aigc_product_video\ProductVideoBuiltins;
+use app\common\service\app\aigc_product_video\ProductVideoService;
 
 class AppCaseService
 {
@@ -18,10 +20,10 @@ class AppCaseService
     {
         AppRegistryService::assertValidCode($appCode);
         $query = AppCase::where([
-            'tenant_id' => $tenantId,
             'app_code' => $appCode,
             'delete_time' => 0,
         ]);
+        self::caseScope($query, $tenantId, [$appCode], $onlyEnabled);
         self::withoutDefaultSeedCases($query);
 
         $mediaType = (string)($params['media_type'] ?? '');
@@ -41,9 +43,9 @@ class AppCaseService
     public static function listsByAppCodes(int $tenantId, array $appCodes, array $params = [], bool $onlyEnabled = false): array
     {
         $appCodes = self::normalizeAllowedAppCodes($appCodes);
-        $query = AppCase::where('tenant_id', $tenantId)
-            ->where('delete_time', 0)
+        $query = AppCase::where('delete_time', 0)
             ->whereIn('app_code', $appCodes);
+        self::caseScope($query, $tenantId, $appCodes, $onlyEnabled);
         self::withoutDefaultSeedCases($query);
 
         $appCode = trim((string)($params['app_code'] ?? ''));
@@ -63,6 +65,38 @@ class AppCaseService
         }
 
         return self::paginateCaseQuery($query->order(['sort' => 'desc', 'id' => 'desc']), $params);
+    }
+
+    /** Only the enabled public gallery may cross into explicitly published platform cases. */
+    private static function caseScope($query, int $tenantId, array $codes, bool $public): void
+    {
+        $studio=[];
+        if($public)foreach(StudioBuiltinCatalog::APPS as $code){
+            $service=$code==='aigc_motion_sync'?\app\common\service\app\aigc_motion_sync\MotionSyncService::class:\app\common\service\app\aigc_story_commerce\StoryCommerceService::class;
+            if(in_array($code,$codes,true)&&AppAccessService::tenantCanUse($tenantId,$code,false)&&(int)$service::settings($tenantId)['status']===1){StudioBuiltinTemplates::sync($code);$studio[$code]=StudioBuiltinTemplates::ids($code);}
+        }
+        $ids = [];
+        if ($public && in_array('aigc_product_video', $codes, true)
+            && AppAccessService::tenantCanUse($tenantId, 'aigc_product_video', false)
+            && (int)ProductVideoService::settings($tenantId)['status'] === 1) {
+            ProductVideoBuiltins::sync();
+            $ids = ProductVideoBuiltins::ids();
+        }
+        $query->where(static function ($scope) use ($tenantId, $ids, $studio) {
+            $scope->where('tenant_id', $tenantId);
+            foreach($studio as $code=>$sharedIds)if($sharedIds)$scope->whereOr(static fn($shared)=>$shared->where('tenant_id',0)->where('app_code',$code)->whereIn('id',$sharedIds)->where('status',1));
+            if ($ids) $scope->whereOr(static function ($shared) use ($ids) {
+                $shared->where('tenant_id', 0)->where('app_code', 'aigc_product_video')->whereIn('id', $ids)->where('status', 1);
+            });
+        });
+    }
+
+    private static function assertWritable(AppCase $row): void
+    {
+        if(in_array($row['app_code'],StudioBuiltinCatalog::APPS,true)&&!StudioBuiltinTemplates::writing()&&StudioBuiltinTemplates::info((string)$row['app_code'],(int)$row['id']))throw new Exception('请在对应应用的灵感模板管理中维护平台内置模板');
+        if ($row['app_code'] === 'aigc_product_video' && !ProductVideoBuiltins::writing() && ProductVideoBuiltins::info((int)$row['id'])) {
+            throw new Exception('请在商品视频灵感模板管理中维护平台内置模板');
+        }
     }
 
     private static function paginateCaseQuery($query, array $params): array
@@ -106,6 +140,7 @@ class AppCaseService
 
         if ($id > 0) {
             $row = self::findRow($tenantId, $appCode, $id);
+            self::assertWritable($row);
             $data = self::buildSaveData($tenantId, $appCode, array_replace(CaseGenerationService::recoverRows([$row->toArray()])[0], $params));
             $row->save($data);
             return self::formatRow($row->toArray());
@@ -129,6 +164,7 @@ class AppCaseService
         $id = (int)($params['id'] ?? 0);
         if ($id > 0) {
             $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
+            self::assertWritable($row);
             $data = self::buildSaveData($tenantId, $appCode, array_replace(CaseGenerationService::recoverRows([$row->toArray()])[0], $params));
             $row->save($data);
             return self::formatRow($row->toArray());
@@ -144,6 +180,7 @@ class AppCaseService
     public static function setStatus(int $tenantId, string $appCode, int $id, int $status): void
     {
         $row = self::findRow($tenantId, $appCode, $id);
+        self::assertWritable($row);
         $row->status = $status ? 1 : 0;
         $row->update_time = time();
         $row->save();
@@ -152,6 +189,7 @@ class AppCaseService
     public static function setStatusByAppCodes(int $tenantId, array $appCodes, int $id, int $status): void
     {
         $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
+        self::assertWritable($row);
         $row->status = $status ? 1 : 0;
         $row->update_time = time();
         $row->save();
@@ -160,6 +198,7 @@ class AppCaseService
     public static function delete(int $tenantId, string $appCode, int $id): void
     {
         $row = self::findRow($tenantId, $appCode, $id);
+        self::assertWritable($row);
         $row->delete_time = time();
         $row->update_time = time();
         $row->save();
@@ -168,6 +207,7 @@ class AppCaseService
     public static function deleteByAppCodes(int $tenantId, array $appCodes, int $id): void
     {
         $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
+        self::assertWritable($row);
         $row->delete_time = time();
         $row->update_time = time();
         $row->save();
@@ -189,11 +229,10 @@ class AppCaseService
 
     private static function findRowByAppCodes(int $tenantId, array $appCodes, int $id): AppCase
     {
-        $row = AppCase::where('tenant_id', $tenantId)
-            ->where('id', $id)
-            ->where('delete_time', 0)
-            ->whereIn('app_code', self::normalizeAllowedAppCodes($appCodes))
-            ->findOrEmpty();
+        $appCodes = self::normalizeAllowedAppCodes($appCodes);
+        $query = AppCase::where('id', $id)->where('delete_time', 0)->whereIn('app_code', $appCodes);
+        self::caseScope($query, $tenantId, $appCodes, true);
+        $row = $query->findOrEmpty();
         if ($row->isEmpty()) {
             throw new Exception('案例不存在');
         }
@@ -243,6 +282,7 @@ class AppCaseService
 
     private static function formatRow(array $row): array
     {
+        if (($row['app_code']??'') === 'aigc_motion_sync') return \app\common\service\app\aigc_motion_sync\MotionSyncTemplates::galleryRow($row);
         $row = CaseGenerationService::present($row);
         $cover = (string)($row['cover_uri'] ?? '');
         $media = (string)($row['media_uri'] ?? '');
@@ -258,6 +298,8 @@ class AppCaseService
         $row['cover_path'] = $cover;
         $row['media_path'] = $media !== '' ? $media : $cover;
         $row['config_fields'] = self::configFields($config, (string)($row['media_type'] ?? self::MEDIA_IMAGE));
+        if (($row['app_code'] ?? '') === 'aigc_story_commerce' && isset($config['generation_request']['advanced_params']['story_commerce'])) return \app\common\service\app\aigc_story_commerce\StoryCommerceTemplates::galleryRow($row);
+        if (($row['app_code'] ?? '') === 'aigc_product_video' && isset($config['generation_request']['advanced_params']['product_video'])) return \app\common\service\app\aigc_product_video\ProductVideoTemplates::galleryRow($row);
         return $row;
     }
 

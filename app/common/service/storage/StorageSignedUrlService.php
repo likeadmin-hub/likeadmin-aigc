@@ -27,6 +27,10 @@ final class StorageSignedUrlService
         if ($uri === '' || !in_array($engine, ['qiniu', 'aliyun', 'qcloud'], true)) {
             return null;
         }
+        if ($scope === 'platform') {
+            $shared = \app\common\service\app\SharedInspirationMedia::url($uri, $engine, $domain);
+            if ($shared !== null) return $shared;
+        }
         $config = StorageConfigService::getStoredFileConfig($tenantId, $scope, $engine);
         $storage = (array)($config['engine'][$engine] ?? []);
         if (!self::privateAccess($storage)) {

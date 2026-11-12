@@ -3,8 +3,6 @@
 namespace app\common\service\case_gallery;
 
 use app\common\model\app\App;
-use app\common\model\app\AppCase;
-use app\common\model\app\TenantApp;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
@@ -52,7 +50,12 @@ class CaseGalleryService
 
     public static function listsByAppCodes(int $tenantId, array $appCodes, array $params = [], bool $onlyEnabled = false): array
     {
-        return AppCaseService::listsByAppCodes($tenantId, self::normalizeAppCodes($appCodes), $params, $onlyEnabled);
+        $appCodes = self::normalizeAppCodes($appCodes);
+        $filter = trim((string)($params['app_code'] ?? ''));
+        if ($filter !== '' && !in_array($filter, $appCodes, true)) {
+            throw new Exception('案例所属应用不支持');
+        }
+        return AppCaseService::listsByAppCodes($tenantId, $appCodes, $params, $onlyEnabled);
     }
 
     public static function detail(int $tenantId, int $id): array
@@ -117,7 +120,7 @@ class CaseGalleryService
         if ($appCode === '') {
             return self::caseAppCodes($tenantId);
         }
-        return [$appCode];
+        return self::normalizeAppCodes([$appCode]);
     }
 
     private static function resolveAppCode(int $tenantId, array $params): string
@@ -136,29 +139,16 @@ class CaseGalleryService
         if (empty($codes)) {
             throw new Exception('案例应用未配置');
         }
-        return $codes;
+        if (array_diff($codes, self::APP_CODES)) {
+            throw new Exception('案例所属应用不支持，请在对应工具中管理模板');
+        }
+        return array_values(array_unique($codes));
     }
 
+    /** Work examples are an explicit catalogue, independent of paid tools and their templates. */
     private static function caseAppCodes(int $tenantId): array
     {
-        $codes = $tenantId > 0
-            ? AppCase::where(['tenant_id' => $tenantId, 'delete_time' => 0])
-                ->group('app_code')
-                ->column('app_code')
-            : [];
-        if ($tenantId > 0) {
-            $codes = array_merge($codes, TenantApp::where([
-                'tenant_id' => $tenantId,
-                'buy_status' => 'paid',
-                'shelf_status' => 'on',
-                'enable_status' => 'enabled',
-            ])->column('app_code'));
-        }
-        $codes = array_values(array_unique(array_filter(
-            array_map(static fn($appCode) => trim((string)$appCode), array_merge(self::APP_CODES, $codes)),
-            static fn(string $appCode) => $appCode !== '' && $appCode !== 'system_default'
-        )));
-        return $codes;
+        return self::APP_CODES;
     }
 
     private static function appNameMap(array $appCodes): array
