@@ -48,7 +48,8 @@ class CanvasNeuronRoutingTest extends TestCase
                     ($request['result_validator'])($value);return $value;
                 }
             };
-            self::assertSame('success',Worker::process($tenant,$user,$ack['run_id'],$provider));
+            $status=Worker::process($tenant,$user,$ack['run_id'],$provider);
+            self::assertSame('success',$status,json_encode(Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->field('status,error_code')->find(),JSON_UNESCAPED_UNICODE));
             self::assertSame(1,$provider->calls);
             $saved=json_decode(Db::name(Store::PREFIX.'thread')->where('id',$thread)->value('settings_json'),true);
             self::assertSame('neuron_v1',$saved['dialogue_engine']);
