@@ -94,8 +94,10 @@ final class MarketFileQaTokenBillingTest extends TestCase
             $snapshot = ['product_id' => 172, 'sku_id' => 257, 'platform_price' => 0, 'tenant_price' => 0, 'usage_unit' => 'token', 'usage_unit_size' => 1000000,
                 'token_pricing' => $this->pricing()];
             if ($scenario === 'historical') unset($snapshot['token_pricing']);
-            $c = AiConsumptionLog::create(['consume_no' => $key, 'app_task_id' => $task['id'], 'tenant_id' => 1, 'user_id' => 1, 'app_code' => 'aigc_short_drama',
-                'run_status' => 'running', 'billing_status' => 'pending_usage', 'price_snapshot' => $snapshot]);
+            // Seed an already-submitted historical receipt without current quote validation.
+            $consumptionId = Db::name('ai_consumption_log')->insertGetId(['consume_no' => $key, 'app_task_id' => $task['id'], 'tenant_id' => 1, 'user_id' => 1, 'app_code' => 'aigc_short_drama',
+                'run_status' => 'running', 'billing_status' => 'pending_usage', 'price_snapshot' => json_encode($snapshot)]);
+            $c = AiConsumptionLog::find($consumptionId);
             $receipt = $this->receipt();
             if ($scenario === 'missing_usage') unset($receipt['data']['result']['usage']);
             if ($scenario === 'user_insufficient') Db::name('user')->where('id', 1)->update(['user_money' => 0]);
