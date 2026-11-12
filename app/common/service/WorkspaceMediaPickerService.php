@@ -239,9 +239,13 @@ final class WorkspaceMediaPickerService
                 array_push($bindings,$time,$time,$id);
             }
             $stored = $s['stored'] ?? true;
-            $fields = ['r.id',"$stamp AS stamp","'$stream' AS stream", $s['type'].' AS type',"$name AS name"];
-            foreach (['uri','cover','duration','extra','task','alias','mime','size','width','height'] as $key) $fields[] = ($s[$key] ?? "''")." AS `$key`";
-            foreach (['storage_scope','storage_engine','storage_domain'] as $key) $fields[] = ($stored ? "r.$key" : "''")." AS $key";
+            // Deployed tables and JSON expressions can have different string
+            // collations. Normalize projections only; retain each source's
+            // ownership, search and paging predicates unchanged.
+            $text = static fn(string $expression): string => 'CONVERT('.$expression.' USING utf8mb4) COLLATE utf8mb4_bin';
+            $fields = ['r.id',"$stamp AS stamp",$text("'$stream'").' AS stream', $text($s['type']).' AS type',$text($name).' AS name'];
+            foreach (['uri','cover','duration','extra','task','alias','mime','size','width','height'] as $key) $fields[] = $text($s[$key] ?? "''")." AS `$key`";
+            foreach (['storage_scope','storage_engine','storage_domain'] as $key) $fields[] = $text($stored ? "r.$key" : "''")." AS $key";
             $parts[] = '(SELECT '.implode(',',$fields).' FROM '.$from.' WHERE '.implode(' AND ',$conditions)." ORDER BY stamp DESC,r.id DESC LIMIT $size)";
         }
         if (!$parts) return [];
