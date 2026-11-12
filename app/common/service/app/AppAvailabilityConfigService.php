@@ -31,7 +31,9 @@ final class AppAvailabilityConfigService
             [$table, $field] = $sources[$appCode];
             // Identifiers come only from our fixed inventory and the configured prefix.
             $table = '`'.str_replace('`', '``', $table).'`';
-            $queries[] = "SELECT ? AS app_code, `{$field}` AS switch_value FROM {$table} WHERE tenant_id IN (0, ?)";
+            // Legacy app switches can be VARCHAR with different collations.
+            // Their existing semantics are numeric; normalize before UNION.
+            $queries[] = "SELECT ? AS app_code, CAST(`{$field}` AS SIGNED) AS switch_value FROM {$table} WHERE tenant_id IN (0, ?)";
             array_push($bindings, $appCode, $tenantId);
         }
         if ($queries) {

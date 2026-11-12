@@ -12,7 +12,7 @@ final class StudioBuiltinCatalog
     private static array $directories=[];
     private static array $memo=[];
     public static function assertApp(string $app): void {if(!in_array($app,self::APPS,true))throw new InvalidArgumentException('应用不支持此内置模板入口');}
-    public static function directory(string $app): string {self::assertApp($app);return self::$directories[$app]??base_path().'apps/'.$app.'/data/inspirations';}
+    public static function directory(string $app): string {self::assertApp($app);return self::$directories[$app]??dirname(__DIR__,3).'/apps/'.$app.'/data/inspirations';}
     public static function withDirectory(string $app,string $dir,callable $call): mixed
     {
         self::assertApp($app);if(PHP_SAPI!=='cli')throw new InvalidArgumentException('目录仅允许在控制台测试中指定');
