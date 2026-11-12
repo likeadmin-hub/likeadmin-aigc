@@ -1,5 +1,6 @@
 <?php
 namespace Tests\Feature;
+require_once __DIR__.'/CanvasAgentDecisionTest.php';
 use PHPUnit\Framework\TestCase;
 use think\facade\Db;
 use think\facade\Config;
