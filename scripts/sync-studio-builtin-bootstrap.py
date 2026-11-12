@@ -48,8 +48,8 @@ for code in ['aigc_product_video','aigc_motion_sync','aigc_story_commerce']:
             visit(m.get('children',[]),m.get('source_menu_key'))
     visit(menus)
     text='\n'.join(lines)+'\n'
-    (app/'migrations/20261111_zz_portable_inspirations.sql').write_text(text)
-    (app/'migrations/20261111_zzz_tenant_builtin_entry.sql').write_text(text)
+    (app/f'migrations/20261111_zz_portable_inspirations_{code}.sql').write_text(text)
+    (app/f'migrations/20261111_zzz_tenant_builtin_entry_{code}.sql').write_text(text)
     if code!='aigc_product_video':
         replace_block(app/'migrations/install.sql','portable inspiration mapping',ddl)
         directory=app/'data/inspirations'; directory.mkdir(parents=True,exist_ok=True)
