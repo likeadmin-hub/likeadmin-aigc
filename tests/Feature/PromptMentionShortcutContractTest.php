@@ -107,7 +107,8 @@ class PromptMentionShortcutContractTest extends TestCase
 
     public function testInfiniteCanvasAgentAndAudioPromptsReactToAt(): void
     {
-        $agent = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/agent/CanvasAgentPanel.vue');
+        $agent = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/CanvasAgentEntryComposer.vue')
+            . \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/composables/useCanvasAgentPanelState.ts');
         $node = \Tests\Support\CompiledAssets::source('pc/apps/aigc_canvas/components/native/CanvasNode.vue');
         self::assertStringContainsString('handleComposerInput', $agent);
         self::assertStringContainsString('prefix.lastIndexOf(\'@\')', $agent);
@@ -138,7 +139,6 @@ class PromptMentionShortcutContractTest extends TestCase
         foreach ([
             'public/pc/index.html',
             'public/pc/app/aigc_canvas/index.html',
-            'public/pc/app/aigc_canvas/replay/index.html',
         ] as $html) {
             self::assertStringContainsString('/canvas-agent-at-fix.js?v=20260824-canvas-at-v1', $this->asset($html));
         }

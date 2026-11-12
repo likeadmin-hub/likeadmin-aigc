@@ -56,7 +56,8 @@ class ShortDramaSceneBatchTest extends TestCase
                 $calls[] = compact('key', 'input');
                 if (str_contains($key, 'skeleton')) $payload = $plan;
                 else {
-                    $context = Response::decode(['content' => $input['content']]);
+                    $context = json_decode(explode("\n", $input['content'], 2)[0], true, 512, JSON_THROW_ON_ERROR);
+                    self::assertArrayHasKey('required_shots', $context);
                     $specs = $context['required_shots'];
                     if (!isset($context['scene_groups'])) foreach ($specs as &$spec) $spec['scene_ref_id'] = $context['scene_beat']['scene_ref_id'];
                     unset($spec);

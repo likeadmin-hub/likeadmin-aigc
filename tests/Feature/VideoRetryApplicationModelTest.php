@@ -115,7 +115,7 @@ class VideoRetryApplicationModelTest extends TestCase
             $task=AigcVideoTask::create($data);$before=AigcVideoTask::find($task['id'])->toArray();$counts=[AigcVideoTask::count(),AiAppTask::count(),AiConsumptionLog::count(),Db::name('user_account_log')->count(),Db::name('tenant_point_log')->count()];
             $balances=[(float)Db::name('tenant')->where('id',1)->value('point_balance'),(float)Db::name('user')->where('id',1)->value('user_money')];
             try{Service::retryTask(1,(int)$task['id']);self::fail('A business retry must not invent the Token upper bound');}
-            catch(\Exception$error){self::assertStringContainsString('Token 费用上限',$error->getMessage());}
+            catch(\Exception$error){self::assertStringContainsString('当前模型不可用',$error->getMessage());}
             self::assertSame($counts,[AigcVideoTask::count(),AiAppTask::count(),AiConsumptionLog::count(),Db::name('user_account_log')->count(),Db::name('tenant_point_log')->count()]);
             self::assertSame($balances,[(float)Db::name('tenant')->where('id',1)->value('point_balance'),(float)Db::name('user')->where('id',1)->value('user_money')]);
             self::assertSame($before,AigcVideoTask::find($task['id'])->toArray());

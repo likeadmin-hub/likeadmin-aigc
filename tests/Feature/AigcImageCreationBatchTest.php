@@ -18,8 +18,8 @@ class AigcImageCreationBatchTest extends TestCase
                     'quantity' => 1, 'prompt' => 'test', 'creation_batch' => $batch,
                 ]), true));
                 $params = $request->post();
-                self::assertSame((string)$size, $params['creation_batch']['size']);
-                self::assertSame((string)$index, $params['creation_batch']['index']);
+                self::assertSame($size, $params['creation_batch']['size']);
+                self::assertSame($index, $params['creation_batch']['index']);
 
                 $stored = Batch::takeFromRequest($params);
                 self::assertArrayNotHasKey('creation_batch', $params);

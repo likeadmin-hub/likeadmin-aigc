@@ -14,6 +14,16 @@ use think\facade\Db;
 class PicLipsyncManagementTest extends TestCase
 {
     private bool $transaction = false;
+    private string $sample = '';
+    private function sample(): string
+    {
+        if ($this->sample !== '') return $this->sample;
+        $this->sample = 'uploads/reference-'.bin2hex(random_bytes(8)).'.wav';
+        $data = str_repeat("\0", 16000 * 2);
+        file_put_contents(public_path().$this->sample, 'RIFF'.pack('V',36+strlen($data)).'WAVEfmt '.pack('VvvVVvv',16,1,1,16000,32000,2,16).'data'.pack('V',strlen($data)).$data);
+        self::assertSame(1.0, \app\common\service\MediaDurationService::detect(public_path().$this->sample));
+        return $this->sample;
+    }
     protected function setUp(): void
     {
         if (getenv('PIC_LIPSYNC_MYSQL_TEST') !== '1') $this->markTestSkipped('Pinned local database opt-in required');
@@ -24,7 +34,7 @@ class PicLipsyncManagementTest extends TestCase
         self::assertContains(Db::connect()->getConfig('hostname'), ['127.0.0.1', 'localhost']);
         Db::startTrans(); $this->transaction = true;
     }
-    protected function tearDown(): void { if ($this->transaction) Db::rollback(); }
+    protected function tearDown(): void { if ($this->transaction) Db::rollback(); if ($this->sample !== '') unlink(public_path().$this->sample); }
     private function task(int $tenant, array $params = []): int
     {
         return (int)AigcPicLipsyncTask::create(array_merge(['tenant_id'=>$tenant,'user_id'=>77001,'title'=>'management fixture','status'=>'success','quality'=>'max','drive_mode'=>'text','actual_tenant_cost'=>2.25,'actual_user_price'=>3.5,'input_seconds'=>1.125,'delete_time'=>0],$params))['id'];
@@ -77,20 +87,20 @@ class PicLipsyncManagementTest extends TestCase
     public function testPublicReferenceSamplesSaveAndPublishWithoutCloneWork(): void
     {
         $before=(int)\app\common\model\ai\AiConsumptionLog::count();
-        $sample=Admin::savePublicVoice(987001,['name'=>'reference fixture','audio_uri'=>'uploads/reference-fixture.wav']);
+        $sample=Admin::savePublicVoice(987001,['name'=>'reference fixture','audio_uri'=>$this->sample()]);
         self::assertSame('',$sample['provider_asset_id']);self::assertSame('ready',$sample['status']);
         self::assertSame(1,Admin::voiceLists(987001,[],'official')['count']);
         self::assertSame(0,Admin::voiceLists(987002,[],'official')['count']);
-        $user=\app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::create(['tenant_id'=>987001,'user_id'=>77001,'source'=>'mine','name'=>'uncloned reference','audio_uri'=>'uploads/reference-fixture.wav','provider_asset_id'=>'','status'=>'pending','delete_time'=>0]);
+        $user=\app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice::create(['tenant_id'=>987001,'user_id'=>77001,'source'=>'mine','name'=>'uncloned reference','audio_uri'=>$this->sample(),'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','provider_asset_id'=>'','status'=>'pending','delete_time'=>0]);
         $published=Admin::publishUserVoice(987001,(int)$user['id']);
         self::assertSame('',$published['provider_asset_id']);self::assertSame('official',$published['source']);
         self::assertSame($before,(int)\app\common\model\ai\AiConsumptionLog::count());
     }
     public function testPublicReferenceEditingCannotCrossTenantBoundary(): void
     {
-        $voice=Admin::savePublicVoice(987001,['audio_uri'=>'uploads/reference-fixture.wav']);
+        $voice=Admin::savePublicVoice(987001,['audio_uri'=>$this->sample()]);
         $this->expectExceptionMessage('公共音色不存在');
-        Admin::savePublicVoice(987002,['id'=>$voice['id'],'audio_uri'=>'uploads/reference-fixture.wav']);
+        Admin::savePublicVoice(987002,['id'=>$voice['id'],'audio_uri'=>$this->sample()]);
     }
     public function testBuiltinApplicationRejectsPaidPlans(): void
     {

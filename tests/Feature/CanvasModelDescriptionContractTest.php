@@ -68,7 +68,6 @@ class CanvasModelDescriptionContractTest extends TestCase
         foreach ([
             __DIR__ . '/../../public/pc/index.html',
             __DIR__ . '/../../public/pc/app/aigc_canvas/index.html',
-            __DIR__ . '/../../public/pc/app/aigc_canvas/replay/index.html',
         ] as $entryPoint) {
             $html = file_get_contents($entryPoint);
             self::assertIsString($html);

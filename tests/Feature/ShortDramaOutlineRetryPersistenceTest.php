@@ -21,7 +21,7 @@ class ShortDramaOutlineRetryPersistenceTest extends TestCase
         $task = 'outline_retry_' . bin2hex(random_bytes(8)); $calls = []; $repair = false;
         $base = ['title'=>'测试剧','type_judgement'=>'悬疑','core_theme'=>'信任','story_outline'=>'调查真相',
             'subjects'=>[['id'=>'s1','name'=>'甲']], 'locations'=>[['id'=>'l1','name'=>'老宅']]];
-        $request = ['_generation_version'=>3,'_input_contract_version'=>10,'multi_episode_stage'=>'episodes',
+        $request = ['_continuity_review_only'=>true,'_generation_version'=>3,'_input_contract_version'=>10,'multi_episode_stage'=>'episodes',
             'episode_count'=>11,'confirmed_story_snapshot'=>$base];
         $provider = static function ($key, $messages, $budget) use ($task, &$calls, &$repair, $kind) {
             return Unit::call(2000000719, 7, $task, 'v3_policy2_' . $key, $messages + ['budget'=>$budget],

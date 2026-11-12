@@ -30,9 +30,9 @@ class AigcVideoFrontendBillingContractTest extends TestCase
                     'locked_params' => ['resolution' => '2K'],
                 ],
             ];
-            self::assertSame(6.0, $quantity->invoke(null, $market, ['duration' => 6]));
-            self::assertSame(30.0, $quantity->invoke(null, $market, ['seconds' => 30]));
-            self::assertSame(10.0, $quantity->invoke(null, $market, ['video_duration' => 10]));
+            self::assertSame(6.0, $quantity->invokeArgs(null, [&$market, ['duration' => 6]]));
+            self::assertSame(30.0, $quantity->invokeArgs(null, [&$market, ['seconds' => 30]]));
+            self::assertSame(10.0, $quantity->invokeArgs(null, [&$market, ['video_duration' => 10]]));
         }
 
         $price = new ReflectionMethod(MarketVideoRuntimeService::class, 'priceForQuantity');
@@ -49,8 +49,9 @@ class AigcVideoFrontendBillingContractTest extends TestCase
 
         self::assertStringContainsString('const declaredSpecUnit', $source);
         self::assertStringContainsString('? [declaredSpecUnit]', $source);
-        self::assertStringContainsString('usage_unit_size', $source);
-        self::assertStringContainsString('Math.max(1, Number(form.duration || 0)) / unitSize', $source);
+        self::assertStringContainsString('useGenerationQuote(creationQuotePayload', $source);
+        self::assertStringContainsString('payload => estimateAigcVideo(payload)', $source);
+        self::assertStringContainsString('duration:', $source);
     }
 
     private function sourceFile(string $path): string

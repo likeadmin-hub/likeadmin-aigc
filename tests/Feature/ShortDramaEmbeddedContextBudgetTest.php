@@ -32,7 +32,7 @@ class ShortDramaEmbeddedContextBudgetTest extends TestCase
             $messages = $this->messages(100);
             $original = $messages;
             $before = json_decode($original['_stage_content'], true);
-            $budget = Budget::fitMessages($messages, [], 'script', 8192, $bounded);
+            $budget = Budget::fitMessages($messages, ['context_window'=>32768], 'script', 8192, $bounded);
             self::assertSame(8192, $budget['max_tokens']);
             self::assertLessThan(15000, $budget['input_estimate']);
             self::assertSame($original['system_prompt'], $messages['system_prompt']);
@@ -53,7 +53,7 @@ class ShortDramaEmbeddedContextBudgetTest extends TestCase
         foreach ([false, true] as $bounded) {
             $messages = $this->messages(2);
             $original = $messages;
-            Budget::fitMessages($messages, [], 'script', 8192, $bounded);
+            Budget::fitMessages($messages, ['context_window'=>32768], 'script', 8192, $bounded);
             self::assertSame($original['content'], $messages['content']);
         }
     }
@@ -62,7 +62,7 @@ class ShortDramaEmbeddedContextBudgetTest extends TestCase
     {
         foreach (['custom', 'duplicate', 'different', 'no_space'] as $case) {
             $messages = $this->messages(100);
-            $model = [];
+            $model = ['context_window'=>32768];
             if ($case === 'custom') $messages['_stage_content'] = null;
             if ($case === 'duplicate') $messages['content'] .= $messages['_stage_content'];
             if ($case === 'different') $messages['_stage_content'] = '{"user_prompt":"不同的上下文"}';
@@ -88,7 +88,7 @@ class ShortDramaEmbeddedContextBudgetTest extends TestCase
             'storyboard' => [['shot_id' => 's1', 'scene_ref_id' => 'room', 'subject_ref_ids' => ['p'],
                 'visual_description' => '林舟握住铜钥匙。', 'dialogue' => '', 'voice_role' => '',
                 'speech_type' => 'none', 'recommended_duration_seconds' => 6.0]]];
-        $result = Generation::generate(['_input_contract_version' => 7], [], $messages,
+        $result = Generation::generate(['_input_contract_version' => 7], ['context_window'=>32768], $messages,
             static function ($key, $input, $budget) use (&$calls, $payload) {
                 $calls[] = $key;
                 self::assertArrayNotHasKey('_stage_content', $input);

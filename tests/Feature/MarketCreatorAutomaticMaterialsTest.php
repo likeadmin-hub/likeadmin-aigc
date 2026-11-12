@@ -63,7 +63,7 @@ class MarketCreatorAutomaticMaterialsTest extends TestCase
     {
         $params=['clips'=>[['url'=>'https://fixtures.invalid/clip.mp4','start'=>0]]];
         self::assertSame($params,Creator::complete($this->metadata,$this->mode,$params,static fn()=>3));
-        $this->expectExceptionMessage('clips[0].ends');
+        $this->expectExceptionMessage('请填写必填参数：参数[0].参数');
         Request::payload(['market_metadata'=>$this->metadata],['provider_params'=>$params]);
     }
 

@@ -15,7 +15,7 @@ class CanvasProjectPagesTest extends TestCase
 
     public function testSingleCanvasViewportRemainsCompatible(): void
     {
-        self::assertSame(['x' => 12.0, 'y' => 34.0, 'zoom' => 0.75], $this->normalize(['x' => 12, 'y' => 34, 'k' => 0.75]));
+        self::assertSame(['x' => 12.0, 'y' => 34.0, 'zoom' => 0.75, 'agentRevision' => 0, 'saveRevision' => 0], $this->normalize(['x' => 12, 'y' => 34, 'k' => 0.75]));
     }
 
     public function testPageMembershipNamesAndIndependentViewportsSurviveRoundTrip(): void

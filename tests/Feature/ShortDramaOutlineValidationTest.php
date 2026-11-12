@@ -33,11 +33,11 @@ class ShortDramaOutlineValidationTest extends TestCase
         self::assertSame([1], array_column($result, 'episode_number'));
     }
 
-    public function testFailedCompletedEpisodeRevisionAlsoPausesFollowingWork(): void
+    public function testFailedOptionalRevisionRetainsCompletionAndAllowsFollowingWork(): void
     {
         $rows = [['id' => 3, 'episode_number' => 3, 'status' => 'pending', 'completed_once' => 0],
             ['id' => 1, 'episode_number' => 1, 'status' => 'failed', 'completed_once' => 1],
             ['id' => 2, 'episode_number' => 2, 'status' => 'success', 'completed_once' => 1]];
-        self::assertSame(1, Episodes::nextInitialEpisode($rows)['id']);
+        self::assertSame(3, Episodes::nextInitialEpisode($rows)['id']);
     }
 }
