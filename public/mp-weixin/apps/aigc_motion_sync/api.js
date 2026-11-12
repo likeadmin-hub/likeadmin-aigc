@@ -1,0 +1,1 @@
+"use strict";const e=require("../../components/creation-studio/creation-api.js"),i=require("../../utils/tenant.js"),n=e.creationApi("aigc_motion_sync");exports.api=n,exports.pageUrl=e=>i.appendTenantIdToUrl(`/apps/aigc_motion_sync/pages/${e}/index`);

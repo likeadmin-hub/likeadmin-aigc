@@ -1,1 +1,1 @@
-<atlas-tabbar wx:if="{{a}}" bindchange="{{b}}" u-i="15437f8c-0" bind:__l="__l" u-p="{{c}}"/><u-tabbar wx:elif="{{d}}" bindchange="{{e}}" u-i="15437f8c-1" bind:__l="__l" u-p="{{f}}"></u-tabbar>
+<atlas-tabbar wx:if="{{a}}" bindchange="{{b}}" u-i="e2b4aba2-0" bind:__l="__l" u-p="{{c}}"/><u-tabbar wx:elif="{{d}}" bindchange="{{e}}" u-i="e2b4aba2-1" bind:__l="__l" u-p="{{f}}"></u-tabbar>

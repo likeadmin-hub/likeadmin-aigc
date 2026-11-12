@@ -1,0 +1,1 @@
+"use strict";const e=require("../../components/creation-studio/creation-api.js"),t=require("../../utils/tenant.js"),r=e.creationApi("aigc_story_commerce"),o={get:(e,t,o)=>r.get(e+"/"+t,o),post:(e,t,o)=>r.post(e+"/"+t,o)};exports.api=o,exports.draftKey=(e,t)=>`story_commerce:${e}:${t}`,exports.pageUrl=e=>t.appendTenantIdToUrl(`/apps/aigc_story_commerce/pages/${e}/index`);

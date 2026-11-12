@@ -1,1 +1,0 @@
-"use strict";const e=require("../../common/vendor.js");exports.createTransferStorage=function(){return{getStorageSync:t=>e.index.getStorageSync(t),setStorageSync:(t,n)=>e.index.setStorageSync(t,n),removeStorageSync:t=>e.index.removeStorageSync(t),getStorageInfoSync:()=>e.index.getStorageInfoSync()}};

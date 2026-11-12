@@ -1,0 +1,1 @@
+"use strict";const e=require("../../components/creation-studio/creation-api.js"),i=require("../../utils/tenant.js"),t=e.creationApi("aigc_product_video");exports.api=t,exports.pageUrl=e=>i.appendTenantIdToUrl(`/apps/aigc_product_video/pages/${e}/index`);

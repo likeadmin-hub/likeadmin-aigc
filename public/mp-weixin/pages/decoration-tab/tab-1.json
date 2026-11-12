@@ -4,6 +4,12 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "tab-loading": "../../components/diy/diy-page-loading",
+    "tab-content-114": "../../apps/aigc_story_commerce/pages/creator/index-content",
+    "tab-content-115": "../../apps/aigc_story_commerce/pages/tasks/index-content",
+    "tab-content-112": "../../apps/aigc_motion_sync/pages/creator/index-content",
+    "tab-content-113": "../../apps/aigc_motion_sync/pages/tasks/index-content",
+    "tab-content-110": "../../apps/aigc_product_video/pages/creator/index-content",
+    "tab-content-111": "../../apps/aigc_product_video/pages/tasks/index-content",
     "tab-content-104": "../../apps/aigc_copywriting/pages/index/index-content",
     "tab-content-105": "../../apps/aigc_copywriting/pages/tool/index-content",
     "tab-content-106": "../../apps/aigc_copywriting/pages/history/index-content",
@@ -84,11 +90,6 @@
     "tab-content-96": "../../apps/smart_clip/pages/results/results-content",
     "tab-content-97": "../../apps/aigc_watermark_removal/pages/creator/index-content",
     "tab-content-98": "../../apps/aigc_watermark_removal/pages/tasks/index-content",
-    "tab-content-99": "../../apps/aigc_micro_video/pages/workbench/index-content",
-    "tab-content-100": "../../apps/aigc_micro_video/pages/creator/index-content",
-    "tab-content-101": "../../apps/aigc_micro_video/pages/plan/index-content",
-    "tab-content-102": "../../apps/aigc_micro_video/pages/tasks/index-content",
-    "tab-content-103": "../../apps/aigc_micro_video/pages/detail/index-content",
     "u-navbar": "../../uni_modules/vk-uview-ui/components/u-navbar/u-navbar",
     "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
     "app-access-gate": "../../components/app-access-gate/app-access-gate",
@@ -119,6 +120,12 @@
     "main-content23": "../payment_result/payment_result-content"
   },
   "componentPlaceholder": {
+    "tab-content-114": "tab-loading",
+    "tab-content-115": "tab-loading",
+    "tab-content-112": "tab-loading",
+    "tab-content-113": "tab-loading",
+    "tab-content-110": "tab-loading",
+    "tab-content-111": "tab-loading",
     "tab-content-104": "tab-loading",
     "tab-content-105": "tab-loading",
     "tab-content-106": "tab-loading",
@@ -198,11 +205,6 @@
     "tab-content-95": "tab-loading",
     "tab-content-96": "tab-loading",
     "tab-content-97": "tab-loading",
-    "tab-content-98": "tab-loading",
-    "tab-content-99": "tab-loading",
-    "tab-content-100": "tab-loading",
-    "tab-content-101": "tab-loading",
-    "tab-content-102": "tab-loading",
-    "tab-content-103": "tab-loading"
+    "tab-content-98": "tab-loading"
   }
 }

@@ -1,8 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "creation-workbench": "../../../components/digital-human-page/digital-human-page",
-    "decoration-tab-page": "../../../components/decoration-tab-page/decoration-tab-page",
-    "digital-human-nav": "../../../components/digital-human-page/digital-human-nav"
-  }
-}

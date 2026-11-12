@@ -1,0 +1,1 @@
+function r(r,t){const i=String((null==r?void 0:r.uri)||""),n=String((null==r?void 0:r.url)||"");if(!i||!n||/^(blob:|data:)/i.test(n))throw Error("上传结果不完整，请重新上传");return{uri:n,url:i,name:t}}export{r as u};
