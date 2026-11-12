@@ -27,6 +27,14 @@ final class RetiredTextConsumptionReconciliationTest extends TestCase
             'local_fingerprint'=>Service::fingerprint(Db::name('ai_consumption_log')->where('id',$id)->find()),
             'receipt'=>['identity_verified'=>true,'request_verified'=>true,'task_id'=>$key,'status'=>$rejected?'failed':'success','actual_points'=>$rejected?'0.00':'2.71']]]];
     }
+    public function testWorkerGuardOnlyMatchesThisProjectsRetiredDaemon(): void
+    {
+        $guard=\app\common\service\app\RetiredAppWorkerGuard::class;
+        self::assertTrue($guard::matches(['/php','/repo/think','micro-video:worker'],'/repo/'));
+        self::assertFalse($guard::matches(['/php','/other/think','micro-video:worker'],'/repo/'));
+        self::assertFalse($guard::matches(['/php','/repo/think','ai:task-worker'],'/repo/'));
+        self::assertFalse($guard::matches(['/php','/repo/scripts/retire-micro-video.php'],'/repo/'));
+    }
     public function testDryRunCannotAlterMoneyStatusOrReceipts(): void
     {
         $plan=$this->fixture();$id=$plan['records'][0]['id'];$before=Db::name('ai_consumption_log')->where('id',$id)->find();

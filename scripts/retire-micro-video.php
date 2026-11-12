@@ -7,6 +7,7 @@ use app\common\service\app\{RetiredAppService,AppAccessStateService};
 $apply=in_array('--apply',$argv,true);$backup='';foreach($argv as $arg)if(str_starts_with($arg,'--backup-dir='))$backup=substr($arg,13);
 $active=Db::name('ai_consumption_log')->where('app_code','aigc_micro_video')->where(function($q){$q->whereNotIn('run_status',['success','failed','canceled','cancelled'])->whereOr('billing_status','not in',['settled','refunded']);})->count();
 if($apply){
+ \app\common\service\app\RetiredAppWorkerGuard::assertStopped(root_path());
  if($active)throw new RuntimeException('退役前须先完成模型受理和费用核对；没有取消、重发或退款');
  $manifest=json_decode((string)@file_get_contents($backup.'/manifest.json'),true,512,JSON_THROW_ON_ERROR);
  if(($manifest['app_code']??'')!=='aigc_micro_video'||($manifest['database']??'')!==config('database.connections.mysql.database'))throw new RuntimeException('需要本数据库的退役备份');

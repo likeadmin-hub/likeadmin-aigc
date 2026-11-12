@@ -23,6 +23,7 @@ final class RetiredTextConsumptionReconciliationService
             throw new RuntimeException('需要本地数据库的完整核对清单与证据摘要');
         }
         if ($apply && (trim($actor) === '' || mb_strlen(trim($reason)) < 8)) throw new RuntimeException('执行需要明确操作人和处理原因');
+        if ($apply) \app\common\service\app\RetiredAppWorkerGuard::assertStopped(root_path());
         $planId = self::fingerprint($plan);
         return Db::transaction(static function () use ($plan, $planId, $apply, $actor, $reason, $writeoff): array {
             $seen = []; $result = [];
