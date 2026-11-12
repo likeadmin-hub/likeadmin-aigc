@@ -1,1 +1,0 @@
-<page-meta page-style="{{c}}"><navigation-bar front-color="{{a}}" background-color="{{b}}"/></page-meta><app-access-gate wx:if="{{d}}" u-s="{{['d']}}" u-i="4c8da070-0" bind:__l="__l" u-p="{{d}}"><page-content u-i="4c8da070-1,4c8da070-0" bind:__l="__l"/></app-access-gate><mp-privacy-popup u-i="4c8da070-2" bind:__l="__l"/>

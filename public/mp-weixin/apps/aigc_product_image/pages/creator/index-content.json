@@ -2,7 +2,6 @@
   "component": true,
   "usingComponents": {
     "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "tool-workbench": "../../../../components/creation-studio/ToolWorkbench",
-    "micro-workbench-transfer": "../../../mobile_tools/components/MicroWorkbenchTransfer"
+    "tool-workbench": "../../../../components/creation-studio/ToolWorkbench"
   }
 }

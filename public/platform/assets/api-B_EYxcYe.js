@@ -1,0 +1,1 @@
+import{r as n}from"./index-DdDDwBmH.js";const s={get(t,o,r){return n.get({url:`/app.aigc_motion_sync.${t}/${o}`,params:r})},post(t,o,r){return n.post({url:`/app.aigc_motion_sync.${t}/${o}`,params:r})}};export{s as m};

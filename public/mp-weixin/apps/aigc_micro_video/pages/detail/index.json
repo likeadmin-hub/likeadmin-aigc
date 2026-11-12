@@ -1,9 +1,0 @@
-{
-  "navigationStyle": "custom",
-  "navigationBarTitleText": "微视频详情",
-  "usingComponents": {
-    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "app-access-gate": "../../../../components/app-access-gate/app-access-gate",
-    "page-content": "./index-content"
-  }
-}

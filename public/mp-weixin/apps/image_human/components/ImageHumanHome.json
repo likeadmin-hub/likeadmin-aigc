@@ -8,7 +8,6 @@
     "studio-index-select": "../../../components/creation-studio/StudioIndexSelect",
     "studio-select-menu": "../../../components/creation-studio/StudioSelectMenu",
     "studio-icon": "../../../components/creation-studio/StudioIcon",
-    "digital-human-page": "../../../components/digital-human-page/digital-human-page",
-    "micro-workbench-transfer": "../../mobile_tools/components/MicroWorkbenchTransfer"
+    "digital-human-page": "../../../components/digital-human-page/digital-human-page"
   }
 }

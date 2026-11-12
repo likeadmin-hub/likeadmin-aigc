@@ -34,6 +34,27 @@
   ],
   "subPackages": [
     {
+      "root": "apps/aigc_story_commerce",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_motion_sync",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_product_video",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
       "root": "apps/aigc_copywriting",
       "pages": [
         "pages/index/index",
@@ -258,16 +279,6 @@
       "pages": [
         "pages/creator/index",
         "pages/tasks/index"
-      ]
-    },
-    {
-      "root": "apps/aigc_micro_video",
-      "pages": [
-        "pages/workbench/index",
-        "pages/creator/index",
-        "pages/plan/index",
-        "pages/tasks/index",
-        "pages/detail/index"
       ]
     }
   ],

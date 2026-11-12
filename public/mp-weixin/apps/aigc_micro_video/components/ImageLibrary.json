@@ -1,6 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "studio-close": "../../../components/creation-studio/StudioClose"
-  }
-}

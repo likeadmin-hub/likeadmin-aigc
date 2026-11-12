@@ -1,1 +1,1 @@
-<decoration-tab-page u-s="{{['d']}}" u-i="373d20fa-0" bind:__l="__l"><tool-workbench wx:if="{{c}}" class="r" u-s="{{['before']}}" u-r="studio" u-i="373d20fa-1,373d20fa-0" bind:__l="__l" u-p="{{c}}"><micro-workbench-transfer u-i="373d20fa-2,373d20fa-1" bind:__l="__l" u-p="{{a}}" slot="before"/></tool-workbench></decoration-tab-page>
+<decoration-tab-page u-s="{{['d']}}" u-i="3da825e5-0" bind:__l="__l"><tool-workbench wx:if="{{a}}" u-i="3da825e5-1,3da825e5-0" bind:__l="__l" u-p="{{a}}"/></decoration-tab-page>
