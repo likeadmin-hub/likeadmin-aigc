@@ -13,7 +13,7 @@ final class AppAvailabilityCollationTest extends TestCase
         (new \think\App())->initialize();$original=config('database');$cfg=$original;
         self::assertSame('127.0.0.1',$cfg['connections']['mysql']['hostname']);
         self::assertContains($cfg['connections']['mysql']['database'],['x_cn','z_cn']);
-        $prefix='availability_'.bin2hex(random_bytes(5)).'_';$pdo=Db::connect()->getPdo();$tables=[];
+        $prefix='availability_'.bin2hex(random_bytes(5)).'_';Db::query('SELECT 1');$pdo=Db::connect()->getPdo();$tables=[];
         try {
             foreach(['aigc_image'=>'utf8mb4_unicode_ci','aigc_video'=>'utf8mb4_general_ci'] as $code=>$collation){
                 $table=$prefix.$code.'_config';$pdo->exec('CREATE TABLE `'.$table.'` (tenant_id INT, status VARCHAR(10) CHARACTER SET utf8mb4 COLLATE '.$collation.') ENGINE=InnoDB');$tables[]=$table;
