@@ -34,7 +34,11 @@ final class StoryCommerceService
     }
     public static function config(int $t): array {
         $c=self::settings($t);$c['genres']=array_values(array_filter($c['genres'],static fn($r)=>!empty($r['status'])));usort($c['genres'],static fn($a,$b)=>$b['sort']<=>$a['sort']);
-        return AppDisplayConfigService::appendToConfig($t,self::APP,$c+['styles'=>StoryCommerceCatalog::styles($t),'planning_models'=>MarketTextModelRuntimeService::mediaOptions($t,false)]);
+        $planning=MarketTextModelRuntimeService::mediaOptions($t,false);
+        $c['planning_model_id']=StoryCommerceDefaults::planning((string)$c['planning_model_id'],$planning);
+        $c['default_video_model_id']=StoryCommerceDefaults::video((string)$c['default_video_model_id'],StoryCommerceCatalog::models($t));
+        $c['default_style_id']=StoryCommerceDefaults::style((string)$c['default_style_id']);
+        return AppDisplayConfigService::appendToConfig($t,self::APP,$c+['styles'=>StoryCommerceCatalog::styles($t),'planning_models'=>$planning]);
     }
     public static function models(int $t,string $kind,string $id=''): array {return ['models'=>$kind==='planning'?MarketTextModelRuntimeService::mediaOptions($t,false):StoryCommerceCatalog::models($t,$id)];}
     public static function normalize(int $t,int $u,array $b): array {
