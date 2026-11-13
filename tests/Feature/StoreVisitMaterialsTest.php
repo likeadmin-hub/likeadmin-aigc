@@ -16,7 +16,7 @@ final class StoreVisitMaterialsTest extends TestCase
     }
     public function testAnalysisReceivesTheMaterialRolesAndFactualConstraints(): void {self::assertStringContainsString('material_roles',StoreVisitPrompts::system());self::assertStringContainsString('person_info',StoreVisitPrompts::system());self::assertStringContainsString('门店布局',StoreVisitPrompts::system());}
     public function testReviewedPortableTemplatesPreserveRolesWithoutGrantingForeignMedia(): void {
-        $b=$this->body();foreach($b['images'] as &$image)$image=array_replace($image,['uri'=>'https://cdn.example.test/'.basename($image['uri']),'storage_scope'=>'platform','storage_engine'=>'qcloud','storage_domain'=>'https://cdn.example.test']);unset($image);$b['genre_snapshot']=['code'=>'host_tour','name'=>'人物带逛','instruction'=>'人物走进门店'];
+        $b=$this->body();foreach($b['images'] as &$image)$image=array_replace($image,['uri'=>'fixtures/'.basename($image['uri']),'storage_scope'=>'platform','storage_engine'=>'qcloud','storage_domain'=>'https://cdn.example.test']);unset($image);$b['genre_snapshot']=['code'=>'host_tour','name'=>'人物带逛','instruction'=>'人物走进门店'];
         $copy=StudioBuiltinTemplates::portableBody(P::APP,$b);self::assertSame(['store','person'],array_column($copy['images'],'role'));self::assertSame($b['person_info'],$copy['person_info']);self::assertSame('', $copy['video_selection']['model_id']);self::assertNotEmpty($copy['script_input_key']);
     }
 }

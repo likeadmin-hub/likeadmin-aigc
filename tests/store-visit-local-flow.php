@@ -23,8 +23,8 @@ try{
  $bad=$b;$bad['style_id']='99999999999';scFails(fn()=>S::save(1,1,['body'=>$bad]),'Disabled or foreign styles');
  if($m['max_reference_images']>1){
    copy($dir.'/product.png',$dir.'/product2.png');$second=$folder.'/product2.png';Db::name('tenant_file')->insert(['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>10,'name'=>'store-visit-second-image','uri'=>$second,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
-   $multi=$b;$multi['images'][]=['uri'=>$second,'reference_slot_id'=>'second_product_slot'];$multi['script']='依次展示 @图片1 和 @图片2，保持商品身份一致。';$multi=S::save(1,1,['body'=>$multi,'confirm_script'=>true]);
-   scAssert(count($multi['body']['images'])===2,'A multi-reference model must preserve both owned images');$multiSelection=C::selection(1,$multi['body']);scAssert($multiSelection['generation_method']!=='image_to_video','Multiple references must not be submitted as one first frame');
+   $multi=$b;$multi['images'][]=['uri'=>$second,'role'=>'store','reference_slot_id'=>'second_product_slot'];$multi['script']='依次展示 @图片1 和 @图片2，保持商品身份一致。';$multi=S::save(1,1,['body'=>$multi,'confirm_script'=>true]);
+   scAssert(count($multi['body']['images'])===3,'A multi-reference model must preserve both owned images');$multiSelection=C::selection(1,$multi['body']);scAssert($multiSelection['generation_method']!=='image_to_video','Multiple references must not be submitted as one first frame');
    $multiQuote=J::estimate(1,1,['project_id'=>$multi['id'],'revision'=>$multi['revision'],'action'=>'video']);scAssert(isset($multiQuote['quote_token']),'Native admission must price the multi-image mode without a provider call');
  }
  $args=['project_id'=>$project['id'],'revision'=>1,'action'=>'analysis'];$q=J::estimate(1,1,$args);scAssert($q['approximate']&&$q['user_charge_points']===null,'Analysis discloses actual-usage billing');
