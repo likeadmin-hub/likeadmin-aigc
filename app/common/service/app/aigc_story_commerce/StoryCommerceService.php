@@ -25,7 +25,8 @@ final class StoryCommerceService
         $data['status']=!empty($data['status'])?1:0;$seen=[];$genres=[];
         foreach((array)$data['genres'] as $i=>$row){$key=StoryCommercePolicy::text($row['code']??'',80);if(!preg_match('/^[a-z][a-z0-9_]{0,79}$/D',$key)||isset($seen[$key])||$key==='custom')throw new InvalidArgumentException('剧情类型标识为空、重复或无效');$seen[$key]=true;
             if(trim((string)($row['name']??''))===''||trim((string)($row['instruction']??''))==='')throw new InvalidArgumentException('请填写剧情类型名称和叙事规则');
-            $genres[]=['code'=>$key,'name'=>StoryCommercePolicy::text($row['name']??'',80),'instruction'=>StoryCommercePolicy::text($row['instruction']??'',2000),'version'=>StoryCommercePolicy::hash([$row['name']??'',$row['instruction']??'']),'status'=>!empty($row['status'])?1:0,'sort'=>(int)($row['sort']??0)];}
+            $cover=StoryCommercePolicy::text($row['cover_url']??'',1000);if($cover!==''&&!preg_match('~^(?:https?://|/(?!/))~i',$cover))throw new InvalidArgumentException('类型封面地址无效');
+            $genres[]=['description'=>StoryCommercePolicy::text($row['description']??'',160),'icon'=>StoryCommercePolicy::text($row['icon']??'',12),'cover_url'=>$cover,'code'=>$key,'name'=>StoryCommercePolicy::text($row['name']??'',80),'instruction'=>StoryCommercePolicy::text($row['instruction']??'',2000),'version'=>StoryCommercePolicy::hash([$row['name']??'',$row['instruction']??'']),'status'=>!empty($row['status'])?1:0,'sort'=>(int)($row['sort']??0)];}
         $data['genres']=$genres;
         if($data['planning_model_id']!==''&&!in_array((string)$data['planning_model_id'],array_column(MarketTextModelRuntimeService::mediaOptions($t,false),'id'),true))throw new InvalidArgumentException('所选分析模型已不可用');
         if($data['default_video_model_id']!==''&&!StoryCommerceCatalog::models($t,(string)$data['default_video_model_id']))throw new InvalidArgumentException('默认视频模型不可用');

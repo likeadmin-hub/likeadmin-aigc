@@ -4,9 +4,9 @@ import json
 import sys
 root = Path(__file__).resolve().parents[1]
 code = sys.argv[1] if len(sys.argv)>1 else 'aigc_story_commerce'
-assert code in ['aigc_story_commerce','aigc_motion_sync']
-marker = 'story commerce' if code=='aigc_story_commerce' else 'motion sync'
-upgrade = 'upgrade_20261111_aigc_story_commerce.sql' if code=='aigc_story_commerce' else 'upgrade_20261110_aigc_motion_sync.sql'
+assert code in ['aigc_story_commerce','aigc_motion_sync','aigc_store_visit']
+marker = 'store visit' if code=='aigc_store_visit' else 'story commerce' if code=='aigc_story_commerce' else 'motion sync'
+upgrade = 'upgrade_20261113_aigc_store_visit.sql' if code=='aigc_store_visit' else 'upgrade_20261113_story_commerce_presentation.sql' if code=='aigc_story_commerce' else 'upgrade_20261110_aigc_motion_sync.sql'
 app = root / 'app/apps' / code
 manifest = json.loads((app / 'manifest.json').read_text())
 schema = json.loads((app / 'api_schema.json').read_text())
@@ -46,7 +46,10 @@ bootstrap = '\n'.join(lines)+'\n'
 (app / 'bootstrap.sql').write_text(bootstrap)
 for name in ['public/install/db/like.sql','upgrade/'+upgrade,'public/upgrade/'+upgrade]:
     path = root / name
-    raw = path.read_text()
+    raw = path.read_text() if path.exists() else ''
+    if f'-- BEGIN {marker} application bootstrap' not in raw:
+        path.write_text(raw.rstrip()+'\n\n'+bootstrap)
+        continue
     start = raw.index(f'-- BEGIN {marker} application bootstrap')
     end = raw.index(f'-- END {marker} application bootstrap', start)+len(f'-- END {marker} application bootstrap')
     path.write_text(raw[:start]+bootstrap.rstrip('\n')+raw[end:])

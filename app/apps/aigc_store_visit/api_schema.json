@@ -1,0 +1,365 @@
+{
+  "app_code": "aigc_store_visit",
+  "apis": [
+    {
+      "api_path": "app.aigc_store_visit.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:config:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:config:models:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.project/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:project:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.project/save",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:project:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.project/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:project:fromJob:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.project/adopt",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:project:adopt:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:job:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/create",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:job:create:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:job:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:job:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/recover",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:job:recover:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:job:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:lists:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/remix",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:remix:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:config:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:config:setup",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:config:models",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:job:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:job:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:job:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:fromJob",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/options",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:options",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:config:models",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:job:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:job:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:job:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:fromJob",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/options",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:case:options",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/genres",
+      "api_method": "GET",
+      "permission_key": "aigc_store_visit:config:genres",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.config/saveGenres",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:config:saveGenres",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/builtin",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:builtin",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_store_visit.case/builtinFromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_store_visit:case:builtinFromJob",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}

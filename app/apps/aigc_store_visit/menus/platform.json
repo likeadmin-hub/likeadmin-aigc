@@ -1,0 +1,125 @@
+[
+  {
+    "source_menu_key": "aigc_store_visit",
+    "app_code": "aigc_store_visit",
+    "source": "app",
+    "type": "M",
+    "name": "探店视频",
+    "icon": "el-icon-VideoCamera",
+    "sort": 845,
+    "perms": "",
+    "paths": "aigc-store-visit",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_store_visit_config",
+        "app_code": "aigc_store_visit",
+        "source": "app",
+        "type": "C",
+        "name": "创作配置",
+        "sort": 30,
+        "perms": "app.aigc_store_visit.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_store_visit/config",
+        "children": [
+          {
+            "source_menu_key": "aigc_store_visit_config_models",
+            "type": "A",
+            "name": "查看模型",
+            "perms": "app.aigc_store_visit.config/models",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_store_visit_config_setup",
+            "type": "A",
+            "name": "保存配置",
+            "perms": "app.aigc_store_visit.config/setup",
+            "children": []
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_store_visit_case",
+        "app_code": "aigc_store_visit",
+        "source": "app",
+        "type": "C",
+        "name": "灵感模板",
+        "sort": 20,
+        "perms": "app.aigc_store_visit.case/lists",
+        "paths": "cases",
+        "component": "apps/aigc_store_visit/cases",
+        "children": [
+          {
+            "source_menu_key": "aigc_store_visit_case_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_store_visit.case/detail",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_save",
+            "type": "A",
+            "name": "编辑模板",
+            "perms": "app.aigc_store_visit.case/save",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_fromJob",
+            "type": "A",
+            "name": "设为模板",
+            "perms": "app.aigc_store_visit.case/fromJob",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_status",
+            "type": "A",
+            "name": "上下架模板",
+            "perms": "app.aigc_store_visit.case/status",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_delete",
+            "type": "A",
+            "name": "删除记录",
+            "perms": "app.aigc_store_visit.case/delete",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_options",
+            "type": "A",
+            "name": "查看模板配置",
+            "perms": "app.aigc_store_visit.case/options",
+            "children": []
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_store_visit_job",
+        "app_code": "aigc_store_visit",
+        "source": "app",
+        "type": "C",
+        "name": "创作记录",
+        "sort": 10,
+        "perms": "app.aigc_store_visit.job/lists",
+        "paths": "jobs",
+        "component": "apps/aigc_store_visit/jobs",
+        "children": [
+          {
+            "source_menu_key": "aigc_store_visit_job_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_store_visit.job/detail",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_store_visit_job_delete",
+            "type": "A",
+            "name": "删除记录",
+            "perms": "app.aigc_store_visit.job/delete",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+]
