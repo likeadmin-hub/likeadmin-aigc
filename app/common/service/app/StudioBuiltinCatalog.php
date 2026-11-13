@@ -22,7 +22,6 @@ final class StudioBuiltinCatalog
     public static function publicAsset(array $asset): array
     {
         $out=ProductCatalog::publicAsset($asset);
-        if(in_array($asset['role']??'',['store','person'],true))$out['role']=$asset['role'];
         if(in_array($asset['type']??'',['image','video'],true))$out['type']=$asset['type'];
         foreach(['mime_type','file_size','width','height','duration'] as $key)if(isset($asset[$key]))$out[$key]=$asset[$key];
         foreach(['file_size','width','height','duration'] as $key)if(isset($out[$key])&&(!is_numeric($out[$key])||!is_finite((float)$out[$key])||(float)$out[$key]<0))throw new InvalidArgumentException('内置素材信息无效');
