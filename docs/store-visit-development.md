@@ -15,7 +15,7 @@
 
 应用清单声明 45 个 API、四端入口及小程序创作/历史两个可装修页面。包内图标和封面由 `public_assets` 安装；无需复制空清单或依赖旧微视频应用。完整安装源和新租户默认应用同步包含此应用。
 
-升级源及 `public/upgrade` 镜像：`upgrade_20261113_aigc_store_visit.sql`、`upgrade_20261113_story_commerce_presentation.sql`。保留历史已执行迁移原文。同步检查：`python3 scripts/sync-story-commerce-bootstrap.py --check`。
+升级源及 `public/upgrade` 镜像：`upgrade_20261113_aigc_store_visit.sql`、`upgrade_20261113_story_commerce_presentation.sql`。保留历史已执行迁移原文。需要重新生成注册源时，在 feature 分支运行 `python3 scripts/sync-story-commerce-bootstrap.py aigc_store_visit`，检查变更后再提交；该命令会写源文件，不是只读检查。
 
 消费者必须能领取本应用：PHP 8.2 下运行 `php think ai:task-worker --app=aigc_store_visit --sleep=2 --batch=1 --lease=600`。首次原生任务尚无消费记录，按本应用任务类型、服务端生成的幂等键及未删除原生任务绑定领取，不能扩大领取其他应用。不要重启已退役的微视频进程。不得自动重复提交付费生成以恢复未知结果。
 
