@@ -20,7 +20,7 @@ class AiTaskBusinessResultService
         'decorate_agent_image_slot'=>'decoration_worker','aigc_music_task'=>'music','aigc_pic_lipsync_task'=>'pic_lipsync',
         'aigc_music_cover_task'=>'music_cover','aigc_digital_human_task'=>'digital_human','aigc_watermark_removal_task'=>'watermark',
         'aigc_micro_video_segment'=>'micro_segment','aigc_micro_video_frame'=>'micro_frame',
-        'aigc_story_commerce_job'=>'story_commerce', 'aigc_product_video_job'=>'product_video', 'aigc_motion_sync_task'=>'motion_sync',
+        'aigc_store_visit_job'=>'store_visit', 'aigc_story_commerce_job'=>'story_commerce', 'aigc_product_video_job'=>'product_video', 'aigc_motion_sync_task'=>'motion_sync',
     ];
 
     public static function businessTables(): array { return array_keys(self::ADAPTERS); }
@@ -59,6 +59,7 @@ class AiTaskBusinessResultService
             return false;
         }
         $adapter=self::ADAPTERS[(string)$context['business_table']];
+        if ($adapter==='store_visit') return \app\common\service\app\aigc_store_visit\StoreVisitWorker::wake($context['consumption'],(int)$context['business_id']);
         if ($adapter==='story_commerce') return \app\common\service\app\aigc_story_commerce\StoryCommerceWorker::wake($context['consumption'],(int)$context['business_id']);
         if ($adapter==='product_video') return \app\common\service\app\aigc_product_video\ProductVideoWorker::wake($context['consumption'],(int)$context['business_id']);
         if (in_array($adapter,['micro_segment','micro_frame'],true)) return self::acceptRetiredVideoReceipt($context['consumption'],(int)$context['business_id'],$adapter==='micro_frame'?'frame':'segment');
@@ -94,6 +95,7 @@ class AiTaskBusinessResultService
             'digital_human' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
             'watermark' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             'motion_sync' => \app\common\service\app\aigc_motion_sync\MotionSyncJobs::syncConsumption($consumption, $businessId),
+            'store_visit' => \app\common\service\app\aigc_store_visit\StoreVisitWorker::wake($consumption,$businessId),
             'story_commerce' => \app\common\service\app\aigc_story_commerce\StoryCommerceWorker::wake($consumption,$businessId),
             'product_video' => \app\common\service\app\aigc_product_video\ProductVideoWorker::wake($consumption,$businessId),
             'micro_segment' => self::acceptRetiredVideoReceipt($consumption,$businessId,'segment'),

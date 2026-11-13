@@ -1,0 +1,93 @@
+{
+  "code": "aigc_store_visit",
+  "name": "探店视频",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "上传门店与人物素材，选择探店类型与画风，分析并编辑脚本后生成探店视频。",
+  "changelog": "1. 上传门店与人物素材，分析并编辑探店脚本。\n2. 支持多种探店类型、画面风格、灵感同款与历史创作。\n3. 支持电脑、移动网页及小程序创作。",
+  "icon": "resource/image/apps/aigc_store_visit/icon.png",
+  "category": "aigc",
+  "cover": "resource/image/apps/aigc_store_visit/cover.png",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 843,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_store_visit",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [],
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "analysis",
+      "video"
+    ],
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_store_visit",
+      "name": "探店视频",
+      "path": "/ai/tools/aigc_store_visit",
+      "icon": "resource/image/apps/aigc_store_visit/icon.png",
+      "sort": 843,
+      "status": 1
+    },
+    {
+      "terminal": "platform",
+      "entry_key": "aigc_store_visit_admin",
+      "name": "探店视频",
+      "path": "/apps/aigc_store_visit/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 843,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_store_visit_admin",
+      "name": "探店视频",
+      "path": "/apps/aigc_store_visit/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 843,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_store_visit",
+      "name": "探店视频",
+      "path": "/apps/aigc_store_visit/pages/creator/index",
+      "icon": "resource/image/apps/aigc_store_visit/icon.png",
+      "sort": 843,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "探店视频",
+            "path": "/apps/aigc_store_visit/pages/creator/index"
+          },
+          {
+            "name": "历史创作",
+            "path": "/apps/aigc_store_visit/pages/tasks/index"
+          }
+        ]
+      }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/icon.png",
+      "target": "public/resource/image/apps/aigc_store_visit/icon.png"
+    },
+    {
+      "source": "assets/cover.png",
+      "target": "public/resource/image/apps/aigc_store_visit/cover.png"
+    }
+  ]
+}

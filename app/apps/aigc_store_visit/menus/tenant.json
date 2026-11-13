@@ -1,0 +1,152 @@
+[
+  {
+    "source_menu_key": "aigc_store_visit",
+    "app_code": "aigc_store_visit",
+    "source": "app",
+    "type": "M",
+    "name": "探店视频",
+    "icon": "el-icon-VideoCamera",
+    "sort": 845,
+    "perms": "",
+    "paths": "aigc-store-visit",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_store_visit_config",
+        "app_code": "aigc_store_visit",
+        "source": "app",
+        "type": "C",
+        "name": "创作配置",
+        "sort": 30,
+        "perms": "app.aigc_store_visit.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_store_visit/config",
+        "children": [
+          {
+            "source_menu_key": "aigc_store_visit_config_models",
+            "type": "A",
+            "name": "查看模型",
+            "perms": "app.aigc_store_visit.config/models"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_config_setup",
+            "type": "A",
+            "name": "保存配置",
+            "perms": "app.aigc_store_visit.config/setup"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_store_visit_case",
+        "app_code": "aigc_store_visit",
+        "source": "app",
+        "type": "C",
+        "name": "灵感模板",
+        "sort": 20,
+        "perms": "app.aigc_store_visit.case/lists",
+        "paths": "cases",
+        "component": "apps/aigc_store_visit/cases",
+        "children": [
+          {
+            "source_menu_key": "aigc_store_visit_case_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_store_visit.case/detail"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_save",
+            "type": "A",
+            "name": "编辑模板",
+            "perms": "app.aigc_store_visit.case/save"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_fromJob",
+            "type": "A",
+            "name": "设为模板",
+            "perms": "app.aigc_store_visit.case/fromJob"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_status",
+            "type": "A",
+            "name": "上下架模板",
+            "perms": "app.aigc_store_visit.case/status"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_delete",
+            "type": "A",
+            "name": "删除记录",
+            "perms": "app.aigc_store_visit.case/delete"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_options",
+            "type": "A",
+            "name": "查看模板配置",
+            "perms": "app.aigc_store_visit.case/options"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_builtin",
+            "app_code": "aigc_store_visit",
+            "source": "app",
+            "type": "A",
+            "name": "设为内置模板",
+            "perms": "app.aigc_store_visit.case/builtin",
+            "sort": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_store_visit_job",
+        "app_code": "aigc_store_visit",
+        "source": "app",
+        "type": "C",
+        "name": "创作记录",
+        "sort": 10,
+        "perms": "app.aigc_store_visit.job/lists",
+        "paths": "jobs",
+        "component": "apps/aigc_store_visit/jobs",
+        "children": [
+          {
+            "source_menu_key": "aigc_store_visit_job_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_store_visit.job/detail"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_job_delete",
+            "type": "A",
+            "name": "删除记录",
+            "perms": "app.aigc_store_visit.job/delete"
+          },
+          {
+            "source_menu_key": "aigc_store_visit_case_builtinFromJob",
+            "app_code": "aigc_store_visit",
+            "source": "app",
+            "type": "A",
+            "name": "设为内置模板",
+            "perms": "app.aigc_store_visit.case/builtinFromJob",
+            "sort": 0
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_store_visit_genres",
+        "app_code": "aigc_store_visit",
+        "source": "app",
+        "type": "C",
+        "name": "剧情类型与编剧规则",
+        "sort": 0,
+        "perms": "app.aigc_store_visit.config/genres",
+        "paths": "genres",
+        "component": "apps/aigc_store_visit/genres",
+        "children": [
+          {
+            "source_menu_key": "aigc_store_visit_save_genres",
+            "type": "A",
+            "name": "保存编剧规则",
+            "perms": "app.aigc_store_visit.config/saveGenres"
+          }
+        ]
+      }
+    ]
+  }
+]

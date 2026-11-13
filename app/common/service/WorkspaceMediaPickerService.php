@@ -139,9 +139,13 @@ final class WorkspaceMediaPickerService
         foreach (WorkspaceAssetService::SOURCES as $source => $app) {
             // Fitting results are owned image results; saved stand-alone Agent artifacts are handled below.
             if (in_array($source, ['fitting','agent'], true)) continue;
-            $stream = in_array($source,['product_video','story_commerce'],true) ? $source.':task' : $source.':result';
+            $stream = in_array($source,['product_video','story_commerce','store_visit'],true) ? $source.':task' : $source.':result';
             $available = $source === 'canvas' || (in_array($app,$enabled,true) && MembershipService::userCanUseApp($tenant,$user,$app));
             if (!$available && !in_array($stream,$saved,true) && !($source==='canvas' && in_array('canvas:task',$saved,true))) continue;
+            if ($source==='store_visit') {
+                if (in_array('video',$types,true)) $sources[$stream]=WorkspaceStoreVisitAssetService::pickerSource(!$available);
+                continue;
+            }
             if ($source==='story_commerce') {
                 if (in_array('video',$types,true)) $sources[$stream]=WorkspaceStoryCommerceAssetService::pickerSource(!$available);
                 continue;
@@ -255,6 +259,7 @@ final class WorkspaceMediaPickerService
 
     private static function outputs(int $tenant, int $user, array $row): array
     {
+        if ($row['stream']==='store_visit:task') return WorkspaceStoreVisitAssetService::pickerOutputs($tenant,$user,$row);
         if ($row['stream']==='story_commerce:task') return WorkspaceStoryCommerceAssetService::pickerOutputs($tenant,$user,$row);
         if ($row['stream']==='product_video:task') return WorkspaceProductVideoAssetService::pickerOutputs($tenant,$user,$row);
         $type = $row['type'];
