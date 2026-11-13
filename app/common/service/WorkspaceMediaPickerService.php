@@ -15,15 +15,22 @@ final class WorkspaceMediaPickerService
     private const SIZE = 20;
     private const TYPES = ['image', 'video', 'audio', 'document'];
     private const VIDEO = ['video','digital_human','image_human','pic_lipsync','action_transfer','motion_sync','person_replacement','product_promo_video','watermark_removal','smart_clip'];
+    private const INDEXED_STREAMS = ['canvas:task','product_video:task','story_commerce:task','store_visit:task'];
+
+    private static function parseIdentity(string $id): array
+    {
+        if (!preg_match('/^([a-z_]+:(?:result|task)):([1-9][0-9]{0,10})(?::([1-9][0-9]{0,4}))?$/D', $id, $match)
+            || in_array($match[1], self::INDEXED_STREAMS, true) !== isset($match[3])) throw new InvalidArgumentException('素材标识无效');
+        return $match;
+    }
 
     /** Resolve the exact picker identity using the same source/ownership/visibility rules as listing.
      * Storage coordinates are returned only to server callers; no client URL is trusted. */
     public static function resolve(int $tenant, int $user, string $id): array
     {
         if ($tenant < 1 || $user < 1) throw new InvalidArgumentException('请先登录');
-        if (!preg_match('/^([a-z_]+:(?:result|task)):([1-9][0-9]{0,10})(?::([1-9][0-9]{0,4}))?$/D', $id, $match)) throw new InvalidArgumentException('素材标识无效');
+        $match = self::parseIdentity($id);
         $stream=$match[1];
-        if (in_array($stream,['canvas:task','product_video:task','story_commerce:task'],true) !== isset($match[3])) throw new InvalidArgumentException('素材标识无效');
         $sources=$stream==='upload:result' ? [$stream=>self::uploads()] : self::assets($tenant,$user,self::TYPES);
         if (!isset($sources[$stream])) throw new InvalidArgumentException('素材不存在或无权引用');
         $hidden=Db::name('user_asset_state')->where(['tenant_id'=>$tenant,'user_id'=>$user,'asset_ref'=>$id])->whereRaw('(hidden_at > 0 OR trashed_at > 0)')->count();
@@ -225,7 +232,7 @@ final class WorkspaceMediaPickerService
             }
             if ($s['saved'] ?? false) {
                 $state = Db::name('user_asset_state')->getTable();
-                $ref = in_array($stream,['canvas:task','product_video:task','story_commerce:task'],true) ? "a.asset_ref LIKE CONCAT('$stream:',r.id,':%')" : "a.asset_ref=CONCAT('$stream:',r.id)";
+                $ref = in_array($stream,self::INDEXED_STREAMS,true) ? "a.asset_ref LIKE CONCAT('$stream:',r.id,':%')" : "a.asset_ref=CONCAT('$stream:',r.id)";
                 $conditions[] = "EXISTS (SELECT 1 FROM `$state` a WHERE a.tenant_id=r.tenant_id AND a.user_id=r.$owner AND $ref AND a.hidden_at=0 AND a.trashed_at=0 AND (a.favorite=1 OR a.label<>''))";
             }
             $stamp = 'COALESCE(r.create_time,0)';
