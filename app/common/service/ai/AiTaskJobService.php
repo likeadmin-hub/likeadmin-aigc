@@ -187,7 +187,19 @@ class AiTaskJobService
                     });
                 })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_IMAGE_SUBMIT_RETRY, self::TYPE_MUSIC_OPERATION, self::TYPE_MOTION_SYNC_SUBMIT, self::TYPE_STORY_COMMERCE, self::TYPE_SMART_CLIP, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
                     ->when($appCode !== '', function ($query) use ($appCode) {
-                        $query->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
+                        $query->where(function ($owned) use ($appCode) {
+                            $owned->whereIn('app_task_id', Db::raw(AiAppTask::where('app_code', $appCode)->field('id')->buildSql()));
+                            if ($appCode === 'aigc_story_commerce') {
+                                // Native story jobs exist before the first paid model call creates ai_app_task.
+                                // Bind to the generated queue key and a real non-deleted native job, not arbitrary payload claims.
+                                $keys = Db::name('aigc_story_commerce_job')->where('delete_time', 0)
+                                    ->fieldRaw("CONCAT('story_commerce:', id)")->buildSql();
+                                $owned->whereOr(function ($native) use ($keys) {
+                                    $native->where('app_task_id', 0)->where('consumption_id', 0)
+                                        ->where('job_type', self::TYPE_STORY_COMMERCE)->whereIn('idempotency_key', Db::raw($keys));
+                                });
+                            }
+                        });
                     })
                     ->when($consumptionId > 0, function ($query) use ($consumptionId) {
                         $query->where(function ($owned) use ($consumptionId) {
