@@ -88,6 +88,47 @@ final class RuntimeGenerationSnapshotCapacityTest extends TestCase
         }
     }
 
+    public function testColumnNameCaseIsAcceptedWithoutRenamingTheOriginal(): void
+    {
+        $column = $this->column(['column_name'=>'PRICING_SNAPSHOT']);
+        $sql = RuntimeGenerationSnapshotCapacity::columnSql('aigc_video_task', 'pricing_snapshot', ['engine'=>'InnoDB'], $column, 'owned_');
+        self::assertStringContainsString('MODIFY COLUMN `PRICING_SNAPSHOT` MEDIUMTEXT', $sql);
+        self::assertNull(RuntimeGenerationSnapshotCapacity::columnSql('aigc_video_task', 'pricing_snapshot', ['engine'=>'InnoDB'], array_replace($column, ['data_type'=>'longtext','column_type'=>'longtext']), 'owned_'));
+        $this->expectException(\RuntimeException::class);
+        RuntimeGenerationSnapshotCapacity::columnSql('aigc_video_task', 'pricing_snapshot', ['engine'=>'InnoDB'], $this->column(['column_name'=>'other_snapshot']), 'owned_');
+    }
+
+    public function testUppercaseDriverKeysKeepMetadataGuardsAndRepeatability(): void
+    {
+        $connection = new class($this->column()) {
+            public array $executed = [];
+            public array $columns;
+            public function __construct(array $column) { $this->columns = [$column]; }
+            public function query(string $sql, array $bindings = []): array {
+                if (str_contains($sql, 'information_schema.TABLES')) $rows = [['engine'=>'InnoDB']];
+                elseif (str_contains($sql, 'information_schema.COLUMNS')) $rows = $this->columns;
+                else $rows = [['sql_mode'=>'NO_BACKSLASH_ESCAPES']];
+                return array_map(static fn(array $row): array => array_change_key_case($row, CASE_UPPER), $rows);
+            }
+            public function execute(string $sql): void {
+                $this->executed[] = $sql;
+                $this->columns[0]['data_type'] = $this->columns[0]['column_type'] = 'mediumtext';
+            }
+        };
+        self::assertSame(['status'=>'widened'], RuntimeGenerationSnapshotCapacity::apply('aigc_video_task', 'pricing_snapshot', 'owned_', $connection));
+        self::assertSame(['status'=>'already_sufficient'], RuntimeGenerationSnapshotCapacity::apply('aigc_video_task', 'pricing_snapshot', 'owned_', $connection));
+        self::assertCount(1, $connection->executed);
+        self::assertStringContainsString("COMMENT '冻结\\快照'''", $connection->executed[0]);
+        $connection->columns[] = $connection->columns[0];
+        try {
+            RuntimeGenerationSnapshotCapacity::apply('aigc_video_task', 'pricing_snapshot', 'owned_', $connection);
+            self::fail('Ambiguous metadata accepted');
+        } catch (\RuntimeException $expected) {
+            self::assertStringContainsString('无法确定原字段', $expected->getMessage());
+        }
+        self::assertCount(1, $connection->executed);
+    }
+
     public function testUnknownSchemaOrPrefixCannotProduceDdl(): void
     {
         foreach ([['engine'=>'MyISAM', 'column'=>[]], ['engine'=>'InnoDB', 'column'=>['data_type'=>'varchar', 'column_type'=>'varchar(20)']],
