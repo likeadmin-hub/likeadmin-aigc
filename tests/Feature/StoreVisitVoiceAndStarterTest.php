@@ -10,7 +10,7 @@ final class StoreVisitVoiceAndStarterTest extends TestCase
 {
     private function body(): array
     {
-        return P::body(['images'=>[['uri'=>'uploads/store.png','role'=>'store','reference_slot_id'=>'store','mention_name'=>'图片1'],['uri'=>'uploads/person.png','role'=>'person','reference_slot_id'=>'person','mention_name'=>'图片2']], 'reference_audio'=>['uri'=>'uploads/voice.wav','url'=>'https://example.test/signed/one'], 'voice_character'=>'探店男主', 'video_selection'=>['duration'=>15,'ratio'=>'9:16'], 'script'=>'人物走入门店，与镜头对话。']);
+        return P::body(['images'=>[['uri'=>'uploads/store.png','role'=>'store','reference_slot_id'=>'store','mention_name'=>'图片1'],['uri'=>'uploads/person.png','role'=>'person','reference_slot_id'=>'person','mention_name'=>'图片2']], 'reference_audio'=>['uri'=>'uploads/voice.wav','url'=>'https://example.test/signed/one','reference_slot_id'=>'store_visit_voice','mention_name'=>'音频1'], 'voice_character'=>'探店男主', 'video_selection'=>['duration'=>15,'ratio'=>'9:16'], 'script'=>'人物走入门店，与镜头对话。']);
     }
     public function testVoiceAndSpeakerInvalidateScriptsWhileSignedUrlsAndOldStyleDoNot(): void
     {
