@@ -18,6 +18,11 @@ class MarketGenerationCatalogService
     /** @return array<string, array<string, mixed>> */
     public static function directory(int $tenantId): array
     {
+        return MarketCatalogReadScope::run(static fn(): array => self::readDirectory($tenantId));
+    }
+
+    private static function readDirectory(int $tenantId): array
+    {
         $directory = [];
         foreach (self::TYPES as $generationType) {
             $directory[$generationType] = self::options($tenantId, $generationType);
@@ -27,6 +32,11 @@ class MarketGenerationCatalogService
 
     /** @return array<string, mixed> */
     public static function options(int $tenantId, string $generationType): array
+    {
+        return MarketCatalogReadScope::run(static fn(): array => self::readOptions($tenantId, $generationType));
+    }
+
+    private static function readOptions(int $tenantId, string $generationType): array
     {
         $generationType = strtolower(trim($generationType));
         if (!in_array($generationType, self::TYPES, true)) {

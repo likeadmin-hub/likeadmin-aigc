@@ -28,19 +28,23 @@ class MarketGenericImageAppRuntimeService
 
     public static function options(int $tenantId, string $upstreamAppCode = ''): array
     {
+        return MarketCatalogReadScope::run(static fn(): array => self::readOptions($tenantId, $upstreamAppCode));
+    }
+
+    private static function readOptions(int $tenantId, string $upstreamAppCode = ''): array
+    {
         $query = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_APP_API, 'status' => 1]);
         $query->where('upstream_app_code', $upstreamAppCode !== '' ? $upstreamAppCode : self::UPSTREAM_APP_CODE);
         $products = $query->order('id', 'asc')->select()->toArray();
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
+        $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'), ['id' => 'asc']);
         $options = [];
         foreach ($products as $product) {
             if (strtolower((string)$product['upstream_app_code']) !== self::UPSTREAM_APP_CODE
                 || strtolower((string)$product['upstream_api_code']) !== self::UPSTREAM_API_CODE) continue;
             $metadata = self::metadata($product);
-            foreach (PowerMarketSku::where(['product_id' => (int)$product['id'], 'status' => 1, 'sale_status' => 1])->order('id', 'asc')->select()->toArray() as $sku) {
-                $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
-                if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
+            foreach ($catalogueSkus[(int)$product['id']]['available'] ?? [] as $market) {
+                $sku = $market['sku'];
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $options[] = [
                     ...MarketModelSource::product($product),
@@ -66,7 +70,7 @@ class MarketGenericImageAppRuntimeService
                     'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
                     'query_path' => (string)($metadata['query_path'] ?? $metadata['capabilities']['query_path'] ?? ''),
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
-                    'tenant_unit_price' => self::points(\app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)),
+                    'tenant_unit_price' => self::points($market['tenant_price']),
                     'usage_unit' => (string)$sku['usage_unit'],
                     'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                     'settlement_mode' => MarketUsageSettlementService::isActualUsageSku($sku) ? 'actual_usage' : 'reserved',
