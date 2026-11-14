@@ -166,10 +166,15 @@ final class ShortDramaPlanningUnit
                 }
                 $interrupted[$root] = true;
             }
-            if ($checkOnly || !in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
             if ($row['status'] === 'failed' && !self::retryableBeforeSubmission((string)($row['error'] ?? ''))) {
-                throw new RuntimeException('上次模型请求的结果无法确认，不能安全重试；请新建任务并核对已完成内容');
+                if (!preg_match('/文本模型网络请求失败|\\b(?:connection|operation) timed out\\b|SSL_ERROR_SYSCALL/i', (string)$row['error'])) {
+                    throw new RuntimeException('上次模型请求的结果无法确认，不能安全重试；请新建任务并核对已完成内容');
+                }
+                // Legacy timeouts lack transfer counters. Only an explicitly confirmed successor may submit.
+                if (!$confirmInterrupted) throw new RuntimeException('上次网络请求结果无法确认，不能安全重试原请求；继续会仅为未完成部分创建新请求，可能产生新的费用，已完成内容及原记录保留。请确认后继续。', 409);
+                $interrupted[$root] = true;
             }
+            if ($checkOnly || !in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
         }
         if ($interrupted && !$confirmInterrupted) throw new RuntimeException($newContext ? self::CHANGED_CONTEXT_CONFIRMATION : self::INTERRUPTED_CONFIRMATION, 409);
         if ($checkOnly) return;
@@ -192,7 +197,8 @@ final class ShortDramaPlanningUnit
             Db::name('aigc_short_drama_planning_unit')->insert($scope + ['unit_key'=>$nextKey, 'status'=>'pending', 'attempt'=>0,
                 'request_json'=>json_encode($saved, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'create_time'=>time(),'update_time'=>time()]);
         }
-        foreach ($latest as $row) {
+        foreach ($latest as $root => $row) {
+            if (isset($interrupted[$root])) continue;
             if (!in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;
             $update = ['status' => 'pending', 'error' => '', 'update_time' => time()];
             if ((int)$row['attempt'] >= 3) $update['attempt'] = 0;
