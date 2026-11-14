@@ -14,6 +14,11 @@ class TenantPowerMarketService
 {
     public static function models(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = ''): array
     {
+        return MarketCatalogReadScope::run(static fn(): array => self::readModels($tenantId, $keyword, $status, $pageNo, $pageSize, $modelType));
+    }
+
+    private static function readModels(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = ''): array
+    {
         $query = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'status' => 1]);
         $keyword = trim($keyword);
         $modelType = trim($modelType);
@@ -36,6 +41,11 @@ class TenantPowerMarketService
     }
 
     public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
+    {
+        return MarketCatalogReadScope::run(static fn(): array => self::readApps($tenantId, $keyword, $status, $pageNo, $pageSize, $categoryCode));
+    }
+
+    private static function readApps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
     {
         $products = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
@@ -116,6 +126,11 @@ class TenantPowerMarketService
 
     public static function detail(int $tenantId, int $productId): array
     {
+        return MarketCatalogReadScope::run(static fn(): array => self::readDetail($tenantId, $productId));
+    }
+
+    private static function readDetail(int $tenantId, int $productId): array
+    {
         $product = PowerMarketProduct::where(['id' => $productId, 'status' => 1])->findOrEmpty();
         if ($product->isEmpty()) {
             return [];
@@ -132,6 +147,11 @@ class TenantPowerMarketService
 
     /** Internal catalogue projection using the same retail and shelf rules as the market. */
     public static function catalogueProducts(int $tenantId): array
+    {
+        return MarketCatalogReadScope::run(static fn(): array => self::readCatalogueProducts($tenantId));
+    }
+
+    private static function readCatalogueProducts(int $tenantId): array
     {
         $products = PowerMarketProduct::where('status', 1)->order('id', 'asc')->select()->toArray();
         if (!$products) return [];
@@ -150,6 +170,11 @@ class TenantPowerMarketService
 
     /** Documentation discovery is independent of whether a SKU is currently for sale. */
     public static function documentationProducts(int $tenantId): array
+    {
+        return MarketCatalogReadScope::run(static fn(): array => self::readDocumentationProducts($tenantId));
+    }
+
+    private static function readDocumentationProducts(int $tenantId): array
     {
         $products = PowerMarketProduct::where('status', 1)->order('id', 'asc')->select()->toArray();
         if (!$products) return [];
@@ -192,6 +217,11 @@ class TenantPowerMarketService
     }
 
     public static function appDetail(int $tenantId, string $appCode): array
+    {
+        return MarketCatalogReadScope::run(static fn(): array => self::readAppDetail($tenantId, $appCode));
+    }
+
+    private static function readAppDetail(int $tenantId, string $appCode): array
     {
         $data = PowerMarketService::appDetail($appCode);
         if ($data === []) {

@@ -614,7 +614,7 @@ class MarketTextModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     private static function options(int $tenantId, bool $vision): array
     {
-        return MarketCatalogReadScope::remember('text:' . $tenantId . ':' . (int)$vision, static fn(): array => self::buildOptions($tenantId, $vision));
+        return MarketCatalogReadScope::run(static fn(): array => MarketCatalogReadScope::remember('text:' . $tenantId . ':' . (int)$vision, static fn(): array => self::buildOptions($tenantId, $vision)));
     }
 
     private static function buildOptions(int $tenantId, bool $vision): array

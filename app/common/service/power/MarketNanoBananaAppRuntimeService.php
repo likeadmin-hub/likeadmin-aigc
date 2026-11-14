@@ -31,6 +31,11 @@ class MarketNanoBananaAppRuntimeService
     /** @return array<int,array<string,mixed>> */
     public static function options(int $tenantId): array
     {
+        return MarketCatalogReadScope::run(static fn(): array => self::readOptions($tenantId));
+    }
+
+    private static function readOptions(int $tenantId): array
+    {
         // Query is an internal lifecycle dependency. Do not expose a submit
         // product for new tasks when its result contract has been unshelved.
         if (!self::queryAvailable()) {
@@ -693,14 +698,7 @@ class MarketNanoBananaAppRuntimeService
     /** @return array<int,array{sku:array<string,mixed>,tenant_price:float}> */
     private static function availableSkus(int $tenantId, int $productId): array
     {
-        $result = [];
-        foreach (PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->select()->toArray() as $sku) {
-            $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
-            if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
-            $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
-        }
-        return $result;
+        return MarketCatalogSkuReader::forProducts($tenantId, [$productId])[$productId]['available'] ?? [];
     }
 
     /** @param array<string,mixed> $product @param array<string,mixed> $market */

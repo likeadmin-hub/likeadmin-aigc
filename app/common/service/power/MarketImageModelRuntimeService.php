@@ -84,7 +84,7 @@ class MarketImageModelRuntimeService
     /** @return array<int, array<string, mixed>> */
     public static function options(int $tenantId): array
     {
-        return MarketCatalogReadScope::remember('image:' . $tenantId, static fn(): array => self::buildOptions($tenantId));
+        return MarketCatalogReadScope::run(static fn(): array => MarketCatalogReadScope::remember('image:' . $tenantId, static fn(): array => self::buildOptions($tenantId)));
     }
 
     private static function buildOptions(int $tenantId): array

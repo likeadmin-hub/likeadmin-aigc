@@ -34,12 +34,12 @@ class MarketVideoRuntimeService
 
     public static function options(int $tenantId, string $resourceType): array
     {
-        return MarketCatalogReadScope::remember('video:' . $tenantId . ':' . $resourceType, static fn(): array => self::buildOptions($tenantId, $resourceType));
+        return MarketCatalogReadScope::run(static fn(): array => MarketCatalogReadScope::remember('video:' . $tenantId . ':' . $resourceType, static fn(): array => self::buildOptions($tenantId, $resourceType)));
     }
 
     public static function motionSyncOptions(int $tenantId): array
     {
-        return MarketCatalogReadScope::remember('motion_sync:'.$tenantId, static fn(): array => self::buildOptions($tenantId, PowerMarketService::TYPE_MODEL, 'aigc_motion_sync'));
+        return MarketCatalogReadScope::run(static fn(): array => MarketCatalogReadScope::remember('motion_sync:'.$tenantId, static fn(): array => self::buildOptions($tenantId, PowerMarketService::TYPE_MODEL, 'aigc_motion_sync')));
     }
 
     private static function buildOptions(int $tenantId, string $resourceType, string $appCode = ''): array
