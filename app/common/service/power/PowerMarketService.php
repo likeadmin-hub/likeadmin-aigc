@@ -510,12 +510,14 @@ class PowerMarketService
                     'status' => 0,
                     'update_time' => time(),
                 ]);
+                $skuBatch=$skuItems ? new MarketSkuSyncBatch((int)$product['id']) : null;
                 foreach ($skuItems as $sku) {
                     self::upsertSku(
                         (int)$product['id'],
                         $sku,
                         $item,
-                        $type === self::TYPE_MODEL && (string)($product['model_type'] ?? '') === 'text' ? 0 : 1
+                        $type === self::TYPE_MODEL && (string)($product['model_type'] ?? '') === 'text' ? 0 : 1,
+                        $skuBatch
                     );
                     $summary['skus']++;
                 }
@@ -1413,22 +1415,35 @@ class PowerMarketService
         return $row;
     }
 
-    private static function upsertSku(int $productId, array $sku, array $item, int $defaultSaleStatus = 1): void
+    private static function upsertSku(int $productId, array $sku, array $item, int $defaultSaleStatus = 1, ?MarketSkuSyncBatch $batch = null): void
     {
         $upstreamKey = trim((string)($sku['sku_key'] ?? ''));
         $fallbackKey = self::fallbackSkuKey($sku);
         $key = $upstreamKey ?: $fallbackKey;
-        $row = PowerMarketSku::where(['product_id' => $productId, 'sku_key' => $key])->findOrEmpty();
-        if ($row->isEmpty() && $upstreamKey !== '') {
-            $row = PowerMarketSku::where(['product_id' => $productId, 'sku_key' => $fallbackKey])->findOrEmpty();
-        }
-        if ($row->isEmpty()) {
-            // Older syncs masked sku_key as a secret. Restore the one legacy row only
-            // when its immutable billing specification proves it is the same SKU.
-            foreach (PowerMarketSku::where(['product_id' => $productId, 'sku_key' => '******'])->select()->toArray() as $legacyRow) {
-                if (self::fallbackSkuKey($legacyRow) === $fallbackKey) {
-                    $row = PowerMarketSku::findOrEmpty((int)$legacyRow['id']);
-                    break;
+        if ($batch !== null) {
+            if ($batch->productId() !== $productId) throw new Exception('SKU 批次与商品不一致');
+            $row = $batch->find($key) ?? ($upstreamKey !== '' ? $batch->find($fallbackKey) : null);
+            if ($row === null) foreach ($batch->masked() as $legacyRow) {
+                // Read identity fields only: toArray appends price rules and would
+                // turn a legacy-key repair back into one price query per row.
+                $identity=[];
+                foreach (['title','locked_params','selectable_params','usage_unit','usage_unit_size','billing_mode'] as $field) $identity[$field]=$legacyRow[$field];
+                if (self::fallbackSkuKey($identity) === $fallbackKey) { $row=$legacyRow;break; }
+            }
+            $row ??= new PowerMarketSku();
+        } else {
+            $row = PowerMarketSku::where(['product_id' => $productId, 'sku_key' => $key])->findOrEmpty();
+            if ($row->isEmpty() && $upstreamKey !== '') {
+                $row = PowerMarketSku::where(['product_id' => $productId, 'sku_key' => $fallbackKey])->findOrEmpty();
+            }
+            if ($row->isEmpty()) {
+                // Older syncs masked sku_key as a secret. Restore the one legacy row only
+                // when its immutable billing specification proves it is the same SKU.
+                foreach (PowerMarketSku::where(['product_id' => $productId, 'sku_key' => '******'])->select()->toArray() as $legacyRow) {
+                    if (self::fallbackSkuKey($legacyRow) === $fallbackKey) {
+                        $row = PowerMarketSku::findOrEmpty((int)$legacyRow['id']);
+                        break;
+                    }
                 }
             }
         }
@@ -1464,16 +1479,19 @@ class PowerMarketService
             $data['sale_status'] = $defaultSaleStatus === 1 ? 1 : 0;
             $data['sort'] = 0;
             $data['create_time'] = time();
-            PowerMarketSku::create($data);
+            $created=PowerMarketSku::create($data);
+            $batch?->remember($created);
             return;
         }
-        if ((string)$row['sku_key'] !== $key) {
+        $oldKey=(string)$row['sku_key'];
+        if ($oldKey !== $key) {
             $data['sku_key'] = $key;
         }
         // Existing tenant prices are preserved, except when an upstream cost
         // increase would make the configured platform-to-tenant price invalid.
         // Price rules are resolved on read. Never turn a stale manual price into a silent new price.
         $row->save($data);
+        $batch?->remember($row,$oldKey);
     }
 
     private static function normalizeModelType(string $type): string
