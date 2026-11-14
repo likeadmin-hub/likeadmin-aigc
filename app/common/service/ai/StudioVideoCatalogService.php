@@ -80,7 +80,7 @@ final class StudioVideoCatalogService
     }
     public static function model(int $tenant,string $id,bool $legacy=false,string $mode='both'): array
     {
-        foreach(self::models($tenant,$legacy,$mode) as $m)if($m['id']===$id)return $m;throw new InvalidArgumentException('视频模型暂不可用，请重新选择');
+        foreach(self::models($tenant,$legacy,$mode,[$id]) as $m)if($m['id']===$id)return $m;throw new InvalidArgumentException('视频模型暂不可用，请重新选择');
     }
     public static function specs(array $model,string $quality,string $ratio): array
     {
