@@ -171,7 +171,7 @@ final class ShortDramaPlanningUnit
                     throw new RuntimeException('上次模型请求的结果无法确认，不能安全重试；请新建任务并核对已完成内容');
                 }
                 // Legacy timeouts lack transfer counters. Only an explicitly confirmed successor may submit.
-                if (!$confirmInterrupted) throw new RuntimeException('上次网络请求结果无法确认，不能安全重试原请求；继续会仅为未完成部分创建新请求，可能产生新的费用，已完成内容及原记录保留。请确认后继续。', 409);
+                if (!$confirmInterrupted) throw new RuntimeException($newContext ? self::CHANGED_CONTEXT_CONFIRMATION : '上次网络请求结果无法确认，不能安全重试原请求；继续会仅为未完成部分创建新请求，可能产生新的费用，已完成内容及原记录保留。请确认后继续。', 409);
                 $interrupted[$root] = true;
             }
             if ($checkOnly || !in_array($row['status'], ['failed', 'waiting', 'pending'], true)) continue;

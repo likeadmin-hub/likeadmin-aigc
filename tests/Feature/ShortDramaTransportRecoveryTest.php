@@ -105,6 +105,8 @@ final class ShortDramaTransportRecoveryTest extends TestCase
         try {Unit::prepareExplicitRetry(21,7,'legacy',false,true);self::fail('Unconfirmed legacy timeout allowed');}
         catch(\RuntimeException $e){self::assertSame(409,$e->getCode());self::assertStringContainsString('新的费用',$e->getMessage());}
         self::assertSame(1,Db::name('aigc_short_drama_planning_unit')->where('task_id','legacy')->count());
+        try {Unit::prepareExplicitRetry(21,7,'legacy',false,true,true);self::fail('Changed context bypassed confirmation');}
+        catch(\RuntimeException $e){self::assertSame(Unit::CHANGED_CONTEXT_CONFIRMATION,$e->getMessage());}
         Unit::prepareExplicitRetry(21,7,'legacy',true);
         self::assertSame($original,Db::name('aigc_short_drama_planning_unit')->where('id',$legacyId)->find());
         self::assertSame(2,Db::name('aigc_short_drama_planning_unit')->where('task_id','legacy')->count());
