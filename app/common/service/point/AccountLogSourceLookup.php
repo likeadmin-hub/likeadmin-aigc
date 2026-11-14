@@ -27,7 +27,13 @@ final class AccountLogSourceLookup
             foreach(Db::query('SELECT COLUMN_NAME,COLLATION_NAME,CHARACTER_MAXIMUM_LENGTH,EXTRA,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (\'source_sn\',\'source_sn_lookup\')',[$table]) as$row)$columns[$row['COLUMN_NAME']]=$row;
             self::$available[$table]=isset($columns['source_sn'],$columns['source_sn_lookup'])&&self::compatible($columns['source_sn'],$columns['source_sn_lookup']);
         }
-        return self::$available[$table]?$alias.'.source_sn_lookup':'CONVERT('.$alias.'.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci';
+        return self::$available[$table]?$alias.'.source_sn_lookup':self::legacyExpression($alias);
+    }
+
+    public static function legacyExpression(string $alias='ual'): string
+    {
+        if(!preg_match('/^[a-z_][a-z0-9_]*$/iD',$alias))throw new InvalidArgumentException('流水关联别名无效');
+        return 'CONVERT('.$alias.'.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci';
     }
 
     public static function clear(): void {self::$available=[];}
