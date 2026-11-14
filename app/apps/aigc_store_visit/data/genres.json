@@ -7,7 +7,8 @@
     "instruction": "参考人物作为探店者，引导观众从入店、走动到空间亮点，镜头自然跟随人物；只展示已确认门店事实。",
     "version": 1,
     "status": 1,
-    "sort": 100
+    "sort": 100,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/host_tour.webp"
   },
   {
     "code": "first_person",
@@ -17,7 +18,8 @@
     "instruction": "以第一视角进入门店，人物素材用于镜头中自然出现的探店者，走动与细节特写交替，空间关系连贯。",
     "version": 1,
     "status": 1,
-    "sort": 99
+    "sort": 99,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/first_person.webp"
   },
   {
     "code": "atmosphere",
@@ -27,7 +29,8 @@
     "instruction": "以门店真实空间、灯光与陈设为重点，人物自然走动，节奏舒缓，不虚构未展示区域。",
     "version": 1,
     "status": 1,
-    "sort": 98
+    "sort": 98,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/atmosphere.webp"
   },
   {
     "code": "food_visit",
@@ -37,7 +40,8 @@
     "instruction": "仅在素材或用户确认有餐食时展示，先环境再已确认餐食，人物自然体验；不编造口味、价格或评价，无餐食事实时只拍门店环境。",
     "version": 1,
     "status": 1,
-    "sort": 97
+    "sort": 97,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/food_visit.webp"
   },
   {
     "code": "service_visit",
@@ -47,7 +51,8 @@
     "instruction": "围绕用户确认的服务安排人物动作，没有确认的服务项目不展示，不冒充消费体验或夸大效果。",
     "version": 1,
     "status": 1,
-    "sort": 96
+    "sort": 96,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/service_visit.webp"
   },
   {
     "code": "comedy",
@@ -57,7 +62,8 @@
     "instruction": "以入店时的小误会推进探店剧情，参考人物与真实门店自然互动，以轻松反转收尾，不编造门店经营事实。",
     "version": 1,
     "status": 1,
-    "sort": 95
+    "sort": 95,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/comedy.webp"
   },
   {
     "code": "couple_visit",
@@ -67,7 +73,8 @@
     "instruction": "参考人物与同伴自然探访门店，突出互动与空间亮点，没有提供同伴素材时不复制参考人物或声称同伴真实到访。",
     "version": 1,
     "status": 1,
-    "sort": 94
+    "sort": 94,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/couple_visit.webp"
   },
   {
     "code": "hidden_gem",
@@ -77,6 +84,7 @@
     "instruction": "用一个具体视觉细节开场，跟随参考人物寻找门店已确认亮点，避免未经证实的网红、宝藏排行或口碑宣传。",
     "version": 1,
     "status": 1,
-    "sort": 93
+    "sort": 93,
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/hidden_gem.webp"
   }
 ]

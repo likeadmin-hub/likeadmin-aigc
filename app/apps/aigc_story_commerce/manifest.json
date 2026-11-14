@@ -7,7 +7,7 @@
   "changelog": "1. 分析商品并创作可编辑的剧情带货脚本和视频。\n2. 剧情类型支持横向选择，完善灵感同款和画风选择。\n3. 支持多端创作、历史作品与统一资产。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
-  "cover": "",
+  "cover": "resource/image/apps/aigc_story_commerce/cover.gif",
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 844,
@@ -78,6 +78,16 @@
           }
         ]
       }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/local/cover-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/cover-v2.webp"
+    },
+    {
+      "source": "assets/local/cover.gif",
+      "target": "public/resource/image/apps/aigc_story_commerce/cover.gif"
     }
   ]
 }

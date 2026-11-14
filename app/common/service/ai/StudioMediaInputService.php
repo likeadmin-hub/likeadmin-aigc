@@ -98,18 +98,29 @@ final class StudioMediaInputService
         } finally { self::cleanup($workspace); }
     }
 
-    public static function validateAudio(int $tenant,int $user,string $input,int $maxSeconds=60): array
+    public static function validateAudio(int $tenant,int $user,string $input,int $maxSeconds=60,int $maxBytes=268435456): array
     {
         $uri=self::canonicalUri($input);$file=self::ownedFile($tenant,$user,$uri,FileEnum::FILE_TYPE);$storage=self::storage($file,$tenant);$url=self::managedUrl($uri,$storage,$tenant);
         if(preg_match('#^https?://#i',$input)&&!self::sameObjectUrl($input,$url))throw new RuntimeException('音频地址与所属素材不匹配');
-        $workspace=self::workspace();
-        try{
-            $path=$workspace.'/reference.audio';self::materialize($uri,$path,$tenant,$user,FileEnum::FILE_TYPE);
-            $info=json_decode(self::run([self::binary('ffprobe'),'-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',$path],30),true);
-            $audio=array_filter($info['streams']??[],static fn($s)=>($s['codec_type']??'')==='audio');$duration=(float)($info['format']['duration']??0);
-            if(!$audio||!is_finite($duration)||$duration<=0||$duration>$maxSeconds+0.1)throw new \InvalidArgumentException('参考音频必须是有效音频，且不超过 '.$maxSeconds.' 秒');
-            return ['uri'=>$uri,'url'=>$url,'duration'=>$duration,'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>(int)$file['id']]+$storage;
-        }finally{self::cleanup($workspace);}
+        $identity=[$tenant,$user,$file['id'],$uri,$file['update_time']??0,$storage];
+        if($storage['storage_engine']==='local'){$local=self::localPath($uri);$identity[]=[filemtime($local),filesize($local)];}
+        $key='owned_audio_probe_v1:'.hash('sha256',json_encode($identity));$facts=null;
+        try{$facts=\think\facade\Cache::get($key);}catch(\Throwable){}
+        if(!is_array($facts)){
+            $workspace=self::workspace();
+            try{
+                $path=$workspace.'/reference.audio';self::materialize($uri,$path,$tenant,$user,FileEnum::FILE_TYPE);
+                $bytes=(int)filesize($path);if($bytes>$maxBytes)throw new \InvalidArgumentException('参考音频文件过大');
+                $info=json_decode(self::run([self::binary('ffprobe'),'-v','error','-protocol_whitelist','file,pipe','-show_streams','-show_format','-of','json',$path],30),true);
+                $audio=array_filter($info['streams']??[],static fn($s)=>($s['codec_type']??'')==='audio');$duration=(float)($info['format']['duration']??0);
+                if(!$audio||!is_finite($duration)||$duration<=0)throw new \InvalidArgumentException('参考音频必须是有效的声音文件');
+                $facts=['duration'=>$duration,'file_size'=>$bytes];
+                try{\think\facade\Cache::set($key,$facts,300);}catch(\Throwable){}
+            }finally{self::cleanup($workspace);}
+        }
+        if(!is_numeric($facts['duration']??null)||!is_finite((float)$facts['duration'])||$facts['duration']<=0||$facts['duration']>$maxSeconds+0.1)throw new \InvalidArgumentException('参考音频必须是有效音频，且不超过 '.$maxSeconds.' 秒');
+        if((int)($facts['file_size']??PHP_INT_MAX)>$maxBytes)throw new \InvalidArgumentException('参考音频文件过大');
+        return ['uri'=>$uri,'url'=>$url,'duration'=>(float)$facts['duration'],'file_size'=>(int)$facts['file_size'],'name'=>(string)$file['name'],'tenant_id'=>$tenant,'user_id'=>$user,'file_id'=>(int)$file['id']]+$storage;
     }
 
     public static function videoInput(array $asset): string

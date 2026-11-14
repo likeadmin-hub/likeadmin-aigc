@@ -17381,7 +17381,7 @@ class AigcShortDramaService
             return [
                 'id' => (string)$row['id'],
                 'name' => (string)$row['name'],
-                'image' => self::fileUrl((string)$row['image']),
+                'image' => self::fileUrl(BuiltinVisualStyleCovers::uri((string)$row['image'],(string)$row['name'])),
                 'description' => (string)($row['description'] ?? ''),
                 'is_new' => (bool)$row['is_new'],
                 'sort' => (int)$row['sort'],
@@ -25072,7 +25072,7 @@ class AigcShortDramaService
             'id' => (int)$row['id'],
             'tenant_id' => (int)$row['tenant_id'],
             'name' => (string)$row['name'],
-            'image' => self::fileUrl((string)($row['image'] ?? '')),
+            'image' => self::fileUrl(BuiltinVisualStyleCovers::uri((string)($row['image'] ?? ''),(string)$row['name'])),
             'raw_image' => (string)($row['image'] ?? ''),
             'description' => (string)($row['description'] ?? ''),
             'is_new' => (int)$row['is_new'],

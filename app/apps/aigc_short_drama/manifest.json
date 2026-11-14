@@ -61,5 +61,71 @@
         ]
       }
     }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/local/style-covers/cinematic.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/cinematic.webp"
+    },
+    {
+      "source": "assets/local/style-covers/retro.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/retro.webp"
+    },
+    {
+      "source": "assets/local/style-covers/cold.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/cold.webp"
+    },
+    {
+      "source": "assets/local/style-covers/noir.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/noir.webp"
+    },
+    {
+      "source": "assets/local/style-covers/historical.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/historical.webp"
+    },
+    {
+      "source": "assets/local/style-covers/wuxia.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/wuxia.webp"
+    },
+    {
+      "source": "assets/local/style-covers/gloss3d.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/gloss3d.webp"
+    },
+    {
+      "source": "assets/local/style-covers/cyberpunk.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/cyberpunk.webp"
+    },
+    {
+      "source": "assets/local/style-covers/clay.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/clay.webp"
+    },
+    {
+      "source": "assets/local/style-covers/anime.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/anime.webp"
+    },
+    {
+      "source": "assets/local/style-covers/pixel.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/pixel.webp"
+    },
+    {
+      "source": "assets/local/style-covers/jelly3d.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/jelly3d.webp"
+    },
+    {
+      "source": "assets/local/style-covers/ink.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/ink.webp"
+    },
+    {
+      "source": "assets/local/style-covers/darkillustration.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/darkillustration.webp"
+    },
+    {
+      "source": "assets/local/style-covers/paper.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/paper.webp"
+    },
+    {
+      "source": "assets/local/style-covers/cartoon3d.webp",
+      "target": "public/resource/image/apps/aigc_short_drama/style-covers/cartoon3d.webp"
+    }
   ]
 }
