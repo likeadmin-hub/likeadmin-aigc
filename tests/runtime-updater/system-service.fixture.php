@@ -112,6 +112,10 @@ seedBusiness('recharge_order', ['tenant_id'=>901,'user_id'=>901,'sn'=>'fixture-o
 seedBusiness('aigc_short_drama_episode_task', ['tenant_id'=>901,'user_id'=>901,'status'=>'running','heartbeat_at'=>123456,'attempt_number'=>2]);
 seedBusiness('aigc_short_drama_canvas_poster_job', ['status'=>'running','lease_token'=>'existing-owner','lease_expire_time'=>4294967295,'attempts'=>2,'idempotency_key'=>'fixture-existing-task']);
 $businessTables = ['tenant','user','user_account_log','recharge_order','aigc_short_drama_episode_task','aigc_short_drama_canvas_poster_job'];
+if(in_array('sql/structure/upgrade_20261111_retire_micro_video.sql',$release['sql_order']??[],true)){
+    seedBusiness('aigc_micro_video_task',['id'=>901,'tenant_id'=>901,'user_id'=>901,'status'=>'failed']);
+    $businessTables[]='aigc_micro_video_task';
+}
 $appAccessPolicy=[];$appConfigPolicies=[];
 if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') {
     Db::name('app')->where('code','aigc_music')->update(['status'=>'disabled']);
@@ -417,6 +421,19 @@ if (getenv('FIXTURE_OFFICIAL_ARCHIVE') && in_array($case, ['success','metadata-f
     verify((float)Db::name('aigc_digital_human_billing')->where('id',$probeId)->value('quantity')===2.88,'Upgraded billing schema truncated fractional actual seconds');
     Db::name('aigc_digital_human_billing')->where('id',$probeId)->delete();
     echo "PASS actual signed upgrade applies decimal avatar quantity and stores 2.88 seconds\n";
+}
+if(getenv('FIXTURE_OFFICIAL_ARCHIVE')&&in_array($case,['success','metadata-failure'],true)
+    &&in_array('sql/structure/upgrade_20261113_aigc_store_visit.sql',$manifest['sql_order']??[],true)){
+    foreach(['aigc_product_video','aigc_motion_sync','aigc_story_commerce','aigc_store_visit']as$code){
+        $row=Db::name('app')->where('code',$code)->find();
+        verify($row&&$row['status']==='installed'&&(int)$row['is_builtin']===1,'New studio registry missing after actual upgrade: '.$code);
+        verify(Db::name('app_frontend_entry')->where('app_code',$code)->count()>=3,'New studio frontend entries missing: '.$code);
+        foreach([0,901]as$tenantId)verify(Db::name('tenant_app')->where(['tenant_id'=>$tenantId,'app_code'=>$code])->count()===1,'New studio tenant provision missing: '.$code);
+    }
+    verify(Db::name('app')->where('code','aigc_micro_video')->value('status')==='removed','Retired app admission remained enabled');
+    verify(Db::name('app_api')->where('app_code','aigc_micro_video')->count()===0,'Retired app APIs remained registered');
+    verify(Db::name('aigc_micro_video_task')->where('id',901)->find()===$business['aigc_micro_video_task'][0],'Retirement changed historical task');
+    echo "PASS actual signed upgrade provisions four studios and retains retired micro-video history\n";
 }
 echo 'PASS real SystemPackageUpdateService ' . ($migration?'legacy402-':($canonical?'canonical-':'')) . $case . ': signed preflight/apply, DB statuses, files/pointer/version, six business tables and protected site state; SQL count=' . $sqlCount . "\n";
 

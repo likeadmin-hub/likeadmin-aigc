@@ -10,6 +10,8 @@ final class StoreVisitQueueClaimTest extends TestCase
         if(getenv('AIGC_TEST_DATABASE')!=='x_cn')self::markTestSkipped('Disposable x_cn only');
         (new \think\App())->initialize();self::assertSame('x_cn',Db::connect()->getConfig('database'));self::assertSame('127.0.0.1',Db::connect()->getConfig('hostname'));
         Db::startTrans();try{
+            // Existing developer queues are outside this rollback fixture.
+            Db::name('ai_task_job')->whereIn('status',['pending','running'])->update(['status'=>'success']);
             $make=static fn($deleted=0)=>Db::name('aigc_store_visit_job')->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>1,'project_revision'=>1,'action'=>'analysis','idempotency_key'=>bin2hex(random_bytes(16)),'input_hash'=>str_repeat('a',64),'status'=>'queued','request_json'=>'{}','receipt_json'=>'{}','result_json'=>'{}','delete_time'=>$deleted]);
             $id=$make();$target=Queue::enqueue(Queue::TYPE_STORE_VISIT,0,0,['story_job_id'=>$id,'tenant_id'=>1,'user_id'=>1],999999,false,'store_visit:'.$id);
             $deleted=$make(time());$dead=Queue::enqueue(Queue::TYPE_STORE_VISIT,0,0,['story_job_id'=>$deleted,'tenant_id'=>1,'user_id'=>1],999999,false,'store_visit:'.$deleted);

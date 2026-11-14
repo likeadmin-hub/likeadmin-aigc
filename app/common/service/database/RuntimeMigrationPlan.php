@@ -8,7 +8,7 @@ final class RuntimeMigrationPlan
 {
     public static function build(string $content): array
     {
-        if (preg_match('/^-- likeadmin:retire-micro-video-v1\s*$/m', $content)) return ['prepare'=>'','complete'=>$content,'tables'=>[]];
+        if (preg_match('/^-- likeadmin:retire-micro-video-v1\s*$/m', $content)) return ['prepare'=>'','complete'=>$content,'tables'=>['la_app','la_tenant_app','la_app_frontend_entry','la_app_api','la_app_case','la_system_menu','la_tenant_system_menu','la_system_role_menu','la_tenant_system_role_menu']];
         if (!class_exists(CanvasConversationSchema::class)) require_once __DIR__.'/CanvasConversationSchema.php';
         $content = CanvasConversationSchema::expand($content);
         $prepare = []; $complete = []; $tables = [];
