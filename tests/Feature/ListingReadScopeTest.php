@@ -19,7 +19,7 @@ final class ListingReadScopeTest extends TestCase
         $queries=0;Db::listen(static function($sql)use(&$queries){if(str_starts_with($sql,'SELECT'))$queries++;});
         $list=new class extends BaseDataLists {
             public function __construct(){$this->export='';$this->pageNo=1;$this->pageSize=30;}
-            public function lists(): array {$out=[];for($i=0;$i<30;$i++)$out[]=['avatar'=>FileService::getFileUrl('resource/image/common/avatar.png')];return $out;}
+            public function lists(): array {$out=[];for($i=0;$i<30;$i++)$out[]=['avatar'=>FileService::getFileUrl('uploads/images/list-scope-fixture.png')];return $out;}
             public function count(): int {return 30;}
         };
         $expected=$list->lists();$baseline=$queries;$queries=0;
