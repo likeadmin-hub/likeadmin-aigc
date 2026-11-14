@@ -10,7 +10,9 @@ class MariaDbMigrationCompatibilityTest extends TestCase
     {
         $source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/tenantapi/lists/power/TenantPowerConsumeLogLists.php');
 
-        self::assertStringContainsString('CONVERT(ual.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci', $source);
+        self::assertStringContainsString("AccountLogSourceLookup::expression('ual')", $source);
+        self::assertSame('CONVERT(ual.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci',
+            \app\common\service\point\AccountLogSourceLookup::legacyExpression('ual'));
         self::assertStringContainsString('CONVERT(tpl.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci', $source);
     }
 
