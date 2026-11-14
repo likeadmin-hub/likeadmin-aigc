@@ -65,9 +65,9 @@ class UpstreamPricingService
     /**
      * @return array<int, array<string, mixed>>
      */
-    public static function queryApps(): array
+    public static function queryApps(int $timeout = self::TIMEOUT): array
     {
-        $response = self::request('GET', '/api/v1/apps');
+        $response = self::request('GET', '/api/v1/apps', [], $timeout);
         $rows = $response['data'] ?? $response['items'] ?? $response['apps'] ?? $response;
         return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
     }
@@ -152,13 +152,14 @@ class UpstreamPricingService
 
         $response = self::request('POST', '/api/v1/pricing/batch', ['items' => $payloadItems]);
         $rows = $response['items'] ?? [];
-        if (!is_array($rows)) {
-            $rows = [];
+        if (!is_array($rows) || count($rows) !== count($payloadItems)) {
+            throw new Exception('上游价格批次返回不完整，已保留原有价格');
         }
         $normalized = [];
         foreach ($payloadItems as $index => $payloadItem) {
             $row = $rows[$index] ?? [];
-            $item = is_array($row) ? $row : [];
+            if (!is_array($row) || !array_key_exists('available', $row)) throw new Exception('上游价格批次缺少可用状态，已保留原有价格');
+            $item = $row;
             $normalized[] = array_merge(self::normalizeItem($item, $payloadItem), [
                 'local_key' => (string)($localKeys[$index] ?? ''),
                 'request' => self::withoutLocalMeta($payloadItem),
@@ -224,6 +225,23 @@ class UpstreamPricingService
 
     private static function request(string $method, string $path, array $payload = [], int $timeout = self::TIMEOUT): array
     {
+        $state = request()->upstreamCatalogBatch;
+        $key = self::readKey($method, $path, $payload);
+        if (is_array($state) && array_key_exists($key, $state['responses'])) {
+            $cached = $state['responses'][$key];
+            if ($cached instanceof \Throwable) throw $cached;
+            return $cached;
+        }
+        if (is_array($state) && self::isMetadataPath($path)) {
+            if ($state['deadline'] === null) {
+                $state['deadline'] = microtime(true) + $state['metadata_budget'];
+                request()->upstreamCatalogBatch = $state;
+            }
+            $remaining = $state['deadline'] - microtime(true);
+            if ($remaining < 1) throw new Exception('上游说明读取超过本批次时限');
+            $timeout = min($timeout, 5, (int)ceil($remaining));
+        }
+
         $source = UpdateSourceClient::getSource();
         $origin = self::sourceOrigin($source);
         if ($origin === '') {
@@ -265,6 +283,11 @@ class UpstreamPricingService
         if ($errno) {
             throw new Exception(self::friendlyError($error ?: '上游价格查询失败'));
         }
+        return self::decodeRead((string)$body, $status);
+    }
+
+    private static function decodeRead(string $body, int $status): array
+    {
         $data = json_decode((string)$body, true);
         if (!is_array($data)) {
             throw new Exception('上游价格接口响应格式错误');
@@ -274,6 +297,107 @@ class UpstreamPricingService
         }
         $result = $data['data'] ?? $data;
         return is_array($result) ? self::sanitize($result) : [];
+    }
+
+
+    /** Scope all memoized reads to this synchronization and restore it even on failure. */
+    public static function withCatalogBatch(callable $read, int $metadataBudget = 15): array
+    {
+        $request = request();
+        $previous = $request->upstreamCatalogBatch;
+        $request->upstreamCatalogBatch = ['deadline' => null, 'metadata_budget' => $metadataBudget, 'responses' => []];
+        try { return $read(); }
+        finally { $request->upstreamCatalogBatch = $previous; }
+    }
+
+    private static function readKey(string $method, string $path, array $payload): string
+    {
+        return hash('sha256', json_encode([$method, $path, $payload], JSON_THROW_ON_ERROR));
+    }
+
+    private static function isMetadataPath(string $path): bool
+    {
+        return str_starts_with($path, '/api/user_center/developerDoc') || str_starts_with($path, '/api/v1/apps/');
+    }
+
+    public static function prefetchMetadata(array $models = [], array $apps = []): void
+    {
+        $jobs = [];
+        foreach ($models as $model) {
+            $id = \app\common\service\power\MarketGenerationSourceIdentity::modelId($model);
+            if ($id > 0) $jobs[] = ['GET', '/api/user_center/developerDocDetail', ['model_id' => $id, 'terminal' => 4]];
+        }
+        foreach ($apps as $app) {
+            $code = trim((string)($app['code'] ?? ''));
+            if (!preg_match('/^[a-z0-9_-]+$/D', $code)) continue;
+            $jobs[] = ['GET', '/api/v1/apps/'.$code, []];
+            foreach ((array)($app['apis'] ?? []) as $api) {
+                if (!is_array($api)) continue;
+                $id = \app\common\service\power\MarketGenerationSourceIdentity::appApiId($api);
+                if ($id > 0) $jobs[] = ['GET', '/api/user_center/developerDocDetail', ['app_api_id' => $id, 'terminal' => 4]];
+            }
+        }
+        $state = request()->upstreamCatalogBatch;
+        if (is_array($state)) {
+            $state['deadline'] = microtime(true) + $state['metadata_budget'];
+            request()->upstreamCatalogBatch = $state;
+        }
+        self::prefetch($jobs, true);
+    }
+
+    /** Prime the existing queryBatch decoder; keep each chunk's error isolated. */
+    public static function prefetchPricing(array $chunks): void
+    {
+        $jobs = [];
+        foreach ($chunks as $chunk) {
+            $items = [];
+            foreach ($chunk as $item) {
+                $payload = self::normalizeRequestItem($item);
+                if ($payload) $items[] = $payload;
+            }
+            if ($items) $jobs[] = ['POST', '/api/v1/pricing/batch', ['items' => array_slice($items, 0, self::MAX_BATCH_SIZE)]];
+        }
+        self::prefetch($jobs, false);
+    }
+
+    private static function prefetch(array $requests, bool $metadata): void
+    {
+        $state = request()->upstreamCatalogBatch;
+        if (!is_array($state) || !$requests) return;
+        $jobs = [];
+        foreach ($requests as $job) {
+            $key = self::readKey(...$job);
+            if (!array_key_exists($key, $state['responses'])) $jobs[$key] = $job;
+        }
+        if (!$jobs) return;
+        $source = UpdateSourceClient::getSource();
+        $origin = self::sourceOrigin($source);
+        $apiKey = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
+        if ($origin === '' || $apiKey === '') throw new Exception('请先配置接口渠道');
+        $budget = $metadata ? max(0, $state['deadline'] - microtime(true)) : 15;
+        $results = UpstreamCatalogReadBatch::run($jobs, static function (array $job, float $remaining) use ($source, $origin, $apiKey, $metadata) {
+            [$method, $path, $params] = $job;
+            $url = $origin.$path;
+            $headers = ['Authorization: Bearer '.$apiKey, 'Accept: application/json'];
+            $handle = curl_init();
+            curl_setopt_array($handle, [
+                CURLOPT_URL => $method === 'GET' && $params ? $url.'?'.http_build_query($params) : $url,
+                CURLOPT_RETURNTRANSFER => true, CURLOPT_ENCODING => '',
+                CURLOPT_CONNECTTIMEOUT_MS => min(5000, max(1, (int)ceil($remaining * 1000))),
+                CURLOPT_TIMEOUT_MS => max(1, (int)ceil(min($metadata ? 5 : 15, $remaining) * 1000)),
+                CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source),
+                CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0,
+            ]);
+            if ($method === 'POST') {
+                $headers[] = 'Content-Type: application/json';
+                curl_setopt($handle, CURLOPT_POST, true);
+                curl_setopt($handle, CURLOPT_POSTFIELDS, json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+            }
+            curl_setopt($handle, CURLOPT_HTTPHEADER, $headers);
+            return $handle;
+        }, static fn(string $body, int $status): array => self::decodeRead($body, $status), $budget);
+        $state['responses'] = array_replace($state['responses'], $results);
+        request()->upstreamCatalogBatch = $state;
     }
 
     private static function normalizeItem(array $row, array $request = []): array

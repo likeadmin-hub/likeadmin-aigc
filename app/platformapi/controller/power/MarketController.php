@@ -90,8 +90,10 @@ class MarketController extends BaseAdminController
     public function sync()
     {
         try {
-            $otherOnly = $this->request->post('catalog_type', '') === 'other';
-            return $this->success('同步成功', PowerMarketService::syncFromUpstream($otherOnly, $otherOnly ? ['other'] : null), 1, 1);
+            $scope = (string)$this->request->post('catalog_type', '');
+            if ($scope !== '' && !in_array($scope, ['text', 'image', 'video', 'other', 'app_api'], true)) throw new Exception('同步分类无效');
+            $modelsOnly = $scope !== '' && $scope !== 'app_api';
+            return $this->success('同步成功', PowerMarketService::syncFromUpstream($modelsOnly, $modelsOnly ? [$scope] : null, $scope === 'app_api', $scope !== ''), 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
