@@ -412,18 +412,30 @@ final class ShortDramaSkillService
     private static function syncBuiltinSkills(): void
     {
         self::seedCategories(0);
-        foreach (ShortDramaBuiltinSkillCatalog::all() as $definition) {
-            $existing = AigcShortDramaSkill::where([
-                'tenant_id' => 0,
-                'skill_key' => (string)$definition['skill_key'],
-                'delete_time' => 0,
-            ])->findOrEmpty();
-            if (!$existing->isEmpty()) {
-                self::syncBuiltinSkill($existing, $definition);
+        $definitions = ShortDramaBuiltinSkillCatalog::all();
+        $existingByKey = [];
+        foreach (AigcShortDramaSkill::where(['tenant_id' => 0, 'delete_time' => 0])
+            ->whereIn('skill_key', array_column($definitions, 'skill_key'))->order('id')->select() as $skill) {
+            $existingByKey[(string)$skill['skill_key']] ??= $skill;
+        }
+        $versions = [];
+        if ($existingByKey) {
+            $ids = array_map(static fn($skill): int => (int)$skill['id'], array_values($existingByKey));
+            foreach (Db::name('aigc_short_drama_skill_version')->where('tenant_id', 0)->whereIn('skill_id', $ids)
+                ->field('skill_id,version')->select()->toArray() as $version) {
+                $versions[(int)$version['skill_id'].':'.(int)$version['version']] = true;
+            }
+        }
+        $categories = Db::name('aigc_short_drama_skill_category')->where(['tenant_id' => 0, 'delete_time' => 0])
+            ->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
+        foreach ($definitions as $definition) {
+            $existing = $existingByKey[(string)$definition['skill_key']] ?? null;
+            if ($existing) {
+                self::syncBuiltinSkill($existing, $definition, $categories, $versions);
                 continue;
             }
             $now = time();
-            $skill = AigcShortDramaSkill::create(self::builtinPayload($definition) + [
+            $skill = AigcShortDramaSkill::create(self::builtinPayload($definition, $categories) + [
                 'tenant_id' => 0,
                 'creator_admin_id' => 0,
                 'status' => 1,
@@ -436,13 +448,15 @@ final class ShortDramaSkillService
                 'delete_time' => 0,
             ]);
             self::snapshot(0, $skill->toArray(), 0, self::ACTIVE);
+            $existingByKey[(string)$definition['skill_key']] = $skill;
+            $versions[(int)$skill['id'].':1'] = true;
         }
     }
 
     /** Refresh an existing system row when a later app update changes its packaged definition. */
-    private static function syncBuiltinSkill(AigcShortDramaSkill $skill, array $definition): void
+    private static function syncBuiltinSkill(AigcShortDramaSkill $skill, array $definition, array $categories, array &$versions): void
     {
-        $payload = self::builtinPayload($definition);
+        $payload = self::builtinPayload($definition, $categories);
         $current = $skill->toArray();
         $changed = false;
         foreach ($payload as $field => $value) {
@@ -464,15 +478,17 @@ final class ShortDramaSkillService
             ]);
         }
         $version = (int)$skill['version'];
-        if (!Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => 0, 'skill_id' => (int)$skill['id'], 'version' => $version])->find()) {
+        $key = (int)$skill['id'].':'.$version;
+        if (!isset($versions[$key])) {
             self::snapshot(0, $skill->toArray(), 0, self::ACTIVE);
+            $versions[$key] = true;
         }
     }
 
     /** @return array<string,mixed> */
-    private static function builtinPayload(array $definition): array
+    private static function builtinPayload(array $definition, ?array $categories = null): array
     {
-        $categories = Db::name('aigc_short_drama_skill_category')->where([
+        $categories ??= Db::name('aigc_short_drama_skill_category')->where([
             'tenant_id' => 0,
             'delete_time' => 0,
         ])->whereIn('name', (array)($definition['category_names'] ?? []))->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
