@@ -284,7 +284,7 @@ class PowerMarketService
         $typeErrors = [];
         foreach ($modelTypes as $modelType) {
             try {
-                $remoteModels = self::withUpstreamRetry(fn() => UpstreamPricingService::queryModels($modelType, true, $bounded ? 10 : 35));
+                $remoteModels = self::withUpstreamRetry(fn() => UpstreamPricingService::queryModels($modelType, true, $bounded ? 10 : 35), !$bounded);
                 $syncedModelTypes[] = $modelType;
                 UpstreamPricingService::prefetchMetadata($remoteModels);
                 $acceptedModels = 0;
@@ -361,7 +361,7 @@ class PowerMarketService
 
         $appsSynced = false;
         try {
-            $remoteApps = $modelsOnly ? [] : self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps($bounded ? 10 : 35));
+            $remoteApps = $modelsOnly ? [] : self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps($bounded ? 10 : 35), !$bounded);
             UpstreamPricingService::prefetchMetadata([], $remoteApps);
             foreach ($remoteApps as $app) {
                 $appCode = trim((string)($app['code'] ?? ''));
@@ -421,7 +421,7 @@ class PowerMarketService
             UpstreamPricingService::prefetchPricing($chunks);
             foreach ($chunks as $chunkIndex => $chunk) {
                 try {
-                    $scopeItems = array_merge($scopeItems, self::withUpstreamRetry(fn() => UpstreamPricingService::queryBatch($chunk))['items'] ?? []);
+                    $scopeItems = array_merge($scopeItems, self::withUpstreamRetry(fn() => UpstreamPricingService::queryBatch($chunk), !$bounded)['items'] ?? []);
                 } catch (\Throwable $e) {
                     // Keep the last known price for this chunk. A partial
                     // upstream outage must not unpublish unrelated products.
@@ -1524,15 +1524,18 @@ class PowerMarketService
         return trim((string)($sku['usage_unit'] ?? $price['unit'] ?? 'per_call')) ?: 'per_call';
     }
 
-    private static function withUpstreamRetry(callable $callback)
+    private static function withUpstreamRetry(callable $callback, bool $retry = true)
     {
         $lastException = null;
-        for ($attempt = 1; $attempt <= self::UPSTREAM_RETRY_ATTEMPTS; $attempt++) {
+        // A browser-scoped sync already has bounded batches and reports failed
+        // scopes. Replaying cached timeouts here only extends the HTTP request.
+        $attempts = $retry ? self::UPSTREAM_RETRY_ATTEMPTS : 1;
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             try {
                 return $callback();
             } catch (\Throwable $e) {
                 $lastException = $e;
-                if ($attempt < self::UPSTREAM_RETRY_ATTEMPTS && self::isRetryableUpstreamError($e)) {
+                if ($attempt < $attempts && self::isRetryableUpstreamError($e)) {
                     usleep(500000 * $attempt);
                     continue;
                 }
