@@ -1,1 +1,0 @@
-import{D as a}from"./index-c182f70c.js";function t(t){return a.get({url:"/pay/payWay",data:t},{isAuth:!0})}function r(t){return a.post({url:"/pay/prepay",data:t},{isAuth:!0})}function u(t){return a.get({url:"/pay/payStatus",data:t},{isAuth:!0})}export{t as a,u as g,r as p};

@@ -1,0 +1,1 @@
+"use strict";exports.readMpSystemInfo=function(e){var t,n;return"function"!=typeof e.getDeviceInfo||"function"!=typeof e.getWindowInfo||"function"!=typeof e.getAppBaseInfo?e.getSystemInfoSync():{...null==(t=e.getSystemSetting)?void 0:t.call(e),...null==(n=e.getAppAuthorizeSetting)?void 0:n.call(e),...e.getDeviceInfo(),...e.getAppBaseInfo(),...e.getWindowInfo()}};

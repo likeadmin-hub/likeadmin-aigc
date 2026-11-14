@@ -1,0 +1,1 @@
+"use strict";const t=require("../../components/creation-studio/creation-api.js"),e=require("../../utils/tenant.js"),s=t.creationApi("aigc_store_visit"),i={get:(t,e,i)=>s.get(t+"/"+e,i),post:(t,e,i)=>s.post(t+"/"+e,i)};exports.api=i,exports.draftKey=(t,e)=>`store_visit:${t}:${e}`,exports.pageUrl=t=>e.appendTenantIdToUrl(`/apps/aigc_store_visit/pages/${t}/index`);

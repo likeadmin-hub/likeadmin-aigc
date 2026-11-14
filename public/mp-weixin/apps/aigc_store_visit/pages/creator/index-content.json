@@ -1,0 +1,11 @@
+{
+  "component": true,
+  "usingComponents": {
+    "creative-genre-rail": "../../../../components/creative-genre-rail/creative-genre-rail",
+    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
+    "creation-workbench": "../../../../components/digital-human-page/digital-human-page",
+    "studio-image-upload": "../../../../components/creation-studio/StudioImageUpload",
+    "studio-select": "../../../../components/creation-studio/StudioSelect",
+    "studio-select-menu": "../../../../components/creation-studio/StudioSelectMenu"
+  }
+}

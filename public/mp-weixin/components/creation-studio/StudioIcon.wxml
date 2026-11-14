@@ -1,1 +1,1 @@
-<image wx:if="{{a}}" src="{{b}}" style="{{c}}" class="{{['icon','data-v-154f7f94',d&&'mono',e&&'dark']}}" mode="aspectFit" binderror="{{f}}"/><image wx:else style="{{g}}" class="{{['icon','data-v-154f7f94',h&&'rotated']}}" src="{{i}}" mode="aspectFit"/>
+<image wx:if="{{a}}" src="{{b}}" style="{{c}}" class="{{['icon','data-v-FU9_lA',d&&'mono',e&&'dark']}}" mode="aspectFit" binderror="{{f}}"/><image wx:else style="{{g}}" class="{{['icon','data-v-FU9_lA',h&&'rotated']}}" src="{{i}}" mode="aspectFit"/>
