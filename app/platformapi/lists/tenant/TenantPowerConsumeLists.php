@@ -67,7 +67,7 @@ class TenantPowerConsumeLists extends BaseAdminDataLists implements ListsSearchI
     {
         $query = self::summaryQuery();
         if ($joinUsers) $query
-            ->leftJoin('user_account_log ual', 'ual.tenant_id = tpl.tenant_id AND CONVERT(ual.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(tpl.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci AND ual.action = ' . AccountLogEnum::DEC . ' AND ual.change_type = ' . AccountLogEnum::UM_DEC_APP_CONSUME . ' AND (ual.delete_time IS NULL OR ual.delete_time = 0)')
+            ->leftJoin('user_account_log ual', 'ual.tenant_id = tpl.tenant_id AND ' . \app\common\service\point\AccountLogSourceLookup::expression('ual') . ' = CONVERT(tpl.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci AND ual.action = ' . AccountLogEnum::DEC . ' AND ual.change_type = ' . AccountLogEnum::UM_DEC_APP_CONSUME . ' AND (ual.delete_time IS NULL OR ual.delete_time = 0)')
             ->leftJoin('user u', 'u.id = ual.user_id');
 
         self::applyFilters($query, $this->params, $joinUsers);
