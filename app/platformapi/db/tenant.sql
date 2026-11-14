@@ -462,3 +462,11 @@ CREATE TABLE `la_decorate_tabbar_{tenantSn}`  (
 ) ENGINE = InnoDB AUTO_INCREMENT = 28 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '装修底部导航表' ROW_FORMAT = DYNAMIC;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- Query lookup and history indexes (20261114)
+ALTER TABLE `la_tenant_config_{tenantSn}` ADD INDEX `idx_tenant_config_key` (`tenant_id`,`type`,`name`);
+ALTER TABLE `la_user_account_log_{tenantSn}` ADD COLUMN `source_sn_lookup` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci GENERATED ALWAYS AS (CONVERT(`source_sn` USING utf8mb4)) VIRTUAL;
+ALTER TABLE `la_user_account_log_{tenantSn}` ADD INDEX `idx_tenant_source_bill` (`tenant_id`,`source_sn_lookup`(64),`action`,`change_type`,`delete_time`);
+ALTER TABLE `la_user_account_log_{tenantSn}` ADD INDEX `idx_user_bill_page` (`tenant_id`,`user_id`,`delete_time`,`id`);
+ALTER TABLE `la_user_account_log_{tenantSn}` ADD INDEX `idx_tenant_user_consumption` (`tenant_id`,`change_type`,`action`,`user_id`);
+ALTER TABLE `la_user_{tenantSn}` ADD INDEX `idx_tenant_user_page` (`tenant_id`,`delete_time`,`id`);

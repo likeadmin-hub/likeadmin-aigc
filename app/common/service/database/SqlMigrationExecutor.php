@@ -18,6 +18,10 @@ class SqlMigrationExecutor
         bool $ignoreDuplicateColumn = true,
         string $prefixStyle = 'mysql'
     ): void {
+        if (preg_match('/^-- likeadmin:query-performance-indexes-v1\s*$/m', $content)) {
+            QueryPerformanceSchema::apply($prefix, $connection);
+            return;
+        }
         if (preg_match('/^-- likeadmin:retire-micro-video-v1\s*$/m', $content)) {
             \app\common\service\app\RetiredAppService::apply($prefix, $connection);
             return;
