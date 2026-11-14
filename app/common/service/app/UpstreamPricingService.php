@@ -225,7 +225,7 @@ class UpstreamPricingService
 
     private static function request(string $method, string $path, array $payload = [], int $timeout = self::TIMEOUT): array
     {
-        $state = request()->upstreamCatalogBatch;
+        $state = function_exists('request') ? request()->upstreamCatalogBatch : null;
         $key = self::readKey($method, $path, $payload);
         if (is_array($state) && array_key_exists($key, $state['responses'])) {
             $cached = $state['responses'][$key];
@@ -303,6 +303,7 @@ class UpstreamPricingService
     /** Scope all memoized reads to this synchronization and restore it even on failure. */
     public static function withCatalogBatch(callable $read, int $metadataBudget = 15): array
     {
+        if (!function_exists('request')) return $read();
         $request = request();
         $previous = $request->upstreamCatalogBatch;
         $request->upstreamCatalogBatch = ['deadline' => null, 'metadata_budget' => $metadataBudget, 'responses' => []];
@@ -337,7 +338,7 @@ class UpstreamPricingService
                 if ($id > 0) $jobs[] = ['GET', '/api/user_center/developerDocDetail', ['app_api_id' => $id, 'terminal' => 4]];
             }
         }
-        $state = request()->upstreamCatalogBatch;
+        $state = function_exists('request') ? request()->upstreamCatalogBatch : null;
         if (is_array($state)) {
             $state['deadline'] = microtime(true) + $state['metadata_budget'];
             request()->upstreamCatalogBatch = $state;
@@ -362,7 +363,7 @@ class UpstreamPricingService
 
     private static function prefetch(array $requests, bool $metadata): void
     {
-        $state = request()->upstreamCatalogBatch;
+        $state = function_exists('request') ? request()->upstreamCatalogBatch : null;
         if (!is_array($state) || !$requests) return;
         $jobs = [];
         foreach ($requests as $job) {
