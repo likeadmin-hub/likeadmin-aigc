@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "探店视频记录",
+  "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
+    "app-access-gate": "../../../../components/app-access-gate/app-access-gate",
+    "page-content": "./index-content"
+  }
+}

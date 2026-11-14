@@ -1,1 +1,0 @@
-import{r as p}from"./index-DP3gn-fA.js";const u={get(r,t,o){return p.get({url:`/app.aigc_product_video.${r}/${t}`,params:o})},post(r,t,o){return p.post({url:`/app.aigc_product_video.${r}/${t}`,params:o})}};export{u as p};

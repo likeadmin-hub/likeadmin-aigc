@@ -1,1 +1,0 @@
-import{aa as a,a8 as s,a5 as t,aj as l,bx as n,by as i,ap as e}from"./index-c182f70c.js";const r="/pages/index/index";function o(o=r){const u=a(),d=u[u.length-2],f=String((null==d?void 0:d.route)||""),p=()=>{o===r?n({url:i({path:r})||e[0],fail:()=>l({url:r})}):t({url:o,fail:()=>l({url:r})})};d&&f&&!/(^|\/)404(?:\/|$)/.test(f)?s({delta:1,fail:p}):p()}export{o as n};

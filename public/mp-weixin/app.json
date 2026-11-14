@@ -34,6 +34,13 @@
   ],
   "subPackages": [
     {
+      "root": "apps/aigc_store_visit",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
       "root": "apps/aigc_story_commerce",
       "pages": [
         "pages/creator/index",

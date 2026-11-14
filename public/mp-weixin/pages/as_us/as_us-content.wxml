@@ -1,1 +1,1 @@
-<view class="as-us flex flex-1 flex-col items-center data-v-319fd149"><image src="{{a}}" mode="" class="img data-v-319fd149"></image><view class="text-content mt-_bl_20rpx_br_ data-v-319fd149">当前版本{{b}}</view></view>
+<view class="as-us flex flex-1 flex-col items-center data-v-MZ_RSQ"><image src="{{a}}" mode="" class="img data-v-MZ_RSQ"></image><view class="text-content mt-_bl_20rpx_br_ data-v-MZ_RSQ">当前版本{{b}}</view></view>

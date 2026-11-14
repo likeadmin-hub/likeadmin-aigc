@@ -1,1 +1,1 @@
-<view class="work-tabs data-v-7fcb100b" role="tablist"><button wx:for="{{a}}" wx:for-item="tab" wx:key="b" role="tab" aria-selected="{{tab.c}}" class="{{['work-tab','data-v-7fcb100b',tab.d&&'active']}}" bindtap="{{tab.e}}">{{tab.a}}</button></view>
+<view class="work-tabs data-v-f8sQCw" role="tablist"><button wx:for="{{a}}" wx:for-item="tab" wx:key="b" role="tab" aria-selected="{{tab.c}}" class="{{['work-tab','data-v-f8sQCw',tab.d&&'active']}}" bindtap="{{tab.e}}">{{tab.a}}</button></view>

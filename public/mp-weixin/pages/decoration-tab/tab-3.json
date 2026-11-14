@@ -4,6 +4,8 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "tab-loading": "../../components/diy/diy-page-loading",
+    "tab-content-116": "../../apps/aigc_store_visit/pages/creator/index-content",
+    "tab-content-117": "../../apps/aigc_store_visit/pages/tasks/index-content",
     "tab-content-114": "../../apps/aigc_story_commerce/pages/creator/index-content",
     "tab-content-115": "../../apps/aigc_story_commerce/pages/tasks/index-content",
     "tab-content-112": "../../apps/aigc_motion_sync/pages/creator/index-content",
@@ -120,6 +122,8 @@
     "main-content23": "../payment_result/payment_result-content"
   },
   "componentPlaceholder": {
+    "tab-content-116": "tab-loading",
+    "tab-content-117": "tab-loading",
     "tab-content-114": "tab-loading",
     "tab-content-115": "tab-loading",
     "tab-content-112": "tab-loading",
