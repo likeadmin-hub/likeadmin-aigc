@@ -17123,10 +17123,14 @@ class AigcShortDramaService
         return $selected;
     }
 
-    /** Never silently switch away from the tenant-approved task snapshot. */
-    private static function scriptPlanModelCandidates(int $tenantId, array $preferred): array
+    /** Called only after a failure proven safe to retry. Keep the paid input unchanged. */
+    private static function scriptPlanModelCandidates(int $tenantId, array $preferred, array $params): array
     {
-        return $preferred === [] ? [] : [$preferred];
+        $options=[];
+        foreach (MarketTextModelRuntimeService::modelGroups($tenantId) as $group) {
+            if (($group['key']??'')==='script_plan') { $options=(array)($group['options']??[]); break; }
+        }
+        return ShortDramaTextFallbackPolicy::candidates($preferred,$options,$params);
     }
 
     private static function isScriptPlanModelUnavailableError(string $message): bool
@@ -17139,11 +17143,9 @@ class AigcShortDramaService
     }
 
     /**
-     * Use the frozen tenant text model. An explicit rejection remains visible. Such a
-     * response is rejected before generation starts; the market runtime marks
-     * that attempt failed and releases its reservation.  Other provider
-     * failures (timeouts, safety, parameters, quota, etc.) must stay visible
-     * instead of silently changing the user's model.
+     * Start with the frozen model, then use at most two tenant-saleable alternatives
+     * after certified connection failures or explicit before-generation rejection.
+     * Received, partial, billed and ambiguous requests must never start a fallback.
      *
      * @return array{result: array<string, mixed>, model: array<string, mixed>}
      */
@@ -17167,7 +17169,9 @@ class AigcShortDramaService
         // One owner for routing: prevent nested runtime fallback, duplicate attempts
         // and receipts that name a different model than the one actually used.
         $params['_disable_model_fallback'] = true;
-        $candidates = self::scriptPlanModelCandidates($tenantId, $model);
+        $candidates = $model === [] ? [] : [$model];
+        $fallbackLoaded = false;
+        $lastSafeError = null;
         if ($candidates === []) {
             throw new Exception('暂无可用的剧本策划模型，请在算力市场上架文本模型');
         }
@@ -17175,7 +17179,8 @@ class AigcShortDramaService
         $unavailable = [];
         $capacityError = null;
         $originalParams = $params;
-        foreach ($candidates as $candidate) {
+        for ($candidateIndex=0; $candidateIndex<count($candidates); $candidateIndex++) {
+            $candidate=$candidates[$candidateIndex];
             if (isset($request['_execution_attempt']) && !empty($request['_prompt_task_id'])) {
                 $active = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
                     'task_id' => $request['_prompt_task_id'], 'status' => self::STATUS_RUNNING,
@@ -17207,16 +17212,22 @@ class AigcShortDramaService
                 $result = $onEvent
                     ? MarketTextModelRuntimeService::generate($tenantId, $userId, $params, $onEvent)
                     : MarketTextModelRuntimeService::generate($tenantId, $userId, $params);
-                if ($candidate !== $model) {
+                if ((string)($candidate['id']??'') !== (string)($model['id']??'')) {
                     Log::write('AI short drama script planning switched unavailable text model: from='
                         . (string)($model['model_code'] ?? $model['id'] ?? '')
                         . ' to=' . (string)($candidate['model_code'] ?? $candidate['id'] ?? ''));
                 }
+                if ((string)($candidate['id']??'') !== (string)($model['id']??'')) $result['model_fallback']=['requested_model_code'=>(string)($model['model_code']??''),
+                    'executed_model_code'=>(string)($candidate['model_code']??''),'rejected_models'=>$unavailable];
                 return ['result' => $result, 'model' => $candidate];
             } catch (Exception $e) {
-                if (!($e instanceof \app\common\service\power\MarketTextModelProviderException
-                    ? $e->allowsModelFallback : self::isScriptPlanModelUnavailableError($e->getMessage()))) {
+                if (!ShortDramaTextFallbackPolicy::allows($e)) {
                     throw $e;
+                }
+                $lastSafeError=$e;
+                if (!$fallbackLoaded) {
+                    $fallbackLoaded=true;
+                    $candidates=self::scriptPlanModelCandidates($tenantId,$model,$originalParams);
                 }
                 $unavailable[] = (string)($candidate['model_code'] ?? $candidate['id'] ?? '');
                 Log::write('AI short drama script planning text model unavailable: model='
@@ -17224,6 +17235,7 @@ class AigcShortDramaService
             }
         }
 
+        if ($lastSafeError instanceof \app\common\service\power\MarketTextModelProviderException && $lastSafeError->requestNotSent()) throw $lastSafeError;
         if ($capacityError !== null) throw $capacityError;
         throw new Exception('短剧文本模型不可用，请联系管理员检查配置后重试');
     }
