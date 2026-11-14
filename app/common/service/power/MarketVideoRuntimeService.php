@@ -2335,6 +2335,11 @@ class MarketVideoRuntimeService
     private static function capabilityLimit(array $meta, string $type): int { $cap = self::arrayValue($meta['capabilities'] ?? []); $keys = ['image' => ['max_reference_images','max_reference_image_count','reference_image_limit'], 'video' => ['max_reference_videos','max_reference_video_count','reference_video_limit'], 'audio' => ['max_reference_audios','max_reference_audio_count','reference_audio_limit']]; foreach ($keys[$type] as $key) foreach ([$meta, $cap] as $source) if (isset($source[$key]) && (int)$source[$key] > 0) return max(0, (int)$source[$key]); return self::docReferenceLimit($meta, $type); }
     private static function schemaVideoCapabilities(array $meta): array
     {
+        return MarketCatalogReadScope::derive('video_schema_capabilities', $meta, static fn(): array => self::buildSchemaVideoCapabilities($meta));
+    }
+
+    private static function buildSchemaVideoCapabilities(array $meta): array
+    {
         $schema = self::arrayValue($meta['params_schema'] ?? []);
         $rawTypes = [];
         $rawRoles = [];
