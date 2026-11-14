@@ -6,6 +6,21 @@ use PHPUnit\Framework\TestCase;
 
 final class UpstreamCatalogReadBatchTest extends TestCase
 {
+    public function testOneSyncReusesItsSourceAndReleasesItAfterwards(): void
+    {
+        (new \think\App(dirname(__DIR__,2).'/'))->initialize();
+        $read=new \ReflectionMethod(UpstreamPricingService::class,'sourceConfiguration');
+        $previous=request()->upstreamCatalogBatch;
+        UpstreamPricingService::withCatalogBatch(static function()use($read){
+            $first=$read->invoke(null);
+            self::assertSame($first,request()->upstreamCatalogBatch['source']);
+            $state=request()->upstreamCatalogBatch;$state['source']=['base_url'=>'https://fixture.invalid'];request()->upstreamCatalogBatch=$state;
+            self::assertSame(['base_url'=>'https://fixture.invalid'],$read->invoke(null));
+            return [];
+        });
+        self::assertSame($previous,request()->upstreamCatalogBatch);
+    }
+
     public function testBrowserScopedSyncDoesNotReplayAnAlreadyFailedBatch(): void
     {
         $attempts=0;
