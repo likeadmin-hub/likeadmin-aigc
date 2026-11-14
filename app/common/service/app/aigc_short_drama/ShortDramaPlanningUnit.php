@@ -90,8 +90,11 @@ final class ShortDramaPlanningUnit
         });
     }
 
-    public static function retryableBeforeSubmission(string $error): bool
+    public static function retryableBeforeSubmission(string|\Throwable $error): bool
     {
+        if ($error instanceof \app\common\service\power\MarketTextModelProviderException) return $error->requestNotSent();
+        if ($error instanceof \Throwable) $error = $error->getMessage();
+        if (str_starts_with($error, '文本模型连接暂时不可用（请求尚未发送）：')) return true;
         // These are connection establishment failures, not ambiguous read timeouts after submission.
         return (bool)preg_match('/SSL_connect:|Could not resolve host|Temporary failure in name resolution|Name or service not known|Network is unreachable|Failed to connect to|Connection refused|cURL error (?:6|7)\b/i', $error);
     }
@@ -303,7 +306,19 @@ final class ShortDramaPlanningUnit
                 ], JSON_UNESCAPED_UNICODE));
                 throw new RuntimeException('生成上下文已变化，请新建版本；原有结果已保留', 409);
             }
-            if ($row && $row['status'] === 'received') return ['result' => json_decode($row['result_json'], true, 512, JSON_THROW_ON_ERROR)];
+            if ($row && $row['status'] === 'received') {
+                $receipt = json_decode($row['result_json'], true, 512, JSON_THROW_ON_ERROR);
+                if (str_starts_with((string)$row['error'], 'billing:')) {
+                    if (empty($receipt['_billing_receipt_complete'])) throw new RuntimeException('模型回复未完整结束，已保留收到的内容；费用待核对，请勿重复提交');
+                    $c = Db::name('ai_consumption_log')->where(['id'=>(int)($receipt['result']['consumption_id']??0),
+                        'tenant_id'=>$tenant,'user_id'=>$user,'app_code'=>'aigc_short_drama','run_status'=>'success','billing_status'=>'settled'])->find();
+                    if (!$c) throw new RuntimeException('回复已保留，费用结算待核对，请勿重复提交');
+                    $receipt['result']['billing'] = ['billing_status'=>'settled','user_charge_points'=>(float)$c['actual_user_price'],
+                        'tenant_cost_points'=>(float)$c['actual_tenant_cost']];
+                    Db::name('aigc_short_drama_planning_unit')->where($scope)->update(['error'=>'','result_json'=>json_encode($receipt,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'update_time'=>time()]);
+                }
+                return ['result'=>$receipt];
+            }
             if ($row && $row['status'] === 'running') throw new RuntimeException('上次请求在返回前中断，已保留完成部分；请确认后继续未完成部分');
             if ($row && $row['status'] === 'failed') throw new RuntimeException((string)$row['error']);
             if ($row && $row['status'] === 'waiting' && !self::ready($tenant, $user, $task)) throw new RuntimeException('连接暂时不可用，等待延迟重试', 425);
@@ -340,8 +355,18 @@ final class ShortDramaPlanningUnit
             $result = $generate($claim['input']);
             Db::name('aigc_short_drama_planning_unit')->where($scope)->update(['status' => 'received', 'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 'update_time' => time()]);
             return $result + ($trackValidation ? ['_unit'=>$scope] : []);
+        } catch (\app\common\service\power\TextSettlementPending $error) {
+            // A received response is durable even if wallet settlement fails.
+            $result = ['_billing_receipt_complete'=>!($error->getPrevious() instanceof \app\common\service\power\MarketTextModelProviderException)
+                && ($error->result['content_source']??'content')==='content', 'result'=>array_replace($error->result, ['consumption_id'=>$error->consumptionId,
+                'usage'=>$error->usage,'billing'=>['billing_status'=>'settlement_failed']]),
+                'model'=>(array)($claim['input']['model_selection']??[])];
+            Db::name('aigc_short_drama_planning_unit')->where($scope)->update(['status'=>'received',
+                'result_json'=>json_encode($result,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+                'error'=>'billing:' . $error->getMessage(),'update_time'=>time()]);
+            throw $error;
         } catch (\Throwable $error) {
-            $retry = self::retryableBeforeSubmission($error->getMessage());
+            $retry = self::retryableBeforeSubmission($error);
             Db::name('aigc_short_drama_planning_unit')->where($scope)->update(['status' => $retry ? 'waiting' : 'failed', 'error' => $error->getMessage(), 'update_time' => time()]);
             if ($retry) throw new RuntimeException('模型连接暂时不可用，将在 ' . ($data['attempt'] === 1 ? 30 : 120) . ' 秒后重试，已完成部分保留', 425, $error);
             throw $error;

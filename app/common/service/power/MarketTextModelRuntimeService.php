@@ -23,6 +23,7 @@ class MarketTextModelRuntimeService
 {
     public const APP_CODE = 'power_market_text';
     private const REQUEST_TIMEOUT_SECONDS = 1200;
+    private const CONNECT_TIMEOUT_SECONDS = 30;
     private const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
     private const MAX_COMPATIBILITY_ATTEMPTS = 4;
     private const MAX_MODEL_FALLBACK_ATTEMPTS = 3;
@@ -390,6 +391,14 @@ class MarketTextModelRuntimeService
                 try { self::deferSettlement($context, $result, $usage, $e); }
                 catch (\Throwable $persistError) { Log::error('Agent result review write failed: '.get_class($persistError)); }
                 throw new TextSettlementPending((int)$context['consumption']['id'], $result, $usage, $e);
+            }
+            if ($e instanceof MarketTextModelProviderException && $e->transportInfo !== []) {
+                self::event((int)$context['consumption']['id'], 'transport_failed', 'failed', $e->transportInfo);
+                if ($appCode === 'aigc_short_drama' && !$e->requestNotSent()) {
+                    AiConsumptionLog::where('id', (int)$context['consumption']['id'])->update(['run_status'=>'pending_confirmation',
+                        'error_code'=>'submission_uncertain','error_message'=>$e->getMessage(),'update_time'=>time()]);
+                    throw $e;
+                }
             }
             if ($openTextCall && !\app\common\service\open_platform\OpenTextLifecycle::rejectionConfirmed()) {
                 \app\common\service\open_platform\OpenTextLifecycle::defer($context, $result, $usage, $e);
@@ -835,7 +844,13 @@ class MarketTextModelRuntimeService
                 'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')] + (isset($result['protocol_evidence']) ? ['protocol_evidence'=>$result['protocol_evidence']] : []),
                 'error_code'=>$incomplete?'provider_stream_incomplete':'settlement_failed','error_message'=>$incomplete?'回复未完整结束，费用待核对':'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
             AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$incomplete?'failed':'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
-            self::event((int)$c['id'],'settlement_deferred','failed',['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error),'protocol_diagnostic'=>(array)($result['protocol_diagnostic']??[])]);
+            AiConsumptionEvent::create(['consumption_id'=>(int)$c['id'],'event_type'=>'settlement_deferred','event_status'=>'failed','attempt_no'=>1,
+                'payload_summary'=>['reason'=>$incomplete?'provider_stream_incomplete':'wallet_settlement_failed','error_type'=>get_class($error),
+                    'protocol_diagnostic'=>(array)($result['protocol_diagnostic']??[])],
+                'payload_ciphertext'=>\app\common\service\open_platform\OpenVault::seal(json_encode([
+                    'consumption_id'=>(int)$c['id'],'tenant_id'=>(int)$c['tenant_id'],'user_id'=>(int)$c['user_id'],
+                    'complete'=>!$incomplete,'result'=>$result,'usage'=>$usage,'error'=>$error->getMessage()],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)),
+                'http_status'=>0,'elapsed_ms'=>0,'create_time'=>$now]);
         });
     }
 
@@ -1382,7 +1397,7 @@ class MarketTextModelRuntimeService
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => min(self::CONNECT_TIMEOUT_SECONDS, $requestTimeout),
             CURLOPT_TIMEOUT => $requestTimeout,
             CURLOPT_SSL_VERIFYPEER => $sslVerify,
             CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
@@ -1429,12 +1444,14 @@ class MarketTextModelRuntimeService
 
         $errno = curl_errno($ch);
         $error = curl_error($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $transportInfo = curl_getinfo($ch);
+        $transportInfo['errno'] = $errno;
+        $status = (int)$transportInfo['http_code'];
         curl_close($ch);
 
         if ($errno) {
             $state['native_error_code'] = 'transport_errno_' . $errno;
-            throw self::providerException(self::networkError($error), false, $state);
+            throw self::transportException($error, $state, $transportInfo);
         }
         if ($status >= 400) {
             \app\common\service\open_platform\OpenCallContext::providerFailure($status,$body,!empty($state['content'])||!empty($state['reasoning'])||!empty($state['tool_calls']));
@@ -1496,7 +1513,7 @@ class MarketTextModelRuntimeService
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => min(self::CONNECT_TIMEOUT_SECONDS, $requestTimeout),
             CURLOPT_TIMEOUT => $requestTimeout,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYPEER => $sslVerify,
@@ -1505,11 +1522,13 @@ class MarketTextModelRuntimeService
         $response = curl_exec($ch);
         $errno = curl_errno($ch);
         $error = curl_error($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $transportInfo = curl_getinfo($ch);
+        $transportInfo['errno'] = $errno;
+        $status = (int)$transportInfo['http_code'];
         curl_close($ch);
         $body = is_string($response) ? $response : '';
         if ($errno) {
-            throw new Exception(self::networkError($error));
+            throw self::transportException($error, [], $transportInfo);
         }
         if ($status >= 400) {
             throw self::providerException(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）',
@@ -1531,6 +1550,18 @@ class MarketTextModelRuntimeService
             'tool_calls' => $toolCalls,
             'finish_reason' => (string)($event['finish_reason'] ?? ''),
         ];
+    }
+
+    private static function transportException(string $error, array $state, array $info): MarketTextModelProviderException
+    {
+        // curl_getinfo also contains the URL: persist only timing and counters.
+        $evidence = array_intersect_key($info, array_flip(['errno','request_size','size_upload','size_download',
+            'pretransfer_time','http_code','header_size','namelookup_time','connect_time','appconnect_time','total_time']));
+        $base = self::providerException(self::networkError($error), false, $state);
+        $exception = new MarketTextModelProviderException($base->getMessage(), false, $base->partialResult, $evidence);
+        return $exception->requestNotSent()
+            ? new MarketTextModelProviderException('文本模型连接暂时不可用（请求尚未发送）：' . self::networkError($error), false, null, $evidence)
+            : $exception;
     }
 
     private static function networkError(string $error): string
