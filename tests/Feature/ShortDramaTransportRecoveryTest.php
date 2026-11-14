@@ -98,6 +98,20 @@ final class ShortDramaTransportRecoveryTest extends TestCase
         }
         self::assertSame(1,$networkCalls);
         self::assertSame('waiting',Db::name('aigc_short_drama_planning_unit')->where('task_id','not_sent')->value('status'));
+        $legacy=['tenant_id'=>21,'user_id'=>7,'task_id'=>'legacy','unit_key'=>'v3_script','status'=>'failed','attempt'=>1,
+            'request_json'=>json_encode($input),'error'=>'文本模型网络请求失败：Connection timed out after 10001 milliseconds','create_time'=>1,'update_time'=>1];
+        $legacyId=Db::name('aigc_short_drama_planning_unit')->insertGetId($legacy);
+        $original=Db::name('aigc_short_drama_planning_unit')->where('id',$legacyId)->find();
+        try {Unit::prepareExplicitRetry(21,7,'legacy',false,true);self::fail('Unconfirmed legacy timeout allowed');}
+        catch(\RuntimeException $e){self::assertSame(409,$e->getCode());self::assertStringContainsString('新的费用',$e->getMessage());}
+        self::assertSame(1,Db::name('aigc_short_drama_planning_unit')->where('task_id','legacy')->count());
+        Unit::prepareExplicitRetry(21,7,'legacy',true);
+        self::assertSame($original,Db::name('aigc_short_drama_planning_unit')->where('id',$legacyId)->find());
+        self::assertSame(2,Db::name('aigc_short_drama_planning_unit')->where('task_id','legacy')->count());
+        $successor=Db::name('aigc_short_drama_planning_unit')->where('task_id','legacy')->order('id','desc')->find();
+        self::assertSame('pending',$successor['status']);
+        self::assertSame($legacyId,json_decode($successor['request_json'],true)['_interrupted_retry_of']);
+
 
     }
 }
