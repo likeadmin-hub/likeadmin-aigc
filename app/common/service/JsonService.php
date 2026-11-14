@@ -118,6 +118,11 @@ class JsonService
      */
     public static function dataLists(BaseDataLists $lists): Json
     {
+        return \app\common\service\database\ListingReadScope::run(static fn()=>self::buildDataLists($lists));
+    }
+
+    private static function buildDataLists(BaseDataLists $lists): Json
+    {
         //获取导出信息
         if ($lists->export == ExportEnum::INFO && $lists instanceof ListsExcelInterface) {
             return self::data($lists->excelInfo());
