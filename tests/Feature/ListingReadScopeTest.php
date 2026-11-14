@@ -32,4 +32,21 @@ final class ListingReadScopeTest extends TestCase
         try{ListingReadScope::run(static function(){throw new \RuntimeException('fixture');});}catch(\RuntimeException $e){self::assertSame('fixture',$e->getMessage());}
         self::assertNull(request()->listingReadScope);
     }
+
+    public function testPointLabelsReadOncePerListAndRemainFreshAfterwards(): void
+    {
+        (new \think\App(dirname(__DIR__,2).'/'))->initialize();
+        $db=config('database.connections.mysql');if($db['hostname']!=='127.0.0.1'||!in_array($db['database'],['x_cn','z_cn'],true))self::markTestSkipped('Local read-only fixture');
+        request()->tenantId=1;request()->source=\app\common\enum\AdminTerminalEnum::TENANT;
+        $connections=config('database.connections');$connections['mysql']['trigger_sql']=true;config(['connections'=>$connections],'database');Db::connect('mysql',true);
+        $reads=0;Db::listen(static function($sql)use(&$reads){if(str_starts_with($sql,'SELECT')&&str_contains($sql,"'point_unit'"))$reads++;});
+        $expected=\app\common\service\PointUnitService::unit();$reads=0;
+        ListingReadScope::run(static function()use($expected): void {for($i=0;$i<100;$i++)self::assertSame($expected,\app\common\service\PointUnitService::unit());});
+        self::assertSame(1,$reads);\app\common\service\PointUnitService::unit();self::assertSame(2,$reads);
+        ListingReadScope::run(static function()use(&$reads): void {
+            \app\common\service\PointUnitService::unit();$before=$reads;
+            request()->source=\app\common\enum\AdminTerminalEnum::PLATFORM;
+            \app\common\service\PointUnitService::unit();self::assertSame($before+1,$reads,'Platform and tenant labels must be isolated');
+        });
+    }
 }
