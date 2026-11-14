@@ -29,4 +29,23 @@ final class NativeContractCatalogPerformanceTest extends TestCase
             self::assertSame([],MarketGenerationNativeContract::modes(array_replace_recursive($metadata,['params_schema'=>['field_0'=>['type'=>'number']]])));
         } finally { $catalog->setValue(null,$previous); }
     }
+    public function testInterleavedModelReadsRetainCompleteInputValidation(): void
+    {
+        (new \think\App(dirname(__DIR__,2).'/'))->initialize();
+        $builds=0;
+        MarketCatalogReadScope::run(static function()use(&$builds): array {
+            $a=['upstream_metadata'=>['model_code'=>'a'],'params_schema'=>['prompt'=>['type'=>'string']]];
+            $b=['upstream_metadata'=>['model_code'=>'b'],'params_schema'=>['prompt'=>['type'=>'string']]];
+            $read=static function(array $input)use(&$builds): array {
+                return MarketCatalogReadScope::derive('fixture',$input,static function()use(&$builds){return [++$builds];});
+            };
+            self::assertSame([1],$read($a));self::assertSame([2],$read($b));
+            self::assertSame([1],$read($a),'A second family must not evict the first model');
+            $a['params_schema']['prompt']['type']='number';
+            self::assertSame([3],$read($a),'Changed schema under the same model must rebuild');
+            return [];
+        });
+        self::assertNull(request()->marketCatalogReadScope);
+    }
+
 }

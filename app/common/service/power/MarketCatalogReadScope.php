@@ -35,7 +35,8 @@ final class MarketCatalogReadScope
     }
 
     /** Reuse a pure derivation while its complete inputs remain unchanged.
-     * Keep only the latest input per operation; avoid repeatedly serializing large schemas.
+     * Keep the latest complete input per model/API and operation. Discovery often
+     * revisits models after rendering another family; avoid fingerprinting them again.
      */
     public static function derive(string $key, array $input, callable $read): array
     {
@@ -43,10 +44,19 @@ final class MarketCatalogReadScope
         if (!function_exists('request')) return $read();
         $scope = request()->marketCatalogReadScope;
         if (!$scope instanceof self) return $read();
-        $previous = $scope->derived[$key] ?? null;
+        // Identity only chooses a slot. The entire input still has to match,
+        // including schema changes under the same upstream model/API identity.
+        $upstream = is_array($input['upstream_metadata'] ?? null) ? $input['upstream_metadata'] : [];
+        $identity = json_encode([
+            $upstream['model_id'] ?? '', $upstream['model_code'] ?? '', $upstream['channel_code'] ?? '',
+            $input['upstream_app_metadata']['code'] ?? '', $input['upstream_api_metadata']['id'] ?? '',
+            $input['upstream_api_metadata']['code'] ?? '',
+        ], JSON_THROW_ON_ERROR);
+        $previous = $scope->derived[$key][$identity] ?? null;
         if ($previous !== null && $previous['input'] === $input) return $previous['value'];
         $value = $read();
-        $scope->derived[$key] = ['input' => $input, 'value' => $value];
+        if (!isset($scope->derived[$key][$identity]) && count($scope->derived[$key] ?? []) >= 128) array_shift($scope->derived[$key]);
+        $scope->derived[$key][$identity] = ['input' => $input, 'value' => $value];
         return $value;
     }
 
