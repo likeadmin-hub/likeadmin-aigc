@@ -89,6 +89,41 @@ class GenerationSnapshotCapacityTest extends TestCase
 
     public static function sqlModes(): array { return [[false], [true]]; }
 
+    /** @dataProvider metadataCases */
+    public function testMixedCaseColumnAndDriverKeysPreserveLiveSchemaAndData(bool $upperKeys, string $field): void
+    {
+        $this->localDatabase();
+        $prefix = 'snapshot_'.bin2hex(random_bytes(6)).'_';
+        $table = $prefix.'ai_consumption_log';
+        $connection = new class(Db::connect(), $upperKeys) {
+            private $connection;
+            private bool $upperKeys;
+            public function __construct($connection, bool $upperKeys) { $this->connection=$connection; $this->upperKeys=$upperKeys; }
+            public function query(string $sql, array $bindings = []): array {
+                $rows=$this->connection->query($sql, $bindings);
+                return $this->upperKeys ? array_map(static fn(array $row): array => array_change_key_case($row, CASE_UPPER), $rows) : $rows;
+            }
+            public function execute(string $sql): int { return $this->connection->execute($sql); }
+        };
+        try {
+            Db::execute('CREATE TABLE `'.$table.'` (`id` INT PRIMARY KEY, `'.$field.'` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT \'原始快照\') ENGINE=InnoDB');
+            Db::execute('INSERT INTO `'.$table.'` (`id`,`'.$field.'`) VALUES (1,?)', ['original snapshot']);
+            $before=Db::query('SHOW FULL COLUMNS FROM `'.$table.'`');
+            self::assertSame(['status'=>'widened'], RuntimeGenerationSnapshotCapacity::apply('ai_consumption_log','price_snapshot',$prefix,$connection));
+            self::assertSame(['status'=>'already_sufficient'], RuntimeGenerationSnapshotCapacity::apply('ai_consumption_log','price_snapshot',$prefix,$connection));
+            $after=Db::query('SHOW FULL COLUMNS FROM `'.$table.'`');
+            self::assertSame('mediumtext', $after[1]['Type']);
+            $after[1]['Type']=$before[1]['Type'];
+            self::assertSame($before, $after, 'Original spelling, nullability, charset and comment must survive');
+            self::assertSame('original snapshot', Db::query('SELECT `'.$field.'` AS snapshot FROM `'.$table.'`')[0]['snapshot']);
+        } finally { Db::execute('DROP TABLE IF EXISTS `'.$table.'`'); }
+    }
+
+    public static function metadataCases(): array
+    {
+        return [[false,'PRICE_SNAPSHOT'],[true,'price_snapshot'],[true,'Price_Snapshot']];
+    }
+
     public function testLegacyTablesMissingSnapshotColumnsAreRepairedWithoutChangingRows(): void
     {
         $this->localDatabase();

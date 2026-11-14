@@ -28,7 +28,16 @@ final class RuntimeGenerationSnapshotCapacity
     {
         self::assertTarget($suffix, $column, $prefix);
         $table = $prefix.$suffix;
-        $query = static fn(string $sql, array $bindings = []) => $connection ? $connection->query($sql, $bindings) : Db::query($sql, $bindings);
+        // PDO::ATTR_CASE may change aliases too. Normalize metadata keys only;
+        // keep the actual identifiers and all field semantics from the server.
+        $query = static function (string $sql, array $bindings = []) use ($connection): array {
+            $rows = $connection ? $connection->query($sql, $bindings) : Db::query($sql, $bindings);
+            return array_map(static function (array $row): array {
+                $normalized = array_change_key_case($row, CASE_LOWER);
+                if (count($normalized) !== count($row)) throw new RuntimeException('生成快照容量迁移元数据键不明确');
+                return $normalized;
+            }, $rows);
+        };
         $tables = $query('SELECT ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
         // The core upgrade also visits optional apps. Their own install creates
         // the original table before running this same capacity upgrade.
@@ -71,7 +80,10 @@ final class RuntimeGenerationSnapshotCapacity
         self::assertTarget($suffix, $name, $prefix);
         if (strcasecmp((string)($table['engine'] ?? ''), 'InnoDB') !== 0) throw new RuntimeException('生成快照容量迁移要求 InnoDB');
         $type = strtolower((string)($column['data_type'] ?? ''));
-        if (($column['column_name'] ?? null) !== $name || !in_array($type, ['text','mediumtext','longtext'], true)
+        $actualName = $column['column_name'] ?? null;
+        // MySQL column names are case-insensitive, but information_schema
+        // preserves the original spelling. Do not rename a legacy column.
+        if (!is_string($actualName) || strcasecmp($actualName, $name) !== 0 || !in_array($type, ['text','mediumtext','longtext'], true)
             || strtolower((string)($column['column_type'] ?? '')) !== $type || ($column['extra'] ?? null) !== '') throw new RuntimeException('生成快照容量迁移字段类型或属性不受支持');
         if (!in_array($column['is_nullable'] ?? null, ['YES','NO'], true) || !array_key_exists('column_default', $column)
             || ($column['column_default'] !== null && !is_string($column['column_default']))) throw new RuntimeException('生成快照容量迁移无法保留原默认值');
@@ -84,7 +96,7 @@ final class RuntimeGenerationSnapshotCapacity
             if (!$noBackslash) $value = str_replace('\\', '\\\\', $value);
             return "'".str_replace("'", "''", $value)."'";
         };
-        $sql = 'ALTER TABLE `'.$prefix.$suffix.'` MODIFY COLUMN `'.$name.'` MEDIUMTEXT CHARACTER SET `'.$column['character_set_name'].'` COLLATE `'.$column['collation_name'].'`'
+        $sql = 'ALTER TABLE `'.$prefix.$suffix.'` MODIFY COLUMN `'.$actualName.'` MEDIUMTEXT CHARACTER SET `'.$column['character_set_name'].'` COLLATE `'.$column['collation_name'].'`'
             .($column['is_nullable'] === 'YES' ? ' NULL' : ' NOT NULL');
         if ($column['column_default'] !== null) $sql .= ' DEFAULT '.$quote($column['column_default']);
         elseif ($column['is_nullable'] === 'YES') $sql .= ' DEFAULT NULL';
