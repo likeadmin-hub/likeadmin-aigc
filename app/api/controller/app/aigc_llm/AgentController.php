@@ -63,7 +63,11 @@ class AgentController extends BaseApiController
         if(AgentStore::owner('run',$t,$u)->where('session_id',$id)->whereIn('status',['queued','running','waiting_tasks'])->count())throw new \InvalidArgumentException('请先停止并等待任务完成');
         \app\common\service\app\aigc_llm\AigcLlmService::deleteSession($t,$u,$id);return [];
     });}
-    public function config(){return $this->handle(fn($t,$u)=>AgentCapabilityCatalog::configuration($t,$u));}
+    public function config(){return $this->handle(function($t,$u){
+        $data=AgentCapabilityCatalog::configuration($t,$u);
+        return $this->request->get('catalog_format','')==='channels'
+            ? AgentCapabilityCatalog::presentationConfiguration($data) : $data;
+    });}
     public function subjects(){return $this->handle(fn($t,$u)=>\app\common\service\app\aigc_llm\agent\AgentSubjectReferences::lists($t,$u,$this->request->get()));}
     public function preferences(){return $this->handle(fn($t,$u)=>AgentStore::preferences($t,$u,$this->request->post()));}
     public function submit(){return $this->handle(fn($t,$u)=>AgentExecutionService::submit($t,$u,$this->request->post()));}
