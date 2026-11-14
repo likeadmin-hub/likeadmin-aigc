@@ -477,6 +477,11 @@ class AppDisplayConfigService
 
     private static function withUrls(array $data): array
     {
+        $app=(string)($data['app_code']??'');$uri=(string)($data['cover_uri']??'');
+        if(in_array($app,['aigc_store_visit','aigc_story_commerce','aigc_product_video','aigc_motion_sync'],true)
+            &&($uri===''||in_array(ltrim($uri,'/'),['resource/image/common/menu_generator.png','resource/image/apps/'.$app.'/cover.png','resource/image/apps/'.$app.'/cover-v2.webp'],true)))
+            $data['cover_uri']='resource/image/apps/'.$app.'/cover.gif';
+
         $data['cover_url'] = !empty($data['cover_uri']) ? FileService::getFileUrl((string)$data['cover_uri']) : '';
         foreach (['skill_preview_images'=>'skill_preview_image_urls','skill_preview_videos'=>'skill_preview_video_urls'] as $field=>$urls) {
             try{$items=self::normalizeSkillMedia($data['extra'][$field]??[],str_ends_with($field,'images')?5:3);}catch(\InvalidArgumentException){$items=[];}

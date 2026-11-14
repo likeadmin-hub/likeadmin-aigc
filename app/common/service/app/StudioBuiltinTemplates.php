@@ -34,6 +34,7 @@ final class StudioBuiltinTemplates
             $b=Motion::body($input);$b['image']=StudioBuiltinCatalog::publicAsset(array_replace((array)$b['image'],['type'=>'image']));$b['video']=StudioBuiltinCatalog::publicAsset(array_replace((array)$b['video'],['type'=>'video']));
             \app\common\service\app\aigc_motion_sync\MotionSyncMedia::assertFacts($b);return $b;
         }
+        if($app==='aigc_store_visit'&&!empty($input['reference_audio']))throw new InvalidArgumentException('发布内置模板前请移除个人参考音色，使用模板时可另行上传');
         $b=(self::policy($app))::body($input);$b['images']=array_map(static fn($a)=>StudioBuiltinCatalog::publicAsset(array_replace($a,['type'=>'image'])),$b['images']);
         if($app==='aigc_store_visit')\app\common\service\app\aigc_store_visit\StoreVisitPolicy::assertMaterials($b['images']);
         if(!$b['images'])throw new InvalidArgumentException('内置模板缺少商品图片');

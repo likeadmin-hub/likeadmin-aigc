@@ -101,7 +101,7 @@ final class StoreVisitWorker
         }
     }
     private static function mediaRequest(string $action,array $r): array
-    {return array_intersect_key($r,array_flip(['prompt','reference_images','reference_assets','selected_mentions']))+$r['selection'];}
+    {return array_intersect_key($r,array_flip(['prompt','reference_images','reference_audios','reference_assets','selected_mentions']))+$r['selection'];}
     private static function mediaResult(array $row,array $result): void
     {
         $id=(int)$row['id'];$fresh=StoreVisitJobs::table()->where('id',$id)->find();$c=self::consumption($fresh);

@@ -12,13 +12,14 @@ final class StoreVisitPolicy
     public static function hash(array $v): string { $sort=static function($x)use(&$sort){if(!is_array($x))return $x;if(!array_is_list($x))ksort($x);return array_map($sort,$x);};return hash('sha256',self::encode($sort($v))); }
     public static function body(array $p): array {
         $images=$p['images']??[];if(!is_array($images)||count($images)>15)throw new InvalidArgumentException('门店图片数量不正确');
-        return ['images'=>$images,'product_info'=>self::productInfo($p['product_info']??''),'person_info'=>self::text($p['person_info']??'',2000),'product_observations'=>self::text($p['product_observations']??'',3000),'requirements'=>self::text($p['requirements']??'',2000),
+        if(isset($p['reference_audio'])&&!is_array($p['reference_audio']))throw new InvalidArgumentException('参考音色格式无效');
+        return ['reference_audio'=>$p['reference_audio']??null,'voice_character'=>(self::text($p['voice_character']??'探店人物',80)?:'探店人物'),'images'=>$images,'product_info'=>self::productInfo($p['product_info']??''),'person_info'=>self::text($p['person_info']??'',2000),'product_observations'=>self::text($p['product_observations']??'',3000),'requirements'=>self::text($p['requirements']??'',2000),
             'story_type'=>self::text($p['story_type']??'host_tour',80),'custom_story'=>self::text($p['custom_story']??'',3000),
-            'style_id'=>self::text($p['style_id']??'',80),'custom_style'=>($p['style_id']??'')===self::NO_STYLE?'':self::text($p['custom_style']??'',500),
+            'style_id'=>self::NO_STYLE,'custom_style'=>'',
             'language'=>self::text($p['language']??'中文',60),'market_region'=>self::text($p['market_region']??'',100),
             'audio'=>isset($p['audio'])?filter_var($p['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,
             'video_selection'=>(array)($p['video_selection']??[]),'script'=>is_string($p['script']??null)?self::text($p['script'],6000):(array)($p['script']??[]),
-            'script_input_key'=>self::text($p['script_input_key']??'',64),'genre_snapshot'=>(array)($p['genre_snapshot']??[]),'style_snapshot'=>(array)($p['style_snapshot']??[])];
+            'script_input_key'=>self::text($p['script_input_key']??'',64),'genre_snapshot'=>(array)($p['genre_snapshot']??[]),'style_snapshot'=>['id'=>self::NO_STYLE,'name'=>'真实门店','prompt'=>'','mode'=>'auto']];
     }
     /** User-confirmed wording is retained verbatim, including line breaks and surrounding whitespace. */
     private static function productInfo($value): string
@@ -35,7 +36,8 @@ final class StoreVisitPolicy
         throw new InvalidArgumentException('分析未返回门店识别补充');
     }
     public static function inputKey(array $b): string {
-        $v=array_intersect_key($b,array_flip(['product_info','person_info','requirements','story_type','custom_story','style_id','custom_style','genre_snapshot','style_snapshot','language','market_region','audio','video_selection']));
+        $v=array_intersect_key($b,array_flip(['product_info','person_info','requirements','story_type','custom_story','genre_snapshot','language','market_region','audio','video_selection']));
+        if(!empty($b['reference_audio'])){$v['reference_audio']=(string)$b['reference_audio']['uri'];$v['voice_character']=$b['voice_character']??'探店人物';}
         if(($b['product_observations']??'')!=='')$v['product_observations']=$b['product_observations'];
         $v['images']=array_map(static fn($i)=>array_intersect_key($i,array_flip(['uri','reference_slot_id','role'])), $b['images']);return self::hash($v);
     }
@@ -85,14 +87,13 @@ final class StoreVisitPolicy
         $lines=['根据已确认门店与人物素材创作探店短片。门店招牌、空间布局、装潢与人物身份和外貌须保持一致；不编造地址、营业时间、价格、客流、口碑、优惠或体验结论。人物仅作为探店者或用户指定角色，不擅自充当店主或代言人。',
             '用户填写的门店名称和已确认信息（优先采用，保持原意）：'.$b['product_info'],'用户确认的人物设定：'.($b['person_info']??''),
             'AI 图片识别补充（仅作图片可见特征参考，不替代用户确认信息；冲突时采用用户确认信息，不扩展未知功效）：'.($b['product_observations']??''),'剧情类型：'.($b['genre_snapshot']['name']??''),'剧情规则：'.($b['genre_snapshot']['instruction']??''),
-            ($b['style_id']??'')===self::NO_STYLE
-                ?'画面风格：未指定预设。遵循已确认脚本和用户补充要求中的风格描述；未描述时，根据剧情与门店自行设计连贯一致的视觉风格。'
-                :'统一画面风格：'.($b['style_snapshot']['name']??'').'；'.($b['style_snapshot']['prompt']??''),
+            '采用真实门店纪实摄影，保持参考门店与人物的真实外观、材质和空间，不叠加预设画风。',
             '用户补充要求：'.$b['requirements'],'语言：'.$b['language'].'；地区：'.$b['market_region'],
             '总时长：'.($b['video_selection']['duration']??'').'秒；比例：'.($b['video_selection']['ratio']??''),'剧情：'.(is_string($s)?$s:$s['summary'])];
         foreach(is_array($s)?$s['characters']:[] as $c)$lines[]=$c['name'].'：'.$c['appearance'];
         foreach($b['images'] as $i=>$image)$lines[]='@图片'.($i+1).(($image['role']??'')==='person'?' 是人物参考图，保持该人物身份、面部和外貌一致。':' 是门店参考图，保持门店招牌、布局、装潢与空间一致。');
         foreach(is_array($s)?$s['shots']:[] as $i=>$shot)$lines[]='【镜头'.($i+1).'｜'.$shot['start'].'-'.$shot['end'].'秒】画面：'.$shot['action'].'；台词：'.$shot['dialogue'].'；门店展示：'.$shot['product_point'].'；门店参考：'.implode('、',array_map(static fn($slot)=>'@图片'.(array_search($slot,array_column($b['images'],'reference_slot_id'),true)+1),$shot['source_slots'])).'；镜头：'.$shot['camera'].'；声音：'.$shot['sound'];
+        if(!empty($b['reference_audio'])){if(($b['audio']??null)===false)throw new InvalidArgumentException('使用参考音色时不能关闭声音');$lines[]='@音频1 是参考音色。说话人物【'.($b['voice_character']??'探店人物').'】使用 @音频1 的音色、声线和发音特征，跨镜头保持一致。参考人物图片确定外貌，参考音频仅确定该人物音色；不复制参考音频原台词、不把配乐或噪声当作人声、不把该音色分配给其他人物。';}
         if(is_array($s))$lines[]='结尾：'.$s['ending'];$lines[]=($b['audio']??null)===false?'无声，不生成任何人声、配乐或音效。':'声音遵守当前模型原生能力；不额外叠加未经要求的字幕、水印和价格。';
         return self::text(implode("\n",$lines),12000);
     }

@@ -18,7 +18,10 @@ final class StoreVisitService
     public static function settings(int $t): array {
         $global=StoreVisitPolicy::json(self::table('config')->where('tenant_id',0)->value('body_json')??'{}');
         $local=$t>0?StoreVisitPolicy::json(self::table('config')->where('tenant_id',$t)->value('body_json')??'{}'):[];
-        return array_replace(['status'=>1,'planning_model_id'=>'','default_video_model_id'=>'','default_style_id'=>'','genres'=>self::defaultGenres()],$global,$local);
+        $settings=array_replace(['status'=>1,'planning_model_id'=>'','default_video_model_id'=>'','default_style_id'=>'','genres'=>self::defaultGenres()],$global,$local);
+        $settings['default_style_id']=StoreVisitPolicy::NO_STYLE;
+        foreach($settings['genres'] as&$genre)if(empty($genre['cover_url'])&&in_array($genre['code']??'',array_column(self::defaultGenres(),'code'),true))$genre['cover_url']='/resource/image/apps/aigc_store_visit/types/'.$genre['code'].'.webp';unset($genre);
+        return $settings;
     }
     public static function setup(int $t,array $p): array {
         $old=self::settings($t);$data=array_intersect_key(array_replace($old,$p),array_flip(['status','planning_model_id','default_video_model_id','default_style_id','genres']));
@@ -30,7 +33,8 @@ final class StoreVisitService
         $data['genres']=$genres;
         if($data['planning_model_id']!==''&&!in_array((string)$data['planning_model_id'],array_column(MarketTextModelRuntimeService::mediaOptions($t,false),'id'),true))throw new InvalidArgumentException('所选分析模型已不可用');
         if($data['default_video_model_id']!==''&&!StoreVisitCatalog::models($t,(string)$data['default_video_model_id']))throw new InvalidArgumentException('默认视频模型不可用');
-        if($data['default_style_id']!==''&&!in_array((string)$data['default_style_id'],array_column(StoreVisitCatalog::styles($t),'id'),true))throw new InvalidArgumentException('默认画风不可用');
+        $data['default_style_id']=StoreVisitPolicy::NO_STYLE;
+
         return Db::transaction(static function()use($t,$p,$data){AppDisplayConfigService::saveFromConfigPayload($t,self::APP,$p);$q=self::table('config')->where('tenant_id',$t);$v=['body_json'=>StoreVisitPolicy::encode($data),'update_time'=>time()];if($q->find())$q->update($v);else self::table('config')->insert($v+['tenant_id'=>$t,'create_time'=>time()]);return $data;});
     }
     public static function config(int $t): array {
@@ -43,11 +47,11 @@ final class StoreVisitService
         $video=StoreVisitCatalog::models($t);
         $c['default_video_model_id']=StoreVisitDefaults::video((string)$c['default_video_model_id'],$video);
         $c['default_style_id']=StoreVisitDefaults::style((string)$c['default_style_id']);
-        return AppDisplayConfigService::appendToConfig($t,self::APP,$c+['styles'=>StoreVisitCatalog::styles($t),'planning_models'=>$planning,'video_models'=>$video]);
+        return AppDisplayConfigService::appendToConfig($t,self::APP,$c+['styles'=>[],'planning_models'=>$planning,'video_models'=>$video]);
     }
     public static function models(int $t,string $kind,string $id=''): array {return ['models'=>$kind==='planning'?MarketTextModelRuntimeService::mediaOptions($t,false):StoreVisitCatalog::models($t,$id)];}
     public static function normalize(int $t,int $u,array $b): array {
-        $b=StoreVisitPolicy::body($b);foreach($b['images'] as $img)if(!in_array($img['role']??'',['store','person'],true))throw new InvalidArgumentException('素材类型不正确');$b['images']=StudioMediaInputService::validateImages($t,$u,$b['images'],15);$used=[];
+        $b=StoreVisitPolicy::body($b);$b['reference_audio']=StoreVisitVoiceReference::normalize($t,$u,$b['reference_audio']);if($b['reference_audio']&&$b['audio']===false)throw new InvalidArgumentException('使用参考音色时不能关闭声音');foreach($b['images'] as $img)if(!in_array($img['role']??'',['store','person'],true))throw new InvalidArgumentException('素材类型不正确');$b['images']=StudioMediaInputService::validateImages($t,$u,$b['images'],15);$used=[];
         foreach($b['images'] as $i=>&$img){$slot=ReferenceMaterialSlot::id($img)?:'sc_'.substr(hash('sha256',$img['uri'].'|'.$i),0,24);if(isset($used[$slot]))throw new InvalidArgumentException('门店素材槽位重复');$used[$slot]=true;$img['reference_slot_id']=$slot;$img['mention_name']='图片'.($i+1);}unset($img);
         $b['genre_snapshot']=self::genre($t,$b);$b['style_snapshot']=StoreVisitCatalog::style($t,$b);return $b;
     }
@@ -72,15 +76,12 @@ final class StoreVisitService
     /** Historical copies retain the approved creative rules if a library entry later changes. */
     public static function historicalBody(int $tenant,array $body): array
     {
-        $oldGenre=$body['genre_snapshot']??[];$oldStyle=$body['style_snapshot']??[];
+        $oldGenre=$body['genre_snapshot']??[];
         try{$current=self::genre($tenant,$body);}catch(\InvalidArgumentException){$current=[];}
         if(($current['name']??'')!==($oldGenre['name']??'')||($current['instruction']??'')!==($oldGenre['instruction']??'')){
             $body['story_type']='custom';$body['custom_story']=trim(($oldGenre['name']??'')."\n".($oldGenre['instruction']??''));
         }
-        try{$current=StoreVisitCatalog::style($tenant,$body);}catch(\InvalidArgumentException){$current=[];}
-        if(($current['name']??'')!==($oldStyle['name']??'')||($current['prompt']??'')!==($oldStyle['prompt']??'')){
-            $body['style_id']='';$body['custom_style']=trim(($oldStyle['name']??'')."\n".($oldStyle['prompt']??''));
-        }
+        $body['style_id']=StoreVisitPolicy::NO_STYLE;$body['custom_style']='';
         return $body;
     }
     public static function fromJob(int $t,int $u,int $id,bool $includeResult=false): array {$j=StoreVisitJobs::owned($t,$u,$id);if(in_array($j['status'],['queued','running','unknown'],true))throw new InvalidArgumentException('任务状态待核对，暂不可重新编辑');$b=StoreVisitPolicy::json($j['request_json'])['snapshot']??[];if($includeResult&&$j['action']==='analysis'&&$j['status']==='success'){$result=StoreVisitPolicy::json($j['result_json']);$b['product_observations']=StoreVisitPolicy::analysisObservations($result);$b['script']=$result['script'];}return self::save($t,$u,['body'=>self::historicalBody($t,$b),'confirm_script'=>$j['action']==='video'||$includeResult]);}

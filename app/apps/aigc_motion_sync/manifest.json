@@ -7,7 +7,7 @@
   "changelog": "1. 上传角色图片和动作视频，生成动作同步作品。\n2. 支持朝向选择、清晰度设置与灵感同款。\n3. 支持历史创作、多端使用及统一作品资产。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
-  "cover": "",
+  "cover": "resource/image/apps/aigc_motion_sync/cover.gif",
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 845,
@@ -77,6 +77,16 @@
           }
         ]
       }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/local/cover-v2.webp",
+      "target": "public/resource/image/apps/aigc_motion_sync/cover-v2.webp"
+    },
+    {
+      "source": "assets/local/cover.gif",
+      "target": "public/resource/image/apps/aigc_motion_sync/cover.gif"
     }
   ]
 }
