@@ -557,14 +557,20 @@ class SystemPackageUpdateService
             return [];
         }
         $appSqlOwners=$this->runtimeAppSqlOwners($extractPath,$manifest);
+        $systemPlans=$this->transactionalSystemSqlPlans($extractPath,$manifest,$appSqlOwners);
         \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
         if (System392RecoveryService::shouldSkipCompletedSystemSql($extractPath)) {
             return $this->prepareRuntimeApps($extractPath,(string)$manifest['version']);
         }
-        Db::startTrans();
-        try { $this->applySqlGroup($extractPath,$manifest,'data',$appSqlOwners); Db::commit(); }
-        catch (Throwable $e) { Db::rollback(); throw $e; }
-        $this->applySqlGroup($extractPath,$manifest,'structure',$appSqlOwners);
+        if (version_compare((string)$manifest['version'],'1.0.440','>=')) {
+            foreach ($systemPlans as $plan) \app\common\service\database\RuntimeMetadataTransactionGate::assertTables($plan['tables'],false);
+            foreach ($systemPlans as $plan) if ($plan['prepare']!=='') SqlMigrationExecutor::execute($plan['prepare'],(string)config('database.connections.mysql.prefix'));
+        } else {
+            Db::startTrans();
+            try { $this->applySqlGroup($extractPath,$manifest,'data',$appSqlOwners); Db::commit(); }
+            catch (Throwable $e) { Db::rollback(); throw $e; }
+            $this->applySqlGroup($extractPath,$manifest,'structure',$appSqlOwners);
+        }
         return $this->prepareRuntimeApps($extractPath,(string)$manifest['version']);
     }
 
@@ -575,6 +581,9 @@ class SystemPackageUpdateService
         $task=UpdateTask::where(['id'=>(int)$binding['task_id'],'package_id'=>(int)$package['id'],'status'=>'running'])->findOrEmpty();
         if($task->isEmpty())throw new RuntimeException('自举完成任务绑定无效');
         \app\common\service\database\RuntimeMetadataTransactionGate::assertMetadata();
+        $manifest=$this->readUpdateManifest($extractPath);
+        $systemPlans=($binding['runtime_metadata_unchanged']??false)===true?[]:$this->transactionalSystemSqlPlans($extractPath,$manifest,$this->runtimeAppSqlOwners($extractPath,$manifest));
+        foreach ($systemPlans as $plan) \app\common\service\database\RuntimeMetadataTransactionGate::assertTables($plan['tables']);
         $canonicalMigration=null;
         $site=rtrim(root_path(),'/');
         if (($GLOBALS['AIGC_RUNTIME_GENERATION']??$site)!==$site && version_compare((string)$package['version'],'1.0.403','>=')) {
@@ -583,6 +592,9 @@ class SystemPackageUpdateService
         }
         Db::startTrans();
         try {
+            if($systemPlans)AppAccessStateService::preserveExisting(function()use($systemPlans):void{
+                foreach($systemPlans as $plan)if($plan['complete']!=='')SqlMigrationExecutor::execute($plan['complete'],(string)config('database.connections.mysql.prefix'));
+            });
             $apps=($binding['runtime_metadata_unchanged']??false)===true?$this->syncRuntimePublicAssets($extractPath):$this->finalizeRuntimeApps($extractPath,(string)$package['version']);
             $result=['version'=>$package['version'],'extract_path'=>$extractPath,'builtin_apps'=>$apps,'composer_runtime'=>['generation'=>$GLOBALS['AIGC_RUNTIME_GENERATION']],'restart_required'=>!empty($binding['restart_required'])];
             $package->save(['status'=>'applied','error'=>'','update_time'=>time()]);
@@ -1295,6 +1307,27 @@ class SystemPackageUpdateService
             $owners[$relative]=$owner;
         }
         return $owners;
+    }
+
+    /** From 440, system SQL follows the same DDL/DML boundary as app SQL.
+     * Parse the entire signed plan before executing anything; durable additive
+     * DDL may survive failure, while registry/menu/retirement writes must roll
+     * back with final metadata and execute on its eventual successful retry.
+     */
+    private function transactionalSystemSqlPlans(string $extractPath,array $manifest,array $appSqlOwners=[]):array
+    {
+        if(version_compare((string)($manifest['version']??'0'),'1.0.440','<'))return [];
+        $plans=[];
+        foreach((array)($manifest['sql_order']??[])as$file){
+            $relative=$this->normalizePackagePath((string)$file);
+            $this->assertSafeUpdatePath($relative,false);
+            if(!str_starts_with($relative,'sql/data/')&&!str_starts_with($relative,'sql/structure/'))throw new RuntimeException('系统迁移分组不受支持: '.$relative);
+            if(isset($appSqlOwners[$relative])||$this->isReadmeSql($relative))continue;
+            $path=rtrim($extractPath,'/').'/'.$relative;
+            if(!is_file($path))throw new RuntimeException('增量系统包 SQL 文件不存在: '.$relative);
+            $plans[$relative]=\app\common\service\database\RuntimeMigrationPlan::build((string)file_get_contents($path));
+        }
+        return $plans;
     }
 
     private function applySqlGroup(string $extractPath, array $manifest, string $group, array $appSqlOwners = []): bool
