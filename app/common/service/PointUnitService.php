@@ -10,7 +10,9 @@ class PointUnitService
 
     public static function unit(): string
     {
-        return self::normalize(ConfigService::get('recharge', 'point_unit', self::DEFAULT_UNIT));
+        $owner = \app\common\enum\AdminTerminalEnum::isPlatform() ? 'platform' : 'tenant:'.(int)request()->tenantId;
+        return \app\common\service\database\ListingReadScope::remember('point_unit:'.$owner,
+            static fn(): array => ['unit' => self::normalize(ConfigService::get('recharge', 'point_unit', self::DEFAULT_UNIT))])['unit'];
     }
 
     public static function normalize($value): string
