@@ -31,9 +31,7 @@ class AigcWatermarkRemovalService
         $data['max_videos'] = 1;
         $data['api_path'] = '/api/v1/apps/' . self::UPSTREAM_APP_CODE . '/' . self::UPSTREAM_API_CODE;
         $data['dependencies'] = self::dependencies($data['options']);
-        if ($row->isEmpty()) {
-            AigcWatermarkRemovalConfig::create(['tenant_id' => $tenantId, 'status' => $data['status'], 'config_json' => $data['config_json'], 'create_time' => time(), 'update_time' => time()]);
-        }
+
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 

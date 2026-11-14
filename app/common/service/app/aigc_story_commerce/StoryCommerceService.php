@@ -34,12 +34,16 @@ final class StoryCommerceService
         return Db::transaction(static function()use($t,$p,$data){AppDisplayConfigService::saveFromConfigPayload($t,self::APP,$p);$q=self::table('config')->where('tenant_id',$t);$v=['body_json'=>StoryCommercePolicy::encode($data),'update_time'=>time()];if($q->find())$q->update($v);else self::table('config')->insert($v+['tenant_id'=>$t,'create_time'=>time()]);return $data;});
     }
     public static function config(int $t): array {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn()=>self::readConfig($t));
+    }
+    private static function readConfig(int $t): array {
         $c=self::settings($t);$c['genres']=array_values(array_filter($c['genres'],static fn($r)=>!empty($r['status'])));usort($c['genres'],static fn($a,$b)=>$b['sort']<=>$a['sort']);
         $planning=MarketTextModelRuntimeService::mediaOptions($t,false);
         $c['planning_model_id']=StoryCommerceDefaults::planning((string)$c['planning_model_id'],$planning);
-        $c['default_video_model_id']=StoryCommerceDefaults::video((string)$c['default_video_model_id'],StoryCommerceCatalog::models($t));
+        $video=StoryCommerceCatalog::models($t);
+        $c['default_video_model_id']=StoryCommerceDefaults::video((string)$c['default_video_model_id'],$video);
         $c['default_style_id']=StoryCommerceDefaults::style((string)$c['default_style_id']);
-        return AppDisplayConfigService::appendToConfig($t,self::APP,$c+['styles'=>StoryCommerceCatalog::styles($t),'planning_models'=>$planning]);
+        return AppDisplayConfigService::appendToConfig($t,self::APP,$c+['styles'=>StoryCommerceCatalog::styles($t),'planning_models'=>$planning,'video_models'=>$video]);
     }
     public static function models(int $t,string $kind,string $id=''): array {return ['models'=>$kind==='planning'?MarketTextModelRuntimeService::mediaOptions($t,false):StoryCommerceCatalog::models($t,$id)];}
     public static function normalize(int $t,int $u,array $b): array {

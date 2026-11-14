@@ -41,10 +41,7 @@ class AigcBackgroundRemovalService
         $data = self::sanitizeConfig($data);
         $optionConfig = AigcImageChannelService::userConfig($tenantId);
         $data = AigcImageChannelService::alignConfigDefaults($data, $optionConfig);
-        [$data['price_config'], $priceChanged] = self::ensurePricePackages($data['price_config'], $optionConfig);
-        if ($priceChanged) {
-            self::saveConfigSnapshot($tenantId, $data, $row);
-        }
+        [$data['price_config']] = self::ensurePricePackages($data['price_config'], $optionConfig);
         $data['option_config'] = $optionConfig;
         $data['price_packages'] = self::buildPricePackages($optionConfig, $data['price_config']);
         $data['price_options'] = $data['price_packages'];

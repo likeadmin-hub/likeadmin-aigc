@@ -10,7 +10,7 @@ class ConfigController extends BaseAdminController
 {
     public function detail()
     {
-        return $this->success('获取成功', AigcProductMultiAngleService::config($this->tenantId));
+        return $this->success('获取成功', AigcProductMultiAngleService::config($this->tenantId, true));
     }
 
     public function setup()
