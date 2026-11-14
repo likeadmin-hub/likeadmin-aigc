@@ -20,46 +20,57 @@ class TenantPowerConsumeLists extends BaseAdminDataLists implements ListsSearchI
 
     public function lists(): array
     {
-        $rows = $this->baseQuery()
-            ->field(self::fields())
-            ->group('tpl.id')
-            ->order('tpl.id', 'desc')
-            ->limit($this->limitOffset, $this->limitLength)
-            ->select()
-            ->toArray();
+        $ids = $this->baseQuery($this->needsUserJoin())
+            ->distinct(true)->order('tpl.id', 'desc')
+            ->limit($this->limitOffset, $this->limitLength)->column('tpl.id');
+        if (!$ids) return [];
+        $rows = $this->baseQuery()->whereIn('tpl.id', $ids)
+            ->field(self::fields())->group('tpl.id')->order('tpl.id', 'desc')
+            ->select()->toArray();
 
         return self::formatRows($rows);
     }
 
     public function count(): int
     {
-        return (int)$this->baseQuery()->distinct(true)->count('tpl.id');
+        $query = $this->baseQuery($this->needsUserJoin());
+        if ($this->needsUserJoin()) $query->group('tpl.id');
+        return (int)$query->count('tpl.id');
     }
 
     public function extend(): array
     {
-        $summaryQuery = self::summaryQuery();
-        $todayQuery = (clone $summaryQuery)->where('tpl.create_time', '>=', strtotime(date('Y-m-d')));
+        $today = strtotime(date('Y-m-d'));
+        $summary = self::summaryQuery()->fieldRaw('COUNT(*) total_count,COALESCE(SUM(tpl.change_amount),0) total_amount,'
+            .'SUM(tpl.create_time >= '.$today.') today_count,'
+            .'COALESCE(SUM(CASE WHEN tpl.create_time >= '.$today.' THEN tpl.change_amount ELSE 0 END),0) today_amount,'
+            .'COUNT(DISTINCT tpl.tenant_id) tenant_count')->findOrEmpty()->toArray();
 
         return [
             'point_unit' => PointUnitService::unit(),
             'summary' => [
-                'total_count' => (int)(clone $summaryQuery)->count(),
-                'total_amount' => self::formatAmount((float)(clone $summaryQuery)->sum('tpl.change_amount')),
-                'today_count' => (int)(clone $todayQuery)->count(),
-                'today_amount' => self::formatAmount((float)(clone $todayQuery)->sum('tpl.change_amount')),
-                'tenant_count' => (int)(clone $summaryQuery)->distinct(true)->count('tpl.tenant_id'),
+                'total_count' => (int)($summary['total_count'] ?? 0),
+                'total_amount' => self::formatAmount((float)($summary['total_amount'] ?? 0)),
+                'today_count' => (int)($summary['today_count'] ?? 0),
+                'today_amount' => self::formatAmount((float)($summary['today_amount'] ?? 0)),
+                'tenant_count' => (int)($summary['tenant_count'] ?? 0),
             ],
         ];
     }
 
-    private function baseQuery()
+    private function needsUserJoin(): bool
     {
-        $query = self::summaryQuery()
+        return !empty($this->params['keyword']);
+    }
+
+    private function baseQuery(bool $joinUsers = true)
+    {
+        $query = self::summaryQuery();
+        if ($joinUsers) $query
             ->leftJoin('user_account_log ual', 'ual.tenant_id = tpl.tenant_id AND CONVERT(ual.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(tpl.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci AND ual.action = ' . AccountLogEnum::DEC . ' AND ual.change_type = ' . AccountLogEnum::UM_DEC_APP_CONSUME . ' AND (ual.delete_time IS NULL OR ual.delete_time = 0)')
             ->leftJoin('user u', 'u.id = ual.user_id');
 
-        self::applyFilters($query, $this->params, true);
+        self::applyFilters($query, $this->params, $joinUsers);
         return $query;
     }
 
