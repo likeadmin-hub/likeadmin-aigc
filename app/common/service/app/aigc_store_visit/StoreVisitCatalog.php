@@ -55,7 +55,7 @@ final class StoreVisitCatalog
                 foreach($mode['fields'] as $f){if($f['kind']==='image'){$max+=(int)($f['maximum']??$f['minimum']??0);$min+=max((int)($f['minimum']??0),empty($f['required'])?0:1);}elseif($f['kind']==='audio'){ $audioMax+=(int)($f['maximum']??$f['minimum']??0);$audioMin+=max((int)($f['minimum']??0),empty($f['required'])?0:1); }elseif(!empty($f['required'])||(int)($f['minimum']??0)>0)$other=true;}
                 if(!$other&&$n>=$min&&$n<=$max&&($hasVoice?1:0)>=$audioMin&&($hasVoice?1:0)<=$audioMax){if($mode['method']===$spec['generation_method']){$chosen=$mode;break;}$chosen??=$mode;}
             }
-            if(!$chosen)throw new InvalidArgumentException('该模型不支持当前门店图片组合');
+            if(!$chosen)throw new InvalidArgumentException('该模型不支持当前门店图片与参考音色组合');
             if($chosen['method']!==$spec['generation_method'])unset($spec['market_sku_id']);
             $spec['generation_method']=$chosen['method'];$spec['material_mode']=$chosen['key'];
         }
