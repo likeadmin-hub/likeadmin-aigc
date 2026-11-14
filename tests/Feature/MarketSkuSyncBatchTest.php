@@ -32,7 +32,9 @@ final class MarketSkuSyncBatchTest extends TestCase
                 foreach($items as$i=>$sku){$stored=$i===20?$key->invoke(null,$sku):($i===21?'******':$sku['sku_key']);
                     PowerMarketSku::create(['product_id'=>$id,'sku_key'=>$stored,'title'=>$sku['title'],'billing_mode'=>'fixed','locked_params'=>$sku['locked_params'],'selectable_params'=>[],'usage_unit'=>'per_call','usage_unit_size'=>1,'upstream_price'=>1,'sale_points'=>19,'sale_status'=>0,'status'=>1,'source_payload'=>[],'create_time'=>time(),'update_time'=>time()]);
                 }
-                $items[]=$shape('new-sku');$items[]=$shape('new-sku');$items[array_key_last($items)]['price']['points']='6.000001';
+                $items[]=$shape('new-sku');
+                $items[]=$shape('native-0');$items[array_key_last($items)]['price']['points']='7.000001';
+                $items[]=$shape('new-sku');$items[array_key_last($items)]['price']['points']='6.000001';$items[array_key_last($items)]['usage_unit_size']=2;
                 PowerMarketSku::where('product_id',$id)->update(['status'=>0]);
                 $mode=$run;$batch=$run==='batch'?new MarketSkuSyncBatch($id):null;
                 foreach($items as$sku)$save->invoke(null,$id,$sku,['type'=>'model','resource'=>['model_code'=>'offline']],0,$batch);

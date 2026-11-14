@@ -23,6 +23,15 @@ final class MarketSkuSyncBatch
     public function masked(): array {return array_values($this->rows['******']??[]);}
     public function remember(PowerMarketSku $row,string $oldKey=''): void
     {
+        // ORM origins containing Raw expressions suppress later updates to that
+        // field. Retain the exact persisted decimal bindings as plain strings.
+        $data=$row->getData();$normalize=false;
+        foreach(['upstream_price','usage_unit_size','sale_points']as$field)if(($data[$field]??null) instanceof \think\db\Raw){
+            $value=$data[$field];$bind=$value->getBind();
+            if($value->getValue()!=='?'||count($bind)!==1||!isset($bind[0][0],$bind[0][1])||$bind[0][1]!==\PDO::PARAM_STR)throw new \RuntimeException('SKU 批次价格绑定无效');
+            $data[$field]=(string)$bind[0][0];$normalize=true;
+        }
+        if($normalize)$row=$row->newInstance($data);
         $id=(int)$row['id'];$key=(string)$row['sku_key'];
         if($oldKey!==''&&$oldKey!==$key){unset($this->rows[$oldKey][$id]);if(empty($this->rows[$oldKey]))unset($this->rows[$oldKey]);}
         $this->rows[$key][$id]=$row;
