@@ -28,6 +28,12 @@ final class MarketCatalogReadScope
         if (!array_key_exists($key, $scope->values)) $scope->values[$key] = $read();
         return $scope->values[$key];
     }
+    public static function forget(string $key): void
+    {
+        $scope = request()->marketCatalogReadScope;
+        if ($scope instanceof self) unset($scope->values[$key]);
+    }
+
     /** Reuse a pure derivation while its complete inputs remain unchanged.
      * Keep only the latest input per operation; avoid repeatedly serializing large schemas.
      */

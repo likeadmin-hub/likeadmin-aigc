@@ -145,6 +145,11 @@ class PcLogic extends BaseLogic
      */
     public static function getConfigData()
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::readConfigData());
+    }
+
+    private static function readConfigData()
+    {
         // 登录配置
         $loginConfig = [
             'pc_wechat' => \app\common\service\wechat\PcWechatConfigService::status(),

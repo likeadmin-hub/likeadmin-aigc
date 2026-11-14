@@ -13,6 +13,9 @@ class ConfigController extends BaseApiController
     {
         $data = AigcImageService::config((int)$this->request->tenantId);
         unset($data['config_json']['prompt_enhance_system_prompt']);
+        if ($this->request->get('catalog_format', '') === 'channels') {
+            unset($data['option_config']['models'], $data['option_config']['applications']);
+        }
         return $this->success('获取成功', $data);
     }
 }

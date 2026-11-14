@@ -21,20 +21,23 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
 
     public function lists(): array
     {
-        $lists = $this->baseQuery()
-            ->field(self::fields())
-            ->group('tpl.id')
-            ->order('tpl.id', 'desc')
-            ->limit($this->limitOffset, $this->limitLength)
-            ->select()
-            ->toArray();
-
+        // Page the tenant ledger before joining user bills. Character-set conversion
+        // is required for old installations, but must not multiply the entire ledger.
+        $ids = $this->baseQuery($this->needsUserJoin())
+            ->distinct(true)->order('tpl.id', 'desc')
+            ->limit($this->limitOffset, $this->limitLength)->column('tpl.id');
+        if (!$ids) return [];
+        $lists = self::buildQuery((int)$this->adminInfo['tenant_id'], $this->params)
+            ->whereIn('tpl.id', $ids)->field(self::fields())
+            ->group('tpl.id')->order('tpl.id', 'desc')->select()->toArray();
         return self::formatRows($lists);
     }
 
     public function count(): int
     {
-        return (int)$this->baseQuery()->distinct(true)->count('tpl.id');
+        $query = $this->baseQuery($this->needsUserJoin());
+        if ($this->needsUserJoin()) $query->group('tpl.id');
+        return (int)$query->count('tpl.id');
     }
 
     public function extend(): array
@@ -46,16 +49,18 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
             'change_type' => TenantPointService::TYPE_CONSUME,
             'action' => TenantPointService::ACTION_DEC,
         ]);
-        $todayQuery = (clone $summaryQuery)->where('create_time', '>=', $todayStart);
+        $summary = $summaryQuery->fieldRaw('COUNT(*) total_count,COALESCE(SUM(change_amount),0) total_amount,'
+            .'SUM(create_time >= '.$todayStart.') today_count,'
+            .'COALESCE(SUM(CASE WHEN create_time >= '.$todayStart.' THEN change_amount ELSE 0 END),0) today_amount')->findOrEmpty()->toArray();
         $balance = Tenant::withoutGlobalScope()->where('id', $tenantId)->value('point_balance');
 
         return [
             'point_unit' => PointUnitService::unit(),
             'summary' => [
-                'total_count' => (int)(clone $summaryQuery)->count(),
-                'total_amount' => self::formatAmount((float)(clone $summaryQuery)->sum('change_amount')),
-                'today_count' => (int)(clone $todayQuery)->count(),
-                'today_amount' => self::formatAmount((float)(clone $todayQuery)->sum('change_amount')),
+                'total_count' => (int)($summary['total_count'] ?? 0),
+                'total_amount' => self::formatAmount((float)($summary['total_amount'] ?? 0)),
+                'today_count' => (int)($summary['today_count'] ?? 0),
+                'today_amount' => self::formatAmount((float)($summary['today_amount'] ?? 0)),
                 'point_balance' => self::formatAmount((float)$balance),
             ],
             'source_type_options' => [
@@ -78,17 +83,23 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
         return $row ? (self::formatRows([$row])[0] ?? []) : [];
     }
 
-    private function baseQuery()
+    private function baseQuery(bool $joinUsers = true)
     {
-        return self::buildQuery((int)$this->adminInfo['tenant_id'], $this->params);
+        return self::buildQuery((int)$this->adminInfo['tenant_id'], $this->params, $joinUsers);
     }
 
-    private static function buildQuery(int $tenantId, array $params)
+    private function needsUserJoin(): bool
     {
-        $query = TenantPointLog::alias('tpl')
+        return !empty($this->params['keyword']) || !empty($this->params['user_info']);
+    }
+
+    private static function buildQuery(int $tenantId, array $params, bool $joinUsers = true)
+    {
+        $query = TenantPointLog::alias('tpl');
+        if ($joinUsers) $query
             ->leftJoin('user_account_log ual', 'ual.tenant_id = tpl.tenant_id AND CONVERT(ual.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(tpl.source_sn USING utf8mb4) COLLATE utf8mb4_unicode_ci AND ual.action = ' . AccountLogEnum::DEC . ' AND ual.change_type = ' . AccountLogEnum::UM_DEC_APP_CONSUME . ' AND (ual.delete_time IS NULL OR ual.delete_time = 0)')
-            ->leftJoin('user u', 'u.id = ual.user_id')
-            ->where('tpl.tenant_id', $tenantId)
+            ->leftJoin('user u', 'u.id = ual.user_id');
+        $query->where('tpl.tenant_id', $tenantId)
             ->where('tpl.change_type', TenantPointService::TYPE_CONSUME)
             ->where('tpl.action', TenantPointService::ACTION_DEC);
 

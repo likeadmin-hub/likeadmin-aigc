@@ -33,7 +33,7 @@ class MarketGenerationCatalogService
     /** @return array<string, mixed> */
     public static function options(int $tenantId, string $generationType): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => self::readOptions($tenantId, $generationType));
+        return MarketCatalogReadScope::run(static fn(): array => MarketCatalogReadScope::remember('generation:'.$tenantId.':'.$generationType, static fn(): array => self::readOptions($tenantId, $generationType)));
     }
 
     private static function readOptions(int $tenantId, string $generationType): array

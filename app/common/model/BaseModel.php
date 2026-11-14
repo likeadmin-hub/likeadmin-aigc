@@ -87,7 +87,8 @@ class BaseModel extends Model
             if (!in_array($tableNoPrefix, self::$notCheckTables)) {
                 // 根据租户唯一标识获取对应表是否存在
                 // Reading unrelated accessors (avatar -> storage config -> tenant scope) recurses on a cold cache.
-                $tenantInfo = Tenant::query()->where('id', $tenantId)->field('id,sn,tactics')->find();
+                $tenantInfo = \app\common\service\power\MarketCatalogReadScope::remember('tenant_routing:'.$tenantId,
+                    static fn(): array => Tenant::query()->where('id', $tenantId)->field('id,sn,tactics')->find()?->getData() ?? []);
                 if (!$tenantInfo) throw new \RuntimeException('租户不存在');
                 // 租户分表策略
                 if ($tenantInfo['tactics'] == 1) {

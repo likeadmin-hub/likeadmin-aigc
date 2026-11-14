@@ -267,10 +267,15 @@ class PowerMarketService
         return ['model_code'=>$code,'product_ids'=>$ids];
     }
 
-    public static function syncFromUpstream(bool $modelsOnly = false, ?array $modelTypes = null): array
+    public static function syncFromUpstream(bool $modelsOnly = false, ?array $modelTypes = null, bool $appsOnly = false, bool $bounded = false): array
     {
-        $modelTypes = $modelTypes ?? self::MODEL_TYPES;
-        if ($modelTypes === [] || array_diff($modelTypes, self::MODEL_TYPES)) throw new Exception('模型同步分类无效');
+        return UpstreamPricingService::withCatalogBatch(static fn(): array => self::readUpstreamSync($modelsOnly, $modelTypes, $appsOnly, $bounded));
+    }
+
+    private static function readUpstreamSync(bool $modelsOnly, ?array $modelTypes, bool $appsOnly, bool $bounded): array
+    {
+        $modelTypes = $appsOnly ? [] : ($modelTypes ?? self::MODEL_TYPES);
+        if ((!$appsOnly && $modelTypes === []) || array_diff($modelTypes, self::MODEL_TYPES)) throw new Exception('模型同步分类无效');
         $modelTypes = array_values(array_unique($modelTypes));
         $requests = [];
         $models = [];
@@ -279,8 +284,9 @@ class PowerMarketService
         $typeErrors = [];
         foreach ($modelTypes as $modelType) {
             try {
-                $remoteModels = self::withUpstreamRetry(fn() => UpstreamPricingService::queryModels($modelType, true));
+                $remoteModels = self::withUpstreamRetry(fn() => UpstreamPricingService::queryModels($modelType, true, $bounded ? 10 : 35));
                 $syncedModelTypes[] = $modelType;
+                UpstreamPricingService::prefetchMetadata($remoteModels);
                 $acceptedModels = 0;
                 foreach ($remoteModels as $model) {
                     $declaredType = self::syncModelType($model, ['model_type' => $modelType]);
@@ -355,7 +361,9 @@ class PowerMarketService
 
         $appsSynced = false;
         try {
-            foreach ($modelsOnly ? [] : self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps()) as $app) {
+            $remoteApps = $modelsOnly ? [] : self::withUpstreamRetry(fn() => UpstreamPricingService::queryApps($bounded ? 10 : 35));
+            UpstreamPricingService::prefetchMetadata([], $remoteApps);
+            foreach ($remoteApps as $app) {
                 $appCode = trim((string)($app['code'] ?? ''));
                 if ($appCode === '') {
                     continue;
@@ -409,7 +417,9 @@ class PowerMarketService
                 }
                 $batchRequests[] = $request;
             }
-            foreach (array_chunk($batchRequests, self::UPSTREAM_PRICING_BATCH_SIZE) as $chunkIndex => $chunk) {
+            $chunks = array_chunk($batchRequests, self::UPSTREAM_PRICING_BATCH_SIZE);
+            UpstreamPricingService::prefetchPricing($chunks);
+            foreach ($chunks as $chunkIndex => $chunk) {
                 try {
                     $scopeItems = array_merge($scopeItems, self::withUpstreamRetry(fn() => UpstreamPricingService::queryBatch($chunk))['items'] ?? []);
                 } catch (\Throwable $e) {

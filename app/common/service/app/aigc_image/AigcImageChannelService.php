@@ -19,6 +19,11 @@ class AigcImageChannelService
 
     public static function userConfig(int $tenantId): array
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::readUserConfig($tenantId));
+    }
+
+    private static function readUserConfig(int $tenantId): array
+    {
         $channels = self::normalizeUserChannels(self::effectiveChannels($tenantId, true));
         $defaults = self::defaults($channels);
         $catalog = MarketGenerationCatalogService::options($tenantId, 'image');

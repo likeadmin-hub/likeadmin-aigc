@@ -40,6 +40,11 @@ class AigcVideoService
 
     public static function config(int $tenantId): array
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::readConfig($tenantId));
+    }
+
+    private static function readConfig(int $tenantId): array
+    {
         $config = AigcVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($config->isEmpty()) {
             return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
