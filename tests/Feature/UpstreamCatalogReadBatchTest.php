@@ -6,6 +6,17 @@ use PHPUnit\Framework\TestCase;
 
 final class UpstreamCatalogReadBatchTest extends TestCase
 {
+    public function testBrowserScopedSyncDoesNotReplayAnAlreadyFailedBatch(): void
+    {
+        $attempts=0;
+        $retry=new \ReflectionMethod(\app\common\service\power\PowerMarketService::class,'withUpstreamRetry');
+        try {
+            $retry->invoke(null,static function()use(&$attempts){$attempts++;throw new \RuntimeException('upstream timeout');},false);
+            self::fail('Expected upstream failure');
+        } catch (\RuntimeException $e) { self::assertSame('upstream timeout',$e->getMessage()); }
+        self::assertSame(1,$attempts);
+    }
+
     public function testEveryBatchItemRetainsItsIdentityIncludingFailures(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'catalog-read-');
