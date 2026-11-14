@@ -242,7 +242,7 @@ class UpstreamPricingService
             $timeout = min($timeout, 5, (int)ceil($remaining));
         }
 
-        $source = UpdateSourceClient::getSource();
+        $source = self::sourceConfiguration();
         $origin = self::sourceOrigin($source);
         if ($origin === '') {
             throw new Exception('请先在系统服务 > 接口渠道中配置 Base URL');
@@ -371,7 +371,8 @@ class UpstreamPricingService
             if (!array_key_exists($key, $state['responses'])) $jobs[$key] = $job;
         }
         if (!$jobs) return;
-        $source = UpdateSourceClient::getSource();
+        $source = self::sourceConfiguration();
+        $state = request()->upstreamCatalogBatch;
         $origin = self::sourceOrigin($source);
         $apiKey = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
         if ($origin === '' || $apiKey === '') throw new Exception('请先配置接口渠道');
@@ -420,9 +421,20 @@ class UpstreamPricingService
         ];
     }
 
+    private static function sourceConfiguration(): array
+    {
+        $state = function_exists('request') ? request()->upstreamCatalogBatch : null;
+        if (!is_array($state)) return UpdateSourceClient::getSource();
+        if (array_key_exists('source', $state)) return $state['source'];
+        $source = UpdateSourceClient::getSource();
+        $state['source'] = $source;
+        request()->upstreamCatalogBatch = $state;
+        return $source;
+    }
+
     private static function sourceOrigin(array $source = []): string
     {
-        $source = $source ?: UpdateSourceClient::getSource();
+        $source = $source ?: self::sourceConfiguration();
         $baseUrl = trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''));
         if ($baseUrl === '') {
             return '';
