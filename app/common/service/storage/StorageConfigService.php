@@ -118,8 +118,9 @@ class StorageConfigService
 
     public static function isTenantStorageEnabled(int $tenantId): bool
     {
-        return \app\common\service\power\MarketCatalogReadScope::remember('storage_enabled:'.$tenantId,
-            static fn(): array => ['enabled' => self::readTenantStorageEnabled($tenantId)])['enabled'];
+        return \app\common\service\database\ListingReadScope::remember('storage_enabled:'.$tenantId,
+            static fn(): array => \app\common\service\power\MarketCatalogReadScope::remember('storage_enabled:'.$tenantId,
+                static fn(): array => ['enabled' => self::readTenantStorageEnabled($tenantId)]))['enabled'];
     }
 
     private static function readTenantStorageEnabled(int $tenantId): bool
@@ -156,6 +157,7 @@ class StorageConfigService
     public static function clearCache(?int $tenantId = null): void
     {
         \app\common\service\power\MarketCatalogReadScope::forget('storage_enabled:'.$tenantId);
+        \app\common\service\database\ListingReadScope::forget('storage_enabled:'.$tenantId);
         Cache::delete('STORAGE_DEFAULT_PLATFORM');
         Cache::delete('STORAGE_ENGINE_PLATFORM');
         if ($tenantId) {
