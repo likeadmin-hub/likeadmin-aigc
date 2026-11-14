@@ -14,7 +14,8 @@ final class StoreVisitStarterCatalog
     {foreach(self::all()as$row)if($row['id']===$id)return $row;return null;}
     public static function dto(array $row): array
     {
-        return ['id'=>$row['id'],'title'=>$row['title'],'configuration'=>['story_type'=>$row['story_type'],'requirements'=>$row['description'],'script'=>$row['script']],
+        $genre=[];foreach(StoreVisitService::defaultGenres()as$item)if($item['code']===$row['story_type']){$genre=['code'=>$item['code'],'name'=>$item['name']];break;}
+        return ['id'=>$row['id'],'title'=>$row['title'],'configuration'=>['genre_snapshot'=>$genre,'story_type'=>$row['story_type'],'requirements'=>$row['description'],'script'=>$row['script']],
             'description'=>$row['description'],'cover_url'=>FileService::getFileUrl($row['cover']),'media_url'=>'','media_type'=>'image','preview'=>[],
             'is_builtin'=>true,'is_script_template'=>true,'builtin_version'=>1,'readonly'=>true,'status'=>1,'sort'=>9000,'ratio'=>'3:4','tenant_id'=>0,'source_task_id'=>0];
     }
