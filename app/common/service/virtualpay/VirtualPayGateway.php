@@ -31,9 +31,17 @@ class VirtualPayGateway
             if (!$identity) throw new \RuntimeException('原支付小程序授权已失效，请联系管理员核对');
             return OpenPlatformService::authorizerToken((int)$v['authorizer_id']);
         }
-        $cache='vpay.token.'.(int)$v['id'];$old=Cache::get($cache);if(is_string($old)&&$old!=='')return $old;
-        $data=$this->send('GET','/cgi-bin/token',['grant_type'=>'client_credential','appid'=>$v['app_id'],'secret'=>VirtualPayConfigService::secret($v,'mini_secret')]);
-        if(empty($data['access_token']))throw new \RuntimeException('小程序凭据不可用，请联系管理员核对原支付配置');
+        // AppSecret can rotate while the original AppID and payment contract
+        // stay unchanged. Only refresh token credentials for that same app;
+        // keep its frozen AppKey, environment and order identity untouched.
+        $secret=VirtualPayConfigService::secret($v,'mini_secret');
+        $currentApp=VirtualPayConfigService::manual((int)$v['tenant_id'],'app_id');
+        $currentSecret=VirtualPayConfigService::manual((int)$v['tenant_id'],'app_secret');
+        if($currentApp===$v['app_id']&&trim($currentSecret)!=='')$secret=$currentSecret;
+        $cache='vpay.token.'.(int)$v['id'].'.'.hash('sha256',$v['app_id'].'|'.$secret);
+        $old=Cache::get($cache);if(is_string($old)&&$old!=='')return $old;
+        $data=$this->send('GET','/cgi-bin/token',['grant_type'=>'client_credential','appid'=>$v['app_id'],'secret'=>$secret]);
+        if(empty($data['access_token']))throw new \RuntimeException('小程序凭据不可用（微信错误码'.(int)($data['errcode']??-1).'），请联系管理员核对原支付配置');
         Cache::set($cache,$data['access_token'],max(60,(int)($data['expires_in']??7200)-300));return $data['access_token'];
     }
     public function request(array $v,string $path,array $payload,bool $signed=true): array
