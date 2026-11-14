@@ -94,6 +94,11 @@ class AigcProductSuiteService
 
     public static function config(int $tenantId): array
     {
+        return \app\common\service\power\MarketCatalogReadScope::run(static fn(): array => self::buildConfig($tenantId));
+    }
+
+    private static function buildConfig(int $tenantId): array
+    {
         $row = AigcProductSuiteConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
