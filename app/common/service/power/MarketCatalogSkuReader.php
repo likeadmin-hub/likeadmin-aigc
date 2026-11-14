@@ -28,6 +28,10 @@ final class MarketCatalogSkuReader
         }
         $groups = [];
         foreach ($rows as $sku) {
+            // Discovery validators reuse these exact rows only until the outer read scope exits.
+            MarketCatalogReadScope::remember('video_sku:'.$sku['id'], static fn(): array => $sku);
+            $configured = $prices[(int)$sku['id']] ?? [];
+            MarketCatalogReadScope::remember('video_tenant_price:'.$tenantId.':'.$sku['id'], static fn(): array => $configured);
             $id = (int)$sku['product_id'];
             $groups[$id]['platform_count'] = ($groups[$id]['platform_count'] ?? 0) + 1;
             $price = $prices[(int)$sku['id']] ?? null;

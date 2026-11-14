@@ -49,8 +49,16 @@ class MarketVideoRuntimeService
             $where['model_type'] = $appCode === 'aigc_motion_sync' ? 'other' : 'video';
         }
         $products = PowerMarketProduct::where($where)->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
+        foreach ($products as $product) {
+            MarketCatalogReadScope::remember('video_product:'.$product['id'], static fn(): array => $product);
+            MarketCatalogReadScope::remember('market_price_product:'.$product['id'], static fn(): array => array_intersect_key($product, array_flip(['resource_type','upstream_api_code'])));
+        }
         TenantPowerMarketService::applyProductDisplays($tenantId, $products);
         $catalogueSkus = MarketCatalogSkuReader::forProducts($tenantId, array_column($products, 'id'), ['sort' => 'desc', 'id' => 'asc']);
+        foreach ($products as $product) {
+            $available = $catalogueSkus[(int)$product['id']]['available'] ?? [];
+            MarketCatalogReadScope::remember('video_available_skus:'.$tenantId.':'.$product['id'], static fn(): array => $available);
+        }
         $options = [];
         foreach ($products as $product) {
             if ($appCode === 'aigc_motion_sync' && !MarketMotionSyncRuntimeService::supportsProduct($product)) continue;
@@ -2609,6 +2617,12 @@ class MarketVideoRuntimeService
     }
     private static function referenceAudioRequiresVisual(array $product, array $meta): bool
     {
+        return MarketCatalogReadScope::derive('referenceAudioRequiresVisual:'.($product['id'] ?? ''), [$product, $meta],
+            static fn(): array => ['value' => self::buildReferenceAudioRequiresVisual($product, $meta)])['value'];
+    }
+
+    private static function buildReferenceAudioRequiresVisual(array $product, array $meta): bool
+    {
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $rules = self::arrayValue(self::arrayValue($meta['content_schema'] ?? [])['rules'] ?? []);
         foreach ([$meta, $cap, $rules] as $source) {
@@ -2632,6 +2646,12 @@ class MarketVideoRuntimeService
         return self::isH3Product($product);
     }
     private static function frameAndReferenceMutuallyExclusive(array $product, array $meta): bool
+    {
+        return MarketCatalogReadScope::derive('frameAndReferenceMutuallyExclusive:'.($product['id'] ?? ''), [$product, $meta],
+            static fn(): array => ['value' => self::buildFrameAndReferenceMutuallyExclusive($product, $meta)])['value'];
+    }
+
+    private static function buildFrameAndReferenceMutuallyExclusive(array $product, array $meta): bool
     {
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $rules = self::arrayValue(self::arrayValue($meta['content_schema'] ?? [])['rules'] ?? []);
