@@ -31,6 +31,17 @@ final class AgentCapabilityCatalog
             return ['preferences'=>AgentStore::preferences($tenant,$user),'models'=>self::models($tenant),'tools'=>array_values($tools),'skill_displays'=>$displays,'skill_configs'=>AgentSkillConfigService::forTools($tenant,array_keys($tools))];
         });
     }
+    /** Opt-in transport shape; retain full catalogues for server-side admission and older clients. */
+    public static function presentationConfiguration(array $data): array
+    {
+        foreach ($data['tools'] ?? [] as $i => $tool) unset($data['tools'][$i]['model_options']);
+        foreach (['image','video'] as $type) {
+            if (empty($data['models'][$type]['channels'])) continue;
+            unset($data['models'][$type]['models'], $data['models'][$type]['applications']);
+        }
+        return $data;
+    }
+
     public static function schema(string $code): array
     {
         self::assertSupported($code);
