@@ -42,7 +42,7 @@ class ShortDramaTextModelFallbackTest extends TestCase
         $method = new ReflectionMethod(AigcShortDramaService::class, 'generateScriptPlanLlmWithFallback');
         $method->setAccessible(true);
         return $method->invoke(null, 701, 23, $params + ['content' => '上传剧本原文', 'system_prompt' => '按原文解析'],
-            ['id' => 'selected', 'model_code' => 'selected'],
+            \app\common\service\power\MarketTextModelRuntimeService::$options[0],
             ['_input_contract_version' => 8, '_generation_version' => 3], 'story', $events);
     }
 
@@ -53,7 +53,7 @@ class ShortDramaTextModelFallbackTest extends TestCase
         Container::getInstance()->instance('config', new \think\Config());
         \app\common\service\power\MarketTextModelRuntimeService::$returnSuccess = true;
         \app\common\service\power\MarketTextModelRuntimeService::$options = array_map(
-            static fn($id) => ['id' => $id, 'model_code' => $id], ['selected', 'second', 'third', 'fourth', 'fifth']);
+            static fn($id) => self::model($id), ['selected', 'second', 'third', 'fourth', 'fifth']);
     }
 
 
@@ -61,7 +61,7 @@ class ShortDramaTextModelFallbackTest extends TestCase
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
-    public function testUnavailableConfiguredModelNeverSwitchesToAnotherModel(): void
+    public function testUnavailableModelsTryAtMostTwoCompatibleAlternatives(): void
     {
         $this->prepareCandidates();
         \app\common\service\power\MarketTextModelRuntimeService::$allUnavailable = true;
@@ -70,7 +70,7 @@ class ShortDramaTextModelFallbackTest extends TestCase
             self::fail('Expected all models unavailable');
         } catch (\Exception $error) {
             self::assertStringContainsString('短剧文本模型不可用', $error->getMessage());
-            self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$calls);
+            self::assertCount(3, \app\common\service\power\MarketTextModelRuntimeService::$calls);
         }
     }
 
@@ -112,6 +112,65 @@ class ShortDramaTextModelFallbackTest extends TestCase
             self::assertFalse($e->allowsModelFallback);
             self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$calls);
         }
+    }
+
+    private static function model(string $id): array
+    {
+        return ['id'=>$id,'model_code'=>$id,'enabled'=>true,'model_type'=>'text','protocol'=>'openai_chat',
+            'context_window'=>65536,'max_output_tokens'=>8192,
+            'input'=>['usage_unit_size'=>1000,'tenant_price'=>1,'platform_price'=>1],
+            'output'=>['usage_unit_size'=>1000,'tenant_price'=>1,'platform_price'=>1]];
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testCertifiedConnectionFailureSwitchesWithoutChangingContent(): void
+    {
+        $this->prepareCandidates();
+        $e=new \app\common\service\power\MarketTextModelProviderException('connect timeout',false,null,
+            ['errno'=>28,'request_size'=>0,'size_upload'=>0,'size_download'=>0,'pretransfer_time'=>0,'http_code'=>0,'header_size'=>0]);
+        \app\common\service\power\MarketTextModelRuntimeService::$errors=['selected'=>$e];
+        $r=$this->invokeCurrentFallback();
+        self::assertSame('second',$r['model']['id']);
+        self::assertSame('second',$r['result']['model_code']);
+        self::assertSame('selected',$r['result']['model_fallback']['requested_model_code']);
+        $calls=\app\common\service\power\MarketTextModelRuntimeService::$calls;
+        self::assertCount(2,$calls);
+        self::assertSame($calls[0]['params']['content'],$calls[1]['params']['content']);
+        self::assertSame($calls[0]['params']['system_prompt'],$calls[1]['params']['system_prompt']);
+        self::assertTrue($calls[1]['params']['_disable_model_fallback']);
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testPartialResponseAndPendingSettlementNeverSwitchModels(): void
+    {
+        $this->prepareCandidates();
+        foreach ([new \app\common\service\power\MarketTextModelProviderException('model_not_found',true,['content'=>'received']),
+            new \app\common\service\power\TextSettlementPending(3,['content'=>'received'],[],new \RuntimeException('billing'),'model_not_found')] as $error) {
+            \app\common\service\power\MarketTextModelRuntimeService::$calls=[];
+            \app\common\service\power\MarketTextModelRuntimeService::$errors=['selected'=>$error];
+            try {$this->invokeCurrentFallback();self::fail('Paid request replayed');}
+            catch(\Exception $e){self::assertSame($error,$e);self::assertCount(1,\app\common\service\power\MarketTextModelRuntimeService::$calls);}
+        }
+    }
+
+    public function testFallbackCandidatesRespectActualTokenRatesAndCapacity(): void
+    {
+        $policy=\app\common\service\app\aigc_short_drama\ShortDramaTextFallbackPolicy::class;
+        $original=self::model('selected');$good=self::model('safe');$params=['content'=>'原文','max_tokens'=>4096];
+        self::assertSame(['selected','safe'],array_column($policy::candidates($original,[$good],$params),'id'));
+        foreach ([['enabled'=>false],['protocol'=>'anthropic_messages'],['model_type'=>'image'],['context_window'=>0],['max_output_tokens'=>1024],
+            ['context_window'=>2048],['input'=>['usage_unit_size'=>1000,'tenant_price'=>2,'platform_price'=>1]],
+            ['output'=>['usage_unit_size'=>1,'tenant_price'=>1,'platform_price'=>1]],['input'=>[]]] as $override) {
+            self::assertCount(1,$policy::candidates($original,[array_replace($good,$override)],$params));
+        }
+        self::assertCount(1,$policy::candidates($original,[$good],$params+['requires_vision'=>true]));
+        self::assertCount(1,$policy::candidates($original,[$good],$params+['_agent_tool_history'=>true]));
+        $sameRate=$good;foreach(['input','output'] as $side)$sameRate[$side]=['usage_unit_size'=>1000000,'tenant_price'=>1000,'platform_price'=>1000];
+        self::assertCount(2,$policy::candidates($original,[$sameRate],$params));
     }
 
 }
