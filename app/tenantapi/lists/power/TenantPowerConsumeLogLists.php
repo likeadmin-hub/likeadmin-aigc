@@ -29,7 +29,7 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
         if (!$ids) return [];
         $lists = self::buildQuery((int)$this->adminInfo['tenant_id'], $this->params)
             ->whereIn('tpl.id', $ids)->field(self::fields())
-            ->group('tpl.id')->order('tpl.id', 'desc')->select()->toArray();
+            ->order('tpl.id', 'desc')->order('ual.id', 'asc')->select()->toArray();
         return self::formatRows($lists);
     }
 
@@ -76,7 +76,7 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
         $row = self::buildQuery($tenantId, [])
             ->field(self::fields())
             ->where('tpl.id', $id)
-            ->group('tpl.id')
+            ->order('ual.id', 'asc')
             ->findOrEmpty()
             ->toArray();
 
@@ -170,6 +170,10 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
 
     private static function formatRows(array $rows): array
     {
+        // Keep one coherent bill row from the bounded ledger page query.
+        $unique = [];
+        foreach ($rows as $row) $unique[(string)$row['id']] ??= $row;
+        $rows = array_values($unique);
         $appCodes = [];
         foreach ($rows as $row) {
             $extra = self::normalizeExtra($row['extra'] ?? []);
