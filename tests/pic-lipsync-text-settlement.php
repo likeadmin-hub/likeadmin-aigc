@@ -67,7 +67,7 @@ namespace {
         $check((float)$bill['quantity']===10.125&&$bill['billing_status']==='settled','Fractional upstream duration settles');
         $usage=json_decode($bill['usage_snapshot'],true);
         $check($usage['settlement_basis']==='upstream_generated_video','Upstream duration must not be mislabeled as local measurement');
-        $check($wallet()===[round($before[0]-20.25,2),round($before[1]-30.375,2)],'Actual tenant/user charges use immutable snapshot and refund estimate difference');
+        $check($wallet()===[round($before[0]-20.25,2),round($before[1]-round(30.375,2),2)],'Actual tenant/user charges use immutable snapshot and refund estimate difference');
         $check($reply['videos'][0]['width']===720&&$reply['videos'][0]['height']===1280,'Resolution metadata fills missing dimensions');
         $after=$wallet();$calls=Http::$calls;Runtime::refresh($id);
         $check($wallet()===$after&&Http::$calls===$calls,'Repeated successful polling cannot charge or query again');
