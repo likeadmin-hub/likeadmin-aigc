@@ -1,7 +1,7 @@
 <?php
 // Local transactional fixtures only. No provider or paid generation is called.
 require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();
-set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.get_class($e).': '.mb_substr($e->getMessage(),0,300).' at '.basename($e->getFile()).':'.$e->getLine().PHP_EOL);exit(1);});
+set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.get_class($e).': '.mb_substr($e->getMessage(),0,300).' at '.basename($e->getFile()).':'.$e->getLine().PHP_EOL);foreach($e->getTrace() as $frame)if(($frame['file']??'')===__FILE__)fwrite(STDERR,'Fixture step '.($frame['line']??0).' '.($frame['function']??'').PHP_EOL);exit(1);});
 use app\common\service\app\aigc_store_visit\{StoreVisitService as S,StoreVisitJobs as J,StoreVisitPolicy as P,StoreVisitCatalog as C,StoreVisitWorker as W,StoreVisitTemplates as T};
 use app\common\service\ai\AiTaskJobService as Queue;
 use think\facade\Db;
