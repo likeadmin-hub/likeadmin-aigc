@@ -1,10 +1,10 @@
 {
   "code": "aigc_store_visit",
   "name": "探店视频",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "require_core": ">=1.0.441",
   "description": "上传门店与人物素材，选择探店类型，支持参考音色，分析并编辑脚本后生成探店视频。",
-  "changelog": "1. 内置十个探店脚本灵感模板与本地封面。\n2. 支持参考音色上传与说话人物绑定。\n3. 移除预设画风，保持真实门店与人物外观。",
+  "changelog": "1. 更新动态封面、探店类型和灵感配图。\n2. 支持参考音色与十个内置灵感模板。\n3. 完善多端表单和历史创作体验。",
   "icon": "resource/image/apps/aigc_store_visit/icon.png",
   "category": "aigc",
   "cover": "resource/image/apps/aigc_store_visit/cover-v3.gif",

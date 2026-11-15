@@ -1,10 +1,10 @@
 {
   "code": "aigc_model_wear",
   "name": "模特穿戴",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require_core": ">=1.0.0",
   "description": "面向服饰、配饰和电商穿搭展示的 AI 模特穿戴工具，复用 AIGC 生图通道并支持独立价格包。",
-  "changelog": "1. 新增模特穿戴工具。\n2. 支持租户配置生成质量价格包。\n3. 支持 PC 端上传模特图和穿戴图生成作品。",
+  "changelog": "1. 优化历史作品和记录列表的加载速度。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
