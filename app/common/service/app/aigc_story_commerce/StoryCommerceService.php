@@ -18,7 +18,9 @@ final class StoryCommerceService
     public static function settings(int $t): array {
         $global=StoryCommercePolicy::json(self::table('config')->where('tenant_id',0)->value('body_json')??'{}');
         $local=$t>0?StoryCommercePolicy::json(self::table('config')->where('tenant_id',$t)->value('body_json')??'{}'):[];
-        return array_replace(['status'=>1,'planning_model_id'=>'','default_video_model_id'=>'','default_style_id'=>'','genres'=>self::defaultGenres()],$global,$local);
+        $settings=array_replace(['status'=>1,'planning_model_id'=>'','default_video_model_id'=>'','default_style_id'=>'','genres'=>self::defaultGenres()],$global,$local);
+        $settings['genres']=\app\common\service\app\BuiltinGenreCovers::apply($settings['genres'],self::APP,self::defaultGenres());
+        return $settings;
     }
     public static function setup(int $t,array $p): array {
         $old=self::settings($t);$data=array_intersect_key(array_replace($old,$p),array_flip(['status','planning_model_id','default_video_model_id','default_style_id','genres']));

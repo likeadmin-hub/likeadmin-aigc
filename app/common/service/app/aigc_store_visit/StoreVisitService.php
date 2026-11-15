@@ -20,7 +20,7 @@ final class StoreVisitService
         $local=$t>0?StoreVisitPolicy::json(self::table('config')->where('tenant_id',$t)->value('body_json')??'{}'):[];
         $settings=array_replace(['status'=>1,'planning_model_id'=>'','default_video_model_id'=>'','default_style_id'=>'','genres'=>self::defaultGenres()],$global,$local);
         $settings['default_style_id']=StoreVisitPolicy::NO_STYLE;
-        foreach($settings['genres'] as&$genre)if(empty($genre['cover_url'])&&in_array($genre['code']??'',array_column(self::defaultGenres(),'code'),true))$genre['cover_url']='/resource/image/apps/aigc_store_visit/types/'.$genre['code'].'.webp';unset($genre);
+        $settings['genres']=\app\common\service\app\BuiltinGenreCovers::apply($settings['genres'],self::APP,self::defaultGenres());
         return $settings;
     }
     public static function setup(int $t,array $p): array {

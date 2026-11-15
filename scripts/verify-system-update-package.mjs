@@ -6,7 +6,7 @@ import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
-import { assertSnapshotMigrationCoverage, snapshotCoreSql } from './snapshot-migration-coverage.mjs'
+import { assertSnapshotMigrationCoverage, snapshotCoreSql, assertHistoryIndexMigrationCoverage, historyIndexCoreSql } from './snapshot-migration-coverage.mjs'
 import { assertCopywritingDependencies } from './system-update-app-dependencies.mjs'
 
 const target = process.argv[2]
@@ -461,14 +461,17 @@ function verifyMigrationSources(targetPath,isDirectory,manifest,entries){
     }
     for(const migration of coverage.covered_app_migrations||[]){
         const source=normalizeEntry(migration.source_path||''), packaged='files/'+source
-        if(migration.execution_owner!=='system'||migration.system_sql!==snapshotCoreSql||!declared.has(snapshotCoreSql)||!entries.has(packaged))fail('Optional app migration coverage missing: '+source)
+        const history=migration.kind==='owner-history-index',coreSql=history?historyIndexCoreSql:snapshotCoreSql
+        if(migration.kind&&!history)fail('Unknown app migration coverage kind: '+source)
+        if(migration.execution_owner!=='system'||migration.system_sql!==coreSql||!declared.has(coreSql)||!entries.has(packaged))fail('App migration coverage missing: '+source)
         const body=readPackageText(targetPath,isDirectory,packaged)
         if(createHash('sha256').update(body).digest('hex')!==migration.sha256)fail('Optional app migration digest differs: '+source)
-        assertSnapshotMigrationCoverage(migration.app_code,source,body,readPackageText(targetPath,isDirectory,snapshotCoreSql))
+        if(history)assertHistoryIndexMigrationCoverage(migration.app_code,source,body,readPackageText(targetPath,isDirectory,coreSql))
+        else assertSnapshotMigrationCoverage(migration.app_code,source,body,readPackageText(targetPath,isDirectory,coreSql))
         const appManifest='files/app/apps/'+migration.app_code+'/manifest.json'
         if(!entries.has(appManifest))fail('Optional app manifest missing: '+source)
         const metadata=readPackageJson(targetPath,isDirectory,appManifest)
-        if(metadata.code!==migration.app_code||metadata.is_builtin)fail('Optional app identity changed: '+source)
+        if(metadata.code!==migration.app_code||(!history&&metadata.is_builtin))fail('App identity changed: '+source)
     }
     if(seen.size!==declared.size)fail('SQL order is missing exact source coverage')
 }

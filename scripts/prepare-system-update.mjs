@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { decorationPresetAssets } from './decoration-preset-assets.mjs'
-import { assertSnapshotMigrationCoverage, snapshotCoreSql } from './snapshot-migration-coverage.mjs'
+import { assertSnapshotMigrationCoverage, snapshotCoreSql, assertHistoryIndexMigrationCoverage, historyIndexCoreSql } from './snapshot-migration-coverage.mjs'
 import { requiresCopywriting, copywritingDependencyFiles } from './system-update-app-dependencies.mjs'
 const args=process.argv.slice(2)
 const option=(key,fallback='')=>{const i=args.indexOf(key);return i<0?fallback:args[i+1]}
@@ -123,6 +123,11 @@ try {
         if(/^(?:public\/)?upgrade\/.*\.sql$/.test(p)||(/^app\/apps\/[^/]+\/migrations\/[^/]+\.sql$/.test(p)&&path.basename(p)!=='install.sql')){
             const name=path.basename(p),contents=fs.readFileSync(path.join(repo,p),'utf8')
             const appCode=p.match(/^app\/apps\/([^/]+)\/migrations\//)?.[1]
+            if(appCode && name==='20261114_owner_history_indexes.sql'){
+                assertHistoryIndexMigrationCoverage(appCode,p,contents,fs.readFileSync(path.join(repo,'upgrade/20261114_query_performance_indexes.sql'),'utf8'))
+                coveredAppMigrations.push({kind:'owner-history-index',source_path:p,sha256:crypto.createHash('sha256').update(contents).digest('hex'),app_code:appCode,execution_owner:'system',system_sql:historyIndexCoreSql})
+                continue
+            }
             if(appCode && fs.existsSync(path.join(repo,'app/apps',appCode,'manifest.json')) && JSON.parse(fs.readFileSync(path.join(repo,'app/apps',appCode,'manifest.json'),'utf8')).is_builtin===0){
                 assertSnapshotMigrationCoverage(appCode,p,contents,fs.readFileSync(path.join(repo,'upgrade/20261103_generation_snapshot_capacity.sql'),'utf8'))
                 coveredAppMigrations.push({source_path:p,sha256:crypto.createHash('sha256').update(contents).digest('hex'),app_code:appCode,execution_owner:'system',system_sql:snapshotCoreSql})
