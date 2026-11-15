@@ -25,6 +25,7 @@ namespace app\common\service\power {
         if(!str_ends_with($options[CURLOPT_URL],'/pic_lipsync/query'))throw new \RuntimeException('No generation submissions allowed');
         return true;
     }
+    function curl_setopt($handle,$key,$value){return true;}
     function curl_exec($handle){PicLipsyncOfflineHttp::$calls++;return json_encode(PicLipsyncOfflineHttp::$body);}
     function curl_errno($handle){return PicLipsyncOfflineHttp::$errno;}
     function curl_error($handle){return PicLipsyncOfflineHttp::$errno?'Offline simulated network timeout':'';}
