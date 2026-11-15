@@ -20,7 +20,7 @@ final class PlatformPowerConsumeQueryBudgetTest extends TestCase
         $build=new \ReflectionMethod($list,'baseQuery');$fields=new \ReflectionMethod($list,'fields');$format=new \ReflectionMethod($list,'formatRows');
         $expectedQuery=$build->invoke($list);
         $expectedCount=(clone $expectedQuery)->group('tpl.id')->count('tpl.id');
-        $expectedRows=$expectedQuery->field($fields->invoke(null))->group('tpl.id')->order('tpl.id','desc')->limit(15)->select()->toArray();
+        $expectedRows=self::legacyRows(static fn()=>$expectedQuery->field($fields->invoke(null))->group('tpl.id')->order('tpl.id','desc')->limit(15)->select()->toArray());
         self::assertSame($format->invoke(null,$expectedRows),$list->lists());
         $queries=[];Db::listen(static function($sql)use(&$queries){$queries[]=$sql;});
         $actualCount=$list->count();
@@ -30,8 +30,16 @@ final class PlatformPowerConsumeQueryBudgetTest extends TestCase
         $last=Db::name('tenant_point_log')->where('tenant_id',1)->order('id','desc')->value('source_sn');
         if ($last) {
             (new \ReflectionProperty($list,'params'))->setValue($list,['source_sn'=>$last]);
-            $rows=$build->invoke($list)->field($fields->invoke(null))->group('tpl.id')->order('tpl.id','desc')->limit(15)->select()->toArray();
+            $rows=self::legacyRows(static fn()=>$build->invoke($list)->field($fields->invoke(null))->group('tpl.id')->order('tpl.id','desc')->limit(15)->select()->toArray());
             self::assertSame($format->invoke(null,$rows),$list->lists());
         }
+    }
+    private static function legacyRows(callable $read): array
+    {
+        // The comparison query predates ONLY_FULL_GROUP_BY. Production reads
+        // below must still execute in the caller's original strict SQL mode.
+        $mode=(string)Db::query('SELECT @@SESSION.sql_mode AS mode')[0]['mode'];
+        Db::execute('SET SESSION sql_mode=?',[implode(',',array_diff(explode(',',$mode),['ONLY_FULL_GROUP_BY']))]);
+        try{return $read();}finally{Db::execute('SET SESSION sql_mode=?',[$mode]);}
     }
 }
