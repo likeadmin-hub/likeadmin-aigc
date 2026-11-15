@@ -1,253 +1,253 @@
 {
-    "code": "aigc_store_visit",
-    "name": "探店视频",
-    "version": "1.0.3",
-    "require_core": ">=1.0.442",
-    "description": "上传门店与人物素材，选择探店类型，支持参考音色，分析并编辑脚本后生成探店视频。",
-    "changelog": "1. 优化移动端分辨率、画面比例和时长选择。\n2. 修复历史视频与参考素材访问异常。",
-    "icon": "resource/image/apps/aigc_store_visit/icon.png",
-    "category": "aigc",
-    "cover": "resource/image/apps/aigc_store_visit/cover-v3.gif",
-    "is_builtin": 1,
-    "expire_policy": "allow",
-    "sort": 843,
-    "frontends": [
-        "platform",
-        "tenant",
-        "pc",
-        "uniapp"
+  "code": "aigc_store_visit",
+  "name": "探店视频",
+  "version": "1.0.3",
+  "require_core": ">=1.0.442",
+  "description": "上传门店与人物素材，选择探店类型，支持参考音色，分析并编辑脚本后生成探店视频。",
+  "changelog": "1. 优化移动端分辨率、画面比例和时长选择。\n2. 修复历史视频与参考素材访问异常。",
+  "icon": "resource/image/apps/aigc_store_visit/icon.png",
+  "category": "aigc",
+  "cover": "resource/image/apps/aigc_store_visit/cover-v3.gif",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 843,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_store_visit",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [],
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "analysis",
+      "video"
     ],
-    "api_prefix": "/app/aigc_store_visit",
-    "menus": "menus/tenant.json",
-    "permissions": "permissions/tenant.json",
-    "migrations": "migrations",
-    "dependencies": [],
-    "billing": {
-        "provider": "power_market",
-        "actions": [
-            "analysis",
-            "video"
-        ],
-        "currency": "points"
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_store_visit",
+      "name": "探店视频",
+      "path": "/ai/tools/aigc_store_visit",
+      "icon": "resource/image/apps/aigc_store_visit/icon.png",
+      "sort": 843,
+      "status": 1
     },
-    "frontend_entries": [
-        {
-            "terminal": "pc",
-            "entry_key": "aigc_store_visit",
+    {
+      "terminal": "platform",
+      "entry_key": "aigc_store_visit_admin",
+      "name": "探店视频",
+      "path": "/apps/aigc_store_visit/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 843,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_store_visit_admin",
+      "name": "探店视频",
+      "path": "/apps/aigc_store_visit/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 843,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_store_visit",
+      "name": "探店视频",
+      "path": "/apps/aigc_store_visit/pages/creator/index",
+      "icon": "resource/image/apps/aigc_store_visit/icon.png",
+      "sort": 843,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
             "name": "探店视频",
-            "path": "/ai/tools/aigc_store_visit",
-            "icon": "resource/image/apps/aigc_store_visit/icon.png",
-            "sort": 843,
-            "status": 1
-        },
-        {
-            "terminal": "platform",
-            "entry_key": "aigc_store_visit_admin",
-            "name": "探店视频",
-            "path": "/apps/aigc_store_visit/config",
-            "icon": "el-icon-VideoCamera",
-            "sort": 843,
-            "status": 1
-        },
-        {
-            "terminal": "tenant",
-            "entry_key": "aigc_store_visit_admin",
-            "name": "探店视频",
-            "path": "/apps/aigc_store_visit/config",
-            "icon": "el-icon-VideoCamera",
-            "sort": 843,
-            "status": 1
-        },
-        {
-            "terminal": "uniapp",
-            "entry_key": "aigc_store_visit",
-            "name": "探店视频",
-            "path": "/apps/aigc_store_visit/pages/creator/index",
-            "icon": "resource/image/apps/aigc_store_visit/icon.png",
-            "sort": 843,
-            "status": 1,
-            "meta": {
-                "pages": [
-                    {
-                        "name": "探店视频",
-                        "path": "/apps/aigc_store_visit/pages/creator/index"
-                    },
-                    {
-                        "name": "历史创作",
-                        "path": "/apps/aigc_store_visit/pages/tasks/index"
-                    }
-                ]
-            }
-        }
-    ],
-    "public_assets": [
-        {
-            "source": "assets/icon.png",
-            "target": "public/resource/image/apps/aigc_store_visit/icon.png"
-        },
-        {
-            "source": "assets/cover.png",
-            "target": "public/resource/image/apps/aigc_store_visit/cover.png"
-        },
-        {
-            "source": "assets/local/inspirations/coffee.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/coffee.webp"
-        },
-        {
-            "source": "assets/local/inspirations/bakery.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/bakery.webp"
-        },
-        {
-            "source": "assets/local/inspirations/fitness.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/fitness.webp"
-        },
-        {
-            "source": "assets/local/inspirations/florist.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/florist.webp"
-        },
-        {
-            "source": "assets/local/inspirations/salon.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/salon.webp"
-        },
-        {
-            "source": "assets/local/inspirations/teahouse.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/teahouse.webp"
-        },
-        {
-            "source": "assets/local/inspirations/bookshop.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/bookshop.webp"
-        },
-        {
-            "source": "assets/local/inspirations/petshop.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/petshop.webp"
-        },
-        {
-            "source": "assets/local/inspirations/courtyard.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/courtyard.webp"
-        },
-        {
-            "source": "assets/local/cover-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/cover-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/restaurant.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/restaurant.webp"
-        },
-        {
-            "source": "assets/local/cover.gif",
-            "target": "public/resource/image/apps/aigc_store_visit/cover.gif"
-        },
-        {
-            "source": "assets/local/types/host_tour.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/host_tour.webp"
-        },
-        {
-            "source": "assets/local/types/first_person.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/first_person.webp"
-        },
-        {
-            "source": "assets/local/types/atmosphere.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/atmosphere.webp"
-        },
-        {
-            "source": "assets/local/types/food_visit.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/food_visit.webp"
-        },
-        {
-            "source": "assets/local/types/service_visit.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/service_visit.webp"
-        },
-        {
-            "source": "assets/local/types/comedy.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/comedy.webp"
-        },
-        {
-            "source": "assets/local/types/couple_visit.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/couple_visit.webp"
-        },
-        {
-            "source": "assets/local/types/hidden_gem.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/hidden_gem.webp"
-        },
-        {
-            "source": "assets/local/cover-v3.gif",
-            "target": "public/resource/image/apps/aigc_store_visit/cover-v3.gif"
-        },
-        {
-            "source": "assets/local/cover-v3.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/cover-v3.webp"
-        },
-        {
-            "source": "assets/local/types/service_visit-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/service_visit-v2.webp"
-        },
-        {
-            "source": "assets/local/types/host_tour-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/host_tour-v2.webp"
-        },
-        {
-            "source": "assets/local/types/atmosphere-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/atmosphere-v2.webp"
-        },
-        {
-            "source": "assets/local/types/couple_visit-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/couple_visit-v2.webp"
-        },
-        {
-            "source": "assets/local/types/hidden_gem-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/hidden_gem-v2.webp"
-        },
-        {
-            "source": "assets/local/types/first_person-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/first_person-v2.webp"
-        },
-        {
-            "source": "assets/local/types/food_visit-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/food_visit-v2.webp"
-        },
-        {
-            "source": "assets/local/types/comedy-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/types/comedy-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/teahouse-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/teahouse-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/bookshop-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/bookshop-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/petshop-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/petshop-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/fitness-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/fitness-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/bakery-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/bakery-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/florist-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/florist-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/courtyard-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/courtyard-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/salon-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/salon-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/coffee-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/coffee-v2.webp"
-        },
-        {
-            "source": "assets/local/inspirations/restaurant-v2.webp",
-            "target": "public/resource/image/apps/aigc_store_visit/inspirations/restaurant-v2.webp"
-        }
-    ]
+            "path": "/apps/aigc_store_visit/pages/creator/index"
+          },
+          {
+            "name": "历史创作",
+            "path": "/apps/aigc_store_visit/pages/tasks/index"
+          }
+        ]
+      }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/icon.png",
+      "target": "public/resource/image/apps/aigc_store_visit/icon.png"
+    },
+    {
+      "source": "assets/cover.png",
+      "target": "public/resource/image/apps/aigc_store_visit/cover.png"
+    },
+    {
+      "source": "assets/local/inspirations/coffee.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/coffee.webp"
+    },
+    {
+      "source": "assets/local/inspirations/bakery.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/bakery.webp"
+    },
+    {
+      "source": "assets/local/inspirations/fitness.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/fitness.webp"
+    },
+    {
+      "source": "assets/local/inspirations/florist.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/florist.webp"
+    },
+    {
+      "source": "assets/local/inspirations/salon.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/salon.webp"
+    },
+    {
+      "source": "assets/local/inspirations/teahouse.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/teahouse.webp"
+    },
+    {
+      "source": "assets/local/inspirations/bookshop.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/bookshop.webp"
+    },
+    {
+      "source": "assets/local/inspirations/petshop.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/petshop.webp"
+    },
+    {
+      "source": "assets/local/inspirations/courtyard.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/courtyard.webp"
+    },
+    {
+      "source": "assets/local/cover-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/cover-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/restaurant.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/restaurant.webp"
+    },
+    {
+      "source": "assets/local/cover.gif",
+      "target": "public/resource/image/apps/aigc_store_visit/cover.gif"
+    },
+    {
+      "source": "assets/local/types/host_tour.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/host_tour.webp"
+    },
+    {
+      "source": "assets/local/types/first_person.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/first_person.webp"
+    },
+    {
+      "source": "assets/local/types/atmosphere.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/atmosphere.webp"
+    },
+    {
+      "source": "assets/local/types/food_visit.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/food_visit.webp"
+    },
+    {
+      "source": "assets/local/types/service_visit.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/service_visit.webp"
+    },
+    {
+      "source": "assets/local/types/comedy.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/comedy.webp"
+    },
+    {
+      "source": "assets/local/types/couple_visit.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/couple_visit.webp"
+    },
+    {
+      "source": "assets/local/types/hidden_gem.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/hidden_gem.webp"
+    },
+    {
+      "source": "assets/local/cover-v3.gif",
+      "target": "public/resource/image/apps/aigc_store_visit/cover-v3.gif"
+    },
+    {
+      "source": "assets/local/cover-v3.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/cover-v3.webp"
+    },
+    {
+      "source": "assets/local/types/service_visit-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/service_visit-v2.webp"
+    },
+    {
+      "source": "assets/local/types/host_tour-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/host_tour-v2.webp"
+    },
+    {
+      "source": "assets/local/types/atmosphere-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/atmosphere-v2.webp"
+    },
+    {
+      "source": "assets/local/types/couple_visit-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/couple_visit-v2.webp"
+    },
+    {
+      "source": "assets/local/types/hidden_gem-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/hidden_gem-v2.webp"
+    },
+    {
+      "source": "assets/local/types/first_person-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/first_person-v2.webp"
+    },
+    {
+      "source": "assets/local/types/food_visit-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/food_visit-v2.webp"
+    },
+    {
+      "source": "assets/local/types/comedy-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/comedy-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/teahouse-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/teahouse-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/bookshop-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/bookshop-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/petshop-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/petshop-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/fitness-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/fitness-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/bakery-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/bakery-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/florist-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/florist-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/courtyard-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/courtyard-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/salon-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/salon-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/coffee-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/coffee-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/restaurant-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/restaurant-v2.webp"
+    }
+  ]
 }
