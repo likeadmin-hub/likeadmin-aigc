@@ -2,12 +2,12 @@
   "code": "aigc_store_visit",
   "name": "探店视频",
   "version": "1.0.1",
-  "require_core": ">=1.0.440",
+  "require_core": ">=1.0.441",
   "description": "上传门店与人物素材，选择探店类型，支持参考音色，分析并编辑脚本后生成探店视频。",
   "changelog": "1. 内置十个探店脚本灵感模板与本地封面。\n2. 支持参考音色上传与说话人物绑定。\n3. 移除预设画风，保持真实门店与人物外观。",
   "icon": "resource/image/apps/aigc_store_visit/icon.png",
   "category": "aigc",
-  "cover": "resource/image/apps/aigc_store_visit/cover.gif",
+  "cover": "resource/image/apps/aigc_store_visit/cover-v3.gif",
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 843,
@@ -168,6 +168,86 @@
     {
       "source": "assets/local/types/hidden_gem.webp",
       "target": "public/resource/image/apps/aigc_store_visit/types/hidden_gem.webp"
+    },
+    {
+      "source": "assets/local/cover-v3.gif",
+      "target": "public/resource/image/apps/aigc_store_visit/cover-v3.gif"
+    },
+    {
+      "source": "assets/local/cover-v3.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/cover-v3.webp"
+    },
+    {
+      "source": "assets/local/types/service_visit-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/service_visit-v2.webp"
+    },
+    {
+      "source": "assets/local/types/host_tour-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/host_tour-v2.webp"
+    },
+    {
+      "source": "assets/local/types/atmosphere-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/atmosphere-v2.webp"
+    },
+    {
+      "source": "assets/local/types/couple_visit-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/couple_visit-v2.webp"
+    },
+    {
+      "source": "assets/local/types/hidden_gem-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/hidden_gem-v2.webp"
+    },
+    {
+      "source": "assets/local/types/first_person-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/first_person-v2.webp"
+    },
+    {
+      "source": "assets/local/types/food_visit-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/food_visit-v2.webp"
+    },
+    {
+      "source": "assets/local/types/comedy-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/types/comedy-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/teahouse-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/teahouse-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/bookshop-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/bookshop-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/petshop-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/petshop-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/fitness-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/fitness-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/bakery-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/bakery-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/florist-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/florist-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/courtyard-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/courtyard-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/salon-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/salon-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/coffee-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/coffee-v2.webp"
+    },
+    {
+      "source": "assets/local/inspirations/restaurant-v2.webp",
+      "target": "public/resource/image/apps/aigc_store_visit/inspirations/restaurant-v2.webp"
     }
   ]
 }

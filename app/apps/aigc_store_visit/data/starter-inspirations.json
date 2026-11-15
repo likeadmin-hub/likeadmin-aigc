@@ -6,7 +6,7 @@
     "story_type": "host_tour",
     "description": "从门口迎接观众，跟随人物走到吧台，再用一杯饮品与空间细节自然收尾。",
     "script": "门店参考图建立店面与吧台空间，人物参考图中的探店者面向镜头轻轻招手。中段跟随人物走过店内，只介绍用户确认的门店信息；穿插已提供的吧台或座位细节。结尾人物停在采光处，微笑说“换个角度，发现日常的小美好”。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/coffee.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/coffee-v2.webp"
   },
   {
     "id": -1002,
@@ -15,7 +15,7 @@
     "story_type": "food_visit",
     "description": "以陈列细节开场，再跟随人物发现门店；没有提供餐食素材时只展示空间。",
     "script": "开场从已提供素材中的门店陈列或入口切入。人物自然走进门店，指向素材可见的细节；仅在用户确认餐食后展示面包，不编造味道与价格。最后以人物与门店环境同框收尾，台词“今天的片刻，留给自己喜欢的地方”。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/bakery.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/bakery-v2.webp"
   },
   {
     "id": -1003,
@@ -24,7 +24,7 @@
     "story_type": "first_person",
     "description": "第一视角进入空间，人物短暂回望，记录真实书架与光影。",
     "script": "用第一视角走进门店，人物在画面前方自然引路。用一组连续镜头交代入口、过道与用户提供的细节，避免创造新的房间。中段人物停下回望，用简短台词邀请观众看向一处可见亮点，最后回到空间全景。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/bookshop.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/bookshop-v2.webp"
   },
   {
     "id": -1004,
@@ -33,7 +33,7 @@
     "story_type": "atmosphere",
     "description": "让光线与人物动作形成一条舒缓的探店动线。",
     "script": "从门店入口的光线与绿植细节开场，保持人物参考图中的外貌和服装。人物缓缓走入、侧身观察环境，只触碰用户允许展示的物品。用近景与全景交替呈现已确认空间，结尾人物回望镜头，台词“把今天，过得轻一点”。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/florist.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/florist-v2.webp"
   },
   {
     "id": -1005,
@@ -42,7 +42,7 @@
     "story_type": "service_visit",
     "description": "围绕已确认服务交流，不声称实际效果或构造消费评价。",
     "script": "人物在门口与镜头打招呼，走入门店后观察环境。中段仅围绕用户确认的服务内容，呈现人物与工作人员自然交流；没有工作人员素材时不凭空新增真人。以门店空间与人物轻松点头结束，不承诺效果、价格和优惠。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/salon.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/salon-v2.webp"
   },
   {
     "id": -1006,
@@ -51,7 +51,7 @@
     "story_type": "comedy",
     "description": "一个轻松误会，带出真实门店空间，最后温和反转。",
     "script": "人物带着好奇走进门店，开场轻声说“我是不是走错地方了？”镜头跟随人物发现门店已提供的独特细节，人物从疑惑转为会心一笑。结尾说“原来，这正是想找的那一站”。不编造门店经营信息。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/teahouse.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/teahouse-v2.webp"
   },
   {
     "id": -1007,
@@ -60,7 +60,7 @@
     "story_type": "service_visit",
     "description": "以门店动线与人物互动表达活力，不展示未经确认的课程或效果。",
     "script": "人物推门进入门店，先用全景建立真实空间，再跟随人物观察已提供素材中的设备或布置。节奏轻快，人物动作自然，不演示未经确认的训练服务、不制造效果承诺。最后人物朝镜头做邀请手势，简短说“给今天一点新的节奏”。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/fitness.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/fitness-v2.webp"
   },
   {
     "id": -1008,
@@ -69,7 +69,7 @@
     "story_type": "couple_visit",
     "description": "以轻松陪伴感逛店，只有提供相应素材时才出现动物或同伴。",
     "script": "从人物与门店招牌或入口同框开始。人物自然走向门店里素材可见的陈列，若提供了动物或同伴素材可加入互动，否则保持单人探店。最后用人物回望与空间细节交替收尾，不暗示他人真实到访或虚构经营项目。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/petshop.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/petshop-v2.webp"
   },
   {
     "id": -1009,
@@ -78,7 +78,7 @@
     "story_type": "hidden_gem",
     "description": "具体细节作为开场钩子，以自然走动串联发现。",
     "script": "先给门店参考图中一个真实可见的细节特写，人物说“你注意到这里了吗？”跟随人物走向入口，再展示用户提供的门店内部亮点。结尾镜头后退，人物与门店同框，用“原来惊喜，就在转角”自然收尾，不编造排行与口碑。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/courtyard.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/courtyard-v2.webp"
   },
   {
     "id": -1010,
@@ -87,6 +87,6 @@
     "story_type": "food_visit",
     "description": "只展示确认过的餐食和环境，让人物自然串联镜头。",
     "script": "人物在门店入口向镜头介绍这次探访，镜头随人物进入并交代空间。仅在提供了餐食素材或已确认菜单时加入餐食特写；否则继续围绕环境讲述，不编造味道与评价。最后人物坐下或驻足，台词“在熟悉的日常里，发现一点新鲜”。",
-    "cover": "resource/image/apps/aigc_store_visit/inspirations/restaurant.webp"
+    "cover": "resource/image/apps/aigc_store_visit/inspirations/restaurant-v2.webp"
   }
 ]

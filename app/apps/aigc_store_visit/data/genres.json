@@ -8,7 +8,7 @@
     "version": 1,
     "status": 1,
     "sort": 100,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/host_tour.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/host_tour-v2.webp"
   },
   {
     "code": "first_person",
@@ -19,7 +19,7 @@
     "version": 1,
     "status": 1,
     "sort": 99,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/first_person.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/first_person-v2.webp"
   },
   {
     "code": "atmosphere",
@@ -30,7 +30,7 @@
     "version": 1,
     "status": 1,
     "sort": 98,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/atmosphere.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/atmosphere-v2.webp"
   },
   {
     "code": "food_visit",
@@ -41,7 +41,7 @@
     "version": 1,
     "status": 1,
     "sort": 97,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/food_visit.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/food_visit-v2.webp"
   },
   {
     "code": "service_visit",
@@ -52,7 +52,7 @@
     "version": 1,
     "status": 1,
     "sort": 96,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/service_visit.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/service_visit-v2.webp"
   },
   {
     "code": "comedy",
@@ -63,7 +63,7 @@
     "version": 1,
     "status": 1,
     "sort": 95,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/comedy.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/comedy-v2.webp"
   },
   {
     "code": "couple_visit",
@@ -74,7 +74,7 @@
     "version": 1,
     "status": 1,
     "sort": 94,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/couple_visit.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/couple_visit-v2.webp"
   },
   {
     "code": "hidden_gem",
@@ -85,6 +85,6 @@
     "version": 1,
     "status": 1,
     "sort": 93,
-    "cover_url": "/resource/image/apps/aigc_store_visit/types/hidden_gem.webp"
+    "cover_url": "/resource/image/apps/aigc_store_visit/types/hidden_gem-v2.webp"
   }
 ]
