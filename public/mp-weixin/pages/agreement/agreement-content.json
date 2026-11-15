@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "u-parse": "../../uni_modules/vk-uview-ui/components/u-parse/u-parse"
-  }
-}
+{"component":true,"usingComponents":{"u-parse":"../../uni_modules/vk-uview-ui/components/u-parse/u-parse"}}

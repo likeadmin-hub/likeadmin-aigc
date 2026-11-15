@@ -1,7 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "image-human-assets": "../../components/ImageHumanAssets"
-  }
-}
+{"component":true,"usingComponents":{"decoration-tab-page":"../../../../components/decoration-tab-page/decoration-tab-page","image-human-assets":"../../components/ImageHumanAssets"}}

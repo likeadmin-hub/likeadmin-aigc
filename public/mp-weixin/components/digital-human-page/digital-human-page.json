@@ -1,8 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "app-membership-notice": "../app-membership-notice/app-membership-notice",
-    "digital-human-nav": "./digital-human-nav",
-    "tool-cover-header": "./tool-cover-header"
-  }
-}
+{"component":true,"usingComponents":{"app-membership-notice":"../app-membership-notice/app-membership-notice","digital-human-nav":"./digital-human-nav","tool-cover-header":"./tool-cover-header"}}

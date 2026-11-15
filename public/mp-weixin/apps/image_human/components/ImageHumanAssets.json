@@ -1,7 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "generation-state": "../../../components/creation-studio/GenerationState",
-    "image-human-nav": "./ImageHumanNav"
-  }
-}
+{"component":true,"usingComponents":{"generation-state":"../../../components/creation-studio/GenerationState","image-human-nav":"./ImageHumanNav"}}

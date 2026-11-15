@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "studio-select": "./StudioSelect"
-  }
-}
+{"component":true,"usingComponents":{"studio-select":"./StudioSelect"}}

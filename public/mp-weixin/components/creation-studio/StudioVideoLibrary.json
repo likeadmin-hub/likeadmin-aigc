@@ -1,7 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "studio-close": "./StudioClose",
-    "studio-icon": "./StudioIcon"
-  }
-}
+{"component":true,"usingComponents":{"studio-close":"./StudioClose","studio-icon":"./StudioIcon"}}

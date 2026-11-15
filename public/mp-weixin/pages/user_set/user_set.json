@@ -1,8 +1,1 @@
-{
-  "navigationBarTitleText": "个人设置",
-  "usingComponents": {
-    "mp-page-navbar": "../../components/mp-page-navbar/mp-page-navbar",
-    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
-    "page-content": "./user_set-content"
-  }
-}
+{"navigationBarTitleText":"个人设置","usingComponents":{"mp-page-navbar":"../../components/mp-page-navbar/mp-page-navbar","mp-privacy-popup":"../../components/mp-privacy-popup/mp-privacy-popup","page-content":"./user_set-content"}}

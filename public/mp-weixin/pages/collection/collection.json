@@ -1,8 +1,1 @@
-{
-  "navigationBarTitleText": "我的收藏",
-  "usingComponents": {
-    "mp-page-navbar": "../../components/mp-page-navbar/mp-page-navbar",
-    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
-    "page-content": "./collection-content"
-  }
-}
+{"navigationBarTitleText":"我的收藏","usingComponents":{"mp-page-navbar":"../../components/mp-page-navbar/mp-page-navbar","mp-privacy-popup":"../../components/mp-privacy-popup/mp-privacy-popup","page-content":"./collection-content"}}

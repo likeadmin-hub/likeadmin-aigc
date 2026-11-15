@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "page-status": "../page-status/page-status"
-  }
-}
+{"component":true,"usingComponents":{"page-status":"../page-status/page-status"}}

@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "u-badge": "../u-badge/u-badge"
-  }
-}
+{"component":true,"usingComponents":{"u-badge":"../u-badge/u-badge"}}

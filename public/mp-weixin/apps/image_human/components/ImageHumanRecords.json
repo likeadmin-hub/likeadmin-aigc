@@ -1,8 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "delete-work-dialog": "../../../components/creation-studio/DeleteWorkDialog",
-    "record-nav": "../../../components/digital-human-records/RecordNav",
-    "record-list": "../../../components/digital-human-records/RecordList"
-  }
-}
+{"component":true,"usingComponents":{"delete-work-dialog":"../../../components/creation-studio/DeleteWorkDialog","record-nav":"../../../components/digital-human-records/RecordNav","record-list":"../../../components/digital-human-records/RecordList"}}

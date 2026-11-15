@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "workbench-header": "../../../components/creation-studio/WorkbenchHeader"
-  }
-}
+{"component":true,"usingComponents":{"workbench-header":"../../../components/creation-studio/WorkbenchHeader"}}

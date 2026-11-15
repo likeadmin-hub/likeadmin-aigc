@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "studio-index-select": "../../../components/creation-studio/StudioIndexSelect"
-  }
-}
+{"component":true,"usingComponents":{"studio-index-select":"../../../components/creation-studio/StudioIndexSelect"}}

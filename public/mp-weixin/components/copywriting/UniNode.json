@@ -1,11 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "generation-state": "../creation-studio/GenerationState",
-    "studio-icon": "../creation-studio/StudioIcon",
-    "studio-select": "../creation-studio/StudioSelect",
-    "studio-index-select": "../creation-studio/StudioIndexSelect",
-    "model-source-badge": "../model-source-badge/model-source-badge",
-    "recursive-node": "./UniNode"
-  }
-}
+{"component":true,"usingComponents":{"generation-state":"../creation-studio/GenerationState","studio-icon":"../creation-studio/StudioIcon","studio-select":"../creation-studio/StudioSelect","studio-index-select":"../creation-studio/StudioIndexSelect","model-source-badge":"../model-source-badge/model-source-badge","recursive-node":"./UniNode"}}

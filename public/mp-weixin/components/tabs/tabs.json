@@ -1,7 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "u-badge": "../../uni_modules/vk-uview-ui/components/u-badge/u-badge",
-    "u-sticky": "../../uni_modules/vk-uview-ui/components/u-sticky/u-sticky"
-  }
-}
+{"component":true,"usingComponents":{"u-badge":"../../uni_modules/vk-uview-ui/components/u-badge/u-badge","u-sticky":"../../uni_modules/vk-uview-ui/components/u-sticky/u-sticky"}}

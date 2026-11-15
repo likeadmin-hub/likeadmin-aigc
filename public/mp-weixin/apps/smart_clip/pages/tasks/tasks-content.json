@@ -1,8 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "generation-state": "../../../../components/creation-studio/GenerationState",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
-  }
-}
+{"component":true,"usingComponents":{"generation-state":"../../../../components/creation-studio/GenerationState","decoration-tab-page":"../../../../components/decoration-tab-page/decoration-tab-page","mobile-tool-header":"../../../mobile_tools/components/MobileToolHeader"}}

@@ -1,8 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "z-paging-refresh": "./components/z-paging-refresh",
-    "z-paging-load-more": "./components/z-paging-load-more",
-    "z-paging-empty-view": "../z-paging-empty-view/z-paging-empty-view"
-  }
-}
+{"component":true,"usingComponents":{"z-paging-refresh":"./components/z-paging-refresh","z-paging-load-more":"./components/z-paging-load-more","z-paging-empty-view":"../z-paging-empty-view/z-paging-empty-view"}}

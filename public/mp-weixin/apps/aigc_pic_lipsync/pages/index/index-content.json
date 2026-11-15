@@ -1,13 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "workbench-materials": "../../../../components/digital-human-page/WorkbenchMaterials",
-    "script-assist-tools": "../../../../components/digital-human-page/ScriptAssistTools",
-    "pic-asset-creator": "../../../../components/digital-human-page/PicAssetCreator",
-    "studio-icon": "../../../../components/creation-studio/StudioIcon",
-    "studio-index-select": "../../../../components/creation-studio/StudioIndexSelect",
-    "studio-select-menu": "../../../../components/creation-studio/StudioSelectMenu",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "digital-human-page": "../../../../components/digital-human-page/digital-human-page"
-  }
-}
+{"component":true,"usingComponents":{"workbench-materials":"../../../../components/digital-human-page/WorkbenchMaterials","script-assist-tools":"../../../../components/digital-human-page/ScriptAssistTools","pic-asset-creator":"../../../../components/digital-human-page/PicAssetCreator","studio-icon":"../../../../components/creation-studio/StudioIcon","studio-index-select":"../../../../components/creation-studio/StudioIndexSelect","studio-select-menu":"../../../../components/creation-studio/StudioSelectMenu","decoration-tab-page":"../../../../components/decoration-tab-page/decoration-tab-page","digital-human-page":"../../../../components/digital-human-page/digital-human-page"}}

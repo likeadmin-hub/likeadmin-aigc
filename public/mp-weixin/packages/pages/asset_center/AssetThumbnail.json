@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "studio-icon": "../../../components/creation-studio/StudioIcon"
-  }
-}
+{"component":true,"usingComponents":{"studio-icon":"../../../components/creation-studio/StudioIcon"}}

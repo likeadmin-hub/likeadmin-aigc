@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "u-loading": "../../uni_modules/vk-uview-ui/components/u-loading/u-loading"
-  }
-}
+{"component":true,"usingComponents":{"u-loading":"../../uni_modules/vk-uview-ui/components/u-loading/u-loading"}}

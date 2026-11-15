@@ -1,11 +1,1 @@
-{
-  "navigationStyle": "custom",
-  "navigationBarTextStyle": "black",
-  "navigationBarTitleText": "剪辑作品",
-  "enablePullDownRefresh": true,
-  "usingComponents": {
-    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "app-access-gate": "../../../../components/app-access-gate/app-access-gate",
-    "page-content": "./results-content"
-  }
-}
+{"navigationStyle":"custom","navigationBarTextStyle":"black","navigationBarTitleText":"剪辑作品","enablePullDownRefresh":true,"usingComponents":{"mp-privacy-popup":"../../../../components/mp-privacy-popup/mp-privacy-popup","app-access-gate":"../../../../components/app-access-gate/app-access-gate","page-content":"./results-content"}}

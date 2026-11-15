@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "tabbar": "../tabbar/tabbar"
-  }
-}
+{"component":true,"usingComponents":{"tabbar":"../tabbar/tabbar"}}

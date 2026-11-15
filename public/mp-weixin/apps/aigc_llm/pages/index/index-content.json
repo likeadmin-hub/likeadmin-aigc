@@ -1,15 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "generation-state": "../../../../components/creation-studio/GenerationState",
-    "studio-close": "../../../../components/creation-studio/StudioClose",
-    "studio-icon": "../../../../components/creation-studio/StudioIcon",
-    "app-membership-notice": "../../../../components/app-membership-notice/app-membership-notice",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "mobile-agent-header": "../../components/MobileAgentHeader",
-    "mobile-agent-preferences": "../../components/MobileAgentPreferences",
-    "agent-design-icon": "../../components/AgentDesignIcon",
-    "mobile-agent-assets": "../../components/MobileAgentAssets",
-    "mobile-agent-session": "../../components/MobileAgentSession"
-  }
-}
+{"component":true,"usingComponents":{"generation-state":"../../../../components/creation-studio/GenerationState","studio-close":"../../../../components/creation-studio/StudioClose","studio-icon":"../../../../components/creation-studio/StudioIcon","app-membership-notice":"../../../../components/app-membership-notice/app-membership-notice","decoration-tab-page":"../../../../components/decoration-tab-page/decoration-tab-page","mobile-agent-header":"../../components/MobileAgentHeader","mobile-agent-preferences":"../../components/MobileAgentPreferences","agent-design-icon":"../../components/AgentDesignIcon","mobile-agent-assets":"../../components/MobileAgentAssets","mobile-agent-session":"../../components/MobileAgentSession"}}

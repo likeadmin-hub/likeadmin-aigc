@@ -1,10 +1,1 @@
-{
-  "navigationStyle": "custom",
-  "navigationBarTextStyle": "black",
-  "navigationBarTitleText": "声音素材",
-  "usingComponents": {
-    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "app-access-gate": "../../../../components/app-access-gate/app-access-gate",
-    "page-content": "./voice-content"
-  }
-}
+{"navigationStyle":"custom","navigationBarTextStyle":"black","navigationBarTitleText":"声音素材","usingComponents":{"mp-privacy-popup":"../../../../components/mp-privacy-popup/mp-privacy-popup","app-access-gate":"../../../../components/app-access-gate/app-access-gate","page-content":"./voice-content"}}

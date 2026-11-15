@@ -1,9 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "package-offer": "../../../components/package-offer/package-offer",
-    "u-icon": "../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
-    "u-button": "../../../uni_modules/vk-uview-ui/components/u-button/u-button",
-    "payment": "../../../components/payment/payment"
-  }
-}
+{"component":true,"usingComponents":{"package-offer":"../../../components/package-offer/package-offer","u-icon":"../../../uni_modules/vk-uview-ui/components/u-icon/u-icon","u-button":"../../../uni_modules/vk-uview-ui/components/u-button/u-button","payment":"../../../components/payment/payment"}}

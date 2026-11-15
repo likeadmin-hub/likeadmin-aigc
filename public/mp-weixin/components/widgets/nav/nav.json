@@ -1,6 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "tool-entry-icon": "../../diy/ToolEntryIcon"
-  }
-}
+{"component":true,"usingComponents":{"tool-entry-icon":"../../diy/ToolEntryIcon"}}

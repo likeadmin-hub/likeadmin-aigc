@@ -1,7 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "u-loading": "../u-loading/u-loading",
-    "u-popup": "../u-popup/u-popup"
-  }
-}
+{"component":true,"usingComponents":{"u-loading":"../u-loading/u-loading","u-popup":"../u-popup/u-popup"}}

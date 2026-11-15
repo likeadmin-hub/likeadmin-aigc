@@ -1,7 +1,1 @@
-{
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
-    "page-content": "./empty-content"
-  }
-}
+{"navigationStyle":"custom","usingComponents":{"mp-privacy-popup":"../../components/mp-privacy-popup/mp-privacy-popup","page-content":"./empty-content"}}

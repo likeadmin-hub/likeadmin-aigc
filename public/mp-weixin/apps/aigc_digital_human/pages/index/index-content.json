@@ -1,15 +1,1 @@
-{
-  "component": true,
-  "usingComponents": {
-    "u-loading": "../../../../uni_modules/vk-uview-ui/components/u-loading/u-loading",
-    "studio-icon": "../../../../components/creation-studio/StudioIcon",
-    "studio-close": "../../../../components/creation-studio/StudioClose",
-    "decoration-tab-page": "../../../../components/decoration-tab-page/decoration-tab-page",
-    "digital-human-page": "../../../../components/digital-human-page/digital-human-page",
-    "workbench-materials": "../../../../components/digital-human-page/WorkbenchMaterials",
-    "pic-asset-creator": "../../../../components/digital-human-page/PicAssetCreator",
-    "script-assist-tools": "../../../../components/digital-human-page/ScriptAssistTools",
-    "studio-index-select": "../../../../components/creation-studio/StudioIndexSelect",
-    "studio-select-menu": "../../../../components/creation-studio/StudioSelectMenu"
-  }
-}
+{"component":true,"usingComponents":{"u-loading":"../../../../uni_modules/vk-uview-ui/components/u-loading/u-loading","studio-icon":"../../../../components/creation-studio/StudioIcon","studio-close":"../../../../components/creation-studio/StudioClose","decoration-tab-page":"../../../../components/decoration-tab-page/decoration-tab-page","digital-human-page":"../../../../components/digital-human-page/digital-human-page","workbench-materials":"../../../../components/digital-human-page/WorkbenchMaterials","pic-asset-creator":"../../../../components/digital-human-page/PicAssetCreator","script-assist-tools":"../../../../components/digital-human-page/ScriptAssistTools","studio-index-select":"../../../../components/creation-studio/StudioIndexSelect","studio-select-menu":"../../../../components/creation-studio/StudioSelectMenu"}}

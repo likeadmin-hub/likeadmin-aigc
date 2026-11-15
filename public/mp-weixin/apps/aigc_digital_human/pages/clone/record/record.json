@@ -1,11 +1,1 @@
-{
-  "navigationBarTitleText": "录制声音",
-  "navigationBarTextStyle": "black",
-  "navigationBarBackgroundColor": "#ffffff",
-  "usingComponents": {
-    "mp-page-navbar": "../../../../../components/mp-page-navbar/mp-page-navbar",
-    "mp-privacy-popup": "../../../../../components/mp-privacy-popup/mp-privacy-popup",
-    "app-access-gate": "../../../../../components/app-access-gate/app-access-gate",
-    "page-content": "./record-content"
-  }
-}
+{"navigationBarTitleText":"录制声音","navigationBarTextStyle":"black","navigationBarBackgroundColor":"#ffffff","usingComponents":{"mp-page-navbar":"../../../../../components/mp-page-navbar/mp-page-navbar","mp-privacy-popup":"../../../../../components/mp-privacy-popup/mp-privacy-popup","app-access-gate":"../../../../../components/app-access-gate/app-access-gate","page-content":"./record-content"}}
