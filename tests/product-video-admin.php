@@ -4,6 +4,7 @@ use app\common\service\app\aigc_product_video\{ProductVideoTemplates as T,Produc
 use think\facade\Db;
 if(getenv('PRODUCT_VIDEO_LOCAL_TEST')!=='x_cn'||config('database.connections.mysql.database')!=='x_cn')throw new RuntimeException('Explicit local opt-in required');
 set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.$e->getMessage().' at '.$e->getFile().':'.$e->getLine().PHP_EOL);exit(1);});
+request()->withServer(['HTTP_HOST'=>'product-admin.fixture.test','HTTPS'=>'on','SERVER_PORT'=>443]);request()->setHost('product-admin.fixture.test');
 $n=0;function check(bool $ok,string $message){global $n;$n++;if(!$ok)throw new RuntimeException($message);}function rejectAdmin(callable $call,string $message){try{$call();}catch(InvalidArgumentException){check(true,$message);return;}throw new RuntimeException($message);}
 $dir=public_path().'uploads/pv_admin_'.bin2hex(random_bytes(6));mkdir($dir,0700,true);Db::startTrans();
 try{
@@ -14,9 +15,9 @@ try{
  $body=P::body(['images'=>[['file_id'=>$file,'uri'=>'spoof.png','storage_domain'=>'https://attacker.example.com']],'prompt'=>'展示 @图片1 的商品细节','product_info'=>'手动填写的商品特征','market_region'=>'英国','language'=>'英语','video_selection'=>['model_id'=>$m['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$spec['duration']]]);
  $params=['title'=>'手动模板事务测试','configuration'=>$body,'preview'=>['file_id'=>$video]];
  $template=T::create(1,$params);check($template['source_job_id']===0&&!$template['is_builtin'],'Tenant can create a manual template without generating a job');
- check($template['configuration']['images'][0]['uri']===$uri&&$template['cover_url']==='http://localhost/'.$uri,'Admin media authority ignores spoofed URI and browser storage metadata');
+ check($template['configuration']['images'][0]['uri']===$uri&&$template['cover_url']==='https://product-admin.fixture.test/'.$uri,'Admin media authority ignores spoofed URI and browser storage metadata');
  check($template['configuration']['images'][0]['mention_name']==='图片1','Manual authoring retains the canonical image mention identity');
- check($template['media_url']==='http://localhost/uploads/pv_admin_preview.mp4','Preview video uses managed storage coordinates');
+ check($template['media_url']==='https://product-admin.fixture.test/uploads/pv_admin_preview.mp4','Preview video uses managed storage coordinates');
  check($template['configuration']['market_region']==='英国'&&$template['configuration']['language']==='英语','Manual audience configuration saved');
  $copy=T::remix(1,1,$template['id']);check($copy['body']['images'][0]['uri']===$uri&&$copy['body']['prompt']===$body['prompt'],'Manual admin template grants authorized image references to the user draft');
  rejectAdmin(fn()=>T::create(2,$params),'Admin media is isolated by tenant');rejectAdmin(fn()=>T::create(1,['title'=>'bad','configuration'=>array_replace($body,['images'=>[['uri'=>$uri]]]),'preview'=>['file_id'=>$video]]),'Unverified raw URLs are rejected');
