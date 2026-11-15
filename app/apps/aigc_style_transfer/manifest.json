@@ -1,10 +1,10 @@
 {
   "code": "aigc_style_transfer",
   "name": "图片风格化",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "require_core": ">=1.0.0",
   "description": "面向电商风格化生成的 AI 工具，复用 AIGC 生图通道并支持独立售价、风格分类和风格模板。",
-  "changelog": "1. 支持租户按生成质量配置图片风格化售价。\n2. 支持用户端选择生成质量和比例后提交生成。\n3. 优化图片风格化价格配置体验。",
+  "changelog": "1. 优化历史作品和记录列表的加载速度。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
