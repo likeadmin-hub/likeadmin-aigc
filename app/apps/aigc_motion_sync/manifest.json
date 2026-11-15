@@ -1,100 +1,100 @@
 {
-    "code": "aigc_motion_sync",
-    "name": "动作同步",
-    "version": "1.0.3",
-    "require_core": ">=1.0.442",
-    "description": "将动作视频同步到角色图片，支持朝向控制、清晰度选择和灵感同款。",
-    "changelog": "1. 修复历史视频与参考素材访问异常。",
-    "icon": "resource/image/common/menu_generator.png",
-    "category": "aigc",
-    "cover": "resource/image/apps/aigc_motion_sync/cover-v3.gif",
-    "is_builtin": 1,
-    "expire_policy": "allow",
-    "sort": 845,
-    "frontends": [
-        "platform",
-        "tenant",
-        "pc",
-        "uniapp"
+  "code": "aigc_motion_sync",
+  "name": "动作同步",
+  "version": "1.0.3",
+  "require_core": ">=1.0.442",
+  "description": "将动作视频同步到角色图片，支持朝向控制、清晰度选择和灵感同款。",
+  "changelog": "1. 修复历史视频与参考素材访问异常。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "resource/image/apps/aigc_motion_sync/cover-v3.gif",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 845,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_motion_sync",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [],
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "video"
     ],
-    "api_prefix": "/app/aigc_motion_sync",
-    "menus": "menus/tenant.json",
-    "permissions": "permissions/tenant.json",
-    "migrations": "migrations",
-    "dependencies": [],
-    "billing": {
-        "provider": "power_market",
-        "actions": [
-            "video"
-        ],
-        "currency": "points"
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_motion_sync",
+      "name": "动作同步",
+      "path": "/ai/tools/aigc_motion_sync",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 845,
+      "status": 1
     },
-    "frontend_entries": [
-        {
-            "terminal": "pc",
-            "entry_key": "aigc_motion_sync",
+    {
+      "terminal": "platform",
+      "entry_key": "aigc_motion_sync_admin",
+      "name": "动作同步",
+      "path": "/apps/aigc_motion_sync/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 845,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_motion_sync_admin",
+      "name": "动作同步",
+      "path": "/apps/aigc_motion_sync/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 845,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_motion_sync",
+      "name": "动作同步",
+      "path": "/apps/aigc_motion_sync/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 845,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
             "name": "动作同步",
-            "path": "/ai/tools/aigc_motion_sync",
-            "icon": "resource/image/common/menu_generator.png",
-            "sort": 845,
-            "status": 1
-        },
-        {
-            "terminal": "platform",
-            "entry_key": "aigc_motion_sync_admin",
-            "name": "动作同步",
-            "path": "/apps/aigc_motion_sync/config",
-            "icon": "el-icon-VideoCamera",
-            "sort": 845,
-            "status": 1
-        },
-        {
-            "terminal": "tenant",
-            "entry_key": "aigc_motion_sync_admin",
-            "name": "动作同步",
-            "path": "/apps/aigc_motion_sync/config",
-            "icon": "el-icon-VideoCamera",
-            "sort": 845,
-            "status": 1
-        },
-        {
-            "terminal": "uniapp",
-            "entry_key": "aigc_motion_sync",
-            "name": "动作同步",
-            "path": "/apps/aigc_motion_sync/pages/creator/index",
-            "icon": "resource/image/common/menu_generator.png",
-            "sort": 845,
-            "status": 1,
-            "meta": {
-                "pages": [
-                    {
-                        "name": "动作同步",
-                        "path": "/apps/aigc_motion_sync/pages/creator/index"
-                    },
-                    {
-                        "name": "历史创作",
-                        "path": "/apps/aigc_motion_sync/pages/tasks/index"
-                    }
-                ]
-            }
-        }
-    ],
-    "public_assets": [
-        {
-            "source": "assets/local/cover-v2.webp",
-            "target": "public/resource/image/apps/aigc_motion_sync/cover-v2.webp"
-        },
-        {
-            "source": "assets/local/cover.gif",
-            "target": "public/resource/image/apps/aigc_motion_sync/cover.gif"
-        },
-        {
-            "source": "assets/local/cover-v3.gif",
-            "target": "public/resource/image/apps/aigc_motion_sync/cover-v3.gif"
-        },
-        {
-            "source": "assets/local/cover-v3.webp",
-            "target": "public/resource/image/apps/aigc_motion_sync/cover-v3.webp"
-        }
-    ]
+            "path": "/apps/aigc_motion_sync/pages/creator/index"
+          },
+          {
+            "name": "历史创作",
+            "path": "/apps/aigc_motion_sync/pages/tasks/index"
+          }
+        ]
+      }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/local/cover-v2.webp",
+      "target": "public/resource/image/apps/aigc_motion_sync/cover-v2.webp"
+    },
+    {
+      "source": "assets/local/cover.gif",
+      "target": "public/resource/image/apps/aigc_motion_sync/cover.gif"
+    },
+    {
+      "source": "assets/local/cover-v3.gif",
+      "target": "public/resource/image/apps/aigc_motion_sync/cover-v3.gif"
+    },
+    {
+      "source": "assets/local/cover-v3.webp",
+      "target": "public/resource/image/apps/aigc_motion_sync/cover-v3.webp"
+    }
+  ]
 }

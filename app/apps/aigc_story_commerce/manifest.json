@@ -1,157 +1,157 @@
 {
-    "code": "aigc_story_commerce",
-    "name": "剧情带货",
-    "version": "1.0.4",
-    "require_core": ">=1.0.442",
-    "description": "选择剧情类型与画风，分析商品并创作可编辑的剧情带货脚本和视频。",
-    "changelog": "1. 优化移动端分辨率、画面比例和时长选择。\n2. 修复历史视频与参考素材访问异常。",
-    "icon": "resource/image/common/menu_generator.png",
-    "category": "aigc",
-    "cover": "resource/image/apps/aigc_story_commerce/cover-v3.gif",
-    "is_builtin": 1,
-    "expire_policy": "allow",
-    "sort": 844,
-    "frontends": [
-        "platform",
-        "tenant",
-        "pc",
-        "uniapp"
+  "code": "aigc_story_commerce",
+  "name": "剧情带货",
+  "version": "1.0.4",
+  "require_core": ">=1.0.442",
+  "description": "选择剧情类型与画风，分析商品并创作可编辑的剧情带货脚本和视频。",
+  "changelog": "1. 优化移动端分辨率、画面比例和时长选择。\n2. 修复历史视频与参考素材访问异常。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "resource/image/apps/aigc_story_commerce/cover-v3.gif",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 844,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_story_commerce",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [],
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "analysis",
+      "video"
     ],
-    "api_prefix": "/app/aigc_story_commerce",
-    "menus": "menus/tenant.json",
-    "permissions": "permissions/tenant.json",
-    "migrations": "migrations",
-    "dependencies": [],
-    "billing": {
-        "provider": "power_market",
-        "actions": [
-            "analysis",
-            "video"
-        ],
-        "currency": "points"
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_story_commerce",
+      "name": "剧情带货",
+      "path": "/ai/tools/aigc_story_commerce",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 844,
+      "status": 1
     },
-    "frontend_entries": [
-        {
-            "terminal": "pc",
-            "entry_key": "aigc_story_commerce",
+    {
+      "terminal": "platform",
+      "entry_key": "aigc_story_commerce_admin",
+      "name": "剧情带货",
+      "path": "/apps/aigc_story_commerce/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 844,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_story_commerce_admin",
+      "name": "剧情带货",
+      "path": "/apps/aigc_story_commerce/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 844,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_story_commerce",
+      "name": "剧情带货",
+      "path": "/apps/aigc_story_commerce/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 844,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
             "name": "剧情带货",
-            "path": "/ai/tools/aigc_story_commerce",
-            "icon": "resource/image/common/menu_generator.png",
-            "sort": 844,
-            "status": 1
-        },
-        {
-            "terminal": "platform",
-            "entry_key": "aigc_story_commerce_admin",
-            "name": "剧情带货",
-            "path": "/apps/aigc_story_commerce/config",
-            "icon": "el-icon-VideoCamera",
-            "sort": 844,
-            "status": 1
-        },
-        {
-            "terminal": "tenant",
-            "entry_key": "aigc_story_commerce_admin",
-            "name": "剧情带货",
-            "path": "/apps/aigc_story_commerce/config",
-            "icon": "el-icon-VideoCamera",
-            "sort": 844,
-            "status": 1
-        },
-        {
-            "terminal": "uniapp",
-            "entry_key": "aigc_story_commerce",
-            "name": "剧情带货",
-            "path": "/apps/aigc_story_commerce/pages/creator/index",
-            "icon": "resource/image/common/menu_generator.png",
-            "sort": 844,
-            "status": 1,
-            "meta": {
-                "pages": [
-                    {
-                        "name": "剧情带货",
-                        "path": "/apps/aigc_story_commerce/pages/creator/index"
-                    },
-                    {
-                        "name": "历史创作",
-                        "path": "/apps/aigc_story_commerce/pages/tasks/index"
-                    }
-                ]
-            }
-        }
-    ],
-    "public_assets": [
-        {
-            "source": "assets/local/cover-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/cover-v2.webp"
-        },
-        {
-            "source": "assets/local/cover.gif",
-            "target": "public/resource/image/apps/aigc_story_commerce/cover.gif"
-        },
-        {
-            "source": "assets/local/cover-v3.gif",
-            "target": "public/resource/image/apps/aigc_story_commerce/cover-v3.gif"
-        },
-        {
-            "source": "assets/local/cover-v3.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/cover-v3.webp"
-        },
-        {
-            "source": "assets/local/types/thai-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/thai-v2.webp"
-        },
-        {
-            "source": "assets/local/types/family-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/family-v2.webp"
-        },
-        {
-            "source": "assets/local/types/variety-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/variety-v2.webp"
-        },
-        {
-            "source": "assets/local/types/palace-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/palace-v2.webp"
-        },
-        {
-            "source": "assets/local/types/costume-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/costume-v2.webp"
-        },
-        {
-            "source": "assets/local/types/survival-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/survival-v2.webp"
-        },
-        {
-            "source": "assets/local/types/office-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/office-v2.webp"
-        },
-        {
-            "source": "assets/local/types/office_romance-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/office_romance-v2.webp"
-        },
-        {
-            "source": "assets/local/types/scifi-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/scifi-v2.webp"
-        },
-        {
-            "source": "assets/local/types/loop-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/loop-v2.webp"
-        },
-        {
-            "source": "assets/local/types/suspense-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/suspense-v2.webp"
-        },
-        {
-            "source": "assets/local/types/rebirth-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/rebirth-v2.webp"
-        },
-        {
-            "source": "assets/local/types/ceo-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/ceo-v2.webp"
-        },
-        {
-            "source": "assets/local/types/comedy-v2.webp",
-            "target": "public/resource/image/apps/aigc_story_commerce/types/comedy-v2.webp"
-        }
-    ]
+            "path": "/apps/aigc_story_commerce/pages/creator/index"
+          },
+          {
+            "name": "历史创作",
+            "path": "/apps/aigc_story_commerce/pages/tasks/index"
+          }
+        ]
+      }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/local/cover-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/cover-v2.webp"
+    },
+    {
+      "source": "assets/local/cover.gif",
+      "target": "public/resource/image/apps/aigc_story_commerce/cover.gif"
+    },
+    {
+      "source": "assets/local/cover-v3.gif",
+      "target": "public/resource/image/apps/aigc_story_commerce/cover-v3.gif"
+    },
+    {
+      "source": "assets/local/cover-v3.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/cover-v3.webp"
+    },
+    {
+      "source": "assets/local/types/thai-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/thai-v2.webp"
+    },
+    {
+      "source": "assets/local/types/family-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/family-v2.webp"
+    },
+    {
+      "source": "assets/local/types/variety-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/variety-v2.webp"
+    },
+    {
+      "source": "assets/local/types/palace-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/palace-v2.webp"
+    },
+    {
+      "source": "assets/local/types/costume-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/costume-v2.webp"
+    },
+    {
+      "source": "assets/local/types/survival-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/survival-v2.webp"
+    },
+    {
+      "source": "assets/local/types/office-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/office-v2.webp"
+    },
+    {
+      "source": "assets/local/types/office_romance-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/office_romance-v2.webp"
+    },
+    {
+      "source": "assets/local/types/scifi-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/scifi-v2.webp"
+    },
+    {
+      "source": "assets/local/types/loop-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/loop-v2.webp"
+    },
+    {
+      "source": "assets/local/types/suspense-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/suspense-v2.webp"
+    },
+    {
+      "source": "assets/local/types/rebirth-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/rebirth-v2.webp"
+    },
+    {
+      "source": "assets/local/types/ceo-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/ceo-v2.webp"
+    },
+    {
+      "source": "assets/local/types/comedy-v2.webp",
+      "target": "public/resource/image/apps/aigc_story_commerce/types/comedy-v2.webp"
+    }
+  ]
 }
