@@ -8,17 +8,17 @@ use PHPUnit\Framework\TestCase;
 
 class MarketOtherModelCategoryTest extends TestCase
 {
-    public function testEmptyOptionalTokenRatesDoNotRejectSecondOrImagePricedSpecifications(): void
+    public function testEmptyOptionalTokenRatesDoNotRejectScalarPricedSpecifications(): void
     {
         $method = new \ReflectionMethod(PowerMarketService::class, 'skuSnapshot');
         $method->setAccessible(true);
-        foreach (['input_second','output_second','image','per_call','business_unit'] as $unit) {
-            $snapshot = $method->invoke(null, ['sku_key'=>'native','usage_unit'=>$unit,'effective_rate_config'=>[]]);
+        foreach (['input_second','output_second','image','per_call','business_unit','token'] as $unit) {
+            $snapshot = $method->invoke(null, ['sku_key'=>'native','usage_unit'=>$unit,'price'=>['points'=>4],'effective_rate_config'=>[]]);
             self::assertSame($unit, $snapshot['usage_unit']);
             self::assertArrayNotHasKey('effective_rate_config', $snapshot);
         }
         $this->expectException(\InvalidArgumentException::class);
-        $method->invoke(null, ['usage_unit'=>'token','usage_unit_size'=>1000,'effective_rate_config'=>[]]);
+        $method->invoke(null, ['usage_unit'=>'token','usage_unit_size'=>1000,'effective_rate_config'=>['input'=>1]]);
     }
 
     public function testUsesPublishedGroupsAndModelBindingsInsteadOfNamesOrLocalIds(): void
