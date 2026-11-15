@@ -1453,7 +1453,7 @@ class PowerMarketService
         $resource = $item['resource'] ?? [];
         if (MarketFileQaTokenPricing::supports($item['type'] ?? '', $resource['app_code'] ?? '', $resource['api_code'] ?? '')
             && $usageUnit === 'token' && !array_key_exists('effective_rate_config', $source)
-            && (float)($price['points'] ?? 0) === 0.0) {
+            && (array_key_exists('effective_rate_config', $sku) || (float)($price['points'] ?? 0) === 0.0)) {
             $source['effective_rate_config'] = MarketFileQaTokenPricing::rates($sku);
         }
         $data = [
@@ -1805,8 +1805,8 @@ class PowerMarketService
         if (array_key_exists('meter_contract', $sku)) $snapshot['meter_contract'] = $sku['meter_contract'];
         // Empty optional rates also occur on scalar Token SKUs (for example
         // video output tokens). Token units alone do not declare split pricing.
-        // Validate every nonempty split declaration; the known file-QA zero
-        // placeholder still requires complete rates in upsertSku above.
+        // Validate every nonempty split declaration. File QA still rejects an
+        // explicit incomplete declaration or zero placeholder in upsertSku.
         if (array_key_exists('effective_rate_config', $sku)
             && !in_array($sku['effective_rate_config'], [[], null], true)) {
             $snapshot['effective_rate_config'] = MarketFileQaTokenPricing::rates($sku);
