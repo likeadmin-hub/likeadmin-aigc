@@ -64,7 +64,7 @@ try{
  for($i=0;$i<2;$i++) app\common\service\database\SqlMigrationExecutor::execute($upgrade,$prefix);
  check((int)Db::name('app')->where('code',$repairCode)->value('is_builtin')===1, 'Legacy default flag was not repaired');
  foreach($bundled as $item) {
-  for($i=0;$i<2;$i++) Registry::installFromLocal($item,Registry::currentCoreVersion());
+  for($i=0;$i<2;$i++) Registry::installFromLocal($item,(string)config('project.version'));
   $app=Db::name('app')->where('code',$item)->find();
   check($app && $app['status']==='installed' && (int)$app['is_builtin']===1, 'Install or retry failed: '.$item);
   $entry=Db::name('tenant_app')->where(['tenant_id'=>123456,'app_code'=>$item])->find();
