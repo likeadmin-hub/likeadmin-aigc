@@ -329,12 +329,14 @@ class MarketPicLipsyncAppRuntimeService
             }
             return self::response($consumption->toArray());
         }
+        $settling = false;
         try {
             $body = self::request('POST', self::endpoint(self::QUERY_API_CODE), [
                 'task_id' => is_numeric($taskId) ? (int)$taskId : $taskId,
             ]);
             $items = self::items($body, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
             if ($items !== []) {
+                $settling = true;
                 self::settle($consumptionId, $items, self::requestId($body), $taskId, $body);
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $items];
             }
@@ -355,6 +357,20 @@ class MarketPicLipsyncAppRuntimeService
             }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
         } catch (\Throwable $e) {
+            if ($settling) {
+                // Database outages can recover; invalid usage and billing rejections cannot
+                // become successful by querying the same completed upstream task for two hours.
+                $databaseError = $e instanceof \think\db\exception\DbException || $e instanceof \PDOException;
+                if ($databaseError && !$timedOut) {
+                    AiTaskLifecycleEventService::record($consumptionId, 'settlement_error', 'retrying', ['upstream_task_id' => $taskId]);
+                    return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
+                }
+                $code = $e instanceof \DomainException ? 'settlement_usage_missing' : 'settlement_failed';
+                $message = $databaseError || !($e instanceof \Exception)
+                    ? '图片数字人结算失败，请联系管理员' : ($e->getMessage() ?: '图片数字人结算失败');
+                self::fail($consumptionId, $message, $code);
+                return self::failureResponse($taskId, $message, $code);
+            }
             if ((int)$e->getCode() === 422) {
                 $message = $e->getMessage() ?: '图片数字人任务失败';
                 self::fail($consumptionId, $message, 'upstream_failed');
@@ -436,16 +452,24 @@ class MarketPicLipsyncAppRuntimeService
                 $request = self::arrayValue($consumption['request_summary'] ?? []);
                 if (($request['mode'] ?? 'audio') === 'text') {
                     // In text mode audio_url is a voice sample, not the generated
-                    // driving speech. Only a server-measured saved result can replace usage.
-                    $quantity = count($items) === 1 ? (float)($items[0]['measured_output_seconds'] ?? 0) : 0;
+                    // driving speech. Prefer local measurement, then the completed output's
+                    // upstream duration. Never use the reference voice sample or text estimate.
+                    $quantity = count($items) === 1 ? self::positiveSeconds($items[0]['measured_output_seconds'] ?? 0) : 0;
                     $basis = 'measured_generated_video';
+                    if ($quantity <= 0 && count($items) === 1) {
+                        $quantity = self::positiveSeconds($items[0]['upstream_output_seconds'] ?? 0);
+                        $basis = 'upstream_generated_video';
+                    }
                 } else {
                     $quantity = (float)$consumption['quantity'];
                     $basis = 'measured_submit_audio';
                 }
             }
             if (!is_finite($quantity)) $quantity = 0;
-            if ($quantity <= 0) throw new Exception('图片数字人任务缺少输入音频用量');
+            if ($quantity <= 0) throw new \DomainException(
+                (self::arrayValue($consumption['request_summary'] ?? [])['mode'] ?? 'audio') === 'text'
+                    ? '图片数字人文案任务缺少有效的成片时长，无法结算' : '图片数字人任务缺少输入音频用量'
+            );
             $tenant = self::cost((float)($snapshot['platform_price'] ?? 0), $quantity, $snapshot);
             $user = self::cost((float)($snapshot['tenant_price'] ?? 0), $quantity, $snapshot);
             PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$consumption['tenant_id'], (int)$consumption['user_id'], (float)$consumption['reserved_tenant_cost'], (float)$consumption['reserved_user_price'], $tenant, $user, (string)$consumption['consume_no'], '图片数字人结算', self::extra($task, $consumption, 'settled'));
@@ -582,16 +606,49 @@ class MarketPicLipsyncAppRuntimeService
             if (preg_match('/\.(png|jpg|jpeg|webp|gif|mp3|wav|m4a)$/', $path)) continue;
             $stored = AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId);
             if (empty($stored['uri'])) throw new Exception('图片数字人视频保存失败');
+            $facts = AiTaskLifecycleEventService::isTerminalSuccess(self::status($data)) ? self::outputFacts($data, $url) : [];
             $items[] = [
                 'video_uri' => (string)$stored['uri'],
                 'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'),
                 'storage_engine' => (string)($stored['storage_engine'] ?? 'local'),
                 'storage_domain' => (string)($stored['storage_domain'] ?? ''),
-                'width' => (int)($stored['width'] ?? 0), 'height' => (int)($stored['height'] ?? 0),
-                'measured_output_seconds' => (float)($stored['duration'] ?? 0),
+                'width' => (int)($stored['width'] ?? 0) > 0 ? (int)$stored['width'] : (int)($facts['width'] ?? 0),
+                'height' => (int)($stored['height'] ?? 0) > 0 ? (int)$stored['height'] : (int)($facts['height'] ?? 0),
+                'measured_output_seconds' => self::positiveSeconds($stored['duration'] ?? 0),
+                'upstream_output_seconds' => self::positiveSeconds($facts['duration'] ?? 0),
             ];
         }
         return $items;
+    }
+
+    private static function positiveSeconds(mixed $value): float
+    {
+        return is_numeric($value) && is_finite((float)$value) && (float)$value > 0 ? (float)$value : 0;
+    }
+
+    /** Only use metadata attached to this exact output; never borrow input/sample duration. */
+    private static function outputFacts(array $data, string $url, int $depth = 0): array
+    {
+        if ($depth > 10) return [];
+        foreach (['output_url', 'video_url', 'result_url', 'download_url', 'url', 'uri'] as $field) {
+            if (is_string($data[$field] ?? null) && trim($data[$field]) === $url) {
+                $width = (int)($data['width'] ?? 0); $height = (int)($data['height'] ?? 0);
+                $resolution = $data['resolution'] ?? '';
+                if (is_string($resolution) && preg_match('/^\s*([1-9][0-9]{0,4})\s*[xX×*]\s*([1-9][0-9]{0,4})\s*$/uD', $resolution, $match)) {
+                    $width = $width > 0 ? $width : (int)$match[1];
+                    $height = $height > 0 ? $height : (int)$match[2];
+                }
+                return ['duration' => self::positiveSeconds($data['duration'] ?? 0), 'width' => max(0, $width), 'height' => max(0, $height)];
+            }
+        }
+        foreach (['data', 'result', 'results', 'output', 'outputs', 'video', 'videos', 'files', 'items'] as $field) {
+            $nested = $data[$field] ?? null;
+            if (!is_array($nested)) continue;
+            foreach (array_is_list($nested) ? $nested : [$nested] as $row) {
+                if (is_array($row) && ($facts = self::outputFacts($row, $url, $depth + 1)) !== []) return $facts;
+            }
+        }
+        return [];
     }
 
     private static function cost(float $price, float $quantity, array $sku): float
@@ -603,7 +660,7 @@ class MarketPicLipsyncAppRuntimeService
     {
         // Deliberately exclude output duration: billing is for the input audio.
         foreach (['input_second', 'input_seconds', 'input_audio_seconds', 'audio_duration'] as $key) {
-            if (isset($response[$key]) && is_numeric($response[$key]) && (float)$response[$key] > 0) return (float)$response[$key];
+            if (($seconds = self::positiveSeconds($response[$key] ?? 0)) > 0) return $seconds;
         }
         foreach (['usage', 'usage_snapshot', 'billing', 'data', 'result'] as $key) {
             if (is_array($response[$key] ?? null)) { $value = self::inputSeconds($response[$key]); if ($value > 0) return $value; }
@@ -746,12 +803,12 @@ class MarketPicLipsyncAppRuntimeService
             'provider_task_id' => (string)$consumption['upstream_task_id'],
             'videos' => (array)($summary['videos'] ?? []),
         ];
-        return $message === '' ? $response : array_merge($response, ['error' => $message, 'error_msg' => $message]);
+        return $message === '' ? $response : array_merge($response, ['error' => $message, 'error_msg' => $message, 'error_code' => (string)($consumption['error_code'] ?? '')]);
     }
 
-    private static function failureResponse(string $taskId, string $message): array
+    private static function failureResponse(string $taskId, string $message, string $code = ''): array
     {
-        return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => [], 'error' => $message, 'error_msg' => $message];
+        return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => [], 'error' => $message, 'error_msg' => $message] + ($code !== '' ? ['error_code' => $code] : []);
     }
 
     private static function metadata(array $product): array

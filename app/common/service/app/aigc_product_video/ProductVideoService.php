@@ -5,7 +5,6 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\ai\{StudioMediaInputService,StudioVideoCatalogService};
 use app\common\service\power\{MarketTextModelRuntimeService,MarketCatalogReadScope};
-use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;
 use InvalidArgumentException;
 use think\facade\Db;
@@ -65,8 +64,8 @@ final class ProductVideoService
         $walk=static function($v)use(&$walk,$tenant){if(!is_array($v))return $v;
             $uri=$v['uri']??$v['video_uri']??$v['image_uri']??'';
             if(is_string($uri)&&$uri!==''&&isset($v['storage_engine'])){
-                $url=StorageSignedUrlService::resolve($uri,(string)($v['storage_scope']??'tenant'),(string)$v['storage_engine'],(string)($v['storage_domain']??''),$tenant);
-                $v['url']=$url?:FileService::format((string)($v['storage_domain']??''),$uri);
+                // Local files use the current delivery host, not a CLI worker's stored localhost.
+                $v['url']=FileService::getFileUrlByStorage($uri,(string)($v['storage_scope']??'tenant'),(string)$v['storage_engine'],(string)($v['storage_domain']??''),$tenant);
                 if(isset($v['video_uri'])||array_key_exists('video_url',$v))$v['video_url']=$v['url'];
                 if(isset($v['image_uri'])||array_key_exists('image_url',$v))$v['image_url']=$v['url'];
             }
