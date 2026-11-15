@@ -1,104 +1,104 @@
 {
-  "code": "aigc_product_video",
-  "name": "商品视频",
-  "version": "1.0.2",
-  "require_core": ">=1.0.441",
-  "description": "基于商品素材创作视频，支持商品信息识别、视频描述生成与商品视频创作。",
-  "changelog": "1. 更新应用动态封面。\n2. 优化模型加载和历史记录展示。\n3. 改善小程序创作表单。",
-  "icon": "resource/image/common/menu_generator.png",
-  "category": "aigc",
-  "cover": "resource/image/apps/aigc_product_video/cover-v3.gif",
-  "is_builtin": 1,
-  "expire_policy": "allow",
-  "sort": 846,
-  "frontends": [
-    "platform",
-    "tenant",
-    "pc",
-    "uniapp"
-  ],
-  "api_prefix": "/app/aigc_product_video",
-  "menus": "menus/tenant.json",
-  "permissions": "permissions/tenant.json",
-  "migrations": "migrations",
-  "dependencies": [
-    {
-      "app_code": "aigc_video",
-      "name": "视频创作",
-      "required_for": "生成商品视频"
-    }
-  ],
-  "billing": {
-    "provider": "power_market",
-    "actions": [
-      "product",
-      "reference",
-      "plan",
-      "analysis",
-      "write",
-      "optimize",
-      "video",
-      "chapters"
+    "code": "aigc_product_video",
+    "name": "商品视频",
+    "version": "1.0.3",
+    "require_core": ">=1.0.442",
+    "description": "基于商品素材创作视频，支持商品信息识别、视频描述生成与商品视频创作。",
+    "changelog": "1. 修复历史视频与参考素材访问异常。",
+    "icon": "resource/image/common/menu_generator.png",
+    "category": "aigc",
+    "cover": "resource/image/apps/aigc_product_video/cover-v3.gif",
+    "is_builtin": 1,
+    "expire_policy": "allow",
+    "sort": 846,
+    "frontends": [
+        "platform",
+        "tenant",
+        "pc",
+        "uniapp"
     ],
-    "currency": "points"
-  },
-  "frontend_entries": [
-    {
-      "terminal": "pc",
-      "entry_key": "aigc_product_video",
-      "name": "商品视频",
-      "path": "/ai/tools/aigc_product_video",
-      "icon": "resource/image/common/menu_generator.png",
-      "sort": 84,
-      "status": 1
+    "api_prefix": "/app/aigc_product_video",
+    "menus": "menus/tenant.json",
+    "permissions": "permissions/tenant.json",
+    "migrations": "migrations",
+    "dependencies": [
+        {
+            "app_code": "aigc_video",
+            "name": "视频创作",
+            "required_for": "生成商品视频"
+        }
+    ],
+    "billing": {
+        "provider": "power_market",
+        "actions": [
+            "product",
+            "reference",
+            "plan",
+            "analysis",
+            "write",
+            "optimize",
+            "video",
+            "chapters"
+        ],
+        "currency": "points"
     },
-    {
-      "terminal": "tenant",
-      "entry_key": "aigc_product_video_admin",
-      "name": "商品视频",
-      "path": "/apps/aigc_product_video/config",
-      "icon": "el-icon-VideoCamera",
-      "sort": 84,
-      "status": 1
-    },
-    {
-      "terminal": "uniapp",
-      "entry_key": "aigc_product_video",
-      "name": "商品视频",
-      "path": "/apps/aigc_product_video/pages/creator/index",
-      "icon": "resource/image/common/menu_generator.png",
-      "sort": 846,
-      "status": 1,
-      "meta": {
-        "pages": [
-          {
-            "name": "创作首页",
-            "path": "/apps/aigc_product_video/pages/creator/index"
-          },
-          {
-            "name": "历史创作",
-            "path": "/apps/aigc_product_video/pages/tasks/index"
-          }
-        ]
-      }
-    }
-  ],
-  "public_assets": [
-    {
-      "source": "assets/local/cover-v2.webp",
-      "target": "public/resource/image/apps/aigc_product_video/cover-v2.webp"
-    },
-    {
-      "source": "assets/local/cover.gif",
-      "target": "public/resource/image/apps/aigc_product_video/cover.gif"
-    },
-    {
-      "source": "assets/local/cover-v3.gif",
-      "target": "public/resource/image/apps/aigc_product_video/cover-v3.gif"
-    },
-    {
-      "source": "assets/local/cover-v3.webp",
-      "target": "public/resource/image/apps/aigc_product_video/cover-v3.webp"
-    }
-  ]
+    "frontend_entries": [
+        {
+            "terminal": "pc",
+            "entry_key": "aigc_product_video",
+            "name": "商品视频",
+            "path": "/ai/tools/aigc_product_video",
+            "icon": "resource/image/common/menu_generator.png",
+            "sort": 84,
+            "status": 1
+        },
+        {
+            "terminal": "tenant",
+            "entry_key": "aigc_product_video_admin",
+            "name": "商品视频",
+            "path": "/apps/aigc_product_video/config",
+            "icon": "el-icon-VideoCamera",
+            "sort": 84,
+            "status": 1
+        },
+        {
+            "terminal": "uniapp",
+            "entry_key": "aigc_product_video",
+            "name": "商品视频",
+            "path": "/apps/aigc_product_video/pages/creator/index",
+            "icon": "resource/image/common/menu_generator.png",
+            "sort": 846,
+            "status": 1,
+            "meta": {
+                "pages": [
+                    {
+                        "name": "创作首页",
+                        "path": "/apps/aigc_product_video/pages/creator/index"
+                    },
+                    {
+                        "name": "历史创作",
+                        "path": "/apps/aigc_product_video/pages/tasks/index"
+                    }
+                ]
+            }
+        }
+    ],
+    "public_assets": [
+        {
+            "source": "assets/local/cover-v2.webp",
+            "target": "public/resource/image/apps/aigc_product_video/cover-v2.webp"
+        },
+        {
+            "source": "assets/local/cover.gif",
+            "target": "public/resource/image/apps/aigc_product_video/cover.gif"
+        },
+        {
+            "source": "assets/local/cover-v3.gif",
+            "target": "public/resource/image/apps/aigc_product_video/cover-v3.gif"
+        },
+        {
+            "source": "assets/local/cover-v3.webp",
+            "target": "public/resource/image/apps/aigc_product_video/cover-v3.webp"
+        }
+    ]
 }
