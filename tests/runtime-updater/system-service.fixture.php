@@ -13,6 +13,15 @@ if (getenv('FIXTURE_OFFICIAL_ARCHIVE')) {
 $GLOBALS['fixture_target_version']=$to;
 /** Real signed package + real service + real MySQL, entirely inside a disposable container. */
 function verify(bool $condition, string $message): void { if (!$condition) throw new RuntimeException($message); }
+function verifyBusinessRows(array $observed,array $rows,string $table,string $message):void {
+    if($table==='user_account_log')foreach($observed as $i=>&$row){
+        if(array_key_exists('source_sn_lookup',$row)&&!array_key_exists('source_sn_lookup',$rows[$i]??[])){
+            verify($row['source_sn_lookup']===$row['source_sn'],'Generated ledger lookup changed source identity');
+            unset($row['source_sn_lookup']);
+        }
+    }unset($row);
+    verify($observed === $rows,$message.$table);
+}
 function writeFixture(string $path, string $content): void {
     if (!is_dir(dirname($path))) mkdir(dirname($path), 0755, true);
     file_put_contents($path, $content);
@@ -316,7 +325,7 @@ if ($case==='recovery412') {
     verify(Db::name('update_package')->where('id',$id)->value('status')==='applied','Original archive retry did not complete');
     verify(Db::name('power_market_price_rule')->order('id')->select()->toArray()===$beforeRule,'Retry replayed or changed price rules');
     verify((string)config('project.version')==='1.0.411' && json_decode(file_get_contents($site.'/upgrade/version.json'),true)['version']==='1.0.412','Retry version marker mismatch');
-    foreach($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray()===$rows,'Recovery altered business records: '.$table);
+    foreach($business as $table=>$rows) verifyBusinessRows(Db::name($table)->order('id')->select()->toArray(),$rows,$table,'Recovery altered business records: ');
     echo 'PASS real SystemPackageUpdateService canonical-recovery412: reproduced original failure, verified completed SQL, preserved evidence, resumed original archive without replay, protected business data',"\n";
     exit(0);
 }
@@ -394,16 +403,7 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
 }
 foreach (['.env','public/uploads/business.bin','runtime/task-lease.json'] as $path)
     verify(file_get_contents($site . '/' . $path) === $original[$path], 'Protected state changed: ' . $path);
-foreach ($business as $table=>$rows) {
-    $observed=Db::name($table)->order('id')->select()->toArray();
-    if($table==='user_account_log')foreach($observed as $i=>&$row){
-        if(array_key_exists('source_sn_lookup',$row)&&!array_key_exists('source_sn_lookup',$rows[$i]??[])){
-            verify($row['source_sn_lookup']===$row['source_sn'],'Generated ledger lookup changed source identity');
-            unset($row['source_sn_lookup']);
-        }
-    }unset($row);
-    verify($observed === $rows, 'Business records changed: ' . $table);
-}
+foreach ($business as $table=>$rows) verifyBusinessRows(Db::name($table)->order('id')->select()->toArray(),$rows,$table,'Business records changed: ');
 $sqlCount = Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count();
 verify($sqlCount === ($case === 'dependency-failure' || getenv('FIXTURE_OFFICIAL_ARCHIVE') ? 0 : 1), 'Migration execution count incorrect');
 if ($case === 'finalize-failure' && getenv('FIXTURE_OFFICIAL_ARCHIVE')) Db::execute('DROP TRIGGER fixture_builtin_failure');
@@ -413,7 +413,7 @@ if ($case === 'metadata-failure') {
     verify(Db::name('update_package')->where('id',$id)->value('status') === 'applied', 'Retry did not complete');
     verify(Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count() === (getenv('FIXTURE_OFFICIAL_ARCHIVE') ? 0 : 1), 'Retry replayed completed SQL');
     freshFixtureGeneration($site,$canonical||$migration);
-    foreach ($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray() === $rows, 'Retry changed business records: ' . $table);
+    foreach ($business as $table=>$rows) verifyBusinessRows(Db::name($table)->order('id')->select()->toArray(),$rows,$table,'Retry changed business records: ');
     echo "PASS final metadata failure retry: actual service apply completed without replaying SQL or altering business records\n";
 }
 if ($appAccessPolicy) {
