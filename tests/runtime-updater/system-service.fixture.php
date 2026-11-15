@@ -394,7 +394,16 @@ if (in_array($case,['success','commit-reply-failure','confirm-failure'],true)) {
 }
 foreach (['.env','public/uploads/business.bin','runtime/task-lease.json'] as $path)
     verify(file_get_contents($site . '/' . $path) === $original[$path], 'Protected state changed: ' . $path);
-foreach ($business as $table=>$rows) verify(Db::name($table)->order('id')->select()->toArray() === $rows, 'Business records changed: ' . $table);
+foreach ($business as $table=>$rows) {
+    $observed=Db::name($table)->order('id')->select()->toArray();
+    if($table==='user_account_log')foreach($observed as $i=>&$row){
+        if(array_key_exists('source_sn_lookup',$row)&&!array_key_exists('source_sn_lookup',$rows[$i]??[])){
+            verify($row['source_sn_lookup']===$row['source_sn'],'Generated ledger lookup changed source identity');
+            unset($row['source_sn_lookup']);
+        }
+    }unset($row);
+    verify($observed === $rows, 'Business records changed: ' . $table);
+}
 $sqlCount = Db::name('config')->where(['type'=>'system_fixture','name'=>'sql_once'])->count();
 verify($sqlCount === ($case === 'dependency-failure' || getenv('FIXTURE_OFFICIAL_ARCHIVE') ? 0 : 1), 'Migration execution count incorrect');
 if ($case === 'finalize-failure' && getenv('FIXTURE_OFFICIAL_ARCHIVE')) Db::execute('DROP TRIGGER fixture_builtin_failure');
