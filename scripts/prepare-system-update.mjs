@@ -227,7 +227,7 @@ try {
     }
 
     if(coveredAppMigrations.length){
-        if(!sql.has(path.basename(snapshotCoreSql)))fail('Optional app capacity coverage requires declared core SQL')
+        for(const core of new Set(coveredAppMigrations.map(row=>row.system_sql)))if(!sql.has(path.basename(core)))fail('App migration coverage requires declared core SQL: '+core)
         const dependency='scripts/snapshot-migration-coverage.mjs';copy(dependency,'files/'+dependency)
         if(!coverage.some(row=>row.path===dependency))coverage.push({path:dependency,delivery:'required-runtime-dependency'})
     }
