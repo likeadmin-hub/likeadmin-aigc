@@ -25,7 +25,7 @@ class TenantPowerConsumeLists extends BaseAdminDataLists implements ListsSearchI
             ->limit($this->limitOffset, $this->limitLength)->column('tpl.id');
         if (!$ids) return [];
         $rows = $this->baseQuery()->whereIn('tpl.id', $ids)
-            ->field(self::fields())->group('tpl.id')->order('tpl.id', 'desc')
+            ->field(self::fields())->order('tpl.id', 'desc')->order('ual.id', 'asc')
             ->select()->toArray();
 
         return self::formatRows($rows);
@@ -138,6 +138,11 @@ class TenantPowerConsumeLists extends BaseAdminDataLists implements ListsSearchI
 
     public static function formatRows(array $rows): array
     {
+        // The joined query is bounded by ledger page IDs. Keep the first whole
+        // bill row instead of grouping unrelated bill columns in SQL.
+        $unique = [];
+        foreach ($rows as $row) $unique[(string)$row['id']] ??= $row;
+        $rows = array_values($unique);
         $appCodes = [];
         foreach ($rows as $row) {
             $extra = self::normalizeExtra($row['extra'] ?? []);
