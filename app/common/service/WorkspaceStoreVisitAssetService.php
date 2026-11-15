@@ -48,7 +48,7 @@ final class WorkspaceStoreVisitAssetService
                 ||!in_array($row['status']??'',['success','partial'],true)||!empty($row['delete_time']))continue;
             $request=$requests[$index];$snapshot=$request['snapshot']??[];
             $selection=array_intersect_key((array)($snapshot['video_selection']??$request['selection']??[]),array_flip(['model_id','quality','resolution','ratio','duration','generate_audio']));
-            $prompt=StoreVisitPolicy::prompt($snapshot);
+            $prompt=WorkspaceCreationPrompt::fromRequest($request);
             $result=StoreVisitPolicy::json($row['result_json']??'{}');
             if(!is_array($result['videos']??null)||!array_is_list($result['videos']))continue;
             foreach(array_slice($result['videos'],0,100) as $output=>$video){
