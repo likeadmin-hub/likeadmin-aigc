@@ -62,7 +62,7 @@ namespace {
         $completed=static fn($seconds)=>['code'=>1,'result'=>['status'=>'completed','data'=>['output_url'=>'https://offline.fixture.invalid/result.mp4','duration'=>$seconds,'resolution'=>'720x1280']]];
         Http::$body=$completed(10.125);Storage::$facts=[];
         $before=$wallet();$id=$make();$reply=Runtime::refresh($id);$bill=$find($id);
-        $check($reply['status']==='success','Text task with upstream duration must finish immediately');
+        $check($reply['status']==='success','Text task with upstream duration must finish immediately: '.json_encode(['reply'=>$reply,'billing_status'=>$bill['billing_status'],'error_code'=>$bill['error_code'],'error_message'=>$bill['error_message']],JSON_UNESCAPED_UNICODE));
         $check((float)$bill['quantity']===10.125&&$bill['billing_status']==='settled','Fractional upstream duration settles');
         $usage=json_decode($bill['usage_snapshot'],true);
         $check($usage['settlement_basis']==='upstream_generated_video','Upstream duration must not be mislabeled as local measurement');
