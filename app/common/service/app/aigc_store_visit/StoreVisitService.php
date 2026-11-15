@@ -4,7 +4,6 @@ namespace app\common\service\app\aigc_store_visit;
 use app\common\service\app\{AppAccessService,AppDisplayConfigService};
 use app\common\service\ai\StudioMediaInputService;
 use app\common\service\power\MarketTextModelRuntimeService;
-use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;
 use app\common\service\ai\ReferenceMaterialSlot;
 use InvalidArgumentException;
@@ -61,8 +60,13 @@ final class StoreVisitService
         throw new InvalidArgumentException('所选剧情类型已停用，请重新选择');
     }
     public static function publicBody(array $b,int $t): array {
-        $walk=static function($v)use(&$walk,$t){if(!is_array($v))return $v;$uri=$v['uri']??$v['video_uri']??'';
-            if(is_string($uri)&&$uri!==''&&isset($v['storage_engine'])){$v['url']=StorageSignedUrlService::resolve($uri,(string)($v['storage_scope']??'tenant'),(string)$v['storage_engine'],(string)($v['storage_domain']??''),$t)?:FileService::format((string)($v['storage_domain']??''),$uri);if(isset($v['video_uri']))$v['video_url']=$v['url'];}
+        $walk=static function($v)use(&$walk,$t){if(!is_array($v))return $v;$uri=$v['uri']??$v['video_uri']??$v['image_uri']??'';
+            if(is_string($uri)&&$uri!==''&&isset($v['storage_engine'])){
+                // Local files use the current delivery host, not a CLI worker's stored localhost.
+                $v['url']=FileService::getFileUrlByStorage($uri,(string)($v['storage_scope']??'tenant'),(string)$v['storage_engine'],(string)($v['storage_domain']??''),$t);
+                if(isset($v['video_uri'])||array_key_exists('video_url',$v))$v['video_url']=$v['url'];
+                if(isset($v['image_uri'])||array_key_exists('image_url',$v))$v['image_url']=$v['url'];
+            }
             unset($v['tenant_id'],$v['user_id'],$v['file_id']);foreach($v as $k=>$x)if(is_array($x))$v[$k]=$walk($x);return $v;};return $walk($b);
     }
     public static function owned(int $t,int $u,int $id,bool $lock=false): array {$q=self::table('project')->where(['tenant_id'=>$t,'user_id'=>$u,'id'=>$id,'delete_time'=>0]);if($lock)$q->lock(true);$r=$q->find();if(!$r)throw new InvalidArgumentException('草稿不存在或无权访问');return $r;}
