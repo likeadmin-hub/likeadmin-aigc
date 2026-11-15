@@ -47,8 +47,12 @@ final class MarketScalarTokenSyncTest extends TestCase
                 catch(\InvalidArgumentException$e){self::assertStringContainsString('费率不完整',$e->getMessage());}
                 self::assertSame(0,Db::name('power_market_sku')->where(['product_id'=>$id,'sku_key'=>$key])->count());
             }
-            $save->invoke(null,$id,$base+['sku_key'=>'legacy-file-scalar','price'=>['points'=>7.5],'effective_rate_config'=>[]],['type'=>'app_api','resource'=>['app_code'=>'file_qa','api_code'=>'parse']]);
+            $save->invoke(null,$id,$base+['sku_key'=>'legacy-file-scalar','price'=>['points'=>7.5]],['type'=>'app_api','resource'=>['app_code'=>'file_qa','api_code'=>'parse']]);
             self::assertSame(7.5,(float)Db::name('power_market_sku')->where(['product_id'=>$id,'sku_key'=>'legacy-file-scalar'])->value('upstream_price'));
+            foreach([[],null]as$rates){
+                try{$save->invoke(null,$id,$base+['sku_key'=>'invalid-split','price'=>['points'=>7.5],'effective_rate_config'=>$rates],['type'=>'app_api','resource'=>['app_code'=>'file_qa','api_code'=>'parse']]);self::fail('An explicit incomplete file QA declaration cannot fall back to scalar pricing');}
+                catch(\InvalidArgumentException$e){self::assertStringContainsString('费率不完整',$e->getMessage());}
+            }
         }finally{Db::rollback();}
     }
 }
