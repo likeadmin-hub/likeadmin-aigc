@@ -117,6 +117,7 @@ if(in_array('sql/structure/upgrade_20261111_retire_micro_video.sql',$release['sq
     $businessTables[]='aigc_micro_video_task';
 }
 $appAccessPolicy=[];$appConfigPolicies=[];
+$hasLegacyMicroConfig=(bool)Db::query("SHOW TABLES LIKE 'la_aigc_micro_video_config'");
 if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') {
     Db::name('app')->where('code','aigc_music')->update(['status'=>'disabled']);
     Db::name('tenant_app')->where(['tenant_id'=>901,'app_code'=>'aigc_music'])->delete();
@@ -125,11 +126,13 @@ if (getenv('FIXTURE_APP_ACCESS_SWITCHES')==='1') {
     foreach ([0,901] as $scope) {
         Db::name('tenant_app_config')->where(['tenant_id'=>$scope,'app_code'=>'aigc_micro_video'])->delete();
         Db::name('tenant_app_config')->insert(['tenant_id'=>$scope,'app_code'=>'aigc_micro_video','status'=>0,'title'=>'preserve-hidden-config']);
-        Db::name('aigc_micro_video_config')->where('tenant_id',$scope)->delete();
-        Db::name('aigc_micro_video_config')->insert(['tenant_id'=>$scope,'config_json'=>json_encode(['status'=>0,'fixture_unrelated'=>'keep'])]);
+        if($hasLegacyMicroConfig){
+            Db::name('aigc_micro_video_config')->where('tenant_id',$scope)->delete();
+            Db::name('aigc_micro_video_config')->insert(['tenant_id'=>$scope,'config_json'=>json_encode(['status'=>0,'fixture_unrelated'=>'keep'])]);
+        }
         Db::name('aigc_image_config')->where('tenant_id',$scope)->update(['status'=>0]);
     }
-    foreach (['tenant_app_config','aigc_micro_video_config','aigc_image_config'] as $table) {
+    foreach (array_merge(['tenant_app_config','aigc_image_config'],$hasLegacyMicroConfig?['aigc_micro_video_config']:[]) as $table) {
         $appConfigPolicies[$table]=Db::name($table)->whereIn('tenant_id',[0,901])->order('id')->select()->toArray();
     }
 }
@@ -410,6 +413,7 @@ if ($appAccessPolicy) {
     foreach (['buy_status','shelf_status','enable_status','expire_time'] as $field) verify((string)$policy[$field]===(string)$appAccessPolicy[$field],'System update altered existing app policy: '.$field);
     echo "PASS signed system update preserved closed platform and tenant app switches\n";
     foreach ($appConfigPolicies as $table=>$rows) verify(Db::name($table)->whereIn('tenant_id',[0,901])->order('id')->select()->toArray()===$rows,'System update altered existing display/service config: '.$table);
+    if(!$hasLegacyMicroConfig)verify(!Db::query("SHOW TABLES LIKE 'la_aigc_micro_video_config'"),'System update recreated an absent retired app table');
     echo "PASS signed system update preserved hidden display and disabled service configuration\n";
 }
 if (getenv('FIXTURE_OFFICIAL_ARCHIVE') && in_array($case, ['success','metadata-failure'], true)
