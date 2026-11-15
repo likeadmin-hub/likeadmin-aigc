@@ -1,10 +1,10 @@
 {
   "code": "aigc_one_click_cleanup",
   "name": "一键消除",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require_core": ">=1.0.0",
   "description": "面向商品图、素材图和内容图的 AI 一键消除工具，支持批量上传、多选消除项和租户独立单张定价。",
-  "changelog": "1. 新增一键消除工具。\n2. 支持租户配置消除选项和单张售价。\n3. 支持 PC 端最多 10 张图片批量生成作品。",
+  "changelog": "1. 优化历史作品和记录列表的加载速度。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
