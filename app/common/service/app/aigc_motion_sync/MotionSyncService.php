@@ -5,7 +5,6 @@ namespace app\common\service\app\aigc_motion_sync;
 use app\common\service\app\{AppAccessService,AppDisplayConfigService};
 use app\common\service\ai\StudioMediaInputService;
 use app\common\service\power\{MarketMotionSyncRuntimeService as Runtime,MarketGenerationMedia,MarketGenerationSchema};
-use app\common\service\storage\StorageSignedUrlService;
 use app\common\service\FileService;
 use InvalidArgumentException;
 use think\facade\Db;
@@ -86,11 +85,12 @@ final class MotionSyncService
     public static function publicBody(array $body,int $tenant): array
     {
         $walk=static function($v)use(&$walk,$tenant){if(!is_array($v))return $v;
-            $uri=$v['uri']??$v['video_uri']??'';
+            $uri=$v['uri']??$v['video_uri']??$v['image_uri']??'';
             if(is_string($uri)&&$uri!==''&&isset($v['storage_engine'])){
-                $v['url']=StorageSignedUrlService::resolve($uri,(string)($v['storage_scope']??'tenant'),(string)$v['storage_engine'],(string)($v['storage_domain']??''),$tenant)
-                    ?:FileService::format((string)($v['storage_domain']??''),$uri);
-                if(isset($v['video_uri']))$v['video_url']=$v['url'];
+                // Local files use the current delivery host, not a CLI worker's stored localhost.
+                $v['url']=FileService::getFileUrlByStorage($uri,(string)($v['storage_scope']??'tenant'),(string)$v['storage_engine'],(string)($v['storage_domain']??''),$tenant);
+                if(isset($v['video_uri'])||array_key_exists('video_url',$v))$v['video_url']=$v['url'];
+                if(isset($v['image_uri'])||array_key_exists('image_url',$v))$v['image_url']=$v['url'];
             }
             unset($v['tenant_id'],$v['user_id'],$v['file_id']);
             foreach($v as $k=>$x)if(is_array($x))$v[$k]=$walk($x);return $v;

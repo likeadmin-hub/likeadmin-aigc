@@ -2,11 +2,9 @@
 namespace app\common\service\storage {
     final class StorageSignedUrlService {public static function resolve(...$args):string{return 'https://owned.example.test/fresh-signature';}}
 }
-namespace app\common\service {
-    final class FileService {public static function format(...$args):string{return '/fallback';}}
-}
 namespace {
     require dirname(__DIR__).'/vendor/autoload.php';
+    (new \think\App())->initialize();
     $asset=['storage_engine'=>'aliyun','storage_scope'=>'tenant','storage_domain'=>'https://owned.example.test','tenant_id'=>1,'user_id'=>2,'file_id'=>3];
     $body=['videos'=>[['video_uri'=>'uploads/own.mp4','video_url'=>'https://owned.example.test/expired']+$asset],'images'=>[['image_uri'=>'uploads/own.png','image_url'=>'https://owned.example.test/expired']+$asset]];
     $out=\app\common\service\app\aigc_product_video\ProductVideoService::publicBody($body,1);
