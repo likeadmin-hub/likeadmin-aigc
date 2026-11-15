@@ -16,7 +16,7 @@ final class MarketScalarTokenSyncTest extends TestCase
         self::assertSame(1000000.,$snapshot['usage_unit_size']);
         self::assertArrayNotHasKey('effective_rate_config',$snapshot);
     }
-    public static function emptyRates(): array {return [[],['effective_rate_config'=>[]],['effective_rate_config'=>null]];}
+    public static function emptyRates(): array {return [[[]],[['effective_rate_config'=>[]]],[['effective_rate_config'=>null]]];}
 
     public function testNonemptyButIncompleteSplitRateDeclarationIsStillRejected(): void
     {
@@ -35,13 +35,13 @@ final class MarketScalarTokenSyncTest extends TestCase
             $product=PowerMarketProduct::create(['product_code'=>'scalar-token-fixture-'.bin2hex(random_bytes(8)),'name'=>'Offline scalar Token fixture','resource_type'=>'app_api','model_type'=>'video','source_code'=>'offline-fixture','upstream_resource_key'=>'fixture','status'=>1,'create_time'=>time(),'update_time'=>time()]);
             $id=(int)$product['id'];$save=new \ReflectionMethod(Market::class,'upsertSku');
             $base=['billing_mode'=>'usage','usage_unit'=>'token','usage_unit_size'=>1000000,'locked_params'=>[],'selectable_params'=>[]];
-            foreach(self::emptyRates()as$i=>$optional){
+            foreach(self::emptyRates()as$i=>[$optional]){
                 $sku=$base+$optional+['sku_key'=>'scalar-'.$i,'price'=>['points'=>7.5]];
                 $save->invoke(null,$id,$sku,['type'=>'app_api','resource'=>['app_code'=>'seedance','api_code'=>'create']]);
                 $row=Db::name('power_market_sku')->where(['product_id'=>$id,'sku_key'=>'scalar-'.$i])->find();
                 self::assertSame(7.5,(float)$row['upstream_price']);self::assertArrayNotHasKey('effective_rate_config',json_decode($row['source_payload'],true));
             }
-            foreach(['parse','chat']as$api)foreach(self::emptyRates()as$i=>$optional){
+            foreach(['parse','chat']as$api)foreach(self::emptyRates()as$i=>[$optional]){
                 $key='file-'.$api.'-'.$i;$sku=$base+$optional+['sku_key'=>$key,'price'=>['points'=>0]];
                 try{$save->invoke(null,$id,$sku,['type'=>'app_api','resource'=>['app_code'=>'file_qa','api_code'=>$api]]);self::fail('Missing file QA split rates cannot become a free SKU');}
                 catch(\InvalidArgumentException$e){self::assertStringContainsString('费率不完整',$e->getMessage());}
