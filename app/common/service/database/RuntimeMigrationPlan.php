@@ -16,6 +16,7 @@ final class RuntimeMigrationPlan
         if (!class_exists(RuntimeAppSalePriceInheritance::class)) require_once __DIR__.'/RuntimeAppSalePriceInheritance.php';
         if (!class_exists(RuntimeGenerationSnapshotCapacity::class)) require_once __DIR__.'/RuntimeGenerationSnapshotCapacity.php';
         if (!class_exists(RuntimeAvatarBillingQuantity::class)) require_once __DIR__.'/RuntimeAvatarBillingQuantity.php';
+        if (!class_exists(RuntimeUpdateRecordCapacity::class)) require_once __DIR__.'/RuntimeUpdateRecordCapacity.php';
         foreach (SqlMigrationExecutor::split($content) as $sql) {
             // Inspect SQL syntax without matching action words or @ inside string data.
             $syntax = preg_replace("/'(?:''|\\\\.|[^'])*'/s", "''", $sql);
@@ -31,6 +32,8 @@ final class RuntimeMigrationPlan
                 && !preg_match('/\b(?:SELECT|LIKE)\b/i', $syntax)) {
                 $prepare[] = $sql;
             } elseif (RuntimeGenerationSnapshotCapacity::target($sql) !== null) {
+                $prepare[] = $sql;
+            } elseif (RuntimeUpdateRecordCapacity::target($sql) !== null) {
                 $prepare[] = $sql;
             } elseif (RuntimeAvatarBillingQuantity::target($sql)) {
                 $prepare[] = $sql;

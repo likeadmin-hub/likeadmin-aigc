@@ -75,3 +75,10 @@ The 1.0.430 core snapshot-capacity migration covers existing optional-app task c
 ### 1.0.441 history index coverage
 
 `20261114_owner_history_indexes.sql` remains app-owned for future installs. System updates execute its bounded intent once through the guarded `20261114_query_performance_indexes.sql` executor, which skips absent optional tables and checks equivalent indexes and tenant shards. The stager records `covered_app_migrations.kind: owner-history-index`, an exact source digest and `system_sql`. Both staging and archive verification accept only the exact owner-history column order on that app's task/result tables (and the two short-drama task tables), present in the guarded core SQL. Extra statements, cross-app targets and changed index definitions fail closed. This does not install or enable optional apps. Never execute the same-named app files separately as system SQL.
+
+
+## 更新记录 JSON 容量
+
+保留 `20261116_update_record_capacity.sql` 的三个精确字段扩容意图及 public 镜像。准备阶段由 `RuntimeUpdateRecordCapacity` 保留实际字段语义地扩大 TEXT，跳过已足够的 MEDIUMTEXT/LONGTEXT，不得在完成事务里执行 ALTER。新装核心 SQL 使用 MEDIUMTEXT；不改写签名基线中的历史 app install.sql。发布包需同时包含新执行器、迁移规划/执行支持、两个更新服务调用点、错误提示及旧更新器修复脚本。旧站已卡在预检时依照 `docs/update-record-capacity.md` 执行可信的显式修复，不绕过包授权或重置迁移日志。
+
+发布前运行 `tests/system-update/record-capacity.php`、`storage-schema-messages.php`、`customer-messages.php` 和临时数据库 companion `record-capacity.integration.php`，并复核真实系统更新成功、元数据失败回滚流程。

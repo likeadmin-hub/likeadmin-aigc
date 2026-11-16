@@ -13,6 +13,7 @@ use app\common\service\app\AppAccessStateService;
 use app\common\service\app\DefaultAppService;
 use app\common\service\app\RetiredAppService;
 use app\common\service\database\SqlMigrationExecutor;
+use app\common\service\database\RuntimeUpdateRecordCapacity;
 use RuntimeException;
 use think\facade\Db;
 use Throwable;
@@ -131,6 +132,7 @@ class AppPackageUpdateService
     public function preflight(int $packageId, string $expectedAppCode = ''): array
     {
         $package = $this->getPackage($packageId);
+        RuntimeUpdateRecordCapacity::ensure();
         $extractor = new PackageExtractService();
         $preflight = $extractor->preflight((string)$package['local_path'], base_path() . 'apps', (int)$package['package_size'], (string)$package['format']);
         if (!$preflight['passed']) {
@@ -216,6 +218,7 @@ class AppPackageUpdateService
     public function apply(int $packageId): array
     {
         $package = $this->getPackage($packageId);
+        RuntimeUpdateRecordCapacity::ensure();
         $task = $this->createTask($package, 'apply');
         $lock = $this->acquireLock('app_update_' . $packageId);
         if (!$lock) {
@@ -451,6 +454,7 @@ class AppPackageUpdateService
 
     private function recordPackage(array $remote, array $download, string $source): array
     {
+        RuntimeUpdateRecordCapacity::ensure();
         $row = UpdatePackage::create([
             'package_id' => (string)($remote['package_id'] ?? ''),
             'type' => 'app',

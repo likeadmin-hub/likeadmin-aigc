@@ -10,6 +10,7 @@ use app\common\service\app\DefaultAppService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\billing\PackageProvisionService;
 use app\common\service\database\SqlMigrationExecutor;
+use app\common\service\database\RuntimeUpdateRecordCapacity;
 use app\common\service\app\AppAccessStateService;
 use app\platformapi\logic\upgrade\UpgradeLogic;
 use RuntimeException;
@@ -179,6 +180,7 @@ class SystemPackageUpdateService
                 throw new RuntimeException('请选择目标版本');
             }
             (new UpdateLicenseService())->assertSystemUpdateAllowed($targetVersion);
+            RuntimeUpdateRecordCapacity::ensure();
             $params = [
                 'target_version' => $targetVersion,
                 'current_version' => $currentVersion ?: UpdateSourceClient::currentCoreVersion(),
@@ -366,6 +368,7 @@ class SystemPackageUpdateService
         try {
             $package = $this->getPackage($packageId);
             (new SystemPackageGrantService())->ensure($package->toArray());
+            RuntimeUpdateRecordCapacity::ensure();
             $extractor = new PackageExtractService();
             $preflight = $extractor->preflight((string)$package['local_path'], UpgradeLogic::getProjectPath(), (int)$package['package_size'], (string)$package['format']);
             if (!$preflight['passed']) {
@@ -443,6 +446,7 @@ class SystemPackageUpdateService
     {
         $this->extendExecutionTimeout();
         $package = $this->getPackage($packageId);
+        RuntimeUpdateRecordCapacity::ensure();
         $task = $this->createTask($package, 'apply');
         $transactionStarted = false;
         $lock = $this->acquireLock('system_update');
