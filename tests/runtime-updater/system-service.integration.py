@@ -115,7 +115,8 @@ try:
         'tests/pc-home-shortcuts.integration.php','tests/license/protocol.php',
         'tests/system-update/protocol.php','tests/framework-oem/run.php',
         'tests/runtime-updater/system-service.lifecycle.php','tests/release-sql-replay.integration.php',
-        'tests/runtime-updater/release-392-migrations.integration.php']
+        'tests/runtime-updater/release-392-migrations.integration.php',
+        'tests/system-update/record-capacity.integration.php']
     if args.companions:
         cases += ['companion_' + str(index) for index in range(args.companion_start, len(companions))]
     if args.cases:

@@ -67,6 +67,12 @@ class SqlMigrationExecutor
                 RuntimeVideoConfigCapacity::apply($prefix, $connection);
                 continue;
             }
+            if (!class_exists(RuntimeUpdateRecordCapacity::class)) require_once __DIR__.'/RuntimeUpdateRecordCapacity.php';
+            $updateRecordTarget = RuntimeUpdateRecordCapacity::target($sql);
+            if ($updateRecordTarget !== null) {
+                RuntimeUpdateRecordCapacity::apply($updateRecordTarget[0], $updateRecordTarget[1], $prefix, $connection);
+                continue;
+            }
             $statement = self::applyPrefix($sql, $prefix, $prefixStyle) . ';';
             try {
                 if ($connection) {
