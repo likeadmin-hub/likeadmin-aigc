@@ -8,6 +8,10 @@ if (!$root || !is_file($root.'/vendor/autoload.php')) throw new RuntimeException
 chdir($root);
 require $root.'/vendor/autoload.php';
 (new \think\App($root.DIRECTORY_SEPARATOR))->initialize();
+set_exception_handler(static function (\Throwable $error): void {
+    fwrite(STDERR, $error->getMessage().PHP_EOL);
+    exit(1);
+});
 // Explicit path lets operators copy this script + helper to an old canonical site.
 require_once dirname(__DIR__).'/app/common/service/database/RuntimeUpdateRecordCapacity.php';
 use app\common\service\database\RuntimeUpdateRecordCapacity as Capacity;
@@ -19,14 +23,17 @@ echo json_encode(Capacity::all($prefix, $db, false), JSON_PRETTY_PRINT|JSON_THRO
 if (!isset($options['apply'])) { echo "Inspection only; use --apply after site/database backup.\n"; exit; }
 $locks = [];
 try {
-    foreach (['site-update-intent.lock', 'site-update.lock'] as $name) {
+    // Match canonical updates: exclude writers, retain existing worker readers.
+    foreach (['site-update-intent.lock'=>LOCK_EX, 'site-update.lock'=>LOCK_SH] as $name=>$mode) {
         $path = $root.'/runtime/'.$name;
         if (is_link($path)) throw new RuntimeException('Invalid lock path');
         $h = fopen($path, 'c+');
-        if (!$h || !flock($h, LOCK_EX|LOCK_NB)) throw new RuntimeException('Site busy; wait for active requests/workers to drain');
+        if (!$h || !flock($h, $mode|LOCK_NB)) throw new RuntimeException('Site update busy; retry after it completes');
         $locks[] = $h;
     }
-    if (is_file($root.'/runtime/direct-update-active.json') || is_file($root.'/.composer-runtime/current.json')
+    $deployment = json_decode((string)@file_get_contents($root.'/runtime/direct-deployment.json'), true);
+    $canonical = ($deployment['schema'] ?? null) === 1 && ($deployment['mode'] ?? '') === 'canonical';
+    if (is_file($root.'/runtime/direct-update-active.json') || (is_file($root.'/.composer-runtime/current.json') && !$canonical)
         || Db::name('update_task')->where('status', 'running')->count()) throw new RuntimeException('Pending/legacy update; inspect before repair');
     $backup = $root.'/runtime/update_record_capacity_backup/'.date('YmdHis').'-'.bin2hex(random_bytes(4));
     if (!mkdir($backup, 0700, true)) throw new RuntimeException('Cannot create backup');
