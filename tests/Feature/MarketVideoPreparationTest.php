@@ -69,7 +69,7 @@ class MarketVideoPreparationTest extends TestCase
         $request = $this->request();
         $prepare = new ReflectionMethod(Videos::class, 'prepareMarketRequest');
         $quantity = new ReflectionMethod(Videos::class, 'quantity');
-        $args = [&$market, $request]; $quoted = $prepare->invokeArgs(null, $args);
+        $args = [&$market, $request, 0, 0]; $quoted = $prepare->invokeArgs(null, $args);
         $args = [&$market, $request, $quoted]; $count = $quantity->invokeArgs(null, $args);
         $snapshot = (new ReflectionMethod(Videos::class, 'snapshot'))->invoke(null, $market, $count);
         $submitted = Videos::prepareRequest($snapshot, $request);
@@ -109,7 +109,7 @@ class MarketVideoPreparationTest extends TestCase
     {
         $market = ['sku'=>['usage_unit'=>'business_unit', 'meter_contract'=>['version'=>1,'basis'=>'image','rounding'=>'ceil']]];
         $this->expectExceptionMessage('该视频模型计费数量规则尚未适配');
-        $args = [&$market,[]];
+        $args = [&$market, [], 0, 0];
         (new ReflectionMethod(Videos::class,'prepareMarketRequest'))->invokeArgs(null,$args);
     }
 

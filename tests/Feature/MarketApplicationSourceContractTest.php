@@ -125,7 +125,7 @@ class MarketApplicationSourceContractTest extends TestCase
         // The actual quote/reservation preparation gate must keep rejecting these real unbounded Token SKUs.
         $market=['product'=>$entry['product']+['upstream_model_code'=>'','upstream_channel_code'=>'',
             'source_payload'=>['market_metadata'=>$entry['metadata']]],'sku'=>$sku,'tenant_price'=>1];
-        $args=[&$market,$request];
+        $args=[&$market,$request,0,0];
         try{(new ReflectionMethod(Videos::class,'prepareMarketRequest'))->invokeArgs(null,$args);self::fail('A selectable model is not a Token spending bound');}
         catch(\InvalidArgumentException$error){self::assertStringContainsString('Token 费用上限',$error->getMessage());}
     }
