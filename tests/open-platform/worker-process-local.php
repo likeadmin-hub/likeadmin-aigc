@@ -3,7 +3,7 @@
 require dirname(__DIR__,2).'/vendor/autoload.php';
 (new think\App())->initialize();
 use think\facade\Db;
-use app\common\service\open_platform\OpenStore as S;
+use app\common\service\open_platform\{OpenCallContext,OpenGateway,OpenStore as S};
 use app\common\service\open_platform\OpenVault as Vault;
 use app\common\service\open_platform\OpenMarketBilling as Billing;
 use app\common\command\OpenPlatformWorker;
@@ -79,7 +79,7 @@ try{
     $source=['base_url'=>'http://'.file_get_contents($dir.'/upstream-ready'),'api_key'=>'fixture-only','timeout'=>10,'ssl_verify'=>false];
     $snapshot=['_execution_version'=>2,'dispatch_started'=>true,'product_id'=>1,'source_blob'=>Vault::seal(S::encode($source)),
         'contract'=>['executor'=>'http','query_path'=>'/api/v1/tasks/{task_id}','status_path'=>'data.status'],
-        'rules'=>[['sku_id'=>1,'basis'=>'input','units'=>1,'max_units'=>1,'unit_size'=>1,'prices'=>['user'=>5,'tenant'=>1]]]];
+        'rules'=>[['sku_id'=>0,'basis'=>'input','units'=>1,'max_units'=>1,'unit_size'=>1,'prices'=>['user'=>5,'tenant'=>1]]]];
     $request=['request_id'=>'req_worker_fixture','tenant_id'=>$tenant,'user_id'=>$user,'key_id'=>0,'kind'=>'market','method'=>'POST','path'=>'/api/v1/tasks','upstream_task_id'=>'fixture','status'=>'running','billing_status'=>'pending','active'=>1,'consumption_ids'=>'[]','payload_hash'=>hash('sha256',$tag),'snapshot'=>S::encode($snapshot),'response_blob'=>'','budget_user'=>5,'budget_tenant'=>1,'next_run_time'=>time()]+S::timestamp();
     $request['id']=S::table('request')->insertGetId($request);Billing::reserve($request,['user'=>5,'tenant'=>1,'snapshot'=>$snapshot]);
     // Kill during an actual GET after the worker durably owns the lease.
@@ -125,8 +125,25 @@ try{
     $report['scenarios'][]='KILL owned idle database connection, exit 1, fresh connection restart';
     $signal=$spawn('--worker','signal');waitFor(fn()=>is_file($dir.'/ready-signal'),'No signal child');usleep(150000);
     check(posix_kill(proc_get_status($children[$signal]['process'])['pid'],SIGTERM),'Cannot terminate owned worker');$finish($signal,0);
-    $report['scenarios'][]='SIGTERM graceful exit 0';$report['result']='passed';
-    echo "PASS actual worker SIGKILL during receipt query, lease takeover and single fixture settlement; real MySQL disconnect before settlement and while idle, retirement/GET recovery; SIGTERM shutdown; no paid provider or live wallet changes\n";
+    $report['scenarios'][]='SIGTERM graceful exit 0';
+    // A client receives the terminal response while the real worker already owns the GET lease.
+    $racingSnapshot=$snapshot+['customer_callback'=>['url'=>'http://127.0.0.1:1/fixture','secret_blob'=>Vault::seal(str_repeat('s',32))]];
+    $racing=array_replace($request,['request_id'=>'req_worker_fixture_racing','snapshot'=>S::encode($racingSnapshot),'next_run_time'=>time()]);
+    unset($racing['id']);$racing['id']=S::table('request')->insertGetId($racing);
+    Billing::reserve($racing,['user'=>5,'tenant'=>1,'snapshot'=>$racingSnapshot]);
+    $racer=$spawn('--worker','poll-race',true);waitFor(fn()=>is_file($dir.'/query-5'),'Concurrent worker query did not start');
+    OpenCallContext::enter('req_client_poll');
+    try{OpenGateway::observeTask($racing,['code'=>1,'data'=>['task_id'=>'fixture','status'=>'completed']]);}
+    finally{OpenCallContext::leave();}
+    $events=S::table('webhook')->where('request_id',$racing['request_id']);
+    check((clone $events)->count()===1,'Client-first completion lost its callback');
+    (clone $events)->update(['next_run_time'=>time()+3600]); // Observe the outbox without delivering it.
+    touch($dir.'/release-5');check(str_contains($finish($racer,0),'Processed 1'),'Concurrent worker did not finish');
+    check((clone $events)->count()===1&&S::table('request')->where('id',$racing['id'])->value('billing_status')==='settled'
+        &&(float)Db::name('user')->where('id',$user)->value('user_money')===85.
+        &&Db::name('user_account_log')->where('user_id',$user)->count()===3,'Concurrent terminal observations duplicated the callback or ledger');
+    $report['scenarios'][]='Client terminal response races worker GET, one callback and one ledger entry';$report['result']='passed';
+    echo "PASS real worker lease, restart and MySQL disconnect recovery; concurrent client/worker terminal observation creates one callback and one settlement; SIGTERM shutdown; no paid provider or live wallet changes\n";
 }finally{
     foreach($children as $child){if(!is_resource($child['process']))continue;proc_terminate($child['process'],SIGKILL);foreach($child['pipes'] as $pipe)if(is_resource($pipe))fclose($pipe);proc_close($child['process']);}
     app()->config->set($original,'database');$restore=new think\Config();$restore->set($original,'database');Db::setConfig($restore);

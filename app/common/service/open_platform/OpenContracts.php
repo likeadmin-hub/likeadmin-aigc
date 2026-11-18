@@ -94,23 +94,164 @@ final class OpenContracts
     {
         return Db::transaction(function()use($id){$row=self::detail($id);self::validate($row);if($row['status']!=='draft')throw new OpenException('invalid_contract','只可发布草稿',409);
             if($row['kind']==='market'&&$row['config']['executor']==='json'&&(str_starts_with($row['path'],'/api/v1/apps/')||str_starts_with($row['path'],'/api/v1/tasks'))&&(($row['config']['response_adapter']??'')!==OpenMarketResponse::ADAPTER||!OpenMarketResponse::schemaSupported($row['config']['responses'])))throw new OpenException('adapter_required','商城业务协议必须使用已验证的用户费用响应适配');
+            self::assertPublishableRoute($row);
             $doc=OpenStore::table('document')->where(['tenant_id'=>0,'contract_code'=>$row['code'],'status'=>'published'])->find();if(!$doc)throw new OpenException('missing_document','请先发布对应接口文档');
             $row['config']['verification']=OpenVerification::assertReceipt($row);
             OpenStore::table('contract')->where('id',$id)->update(['config'=>self::encodeConfig($row['config'])]);
             OpenStore::table('contract')->where(['code'=>$row['code'],'status'=>'published'])->update(['status'=>'archived','update_time'=>time()]);OpenStore::table('contract')->where('id',$id)->update(['status'=>'published','update_time'=>time()]);return self::detail($id);});
     }
-    public static function tool(string $method,string $path): array
+    private static function assertPublishableRoute(array $row): void
     {
-        $registered=OpenToolRegistry::match($method,$path);foreach(OpenStore::table('contract')->where(['kind'=>'tool','status'=>'published','method'=>$method])->order('id','desc')->select()->toArray() as $row){if(OpenPolicy::matches($row['path'],$path)===null)continue;$config=OpenStore::json($row['config']);return array_replace($registered,['kind'=>'tool','contract_id'=>$row['id'],'input'=>$config['input'],'version'=>$row['version'],'code'=>$row['code']]);}throw new OpenException('not_found','工具操作尚未发布',404);
+        // Use a locking read for the whole route, including competing drafts.
+        $peers = OpenStore::table('contract')->where([
+            'kind'=>$row['kind'],'method'=>$row['method'],'path'=>$row['path'],
+        ])->order('id', 'asc')->lock(true)->select()->toArray();
+        $draftLocked = false;
+        foreach ($peers as $peer) {
+            if ($peer['id'] === $row['id']) {
+                $draftLocked = $peer['status'] === 'draft'
+                    && $peer['code'] === $row['code']
+                    && (int)$peer['product_id'] === (int)$row['product_id']
+                    && self::encodeConfig(self::decodeConfig($peer['config'])) === self::encodeConfig($row['config']);
+            }
+            if ($peer['status'] !== 'published' || $peer['code'] === $row['code']) continue;
+            if ($row['kind'] === 'tool' || self::selectorsOverlap($row['config'], OpenStore::json($peer['config']))) {
+                throw self::ambiguous();
+            }
+        }
+        if (!$draftLocked) throw new OpenException('invalid_contract', '草稿已变化，请刷新后重新发布', 409);
     }
+
+    private static function selectorConditions(array $config): array
+    {
+        $conditions = [];
+        if (isset($config['model'])) $conditions['model'][] = [$config['model'], $config['model'] === ''];
+        if (isset($config['routing_channel'])) $conditions['channel'][] = [$config['routing_channel'], true];
+        foreach ($config['when'] ?? [] as $name => $value) {
+            $missing = $config['when_defaults'][$name] ?? ($name === 'stream' ? false : null);
+            $conditions[$name][] = [$value, $missing === $value];
+        }
+        return $conditions;
+    }
+
+    /** Reject ambiguous published selectors, including collisions on omitted fields. */
+    private static function selectorsOverlap(array $left, array $right): bool
+    {
+        $a = self::selectorConditions($left);
+        $b = self::selectorConditions($right);
+        foreach (array_unique([...array_keys($a), ...array_keys($b)]) as $field) {
+            $conditions = [...($a[$field] ?? []), ...($b[$field] ?? [])];
+            $first = $conditions[0][0];
+            $omittable = true;
+            $sameValue = $first !== null;
+            foreach ($conditions as [$value, $acceptsMissing]) {
+                $omittable = $omittable && $acceptsMissing;
+                $sameValue = $sameValue && $value === $first;
+            }
+            if (!$omittable && !$sameValue) return false;
+        }
+        return true;
+    }
+
+    private static function ambiguous(): OpenException
+    {
+        return new OpenException('ambiguous_contract', '当前请求匹配到多个接口契约，请明确模型渠道或规格', 409);
+    }
+
+    public static function tool(string $method, string $path): array
+    {
+        $registered = OpenToolRegistry::match($method, $path);
+        $matched = null;
+        foreach (self::publishedRows('tool', $method, $path) as $row) {
+            $bindings = OpenPolicy::matches($row['path'], $path);
+            if ($bindings === null) continue;
+            if ($matched !== null) throw self::ambiguous();
+            $matched = self::operation($row, OpenStore::json($row['config']), $bindings, $registered);
+        }
+        if ($matched === null) throw new OpenException('not_found','工具操作尚未发布',404);
+        return $matched;
+    }
+
     public static function selected(array $config,array $params): bool
     {
         if(isset($config['model'])&&($params['model']??'')!==$config['model'])return false;if(isset($config['routing_channel'],$params['channel'])&&$params['channel']!==$config['routing_channel'])return false;
         foreach($config['when']??[] as $name=>$value){$actual=OpenSchema::get($params,$name)??($config['when_defaults'][$name]??($name==='stream'?false:null));if($actual!==$value)return false;}
         return true;
     }
-    public static function match(string $method,string $path,array $params): array
+
+    private static function publishedRows(string $kind, string $method, string $path): array
     {
-        foreach(OpenStore::table('contract')->where(['status'=>'published','method'=>$method,'kind'=>'market'])->order('id','desc')->select()->toArray() as $row){$bindings=OpenPolicy::matches($row['path'],$path);if($bindings===null)continue;$config=OpenStore::json($row['config']);if(!self::selected($config,$params))continue;return $config+['kind'=>'market','contract_id'=>$row['id'],'product_id'=>$row['product_id'],'code'=>$row['code'],'path'=>$row['path'],'method'=>$method,'version'=>$row['version'],'params'=>$bindings];}throw new OpenException('not_found','接口尚未发布或模型未开放',404);
+        return OpenStore::table('contract')->where(['status'=>'published','method'=>$method,'kind'=>$kind])
+            ->where(fn($query) => $query->where('path', $path)->whereOr('path', 'like', '%{%'))
+            ->select()->toArray();
+    }
+
+    private static function operation(array $row, array $config, array $bindings, ?array $registered=null): array
+    {
+        $identity=['kind'=>$row['kind'],'contract_id'=>$row['id'],'product_id'=>$row['product_id'],'code'=>$row['code'],
+            'path'=>$row['path'],'method'=>$row['method'],'version'=>$row['version'],'params'=>$bindings];
+        return $registered !== null ? array_replace($registered, $identity + ['input'=>$config['input']]) : $identity + $config;
+    }
+
+    public static function parameters(array $params, array $contract, bool $normalize): array
+    {
+        return $normalize ? OpenSchema::query($params, $contract['input']) : $params;
+    }
+
+    /** Match a concrete path against a published version or a verified draft. */
+    public static function matchVersion(array $row, string $method, string $path, array $params, bool $normalize): ?array
+    {
+        if ($row['method'] !== $method) return null;
+        $bindings = OpenPolicy::matches($row['path'], $path);
+        if ($bindings === null) return null;
+        $config = OpenStore::json($row['config']);
+        if (!self::selected($config, self::parameters($params, $config, $normalize))) return null;
+        $registered = $row['kind'] === 'tool' ? OpenToolRegistry::match($method, $path) : null;
+        return self::operation($row, $config, $bindings, $registered);
+    }
+
+    public static function match(string $method, string $path, array $params, bool $normalize=false): array
+    {
+        $matched = null;
+        foreach (self::publishedRows('market', $method, $path) as $row) {
+            $candidate = self::matchVersion($row, $method, $path, $params, $normalize);
+            if ($candidate === null) continue;
+            if ($matched !== null) throw self::ambiguous();
+            $matched = $candidate;
+        }
+        if ($matched === null) throw new OpenException('not_found','接口尚未发布或模型未开放',404);
+        return $matched;
+    }
+
+    public static function expectCode(array $operation, string $code): void
+    {
+        if ($code !== '' && ($operation['code'] ?? '') !== $code) {
+            throw new OpenException('contract_mismatch', '请求参数命中的接口与所选契约不一致', 409);
+        }
+    }
+
+    public static function forQuote(string $code, array $params): array
+    {
+        $row = OpenStore::table('contract')->where(['code'=>$code,'kind'=>'market','status'=>'published'])
+            ->order('version', 'desc')->find();
+        if (!$row) throw new OpenException('not_found', '请选择已发布的商城接口', 404);
+        $config = OpenStore::json($row['config']);
+        $normalize = $row['method'] === 'GET' || self::contentType($config) === 'multipart/form-data';
+        // The console sends URL/form values as text, even when its editor uses JSON.
+        if ($normalize) {
+            $params = array_map(static fn($value) => is_string($value) ? $value : json_encode($value, JSON_THROW_ON_ERROR), $params);
+        }
+        try {
+            // Historical operations quote zero and use the owned task receipt at execution time.
+            $operation = in_array($config['role'], ['query','cancel'], true)
+                ? self::matchVersion($row, $row['method'], $row['path'], $params, $normalize)
+                : self::match($row['method'], $row['path'], $params, $normalize);
+        } catch (OpenException $error) {
+            if ($error->errorType !== 'not_found') throw $error;
+            $operation = null;
+        }
+        if ($operation === null) throw new OpenException('invalid_request','参数不符合当前选择的接口');
+        self::expectCode($operation, $code);
+        return [$operation, self::parameters($params, $operation, $normalize)];
     }
 }

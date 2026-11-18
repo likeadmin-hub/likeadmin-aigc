@@ -281,16 +281,13 @@ final class OpenManagement
     {
         $settings=OpenStore::requireEnabled($tenantId);
         if(empty($settings['features']['playground'])||empty(OpenStore::settings(0)['features']['playground']))throw new OpenException('feature_disabled','在线调试已关闭',403);
-        $contract=OpenStore::table('contract')->where(['code'=>$code,'kind'=>'market','status'=>'published'])->order('version','desc')->find();
-        if(!$contract)throw new OpenException('not_found','请选择已发布的商城接口',404);
-        $config=OpenContracts::decodeConfig($contract['config']);
-        if(!OpenContracts::selected($config,$params))throw new OpenException('invalid_request','参数不符合当前选择的接口');
         try{OpenPolicy::validateInput($params);}catch(\InvalidArgumentException $e){throw new OpenException('invalid_request',$e->getMessage());}
-        OpenSchema::validate($params,$config['input']);OpenSafeHttp::checkInputs($params);
-        $op=$config+['kind'=>'market','product_id'=>(int)$contract['product_id']];
+        [$op, $params] = OpenContracts::forQuote($code, $params);
+        OpenSchema::validateRequest($params, $op['input'], $op['method'] !== 'GET' && OpenContracts::contentType($op) === 'application/json');
+        OpenSafeHttp::checkInputs($params);
         // Directory and history do not reserve a new generation budget.
-        if(($config['executor']??'')==='directory'||empty($config['billable']))return ['billable'=>false,'reserved_points'=>0.,'pricing_mode'=>'free','items'=>[],'currency'=>'points'];
-        if(!in_array($config['role'],['submit','resource'],true))throw new OpenException('invalid_request','任务操作请查询原任务账单');
+        if(($op['executor']??'')==='directory'||empty($op['billable']))return ['billable'=>false,'reserved_points'=>0.,'pricing_mode'=>'free','items'=>[],'currency'=>'points'];
+        if(!in_array($op['role'],['submit','resource'],true))throw new OpenException('invalid_request','任务操作请查询原任务账单');
         $budget=OpenMarketBilling::quote($tenantId,$op,$params);$items=[];$variable=false;
         foreach ($budget['snapshot']['rules'] ?? [] as $rule) {
             $split = $rule['basis'] === 'file_qa_tokens';

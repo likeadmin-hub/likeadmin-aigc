@@ -15,25 +15,44 @@ final class OpenGateway
         $key=OpenKeyService::authenticate($request);OpenRateLimiter::admit($key);$method=strtoupper($request->method());$params=$method==='GET'?$request->get():$request->post();$params=(array)$params;
         $contentType=strtolower((string)$request->header('content-type',''));if($method!=='GET'&&str_contains($contentType,'application/json')){if(strlen($request->getInput())>(int)OpenStore::limits((int)$key['tenant_id'])['body_limit'])throw new OpenException('payload_too_large','请求过大',413);$decoded=json_decode($request->getInput(),false,64);if(!str_starts_with(ltrim($request->getInput()),'{')||json_last_error()!==JSON_ERROR_NONE||!($decoded instanceof \stdClass))throw new OpenException('invalid_request','请求必须是 JSON 对象');$params=(array)$decoded;}
         OpenPolicy::validateInput($params);$originalParams=$params;
-        if((string)$request->header('x-open-debug','')==='1'){OpenStore::requireEnabled((int)$key['tenant_id']);if(empty(OpenStore::settings((int)$key['tenant_id'])['features']['playground'])||empty(OpenStore::settings(0)['features']['playground']))throw new OpenException('feature_disabled','在线调试已关闭',403);}
-        $previewToken=(string)$request->header('x-open-contract-preview','');$idem=OpenDirectory::supports($method,$path)&&$previewToken===''?'':(string)$request->header('idempotency-key','');$preview=$previewToken!==''?OpenContractPreview::resolve($previewToken,$key,$method,$path,$params,$idem,(array)$request->file()):null;$existing=OpenAdmission::replay($key,$method,$path,$params,$idem,(array)$request->file());if($existing)return self::replayResponse($existing,$path);
+        $normalize=$method==='GET'||str_contains($contentType,'multipart/form-data');
+        $debug=(string)$request->header('x-open-debug','')==='1';
+        $expectedCode=$debug?(string)$request->header('x-open-operation-code',''):'';
+        if($debug){OpenStore::requireEnabled((int)$key['tenant_id']);if(empty(OpenStore::settings((int)$key['tenant_id'])['features']['playground'])||empty(OpenStore::settings(0)['features']['playground']))throw new OpenException('feature_disabled','在线调试已关闭',403);}
+        $previewToken=(string)$request->header('x-open-contract-preview','');$idem=OpenDirectory::supports($method,$path)&&$previewToken===''?'':(string)$request->header('idempotency-key','');$preview=$previewToken!==''?OpenContractPreview::resolve($previewToken,$key,$method,$path,$params,$idem,(array)$request->file()):null;$existing=OpenAdmission::replay($key,$method,$path,$params,$idem,(array)$request->file());if($existing)return self::replayResponse($existing,$path,$expectedCode);
         if($method==='GET'&&$path==='/api/v1/tools'){$op=['kind'=>'market','executor'=>'directory','billable'=>false,'role'=>'resource','product_id'=>0];$budget=['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$op]];}
         elseif(str_starts_with($path,'/api/v1/assets')){if($path==='/api/v1/assets'&&$method==='POST')$op=['kind'=>'asset','app_code'=>'assets','billable'=>false,'role'=>'upload','params'=>[]];elseif($method==='GET'&&preg_match('#^/api/v1/assets/(of_[a-f0-9]{32})(/download)?$#D',$path,$m))$op=['kind'=>'asset','app_code'=>'assets','billable'=>false,'history'=>true,'role'=>isset($m[2])?'download':'detail','params'=>['file_id'=>$m[1]]];else throw new OpenException('not_found','素材接口不存在',404);$budget=['user'=>0,'tenant'=>0,'snapshot'=>[]];}
-        elseif(str_starts_with($path,'/api/v1/tools/')){$registered=OpenToolRegistry::match($method,$path);$op=$preview??(in_array($registered['route'],['GET tasks','GET tasks/{task_id}','GET results'],true)?$registered+['kind'=>'tool']:OpenContracts::tool($method,$path));$op['history']=in_array($op['route'],['GET tasks','GET tasks/{task_id}','GET results'],true);if(!$op['history'])OpenToolAdapter::authorize((int)$key['tenant_id'],(int)$key['user_id'],$op['app_code']);if($method==='GET'||str_contains($contentType,'multipart/form-data'))$params=OpenSchema::query($params,$op['input']);OpenSchema::validateRequest(OpenFiles::forSchema($params,(array)$request->file(),$op['input']),$op['input'],$method!=='GET'&&str_contains($contentType,'application/json'));$params=OpenMaterials::nativeInputs($op['app_code'],$params);$params=OpenMaterials::resolve((int)$key['tenant_id'],(int)$key['user_id'],$params);$budget=OpenToolAdapter::budget($request,$op,$params);}
-        else{$op=$preview??self::historicalMarket($key,$method,$path)??OpenContracts::match($method,$path,$params);$op['history']=in_array($op['role'],['query','cancel'],true);$directory=($op['executor']??'')==='directory';if($method==='GET'||str_contains($contentType,'multipart/form-data'))$params=OpenSchema::query($params,$op['input']);OpenSchema::validateRequest(OpenFiles::forSchema($params,(array)$request->file(),$op['input']),$op['input'],$method!=='GET'&&str_contains($contentType,'application/json'));if($directory){$op['history']=OpenDirectory::history($path);$budget=['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$op]];}else $budget=OpenMarketBilling::quote((int)$key['tenant_id'],$op,$params);if($op['history']&&!$directory){$owner=self::ownedTask($key,$op);$ownerSnapshot=OpenStore::json($owner['snapshot']);$op['scope']=(string)($ownerSnapshot['product_id']??$ownerSnapshot['contract']['product_id']??'market');}}
+        elseif(str_starts_with($path,'/api/v1/tools/')){$registered=OpenToolRegistry::match($method,$path);$op=$preview??(in_array($registered['route'],['GET tasks','GET tasks/{task_id}','GET results'],true)?$registered+['kind'=>'tool']:OpenContracts::tool($method,$path));$op['history']=in_array($op['route'],['GET tasks','GET tasks/{task_id}','GET results'],true);if(!$op['history'])OpenToolAdapter::authorize((int)$key['tenant_id'],(int)$key['user_id'],$op['app_code']);$params=OpenContracts::parameters($params,$op,$normalize);OpenSchema::validateRequest(OpenFiles::forSchema($params,(array)$request->file(),$op['input']),$op['input'],$method!=='GET'&&str_contains($contentType,'application/json'));$params=OpenMaterials::nativeInputs($op['app_code'],$params);$params=OpenMaterials::resolve((int)$key['tenant_id'],(int)$key['user_id'],$params);$budget=OpenToolAdapter::budget($request,$op,$params);}
+        else {
+            $op = $preview ?? self::historicalMarket($key,$method,$path) ?? OpenContracts::match($method,$path,$params,$normalize);
+            $directory = ($op['executor'] ?? '') === 'directory';
+            $op['history'] = $directory ? OpenDirectory::history($path) : in_array($op['role'], ['query','cancel'], true);
+            if (!$op['history']) OpenContracts::expectCode($op, $expectedCode);
+            $params = OpenContracts::parameters($params,$op,$normalize);
+            OpenSchema::validateRequest(OpenFiles::forSchema($params,(array)$request->file(),$op['input']),$op['input'],$method!=='GET'&&str_contains($contentType,'application/json'));
+            $budget = $directory ? ['user'=>0,'tenant'=>0,'snapshot'=>['contract'=>$op]] : OpenMarketBilling::quote((int)$key['tenant_id'],$op,$params);
+            if ($op['history'] && !$directory) {
+                $owner = self::ownedTask($key,$op);
+                $ownerSnapshot = OpenStore::json($owner['snapshot']);
+                $op['scope'] = (string)($ownerSnapshot['product_id'] ?? $ownerSnapshot['contract']['product_id'] ?? 'market');
+            }
+        }
         if(isset($params['callback_url'])||isset($params['webhook_url']))throw new OpenException('invalid_callback','请通过 X-Open-Callback-URL 设置客户通知地址');
         OpenSafeHttp::checkInputs($params);
         $callback=(string)$request->header('x-open-callback-url','');if($callback!==''){if((empty(OpenStore::settings((int)$key['tenant_id'])['features']['webhooks'])||empty(OpenStore::settings(0)['features']['webhooks'])))throw new OpenException('feature_disabled','客户回调已关闭',403);OpenSafeHttp::resolve($callback);$secret=(string)$request->header('x-open-callback-secret','');if(strlen($secret)<32||strlen($secret)>256)throw new OpenException('invalid_callback','回调签名密钥须为 32 至 256 个字符');$budget['snapshot']['customer_callback']=['url'=>$callback,'secret_blob'=>OpenVault::seal($secret)];}
-        if(($method==='GET'||str_contains($contentType,'multipart/form-data'))&&isset($op['input']))$originalParams=OpenSchema::query($originalParams,$op['input']);
+        if(isset($op['input']))$originalParams=OpenContracts::parameters($originalParams,$op,$normalize);
         $admission=OpenAdmission::begin($key,$method,$path,$originalParams,$op,$budget,$idem,(array)$request->file());$row=$admission['row'];
-        if($admission['replay'])return self::replayResponse($row,$path);
+        if($admission['replay'])return self::replayResponse($row,$path,$expectedCode);
         if(self::textProtocol($op,$path)!==''||($op['executor']??'')==='sse'||($op['service']??'')==='streamText')return new OpenStreamResponse(function()use($request,$row,$op,$params,$budget,$path){try{self::execute($request,$row,$op,$params,$budget,true);}catch(\Throwable $e){if(!headers_sent()){http_response_code($e instanceof OpenException?$e->httpStatus:503);header('Content-Type: application/json');echo self::error($e,$path,$row['request_id'])->getContent();}}},['X-Request-Id'=>$row['request_id']]);
         try{return self::execute($request,$row,$op,$params,$budget,false);}catch(\Throwable $e){return self::error($e,$path,$row['request_id']);}
     }
 
-    private static function replayResponse(array $row,string $path)
+    private static function replayResponse(array $row,string $path,string $expectedCode='')
     {
-        if((OpenStore::json($row['snapshot'])['text_transport_complete']??true)===false)return self::error(new OpenException('request_in_progress','原始连接中断，已有调用仍待核对，请勿重复提交',409),$path,$row['request_id']);
+        $snapshot = OpenStore::json($row['snapshot']);
+        $code = (string)($snapshot['published_contract']['code'] ?? $snapshot['contract']['code'] ?? '');
+        if ($code !== '') OpenContracts::expectCode(['code'=>$code], $expectedCode);
+        if(($snapshot['text_transport_complete']??true)===false)return self::error(new OpenException('request_in_progress','原始连接中断，已有调用仍待核对，请勿重复提交',409),$path,$row['request_id']);
         if($row['response_blob']===''){
             // Recovery can conclusively close an interrupted receipt before an
             // HTTP response exists. Preserve that terminal outcome; a replay
@@ -47,7 +66,7 @@ final class OpenGateway
         if($row['kind']==='asset'&&$row['method']==='GET'&&preg_match('#^/api/v1/assets/(of_[a-f0-9]{32})/download$#D',$row['path'],$match)){
             $asset=OpenAssets::detail((int)$row['tenant_id'],(int)$row['user_id'],$match[1]);return redirect($asset['url'])->header(['X-Request-Id'=>$row['request_id']]);
         }
-        $snapshot=OpenStore::json($row['snapshot']);$headers=isset($snapshot['response_headers_blob'])?OpenStore::json(OpenVault::open($snapshot['response_headers_blob'])):[];
+        $headers=isset($snapshot['response_headers_blob'])?OpenStore::json(OpenVault::open($snapshot['response_headers_blob'])):[];
         return response(OpenVault::open($row['response_blob']),(int)$row['response_code'],self::responseHeaders($headers+['Content-Type'=>$row['response_type']],$row));
     }
 
