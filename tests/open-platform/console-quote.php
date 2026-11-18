@@ -8,12 +8,39 @@ function rejects(callable $call,string $type){try{$call();throw new RuntimeExcep
 $db=config('database.connections.mysql');check($db['hostname']==='127.0.0.1'&&$db['database']==='z_cn','Local DB required');
 Db::startTrans();try{
  $product=T::detail(1,51);check($product&&!empty($product['skus']),'Local market fixture absent');$sku=array_values(array_filter($product['skus'],fn($s)=>!empty($s['sale_status'])))[0];
- foreach([0,1] as $tenant){$settings=S::settings($tenant);unset($settings['enabled']);$settings['models']=array_values(array_unique([...$settings['models'],'51']));M::persistSettings($tenant,true,$settings);}
- $code='fixture.quote.'.bin2hex(random_bytes(6));$draft=['code'=>$code,'method'=>'POST','path'=>'/api/v1/apps/watermark_removal/remove','kind'=>'market','product_id'=>51,'config'=>['executor'=>'json','role'=>'submit','billable'=>true,'input'=>['type'=>'object','required'=>['fixture'],'properties'=>['fixture'=>['type'=>'string']]],'example'=>['fixture'=>'hello'],'responses'=>['200'=>['description'=>'OK']],'billing'=>[['sku_id'=>(int)$sku['id'],'basis'=>'input','max_units'=>1]]]];
+ foreach([0,1] as $tenant){$settings=S::settings($tenant);unset($settings['enabled']);$settings['models']=array_values(array_unique([...$settings['models'],'51']));$settings['features']['playground']=true;M::persistSettings($tenant,true,$settings);}
+ $code='fixture.quote.'.bin2hex(random_bytes(6));$draft=['code'=>$code,'method'=>'POST','path'=>'/api/v1/apps/watermark_removal/remove','kind'=>'market','product_id'=>51,'config'=>['executor'=>'json','response_adapter'=>app\common\service\open_platform\OpenMarketResponse::ADAPTER,'role'=>'submit','billable'=>true,'input'=>['type'=>'object','required'=>['fixture'],'properties'=>['fixture'=>['type'=>'string']]],'example'=>['fixture'=>'hello'],'responses'=>['200'=>['description'=>'OK']],'billing'=>[['sku_id'=>(int)$sku['id'],'basis'=>'input','max_units'=>1]]]];
  $values=C::validate($draft);$id=S::table('contract')->insertGetId($values+['version'=>1,'status'=>'published']+S::timestamp());
  $before=S::table('request')->count();$logs=Db::name('user_account_log')->count();
  $quote=M::quote(1,1,$code,['fixture'=>'hello']);check($quote['reserved_points']===(float)$sku['sale_points']&&$quote['pricing_mode']==='fixed'&&$quote['items'][0]['unit_price']===(float)$sku['sale_points'],'Quote changed effective retail SKU price');
  check(S::table('request')->count()===$before&&Db::name('user_account_log')->count()===$logs,'Estimate created a request or wallet log');
+ // The selected code is an expectation. It must not bypass a runtime route conflict.
+ $shadow=$draft;$shadow['code'].='.shadow';
+ $shadowId=S::table('contract')->insertGetId(C::validate($shadow)+['version'=>1,'status'=>'published']+S::timestamp());
+ rejects(fn()=>M::quote(1,1,$code,['fixture'=>'hello']),'ambiguous_contract');
+ rejects(fn()=>C::match('POST',$draft['path'],['fixture'=>'hello']),'ambiguous_contract');
+ S::table('contract')->where('id',$shadowId)->update(['status'=>'draft']);
+ rejects(fn()=>C::publish($shadowId),'ambiguous_contract');
+ $a=$b=$draft;$a['code'].='.channel-a';$b['code'].='.channel-b';
+ foreach(['fixture-a'=>&$a,'fixture-b'=>&$b] as $channel=>&$candidate){
+     $candidate['path']='/api/v1/apps/open_platform_quote_fixture/dispatch';
+     $candidate['config']['model']='quote-fixture';$candidate['config']['routing_channel']=$channel;
+     $candidate['config']['input']['properties']+=['model'=>['type'=>'string'],'channel'=>['type'=>'string']];
+     S::table('contract')->insert(C::validate($candidate)+['version'=>1,'status'=>'published']+S::timestamp());
+ }
+ unset($candidate);
+ $params=['model'=>'quote-fixture','fixture'=>'hello'];
+ rejects(fn()=>C::match('POST',$a['path'],$params),'ambiguous_contract');
+ $params['channel']='fixture-b';
+ check(C::match('POST',$a['path'],$params)['code']===$b['code'],'Explicit channel did not uniquely resolve');
+ rejects(fn()=>M::quote(1,1,$a['code'],$params),'contract_mismatch');
+ check(M::quote(1,1,$b['code'],$params)===$quote,'Explicit channel quoted a different SKU');
+ $typed=$draft;$typed['code'].='.typed';$typed['method']='GET';$typed['path']='/api/v1/apps/open_platform_quote_fixture/typed';
+ $typed['config']['input']['properties']['quality']=['type'=>'number'];
+ $typed['config']['when']=['quality'=>1.0];$typed['config']['example']['quality']=1.0;
+ S::table('contract')->insert(C::validate($typed)+['version'=>1,'status'=>'published']+S::timestamp());
+ check(C::match('GET',$typed['path'],['fixture'=>'hello','quality'=>'1'],true)['code']===$typed['code'],'GET selector received untyped wire value');
+ check(M::quote(1,1,$typed['code'],['fixture'=>'hello','quality'=>1])===$quote,'GET console and gateway interpreted the same number differently');
  foreach(['tenant','snapshot','source_blob','platform_sale_points','upstream_price'] as $secret)check(!str_contains(S::encode($quote),$secret),'Quote exposes internal '.$secret);
  rejects(fn()=>M::quote(1,1,$code,['tenant_id'=>2,'fixture'=>'hello']),'invalid_request');
  S::table('contract')->where('id',$id)->update(['status'=>'draft']);rejects(fn()=>M::quote(1,1,$code,['fixture'=>'hello']),'not_found');

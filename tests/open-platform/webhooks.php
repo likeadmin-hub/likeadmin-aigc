@@ -13,6 +13,9 @@ Db::startTrans();try{
  check(S::table('webhook')->where('request_id',$rid)->count()===1,'Repeated terminal event created duplicate delivery');
  $event=S::table('webhook')->where('request_id',$rid)->find();check(strlen($event['event_id'])<=64,'Event exceeds persisted identifier size');
  // Vault corruption must retry through webhook columns, with no live network request.
+ // A worker tick also scans requests; isolate it from existing local jobs inside the rollback.
+ S::table('request')->where('active',1)->where('next_run_time','>',0)->where('next_run_time','<=',time()+60)->update(['next_run_time'=>0]);
+ S::table('webhook')->where('id','<>',$event['id'])->where('status','pending')->where('next_run_time','>',0)->where('next_run_time','<=',time()+60)->update(['next_run_time'=>0]);
  S::table('webhook')->where('id',$event['id'])->update(['payload_blob'=>'invalid','next_run_time'=>time()-10000]);R::tick(1);
  $held=S::table('webhook')->where('id',$event['id'])->find();check($held['status']==='pending'&&$held['last_error']==='通知恢复处理失败'&&(int)$held['next_run_time']>time()&&$held['lease_token']===''&&(int)$held['lease_expire']===0,'Delivery recovery did not persist safe retry or release lease');
  S::table('webhook')->where('id',$event['id'])->update(['status'=>'failed','lease_token'=>'obsolete','lease_expire'=>time()+300,'attempts'=>7]);
