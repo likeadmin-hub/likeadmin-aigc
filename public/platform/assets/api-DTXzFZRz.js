@@ -1,1 +1,0 @@
-import{r as e}from"./index-DAEEl4br.js";const o={get(t,r,s){return e.get({url:`/app.aigc_store_visit.${t}/${r}`,params:s})},post(t,r,s){return e.post({url:`/app.aigc_store_visit.${t}/${r}`,params:s})}};export{o as s};

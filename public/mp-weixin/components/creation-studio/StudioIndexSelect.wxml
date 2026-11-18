@@ -1,1 +1,1 @@
-<studio-select wx:if="{{b}}" u-s="{{['d']}}" bindchoose="{{a}}" u-i="5d338b40-0" bind:__l="__l" u-p="{{b}}"><slot/></studio-select>
+<studio-select wx:if="{{b}}" u-s="{{['d']}}" bindchoose="{{a}}" u-i="41037fc2-0" bind:__l="__l" u-p="{{b}}"><slot/></studio-select>
