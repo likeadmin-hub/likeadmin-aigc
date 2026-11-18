@@ -63,7 +63,7 @@ class AuthMiddleware
         $allUri = $this->formatUrl($adminAuthCache->getAllUri());
 
         // 判断该当前访问的uri是否存在，不存在无需验证
-        if (!$marketPricingAction && !in_array($accessUri, $allUri)) {
+        if (!$marketPricingAction && $accessUri !== 'power.market/accountbalance' && !in_array($accessUri, $allUri)) {
             return $next($request);
         }
 

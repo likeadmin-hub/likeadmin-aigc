@@ -1230,7 +1230,8 @@ VALUES
 (@core_power_market_id, 'A', '批量上架', '', 0, 'power.market/batchShelf', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_batch_shelf', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '保存展示', '', 0, 'power.market/saveDisplay', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_save_display', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '商品类型', '', 0, 'power.market/types', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_types', 1, 1782604800, 1782604800),
-(@core_power_market_id, 'A', '同步上游价格', '', 0, 'power.market/sync', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_sync', 1, 1782604800, 1782604800);
+(@core_power_market_id, 'A', '同步上游价格', '', 0, 'power.market/sync', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_sync', 1, 1782604800, 1782604800),
+(@core_power_market_id, 'A', '查看上游账户余额', '', 0, 'power.market/accountBalance', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_account_balance', 1, 1782604800, 1782604800);
 INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (@core_power_mall_id, 'C', '支付配置', 'el-icon-CreditCard', 90, 'power.pay_way/getPayWay', 'pay-config', 'power_mall/pay_config/index', '', '', 0, 1, 0, '', 'core', 'core_power_mall_pay_config', 1, 1782604800, 1782604800);
 SET @core_power_pay_config_id := LAST_INSERT_ID();
