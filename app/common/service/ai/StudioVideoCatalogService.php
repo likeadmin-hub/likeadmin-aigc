@@ -20,7 +20,7 @@ final class StudioVideoCatalogService
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',json_encode($allowedIds,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));}
         $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset.($summary?':summary':'');if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
-        $sharedKey='studio_callable_video_models_v1:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
+        $sharedKey='studio_callable_video_models_v2:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
         $result=[];$options=AigcVideoService::marketOptions($tenant);
         foreach($options['channels']??[] as $model){
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
@@ -70,6 +70,7 @@ final class StudioVideoCatalogService
             if(!$legacy){$specs=array_values($specs);$frameSpecs=array_values($frameSpecs);}
             if(!$specs||(!$legacy&&$mode!=='reference'&&!$frameSpecs))continue;
             $result[]=['channel_source'=>(string)($model['channel_source']??'unknown'),'channel_source_label'=>(string)($model['channel_source_label']??'渠道未标注'),'id'=>(string)$model['id'],'label'=>(string)$model['name'],'description'=>(string)($model['description']??''),'display_icon'=>(string)($model['display_icon']??''),'max_reference_images'=>$method==='image_to_video'?1:min(15,(int)$model['max_reference_images']),'specs'=>$specs,'start_end_specs'=>$frameSpecs,'generation_modes'=>$hasFrames&&$frameSpecs?['reference','start_end']:['reference'],'supports_first_last_frame'=>(bool)($hasFrames&&$frameSpecs)];
+            $result[array_key_last($result)]['model_price_rates'] = self::modelPriceRates($model);
             if($summary)$result[array_key_last($result)]['specs_complete']=false;
         }
         // Catalog discovery is advisory; exact quote/reserve always validates live.
@@ -78,6 +79,28 @@ final class StudioVideoCatalogService
         if(!$legacy)try{Cache::set($sharedKey,$result,15);}catch(\Throwable){}
         return self::$cache[$cacheKey]=$result;
     }
+    /** Public retail rates from the market model, independent of the sample spec. */
+    private static function modelPriceRates(array $model): array
+    {
+        $rates = [];
+        foreach ($model['specs'] ?? [] as $spec) {
+            if (($spec['settlement_mode'] ?? 'reserved') !== 'reserved'
+                || in_array($spec['input_mode'] ?? '', ['video_edit', 'audio_reference'], true)
+                || !is_numeric($spec['tenant_unit_price'] ?? null)) {
+                continue;
+            }
+            $unit = (string)($spec['usage_unit'] ?? 'per_call');
+            $size = max(1, (float)($spec['usage_unit_size'] ?? 1));
+            $price = (float)$spec['tenant_unit_price'];
+            if ($price < 0) {
+                continue;
+            }
+            $key = "$unit:$size:$price";
+            $rates[$key] = ['usage_unit' => $unit, 'usage_unit_size' => $size, 'tenant_unit_price' => $price];
+        }
+        return array_values($rates);
+    }
+
     public static function model(int $tenant,string $id,bool $legacy=false,string $mode='both'): array
     {
         foreach(self::models($tenant,$legacy,$mode,[$id]) as $m)if($m['id']===$id)return $m;throw new InvalidArgumentException('视频模型暂不可用，请重新选择');
