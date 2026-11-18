@@ -202,6 +202,7 @@ class MarketVideoRuntimeService
                 'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
                 'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
                 'max_reference_videos' => self::referenceLimit($product, $metadata, 'video'),
+                'reference_video_duration_limits' => self::referenceVideoDurationLimits($product, $metadata),
                 'max_reference_audios' => self::referenceLimit($product, $metadata, 'audio'),
                 'max_reference_assets' => self::advertisedReferenceAssetLimit($product, $metadata),
                 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
@@ -278,7 +279,7 @@ class MarketVideoRuntimeService
         // Otherwise an impossible request can receive a misleading price.
         self::assertAssets($market, $selection);
         self::assertTextToVideoRatio($market, $selection);
-        $prepared = self::prepareMarketRequest($market, $selection);
+        $prepared = self::prepareMarketRequest($market, $selection, $tenantId, (int)(request()->userId ?? 0));
         $quantity = self::quantity($market, $selection, $prepared);
         return self::quoteMarket($market, $quantity);
     }
@@ -289,7 +290,7 @@ class MarketVideoRuntimeService
         $market=self::resolve($tenantId,$selection);
         self::assertAssets($market,$selection);self::assertTextToVideoRatio($market,$selection);
         if(self::isDeferredUsageSku($market['sku']))throw new \app\common\service\open_platform\OpenException('pricing_unavailable','当前视频规格缺少可信的实际用量额度边界',503);
-        $prepared = self::prepareMarketRequest($market, $selection);
+        $prepared = self::prepareMarketRequest($market, $selection, $tenantId, (int)(request()->userId ?? 0));
         return ['market'=>$market,'quote'=>self::quoteMarket($market,self::quantity($market,$selection,$prepared))];
     }
 
@@ -323,6 +324,7 @@ class MarketVideoRuntimeService
             'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
             'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
             'max_reference_videos' => self::referenceLimit($product, $metadata, 'video'),
+            'reference_video_duration_limits' => self::referenceVideoDurationLimits($product, $metadata),
             'max_reference_audios' => self::referenceLimit($product, $metadata, 'audio'),
             'max_reference_assets' => self::advertisedReferenceAssetLimit($product, $metadata),
             'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
@@ -524,7 +526,7 @@ class MarketVideoRuntimeService
         self::assertAssets($market, $request);
         self::assertTextToVideoRatio($market, $request);
         $billingRequest = self::billingRequest($selection, $request);
-        $prepared = self::prepareMarketRequest($market, $billingRequest);
+        $prepared = self::prepareMarketRequest($market, $billingRequest, $tenantId, $userId);
         $quantity = self::quantity($market, $billingRequest, $prepared);
         $quote = self::applyBillingOverride(self::quoteMarket($market, $quantity), $billingOverride);
         $deferredUsage = self::isTokenSku($market['sku']) && !MarketGenerationMeter::boundedToken((array)($market['billing_meter'] ?? []));
@@ -1241,12 +1243,19 @@ class MarketVideoRuntimeService
         return $prepared;
     }
 
-    private static function prepareMarketRequest(array &$market, array $request): PreparedMarketGeneration
+    private static function prepareMarketRequest(array &$market, array $request, int $tenantId, int $userId): PreparedMarketGeneration
     {
         $meter = self::isTokenSku($market['sku']) ? MarketGenerationMeter::tokenContract($market['sku']) : MarketGenerationMeter::contract($market['sku']);
         if (in_array($meter['basis'], ['image','megapixel'], true)) throw new Exception('该视频模型计费数量规则尚未适配');
         if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
         $prepared = self::prepareRequest(self::snapshot($market, 1), $request);
+        $metadata = self::metadata($market['product']);
+        $limits = self::referenceVideoDurationLimits($market['product'], $metadata);
+        if ($limits) {
+            MarketReferenceVideoDuration::validate($prepared->nativeInput, $limits,
+                MarketGenerationMaterials::nativeMediaKinds($metadata, $prepared->requestInput),
+                MarketReferenceVideoDuration::probeForOwner($tenantId, $userId));
+        }
         if (MarketGenerationMeter::isExplicit($meter)) $market['meter_context'] = $prepared->meterContext;
         return $prepared;
     }
@@ -3600,6 +3609,12 @@ class MarketVideoRuntimeService
         return MarketCatalogReadScope::derive('video_metadata', $product, static fn(): array => self::buildMetadata($product));
     }
 
+    private static function referenceVideoDurationLimits(array $product, array $metadata): array
+    {
+        return MarketReferenceVideoDuration::limits($metadata, (string)($product['upstream_model_code'] ?? ''),
+            (string)($product['upstream_app_code'] ?? ''), (string)($product['upstream_api_code'] ?? ''));
+    }
+
     private static function buildMetadata(array $product): array
     {
         $source = self::arrayValue($product['source_payload'] ?? []);
@@ -3619,7 +3634,7 @@ class MarketVideoRuntimeService
             'supports_first_last_frame', 'supports_reference_images',
             'supports_vision', 'supports_reasoning',
             'max_reference_images', 'max_reference_audios', 'max_reference_videos',
-            'max_reference_assets',
+            'max_reference_assets', 'reference_video_duration_limits',
         ] as $field) {
             if (!array_key_exists($field, $metadata) && array_key_exists($field, $source)) {
                 $metadata[$field] = $source[$field];

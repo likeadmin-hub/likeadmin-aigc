@@ -6,6 +6,7 @@ use app\common\model\app\aigc_video\AigcVideoChannel;
 use app\common\model\app\aigc_video\AigcVideoChannelSpec;
 use app\common\service\app\ChannelSpecPricingSchemaService;
 use app\common\service\PointUnitService;
+use app\common\service\power\MarketReferenceVideoDuration;
 use Exception;
 use think\facade\Db;
 
@@ -510,6 +511,8 @@ class AigcVideoChannelService
                 'generation_modes' => self::generationModes($platformChannel, $config),
                 'mode_options' => self::modeOptions($config),
                 'max_reference_videos' => max(0, (int)($config['max_reference_videos'] ?? 0)),
+                'reference_video_duration_limits' => MarketReferenceVideoDuration::limits($config, '',
+                    (string)$platformChannel['code'], 'create'),
                 'max_reference_audios' => max(0, (int)($config['max_reference_audios'] ?? 0)),
                 'max_reference_assets' => max(0, (int)($config['max_reference_assets'] ?? 0)),
                 'qualities' => [],
