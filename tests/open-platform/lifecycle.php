@@ -20,7 +20,8 @@ try{
  $config=S::defaults();$config['concurrency']=5;S::table('setting')->insert(['tenant_id'=>$t,'enabled'=>1,'config'=>S::encode($config)]+S::timestamp());
  $key=K::create($t,$u,['name'=>'billing fixture']);$key=S::table('key')->where('id',$key['id'])->find();
  $operation=['kind'=>'market','billable'=>true,'contract_id'=>0,'product_id'=>1,'executor'=>'json'];
- $budget=['user'=>10,'tenant'=>4,'snapshot'=>['product_id'=>1,'contract'=>$operation,'rules'=>[['sku_id'=>1,'basis'=>'usage','max_units'=>2,'usage_path'=>'usage.count','units'=>2,'unit_size'=>1,'prices'=>['user'=>5,'tenant'=>2]]]]];
+ // These synthetic metering rules exercise settlement independently of the mutable market catalog.
+ $budget=['user'=>10,'tenant'=>4,'snapshot'=>['product_id'=>1,'contract'=>$operation,'customer_callback'=>['url'=>'https://callback.invalid','secret_blob'=>app\common\service\open_platform\OpenVault::seal(str_repeat('a',32))],'rules'=>[['sku_id'=>0,'basis'=>'usage','max_units'=>2,'usage_path'=>'usage.count','units'=>2,'unit_size'=>1,'prices'=>['user'=>5,'tenant'=>2]]]]];
  $admitted=A::begin($key,'POST','/api/v1/tasks',['fixture'=>1],$operation,$budget,'fixture-key');$row=$admitted['row'];
  check(A::begin($key,'POST','/api/v1/tasks',['fixture'=>1],$operation,$budget,'fixture-key')['replay']===true,'Idempotency replay');
  try{A::begin($key,'POST','/api/v1/tasks',['fixture'=>2],$operation,$budget,'fixture-key');throw new RuntimeException('Changed idempotency payload accepted');}catch(app\common\service\open_platform\OpenException $e){check($e->httpStatus===409,'Conflict response');}
@@ -30,7 +31,10 @@ try{
  $log=AiConsumptionLog::where('consume_no',$row['request_id'])->findOrEmpty();check(S::json($log['price_snapshot'])['_open_platform_request_id']===$row['request_id'],'Durable worker billing context missing');
  $query=A::begin($key,'GET','/api/v1/tasks/fixture',[],['kind'=>'market','billable'=>false],['user'=>0,'tenant'=>0,'snapshot'=>[]],'fixture-free-query')['row'];
  Context::enter($query['request_id']);
- try{Billing::settle($row,['usage'=>['count'=>1]]);Billing::settle($row,['usage'=>['count'=>1]]);}finally{Context::leave();}
+ $result=['data'=>['status'=>'completed'],'usage'=>['count'=>1]];
+ try{app\common\service\open_platform\OpenGateway::observeTask($row,$result);app\common\service\open_platform\OpenGateway::observeTask($row,$result);}finally{Context::leave();}
+ check(S::table('webhook')->where('request_id',$row['request_id'])->count()===1,'Paid task completion did not persist exactly one webhook');
+ check(S::table('webhook')->where('request_id',$query['request_id'])->count()===0,'Query receipt received the original task event');
  $querySaved=S::table('request')->where('id',$query['id'])->find();
  check((float)$querySaved['actual_user']===0.&&(float)$querySaved['actual_tenant']===0.,'Query inherited original generation charges or refunds');
  check(!isset(S::json($querySaved['snapshot'])['point_events']),'Query received original generation ledger events');
@@ -47,7 +51,8 @@ try{
  check(!isset($detail['consumptions'][0]['actual_tenant_cost'],$detail['snapshot'],$detail['actual_tenant']),'User detail exposed internal pricing evidence');
  $next=A::begin($key,'POST','/api/v1/tasks',['fixture'=>3],$operation,$budget,'fixture-missing-usage')['row'];Context::enter($next['request_id']);Billing::reserve($next,$budget);Context::leave();Billing::settle($next,[]);
  check(S::table('request')->where('id',$next['id'])->value('billing_status')==='pending_usage','Missing trusted usage was estimated or refunded');
- $decimal=$budget;$decimal['user']=1.43;$decimal['tenant']=1.43;$decimal['snapshot']['rules'][0]=['sku_id'=>1,'basis'=>'usage','max_units'=>1024,'usage_path'=>'usage.total_tokens','units'=>1024,'unit_size'=>1000000,'prices'=>['user'=>1400,'tenant'=>1400]];
+ check(S::table('webhook')->where('request_id',$next['request_id'])->count()===0,'Pending usage produced a terminal notification');
+ $decimal=$budget;$decimal['user']=1.43;$decimal['tenant']=1.43;$decimal['snapshot']['rules'][0]=['sku_id'=>0,'basis'=>'usage','max_units'=>1024,'usage_path'=>'usage.total_tokens','units'=>1024,'unit_size'=>1000000,'prices'=>['user'=>1400,'tenant'=>1400]];
  $small=A::begin($key,'POST','/api/v1/tasks',['fixture'=>4],$operation,$decimal,'fixture-fraction')['row'];Context::enter($small['request_id']);Billing::reserve($small,$decimal);Context::leave();Billing::settle($small,['usage'=>['total_tokens'=>16]]);
  check((float)S::table('request')->where('id',$small['id'])->value('actual_user')===0.02,'Final charge must use existing wallet precision');
  $logs=Db::name('user_account_log')->where('user_id',$u)->whereLike('source_sn',$small['request_id'].'%')->select()->toArray();$net=0.;foreach($logs as $entry)$net+=((int)$entry['action']===2?1:-1)*(float)$entry['change_amount'];check(abs($net-0.02)<0.000001,'Fractional settlement disagrees with independent ledger');

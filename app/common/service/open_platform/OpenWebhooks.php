@@ -3,6 +3,23 @@ namespace app\common\service\open_platform;
 use think\facade\Db;
 final class OpenWebhooks
 {
+
+    /** Persist the terminal state and its notification together. Delivery stays in the worker. */
+    public static function complete(array $request, array $fields, array $data): void
+    {
+        Db::transaction(function () use ($request, $fields, $data) {
+            OpenAdmission::finish($request['request_id'], $fields);
+            try {
+                self::enqueue($request, $data);
+            } catch (OpenException $error) {
+                // Keep the task and its ledger terminal when the result cannot be exposed.
+                if ($error->errorType !== 'response_adapter_required') {
+                    throw $error;
+                }
+            }
+        });
+    }
+
     public static function enqueue(array $request,array $data): void
     {
         $snapshot=OpenStore::json($request['snapshot']);$callback=$snapshot['customer_callback']??null;if(!$callback)return;
