@@ -79,7 +79,7 @@ final class MarketGenerationMedia
         $media=MarketGenerationMediaInputs::extract($native,$declaredKinds);
         foreach(MarketGenerationMediaInputs::visualUrls($native)as$url){
             if(!preg_match('~^https?://~i',$url))throw new InvalidArgumentException('主体素材缺少可核验的图片或视频地址');
-            $facts=$visualProbe!==null?$visualProbe($url):self::probeFacts($url,'visual');
+            $facts=$visualProbe!==null?$visualProbe($url):self::visualFacts($url);
             if(!is_array($facts)||!in_array($facts['kind']??'', ['image','video'],true)
                 ||($facts['kind']==='video'&&(!is_numeric($facts['duration']??null)||!is_finite((float)$facts['duration'])||(float)$facts['duration']<=0)))
                 throw new InvalidArgumentException('主体素材不是有效的图片或视频');
@@ -136,7 +136,9 @@ final class MarketGenerationMedia
 
     public static function visualFacts(string $url): array
     {
-        return self::probeFacts($url, 'visual');
+        $duration = self::$storedVideoSeconds[$url] ?? null;
+        return $duration === null ? self::probeFacts($url, 'visual')
+            : ['kind'=>'video', 'duration'=>$duration];
     }
 
     /** Only server-owned output URLs call this; downloads retain the existing safe HTTP bounds. */
