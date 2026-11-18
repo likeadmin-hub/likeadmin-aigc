@@ -20,6 +20,7 @@ use app\common\service\storage\StorageConfigService;
 use app\common\service\power\MarketVideoAppRuntimeService;
 use app\common\service\power\MarketVideoModelRuntimeService;
 use app\common\service\power\MarketGenerationCatalogService;
+use app\common\service\power\MarketReferenceVideoDuration;
 use Exception;
 use think\facade\Db;
 
@@ -467,7 +468,7 @@ class AigcVideoService
         }
         $referenceImages = AigcVideoReferenceAssetService::images($referenceAssets);
         self::assertGenerationMethodAssets($generationMethod, $referenceAssets);
-        self::assertReferenceAssetsSupported($selection['channel'], $referenceAssets);
+        self::assertReferenceAssetsSupported($selection['channel'], $referenceAssets, $tenantId, $userId);
         $duration = AigcVideoChannelService::normalizeGenerateDuration($selection['channel'], $referenceAssets, $params['duration'] ?? null);
         $mode = self::normalizeVideoMode($selection['channel'], $params['mode'] ?? null);
         $selectedRatio = (string)($params['ratio'] ?? $selection['spec']['ratio']);
@@ -1373,7 +1374,7 @@ class AigcVideoService
         return json_encode($normalized, JSON_UNESCAPED_UNICODE);
     }
 
-    private static function assertReferenceAssetsSupported(array $channel, array $assets): void
+    private static function assertReferenceAssetsSupported(array $channel, array $assets, int $tenantId, int $userId): void
     {
         if ((string)($channel['code'] ?? '') === 'seedance2_pro') {
             AigcVideoReferenceAssetService::assertSeedance2ProSupported($assets);
@@ -1404,6 +1405,13 @@ class AigcVideoService
         }
         if ((string)($channel['code'] ?? '') === 'seedance') {
             AigcVideoReferenceAssetService::assertSeedanceSupported($assets);
+        }
+        $limits = MarketReferenceVideoDuration::limits((array)($channel['config_json'] ?? []), '', (string)($channel['code'] ?? ''), 'create');
+        if ($limits && $counts['video'] > 0) {
+            $urls = array_map([AigcVideoReferenceAssetService::class, 'publicUrl'],
+                array_filter($assets, static fn($asset) => ($asset['type'] ?? '') === 'video'));
+            MarketReferenceVideoDuration::validate(['video_urls'=>array_values($urls)], $limits, [],
+                MarketReferenceVideoDuration::probeForOwner($tenantId, $userId));
         }
     }
 

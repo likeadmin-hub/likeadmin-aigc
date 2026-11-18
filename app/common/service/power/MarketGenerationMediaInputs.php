@@ -11,7 +11,7 @@ final class MarketGenerationMediaInputs
             if(is_array($value)){
                 if(is_string($value['type']??null))$kind=match(strtolower($value['type'])){
                     'image','image_url','input_image','reference_image','first_frame','last_frame'=>'image',
-                    'video','video_url','input_video','reference_video'=>'video',
+                    'video','video_url','input_video','reference_video','first_clip'=>'video',
                     'audio','audio_url','input_audio','reference_audio'=>'audio',default=>'',
                 };
                 foreach($value as$key=>$child){
