@@ -1254,7 +1254,8 @@ class MarketVideoRuntimeService
         if ($limits) {
             MarketReferenceVideoDuration::validate($prepared->nativeInput, $limits,
                 MarketGenerationMaterials::nativeMediaKinds($metadata, $prepared->requestInput),
-                MarketReferenceVideoDuration::probeForOwner($tenantId, $userId));
+                MarketReferenceVideoDuration::probeForOwner($tenantId, $userId),
+                MarketReferenceVideoDuration::visualProbeForOwner($tenantId, $userId));
         }
         if (MarketGenerationMeter::isExplicit($meter)) $market['meter_context'] = $prepared->meterContext;
         return $prepared;
