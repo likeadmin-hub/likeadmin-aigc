@@ -61,4 +61,20 @@ rejects(fn()=>Limits::validate($element('12.mp4', ['end_time'=>9000]), $klingCli
 rejects(fn()=>Limits::validate($element('6.mp4', ['end_time'=>8000]), $klingClips, [], $probe, $visualProbe), '结束点不超过原视频');
 rejects(fn()=>Limits::validate($element('2.mp4'), $klingClips, [], $probe, $visualProbe), '当前片段为2秒');
 
-echo "PASS model reference-video limits, measured duration, cumulative clips, fractional and role-specific boundaries\n";
+$subjectMetadata = ['upstream_metadata'=>['model_code'=>'kling-3.0-video'],'material_capabilities'=>['modes'=>[[
+    'method'=>'text_to_video','fields'=>[['field'=>'kling_elements','kind'=>'subject','role'=>'reference','maximum'=>3]],
+]]]];
+$subjectRequest = ['generation_method'=>'text_to_video','reference_assets'=>[
+    ['type'=>'video','role'=>'reference_video','url'=>$cdn.'8.mp4','duration'=>8],
+]];
+$materialClass = app\common\service\power\MarketGenerationMaterials::class;
+$subjectPayload = $materialClass::serialize($subjectMetadata, $subjectRequest);
+verify($subjectPayload['kling_elements'][0]['element_input_urls'] === [$cdn.'8.mp4'], 'Uploaded video was not encoded as a named subject');
+verify($subjectPayload['kling_elements'][0]['end_time'] === 8000, 'Whole source clip was not encoded in milliseconds');
+$subjectPayload['prompt'] = '沿用@视频1 的动作';
+$subjectPayload = $materialClass::compileReferencePrompt($subjectMetadata, $materialClass::select($subjectMetadata, $subjectRequest), $subjectRequest, $subjectPayload);
+verify($subjectPayload['prompt'] === '沿用@video_subject_1 的动作', 'UI mention did not resolve to the provider subject name');
+$materialClass::validate($subjectMetadata, $subjectRequest, $subjectPayload);
+Limits::validate($subjectPayload, $klingClips, [], $probe, $visualProbe);
+
+echo "PASS reference-video limits, cumulative boundaries, and named Kling subject compilation\n";

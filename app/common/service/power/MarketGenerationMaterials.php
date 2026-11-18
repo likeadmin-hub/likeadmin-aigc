@@ -78,7 +78,14 @@ final class MarketGenerationMaterials
             $fingerprint = json_encode([$code, $method, $fields]);
             if (isset($result[$fingerprint])) continue;
             $automatic=MarketGenerationCreatorMaterials::policies($metadata,$code,$fields);
-            foreach($fields as&$field)if(isset($automatic[$field['field']]))$field['creator_automatic']=$automatic[$field['field']]['kind'];unset($field);
+            foreach ($fields as &$field) {
+                if (MarketGenerationCreatorMaterials::isVideoSubject($metadata, $field)) {
+                    $field['creator_automatic'] = 'named_video_subject';
+                } elseif (isset($automatic[$field['field']])) {
+                    $field['creator_automatic'] = $automatic[$field['field']]['kind'];
+                }
+            }
+            unset($field);
             $schema = MarketVideoRatioPolicy::modeSchema($metadata, $mode, MarketGenerationNativeContract::schema($metadata, $code));
             $result[$fingerprint] = array_merge($mode, ['key'=>(string)($mode['view_key'] ?? ($code ?: 'default') . ':' . $index), 'native_mode'=>$code, 'method'=>$method, 'fields'=>$fields, 'parameter_schema'=>$schema]);
         }
@@ -164,6 +171,15 @@ final class MarketGenerationMaterials
     public static function compileReferencePrompt(array $metadata,array $mode,array $request,array $params): array
     {
         if(!str_contains((string)($params['prompt']??''),'@'))return $params;
+        foreach ($mode['fields'] ?? [] as $field) {
+            if (($field['creator_automatic'] ?? '') !== 'named_video_subject' ||
+                isset($request['provider_params'][$field['field']])) continue;
+            $aliases = [];
+            foreach ($params[$field['field']] ?? [] as $index => $element) {
+                $aliases['视频'.($index + 1)] = $element['name'];
+            }
+            if ($aliases !== []) return MarketGenerationKlingRules::compilePrompt($params, $aliases);
+        }
         $rules=MarketGenerationNativeContract::rules($metadata,(string)($mode['native_mode']??''));
         if(!array_filter($rules,static fn($r)=>($r['kind']??'')==='kling4'&&($r['check']??'')==='prompt'))return $params;
         $assets=self::assets($request);$counts=['image'=>0,'video'=>0,'audio'=>0];$labels=['image'=>'图片','video'=>'视频','audio'=>'音频'];$tokens=[];$matches=[];
@@ -209,7 +225,11 @@ final class MarketGenerationMaterials
         $kind = (string)($field['kind'] ?? 'image');
         $name = (string)($field['field'] ?? '');
         $images = array_values(array_filter($assets, static fn($a) => ($a['type'] ?? 'image') === 'image'));
-        return array_values(array_filter($assets, static function ($asset) use ($role,$kind,$name,$images,$method,$strictRoles): bool {
+        return array_values(array_filter($assets, static function ($asset) use ($role,$kind,$name,$images,$method,$strictRoles,$field): bool {
+            if (($field['creator_automatic'] ?? '') === 'named_video_subject') {
+                return ($asset['type'] ?? '') === 'video' && in_array($asset['field'] ?? '', ['', $name], true)
+                    && ($asset['role'] ?? 'reference_video') === 'reference_video';
+            }
             if (($asset['type'] ?? 'image') !== $kind) return false;
             if (isset($asset['field']) && $asset['field'] !== '') {
                 if($asset['field']!==$name)return false;
@@ -239,6 +259,12 @@ final class MarketGenerationMaterials
             if (array_key_exists($name, $params) && $params[$name] !== '' && $params[$name] !== []) { $result[$name] = $params[$name]; continue; }
             $matched = self::matching($assets, $field, $mode['method']);
             if ($matched === []) continue;
+            if (($field['creator_automatic'] ?? '') === 'named_video_subject') {
+                $result[$name] = MarketGenerationCreatorMaterials::videoSubjects(
+                    $matched, MarketReferenceVideoDuration::limits($metadata)
+                );
+                continue;
+            }
             if (empty($field['required']) && count($matched) > (int)($field['maximum'] ?? PHP_INT_MAX) && ($schema[$name]['type'] ?? '') !== 'array') continue;
             $definition = $schema[$name] ?? [];
             $urls = array_map(static fn($asset) => $asset['url'], $matched);

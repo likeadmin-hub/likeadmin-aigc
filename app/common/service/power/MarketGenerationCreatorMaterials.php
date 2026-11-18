@@ -6,6 +6,32 @@ use InvalidArgumentException;
 /** Ordinary creation policies, derived from the admitted contract, never examples. */
 final class MarketGenerationCreatorMaterials
 {
+    public static function isVideoSubject(array $metadata, array $field): bool
+    {
+        return ($field['field'] ?? '') === 'kling_elements' && ($field['kind'] ?? '') === 'subject'
+            && isset(MarketReferenceVideoDuration::limits($metadata)['subject_clip_max']);
+    }
+
+    public static function videoSubjects(array $assets, array $limits): array
+    {
+        $subjects = [];
+        foreach ($assets as $asset) {
+            $subject = [
+                'name' => 'video_subject_'.(count($subjects) + 1),
+                'description' => '参考视频中的主体',
+                'element_input_urls' => [$asset['url']],
+            ];
+            $duration = $asset['duration'] ?? null;
+            if (is_numeric($duration) && is_finite((float)$duration)
+                && $duration >= $limits['subject_clip_min'] && $duration <= $limits['subject_clip_max']) {
+                $subject['start_time'] = 0;
+                $subject['end_time'] = (int)round($duration * 1000);
+            }
+            $subjects[] = $subject;
+        }
+        return $subjects;
+    }
+
     public static function policies(array $metadata, string $native, array $fields): array
     {
         // Most modes contain only plain uploads. Avoid rebuilding their native
