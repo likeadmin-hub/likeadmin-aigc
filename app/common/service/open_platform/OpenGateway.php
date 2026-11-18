@@ -182,8 +182,9 @@ final class OpenGateway
             if($op['kind']==='tool'){
                 self::markDispatch($row['request_id']);$dispatched=true;$streamBody='';$data=OpenToolAdapter::call($request,$op,$params,$stream?function($event)use(&$streamBody){$chunk='data: '.OpenStore::encode(OpenPolicy::publicData((array)$event))."\n\n";$streamBody.=$chunk;echo $chunk;@flush();}:null);$dispatched=true;
                 if($op['app_code']==='aigc_llm'&&in_array($op['service']??'',['generateText','streamText'],true))$data+=['task_id'=>(string)$row['id'],'status'=>'success'];$native=$data['task_id']??OpenStore::table('request')->where('id',$row['id'])->value('tool_task_id');if($native==='')$native=null;$body=OpenStore::encode(['request_id'=>$row['request_id'],'data'=>OpenToolTasks::publicResult($op['app_code'],$op,$data)]);$done=$stream?'event: done'."\n".'data: '.$body."\n\n":'';$replayBody=$stream?$streamBody.$done:$body;$latest=OpenStore::table('request')->where('id',$row['id'])->find();$lifecycle=self::toolLifecycle($latest,$op,$data);$pending=(bool)$lifecycle['active'];
-                OpenAdmission::finish($row['request_id'],$lifecycle+['tool_task_id'=>(string)($native??''),'response_blob'=>OpenVault::seal($replayBody),'response_type'=>$stream?'text/event-stream':'application/json','response_code'=>200,'duration_ms'=>(int)((microtime(true)-$start)*1000)]);
-                if(!$pending)OpenWebhooks::enqueue(OpenStore::table('request')->where('id',$row['id'])->find(),OpenToolTasks::publicResult($op['app_code'],$op,$data));
+                $fields=$lifecycle+['tool_task_id'=>(string)($native??''),'response_blob'=>OpenVault::seal($replayBody),'response_type'=>$stream?'text/event-stream':'application/json','response_code'=>200,'duration_ms'=>(int)((microtime(true)-$start)*1000)];
+                if($pending)OpenAdmission::finish($row['request_id'],$fields);
+                else OpenWebhooks::complete($latest,$fields,OpenToolTasks::publicResult($op['app_code'],$op,$data));
                 if($stream){echo $done;@flush();return response('');}return response($body,200,['Content-Type'=>'application/json','X-Request-Id'=>$row['request_id']]);
             }
             if(($op['executor']??'')==='directory'){$wire=OpenDirectory::execute(OpenStore::table('key')->where('id',$row['key_id'])->find(),$row['path'],$params);if($row['path']==='/api/v1/tools')$wire['body']=OpenStore::encode(['request_id'=>$row['request_id']]+OpenStore::json($wire['body']));OpenAdmission::finish($row['request_id'],['status'=>self::wireFailed($wire['status'],OpenStore::json($wire['body']),$op)?'failed':'success','billing_status'=>'none','active'=>0,'response_blob'=>OpenVault::seal($wire['body']),'response_type'=>$wire['headers']['content-type']??'application/json','response_code'=>$wire['status'],'duration_ms'=>(int)((microtime(true)-$start)*1000),'next_run_time'=>0]);return response($wire['body'],$wire['status'],$wire['headers']+['X-Request-Id'=>$row['request_id']]);}
@@ -270,15 +271,35 @@ final class OpenGateway
         $pending=in_array($status,['pending','queued','running','submitting','processing','pending_confirmation'],true)||in_array($billing,['pending_usage','pending','pending_confirmation','settlement_failed'],true);
         return ['status'=>$status,'active'=>$pending?1:0,'billing_status'=>$pending&&$billing==='settled'?'pending':$billing,'next_run_time'=>$pending?time()+30:0,'finish_time'=>in_array($status,['success','completed','failed','cancelled','canceled','partial_success','partial_failed'],true)?time():0];
     }
-    public static function settleKnownResult(array $row,array $data,bool $failed): void
+    public static function settleKnownResult(array $row, array $data, bool $failed, bool $notify = false): void
     {
-        $contract=OpenStore::json($row['snapshot'])['contract']??[];
-        // An explicitly free asynchronous operation has no consumption to settle.
-        // Close its receipt without manufacturing a bill or leaving a live job forever.
-        if(($contract['billable']??null)===false&&!OpenStore::json($row['consumption_ids'])&&(float)$row['actual_user']===0.&&(float)$row['actual_tenant']===0.&&(float)$row['budget_user']===0.&&(float)$row['budget_tenant']===0.){
-            OpenAdmission::finish($row['request_id'],['status'=>$failed?'failed':'success','billing_status'=>'none','active'=>0,'finish_time'=>time(),'next_run_time'=>0]);return;
+        try {
+            $contract = OpenStore::json($row['snapshot'])['contract'] ?? [];
+            // A declared free async operation closes without manufacturing a consumption.
+            if (($contract['billable'] ?? null) === false
+                && !OpenStore::json($row['consumption_ids']) && (float)$row['actual_user'] === 0.
+                && (float)$row['actual_tenant'] === 0. && (float)$row['budget_user'] === 0. && (float)$row['budget_tenant'] === 0.) {
+                Db::transaction(function () use ($row, $data, $failed, $notify) {
+                    $current = OpenStore::owner('request', (int)$row['tenant_id'], (int)$row['user_id'])
+                        ->where('request_id', $row['request_id'])->lock(true)->find();
+                    if (!$current || (int)$current['active'] === 0) return;
+                    OpenCallContext::assertLease($current);
+                    $fields = ['status'=>$failed?'failed':'success','billing_status'=>'none','active'=>0,'finish_time'=>time(),'next_run_time'=>0];
+                    if ($notify) OpenWebhooks::complete($current, $fields, $data);
+                    else OpenAdmission::finish($row['request_id'], $fields);
+                });
+                return;
+            }
+            OpenMarketBilling::settle($row, $data, $failed, $notify);
+        } catch (\Throwable $error) {
+            OpenCallContext::rethrowLostAuthority($error);
+            Db::transaction(function () use ($row, $failed, $error) {
+                $current = OpenStore::table('request')->where('request_id', $row['request_id'])->lock(true)->find();
+                if (!$current || (int)$current['active'] === 0) return;
+                OpenCallContext::assertLease($current);
+                OpenAdmission::finish($row['request_id'], ['status'=>$failed?'failed':'success','billing_status'=>'settlement_failed','active'=>1,'error_code'=>$error instanceof OpenException?$error->errorType:'settlement_failed','error_message'=>'结果已确认，结算待核对','next_run_time'=>time()+60]);
+            });
         }
-        try{OpenMarketBilling::settle($row,$data,$failed);}catch(\Throwable $error){if(OpenRecovery::connectionLost($error))throw $error;OpenAdmission::finish($row['request_id'],['status'=>$failed?'failed':'success','billing_status'=>'settlement_failed','active'=>1,'error_code'=>$error instanceof OpenException?$error->errorType:'settlement_failed','error_message'=>'结果已确认，结算待核对','next_run_time'=>time()+60]);}
     }
     public static function wireUncertain(int $status): bool { return in_array($status,[408,425],true)||$status>=500; }
     public static function deferMarketAcceptance(array $row,string $taskId=''): void
@@ -307,7 +328,7 @@ final class OpenGateway
     public static function observeTask(array $row,array $data): void
     {
         $snapshot=OpenStore::json($row['snapshot']);$contract=$snapshot['contract']??[];$status=(string)OpenSchema::get($data,$contract['status_path']??'data.status');
-        if(in_array($status,$contract['success_statuses']??['success','completed','succeeded'],true))self::settleKnownResult($row,$data,false);
-        elseif(in_array($status,$contract['failure_statuses']??['failed','cancelled','canceled'],true))self::settleKnownResult($row,$data,true);
+        if(in_array($status,$contract['success_statuses']??['success','completed','succeeded'],true))self::settleKnownResult($row,$data,false,true);
+        elseif(in_array($status,$contract['failure_statuses']??['failed','cancelled','canceled'],true))self::settleKnownResult($row,$data,true,true);
     }
 }

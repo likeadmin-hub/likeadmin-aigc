@@ -41,7 +41,7 @@ final class OpenRecovery
                 $snapshot=OpenStore::json($row['snapshot']);$contract=$snapshot['contract']??[];
                 // Unknown acceptance cannot be repaired by resubmitting the original payload.
                 if($row['upstream_task_id']===''||empty($contract['query_path'])){OpenAdmission::finish($row['request_id'],['next_run_time'=>time()+300,'lease_expire'=>0,'lease_token'=>'']);return;}
-                $source=OpenStore::json(OpenVault::open($snapshot['source_blob']));$path=str_replace('{task_id}',rawurlencode($row['upstream_task_id']),$contract['query_path']);$wire=(new OpenTransport())->send($source,'GET',$path,[]);if(OpenGateway::wireFailed($wire['status'],OpenStore::json($wire['body']),$contract))throw new OpenException('query_failed','任务查询暂不可用',502);$data=OpenStore::json($wire['body']);if(!OpenGateway::marketQueryAccepted($wire,$row['upstream_task_id'],$contract)){OpenAdmission::finish($row['request_id'],['error_code'=>'response_adapter_required','error_message'=>'查询响应协议尚未确认，原任务及预占保留','next_run_time'=>time()+60,'lease_expire'=>0,'lease_token'=>'']);return;}OpenGateway::observeTask($row,$data);$latest=OpenStore::table('request')->where('id',$row['id'])->find();if((int)$latest['active']===0)OpenWebhooks::enqueue($latest,$data);
+                $source=OpenStore::json(OpenVault::open($snapshot['source_blob']));$path=str_replace('{task_id}',rawurlencode($row['upstream_task_id']),$contract['query_path']);$wire=(new OpenTransport())->send($source,'GET',$path,[]);if(OpenGateway::wireFailed($wire['status'],OpenStore::json($wire['body']),$contract))throw new OpenException('query_failed','任务查询暂不可用',502);$data=OpenStore::json($wire['body']);if(!OpenGateway::marketQueryAccepted($wire,$row['upstream_task_id'],$contract)){OpenAdmission::finish($row['request_id'],['error_code'=>'response_adapter_required','error_message'=>'查询响应协议尚未确认，原任务及预占保留','next_run_time'=>time()+60,'lease_expire'=>0,'lease_token'=>'']);return;}OpenGateway::observeTask($row,$data);
             }elseif($row['app_code']==='aigc_llm'&&!OpenStore::json($row['consumption_ids'])&&in_array($row['path'],['/api/v1/tools/aigc_llm/tasks','/api/v1/tools/aigc_llm/stream'],true)){
                 // Both fixed text services commit and associate consumption
                 // before any transport. With no association, execution never
@@ -54,7 +54,9 @@ final class OpenRecovery
                 $data=OpenToolAdapter::call($request,$op+['app_code'=>$row['app_code'],'route'=>'GET tasks/{task_id}','params'=>['task_id'=>$row['tool_task_id']],'history'=>true,'internal'=>true],[]);
                 $status=(string)($data['status']??'running');if(in_array($status,['success','completed','failed','cancelled','canceled','partial_success','partial_failed'],true)){
                     $latest=OpenStore::table('request')->where('id',$row['id'])->find();$billing=OpenToolTasks::billing(array_replace($latest,['status'=>$status]));$unresolved=!in_array($billing,['settled','refunded','none'],true);
-                    OpenAdmission::finish($row['request_id'],['status'=>$status,'billing_status'=>$billing,'active'=>$unresolved?1:0,'finish_time'=>time()]);$latest=OpenStore::table('request')->where('id',$row['id'])->find();OpenWebhooks::enqueue($latest,$data);
+                    $fields=['status'=>$status,'billing_status'=>$billing,'active'=>$unresolved?1:0,'finish_time'=>time()];
+                    if($unresolved)OpenAdmission::finish($row['request_id'],$fields);
+                    else OpenWebhooks::complete($latest,$fields,$data);
                 }
             }
             $latest=OpenStore::table('request')->where('id',$row['id'])->find();OpenAdmission::finish($row['request_id'],['next_run_time'=>(int)$latest['active']===1?time()+60:0,'lease_expire'=>0,'lease_token'=>'']);

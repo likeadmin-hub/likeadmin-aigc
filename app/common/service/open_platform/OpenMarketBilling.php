@@ -57,7 +57,7 @@ final class OpenMarketBilling
             PointService::reserveBusinessAmountsInCurrentTransaction((int)$request['tenant_id'],(int)$request['user_id'],$budget['tenant'],$budget['user'],$request['request_id'].'-reserve','开放平台预占',['consumption_id'=>$c['id'],'app_code'=>'open_platform']);
         });
     }
-    public static function settle(array $request,array $result,bool $failed=false): void
+    public static function settle(array $request,array $result,bool $failed=false, bool $notify=false): void
     {
         // Measurement can perform bounded network reads. Do it before locking
         // wallets, then recheck lease and immutable snapshot inside settlement.
@@ -70,7 +70,7 @@ final class OpenMarketBilling
                 $evidence=OpenNativePixelMeter::measure($native,$result);
             }
         }
-        Db::transaction(function()use($request,$result,$failed,$evidence){$owner=OpenStore::table('request')->where('request_id',$request['request_id'])->lock(true)->find();if(!$owner)throw new OpenException('not_found','计费请求不存在',404);OpenCallContext::assertLease($owner);$c=AiConsumptionLog::where(['tenant_id'=>$request['tenant_id'],'user_id'=>$request['user_id'],'consume_no'=>$request['request_id']])->lock(true)->findOrEmpty();if($c->isEmpty()||in_array($c['billing_status'],['settled','refunded'],true))return;
+        Db::transaction(function()use($request,$result,$failed,$evidence,$notify){$owner=OpenStore::table('request')->where('request_id',$request['request_id'])->lock(true)->find();if(!$owner)throw new OpenException('not_found','计费请求不存在',404);OpenCallContext::assertLease($owner);$c=AiConsumptionLog::where(['tenant_id'=>$request['tenant_id'],'user_id'=>$request['user_id'],'consume_no'=>$request['request_id']])->lock(true)->findOrEmpty();if($c->isEmpty()||in_array($c['billing_status'],['settled','refunded'],true))return;
             $snapshot=OpenStore::json($c['price_snapshot']);$user=0.;$tenant=0.;$usage=[];
             foreach($snapshot['rules']??[] as $rule){
                 if ($rule['basis'] === 'file_qa_tokens') {
@@ -103,7 +103,10 @@ final class OpenMarketBilling
                 $usage[]=['sku_id'=>$rule['sku_id'],'units'=>$units]+($evidence?['image_count'=>count($evidence['images']),'measured_images'=>$evidence['images']]:[]);if($rule['basis']==='native'){$user+=OpenNativeMarketPricing::settledPrice((float)$rule['prices']['user'],(float)$units,$snapshot['native_media'],$failed);$tenant+=OpenNativeMarketPricing::settledPrice((float)$rule['prices']['tenant'],(float)$units,$snapshot['native_media'],$failed);}elseif($rule['basis']==='character_input'){$user+=\app\common\service\power\MarketUsageSettlementService::price((float)$rule['prices']['user'],(float)$units,['usage_unit_size'=>$rule['unit_size']]);$tenant+=\app\common\service\power\MarketUsageSettlementService::price((float)$rule['prices']['tenant'],(float)$units,['usage_unit_size'=>$rule['unit_size']]);}else{$user+=(float)$units/$rule['unit_size']*$rule['prices']['user'];$tenant+=(float)$units/$rule['unit_size']*$rule['prices']['tenant'];}}
             $user=round($user,2);$tenant=round($tenant,2);PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$request['tenant_id'],(int)$request['user_id'],(float)$c['reserved_tenant_cost'],(float)$c['reserved_user_price'],$tenant,$user,$request['request_id'],'开放平台结算',['consumption_id'=>$c['id'],'app_code'=>'open_platform']);
             $status=$failed?'failed':'success';if(!$failed&&($snapshot['native_media']['kind']??'')==='image'&&!\app\common\service\power\MarketGenerationMeter::boundedToken((array)($snapshot['native_media']['market_snapshot']['billing_meter']??[]))&&($evidence?count($evidence['images'])<(int)($snapshot['native_media']['submitted_images']??0):(float)($usage[0]['units']??0)<(float)$snapshot['native_media']['submitted_units']))$status='partial_success';
-            $state=$failed?'refunded':'settled';$c->save(['run_status'=>$failed?'failed':'success','billing_status'=>$state,'usage_snapshot'=>$usage,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$status,'progress'=>100,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);OpenAdmission::finish($request['request_id'],['status'=>$status,'billing_status'=>$state,'actual_user'=>$user,'actual_tenant'=>$tenant,'active'=>0,'budget_user'=>0,'budget_tenant'=>0,'finish_time'=>time(),'next_run_time'=>0]);
+            $state=$failed?'refunded':'settled';$c->save(['run_status'=>$failed?'failed':'success','billing_status'=>$state,'usage_snapshot'=>$usage,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$status,'progress'=>100,'actual_tenant_cost'=>$tenant,'actual_user_price'=>$user,'finish_time'=>time()]);
+            $fields = ['status'=>$status,'billing_status'=>$state,'actual_user'=>$user,'actual_tenant'=>$tenant,'active'=>0,'budget_user'=>0,'budget_tenant'=>0,'finish_time'=>time(),'next_run_time'=>0];
+            if ($notify) OpenWebhooks::complete($owner, $fields, $result);
+            else OpenAdmission::finish($request['request_id'], $fields);
         });
     }
 }
