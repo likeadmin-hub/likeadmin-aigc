@@ -134,6 +134,11 @@ final class MarketGenerationMedia
             'file_size'=>(int)filesize($path),'mime_type'=>(string)mime_content_type($path)];
     }
 
+    public static function visualFacts(string $url): array
+    {
+        return self::probeFacts($url, 'visual');
+    }
+
     /** Only server-owned output URLs call this; downloads retain the existing safe HTTP bounds. */
     public static function videoFacts(string $url): array
     {

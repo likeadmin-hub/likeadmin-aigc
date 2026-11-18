@@ -37,4 +37,28 @@ verify(Limits::limits(['reference_video_duration_limits'=>['single'=>12,'total'=
 Limits::validate(['duration'=>120, 'image_url'=>$cdn.'ignore.jpg'], $seedance, [], static fn()=>throw new RuntimeException('Non-video data must not be probed'));
 verify(Limits::limits([], 'unverified-video-model') === [], 'Unknown model acquired a guessed maximum');
 
+$fullVideo = Limits::limits([], '', 'full_video', 'submit');
+$nativeFull = static fn(array $clips) => ['content'=>array_map(static fn($seconds)=>[
+    'type'=>'video_url', 'role'=>'reference_video', 'video_url'=>['url'=>$cdn.$seconds.'.mp4'],
+], $clips)];
+Limits::validate($nativeFull([7, 8]), $fullVideo, [], $probe);
+rejects(fn()=>Limits::validate($nativeFull([1.9]), $fullVideo, [], $probe), '单个参考视频至少需要2秒');
+rejects(fn()=>Limits::validate($nativeFull([16]), $fullVideo, [], $probe), '单个参考视频不能超过15秒');
+rejects(fn()=>Limits::validate($nativeFull([8, 8]), $fullVideo, [], $probe), '参考视频总时长不能超过15秒');
+verify(Limits::limits(['reference_video_duration_limits'=>['minimum'=>1, 'single'=>18]], '', 'full_video', 'submit')['minimum'] === 2, 'Catalog must not lower the H3 minimum');
+
+$klingClips = Limits::limits(['upstream_metadata'=>['model_code'=>'kling-3.0-video']]);
+$visualProbe = static fn(string $url) => str_ends_with($url,'.png')
+    ? ['kind'=>'image'] : ['kind'=>'video', 'duration'=>$probe($url)];
+$element = static fn(string $file, array $window = []) => ['input'=>['kling_elements'=>[
+    ['element_input_urls'=>[$cdn.$file]] + $window,
+]]];
+Limits::validate($element('12.mp4', ['start_time'=>3000, 'end_time'=>11000]), $klingClips, [], $probe, $visualProbe);
+Limits::validate($element('3.mp4'), $klingClips, [], $probe, $visualProbe);
+Limits::validate($element('12.mp4'), $klingClips, [], $probe, $visualProbe);
+Limits::validate($element('ignore.png', ['end_time'=>9000]), $klingClips, [], $probe, $visualProbe);
+rejects(fn()=>Limits::validate($element('12.mp4', ['end_time'=>9000]), $klingClips, [], $probe, $visualProbe), '当前片段为9秒');
+rejects(fn()=>Limits::validate($element('6.mp4', ['end_time'=>8000]), $klingClips, [], $probe, $visualProbe), '结束点不超过原视频');
+rejects(fn()=>Limits::validate($element('2.mp4'), $klingClips, [], $probe, $visualProbe), '当前片段为2秒');
+
 echo "PASS model reference-video limits, measured duration, cumulative clips, fractional and role-specific boundaries\n";
