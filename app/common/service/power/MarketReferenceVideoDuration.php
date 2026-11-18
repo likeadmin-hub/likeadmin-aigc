@@ -71,11 +71,11 @@ final class MarketReferenceVideoDuration
             if ($url === $firstClip) $maximum = min($maximum, $limits['first_clip'] ?? INF);
             if (in_array($url, $subjectUrls, true)) $maximum = min($maximum, $limits['subject']);
             if ($seconds > $maximum + 0.000001) {
-                throw new InvalidArgumentException('单个参考视频不能超过'.$maximum.'秒，请裁剪或更换视频');
+                throw new InvalidArgumentException('单个参考视频不能超过'.$maximum.'秒，这条视频为'.round($seconds,6).'秒。请裁剪或更换视频。');
             }
             $total += $seconds;
             if (isset($limits['total']) && $total > $limits['total'] + 0.000001) {
-                throw new InvalidArgumentException('参考视频总时长不能超过'.$limits['total'].'秒，请裁剪或减少视频');
+                throw new InvalidArgumentException('参考视频总时长不能超过'.$limits['total'].'秒，当前合计'.round($total,6).'秒。请裁剪或减少视频。');
             }
         }
     }
