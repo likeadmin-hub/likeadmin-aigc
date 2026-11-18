@@ -2,6 +2,7 @@
 
 namespace app\platformapi\controller\power;
 
+use app\common\service\app\UpstreamPricingService;
 use app\common\service\power\PowerMarketService;
 use app\platformapi\controller\BaseAdminController;
 use app\platformapi\lists\power\PowerMarketProductLists;
@@ -12,6 +13,15 @@ class MarketController extends BaseAdminController
     public function lists()
     {
         return $this->dataLists(new PowerMarketProductLists());
+    }
+
+    public function accountBalance()
+    {
+        if (!$this->request->isGet()) {
+            return $this->fail('请使用 GET 请求查询账户余额');
+        }
+        return $this->success('', UpstreamPricingService::queryAccountBalance())
+            ->header(['Cache-Control' => 'no-store']);
     }
 
     public function detail()

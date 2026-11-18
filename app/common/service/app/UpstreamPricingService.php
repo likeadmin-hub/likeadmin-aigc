@@ -14,6 +14,42 @@ class UpstreamPricingService
     private const TIMEOUT = 35;
     private const MAX_BATCH_SIZE = 100;
 
+    public static function queryAccountBalance(): array
+    {
+        $source = self::sourceConfiguration();
+        $origin = self::sourceOrigin($source);
+        if (!in_array(strtolower((string)parse_url($origin, PHP_URL_SCHEME)), ['https', 'http'], true)
+            || !parse_url($origin, PHP_URL_HOST)) {
+            $origin = '';
+        }
+        $balance = [
+            'status' => 'unconfigured',
+            'environment' => empty($source['dev_mode']) ? 'online' : 'development',
+            'origin' => $origin,
+            'available_points' => null,
+            'checked_at' => null,
+        ];
+        if ($origin === '' || empty($source['active_api_key'])) {
+            return $balance;
+        }
+
+        $balance['status'] = 'unavailable';
+        try {
+            $response = self::request('GET', '/api/v1/user/balance', [], 6, $source);
+        } catch (Exception) {
+            return $balance;
+        }
+
+        $points = $response['available_points'] ?? null;
+        if (!is_numeric($points) || !is_finite((float)$points)) {
+            return $balance;
+        }
+        $balance['status'] = 'available';
+        $balance['available_points'] = (float)$points;
+        $balance['checked_at'] = time();
+        return $balance;
+    }
+
     public static function queryModel(string $model, string $channel = ''): array
     {
         $model = trim($model);
@@ -223,7 +259,13 @@ class UpstreamPricingService
         return $payload;
     }
 
-    private static function request(string $method, string $path, array $payload = [], int $timeout = self::TIMEOUT): array
+    private static function request(
+        string $method,
+        string $path,
+        array $payload = [],
+        int $timeout = self::TIMEOUT,
+        ?array $source = null
+    ): array
     {
         $state = function_exists('request') ? request()->upstreamCatalogBatch : null;
         $key = self::readKey($method, $path, $payload);
@@ -242,7 +284,7 @@ class UpstreamPricingService
             $timeout = min($timeout, 5, (int)ceil($remaining));
         }
 
-        $source = self::sourceConfiguration();
+        $source ??= self::sourceConfiguration();
         $origin = self::sourceOrigin($source);
         if ($origin === '') {
             throw new Exception('请先在系统服务 > 接口渠道中配置 Base URL');
