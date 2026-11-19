@@ -1845,6 +1845,8 @@ class PowerMarketService
         if ($imageRates !== null) {
             $sku['image_billing_items'] = $imageRates;
             $sku['pricing_valid'] = $imageRates['valid'];
+        } elseif (($included = MarketGenerationMeter::freeInputImages($sku)) !== null) {
+            $sku['free_input_images'] = $included;
         }
         $rates = MarketFileQaTokenPricing::display($sku, 0);
         if ($rates !== null) {

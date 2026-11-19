@@ -48,6 +48,18 @@ final class MarketGenerationMeter
         return ($contract['source'] ?? '') === 'structured' || ($contract['summary'] ?? '') !== '';
     }
 
+    public static function freeInputImages(array $sku): ?int
+    {
+        try {
+            $meter = self::contract($sku);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+        return $meter['basis'] === 'image' && !empty($meter['image_numerator'])
+            ? (int)$meter['free_images']
+            : null;
+    }
+
     public static function hasDeclaration(array $sku): bool
     {
         $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);

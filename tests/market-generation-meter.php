@@ -13,6 +13,10 @@ eq(M::price(68,4,$seedance),765.0,'actual output settles against frozen input du
 eq(M::price(68,5,snapshot('生成秒数 + （参考视频秒数与生成秒数取较大值）','business_unit',['reference_video_seconds'=>2])),680.0,'Kling maximum input/output term');
 eq(M::price(56,1,snapshot('生成张数 + 超过1的参考图片张数×2/56','business_unit',['reference_images'=>3])),60.0,'Seedream extra reference images use exact rational surcharge');
 eq(M::price(26,2,snapshot('生成张数 + 参考图片张数×2/26','business_unit',['reference_images'=>3])),58.0,'Qwen reference image surcharge');
+eq(M::freeInputImages(['meter_summary'=>'生成张数 + 超过1的参考图片张数×2/56，总点数向上取整']),1,'Seedream allowance is visible');
+eq(M::freeInputImages(['meter_summary'=>'生成张数 + 参考图片张数×2/26，总点数向上取整']),0,'zero allowance is distinct from absent input pricing');
+eq(M::freeInputImages(['usage_unit'=>'image']),null,'output-only SKU has no input allowance');
+eq(M::freeInputImages(['usage_unit'=>'image','meter_summary'=>'无效规则']),null,'invalid formulas do not imply a zero allowance');
 eq(M::price(52,5,snapshot('生成秒数 + 参考视频秒数 + 超过5的参考图片张数×4/13','business_unit',['reference_images'=>7,'reference_video_seconds'=>2])),396.0,'MiniMax video and image terms');
 eq(M::price(16,2,snapshot('按次','pack')),16.0,'pack output count must not double charge one call');
 eq(M::price(26,3,snapshot('生成张数','image')),78.0,'image quantity');

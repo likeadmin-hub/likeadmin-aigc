@@ -531,6 +531,8 @@ class TenantPowerMarketService
                     (array)$sku['source_payload']['image_item_billing']
                 );
                 unset($sku['source_payload']['image_item_billing']);
+            } elseif (($included = MarketGenerationMeter::freeInputImages($sku)) !== null) {
+                $sku['free_input_images'] = $included;
             }
             $sku['pricing_valid'] = $resolved['valid'] && ($rates['valid'] ?? true) && ($imageRates['valid'] ?? true);
             $sku['platform_sale_points'] = $platformSale;
