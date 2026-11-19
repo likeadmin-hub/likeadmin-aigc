@@ -562,7 +562,8 @@ class AigcFittingService
 
     private static function buildFittingEstimate(array $prepared, array $imageEstimate): array
     {
-        if ((string)($imageEstimate['settlement_mode'] ?? 'reserved') !== 'reserved') {
+        if ((string)($imageEstimate['settlement_mode'] ?? 'reserved') !== 'reserved'
+            && ($imageEstimate['billing_details']['mode'] ?? '') !== 'token_items') {
             throw new Exception('AI fitting does not support actual-usage image SKUs');
         }
         $quantity = max(1, (int)($prepared['image_payload']['quantity'] ?? 1));
@@ -572,6 +573,7 @@ class AigcFittingService
             'mode' => $prepared['mode'],
             'mode_label' => self::MODE_LABELS[$prepared['mode']] ?? '单图',
             'quantity' => $quantity,
+            'billing_details' => AppSalePriceService::batchImageDetails($imageEstimate, $quantity),
             'platform_unit_cost' => $tenantUnitCost,
             'tenant_unit_price' => $userUnitPrice,
             'tenant_cost_points' => round($tenantUnitCost * $quantity, 6),
@@ -1165,7 +1167,8 @@ class AigcFittingService
             }
             $qualities = [];
             foreach ((array)($model['skus'] ?? []) as $sku) {
-                if (!is_array($sku) || (string)($sku['settlement_mode'] ?? 'reserved') !== 'reserved') {
+                if (!is_array($sku) || ((string)($sku['settlement_mode'] ?? 'reserved') !== 'reserved'
+                    && ($sku['billing_details']['mode'] ?? '') !== 'token_items')) {
                     continue;
                 }
                 $skuId = (int)($sku['market_sku_id'] ?? 0);

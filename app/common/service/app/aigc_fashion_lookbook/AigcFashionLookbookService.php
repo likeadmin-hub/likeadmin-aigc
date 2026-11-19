@@ -211,7 +211,7 @@ class AigcFashionLookbookService
         $prepared['model_image'] = $preset === null ? $materials['model_image'] : (string)$preset['model_image'];
         $prepared['image_payload']['reference_images'] = self::referenceGroups($prepared)[0];
         $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
-        if (($single['settlement_mode'] ?? '') !== 'reserved') throw new Exception('服饰套图暂不支持实际用量图片 SKU');
+        if (($single['settlement_mode'] ?? '') !== 'reserved' && ($single['billing_details']['mode'] ?? '') !== 'token_items') throw new Exception('服饰套图暂不支持实际用量图片 SKU');
         return ['prepared' => $prepared, 'estimate' => self::buildEstimate($prepared, $single)];
     }
 
@@ -504,6 +504,7 @@ class AigcFashionLookbookService
         $userUnitPrice = AppSalePriceService::singleImageSalePrice($prepared['unit_price'], $imageEstimate);
         return array_merge($imageEstimate, [
             'quantity' => $quantity,
+            'billing_details' => AppSalePriceService::batchImageDetails($imageEstimate, $quantity),
             'clothes_count' => count($prepared['clothes_images']),
             'try_on_mode' => $prepared['try_on_mode'],
             'target_width' => $prepared['width'],

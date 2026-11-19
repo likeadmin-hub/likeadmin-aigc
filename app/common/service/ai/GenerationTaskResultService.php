@@ -36,7 +36,7 @@ final class GenerationTaskResultService
         $presence=[];
         foreach (['images','videos','items','audio','assets'] as $key) $presence[]="(JSON_TYPE(JSON_EXTRACT(response_summary, '$.".$key."')) IN ('ARRAY','OBJECT') AND COALESCE(JSON_LENGTH(response_summary, '$.".$key."'),0)>0)";
         foreach (['image_count','video_count','audio_count','asset_count'] as $key) $presence[]="COALESCE(JSON_EXTRACT(response_summary, '$.".$key."'),0)>0";
-        $fields="id,app_task_id,provider,run_status,billing_status,error_message,CASE WHEN JSON_VALID(response_summary) THEN (".implode(' OR ',$presence).") ELSE 0 END AS has_result_assets";
+        $fields="id,app_task_id,provider,run_status,billing_status,error_message,actual_user_price,CASE WHEN JSON_VALID(usage_snapshot) THEN JSON_EXTRACT(usage_snapshot, '$.billing_details') END AS image_billing_details,CASE WHEN JSON_VALID(usage_snapshot) THEN JSON_UNQUOTE(JSON_EXTRACT(usage_snapshot, '$.settlement_basis')) END AS settlement_basis,CASE WHEN JSON_VALID(response_summary) THEN (".implode(' OR ',$presence).") ELSE 0 END AS has_result_assets";
         $consumptions=AiConsumptionLog::where($owner)->whereIn('app_task_id',$ids)->fieldRaw($fields)->order('id','asc')->select()->toArray();
         $consumptionIds=array_column($consumptions,'id');
         $assetFields="id,app_task_id,consumption_id,asset_type,local_uri,storage_scope,storage_engine,storage_domain,transfer_status,storage_meta,CASE WHEN transfer_status='stored' OR LEFT(external_url,5)='data:' THEN '' ELSE external_url END AS external_url";
@@ -54,11 +54,17 @@ final class GenerationTaskResultService
 
     private static function project(int $id, array $task, array $consumptions, array $assets): array
     {
+        $itemizedBilling = []; $waitingOnItemizedBilling = false;
         $results = []; $transferPending = false; $billingPending = false; $executionPending = false; $unknown = false;
         foreach ($consumptions as $c) {
             $executionPending = $executionPending || !in_array($c['run_status'], ['success','failed','canceled','cancelled'], true);
             $unknown = $unknown || in_array($c['run_status'], ['submitting','pending_confirmation','needs_reconciliation'], true);
             $billingPending = $billingPending || !in_array($c['billing_status'], ['settled','refunded','none'], true);
+            if (($c['settlement_basis'] ?? '') === 'awaiting_image_token_items') $waitingOnItemizedBilling = true;
+            if ($c['billing_status'] === 'settled' && !empty($c['image_billing_details'])) {
+                $bill = json_decode((string)$c['image_billing_details'], true);
+                if (is_array($bill)) $itemizedBilling[] = $bill + ['actual_points'=>(float)$c['actual_user_price']];
+            }
             $required = AiTaskBusinessResultService::requiresForcedTransferFor($c,(string)$task['app_code'],(string)$task['business_table']);
             $expected = !empty($c['has_result_assets']);
             $ownAssets = array_values(array_filter($assets, static fn($a)=>(int)$a['consumption_id']===(int)$c['id']));
@@ -77,7 +83,7 @@ final class GenerationTaskResultService
         $status = match ($raw) {'success','succeeded','completed'=>'success', 'failed','error'=>'failed', 'canceled','cancelled'=>'canceled', default=>'running'};
         if ($status==='success' && ($executionPending || $billingPending || $transferPending)) $status='running';
         $stage = match (true) {$unknown=>'confirmation', $status==='failed'=>'failed', $status==='canceled'=>'canceled',
-            $executionPending=>'generating', $billingPending=>'settling', $transferPending=>'transferring', $status==='success'=>'ready', default=>'queued'};
+            $waitingOnItemizedBilling=>'settling', $executionPending=>'generating', $billingPending=>'settling', $transferPending=>'transferring', $status==='success'=>'ready', default=>'queued'};
         $error = '';
         foreach ($consumptions as $c) if (!empty($c['error_message'])) $error = (string)$c['error_message'];
         return ['schema_version'=>1, 'task_ref'=>'app_task:'.$id, 'app_task_id'=>$id, 'app_code'=>(string)$task['app_code'],
@@ -87,7 +93,8 @@ final class GenerationTaskResultService
             'billing_status'=>$billingPending?'pending':($consumptions ? (string)end($consumptions)['billing_status'] : 'none'),
             'delivery_status'=>$transferPending?'pending':'ready', 'results'=>$results,
             'error'=>$error===''?null:['code'=>'generation_failed','message'=>UpstreamErrorMessageService::normalize($error)],
-            'created_at'=>self::timestamp($task['create_time']), 'finished_at'=>self::timestamp($task['finish_time'])];
+            'created_at'=>self::timestamp($task['create_time']), 'finished_at'=>self::timestamp($task['finish_time'])]
+            + ($itemizedBilling ? ['billing_details'=>$itemizedBilling] : []);
     }
 
     /** The same typed media whitelist is used by market and native task adapters. */

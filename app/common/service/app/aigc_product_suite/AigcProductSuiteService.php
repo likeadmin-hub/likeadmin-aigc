@@ -566,6 +566,7 @@ class AigcProductSuiteService
         $userUnitPrice = AppSalePriceService::singleImageSalePrice($prepared['unit_price'], $singleEstimate);
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
+            'billing_details' => AppSalePriceService::batchImageDetails($singleEstimate, $quantity),
             'module_count' => $quantity,
             'target_width' => $prepared['width'],
             'target_height' => $prepared['height'],

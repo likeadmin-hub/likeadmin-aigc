@@ -211,7 +211,7 @@ class AigcProductMultiAngleService
         $prepared['source_image'] = $material['source_image'];
         $prepared['image_payload']['reference_images'] = [$prepared['source_image']];
         $single = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], AppSalePriceService::imageOverride($prepared['unit_price']));
-        if (($single['settlement_mode'] ?? '') !== 'reserved') throw new Exception('商品多角度暂不支持实际用量图片 SKU');
+        if (($single['settlement_mode'] ?? '') !== 'reserved' && ($single['billing_details']['mode'] ?? '') !== 'token_items') throw new Exception('商品多角度暂不支持实际用量图片 SKU');
         return ['prepared' => $prepared, 'estimate' => self::buildEstimate($prepared, $single)];
     }
 
@@ -483,6 +483,7 @@ class AigcProductMultiAngleService
         $userUnitPrice = AppSalePriceService::singleImageSalePrice($prepared['unit_price'], $singleEstimate);
         return array_merge($singleEstimate, [
             'quantity' => $quantity,
+            'billing_details' => AppSalePriceService::batchImageDetails($singleEstimate, $quantity),
             'view_count' => $quantity,
             'target_width' => $prepared['width'],
             'target_height' => $prepared['height'],

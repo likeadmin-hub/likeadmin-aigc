@@ -88,6 +88,7 @@ class PowerMarketService
                 $skuId = $price['sku_id'];
                 if (!isset($skuById[$skuId])) throw new Exception('计费 SKU 不存在');
                 $sku = $skuById[$skuId];
+                MarketPriceRuleService::saveImageItems(0, $sku, $price['item_prices'] ?? []);
                 $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
                 $data = ['sale_status' => (int)($price['sale_status'] ?? $price['status'] ?? 1) === 1 ? 1 : 0, 'update_time' => time()];
                 if ($writePrice) {
@@ -1451,6 +1452,20 @@ class PowerMarketService
         $usageUnit = self::normalizedUsageUnit($sku, $item);
         $source = self::skuSnapshot($sku);
         $resource = $item['resource'] ?? [];
+        if (($resource['type_code'] ?? '') === 'image' || ($item['market_metadata']['catalog_model_type'] ?? '') === 'image'
+            || ($item['market_metadata']['model_type'] ?? '') === 'image') {
+            $oldContract = $row->isEmpty() ? null : (self::arrayValue($row['source_payload'])['image_item_billing'] ?? null);
+            try {
+                $contract = MarketImageItemBilling::declaration($sku, (string)($resource['model_code'] ?? ''));
+                if ($contract !== null) {
+                    $source['image_item_billing'] = $contract;
+                } elseif ($oldContract !== null) {
+                    $source['image_item_billing'] = ['error'=>'上游未返回生图分项费率，请核对后重新同步'] + $oldContract;
+                }
+            } catch (\InvalidArgumentException $exception) {
+                $source['image_item_billing'] = ['error'=>$exception->getMessage()] + ($oldContract ?? []);
+            }
+        }
         if (MarketFileQaTokenPricing::supports($item['type'] ?? '', $resource['app_code'] ?? '', $resource['api_code'] ?? '')
             && $usageUnit === 'token' && !array_key_exists('effective_rate_config', $source)
             && (array_key_exists('effective_rate_config', $sku) || (float)($price['points'] ?? 0) === 0.0)) {
@@ -1825,6 +1840,11 @@ class PowerMarketService
         $sku['upstream_price'] = round(max(0, (float)($sku['upstream_price'] ?? 0)), 6);
         $sku['sale_points'] = round(max(0, (float)($sku['sale_points'] ?? $sku['upstream_price'])), 6);
         $sku['sale_status'] = (int)($sku['sale_status'] ?? 1) === 1 ? 1 : 0;
+        $imageRates = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, 0), 0);
+        if ($imageRates !== null) {
+            $sku['image_billing_items'] = $imageRates;
+            $sku['pricing_valid'] = $imageRates['valid'];
+        }
         $rates = MarketFileQaTokenPricing::display($sku, 0);
         if ($rates !== null) {
             $sku['token_rates'] = $rates;

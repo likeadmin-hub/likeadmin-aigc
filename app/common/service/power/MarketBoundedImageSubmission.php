@@ -11,7 +11,7 @@ final class MarketBoundedImageSubmission
     private static function applies(array $snapshot): bool
     {
         $meter=(array)($snapshot['billing_meter']??[]);
-        return MarketGenerationMeter::boundedToken($meter)||MarketGenerationPixelMeter::applies($meter);
+        return MarketImageItemBilling::isToken($snapshot)||MarketGenerationMeter::boundedToken($meter)||MarketGenerationPixelMeter::applies($meter);
     }
     public static function begin(int $id): bool
     {

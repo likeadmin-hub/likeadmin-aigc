@@ -372,6 +372,7 @@ class CanvasModelRouterService
             'user_unit_points' => (float)($quote['user_unit_points'] ?? $quote['tenant_unit_price'] ?? 0),
             'billing_unit' => (string)($quote['billing_unit'] ?? ''),
             'settlement_mode' => (string)($quote['settlement_mode'] ?? 'reserved'),
+            'billing_details' => $quote['billing_details'] ?? null,
         ];
     }
 

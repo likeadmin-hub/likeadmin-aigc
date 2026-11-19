@@ -67,6 +67,12 @@ final class MarketPriceRuleService
         if ($id <= 0) return $snapshot;
         $sku = Db::name('power_market_sku')->where('id', $id)->find();
         if (!$sku) throw new RuntimeException('计费规格不存在');
+        if (isset($snapshot['image_item_pricing'])) {
+            $fresh = MarketImageItemBilling::prices($sku, $owner);
+            if (!$fresh || !$fresh['valid'] || $fresh !== $snapshot['image_item_pricing']) {
+                throw new RuntimeException('生图分项费率已更新，请重新报价');
+            }
+        }
         if (isset($snapshot['token_rate_side'])) {
             $side = $snapshot['token_rate_side'];
             $rates = MarketFileQaTokenPricing::display($sku, $owner);
@@ -157,6 +163,27 @@ final class MarketPriceRuleService
         self::bump($owner);
     }
 
+    /** Call while holding the same owner and SKU locks as the scalar editor. */
+    public static function saveImageItems(int $owner, array $sku, array $edits): void
+    {
+        if ($edits === []) return;
+        $pricing = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $owner), $owner);
+        $items = array_column($pricing['items'] ?? [], null, 'code');
+        foreach ($edits as $code => $edit) {
+            $current = $items[$code] ?? null;
+            if ($current === null || !is_array($edit) || !array_key_exists('value', $edit) || MarketPricePolicy::amount($edit['expected'] ?? null) !== $current['sale']) {
+                throw new RuntimeException('分项费率已更新，请刷新后重新确认');
+            }
+            $mode = ($edit['value'] ?? null) === null ? 'inherit' : 'manual';
+            $value = MarketPricePolicy::amount($mode === 'inherit' ? 0 : $edit['value']);
+            if ($mode === 'manual' && bccomp($value, $current['cost'], 6) < 0) {
+                throw new RuntimeException($current['label'].'的售价不能低于进货价');
+            }
+            self::put($owner, MarketImageItemBilling::scope($code), (int)$sku['id'], $mode, $value);
+        }
+        self::bump($owner);
+    }
+
     private static function put(int $owner, string $scope, int $id, string $mode, string $value): void
     {
         $where = ['owner_id' => $owner, 'scope_type' => $scope, 'scope_id' => $id];
@@ -211,7 +238,8 @@ final class MarketPriceRuleService
             if ($rule['scope_type'] === $params['scope'] && in_array((int)$rule['scope_id'], $params['ids'], true)) return false;
             if (!$params['replace_descendants']) return true;
             if ($params['scope'] === 'global') return $rule['scope_type'] === 'global';
-            return !($params['scope'] === 'product' && $rule['scope_type'] === 'sku' && in_array((int)$rule['scope_id'], $skuIds, true));
+            $skuRule = $rule['scope_type'] === 'sku' || preg_match('/^i[0-9a-f]{11}$/D', $rule['scope_type']);
+            return !($skuRule && in_array((int)$rule['scope_id'], $skuIds, true));
         }));
         foreach ($params['ids'] as $id) $rules[] = ['scope_type' => $params['scope'], 'scope_id' => $id, 'mode' => $params['mode'], 'value' => $params['value']];
         return $rules;
@@ -230,7 +258,15 @@ final class MarketPriceRuleService
             $after = $owner === 0 ? self::platform($sku, $newRules) : self::tenant($owner, $sku, $bySku[$sku['id']] ?? null, $newRules, $platformRules)['tenant'];
             $tokenRates = MarketFileQaTokenPricing::display($sku, $owner, $platformRules, $ownRules);
             $extra = [];
-            if ($tokenRates !== null) {
+            $imageBefore = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $owner, $platformRules, $ownRules), $owner);
+            if ($imageBefore !== null) {
+                $imageAfter = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $owner,
+                    $owner === 0 ? $newRules : $platformRules, $newRules), $owner);
+                $oldItems = array_column($imageBefore['items'], null, 'code');
+                $extra['image_billing_items'] = array_map(static fn($item) => $item + ['before'=>$oldItems[$item['code']]['sale']], $imageAfter['items']);
+                $after['valid'] = $imageAfter['valid'];
+                if (array_column($imageBefore['items'], 'sale') !== array_column($imageAfter['items'], 'sale')) $changed++;
+            } elseif ($tokenRates !== null) {
                 $next = MarketFileQaTokenPricing::display($sku, $owner, $owner === 0 ? $newRules : $platformRules, $newRules);
                 $extra['token_rates'] = ['cost' => $next['cost'], 'before' => $tokenRates['sale'], 'after' => $next['sale']];
                 $after['valid'] = $next['valid'];

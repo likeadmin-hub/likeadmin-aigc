@@ -18,6 +18,9 @@ final class MarketPriceWriteInput
                 $price['sale_points'] = self::amount($price['sale_points'] ?? null);
                 if (array_key_exists('expected_sale_points', $price)) self::amount($price['expected_sale_points']);
             }
+            if (isset($price['item_prices']) && (!is_array($price['item_prices']) || count($price['item_prices'])>20)) {
+                throw new RuntimeException('分项价格参数无效');
+            }
             $rows[$id] = $price;
         }
         ksort($rows, SORT_NUMERIC);

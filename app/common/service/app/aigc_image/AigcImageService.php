@@ -120,6 +120,7 @@ class AigcImageService
             'market_product_id' => (int)$quote['market_product_id'],
             'market_sku_id' => (int)$quote['market_sku_id'],
             'settlement_mode' => (string)$quote['settlement_mode'],
+            'billing_details' => $quote['billing_details'] ?? null,
             'price_source' => (string)$quote['price_source'],
             'follow_market_prices' => (bool)($quote['follow_market_prices'] ?? false),
         ];

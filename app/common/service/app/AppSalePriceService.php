@@ -38,9 +38,26 @@ class AppSalePriceService
 
     public static function singleImageSalePrice(mixed $price, array $quote): float
     {
+        if (($quote['billing_details']['contract_revision'] ?? 0) === 1) return self::imageAmount($quote, 'user_charge_points', 'tenant_unit_price');
         $configured = self::normalize($price);
         if (empty($quote['follow_market_prices']) && $configured !== null) return $configured;
         return self::imageAmount($quote, 'user_charge_points', 'tenant_unit_price');
+    }
+
+    public static function batchImageDetails(array $quote, int $requests): ?array
+    {
+        $details = $quote['billing_details'] ?? null;
+        if ($details === null || $requests <= 1) return $details;
+        $details['request_count'] = $requests;
+        if ($details['mode'] !== 'image_count') return $details;
+        $details['input_count'] *= $requests;
+        $details['included'] *= $requests;
+        foreach ($details['items'] as &$item) {
+            $item['quantity'] *= $requests;
+            $item['points'] = round($item['points'] * $requests, 6);
+        }
+        unset($item);
+        return $details;
     }
 
     private static function imageAmount(array $quote, string $total, string $legacyUnit): float

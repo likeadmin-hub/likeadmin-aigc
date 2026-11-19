@@ -320,7 +320,8 @@ class AigcHairstyleService
 
     private static function buildHairstyleEstimate(array $prepared, array $imageEstimate): array
     {
-        if ((string)($imageEstimate['settlement_mode'] ?? 'reserved') !== 'reserved') {
+        if ((string)($imageEstimate['settlement_mode'] ?? 'reserved') !== 'reserved'
+            && ($imageEstimate['billing_details']['mode'] ?? '') !== 'token_items') {
             throw new Exception('AI hairstyle does not support actual-usage image SKUs');
         }
         $quantity = max(1, (int)($imageEstimate['quantity'] ?? $prepared['image_payload']['quantity'] ?? 1));
@@ -377,7 +378,8 @@ class AigcHairstyleService
             }
             $qualities = [];
             foreach ((array)($model['skus'] ?? []) as $sku) {
-                if (!is_array($sku) || (string)($sku['settlement_mode'] ?? 'reserved') !== 'reserved') {
+                if (!is_array($sku) || ((string)($sku['settlement_mode'] ?? 'reserved') !== 'reserved'
+                    && ($sku['billing_details']['mode'] ?? '') !== 'token_items')) {
                     continue;
                 }
                 $skuId = (int)($sku['market_sku_id'] ?? 0);

@@ -658,9 +658,9 @@ class AigcImageChannelService
                     'market_sku_id' => (int)($model['market_sku_id'] ?? 0),
                     'category_code' => 'image',
                     'upstream_channel' => (string)($model['upstream_channel_code'] ?? ''),
-                    'quantity_options' => [1],
+                    'quantity_options' => (array)($model['quantity_options'] ?? [1]),
                 ],
-                'quantity_options' => [1],
+                'quantity_options' => (array)($model['quantity_options'] ?? [1]),
                 'qualities' => [],
                 'specs' => [],
             ];

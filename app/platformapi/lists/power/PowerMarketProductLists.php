@@ -44,6 +44,9 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
                 }
                 $id = (int)$sku['product_id'];
                 if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
+                if (($sku['source_payload']['image_item_billing']['mode'] ?? '') === 'token_items') $stats[$id]['has_token_rates'] = true;
+                $input = $sku['source_payload']['image_item_billing']['items']['input_images']['rate'] ?? null;
+                if ($input !== null) $stats[$id]['min_input_points'] = min($stats[$id]['min_input_points'] ?? (float)$input, (float)$input);
                 $price = (float)($sku['upstream_price'] ?? 0);
                 $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 $stats[$id]['min_price'] = isset($stats[$id]['min_price']) ? min($stats[$id]['min_price'], $price) : $price;
@@ -54,6 +57,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             $row = PowerMarketService::formatProduct($row);
             $row['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0);
             $row['min_price'] = (float)($stats[$id]['min_price'] ?? 0);
+            $row['min_input_points'] = $stats[$id]['min_input_points'] ?? null;
             $row['has_token_rates'] = !empty($stats[$id]['has_token_rates']);
             $row['status'] = (int)($row['status'] ?? 0) === 1 && $row['sku_count'] > 0 ? 1 : 0;
             $row['status_text'] = $row['status'] === 1 ? '上架' : '下架';

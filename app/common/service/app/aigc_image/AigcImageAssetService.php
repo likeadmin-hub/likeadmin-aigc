@@ -22,6 +22,22 @@ class AigcImageAssetService
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
 
+    /** SVG is an explicit output format and must pass the static-image sanitizer before storage. */
+    public static function persistGeneratedSvg(string $url, int $tenantId, int $userId = 0): array
+    {
+        if (str_starts_with($url, 'data:')) {
+            if (strlen($url) > 6990600 || !preg_match('~^data:image/svg\+xml;base64,([a-zA-Z0-9+/=]+)$~D', $url, $parts)) {
+                throw new Exception('生成 SVG 格式或大小无效');
+            }
+            $bytes = base64_decode($parts[1], true);
+            if ($bytes === false) throw new Exception('生成 SVG 解码失败');
+        } else {
+            $bytes = \app\common\service\open_platform\OpenSafeHttp::get($url, 5 * 1024 * 1024)['body'];
+        }
+        $clean = \app\common\service\storage\SvgSanitizer::sanitize($bytes);
+        return self::persistBinary($clean, $tenantId, $userId, 'svg', verifiedSvg: true);
+    }
+
     /** Byte measurement only: never uploads, rewrites a URL or creates a file row. */
     public static function measureGeneratedImage(string $url, int $maximumPixels): array
     {
@@ -65,11 +81,11 @@ class AigcImageAssetService
         return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $verifyOutput,$maximumPixels,$storageConfig,$resultAssetId);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null, int $resultAssetId = 0): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, bool $verifyOutput = false, int $maximumPixels = 0, ?array $storageConfig = null, int $resultAssetId = 0, bool $verifiedSvg = false): array
     {
         $verifiedSize=$verifyOutput?self::verifiedImageInfo($content,$maximumPixels):null;
         if($verifiedSize!==null)$ext=['image/png'=>'png','image/jpeg'=>'jpg','image/webp'=>'webp','image/gif'=>'gif'][$verifiedSize['mime']];
-        $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? $ext : 'png';
+        $ext = $verifiedSvg ? 'svg' : (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? $ext : 'png');
         $tmp = tempnam(sys_get_temp_dir(), 'aigc_image_');
         if ($tmp === false) {
             throw new Exception('生成图片临时文件创建失败');

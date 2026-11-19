@@ -151,6 +151,9 @@ final class OpenNativeMarketPricing
         } catch (OpenException $e) { throw $e; }
         catch (\Exception $e) { throw new OpenException('invalid_sku', $e->getMessage()); }
         if ((int)$captured['market']['product']['id'] !== (int)$product['id'] || (int)$captured['market']['sku']['id'] !== $skuId) throw new OpenException('invalid_sku', '参数不能改选契约绑定的 SKU');
+        if (isset($captured['quote']['market_snapshot']['image_item_pricing'])) {
+            throw new OpenException('native_usage_boundary_required', '该分项计费规格需要审核原生调用的计费规则',503);
+        }
         $meter=(array)($captured['quote']['market_snapshot']['billing_meter']??[]);
         $bounded=Meter::boundedToken($meter);$pixels=Pixel::applies($meter);
         if($bounded||$pixels){

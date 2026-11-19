@@ -307,6 +307,7 @@ class TenantPowerMarketService
                 if (!self::isPlatformAvailableSku($sku)) throw new Exception('平台商品已下架，不能配置');
                 $row = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->lock(true)->findOrEmpty();
                 $current = MarketPriceRuleService::tenant($tenantId, $sku, $row->isEmpty() ? null : $row->toArray());
+                MarketPriceRuleService::saveImageItems($tenantId, $sku, $price['item_prices'] ?? []);
                 $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
                 $sale = $writePrice ? $price['sale_points'] : (float)$current['tenant']['price'];
                 if ($writePrice) {
@@ -450,7 +451,11 @@ class TenantPowerMarketService
                 $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
                 $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $tenantPrice);
-                $price = (float)$resolved['tenant']['price'];
+                $imageRates = MarketImageItemBilling::prices($sku, $tenantId);
+                if (($imageRates['mode'] ?? '') === 'token_items') $stats[$id]['has_token_rates'] = true;
+                $input = $imageRates['items']['input_images']['tenant'] ?? null;
+                if ($input !== null) $stats[$id]['min_input_points'] = min($stats[$id]['min_input_points'] ?? (float)$input,(float)$input);
+                $price = (float)($imageRates['items']['base']['tenant'] ?? $resolved['tenant']['price']);
                 $stats[$id]['min_price'] = isset($stats[$id]['min_price']) ? min($stats[$id]['min_price'], $price) : $price;
             }
         }
@@ -458,6 +463,7 @@ class TenantPowerMarketService
             $id = (int)$row['id'];
             $row = PowerMarketService::formatProduct($row);
             $row['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0);
+            $row['min_input_points'] = $stats[$id]['min_input_points'] ?? null;
             if (!empty($stats[$id]['has_token_rates'])) $row['has_token_rates'] = true;
             $row['min_price'] = (float)($stats[$id]['min_price'] ?? 0);
             $row['platform_status'] = (int)($stats[$id]['platform_sku_count'] ?? 0) > 0 ? 1 : 0;
@@ -491,7 +497,12 @@ class TenantPowerMarketService
                 $sku['token_rates'] = $rates;
                 unset($sku['source_payload']['effective_rate_config']);
             }
-            $sku['pricing_valid'] = $resolved['valid'] && ($rates['valid'] ?? true);
+            $imageRates = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $tenantId), $tenantId);
+            if ($imageRates !== null) {
+                $sku['image_billing_items'] = $imageRates;
+                unset($sku['source_payload']['image_item_billing']);
+            }
+            $sku['pricing_valid'] = $resolved['valid'] && ($rates['valid'] ?? true) && ($imageRates['valid'] ?? true);
             $sku['platform_sale_points'] = $platformSale;
             $sku['sale_points'] = $tenantSale;
             $sku['platform_sale_status'] = $platformEnabled ? 1 : 0;
