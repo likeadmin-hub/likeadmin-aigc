@@ -8,7 +8,9 @@ use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\service\power\PowerMarketService;
 use app\common\service\power\MarketModelSource;
+use app\common\service\power\MarketFileQaTokenPricing;
 use app\common\service\power\MarketOtherModelCategory;
+use app\common\service\power\MarketPriceRuleService;
 use app\platformapi\lists\BaseAdminDataLists;
 
 class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchInterface, ListsExtendInterface
@@ -36,6 +38,8 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             ->select()
             ->toArray();
         $ids = array_values(array_filter(array_column($rows, 'id')));
+        $textIds = array_fill_keys(array_column(array_filter($rows, static fn($row) => $row['model_type'] === 'text'), 'id'), true);
+        $platformRules = null;
         $stats = [];
         if ($ids !== []) {
             foreach (PowerMarketSku::whereIn('product_id', $ids)->where('status', 1)->select()->toArray() as $sku) {
@@ -50,7 +54,12 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
                 if ($input !== null) $stats[$id]['min_input_points'] = min($stats[$id]['min_input_points'] ?? (float)$input, (float)$input);
                 $price = (float)($sku['upstream_price'] ?? 0);
                 $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
-                $stats[$id]['min_price'] = isset($stats[$id]['min_price']) ? min($stats[$id]['min_price'], $price) : $price;
+                if (!isset($stats[$id]['min_price']) || $price < $stats[$id]['min_price']) {
+                    $stats[$id]['min_price'] = $price;
+                    $stats[$id]['text_token_rates'] = isset($textIds[$id], $sku['source_payload']['effective_rate_config'])
+                        ? MarketFileQaTokenPricing::display($sku, 0, $platformRules ??= MarketPriceRuleService::rules(0))
+                        : null;
+                }
             }
         }
         foreach ($rows as &$row) {
@@ -61,6 +70,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             $row['min_input_points'] = $stats[$id]['min_input_points'] ?? null;
             $row['has_image_billing_items'] = !empty($stats[$id]['has_image_billing_items']);
             $row['has_token_rates'] = !empty($stats[$id]['has_token_rates']);
+            $row['text_token_rates'] = $stats[$id]['text_token_rates'] ?? null;
             $row['status'] = (int)($row['status'] ?? 0) === 1 && $row['sku_count'] > 0 ? 1 : 0;
             $row['status_text'] = $row['status'] === 1 ? '上架' : '下架';
         }
@@ -92,7 +102,8 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
         if (in_array($catalog, ['model','series'], true)) {
             $query->whereIn('model_type', ['text', 'image', 'video']);
             $factory = "(COALESCE(JSON_UNQUOTE(JSON_EXTRACT(source_payload, '$.market_metadata.upstream_metadata.pricing.pricing_v2.resource_type')), '') = 'factory_model')";
-            $query->whereRaw($catalog === 'series' ? $factory : 'NOT '.$factory);
+            // Agent uses factory text models too. Keep them discoverable in the ordinary model catalogue.
+            $query->whereRaw($catalog === 'series' ? $factory : "(model_type = 'text' OR NOT $factory)");
         }
         $resourceType = (string)$this->request->get('resource_type', '');
         $status = $this->request->get('status', '');

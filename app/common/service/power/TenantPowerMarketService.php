@@ -6,18 +6,19 @@ use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\model\power\TenantPowerMarketProduct;
+use app\common\service\app\aigc_llm\agent\AgentComposerSettings;
 use app\common\service\FileService;
 use Exception;
 use think\facade\Db;
 
 class TenantPowerMarketService
 {
-    public static function models(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = ''): array
+    public static function models(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = '', bool $agentOnly = false): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => self::readModels($tenantId, $keyword, $status, $pageNo, $pageSize, $modelType));
+        return MarketCatalogReadScope::run(static fn(): array => self::readModels($tenantId, $keyword, $status, $pageNo, $pageSize, $modelType, $agentOnly));
     }
 
-    private static function readModels(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = ''): array
+    private static function readModels(int $tenantId, string $keyword, $status, int $pageNo, int $pageSize, string $modelType, bool $agentOnly): array
     {
         $query = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'status' => 1]);
         $keyword = trim($keyword);
@@ -25,12 +26,26 @@ class TenantPowerMarketService
         if (in_array($modelType, ['text', 'image', 'video'], true)) {
             $query->where('model_type', $modelType);
         }
-        if ($keyword !== '') {
-            $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code', '%' . $keyword . '%');
-        }
+        self::applyModelKeyword($query, $tenantId, $keyword);
         $rows = $query->order(['update_time' => 'desc', 'id' => 'desc'])
             ->select()
             ->toArray();
+        if ($agentOnly || in_array('text', array_column($rows, 'model_type'), true)) {
+            $agentModels = array_column(AgentComposerSettings::textOptions($tenantId)['models'], null, 'market_product_id');
+            if ($agentOnly) $rows = array_values(array_filter($rows, static fn($row) => isset($agentModels[(int)$row['id']])));
+            foreach ($rows as &$row) {
+                if ($row['model_type'] !== 'text') continue;
+                $agentModel = $agentModels[(int)$row['id']] ?? null;
+                $row['agent_text_available'] = $agentModel !== null;
+                if ($agentModel !== null) {
+                    $row['agent_text_price'] = [
+                        'input' => $agentModel['tenant_input_unit_price'],
+                        'output' => $agentModel['tenant_output_unit_price'],
+                    ];
+                }
+            }
+            unset($row);
+        }
         self::attachProductStats($tenantId, $rows);
         self::applyProductDisplays($tenantId, $rows);
         $rows = array_values(array_filter($rows, static fn (array $row): bool => (int)($row['platform_status'] ?? 0) === 1));
@@ -38,6 +53,17 @@ class TenantPowerMarketService
             $rows = array_values(array_filter($rows, static fn (array $row): bool => (int)$row['status'] === (int)$status));
         }
         return self::paginate(MarketModelSource::officialFirst($rows), $pageNo, $pageSize);
+    }
+
+    private static function applyModelKeyword($query, int $tenantId, string $keyword): void
+    {
+        if ($keyword === '') return;
+        $pattern = '%'.$keyword.'%';
+        $aliases = TenantPowerMarketProduct::where('tenant_id', $tenantId)->whereLike('name', $pattern)->column('product_id');
+        $query->where(static function ($match) use ($pattern, $aliases) {
+            $match->whereLike('name|product_code|upstream_model_code|upstream_channel_code', $pattern);
+            if ($aliases !== []) $match->whereOr('id', 'in', $aliases);
+        });
     }
 
     public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
@@ -358,9 +384,7 @@ class TenantPowerMarketService
             $query->where('model_type', $modelType);
         }
         $keyword = trim($keyword);
-        if ($keyword !== '') {
-            $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code', '%' . $keyword . '%');
-        }
+        self::applyModelKeyword($query, $tenantId, $keyword);
         if (!$all) {
             $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
             if ($productIds === []) {

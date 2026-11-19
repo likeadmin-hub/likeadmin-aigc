@@ -16,7 +16,8 @@ class MarketController extends BaseAdminController
             $this->request->get('status', ''),
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
-            (string)$this->request->get('model_type', '')
+            (string)$this->request->get('model_type', ''),
+            (int)$this->request->get('agent_only', 0) === 1
         ));
     }
 
