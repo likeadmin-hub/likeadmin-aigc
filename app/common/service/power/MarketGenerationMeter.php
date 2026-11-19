@@ -60,6 +60,22 @@ final class MarketGenerationMeter
             : null;
     }
 
+    public static function priceDisplayFields(array $sku): array
+    {
+        if (($sku['usage_unit'] ?? '') !== 'business_unit') {
+            return [];
+        }
+        try {
+            $meter = self::contract($sku);
+        } catch (InvalidArgumentException) {
+            return [];
+        }
+        return [
+            'billing_basis' => $meter['basis'],
+            'bills_reference_images' => !empty($meter['image_numerator']),
+        ];
+    }
+
     public static function hasDeclaration(array $sku): bool
     {
         $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);

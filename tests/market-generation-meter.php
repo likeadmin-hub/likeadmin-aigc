@@ -17,6 +17,11 @@ eq(M::freeInputImages(['meter_summary'=>'生成张数 + 超过1的参考图片�
 eq(M::freeInputImages(['meter_summary'=>'生成张数 + 参考图片张数×2/26，总点数向上取整']),0,'zero allowance is distinct from absent input pricing');
 eq(M::freeInputImages(['usage_unit'=>'image']),null,'output-only SKU has no input allowance');
 eq(M::freeInputImages(['usage_unit'=>'image','meter_summary'=>'无效规则']),null,'invalid formulas do not imply a zero allowance');
+eq(M::priceDisplayFields(['usage_unit'=>'business_unit','meter_summary'=>'生成秒数 + 参考视频秒数，总点数向上取整']),
+    ['billing_basis'=>'output_plus_video','bills_reference_images'=>false],'Seedance rate includes reference video seconds');
+eq(M::priceDisplayFields(['usage_unit'=>'business_unit','meter_summary'=>'生成张数 + 超过1的参考图片张数×2/56，总点数向上取整']),
+    ['billing_basis'=>'image','bills_reference_images'=>true],'image picker distinguishes the reference image charge');
+eq(M::priceDisplayFields(['usage_unit'=>'business_unit','meter_summary'=>'未知单位']),[],'unknown billing units have no display inference');
 eq(M::price(52,5,snapshot('生成秒数 + 参考视频秒数 + 超过5的参考图片张数×4/13','business_unit',['reference_images'=>7,'reference_video_seconds'=>2])),396.0,'MiniMax video and image terms');
 eq(M::price(16,2,snapshot('按次','pack')),16.0,'pack output count must not double charge one call');
 eq(M::price(26,3,snapshot('生成张数','image')),78.0,'image quantity');

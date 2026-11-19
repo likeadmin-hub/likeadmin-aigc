@@ -117,6 +117,7 @@ class MarketImageModelRuntimeService
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $quality = self::skuQuality($sku, $locked, $meta);
                 $skus[] = [
+                    ...MarketGenerationMeter::priceDisplayFields($sku),
                     'market_sku_id' => (int)$sku['id'],
                     'sku_key' => (string)$sku['sku_key'],
                     'title' => (string)$sku['title'],

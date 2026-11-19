@@ -20,7 +20,7 @@ final class StudioVideoCatalogService
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',json_encode($allowedIds,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));}
         $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset.($summary?':summary':'');if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
-        $sharedKey='studio_callable_video_models_v2:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
+        $sharedKey='studio_callable_video_models_v3:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
         $result=[];$options=AigcVideoService::marketOptions($tenant);
         foreach($options['channels']??[] as $model){
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;
@@ -95,8 +95,11 @@ final class StudioVideoCatalogService
             if ($price < 0) {
                 continue;
             }
-            $key = "$unit:$size:$price";
-            $rates[$key] = ['usage_unit' => $unit, 'usage_unit_size' => $size, 'tenant_unit_price' => $price];
+            $basis = $spec['billing_basis'] ?? '';
+            $referenceImages = !empty($spec['bills_reference_images']) ? 1 : 0;
+            $key = "$unit:$size:$price:$basis:$referenceImages";
+            $rates[$key] = ['usage_unit' => $unit, 'usage_unit_size' => $size, 'tenant_unit_price' => $price]
+                + array_intersect_key($spec, ['billing_basis' => true, 'bills_reference_images' => true]);
         }
         return array_values($rates);
     }
