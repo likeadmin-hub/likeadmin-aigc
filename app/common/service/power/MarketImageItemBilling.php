@@ -83,7 +83,9 @@ final class MarketImageItemBilling
 
     public static function prices(array $sku, int $owner, ?array $platformRules = null, ?array $tenantRules = null): ?array
     {
-        $contract = $sku['source_payload']['image_item_billing'] ?? null;
+        $source = $sku['source_payload'] ?? [];
+        if (is_string($source)) $source = json_decode($source, true);
+        $contract = $source['image_item_billing'] ?? null;
         if ($contract === null) return null;
         if (isset($contract['error'])) return $contract + ['valid'=>false,'items'=>[]];
         $platformRules ??= MarketPriceRuleService::rules(0);
@@ -177,18 +179,23 @@ final class MarketImageItemBilling
     public static function receipt(array $pricing, array $response, array $facts): ?array
     {
         $bill = $response['token_billing'] ?? null;
-        if (($bill['status'] ?? '') !== 'settled' || !is_array($bill['items'] ?? null)) return null;
+        if (!is_array($bill) || ($bill['status'] ?? '') !== 'settled' || !is_array($bill['items'] ?? null)) return null;
         $actual = $bill['actual_points'] ?? null;
         if (!is_numeric($actual) || (float)$actual < 0 || (float)$actual > (float)$pricing['cap']) return null;
         $expected = array_filter($pricing['items'], static fn($item) => empty($item['author']) || $item['author']===($facts['author'] ?? ''));
         $quantities = [];
         $subtotal = 0.;
         foreach ($bill['items'] as $line) {
-            $key = (string)($line['code'] ?? '').(empty($line['author'])?'':':'.$line['author']);
+            if (!is_array($line) || !is_string($line['code'] ?? null) || !is_string($line['author'] ?? '')) return null;
+            $key = $line['code'].(empty($line['author'])?'':':'.$line['author']);
             $quantity = filter_var($line['tokens'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0,'max_range'=>1000000000]]);
-            if (!isset($expected[$key]) || isset($quantities[$key]) || $quantity === false
-                || !is_numeric($line['points_per_million_tokens'] ?? null)
-                || MarketPricePolicy::amount($line['points_per_million_tokens']) !== $expected[$key]['rate']) return null;
+            if (!isset($expected[$key]) || isset($quantities[$key]) || $quantity === false) return null;
+            try {
+                $rate = MarketPricePolicy::amount($line['points_per_million_tokens'] ?? null);
+            } catch (InvalidArgumentException) {
+                return null;
+            }
+            if ($rate !== $expected[$key]['rate']) return null;
             $quantities[$key] = $quantity;
             $subtotal += $quantity*(float)$expected[$key]['rate']/1000000;
         }

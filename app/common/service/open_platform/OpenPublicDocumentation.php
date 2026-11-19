@@ -51,6 +51,18 @@ final class OpenPublicDocumentation
             foreach($config['billing']??[] as $rule){
                 $skuId=(int)($rule['sku_id']??0);if(isset($seen[$skuId]))continue;$seen[$skuId]=true;$sku=$skus[$skuId]??null;
                 if(!$sku||empty($sku['sale_status'])||!is_numeric($sku['sale_points']??null)||!is_numeric($sku['usage_unit_size']??null)||!is_finite((float)$sku['sale_points'])||!is_finite((float)$sku['usage_unit_size'])||(float)$sku['sale_points']<0||(float)$sku['usage_unit_size']<=0){$content.='| '.$name.' | SKU '.($skuId?:'—').' | 当前规格暂不可售，请确认在线预估 | — |'."\n";continue;}
+                $details = OpenNativeImageItems::publicPrices($sku)['billing_details'] ?? null;
+                if ($details !== null) {
+                    $prices = [];
+                    foreach ($details['items'] as $item) {
+                        $label = $item['label'].($item['author']!==''?'（'.$item['author'].'）':'');
+                        $prices[] = self::cell($label).' '.self::number($item['unit_points']).' 积分 / '.self::cell($item['unit']);
+                    }
+                    $unit = $details['mode']==='token_items'?'分项 Token':'按输入图与基础费';
+                    if ($details['included'] > 0) $unit .= '，含 '.$details['included'].' 张输入图';
+                    $content.='| '.$name.' | '.self::cell((string)$sku['sku_key']).' | '.($prices?implode('，',$prices):'当前规格暂不可售').' | '.$unit.' |'."\n";
+                    continue;
+                }
                 $unit=match($sku['usage_unit']){'character'=>'字符','token'=>'Token','input_second'=>'输入秒','output_second'=>'输出秒','second','seconds','sec'=>'秒','image'=>'图片','per_call'=>($config['native_pricing']??'')===OpenNativeMarketPricing::ADAPTER&&($product['model_type']??'')==='image'?'成功图片':'次',default=>(string)$sku['usage_unit']};
                 $points = self::number((float)$sku['sale_points']);
                 if (isset($sku['token_rates'])) {

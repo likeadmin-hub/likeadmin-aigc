@@ -397,6 +397,7 @@ class MarketImageModelRuntimeService
             $facts = $market['image_item_facts'];
             $pricing = self::imageUserRates($pricing, $facts, $billingOverride, $quantity, !empty($market['_tenant_admin_consumption']));
             [$cost, $user] = MarketImageItemBilling::amounts($pricing, $facts, $quantity);
+            $quote['quantity'] = $quantity;
             $quote['tenant_cost_points'] = $cost;
             $quote['user_charge_points'] = $user;
             $quote['tenant_unit_points'] = (float)($pricing['items']['base']['platform'] ?? 0);

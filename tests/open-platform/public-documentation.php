@@ -2,7 +2,8 @@
 /** Isolated read-view fixtures: no real publication, generation or price changes. */
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
 use app\common\service\open_platform\{OpenDocuments as D,OpenStore as S,OpenContracts as C,OpenVerification as V,OpenPublicDocumentation as P};
-use app\common\model\power\{PowerMarketProduct as Product,PowerMarketSku as Sku,TenantPowerMarketSkuPrice as Retail};
+use app\common\model\power\{PowerMarketProduct as Product,PowerMarketSku as Sku};
+use app\common\service\power\MarketPriceRuleService as Rates;
 use think\facade\Db;
 function checkPublicDocs(bool $ok,string $why): void {if(!$ok)throw new RuntimeException($why);}
 function categoryDocs(array $docs,string $category): array {return array_values(array_filter($docs,fn($d)=>$d['category']===$category));}
@@ -18,7 +19,9 @@ Db::startTrans();try{
     $template=Sku::where(['product_id'=>61,'status'=>1,'sale_status'=>1])->find()->toArray();unset($template['id']);$template['create_time']=time();$template['update_time']=time();
     $sku=Sku::create(array_replace($template,['product_id'=>$product['id'],'sku_key'=>'published_spec_'.$tag,'sale_points'=>10,'usage_unit'=>'character','usage_unit_size'=>1000,'locked_params'=>[]]));
     $unpublished=Sku::create(array_replace($template,['product_id'=>$product['id'],'sku_key'=>'unpublished_spec_'.$tag,'sale_points'=>900,'usage_unit'=>'character','usage_unit_size'=>1000,'locked_params'=>[]]));
-    Retail::create(['tenant_id'=>$tenant,'sku_id'=>$sku['id'],'sale_status'=>1,'sale_points'=>25,'create_time'=>time(),'update_time'=>time()]);
+    $sku->save(['upstream_price'=>10]);
+    Rates::manual(0,(int)$product['id'],(int)$sku['id'],10);
+    Rates::manual($tenant,(int)$product['id'],(int)$sku['id'],25);
     $global=S::settings(0);$global['models'][]=(string)$product['id'];unset($global['enabled']);S::table('setting')->where('tenant_id',0)->update(['config'=>S::encode($global)]);
     S::table('setting')->insert(['tenant_id'=>$tenant,'enabled'=>1,'config'=>S::encode(array_replace($global,['models'=>[(string)$product['id']]]))]+S::timestamp());
     $code='public.docs.'.$tag;

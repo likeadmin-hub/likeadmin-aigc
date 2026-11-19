@@ -75,7 +75,9 @@ final class OpenNativeMarketPricing
                 $selection['ratio'] = $size;
             } else $selection['size'] = $size;
         }
-        $quantity = self::alias($raw, ['n', 'num_images', 'quantity'], true) ?? 1;
+        $quantityAliases = ['n','num_images','quantity'];
+        if ((OpenNativeImageItems::binding($product,$sku)['basis'] ?? '')==='image') $quantityAliases[]='count';
+        $quantity = self::alias($raw, $quantityAliases, true) ?? 1;
         if ($quantity < 1) throw new OpenException('invalid_request', '图片数量须为正整数');
         $selection['quantity'] = $quantity;
         if(self::isNano($product))$selection['model_id']='market_nano_banana:'.$product['id'].':'.base64_encode((string)($locked['model']??''));
@@ -143,7 +145,15 @@ final class OpenNativeMarketPricing
         $sku = \app\common\model\power\PowerMarketSku::where(['id'=>$skuId,'product_id'=>(int)$product['id'],'status'=>1,'sale_status'=>1])->find();
         if (!$sku) throw new OpenException('invalid_sku', '所选商品规格不可用');
         OpenSkuConsistency::assert($sku->toArray());
-        $bound = self::bind($product, $raw, $skuId, $sku->toArray());
+        $skuData = $sku->toArray();
+        $pricing = $skuData['source_payload']['image_item_billing'] ?? null;
+        $projection = $raw;
+        if (is_array($pricing) && !isset($pricing['error'])) {
+            $metadata = OpenStore::json($product['source_payload'] ?? [])['market_metadata'] ?? [];
+            $projection = OpenNativeImageItems::business($raw, OpenNativeImageItems::defaults($pricing,$metadata));
+            $projection = array_replace($projection, array_intersect_key($raw,['model'=>true,'channel'=>true]));
+        }
+        $bound = self::bind($product, $projection, $skuId, $skuData);
         try {
             $captured = $bound['kind'] === 'image'
                 ? (self::isNano($product)?Nano::openPlatformAdmissionQuote($tenantId,$bound['selection'],$bound['selection']['quantity']):Images::openPlatformAdmissionQuote($tenantId, $bound['selection'], $bound['selection']['quantity']))
@@ -152,7 +162,7 @@ final class OpenNativeMarketPricing
         catch (\Exception $e) { throw new OpenException('invalid_sku', $e->getMessage()); }
         if ((int)$captured['market']['product']['id'] !== (int)$product['id'] || (int)$captured['market']['sku']['id'] !== $skuId) throw new OpenException('invalid_sku', '参数不能改选契约绑定的 SKU');
         if (isset($captured['quote']['market_snapshot']['image_item_pricing'])) {
-            throw new OpenException('native_usage_boundary_required', '该分项计费规格需要审核原生调用的计费规则',503);
+            return OpenNativeImageItems::freeze($captured['quote'],$captured['market']['sku'],$raw,$publishedRule);
         }
         $meter=(array)($captured['quote']['market_snapshot']['billing_meter']??[]);
         $bounded=Meter::boundedToken($meter);$pixels=Pixel::applies($meter);
@@ -230,7 +240,9 @@ final class OpenNativeMarketPricing
 
     public static function assertPreparedTransport(array $snapshot,array $raw): void
     {
-        Full::assertNativeProjection((array)($snapshot['native_media']['market_snapshot']??[]),$raw);
+        $native = (array)($snapshot['native_media'] ?? []);
+        OpenNativeImageItems::assertTransport($native,$raw);
+        Full::assertNativeProjection((array)($native['market_snapshot']??[]),$raw);
     }
 
     /** Successful URL slots plus null markers for confirmed unavailable/non-image slots. */

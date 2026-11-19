@@ -500,6 +500,9 @@ class TenantPowerMarketService
             $imageRates = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $tenantId), $tenantId);
             if ($imageRates !== null) {
                 $sku['image_billing_items'] = $imageRates;
+                $sku['image_billing_items']['native_meter'] = \app\common\service\open_platform\OpenNativeImageItems::structure(
+                    (array)$sku['source_payload']['image_item_billing']
+                );
                 unset($sku['source_payload']['image_item_billing']);
             }
             $sku['pricing_valid'] = $resolved['valid'] && ($rates['valid'] ?? true) && ($imageRates['valid'] ?? true);

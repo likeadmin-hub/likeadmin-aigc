@@ -17,6 +17,14 @@ final class OpenMarketResponse
         foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)if(in_array($path,[$prefix.'points_cost',$prefix.'actual_points',$prefix.'points'],true))return true;
         return false;
     }
+    private static function tokenBillingMoney(string $path): bool
+    {
+        foreach (OpenNativeImageItems::RECEIPT_PATHS as $prefix) {
+            if (in_array($path,[$prefix.'.actual_points',$prefix.'.subtotal_points',$prefix.'.adjustment_points',
+                $prefix.'.items.[].points_per_million_tokens',$prefix.'.items.[].points'],true)) return true;
+        }
+        return false;
+    }
     private static function opaque(string $path): bool{return in_array(rtrim($path,'.'),self::OPAQUE_PATHS,true);}
     /** Numeric retail currency permits decimals; numeric-string contracts retain string type. */
     public static function retailSchemas(array $responses): array
@@ -58,7 +66,7 @@ final class OpenMarketResponse
     {
         if(self::opaque($path))return true;
         if($depth>32||--$budget<0)return false;
-        if(self::retailPath(rtrim($path,'.'))){
+        if(self::retailPath(rtrim($path,'.'))||self::tokenBillingMoney(rtrim($path,'.'))){
             foreach((array)($schema['type']??[]) as $type)if(!in_array($type,['integer','number','string'],true))return false;
             foreach(['properties','items','patternProperties'] as $key)if(isset($schema[$key]))return false;
         }
@@ -67,7 +75,7 @@ final class OpenMarketResponse
             $node=$root;foreach(explode('/',substr($ref,2)) as $part){$part=str_replace(['~1','~0'],['/','~'],$part);if(!is_array($node)||!array_key_exists($part,$node))return false;$node=$node[$part];}
             if(!is_array($node)||!self::schemaNode($node,$root,$path,array_merge($refs,[$ref]),$depth+1,$budget))return false;
         }
-        foreach($schema['properties']??[] as $name=>$field){$full=$path.$name;if(!self::opaque($full)&&(OpenSchemaNormalizer::sensitiveName((string)$name)||self::financialPath($full)&&!self::retailPath($full)))return false;if(!is_array($field)||!self::schemaNode($field,$root,$full.'.',$refs,$depth+1,$budget))return false;}
+        foreach($schema['properties']??[] as $name=>$field){$full=$path.$name;if(!self::opaque($full)&&(OpenSchemaNormalizer::sensitiveName((string)$name)||self::financialPath($full)&&!self::retailPath($full)&&!self::tokenBillingMoney($full)))return false;if(!is_array($field)||!self::schemaNode($field,$root,$full.'.',$refs,$depth+1,$budget))return false;}
         foreach(['items','additionalProperties'] as $key)if(isset($schema[$key])&&is_array($schema[$key])&&!self::schemaNode($schema[$key],$root,$path.'[].',$refs,$depth+1,$budget))return false;
         foreach(['oneOf','anyOf','allOf'] as $union)foreach($schema[$union]??[] as $branch)if(!is_array($branch)||!self::schemaNode($branch,$root,$path,$refs,$depth+1,$budget))return false;
         foreach($schema['patternProperties']??[] as $branch)if(!is_array($branch)||!self::schemaNode($branch,$root,$path.'[].',$refs,$depth+1,$budget))return false;
@@ -82,7 +90,7 @@ final class OpenMarketResponse
     private static function bodyNode(mixed $value,string $path,int $depth,int &$budget): bool
     {
         if(self::opaque($path))return true;if($depth>32||--$budget<0)return false;
-        if($value instanceof \stdClass)foreach(get_object_vars($value) as $name=>$child){$full=$path.$name;if(self::removablePath($full))continue;if(!self::opaque($full)){if(self::financialPath($full)&&!self::retailPath($full))return false;if(self::retailPath($full)&&!self::moneyValue($child))return false;if(OpenSchemaNormalizer::sensitiveName($name))return false;}if(!self::bodyNode($child,$full.'.',$depth+1,$budget))return false;}
+        if($value instanceof \stdClass)foreach(get_object_vars($value) as $name=>$child){$full=$path.$name;if(self::removablePath($full))continue;if(!self::opaque($full)){if(self::financialPath($full)&&!self::retailPath($full)&&!self::tokenBillingMoney($full))return false;if((self::retailPath($full)||self::tokenBillingMoney($full))&&!self::moneyValue($child))return false;if(OpenSchemaNormalizer::sensitiveName($name))return false;}if(!self::bodyNode($child,$full.'.',$depth+1,$budget))return false;}
         elseif(is_array($value))foreach($value as $child)if(!self::bodyNode($child,$path.'[].',$depth+1,$budget))return false;
         return true;
     }
@@ -105,10 +113,42 @@ final class OpenMarketResponse
             foreach(['frozen_points'=>'reserved','actual_points'=>'charged','points_cost'=>'charged'] as $name=>$amount)self::replace($value,$prefix.$name,(float)($amounts[$amount]??0),$changed);
         }
         foreach(['usage.','data.usage.','data.result.usage.'] as $prefix)foreach(['points_cost','actual_points','points'] as $name)self::replace($value,$prefix.$name,(float)($amounts['charged']??0),$changed);
+        self::projectTokenBilling($value,$amounts,$changed);
         // Provider routing/configuration belongs to the server. Do not traverse
         // generated result text, tool arguments, or arbitrary user JSON output.
         foreach(['','data.','data.result.'] as $prefix)foreach(['api_key','api_secret','credentials','provider_config','source_blob','price_snapshot','pricing_snapshot','tenant_cost','platform_sale_points','upstream_price'] as $name)self::remove($value,$prefix.$name,$changed);
         return $changed?OpenStore::encode($value):$body;
+    }
+    /** Keep the supplier's receipt envelope while returning only local retail amounts. */
+    private static function projectTokenBilling(\stdClass $root, array $amounts, bool &$changed): void
+    {
+        foreach ([$root,$root->data ?? null] as $container) {
+            if (!$container instanceof \stdClass || !isset($container->token_billing)) continue;
+            $details = $amounts['image_billing'] ?? null;
+            $bill = ['status'=>'reconciliation_pending'];
+            if (($details['mode'] ?? '') === 'token_items') {
+                $input = $output = 0; $subtotal = 0.; $lines = [];
+                foreach ($details['items'] as $item) {
+                    $tokens = (int)$item['quantity'];
+                    [$code] = explode(':',$item['code'],2);
+                    if (in_array($code,['image_output','svg_author_output'],true)) $output += $tokens;
+                    else $input += $tokens;
+                    // Display the exact unadjusted rate × usage, followed by
+                    // the verified Credit and wallet rounding adjustment.
+                    $points = round($tokens*(float)$item['unit_points']/1000000,6);
+                    $subtotal += $points;
+                    $lines[] = ['code'=>$code,'label'=>$item['label'],'author'=>$item['author'],'tokens'=>$tokens,
+                        'points_per_million_tokens'=>number_format((float)$item['unit_points'],6,'.',''),
+                        'points'=>number_format($points,6,'.','')];
+                }
+                $actual = (float)$amounts['charged'];
+                $bill = ['status'=>'settled','input_tokens'=>$input,'output_tokens'=>$output,'total_tokens'=>$input+$output,
+                    'output_images'=>$details['output_count'] ?? null,'items'=>$lines,'subtotal_points'=>number_format($subtotal,6,'.',''),
+                    'actual_points'=>number_format($actual,2,'.',''),'adjustment_points'=>number_format($actual-$subtotal,6,'.','')];
+            }
+            $container->token_billing = (object)$bill;
+            $changed = true;
+        }
     }
     private static function replace(\stdClass $root,string $path,float $value,bool &$changed): void
     {
@@ -125,8 +165,14 @@ final class OpenMarketResponse
         $charged=(float)$row['actual_user'];$reserved=(float)$row['budget_user'];
         // Terminal receipts have cleared live budgets; retain the admission
         // amount from the immutable consumption, without repricing old SKUs.
-        $records=\think\facade\Db::name('ai_consumption_log')->where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'consume_no'=>$row['request_id']])->field('reserved_user_price')->select()->toArray();
+        $records=\think\facade\Db::name('ai_consumption_log')->where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'consume_no'=>$row['request_id']])->field('reserved_user_price,billing_status,usage_snapshot')->select()->toArray();
         if($records)$reserved=array_sum(array_column($records,'reserved_user_price'));
-        return ['charged'=>round($charged,2),'reserved'=>round($reserved,2)];
+        $reply = ['charged'=>round($charged,2),'reserved'=>round($reserved,2)];
+        foreach ($records as $record) {
+            if ($record['billing_status'] !== 'settled') continue;
+            $details = OpenStore::json($record['usage_snapshot'])[0]['billing_details'] ?? null;
+            if (($details['mode'] ?? '') === 'token_items') $reply['image_billing']=$details;
+        }
+        return $reply;
     }
 }

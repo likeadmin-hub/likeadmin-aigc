@@ -2,6 +2,7 @@
 require dirname(__DIR__,2).'/vendor/autoload.php';(new think\App())->initialize();
 use app\common\service\open_platform\{OpenDocumentationCatalog as D,OpenStore as S,OpenManagement as M};
 use app\common\model\power\{PowerMarketProduct as Product,PowerMarketSku as Sku};
+use app\common\service\power\MarketPriceRuleService as Rates;
 use think\facade\Db;
 function verifyLiveDocs($ok,$message){if(!$ok)throw new RuntimeException($message);}
 $c=config('database.connections.mysql');verifyLiveDocs($c['hostname']==='127.0.0.1'&&$c['database']==='z_cn','Local rollback only');
@@ -10,7 +11,9 @@ Db::startTrans();try{
     $base=Product::where('resource_type','app_api')->find()->toArray();$template=Sku::where(['product_id'=>$base['id'],'status'=>1,'sale_status'=>1])->find()->toArray();unset($base['id'],$template['id']);$base['create_time']=$base['update_time']=$template['create_time']=$template['update_time']=time();
     $base['name']='Dynamic docs '.$tag;$base['product_code']='dynamic_docs_'.$tag;$base['upstream_resource_key']='dynamic_docs_'.$tag;$base['upstream_app_code']='future_app_'.$tag;$base['upstream_api_code']='new_api';$base['status']=1;
     $base['source_payload']=S::encode(['market_metadata'=>['app_name'=>'Future App','category_code'=>'audio','params_schema'=>['text'=>['type'=>'string','required'=>true]],'default_params'=>['secret_key'=>'SECRET_FIXTURE'],'developer_doc_content'=>'https://private-vendor.test/secret','method'=>'POST','call_type'=>1]]);
-    $product=Product::create($base);$template['product_id']=$product['id'];$template['title']='公开规格 4K';$template['sale_points']=12.5;$template['sale_status']=1;$sku=Sku::create($template);
+    $product=Product::create($base);$template['product_id']=$product['id'];$template['title']='公开规格 4K';$template['upstream_price']=10;$template['sale_status']=1;$sku=Sku::create($template);
+    Rates::manual(0,(int)$product['id'],(int)$sku['id'],10);
+    Rates::manual(1,(int)$product['id'],(int)$sku['id'],12.5);
     $entries=D::build(1);$found=array_values(array_filter($entries,fn($entry)=>($entry['x-product-id']??0)===$product['id']));
     verifyLiveDocs(count($found)===1,'New market API not discovered without importing/publishing');
     $item=$found[0];verifyLiveDocs($item['section']==='应用 API'&&$item['group']==='Future App'&&$item['x-published']===false&&$item['x-callable']===false,'Reference incorrectly became callable');

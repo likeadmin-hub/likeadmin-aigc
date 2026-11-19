@@ -121,7 +121,9 @@ final class OpenMarketContractCompiler
         foreach ($product['skus'] ?? [] as $sku) {
             $locked = OpenStore::json($sku['locked_params'] ?? []);
             $character=OpenCharacterInputPricing::supports($product,$sku);
+            $nativeItems=OpenNativeImageItems::binding($product,$sku);
             $skus[] = ['sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => (float)$sku['usage_unit_size'], 'sale_points' => (float)$sku['sale_points'], 'sale_status' => (bool)$sku['sale_status'], 'locked_params' => OpenPolicy::publicData($locked)];
+            if ($nativeItems !== null) $skus[array_key_last($skus)]['native_meter'] = $nativeItems;
             foreach ($paths as $route) {
                 $issues = $base; $candidateInput = $input; $candidateExample = $example; $when = []; $whenDefaults=[]; $parameterPaths=[];
                 $candidateSources = $schemaSources;
@@ -142,11 +144,14 @@ final class OpenMarketContractCompiler
                     $candidateSources['input'] = $definition['trace'];
                 } elseif ($protocolInputs) $issues[] = self::block('schema_missing', '该协议尚无已审核的请求结构');
                 try{OpenSkuConsistency::assert($sku);}catch(OpenException $e){$issues[]=self::block('pricing_spec_mismatch',$e->getMessage());}
+                if (!empty($sku['image_billing_items']) && (!$nativeItems || empty($sku['image_billing_items']['valid']))) {
+                    $issues[] = self::block('pricing_spec_mismatch','生图分项计费契约或费率尚不可用');
+                }
                 $nativeToken=$nativeMedia?OpenNativeMarketPricing::boundedTokenBinding($product,$sku):null;
                 $nativePixel=$nativeMedia?OpenNativeMarketPricing::pixelBinding($product,$sku):null;
-                if (\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)) {if(!$nativeToken)$issues[] = self::block('actual_usage_boundary_required','Token SKU 已存在，透传执行仍需真实用量结算与可信受理额度');}
+                if (\app\common\service\power\MarketUsageSettlementService::isActualUsageSku($sku)) {if(!$nativeToken&&!$nativeItems)$issues[] = self::block('actual_usage_boundary_required','Token SKU 已存在，透传执行仍需真实用量结算与可信受理额度');}
                 elseif (!$nativeMedia && !$character && (($sku['usage_unit'] ?? '') !== 'per_call' || (float)($sku['usage_unit_size'] ?? 0) !== 1.)) $issues[] = self::block('billing_adapter_required', '当前业务尚未接入原生数量适配');
-                elseif ($nativeMedia && !$nativePixel && !in_array($sku['usage_unit']??'',['per_call','input_second','output_second','second','seconds','sec'],true)) $issues[] = self::block('billing_adapter_required','原生媒体单位尚未适配');
+                elseif ($nativeMedia && !$nativePixel && !$nativeItems && !in_array($sku['usage_unit']??'',['per_call','input_second','output_second','second','seconds','sec'],true)) $issues[] = self::block('billing_adapter_required','原生媒体单位尚未适配');
                 if (empty($sku['sale_status'])) $issues[] = self::block('sku_not_sellable', 'SKU 已下架');
                 if (($signatures[OpenPolicy::fingerprint($locked)] ?? 0) > 1) $issues[] = self::block('ambiguous_sku', '多个 SKU 锁定相同维度，需可靠选择器');
                 foreach ($locked as $field => $value) {
@@ -163,11 +168,17 @@ final class OpenMarketContractCompiler
                     $config['description']='stream=true 请求 SSE，stream=false 或省略时按上游非流式约定执行。以实际响应 Content-Type 为准，事件、工具调用、推理内容及错误格式保持原样。X-Open-Request-Id 用于本站调用记录。';
                 }
                 if($nativeMedia){$config['native_pricing']=OpenNativeMarketPricing::ADAPTER;$config['success_statuses']=['success','completed','succeeded','partial_success','partial_failed'];$config['billing_description']='按原生媒体 SKU 及实际成功数量/用量结算，受理参数仅用于价格映射，原协议不改写';}
-                if($nativePixel){
+                if($nativeItems){
+                    $config['billing'][0]=array_replace($config['billing'][0],OpenNativeImageItems::publishedRule($nativeItems));
+                    $config['billing_description']=$nativeItems['mode']==='token_items'
+                        ? '按分项 Token 计费上限预占，核验回执后按受理时的费率结算并退回剩余积分。缺少回执时保留预占。'
+                        : '按实际传入图片张数及免费额度计费，基础费按次或按实际成功出图张数结算';
+                }
+                if($nativePixel&&!$nativeItems){
                     $config['billing'][0]=array_replace($config['billing'][0],['basis'=>'usage','max_units'=>$nativePixel['maximum_images']*$nativePixel['maximum_pixels_per_image']/1000000,'usage_path'=>$nativePixel['result_path'],'native_meter'=>$nativePixel]);
                     $config['billing_description']='按正式像素上限预占，服务端实测成功输出像素后按冻结单价结算；缺测量保留待核对';
                 }
-                if($nativeToken){
+                if($nativeToken&&!$nativeItems){
                     $config['billing'][0]=array_replace($config['billing'][0],['basis'=>'usage','max_units'=>$nativeToken['maximum_quantity'],'usage_path'=>$nativeToken['usage_path'],'native_meter'=>$nativeToken]);
                     $config['billing_description']='按已核验 SKU 的最大 Token 费用预占，实际用量按冻结单价结算；缺回执或超上限等待核对';
                 }
