@@ -6,11 +6,11 @@ namespace app\common\service\app\aigc_canvas {
         public static array $config = ['router_enabled'=>true,'router_available'=>true,'router_model_code'=>'tenant-model'];
         public static array $calls = [];
         public static string $content = '{"prompt":"海边的女孩，柔和逆光，自然构图。"}';
-        public static bool $fail = false;
+        public static ?\Throwable $failure = null;
         public static function promptEnrichmentConfig($tenant) { return self::$config; }
         public static function llmText($tenant,$user,$params) {
             self::$calls[]=[$tenant,$user,$params];
-            if(self::$fail)throw new \RuntimeException('private provider error');
+            if (self::$failure !== null) throw self::$failure;
             if(isset($params['_result_validator']))$params['_result_validator'](['content'=>self::$content]);
             return ['content'=>self::$content];
         }
@@ -52,7 +52,19 @@ try {
     Runtime::$config['router_enabled']=false;refuses(fn()=>Preview::preview(11,22,$params),'尚未启用');
     Runtime::$config['router_enabled']=true;Runtime::$config['router_available']=false;refuses(fn()=>Preview::preview(11,22,$params),'暂无可用');
     Runtime::$config['router_available']=true;
-    Runtime::$fail=true;try{Preview::preview(11,22,$params);throw new \RuntimeException('Expected provider error');}catch(\RuntimeException $e){verify(!str_contains($e->getMessage(),'private')&&str_contains($e->getMessage(),'未完成'),'Raw error leaked');}
+    $failures = [
+        [new \RuntimeException('private provider error'), '原提示词已保留'],
+        [new \app\common\service\power\MarketTextModelProviderException('private provider error', false, protocolCode: 'provider_stream_incomplete', gatewayRefunded: true), '本次未扣积分'],
+        [new \app\common\service\power\MarketTextModelProviderException('private provider error', false, protocolCode: 'legacy_missing_completion'), '未收到完整回复'],
+        [new \app\common\service\power\TextAdmissionRejected('用户积分不足'), '用户积分不足'],
+        [new \app\common\service\power\TextSettlementPending(1, [], [], new \RuntimeException('private')), '费用待核对'],
+    ];
+    foreach ($failures as [$failure, $expected]) {
+        Runtime::$failure = $failure;
+        try { Preview::preview(11, 22, $params); throw new \LogicException('Expected preview failure'); }
+        catch (\Exception $e) { verify(str_contains($e->getMessage(), $expected) && !str_contains($e->getMessage(), 'private'), 'Missing safe preview guidance'); }
+    }
+    Runtime::$failure = null;
     verify(Preview::normalize('```json'."\n".'{"prompt":"保留 @图片1 和 【@角色】 的构图"}'."\n".'```','@图片1 【@角色】')==='保留 @图片1 和 【@角色】 的构图','Mentions not preserved');
     verify(Preview::normalize('{"prompt":"@图片1缓慢转身，保持人物一致"}','让@图片1动起来')==='@图片1缓慢转身，保持人物一致','Inline model reference mistaken for following Chinese text');
     foreach(['{}','not-json','{"prompt":"删除引用"}','{"prompt":"@图片1 @新主体"}'] as $content){try{Preview::normalize($content,'@图片1');throw new \LogicException('Accepted invalid preview');}catch(\RuntimeException){$checks++;}}

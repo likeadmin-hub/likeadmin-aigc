@@ -304,7 +304,7 @@ class MarketTextModelRuntimeService
                     break;
                 } catch (\Throwable $initialError) {
                     if ($initialError instanceof TextSettlementPending) throw $initialError;
-                    if ($initialError instanceof MarketTextModelProviderException && $initialError->partialResult !== null) throw $initialError;
+                    if ($initialError instanceof MarketTextModelProviderException && ($initialError->partialResult !== null || $initialError->gatewayRefunded)) throw $initialError;
                     if ($openTextCall || !empty($params['_agent_tool_history']) || !empty($params['_disable_compatibility_retry'])) throw $initialError;
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
                     if ($retry === null) {
@@ -367,6 +367,10 @@ class MarketTextModelRuntimeService
             ]);
         } catch (\Throwable $e) {
             if($e instanceof TextSettlementPending)throw $e;
+            if ($e instanceof MarketTextModelProviderException && $e->gatewayRefunded) {
+                self::fail($context, $e->getMessage(), $e->protocolCode);
+                throw $e;
+            }
             if ($e instanceof MarketTextModelProviderException && $e->partialResult !== null) {
                 $result = $e->partialResult;
                 if(!$openTextCall&&MarketTextFailurePolicy::preGenerationRejection($result)){
@@ -1558,9 +1562,9 @@ class MarketTextModelRuntimeService
         $evidence = array_intersect_key($info, array_flip(['errno','request_size','size_upload','size_download',
             'pretransfer_time','http_code','header_size','namelookup_time','connect_time','appconnect_time','total_time']));
         $base = self::providerException(self::networkError($error), false, $state);
-        $exception = new MarketTextModelProviderException($base->getMessage(), false, $base->partialResult, $evidence);
+        $exception = new MarketTextModelProviderException($base->getMessage(), false, $base->partialResult, $evidence, $base->protocolCode, $base->gatewayRefunded);
         return $exception->requestNotSent()
-            ? new MarketTextModelProviderException('文本模型连接暂时不可用（请求尚未发送）：' . self::networkError($error), false, null, $evidence)
+            ? new MarketTextModelProviderException('文本模型连接暂时不可用（请求尚未发送）：' . self::networkError($error), false, null, $evidence, $base->protocolCode)
             : $exception;
     }
 
@@ -1595,6 +1599,7 @@ class MarketTextModelRuntimeService
     /** @return array<string, mixed>|null */
     private static function parseSseBlock(string $block): ?array
     {
+        if (str_starts_with($block, "\xEF\xBB\xBF")) $block = substr($block, 3);
         $eventName = '';
         $data = [];
         foreach (preg_split('/\r?\n/', trim($block)) ?: [] as $line) {
@@ -1956,7 +1961,14 @@ class MarketTextModelRuntimeService
                 'output_present'=>(bool)($state['native_output_present']??false),'output_items'=>(int)($state['native_output_item_count']??0),'visible_chars'=>mb_strlen((string)($state['content']??'')),'reasoning_chars'=>mb_strlen((string)($state['reasoning']??'')),
                 'delta_count'=>(int)($state['delta_count']??0),'reasoning_delta_count'=>(int)($state['native_reasoning_delta_count']??0),'function_delta_count'=>(int)($state['native_function_delta_count']??0)],
         ] : null;
-        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null, $partial);
+        $gatewayRefunded = !empty($state['gateway_refunded']);
+        $code = (string)($state['native_error_code'] ?? '');
+        if ($gatewayRefunded) {
+            $message = '模型响应未完整结束，本次未扣积分';
+            $gatewayCode = (string)($state['native_provider_code'] ?? '');
+            if (in_array($gatewayCode, ['provider_stream_incomplete', 'provider_stream_failed'], true)) $code = $gatewayCode;
+        }
+        return new MarketTextModelProviderException($message, $fallbackAllowed && !$hasOutput && $partial === null && !$gatewayRefunded, $partial, [], $code, $gatewayRefunded);
     }
 
     private static function providerError($payload): string

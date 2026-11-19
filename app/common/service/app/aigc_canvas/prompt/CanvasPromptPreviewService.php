@@ -3,11 +3,15 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_canvas\prompt;
 
 use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\power\{MarketTextModelProviderException, TextAdmissionRejected, TextSettlementPending};
 use think\facade\Db;
 
 /** Explicit, text-only preview. Never writes a project or submits a media task. */
 final class CanvasPromptPreviewService
 {
+    private const INVALID_RESULT = '模型返回的提示词格式无效，原提示词已保留，请稍后重试';
+    private const CHANGED_REFERENCES = '优化结果改变了 @ 引用，原提示词已保留，请重试';
+
     public static function preview(int $tenantId, int $userId, array $params): array
     {
         if ($tenantId <= 0 || $userId <= 0) throw new \InvalidArgumentException('请登录后优化提示词');
@@ -49,8 +53,24 @@ final class CanvasPromptPreviewService
                 'action_code' => 'canvas_prompt_preview', 'source_type' => 'canvas_prompt_preview',
                 'business_table' => 'aigc_canvas_project', 'business_id' => $projectId,
             ]);
-        } catch (\Throwable) {
-            throw new \RuntimeException('提示词优化未完成，请检查模型可用状态或余额后重试');
+        } catch (TextAdmissionRejected $error) {
+            throw new \RuntimeException($error->getMessage(), 0, $error);
+        } catch (TextSettlementPending $error) {
+            throw new \RuntimeException('本次优化的费用待核对，原提示词已保留。请先查看调用记录，避免重复提交', 0, $error);
+        } catch (MarketTextModelProviderException $error) {
+            $message = match (true) {
+                $error->gatewayRefunded => '模型未能完成本次优化，原提示词已保留，本次未扣积分',
+                $error->protocolCode === 'transport_errno_28' => '优化请求超时，原提示词已保留。请先查看调用记录再试',
+                in_array($error->protocolCode, ['legacy_missing_completion', 'responses_missing_completion', 'response.failed', 'response.incomplete'], true)
+                    => '未收到完整回复，原提示词已保留。请先查看调用记录再试',
+                default => '模型暂时无法优化提示词，原提示词已保留，请稍后重试',
+            };
+            throw new \RuntimeException($message, 0, $error);
+        } catch (\Throwable $error) {
+            $message = in_array($error->getMessage(), [self::INVALID_RESULT, self::CHANGED_REFERENCES], true)
+                ? $error->getMessage()
+                : '提示词优化失败，原提示词已保留，请稍后重试';
+            throw new \RuntimeException($message, 0, $error);
         }
         return ['prompt' => self::normalize((string)($result['content'] ?? ''), $prompt), 'node_id' => $nodeId,
             'project_id' => $projectId, 'type' => $type, 'model_code' => (string)$config['router_model_code']];
@@ -61,13 +81,13 @@ final class CanvasPromptPreviewService
         $content = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($content)) ?? '');
         $data = json_decode($content, true);
         $prompt = is_array($data) && is_string($data['prompt'] ?? null) ? trim($data['prompt']) : '';
-        if ($prompt === '' || !mb_check_encoding($prompt, 'UTF-8') || mb_strlen($prompt, 'UTF-8') > 4000) throw new \RuntimeException('模型未返回有效的优化提示词，请重试');
+        if ($prompt === '' || !mb_check_encoding($prompt, 'UTF-8') || mb_strlen($prompt, 'UTF-8') > 4000) throw new \RuntimeException(self::INVALID_RESULT);
         // Keep real reference tokens intact; never invent a new asset reference.
         $tokens = static function (string $value): array {
             preg_match_all('/【@[^】]+】|@(?:图片|视频|音频)\d+|@[\p{L}\p{N}_.:\-]+/u', $value, $matches);
             $counts = array_count_values($matches[0]); ksort($counts); return $counts;
         };
-        if ($tokens($original) !== $tokens($prompt)) throw new \RuntimeException('优化结果改变了 @ 引用，请重试；原提示词未修改');
+        if ($tokens($original) !== $tokens($prompt)) throw new \RuntimeException(self::CHANGED_REFERENCES);
         return $prompt;
     }
 

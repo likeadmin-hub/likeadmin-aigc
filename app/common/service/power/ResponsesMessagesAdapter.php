@@ -100,6 +100,8 @@ final class ResponsesMessagesAdapter
             if($snapshotText!==''&&str_starts_with($snapshotText,(string)$state['content']))$state['content']=$snapshotText;
             $state['native_error_code'] = $type;
             $state['native_provider_code'] = self::code((string)($response['error']['code'] ?? $response['incomplete_details']['reason'] ?? ''),$requestKey);
+            $state['gateway_refunded'] = $type === 'response.failed' && ($response['status'] ?? '') === 'failed'
+                && ($json['gateway_billing_status'] ?? '') === 'refunded';
             $state['error'] = '模型回复未完整结束，请勿重复提交，费用待核对';
         } elseif ($type === 'response.completed') {
             $state['native_response_status'] = self::code((string)($response['status'] ?? ''));

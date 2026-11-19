@@ -6,7 +6,14 @@ class MarketTextModelProviderException extends \Exception
 {
     public bool $allowsModelFallback;
 
-    public function __construct(string $message, bool $allowsModelFallback, public readonly ?array $partialResult = null, public readonly array $transportInfo = [])
+    public function __construct(
+        string $message,
+        bool $allowsModelFallback,
+        public readonly ?array $partialResult = null,
+        public readonly array $transportInfo = [],
+        public readonly string $protocolCode = '',
+        public readonly bool $gatewayRefunded = false,
+    )
     {
         parent::__construct($message);
         $this->allowsModelFallback = $allowsModelFallback;

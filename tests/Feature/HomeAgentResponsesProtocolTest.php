@@ -20,7 +20,7 @@ namespace app\common\service\power {
     }
     function curl_errno($handle) { return 0; }
     function curl_error($handle) { return ''; }
-    function curl_getinfo($handle, $option) { return 200; }
+    function curl_getinfo($handle, $option = null) { return $option === null ? ['http_code' => 200] : 200; }
     function curl_close($handle) {}
 }
 namespace {
@@ -39,6 +39,39 @@ namespace {
     function created(): array { return ['type'=>'response.created','response'=>['id'=>'resp_fixture','status'=>'in_progress']]; }
     function complete(array $items): array { return ['type'=>'response.completed','response'=>['id'=>'resp_fixture','status'=>'completed','output'=>$items,'usage'=>['input_tokens'=>123,'output_tokens'=>17,'total_tokens'=>140]]]; }
     function message(string $text): array { return ['type'=>'message','id'=>'msg_fixture','role'=>'assistant','status'=>'completed','content'=>[['type'=>'output_text','text'=>$text,'annotations'=>[]]]]; }
+    F::$rawBody = "\xEF\xBB\xBFdata: " . json_encode(complete([message('完成的正文')]), JSON_UNESCAPED_UNICODE) . "\r\n\r\n";
+    check(wire([], $chunks, true)['content'] === '完成的正文', 'A split transport parser must accept the initial UTF-8 BOM');
+    F::$rawBody = '';
+    $gatewayFailure = ['type' => 'response.failed', 'gateway_billing_status' => 'refunded',
+        'response' => ['status' => 'failed', 'error' => ['code' => 'provider_stream_incomplete']]];
+    foreach ([true, false] as $refunded) {
+        $failure = $gatewayFailure;
+        if (!$refunded) unset($failure['gateway_billing_status']);
+        try {
+            wire([created(), ['type' => 'response.output_text.delta', 'delta' => '残缺正文'], $failure]);
+            throw new \LogicException('Gateway failure exposed a successful answer');
+        } catch (MarketTextModelProviderException $e) {
+            check($e->gatewayRefunded === $refunded && !$e->allowsModelFallback, 'A verified gateway refund must differ from an uncertain disconnect');
+        }
+    }
+    if (isset($argv[1])) {
+        F::$rawBody = file_get_contents($argv[1] . '/completed.sse');
+        $reply = wire([], $chunks, true);
+        check($reply['content'] === '正文' && $reply['usage']['output_tokens'] === 3 && $reply['protocol_evidence']['terminal_seen'],
+            'Gateway output did not decode into the complete billed answer');
+        foreach (['refunded.sse' => true, 'uncertain.sse' => false] as $file => $refunded) {
+            F::$rawBody = file_get_contents($argv[1] . '/' . $file);
+            try {
+                wire([], $chunks, true);
+                throw new \LogicException('Gateway failure decoded as success');
+            } catch (MarketTextModelProviderException $error) {
+                check($error->gatewayRefunded === $refunded && !$error->allowsModelFallback && $error->partialResult['tool_calls'] === [],
+                    'Client misclassified the gateway receipt or permitted paid replay');
+            }
+        }
+        F::$rawBody = '';
+        echo "Cross-repository Kimi wire replay passed\n";
+    }
     $reasoning=['type'=>'reasoning','id'=>'rs_fixture','summary'=>[],'encrypted_content'=>'opaque-fixture'];
     $callA=['type'=>'function_call','id'=>'fc_a','call_id'=>'call_a','name'=>'lookup','arguments'=>'{"name":"服装"}','status'=>'completed'];
     $callB=['type'=>'function_call','id'=>'fc_b','call_id'=>'call_b','name'=>'lookup','arguments'=>'{"name":"模特"}','status'=>'completed'];
