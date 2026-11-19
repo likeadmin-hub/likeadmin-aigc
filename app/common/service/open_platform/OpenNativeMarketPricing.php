@@ -41,6 +41,7 @@ final class OpenNativeMarketPricing
         }
         if (!self::supports($product)) throw new OpenException('pricing_unavailable', '该商品尚未接入原生价格映射', 503);
         $isImage = ($product['model_type'] ?? '') === 'image';
+        $imageMeter = OpenNativeImageItems::binding($product, $sku);
         $selection = ['market_product_id' => (int)$product['id'], 'market_sku_id' => $skuId, 'resource_type' => $product['resource_type']];
         $prompt=self::alias($raw,['prompt'],false,true);
         if($prompt!==null){
@@ -63,7 +64,16 @@ final class OpenNativeMarketPricing
         }
         $priority = $isImage ? ['quality','resolution','image_size'] : ['resolution','quality','image_size'];
         foreach ($priority as $name) if (isset($locked[$name]) && (string)$locked[$name] !== '') { $selection['quality'] = (string)$locked[$name]; break; }
-        if (!isset($selection['quality'])) foreach ($priority as $name) if (isset($dimensions[$name])) { $selection['quality'] = $dimensions[$name]; break; }
+        if (!isset($selection['quality'])) {
+            // Itemized image Token requests can declare render quality (medium) alongside resolution (1K).
+            $dimensionsByPriority = ($imageMeter['mode'] ?? '') === 'token_items'
+                ? ['resolution','image_size','quality'] : $priority;
+            foreach ($dimensionsByPriority as $name) {
+                if (!isset($dimensions[$name])) continue;
+                $selection['quality'] = $dimensions[$name];
+                break;
+            }
+        }
         foreach (['ratio' => ['ratio', 'aspect_ratio'], 'duration' => ['duration', 'seconds', 'video_duration']] as $name => $aliases) {
             $value = self::alias($raw, $aliases, $name === 'duration');
             if ($value !== null) $selection[$name] = $value;
@@ -76,7 +86,7 @@ final class OpenNativeMarketPricing
             } else $selection['size'] = $size;
         }
         $quantityAliases = ['n','num_images','quantity'];
-        if ((OpenNativeImageItems::binding($product,$sku)['basis'] ?? '')==='image') $quantityAliases[]='count';
+        if (($imageMeter['basis'] ?? '')==='image') $quantityAliases[]='count';
         $quantity = self::alias($raw, $quantityAliases, true) ?? 1;
         if ($quantity < 1) throw new OpenException('invalid_request', '图片数量须为正整数');
         $selection['quantity'] = $quantity;

@@ -91,11 +91,14 @@ try {
         $fixtureImage = 'https://93.184.216.34/local-fixture.png'; // Literal IP for URL validation only. No downloads.
         if ($countMode) $wire += ['count'=>2,'image_urls'=>[$fixtureImage,$fixtureImage],
             'elements'=>[(object)['name'=>'subject','image_urls'=>[$fixtureImage,$fixtureImage]]]];
+        else $wire += ['quality'=>'medium','resolution'=>'1K'];
         $query = ['code'=>1,'msg'=>'success','data'=>['task_id'=>'local-'.$tag,'status'=>'completed',
             'type'=>'image','result'=>['results'=>[['type'=>'image','url'=>'https://fixtures.invalid/ready.png','transfer_status'=>'success']]]]];
         $meta = ['method'=>'POST','call_type'=>2,'protocol'=>'image_generate','supports_reference_images'=>true,
             'max_reference_images'=>4,'params_schema'=>[
                 'model'=>['type'=>'string'],'channel'=>['type'=>'string'],'prompt'=>['type'=>'string','required'=>true],
+                'quality'=>['type'=>'string','enum'=>['medium','high']],
+                'resolution'=>['type'=>'string','enum'=>['1K','2K']],
                 'count'=>['type'=>'integer','minimum'=>1,'maximum'=>10],
                 'image_urls'=>['type'=>'array','items'=>['type'=>'string']],
                 'elements'=>['type'=>'array','items'=>['type'=>'object','properties'=>[
