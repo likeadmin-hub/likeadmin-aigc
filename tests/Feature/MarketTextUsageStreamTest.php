@@ -11,6 +11,21 @@ foreach(['openai_chat','openai_responses','anthropic_messages'] as $protocol){
     $body=$payload->invoke(null,$protocol,$model,[['role'=>'user','content'=>'test']],'',128,$params);
     check($protocol==='openai_chat'?($body['stream_options']['include_usage']??false)===true:!isset($body['stream_options']),'Usage option violates selected protocol');
 }
+$resolveLimit = method('resolveMaxTokens');
+$transport = method('transportPayload');
+$outputLimitKeys = array_fill_keys(['max_tokens', 'max_completion_tokens', 'max_output_tokens'], true);
+foreach (['openai_chat', 'openai_responses', 'anthropic_messages'] as $protocol) {
+    $model = ['model_code' => 'fixture', 'protocols' => [$protocol], 'default_params' => ['max_tokens' => 1024]];
+    $limit = $resolveLimit->invoke(null, $model, [], true);
+    $options = $protocol === 'anthropic_messages' ? [] : ['max_output_tokens' => 500, 'max_completion_tokens' => 700];
+    $body = $transport->invoke(null, $protocol, $model, [['role' => 'user', 'content' => 'fixture']], '', $limit, $options, []);
+    check(array_intersect_key($body, $outputLimitKeys) === ($protocol === 'anthropic_messages' ? ['max_tokens' => 1024] : []),
+        'Provider budget should omit all optional wire limits and preserve mandatory Messages max_tokens');
+    check($resolveLimit->invoke(null, $model, ['max_tokens' => 500]) === 500, 'Another text workflow lost its explicit budget');
+}
+$messagesModel = ['model_code' => 'fixture', 'protocols' => ['anthropic_messages'], 'max_output_tokens' => 64000];
+check($resolveLimit->invoke(null, $messagesModel, [], true) === 64000,
+    'Mandatory Messages budget used the runtime fallback instead of the declared model capacity');
 $retry=method('compatibleGenerationParams')->invoke(null,'unknown parameter: stream_options',['stream_options'=>['include_usage'=>true]]);
 check($retry!==null&&!isset($retry['params']['stream_options']),'Usage option cannot be removed for incompatible provider');
 $state=['content'=>'','reasoning'=>'','usage'=>[],'request_id'=>'','emitted_request_id'=>'','tool_calls'=>[]];$emitted=[];

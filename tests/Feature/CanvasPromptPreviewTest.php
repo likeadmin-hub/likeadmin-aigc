@@ -42,13 +42,16 @@ try {
     verify($call[2]['model_code']==='tenant-model'&&$call[2]['system_prompt']!=='forged','Caller overrode tenant configuration');
     verify($call[2]['action_code']==='canvas_prompt_preview'&&$call[2]['business_table']==='aigc_canvas_project','Billing trace not scoped to preview/project');
     verify($call[2]['_disable_model_fallback']&&is_callable($call[2]['_result_validator']),'Configured model or validation before settlement missing');
+    verify(!array_key_exists('max_tokens', $call[2]) && !array_key_exists('request_timeout_seconds', $call[2])
+        && ($call[2]['_use_provider_output_budget'] ?? false) === true,
+        'Canvas preview still owns a separate output or request budget');
+    verify(!str_contains($call[2]['system_prompt'], '4000'), 'Prompt optimizer still instructs the model to cap the result');
     $params['node_id']='v';Preview::preview(11,22,$params);
     $input=json_decode(Runtime::$calls[1][2]['content'],true);verify($input['type']==='video'&&$input['duration']===5&&$input['ratio']==='16:9','Legacy video settings not read');
     $textResult=Preview::preview(11,22,[...$params,'node_id'=>'t']);
     verify($textResult['type']==='text' && $textResult['prompt']!=='', 'Text prompt enhancement unavailable');
     foreach([[12,22,2,'i'],[11,23,2,'i'],[11,22,3,'i'],[11,22,2,'other-project-node']] as [$t,$u,$p,$n])refuses(fn()=>Preview::preview($t,$u,['project_id'=>$p,'node_id'=>$n,'prompt'=>'测试']),$n==='t'||$n==='other-project-node'?'只能优化':'无权访问');
     refuses(fn()=>Preview::preview(0,22,$params),'登录');
-    refuses(fn()=>Preview::preview(11,22,['project_id'=>2,'node_id'=>'i','prompt'=>str_repeat('字',4001)]),'4000');
     Runtime::$config['router_enabled']=false;refuses(fn()=>Preview::preview(11,22,$params),'尚未启用');
     Runtime::$config['router_enabled']=true;Runtime::$config['router_available']=false;refuses(fn()=>Preview::preview(11,22,$params),'暂无可用');
     Runtime::$config['router_available']=true;
@@ -65,6 +68,13 @@ try {
         catch (\Exception $e) { verify(str_contains($e->getMessage(), $expected) && !str_contains($e->getMessage(), 'private'), 'Missing safe preview guidance'); }
     }
     Runtime::$failure = null;
+    $longOutput = str_repeat('长', 4500) . ' @图片1';
+    $longInput = str_repeat('字', 4100) . ' @图片1';
+    Runtime::$content = json_encode(['prompt' => $longOutput], JSON_UNESCAPED_UNICODE);
+    verify(Preview::preview(11, 22, [...$params, 'prompt' => $longInput])['prompt'] === $longOutput,
+        'A valid long optimization result was rejected');
+    $longCall = end(Runtime::$calls);
+    verify(json_decode($longCall[2]['content'], true)['prompt'] === $longInput, 'The long original prompt was truncated');
     verify(Preview::normalize('```json'."\n".'{"prompt":"保留 @图片1 和 【@角色】 的构图"}'."\n".'```','@图片1 【@角色】')==='保留 @图片1 和 【@角色】 的构图','Mentions not preserved');
     verify(Preview::normalize('{"prompt":"@图片1缓慢转身，保持人物一致"}','让@图片1动起来')==='@图片1缓慢转身，保持人物一致','Inline model reference mistaken for following Chinese text');
     foreach(['{}','not-json','{"prompt":"删除引用"}','{"prompt":"@图片1 @新主体"}'] as $content){try{Preview::normalize($content,'@图片1');throw new \LogicException('Accepted invalid preview');}catch(\RuntimeException){$checks++;}}

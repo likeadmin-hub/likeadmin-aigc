@@ -25,6 +25,7 @@ class MarketTextModelRuntimeService
     private const REQUEST_TIMEOUT_SECONDS = 1200;
     private const CONNECT_TIMEOUT_SECONDS = 30;
     private const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+    private const OUTPUT_TOKEN_PARAMS = ['max_tokens' => true, 'max_completion_tokens' => true, 'max_output_tokens' => true];
     private const MAX_COMPATIBILITY_ATTEMPTS = 4;
     private const MAX_MODEL_FALLBACK_ATTEMPTS = 3;
     /** @var array<int, string> */
@@ -205,7 +206,7 @@ class MarketTextModelRuntimeService
         }
         if ($executionPolicy !== null) $executionPolicy->prepareReceipt();
         $modelConfig = self::modelConfig($params);
-        $maxTokens = self::resolveMaxTokens($model, $modelConfig);
+        $maxTokens = self::resolveMaxTokens($model, $modelConfig, !empty($params['_use_provider_output_budget']));
         $generationParams = self::generationParams($model, $modelConfig);
         if($executionPolicy!==null)$generationParams=$executionPolicy->generationParams($model,$generationParams);
         // Neuron's canonical history does not carry signed thinking blocks.
@@ -243,7 +244,9 @@ class MarketTextModelRuntimeService
             'system_prompt_length' => mb_strlen((string)($params['system_prompt'] ?? ''), 'UTF-8'),
             'reference_image_count' => count($referenceImages),
             'model_code' => $model['model_code'],
-            'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
+            'generation_params' => $maxTokens === null
+                ? array_diff_key($generationParams, self::OUTPUT_TOKEN_PARAMS)
+                : $generationParams + ['max_tokens' => $maxTokens],
         ];
         if ($homeAgent && is_array($params['_agent_reading_source'] ?? null)) {
             $requestSummary['agent_reading_source'] = array_intersect_key($params['_agent_reading_source'], array_flip(['file_id','offset','end','unit','text_offset']));
@@ -355,7 +358,7 @@ class MarketTextModelRuntimeService
             }
             $billingStatus = (string)AiConsumptionLog::where('id', (int)$context['consumption']['id'])->value('billing_status');
             return array_replace($result, [
-                'effective_max_tokens' => $maxTokens,
+                'effective_max_tokens' => $maxTokens ?? 0,
                 'model_code' => $model['model_code'],
                 'model_name' => $model['name'],
                 'channel_code' => $model['channel_code'],
@@ -870,7 +873,7 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    private static function request(array $model, array $messages, string $system, int $maxTokens, array $generationParams, ?callable $onEvent, int $requestTimeout, array $transportOptions = []): array
+    private static function request(array $model, array $messages, string $system, ?int $maxTokens, array $generationParams, ?callable $onEvent, int $requestTimeout, array $transportOptions = []): array
     {
         $source = UpdateSourceClient::getSource(); $base = self::sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')); $key = (string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '');
         $sslVerify = UpdateSourceClient::sslVerify($source);
@@ -895,7 +898,7 @@ class MarketTextModelRuntimeService
     }
 
     /** Routing stays on model/channel; local SKU snapshots never depend on the wire body. */
-    private static function transportPayload(string $protocol,array $model,array $messages,string $system,int $maxTokens,array $generationParams,array $transportOptions): array
+    private static function transportPayload(string $protocol,array $model,array $messages,string $system,?int $maxTokens,array $generationParams,array $transportOptions): array
     {
         $payload = self::requestPayload($protocol, $model, $messages, $system, $maxTokens, $generationParams);
         foreach (self::MARKET_CONTEXT_KEYS as $key) unset($payload[$key]);
@@ -910,32 +913,33 @@ class MarketTextModelRuntimeService
     }
 
     /** Build the provider-specific request body without leaking protocol details to business apps. */
-    private static function requestPayload(string $protocol, array $model, array $messages, string $system, int $maxTokens, array $generationParams): array
+    private static function requestPayload(string $protocol, array $model, array $messages, string $system, ?int $maxTokens, array $generationParams): array
     {
+        $options = self::protocolGenerationParams($protocol, $generationParams);
+        if ($maxTokens === null) $options = array_diff_key($options, self::OUTPUT_TOKEN_PARAMS);
+        $limitKey = $protocol === 'openai_responses' ? 'max_output_tokens' : 'max_tokens';
+        $outputLimit = $maxTokens === null ? [] : [$limitKey => $maxTokens];
         if ($protocol === 'openai_responses') {
             return array_merge([
                 'model' => $model['model_code'],
                 'instructions' => $system,
                 'input' => ResponsesMessagesAdapter::input($messages),
-                'max_output_tokens' => $maxTokens,
-            ], self::protocolGenerationParams($protocol, $generationParams));
+            ], $outputLimit, $options);
         }
         if ($protocol === 'anthropic_messages') {
             $payload = [
                 'model' => $model['model_code'],
                 'messages' => AnthropicMessagesAdapter::messages($messages),
-                'max_tokens' => $maxTokens,
-            ];
+            ] + $outputLimit;
             if ($system !== '') {
                 $payload['system'] = $system;
             }
-            return array_merge($payload, self::protocolGenerationParams($protocol, $generationParams));
+            return array_merge($payload, $options);
         }
         return array_merge([
             'model' => $model['model_code'],
             'messages' => array_merge($system === '' ? [] : [['role' => 'system', 'content' => $system]], $messages),
-            'max_tokens' => $maxTokens,
-        ], self::protocolGenerationParams($protocol, $generationParams));
+        ], $outputLimit, $options);
     }
 
     /** Remove or translate options which are not valid for the selected protocol. */
@@ -1090,9 +1094,16 @@ class MarketTextModelRuntimeService
         return implode('', $parts);
     }
 
-    private static function resolveMaxTokens(array $model, array $overrides): int
+    private static function resolveMaxTokens(array $model, array $overrides, bool $useProviderOutputBudget = false): ?int
     {
-        return TextModelCapacity::output($model, (int)($overrides['max_tokens'] ?? 0), self::DEFAULT_MAX_OUTPUT_TOKENS);
+        if (!$useProviderOutputBudget) {
+            return TextModelCapacity::output($model, (int)($overrides['max_tokens'] ?? 0), self::DEFAULT_MAX_OUTPUT_TOKENS);
+        }
+        if (self::protocolForModel($model) !== 'anthropic_messages') return null;
+
+        // Messages requires max_tokens even when the caller defers to the model's budget.
+        $capacity = TextModelCapacity::metadata($model)['max_output_tokens'];
+        return TextModelCapacity::output($model, 0, $capacity ?: self::DEFAULT_MAX_OUTPUT_TOKENS);
     }
 
     private static function resolveRequestTimeout(array $params): int
