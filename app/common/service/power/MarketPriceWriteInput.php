@@ -14,12 +14,16 @@ final class MarketPriceWriteInput
             $id = filter_var($price['sku_id'] ?? $price['id'] ?? null, FILTER_VALIDATE_INT);
             if (!$id || $id < 1 || isset($rows[$id])) throw new RuntimeException('计费 SKU 无效或重复');
             $price['sku_id'] = $id;
-            if (empty($price['state_only']) && ($price['manual_override'] ?? true) !== false) {
-                $price['sale_points'] = self::amount($price['sale_points'] ?? null);
-                if (array_key_exists('expected_sale_points', $price)) self::amount($price['expected_sale_points']);
-            }
             if (isset($price['item_prices']) && (!is_array($price['item_prices']) || count($price['item_prices'])>20)) {
                 throw new RuntimeException('分项价格参数无效');
+            }
+            if (($price['items_only'] ?? false) === true) {
+                if (empty($price['item_prices']) || array_diff_key($price, array_flip(['id','sku_id','items_only','item_prices']))) {
+                    throw new RuntimeException('独立计费项设置仅接受分项价格');
+                }
+            } elseif (empty($price['state_only']) && ($price['manual_override'] ?? true) !== false) {
+                $price['sale_points'] = self::amount($price['sale_points'] ?? null);
+                if (array_key_exists('expected_sale_points', $price)) self::amount($price['expected_sale_points']);
             }
             $rows[$id] = $price;
         }

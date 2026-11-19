@@ -305,9 +305,10 @@ class TenantPowerMarketService
                 if (!isset($skuById[$skuId])) throw new Exception('计费 SKU 不存在');
                 $sku = $skuById[$skuId];
                 if (!self::isPlatformAvailableSku($sku)) throw new Exception('平台商品已下架，不能配置');
+                MarketPriceRuleService::saveImageItems($tenantId, $sku, $price['item_prices'] ?? []);
+                if (($price['items_only'] ?? false) === true) continue;
                 $row = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $skuId])->lock(true)->findOrEmpty();
                 $current = MarketPriceRuleService::tenant($tenantId, $sku, $row->isEmpty() ? null : $row->toArray());
-                MarketPriceRuleService::saveImageItems($tenantId, $sku, $price['item_prices'] ?? []);
                 $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
                 $sale = $writePrice ? $price['sale_points'] : (float)$current['tenant']['price'];
                 if ($writePrice) {
@@ -443,6 +444,7 @@ class TenantPowerMarketService
                 }
                 $id = (int)$sku['product_id'];
                 $stats[$id]['platform_sku_count'] = (int)($stats[$id]['platform_sku_count'] ?? 0) + 1;
+                if (isset($sku['source_payload']['image_item_billing'])) $stats[$id]['has_image_billing_items'] = true;
                 $tenantPrice = $pricesBySku[(int)$sku['id']] ?? null;
                 $tenantEnabled = $platformEnabled && (int)($tenantPrice['sale_status'] ?? 1) === 1;
                 if (!$tenantEnabled) {
@@ -464,6 +466,7 @@ class TenantPowerMarketService
             $row = PowerMarketService::formatProduct($row);
             $row['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0);
             $row['min_input_points'] = $stats[$id]['min_input_points'] ?? null;
+            $row['has_image_billing_items'] = !empty($stats[$id]['has_image_billing_items']);
             if (!empty($stats[$id]['has_token_rates'])) $row['has_token_rates'] = true;
             $row['min_price'] = (float)($stats[$id]['min_price'] ?? 0);
             $row['platform_status'] = (int)($stats[$id]['platform_sku_count'] ?? 0) > 0 ? 1 : 0;

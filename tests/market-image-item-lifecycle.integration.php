@@ -36,17 +36,43 @@ try {
     $row = \app\common\model\power\PowerMarketSku::where('product_id',$product)->find()->toArray();
     $sku = (int)$row['id'];
     $platform = Billing::display(Billing::prices($row, 0),0);
-    PowerMarketService::savePrices($product,[['sku_id'=>$sku,'manual_override'=>false,'sale_status'=>1,
+    PowerMarketService::savePrices($product,[['sku_id'=>$sku,'state_only'=>true,'sale_status'=>0]]);
+    PowerMarketService::savePrices($product,[['sku_id'=>$sku,'items_only'=>true,
         'item_prices'=>['input_images'=>['expected'=>$platform['items'][1]['sale'],'value'=>5]]]]);
+    imageAssert((int)\app\common\model\power\PowerMarketSku::find($sku)['sale_status']===0,'platform item-only setting preserves paused SKU state');
+    PowerMarketService::savePrices($product,[['sku_id'=>$sku,'state_only'=>true,'sale_status'=>1]]);
     $tenantPricing = Billing::display(Billing::prices($row, $tenant),$tenant);
-    TenantPowerMarketService::savePrices($tenant,$product,[['sku_id'=>$sku,'manual_override'=>false,'sale_status'=>1,
+    TenantPowerMarketService::savePrices($tenant,$product,[['sku_id'=>$sku,'state_only'=>true,'sale_status'=>0]]);
+    $shelf = static fn() => Db::name('tenant_power_market_sku_price')->where(['tenant_id'=>$tenant,'sku_id'=>$sku])->find();
+    $paused = $shelf();
+    TenantPowerMarketService::savePrices($tenant,$product,[['sku_id'=>$sku,'items_only'=>true,
         'item_prices'=>['input_images'=>['expected'=>$tenantPricing['items'][1]['sale'],'value'=>7]]]]);
+    imageAssert($shelf()===$paused && (int)$paused['sale_status']===0,'tenant item-only setting preserves SKU state and scalar price');
     $decl['charge_items'][0]['rate'] = 2;
     $sync->invoke(null,$product,$decl,['resource'=>['type_code'=>'image','model_code'=>'billing-'.$nonce]]);
     $fresh = \app\common\model\power\PowerMarketSku::find($sku)->toArray();
     $price = Billing::prices($fresh,$tenant);
     imageAssert($price['items']['input_images']['rate']==='2.000000' && $price['items']['input_images']['platform']==='5.000000'
         && $price['items']['input_images']['tenant']==='7.000000','sync updates cost and preserves both manual per-image rates');
+    $card = TenantPowerMarketService::models($tenant,'billing-'.$nonce,'',1,10,'image')['lists'][0] ?? [];
+    imageAssert(!empty($card['has_image_billing_items']) && (int)$card['status']===0,
+        'tenant can discover item settings even for a tenant-paused model');
+    foreach ([
+        ['sku_id'=>$sku,'items_only'=>true,'sale_status'=>1,'item_prices'=>['input_images'=>['expected'=>7,'value'=>8]]],
+        ['sku_id'=>$sku,'items_only'=>true,'item_prices'=>['input_images'=>['expected'=>6,'value'=>8]]],
+    ] as $invalid) {
+        try {
+            TenantPowerMarketService::savePrices($tenant,$product,[$invalid]);
+            throw new RuntimeException('Invalid item-only write accepted');
+        } catch (RuntimeException $error) {
+            imageAssert(str_contains($error->getMessage(),'仅接受分项价格') || str_contains($error->getMessage(),'费率已更新'),
+                'item-only write rejects mixed or stale updates');
+        }
+    }
+    TenantPowerMarketService::savePrices($tenant,$product,[['sku_id'=>$sku,'items_only'=>true,
+        'item_prices'=>['input_images'=>['expected'=>7,'value'=>null]]]]);
+    imageAssert(Billing::prices($fresh,$tenant)['items']['input_images']['tenant']==='5.000000' && $shelf()===$paused,
+        'restoring an item follows the current platform rate and preserves shelf state');
 
     $token=['price'=>['points'=>0],'reserve_upper_points'=>5,'charge_base_mode'=>'replace','charge_items'=>[]];
     foreach (['text_input_uncached','text_input_cached','image_input_uncached','image_input_cached','image_output'] as $code) {
@@ -58,11 +84,13 @@ try {
     $tokenRow = \app\common\model\power\PowerMarketSku::where(['product_id'=>$product,'sku_key'=>'token-fixture'])->find()->toArray();
     $tokenSku = (int)$tokenRow['id'];
     $platformToken = array_column(Billing::display(Billing::prices($tokenRow,0),0)['items'],null,'code');
-    PowerMarketService::savePrices($product,[['sku_id'=>$tokenSku,'manual_override'=>false,'sale_status'=>1,
+    PowerMarketService::savePrices($product,[['sku_id'=>$tokenSku,'items_only'=>true,
         'item_prices'=>['image_output'=>['expected'=>$platformToken['image_output']['sale'],'value'=>1200]]]]);
     $tenantToken = array_column(Billing::display(Billing::prices($tokenRow,$tenant),$tenant)['items'],null,'code');
-    TenantPowerMarketService::savePrices($tenant,$product,[['sku_id'=>$tokenSku,'manual_override'=>false,'sale_status'=>1,
+    TenantPowerMarketService::savePrices($tenant,$product,[['sku_id'=>$tokenSku,'items_only'=>true,
         'item_prices'=>['image_output'=>['expected'=>$tenantToken['image_output']['sale'],'value'=>1350]]]]);
+    imageAssert(!Db::name('tenant_power_market_sku_price')->where(['tenant_id'=>$tenant,'sku_id'=>$tokenSku])->find(),
+        'tenant item-only setting does not create a shelf override');
     $token['charge_items'][1]['rate'] = 1100;
     $sync->invoke(null,$product,$token,['resource'=>['type_code'=>'image','model_code'=>'billing-'.$nonce]]);
     $nextToken = Billing::prices(\app\common\model\power\PowerMarketSku::find($tokenSku)->toArray(),$tenant);

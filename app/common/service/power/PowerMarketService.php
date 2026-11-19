@@ -89,6 +89,7 @@ class PowerMarketService
                 if (!isset($skuById[$skuId])) throw new Exception('计费 SKU 不存在');
                 $sku = $skuById[$skuId];
                 MarketPriceRuleService::saveImageItems(0, $sku, $price['item_prices'] ?? []);
+                if (($price['items_only'] ?? false) === true) continue;
                 $writePrice = empty($price['state_only']) && ($price['manual_override'] ?? true) !== false;
                 $data = ['sale_status' => (int)($price['sale_status'] ?? $price['status'] ?? 1) === 1 ? 1 : 0, 'update_time' => time()];
                 if ($writePrice) {

@@ -39,10 +39,11 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
         $stats = [];
         if ($ids !== []) {
             foreach (PowerMarketSku::whereIn('product_id', $ids)->where('status', 1)->select()->toArray() as $sku) {
+                $id = (int)$sku['product_id'];
+                if (isset($sku['source_payload']['image_item_billing'])) $stats[$id]['has_image_billing_items'] = true;
                 if ((int)($sku['sale_status'] ?? 1) !== 1) {
                     continue;
                 }
-                $id = (int)$sku['product_id'];
                 if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
                 if (($sku['source_payload']['image_item_billing']['mode'] ?? '') === 'token_items') $stats[$id]['has_token_rates'] = true;
                 $input = $sku['source_payload']['image_item_billing']['items']['input_images']['rate'] ?? null;
@@ -58,6 +59,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             $row['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0);
             $row['min_price'] = (float)($stats[$id]['min_price'] ?? 0);
             $row['min_input_points'] = $stats[$id]['min_input_points'] ?? null;
+            $row['has_image_billing_items'] = !empty($stats[$id]['has_image_billing_items']);
             $row['has_token_rates'] = !empty($stats[$id]['has_token_rates']);
             $row['status'] = (int)($row['status'] ?? 0) === 1 && $row['sku_count'] > 0 ? 1 : 0;
             $row['status_text'] = $row['status'] === 1 ? '上架' : '下架';
