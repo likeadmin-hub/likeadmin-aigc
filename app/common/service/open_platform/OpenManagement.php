@@ -294,7 +294,11 @@ final class OpenManagement
             $itemized = $rule['basis'] === OpenNativeImageItems::BASIS;
             $variable = $variable || $split || $itemized || $rule['basis'] === 'usage';
             $item = ['sku_key' => $rule['sku_key'], 'usage_unit' => $rule['usage_unit'], 'usage_unit_size' => (float)$rule['unit_size'],
-                'reserved_units' => (float)($split ? $rule['max_units'] : $rule['units'])];
+                'reserved_units' => (float)($split ? $rule['max_units'] : $rule['units'])]
+                + array_intersect_key($rule, array_flip(['billing_basis', 'bills_reference_images']))
+                + \app\common\service\power\MarketGenerationMeter::priceDisplayFields(
+                    (array)($budget['snapshot']['native_media']['market_snapshot'] ?? [])
+                );
             if ($itemized) $item['billing_details'] = $rule['billing_details'];
             elseif ($split) $item['effective_rate_config'] = $rule['token_pricing']['tenant'];
             else $item['unit_price'] = (float)$rule['prices']['user'];

@@ -1854,7 +1854,7 @@ class PowerMarketService
             $sku['pricing_valid'] = $rates['valid'];
         }
         $sku['gross_margin_points'] = round($sku['sale_points'] - $sku['upstream_price'], 6);
-        return $sku;
+        return $sku + MarketGenerationMeter::priceDisplayFields($sku);
     }
 
     private static function arrayValue($value): array

@@ -13,6 +13,7 @@ use app\common\model\power\TenantPowerMarketProduct;
 use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\PointUnitService;
 use app\common\service\point\PointService;
+use app\common\service\power\MarketGenerationMeter;
 use RuntimeException;
 use think\facade\Db;
 
@@ -968,7 +969,10 @@ class AiUsageService
             }
         }
         $quantity = self::firstUsageQuantity($row, $usage);
-        return self::quantityText($quantity) . ' ' . self::usageUnitText($unit);
+        $label = $unit === 'business_unit'
+            ? MarketGenerationMeter::businessUnitLabel(MarketGenerationMeter::priceDisplayFields(['usage_unit' => $unit] + $snapshot))
+            : self::usageUnitText($unit);
+        return self::quantityText($quantity) . ' ' . $label;
     }
 
     private static function firstUsageQuantity(array $row, array $usage): float

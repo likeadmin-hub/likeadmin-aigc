@@ -49,7 +49,7 @@ final class OpenDirectory
     {
         $skus=array_values(array_filter($product['skus'],fn($s)=>!empty($s['sale_status'])));
         if(!$skus)return [];
-        $matrix=array_map(fn($sku)=>['sku_key'=>$sku['sku_key'],'unit_price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size'],'params'=>OpenStore::json($sku['locked_params']??[])]+(isset($sku['token_rates']) ? ['effective_rate_config'=>$sku['token_rates']['sale']] : [])+OpenNativeImageItems::publicPrices($sku),$skus);
+        $matrix=array_map(fn($sku)=>['sku_key'=>$sku['sku_key'],'unit_price'=>(float)$sku['sale_points'],'usage_unit'=>$sku['usage_unit'],'usage_unit_size'=>(float)$sku['usage_unit_size'],'params'=>OpenStore::json($sku['locked_params']??[])]+(isset($sku['token_rates']) ? ['effective_rate_config'=>$sku['token_rates']['sale']] : [])+OpenNativeImageItems::publicPrices($sku)+array_intersect_key($sku,array_flip(['billing_basis','bills_reference_images'])),$skus);
         $units=array_unique(array_column($skus,'usage_unit'));
         $type=count($units)===1?match($units[0]){'input_second'=>5,'output_second'=>6,'character'=>4,'token'=>1,default=>count($skus)===1?2:3}:3;
         // Parameter tiers and cached/reasoning rates must not overwrite a base token rate by row order.

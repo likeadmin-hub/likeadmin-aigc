@@ -22,6 +22,9 @@ eq(M::priceDisplayFields(['usage_unit'=>'business_unit','meter_summary'=>'生成
 eq(M::priceDisplayFields(['usage_unit'=>'business_unit','meter_summary'=>'生成张数 + 超过1的参考图片张数×2/56，总点数向上取整']),
     ['billing_basis'=>'image','bills_reference_images'=>true],'image picker distinguishes the reference image charge');
 eq(M::priceDisplayFields(['usage_unit'=>'business_unit','meter_summary'=>'未知单位']),[],'unknown billing units have no display inference');
+eq(M::businessUnitLabel(M::priceDisplayFields(['usage_unit'=>'business_unit']+$seedance)),
+    '秒（成片和参考视频的时长相加）','history shows the frozen billing unit');
+eq(M::businessUnitLabel([]),'计费用量','legacy missing meters have a readable unit without a guessed formula');
 eq(M::price(52,5,snapshot('生成秒数 + 参考视频秒数 + 超过5的参考图片张数×4/13','business_unit',['reference_images'=>7,'reference_video_seconds'=>2])),396.0,'MiniMax video and image terms');
 eq(M::price(16,2,snapshot('按次','pack')),16.0,'pack output count must not double charge one call');
 eq(M::price(26,3,snapshot('生成张数','image')),78.0,'image quantity');

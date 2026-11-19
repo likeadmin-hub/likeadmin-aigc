@@ -63,7 +63,7 @@ final class OpenPublicDocumentation
                     $content.='| '.$name.' | '.self::cell((string)$sku['sku_key']).' | '.($prices?implode('，',$prices):'当前规格暂不可售').' | '.$unit.' |'."\n";
                     continue;
                 }
-                $unit=match($sku['usage_unit']){'character'=>'字符','token'=>'Token','input_second'=>'输入秒','output_second'=>'输出秒','second','seconds','sec'=>'秒','image'=>'图片','per_call'=>($config['native_pricing']??'')===OpenNativeMarketPricing::ADAPTER&&($product['model_type']??'')==='image'?'成功图片':'次',default=>(string)$sku['usage_unit']};
+                $unit=match($sku['usage_unit']){'character'=>'字符','token'=>'Token','input_second'=>'输入秒','output_second'=>'输出秒','second','seconds','sec'=>'秒','image'=>'图片','per_call'=>($config['native_pricing']??'')===OpenNativeMarketPricing::ADAPTER&&($product['model_type']??'')==='image'?'成功图片':'次','business_unit'=>\app\common\service\power\MarketGenerationMeter::businessUnitLabel($sku),default=>(string)$sku['usage_unit']};
                 $points = self::number((float)$sku['sale_points']);
                 if (isset($sku['token_rates'])) {
                     $rates = $sku['token_rates']['sale'];

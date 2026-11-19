@@ -371,9 +371,10 @@ class CanvasModelRouterService
             'tenant_unit_points' => (float)($quote['tenant_unit_points'] ?? $quote['platform_unit_cost'] ?? 0),
             'user_unit_points' => (float)($quote['user_unit_points'] ?? $quote['tenant_unit_price'] ?? 0),
             'billing_unit' => (string)($quote['billing_unit'] ?? ''),
+            'billing_unit_size' => (float)($quote['billing_unit_size'] ?? 1),
             'settlement_mode' => (string)($quote['settlement_mode'] ?? 'reserved'),
             'billing_details' => $quote['billing_details'] ?? null,
-        ];
+        ] + array_intersect_key($quote, array_flip(['billing_basis', 'bills_reference_images']));
     }
 
     private static function videoMarketRuntime(array $selection): string

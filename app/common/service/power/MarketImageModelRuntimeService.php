@@ -391,7 +391,7 @@ class MarketImageModelRuntimeService
             'market_product_id' => (int)$market['product']['id'],
             'market_sku_id' => (int)$market['sku']['id'],
             'market_snapshot' => self::snapshot($market),
-        ];
+        ] + MarketGenerationMeter::priceDisplayFields($market['sku']);
         if($bounded)$quote['billing_quantity']=$market['billing_meter']['maximum_quantity'];
         $pricing = $market['image_item_pricing'] ?? null;
         if ($pricing !== null) {

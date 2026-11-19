@@ -540,6 +540,7 @@ class TenantPowerMarketService
             $sku['platform_sale_status'] = $platformEnabled ? 1 : 0;
             $sku['sale_status'] = $sku['pricing_valid'] && $platformEnabled && (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0;
             $sku['gross_margin_points'] = round($tenantSale - $platformSale, 6);
+            $sku += MarketGenerationMeter::priceDisplayFields($sku);
         }
         unset($sku);
         return $skus;

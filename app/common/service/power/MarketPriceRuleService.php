@@ -275,7 +275,7 @@ final class MarketPriceRuleService
             if (!$after['valid']) $invalid++;
             $preview[] = ['sku_id' => (int)$sku['id'], 'product_id' => (int)$sku['product_id'], 'name' => $sku['product_name'], 'title' => $sku['title'],
                 'usage_unit' => $sku['usage_unit'], 'usage_unit_size' => $sku['usage_unit_size'], 'base_price' => $after['base'],
-                'before' => $before['price'], 'after' => $after['price'], 'valid' => $after['valid'], 'rule' => $after['rule']] + $extra;
+                'before' => $before['price'], 'after' => $after['price'], 'valid' => $after['valid'], 'rule' => $after['rule']] + $extra + MarketGenerationMeter::priceDisplayFields($sku);
         }
         $newByKey = []; foreach ($newRules as $rule) $newByKey[$rule['scope_type'].':'.$rule['scope_id']] = $rule;
         $overrides = 0; foreach ($ownRules as $rule) { $new = $newByKey[$rule['scope_type'].':'.$rule['scope_id']] ?? null; if ($rule['scope_type'] !== 'global' && (!$new || $new['mode'] !== $rule['mode'] || (string)$new['value'] !== (string)$rule['value'])) $overrides++; }

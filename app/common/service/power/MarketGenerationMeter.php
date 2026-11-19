@@ -62,18 +62,33 @@ final class MarketGenerationMeter
 
     public static function priceDisplayFields(array $sku): array
     {
-        if (($sku['usage_unit'] ?? '') !== 'business_unit') {
+        if (strtolower(trim((string)($sku['usage_unit'] ?? ''))) !== 'business_unit') {
             return [];
         }
         try {
-            $meter = self::contract($sku);
+            $meter = $sku['billing_meter'] ?? self::contract($sku);
         } catch (InvalidArgumentException) {
             return [];
         }
         return [
-            'billing_basis' => $meter['basis'],
+            'billing_basis' => $meter['basis'] ?? '',
             'bills_reference_images' => !empty($meter['image_numerator']),
         ];
+    }
+
+    public static function businessUnitLabel(array $fields): string
+    {
+        $references = !empty($fields['bills_reference_images']);
+        return match ($fields['billing_basis'] ?? '') {
+            'output_plus_video' => $references ? '秒（成片和参考视频的时长相加，另计参考图费用）' : '秒（成片和参考视频的时长相加）',
+            'output_plus_max_video' => '秒（成片时长加上成片与参考视频中较长的时长）',
+            'output' => '输出秒',
+            'input' => '输入秒',
+            'image' => $references ? '张输出图（另计参考图费用）' : '张输出图',
+            'megapixel' => '百万像素',
+            'call' => '次',
+            default => '计费用量',
+        };
     }
 
     public static function hasDeclaration(array $sku): bool

@@ -46,7 +46,7 @@ final class OpenMarketBilling
             }
             $units=$rule['basis']==='usage'?(float)$rule['max_units']:(empty($rule['input_path'])?1:OpenSchema::get($params,$rule['input_path']));if(is_array($units))$units=count($units);if(!is_numeric($units)||(float)$units<0||(float)$units>(float)$rule['max_units'])throw new OpenException('invalid_usage','请求超出已发布计费边界');
             $size=max(1,(float)($sku['usage_unit_size']??1));$prices=['user'=>(float)$sku['sale_points'],'tenant'=>(float)$sku['platform_sale_points']];
-            $entry=$rule+['units'=>(float)$units,'unit_size'=>$size,'prices'=>$prices,'sku_key'=>$sku['sku_key'],'usage_unit'=>$sku['usage_unit']];$rules[]=$entry;$user+=$prices['user']*(float)$units/$size;$tenant+=$prices['tenant']*(float)$units/$size;
+            $entry=$rule+['units'=>(float)$units,'unit_size'=>$size,'prices'=>$prices,'sku_key'=>$sku['sku_key'],'usage_unit'=>$sku['usage_unit']]+array_intersect_key($sku,array_flip(['billing_basis','bills_reference_images']));$rules[]=$entry;$user+=$prices['user']*(float)$units/$size;$tenant+=$prices['tenant']*(float)$units/$size;
         }
         return ['user'=>round($user,2),'tenant'=>round($tenant,2),'snapshot'=>['billing_owner'=>'gateway','contract'=>$operation,'rules'=>$rules,'product_id'=>$productId]];
     }

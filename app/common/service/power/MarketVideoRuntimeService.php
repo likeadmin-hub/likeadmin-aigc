@@ -1153,7 +1153,7 @@ class MarketVideoRuntimeService
             'user_charge_points' => $deferred ? 0 : self::priceForQuantity((float)$market['tenant_price'], $quantity, $snapshot),
             'settlement_mode' => self::isTokenSnapshot($snapshot) ? 'actual_usage' : 'reserved', 'price_source' => 'power_market_video',
             'market_product_id' => (int)$market['product']['id'], 'market_sku_id' => (int)$sku['id'], 'market_snapshot' => $snapshot,
-        ];
+        ] + MarketGenerationMeter::priceDisplayFields($snapshot);
     }
 
     private static function snapshot(array $market, float $quantity): array
