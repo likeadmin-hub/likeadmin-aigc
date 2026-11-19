@@ -1,1 +1,1 @@
-{"component":true,"usingComponents":{"generation-state":"../../../components/creation-studio/GenerationState"}}
+{"component":true,"usingComponents":{"image-billing-help":"../../../components/image-billing/ImageBillingHelp","generation-state":"../../../components/creation-studio/GenerationState"}}

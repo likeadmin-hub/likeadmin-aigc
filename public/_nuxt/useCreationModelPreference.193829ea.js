@@ -1,1 +1,0 @@
-import{C as t,h as s,R as u}from"./entry.481f5043.js";import{c as a}from"./creation-model-preference.42ae060c.js";function c(){const n=t(),e=s();return a(()=>{var r,o;return{tenantId:u(n)||((r=e.userInfo)==null?void 0:r.tenant_id),userId:(o=e.userInfo)==null?void 0:o.id,loggedIn:e.isLogin}})}export{c as u};

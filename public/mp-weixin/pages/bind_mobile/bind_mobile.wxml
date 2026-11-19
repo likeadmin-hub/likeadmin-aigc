@@ -1,1 +1,1 @@
-<page-meta page-style="{{c}}"><navigation-bar front-color="{{a}}" background-color="{{b}}"/></page-meta><mp-page-navbar wx:if="{{d}}" u-i="45813e73-0" bind:__l="__l" u-p="{{d}}"/><page-content u-i="45813e73-1" bind:__l="__l"/><mp-privacy-popup u-i="45813e73-2" bind:__l="__l"/>
+<page-meta page-style="{{c}}"><navigation-bar front-color="{{a}}" background-color="{{b}}"/></page-meta><mp-page-navbar wx:if="{{d}}" u-i="156af519-0" bind:__l="__l" u-p="{{d}}"/><page-content u-i="156af519-1" bind:__l="__l"/><mp-privacy-popup u-i="156af519-2" bind:__l="__l"/>

@@ -1,1 +1,1 @@
-<text wx:if="{{a}}" class="model-source-badge data-v-aa8Ugg" aria-label="{{c}}">{{b}}</text>
+<text wx:if="{{a}}" class="model-source-badge data-vaa8Ugg" aria-label="{{c}}">{{b}}</text>
