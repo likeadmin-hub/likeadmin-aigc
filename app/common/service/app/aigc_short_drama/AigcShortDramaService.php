@@ -16155,6 +16155,10 @@ class AigcShortDramaService
             'channel_source_label' => ($model['channel_source'] ?? '') === 'official' ? '官方渠道' : '三方渠道',
             'name' => (string)($model['display_name'] ?? $model['name'] ?? $id),
             'description' => (string)($model['description'] ?? ''),
+            'tenant_input_unit_price' => $model['tenant_input_unit_price'] ?? null,
+            'tenant_output_unit_price' => $model['tenant_output_unit_price'] ?? null,
+            'billing_unit' => $model['billing_unit'] ?? 'token',
+            'billing_unit_size' => $model['billing_unit_size'] ?? null,
             // Model presentation belongs to the power market.  Do not fall back
             // to the short-drama avatar: that makes unrelated models appear to
             // have the same identity when the market has no configured icon.

@@ -3,7 +3,9 @@
 require dirname(__DIR__).'/vendor/autoload.php';
 (new think\App())->initialize();
 
+use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\app\aigc_llm\agent\AgentComposerSettings;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\power\TenantPowerMarketService as Market;
 use app\platformapi\lists\power\PowerMarketProductLists;
 use think\facade\Db;
@@ -57,13 +59,24 @@ try {
     checkCatalogue(Market::models(91003,$displayName,'',1,15,'text',true)['count']===0,
         'Tenant display search leaked an override');
 
+    $canvasModels = AigcCanvasService::config(1)['text']['models'];
+    $dramaGroups = array_column(AigcShortDramaService::home(1, 0)['model_groups'], 'options', 'key');
+    foreach (['Canvas' => $canvasModels, 'Short drama' => $dramaGroups['script_plan']] as $picker => $models) {
+        $option = array_column($models, null, 'market_product_id')[$id] ?? [];
+        checkCatalogue(isset($option['tenant_input_unit_price'], $option['tenant_output_unit_price'])
+            && (float)$option['tenant_input_unit_price'] === (float)$agent[$id]['tenant_input_unit_price']
+            && (float)$option['tenant_output_unit_price'] === (float)$agent[$id]['tenant_output_unit_price']
+            && (float)($option['billing_unit_size'] ?? 0) === 1000000.0,
+            $picker . ' text selection omitted or changed the tenant Token rates');
+    }
+
     Market::savePrices(1,$id,[['sku_id'=>$skuId,'state_only'=>true,'sale_status'=>0]]);
     checkCatalogue(Market::models(1,$displayName,'',1,15,'text',true)['count']===0,
         'Tenant shelf change did not remove the model from the Agent filter');
     $paused = Market::models(1,$displayName,'',1,15,'text')['lists'][0] ?? [];
     checkCatalogue(($paused['agent_text_available']??null)===false && (int)$paused['id']===$id,
         'Administrators cannot find their paused model in the full catalogue');
-    echo "PASS platform factory text catalogue, tenant name search and isolation, Agent price and SKU parity, tenant shelf changes\n";
+    echo "PASS platform text catalogue, tenant search and shelf changes, and Agent/Canvas/Short Drama price parity\n";
 } catch (Throwable $error) {
     fwrite(STDERR,$error->getMessage().PHP_EOL);
     $failed = true;
