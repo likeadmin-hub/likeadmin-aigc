@@ -8,6 +8,8 @@ use Throwable;
 /** Canonical site deployment. Only replaced paths have temporary rollback copies. */
 class DirectSiteUpdateService
 {
+    private const COMPAT_MARKER = 'runtime/direct-deployment.json';
+
     private string $root;
     private $writer = null;
     private $legacyWriterBarrier = null;
@@ -21,16 +23,23 @@ class DirectSiteUpdateService
 
     public static function enabled(string $root): bool
     {
-        $file = rtrim($root, '/') . '/runtime/direct-deployment.json';
-        $state = is_file($file) ? json_decode((string)file_get_contents($file), true) : null;
-        return is_array($state) && ($state['schema'] ?? null) === 1 && ($state['mode'] ?? '') === 'canonical';
+        $root = rtrim($root, '/');
+        if (self::canonicalSource($root) && !is_file($root.'/.composer-runtime/active.json')) return true;
+        $marker = $root.'/'.self::COMPAT_MARKER;
+        $state = !is_link($marker) && is_file($marker) ? json_decode((string)file_get_contents($marker), true) : null;
+        return ($state['schema'] ?? null) === 1 && ($state['mode'] ?? '') === 'canonical';
+    }
+
+    private static function canonicalSource(string $root): bool
+    {
+        return preg_match("/^\\s*'deployment_mode'\\s*=>\\s*'canonical'\\s*,/m", (string)@file_get_contents($root.'/config/project.php')) === 1;
     }
 
     /** Admit requests outside the write window; old reader leases never veto an update. */
     public static function acquireReader(string $root)
     {
-        $directory = rtrim($root, '/') . '/runtime';
-        if (!is_dir($directory) && !mkdir($directory, 0755, true)) throw new RuntimeException('无法创建站点运行目录');
+        $root = rtrim($root, '/');
+        $directory = self::lockDirectory($root);
         // The short admission lease excludes a writer during bootstrap. Keep
         // the legacy shared lease only to coordinate with older updater code.
         $intent = self::openSiteLock($directory.'/site-update-intent.lock');
@@ -39,14 +48,11 @@ class DirectSiteUpdateService
             if (!flock($intent, LOCK_SH | LOCK_NB)) throw new RuntimeException('本站正在更新，请稍后重试');
             $handle = self::openSiteLock($directory.'/site-update.lock');
             if (!flock($handle, LOCK_SH | LOCK_NB)) throw new RuntimeException('本站正在更新，请稍后重试');
+            if (is_file($directory.'/direct-update-active.json')) throw new RuntimeException('本站更新恢复尚未完成');
         } catch (Throwable $failure) {
             if (is_resource($handle)) fclose($handle);
             throw $failure;
         } finally { fclose($intent); }
-        if (is_file($directory . '/direct-update-active.json')) {
-            fclose($handle);
-            throw new RuntimeException('本站更新恢复尚未完成');
-        }
         return $handle;
     }
 
@@ -208,7 +214,7 @@ class DirectSiteUpdateService
             $this->install($this->legacy);
             $this->legacy['sql_state'] = 'done';
             $this->legacy['phase'] = 'completing';
-            $this->writeMarker($version);
+            $this->writeCompatibilityMarker($version);
             $this->save($this->legacy);
         } catch (Throwable $e) {
             if ($this->legacy !== null) $this->rollback($this->legacy);
@@ -291,7 +297,7 @@ class DirectSiteUpdateService
     private function start(string $digest, string $version, array $plan, array $binding, string $kind, array $watchPaths = []): array
     {
         foreach($watchPaths as $path)$this->safe($path);
-        foreach (array_merge(['runtime/direct-deployment.json','upgrade/version.json','public/upgrade/version.json'],$watchPaths) as $path) {
+        foreach (array_merge([self::COMPAT_MARKER,'upgrade/version.json','public/upgrade/version.json'],$watchPaths) as $path) {
             $covered = false;
             foreach ($plan as $planned => $entry) {
                 if (str_starts_with($path, $planned . '/')) { $covered = true; break; }
@@ -325,7 +331,7 @@ class DirectSiteUpdateService
 
     private function commit(array &$state, array $completion): array
     {
-        $this->writeMarker($state['version']);
+        $this->writeCompatibilityMarker($state['version']);
         $state['phase'] = 'committed'; $state['completion'] = $completion; $this->save($state);
         $this->atomicJson($this->receipt($state['digest']), ['schema'=>1,'status'=>'committed','version'=>$state['version'],'sql_state'=>$state['sql_state'],'completion'=>$completion]);
         $this->finish($state);
@@ -355,27 +361,85 @@ class DirectSiteUpdateService
         if (is_file($this->active()) && ($this->json($this->active())['digest'] ?? '') === $state['digest']) unlink($this->active());
         try{$this->remove($this->job($state['digest']));}catch(Throwable $cleanup){/* Durable terminal receipt prevents a cleanup error from rolling back a committed update. */}
     }
-    private function writeMarker(string $version): void { $this->atomicJson($this->root . '/runtime/direct-deployment.json', ['schema'=>1,'mode'=>'canonical','version'=>$version]); }
+    private function writeCompatibilityMarker(string $version): void
+    {
+        // Packages with the canonical source declaration do not depend on a writable runtime marker.
+        if (self::canonicalSource($this->root)) return;
+        $this->atomicJson($this->root.'/'.self::COMPAT_MARKER, ['schema'=>1,'mode'=>'canonical','version'=>$version]);
+    }
     private function save(array $state): void { $this->atomicJson($this->job($state['digest']) . '/state.json', $state); }
     private function active(): string { return $this->root . '/runtime/direct-update-active.json'; }
     private function job(string $digest): string { return $this->root . '/runtime/update_workspace/direct-' . $digest; }
     private function receipt(string $digest): string { return $this->root . '/runtime/update_receipts/' . $digest . '.json'; }
     private function lock(): void
     {
-        $this->directory($this->root . '/runtime');
+        $directory = self::lockDirectory($this->root);
         try {
-            $this->writer=self::openSiteLock($this->root.'/runtime/site-update-intent.lock');
+            $this->writer=self::openSiteLock($directory.'/site-update-intent.lock');
             if (!flock($this->writer,LOCK_EX|LOCK_NB)) throw new RuntimeException('本站已有更新正在执行，请稍后重试');
             // Shared with old HTTP/CLI readers, exclusive against an older
             // updater. This also upgrades sites with already-running workers.
-            $this->legacyWriterBarrier=self::openSiteLock($this->root.'/runtime/site-update.lock');
+            $this->legacyWriterBarrier=self::openSiteLock($directory.'/site-update.lock');
             if (!flock($this->legacyWriterBarrier,LOCK_SH|LOCK_NB)) throw new RuntimeException('本站已有更新正在执行，请稍后重试');
         } catch (Throwable $failure) { $this->unlock(); throw $failure; }
     }
+    private static function runningAsRoot(): bool
+    {
+        return function_exists('posix_geteuid') ? posix_geteuid() === 0 : @fileowner('/proc/self') === 0;
+    }
+
+    private static function lockDirectory(string $root): string
+    {
+        $directory = $root.'/runtime';
+        if (is_link($directory) || (!is_dir($directory) && !@mkdir($directory, 0755) && !is_dir($directory))) {
+            throw new RuntimeException('无法创建站点运行目录');
+        }
+        if (self::runningAsRoot() && fileowner($directory) === 0) {
+            foreach ([$root.'/config/install.lock', $root.'/config', $root] as $reference) {
+                $owner = !is_link($reference) && file_exists($reference) ? stat($reference) : false;
+                if ($owner && $owner['uid'] !== 0) {
+                    self::setLockOwner($directory, $owner);
+                    break;
+                }
+            }
+        }
+        return $directory;
+    }
+
+    private static function setLockOwner(string $path, array $owner): void
+    {
+        if (!@lchgrp($path, $owner['gid']) || !@lchown($path, $owner['uid'])) {
+            throw new RuntimeException('无法将站点更新锁权限设置为站点运行用户');
+        }
+        clearstatcache(true, $path);
+    }
+
     private static function openSiteLock(string $path)
     {
-        if (is_link($path)) throw new RuntimeException('站点更新锁不能是链接');
-        $handle=fopen($path,'c+e');
+        clearstatcache(true, $path);
+        if (is_link($path) || (file_exists($path) && !is_file($path))) throw new RuntimeException('站点更新锁必须是普通文件');
+        $mode = 'c+e';
+        if (self::runningAsRoot()) {
+            $owner = stat(dirname($path));
+            if ($owner && $owner['uid'] !== 0) {
+                // After preparation, opening must not recreate a removed lock as root.
+                $mode = 'r+e';
+                if (!is_file($path)) {
+                    // Publish only after ownership is correct and never replace a concurrent creator's inode.
+                    $temporary = tempnam(dirname($path), '.site-lock-');
+                    if ($temporary === false) throw new RuntimeException('无法创建站点更新锁');
+                    try {
+                        self::setLockOwner($temporary, $owner);
+                        if (!@link($temporary, $path) && !is_file($path)) throw new RuntimeException('无法发布站点更新锁');
+                    } finally { unlink($temporary); }
+                } elseif (fileowner($path) === 0) {
+                    self::setLockOwner($path, $owner);
+                }
+            }
+        }
+        clearstatcache(true, $path);
+        if (is_link($path) || (file_exists($path) && !is_file($path))) throw new RuntimeException('站点更新锁必须是普通文件');
+        $handle=@fopen($path,$mode);
         if (!$handle) throw new RuntimeException('无法打开站点更新锁');
         return $handle;
     }

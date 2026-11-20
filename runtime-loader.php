@@ -6,11 +6,16 @@ declare(strict_types=1);
 $siteRoot = $GLOBALS['AIGC_RUNTIME_SITE_ROOT_OVERRIDE'] ?? __DIR__;
 // Canonical sites and new installations do not create or select snapshots.
 $override=$GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE']??'';
-$canonicalMarker=$siteRoot.'/runtime/direct-deployment.json';
-$canonicalState=is_file($canonicalMarker)?json_decode((string)file_get_contents($canonicalMarker),true):[];
-$canonical=($canonicalState['schema']??null)===1 && ($canonicalState['mode']??'')==='canonical';
+$canonicalDeployment = static function (string $root): bool {
+    // Project config needs framework helpers, so read the shipped declaration without executing it.
+    $project = @file_get_contents($root.'/config/project.php');
+    if (preg_match("/^\\s*'deployment_mode'\\s*=>\\s*'canonical'\\s*,/m", (string)$project)) return true;
+    $marker = $root.'/runtime/direct-deployment.json';
+    $state = !is_link($marker) && is_file($marker) ? json_decode((string)file_get_contents($marker), true) : null;
+    return ($state['schema'] ?? null) === 1 && ($state['mode'] ?? '') === 'canonical';
+};
 if($override===$siteRoot || ($override==='' && !is_file($siteRoot.'/.composer-runtime/active.json')
-    && ($canonical || !is_file($siteRoot.'/.composer-runtime/current.json')))){
+    && ($canonicalDeployment($siteRoot) || !is_file($siteRoot.'/.composer-runtime/current.json')))){
     if(!class_exists('app\\common\\service\\update\\DirectSiteUpdateService',false))require_once $siteRoot.'/app/common/service/update/DirectSiteUpdateService.php';
     if($override==='' && empty($GLOBALS['AIGC_DIRECT_RECOVERY_CHILD']))\app\common\service\update\DirectSiteUpdateService::bootstrap($siteRoot);
     return require $siteRoot.'/direct-runtime-loader.php';
@@ -59,6 +64,13 @@ if(!class_exists('app\\common\\service\\update\\ComposerRuntimeUpdateService',fa
 }
 $runtimeManager = new \app\common\service\update\ComposerRuntimeUpdateService($siteRoot);
 $runtimePinnedPrevious=empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])?$runtimeManager->recoverBeforeBootstrap():null;
+if ($override === '' && $runtimePinnedPrevious === null && $canonicalDeployment($siteRoot)) {
+    // Recovery can finish the migration in this process. Recheck before selecting a snapshot.
+    unset($GLOBALS['AIGC_RUNTIME_LEASE']);
+    if (!class_exists('app\\common\\service\\update\\DirectSiteUpdateService', false)) require_once $siteRoot.'/app/common/service/update/DirectSiteUpdateService.php';
+    if (empty($GLOBALS['AIGC_DIRECT_RECOVERY_CHILD'])) \app\common\service\update\DirectSiteUpdateService::bootstrap($siteRoot);
+    return require $siteRoot.'/direct-runtime-loader.php';
+}
 // Read-only deployments and the installer can boot without writing runtime state.
 $runtimeGeneration = $GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'] ?? $runtimePinnedPrevious ?? (is_file($siteRoot . '/.composer-runtime/current.json') ? $runtimeManager->ensureBaseline() : $siteRoot);
 $generationBase = $siteRoot . '/.composer-runtime/generations/';

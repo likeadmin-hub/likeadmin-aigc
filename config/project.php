@@ -2,6 +2,8 @@
 return [
     // 系统版本号
     'version' => '1.0.444',
+    // 由发布代码声明，清理 runtime 时不会丢失。
+    'deployment_mode' => 'canonical',
     'project_name' => 'Likeadmin-SaaS版',
 
     // 官网
