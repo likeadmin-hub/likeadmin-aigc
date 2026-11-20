@@ -5,7 +5,8 @@ try {
     $GLOBALS['AIGC_DIRECT_RECOVERY_CHILD']=true;
     require dirname(__DIR__).'/runtime-loader.php';
     // No application initialize, database connection or business command.
-    if (is_file(dirname(__DIR__).'/runtime/direct-deployment.json')) {
+    if (class_exists(\app\common\service\update\DirectSiteUpdateService::class)
+        && \app\common\service\update\DirectSiteUpdateService::enabled(dirname(__DIR__))) {
         $collector=new \app\common\service\update\LegacyRuntimeCleanupService(dirname(__DIR__));
         // The triggering HTTP request still holds its reader when this child
         // starts. Wait briefly in the background; never bypass an active lease.
