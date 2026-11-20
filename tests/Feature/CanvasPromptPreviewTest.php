@@ -7,12 +7,14 @@ namespace app\common\service\app\aigc_canvas {
         public static array $calls = [];
         public static string $content = '{"prompt":"海边的女孩，柔和逆光，自然构图。"}';
         public static ?\Throwable $failure = null;
+        public static ?\Closure $respond = null;
         public static function promptEnrichmentConfig($tenant) { return self::$config; }
         public static function llmText($tenant,$user,$params) {
             self::$calls[]=[$tenant,$user,$params];
             if (self::$failure !== null) throw self::$failure;
-            if(isset($params['_result_validator']))$params['_result_validator'](['content'=>self::$content]);
-            return ['content'=>self::$content];
+            $response = ['content' => self::$respond ? (self::$respond)($params) : self::$content];
+            if(isset($params['_result_validator']))$params['_result_validator']($response);
+            return $response;
         }
     }
 }
@@ -31,7 +33,7 @@ $checks=0;
 function verify($condition,$message){global $checks;if(!$condition)throw new \RuntimeException($message);$checks++;}
 function refuses(callable $action,string $text){$before=count(Runtime::$calls);try{$action();}catch(\Exception $e){verify(str_contains($e->getMessage(),$text),$e->getMessage());verify(count(Runtime::$calls)===$before,'Rejected input invoked model');return;}throw new \RuntimeException('Expected rejection');}
 try {
-    $nodes=[['id'=>'i','type'=>'image','metadata'=>['prompt'=>'旧提示词','mentions'=>[['id'=>'same','name'=>'项目素材']],'custom'=>['enabled'=>false]]],['id'=>'v','type'=>'videoNode','data'=>['duration'=>5,'ratio'=>'16:9']],['id'=>'t','type'=>'text','metadata'=>['content'=>'历史文本']]];
+    $nodes=[['id'=>'i','type'=>'image','metadata'=>['prompt'=>'旧提示词','mentions'=>[['id'=>'same','name'=>'项目素材']],'custom'=>['enabled'=>false]]],['id'=>'v','type'=>'videoNode','data'=>['duration'=>5,'ratio'=>'16:9','mentions'=>[['id'=>'role-a','name'=>'林舟'],['id'=>'role-b','name'=>'林舟助理'],['id'=>'prop','name'=>'会议 文件']]]],['id'=>'t','type'=>'text','metadata'=>['content'=>'历史文本']]];
     Db::name('aigc_canvas_project')->insert(['id'=>2,'tenant_id'=>11,'user_id'=>22,'nodes_json'=>json_encode($nodes,JSON_UNESCAPED_UNICODE)]);
     Db::name('aigc_canvas_project')->insert(['id'=>3,'tenant_id'=>12,'user_id'=>23,'nodes_json'=>json_encode([['id'=>'i','type'=>'image']])]);
     $before=Db::name('aigc_canvas_project')->order('id')->select()->toArray();
@@ -68,13 +70,46 @@ try {
         catch (\Exception $e) { verify(str_contains($e->getMessage(), $expected) && !str_contains($e->getMessage(), 'private'), 'Missing safe preview guidance'); }
     }
     Runtime::$failure = null;
+    $referenceInput = '@林舟 走到@林舟助理身旁，随后@林舟拿起@会议 文件，镜头切到@图片1和【@会议室】。';
+    Runtime::$respond = static function ($params) {
+        $prompt = json_decode($params['content'], true)['prompt'];
+        preg_match_all('/\[\[CANVAS_REF_+\d+\]\]/', $prompt, $matches);
+        verify(count($matches[0]) === 6, 'Text model should receive protected references for all six occurrences');
+        [$lead, $assistant, $repeatedLead, $file, $image, $room] = $matches[0];
+        verify($lead === $repeatedLead && count(array_unique($matches[0])) === 5, 'Repeated and overlapping names lost their identities');
+        return json_encode(['prompt' => "{$lead}走向{$assistant}，随后{$repeatedLead}翻阅{$file}。{$room}内，摄像机对准{$image}。"], JSON_UNESCAPED_UNICODE);
+    };
+    verify(Preview::preview(11, 22, [...$params, 'prompt' => $referenceInput])['prompt']
+        === '@林舟走向@林舟助理，随后@林舟翻阅@会议 文件。【@会议室】内，摄像机对准@图片1。', 'Protected references did not restore in the model result');
+    foreach (['missing', 'duplicate', 'invented_marker', 'invented_mention', 'rebound'] as $badResult) {
+        Runtime::$respond = static function ($params) use ($badResult) {
+            $prompt = json_decode($params['content'], true)['prompt'];
+            preg_match('/\[\[CANVAS_REF_+\d+\]\]/', $prompt, $match);
+            $marker = $match[0] ?? '';
+            $prompt = match ($badResult) {
+                'missing' => str_replace($marker, '', $prompt),
+                'duplicate' => $prompt . $marker,
+                'invented_marker' => $prompt . '[[CANVAS_REF_99]]',
+                'invented_mention' => $prompt . ' @无关角色',
+                'rebound' => str_replace('[[CANVAS_REF_4]]', '[[CANVAS_REF_4]]2', $prompt),
+            };
+            return json_encode(['prompt' => $prompt], JSON_UNESCAPED_UNICODE);
+        };
+        try {
+            Preview::preview(11, 22, [...$params, 'prompt' => $referenceInput]);
+            throw new \LogicException('Accepted changed references: ' . $badResult);
+        } catch (\RuntimeException $error) {
+            verify(str_contains($error->getMessage(), '优化结果改变了 @ 引用'), 'Reference change returned the wrong error');
+        }
+    }
+    Runtime::$respond = null;
     $longOutput = str_repeat('长', 4500) . ' @图片1';
     $longInput = str_repeat('字', 4100) . ' @图片1';
-    Runtime::$content = json_encode(['prompt' => $longOutput], JSON_UNESCAPED_UNICODE);
+    Runtime::$content = json_encode(['prompt' => str_repeat('长', 4500) . ' [[CANVAS_REF_1]]'], JSON_UNESCAPED_UNICODE);
     verify(Preview::preview(11, 22, [...$params, 'prompt' => $longInput])['prompt'] === $longOutput,
         'A valid long optimization result was rejected');
     $longCall = end(Runtime::$calls);
-    verify(json_decode($longCall[2]['content'], true)['prompt'] === $longInput, 'The long original prompt was truncated');
+    verify(json_decode($longCall[2]['content'], true)['prompt'] === str_repeat('字', 4100) . ' [[CANVAS_REF_1]]', 'The long original prompt was truncated');
     verify(Preview::normalize('```json'."\n".'{"prompt":"保留 @图片1 和 【@角色】 的构图"}'."\n".'```','@图片1 【@角色】')==='保留 @图片1 和 【@角色】 的构图','Mentions not preserved');
     verify(Preview::normalize('{"prompt":"@图片1缓慢转身，保持人物一致"}','让@图片1动起来')==='@图片1缓慢转身，保持人物一致','Inline model reference mistaken for following Chinese text');
     foreach(['{}','not-json','{"prompt":"删除引用"}','{"prompt":"@图片1 @新主体"}'] as $content){try{Preview::normalize($content,'@图片1');throw new \LogicException('Accepted invalid preview');}catch(\RuntimeException){$checks++;}}
