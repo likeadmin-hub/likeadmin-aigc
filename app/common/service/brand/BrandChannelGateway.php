@@ -6,6 +6,7 @@ use Alipay\EasySDK\Kernel\Factory;
 use EasyWeChat\Pay\Application;
 use app\common\service\brand\BrandUserException as RuntimeException;
 use think\facade\Db;
+use think\facade\Log;
 
 /** Merchant credentials are resolved explicitly, never from request/worker tenant context. */
 class BrandChannelGateway implements BrandPaymentGateway, BrandRefundGateway
@@ -59,7 +60,12 @@ class BrandChannelGateway implements BrandPaymentGateway, BrandRefundGateway
                 'out_trade_no'=>$intent['pay_sn'],'notify_url'=>$notify,'amount'=>['total'=>(int)$intent['amount_cents'],'currency'=>'CNY'],
                 'time_expire'=>date('c',(int)$intent['expires_at']),'attach'=>$intent['order_from'],
             ])->toArray(false);
-            if (empty($response['code_url'])) throw new RuntimeException('微信支付暂时不可用，请稍后重试');
+            if (empty($response['code_url'])) {
+                $code = $response['code'] ?? '';
+                $code = is_string($code) && preg_match('/^[A-Z0-9_]{1,64}$/D', $code) ? $code : 'MISSING_CODE_URL';
+                Log::warning('OEM WeChat Native rejected intent '.(int)$intent['id'].' ('.$code.')');
+                throw new RuntimeException('微信支付暂时不可用，请稍后重试');
+            }
             return ['pay_way'=>2,'config'=>$response['code_url']];
         }
         $this->alipay($context,$notify);
@@ -268,7 +274,11 @@ class BrandChannelGateway implements BrandPaymentGateway, BrandRefundGateway
 
     private function notifyUrl(array $intent): string
     {
-        $action=(int)$intent['channel']===2?'notifyWechat':'notifyAli';
-        return request()->domain().'/api/brand.payment/'.$action.'?intent_id='.(int)$intent['id'];
+        $id = (int)$intent['id'];
+        if ((int)$intent['channel']===2) {
+            // WeChat Native requires a callback URL without a query string.
+            return request()->domain().'/api/brand/payment/notify/wechat/'.$id;
+        }
+        return request()->domain().'/api/brand.payment/notifyAli?intent_id='.$id;
     }
 }

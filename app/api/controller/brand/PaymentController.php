@@ -49,7 +49,10 @@ class PaymentController extends BaseApiController
 
     private function intent(int $channel): array
     {
-        $intent=Db::name('tenant_brand_payment_intent')->where(['id'=>(int)$this->request->get('intent_id',0),'channel'=>$channel])->find();
+        $id = $channel===2 ? $this->request->route('intent_id') : null;
+        // Notifications for already issued QR codes still use the historical query parameter.
+        $id ??= $this->request->get('intent_id',0);
+        $intent=Db::name('tenant_brand_payment_intent')->where(['id'=>(int)$id,'channel'=>$channel])->find();
         if (!$intent) throw new RuntimeException('支付通知对应订单不存在');
         return $intent;
     }
