@@ -30,10 +30,10 @@ final class PlatformDomainAccessTest extends TestCase
         Db::name('tenant_domain_alias')->insert(['id' => 1, 'tenant_id' => 42, 'domain' => 'bound.customer.test', 'status' => 1]);
     }
 
-    private function visit(string $host, string $path = '', array $query = [], array $headers = []): Response
+    private function visit(string $host, string $path = '', array $query = [], array $headers = [], string $method = 'GET'): Response
     {
         $request = new Request();
-        $request->setHost($host)->setPathinfo($path)->setMethod('GET');
+        $request->setHost($host)->setPathinfo($path)->setMethod($method);
         $request->withGet($query)->withHeader($headers)->withServer(['REQUEST_URI' => '/' . $path]);
         app()->instance('request', $request);
         return (new LikeAdminAllowMiddleware())->handle($request, static fn($request) => response([
@@ -160,6 +160,16 @@ final class PlatformDomainAccessTest extends TestCase
     {
         foreach (['wechat/open-platform/callback', 'wechat/open-platform/wx123/callback', 'wechat/open-platform/authorize', 'wechat/official-oauth/callback', 'wechat/virtual-pay/42/wx123/callback', 'api/brand.payment/notifyWechat', 'api/brand.domain/probe'] as $path) {
             self::assertTrue($this->visit('platform.example.test', $path)->getData()['passed']);
+        }
+    }
+
+    public function testWechatOemPathOnlyBypassesTenantResolutionForAnExactPost(): void
+    {
+        $path = 'api/brand/payment/notify/wechat/123';
+        self::assertTrue($this->visit('platform.example.test', $path, method: 'POST')->getData()['passed']);
+        self::assertSame(4, $this->visit('platform.example.test', $path)->getData()['code']);
+        foreach ([$path.'/suffix', 'api/brand/payment/notify/wechat/not-an-id'] as $malformed) {
+            self::assertSame(4, $this->visit('platform.example.test', $malformed, method: 'POST')->getData()['code']);
         }
     }
 }

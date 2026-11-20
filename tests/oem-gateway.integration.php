@@ -6,6 +6,9 @@ use think\facade\Db;
 use app\common\service\brand\BrandChannelGateway;
 use app\common\service\brand\TenantBrandService as Brand;
 use app\common\service\brand\BrandPaymentService as Payment;
+use EasyWeChat\Pay\Application;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 oemCheck(class_exists(BrandChannelGateway::class),'Explicit payment merchant adapter is missing');
 Db::startTrans();
 try {
@@ -20,6 +23,30 @@ try {
     Db::name('tenant_pay_way')->insert(['tenant_id'=>$f['seller'],'scene'=>4,'pay_config_id'=>$configId,'status'=>1,'is_default'=>1]);
     $ways=$gate->ways(Brand::FROM_ORDER,['tenant_id'=>$f['seller']],4);
     oemCheck(count($ways)===1 && (int)$ways[0]['pay_way']===2,'seller payment ways do not fall back to platform');
+    $key=openssl_pkey_new(['private_key_bits'=>2048]);
+    openssl_pkey_export($key,$private);
+    $csr=openssl_csr_new(['commonName'=>'oem-native-fixture'],$key);
+    openssl_x509_export(openssl_csr_sign($csr,null,$key,1),$certificate);
+    $native=new class extends BrandChannelGateway {
+        public Application $application;
+        public function wechat(array $context,string $notify=''): Application { return $this->application; }
+    };
+    $native->application=new Application(['mch_id'=>'seller-mch','private_key'=>$private,'certificate'=>$certificate,'secret_key'=>str_repeat('x',32)]);
+    request()->setHost('seller.example.test')->withServer(['HTTPS'=>'on','HTTP_HOST'=>'seller.example.test']);
+    $body=[];
+    $native->application->setHttpClient(new MockHttpClient(static function(string $method,string $url,array $options)use(&$body): MockResponse {
+        oemCheck($method==='POST' && str_ends_with($url,'/v3/pay/transactions/native'),'Uses WeChat Native endpoint');
+        $body=json_decode($options['body'],true,512,JSON_THROW_ON_ERROR);
+        if (parse_url($body['notify_url'],PHP_URL_QUERY)!==null) {
+            return new MockResponse('{"code":"PARAM_ERROR","message":"Callback URL must have no query"}',['http_code'=>400]);
+        }
+        return new MockResponse('{"code_url":"weixin://fixture"}');
+    }));
+    $prepay=$native->prepay(['id'=>123,'order_from'=>Brand::FROM_ORDER,'tenant_id'=>$f['seller'],'channel'=>2,
+        'context'=>json_encode($context),'pay_sn'=>'OEM-NATIVE-123','amount_cents'=>36500,'expires_at'=>time()+1800],'/join-opc/result');
+    oemCheck($prepay['config']==='weixin://fixture','Native prepay did not return QR contents');
+    oemCheck(parse_url($body['notify_url'],PHP_URL_PATH)==='/api/brand/payment/notify/wechat/123','Native callback path does not identify the intent');
+    oemCheck($body['mchid']==='seller-mch' && $body['appid']==='seller-app' && $body['amount']['total']===36500,'OEM payment changed original merchant or amount');
     Db::name('tenant_pay_way')->where('tenant_id',$f['seller'])->update(['status'=>0]);
     oemCheck($gate->ways(Brand::FROM_ORDER,['tenant_id'=>$f['seller']],4)===[],'disabled seller ways cannot be bypassed');
     Db::name('pay_config')->where('pay_way',2)->update(['config'=>json_encode(['mch_id'=>'platform-mch','app_id'=>'platform-app'])]);
@@ -32,8 +59,6 @@ try {
     Db::name('tenant_pay_config')->where(['tenant_id'=>$f['seller'],'pay_way'=>2])->update(['config'=>json_encode(['mch_id'=>'changed-merchant'])]);
     oemReject(fn()=>$gate->assertOriginal($context),'changed merchant used to refund old transaction');
     $ali=new BrandChannelGateway();
-    $key=openssl_pkey_new(['private_key_bits'=>2048]);
-    openssl_pkey_export($key,$private);
     $public=openssl_pkey_get_details($key)['key'];
     $clean=static fn($pem)=>preg_replace('/-----[^-]+-----|\s+/','',$pem);
     Db::name('tenant_pay_config')->insert(['tenant_id'=>$f['seller'],'name'=>'Ali fixture','pay_way'=>3,'config'=>json_encode(['mode'=>'normal_mode','app_id'=>'fake','private_key'=>$clean($private),'ali_public_key'=>$clean($public)])]);

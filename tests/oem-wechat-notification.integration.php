@@ -8,6 +8,7 @@ use app\api\controller\brand\PaymentController;
 use EasyWeChat\Kernel\Support\AesGcm;
 use EasyWeChat\Pay\Application;
 use Nyholm\Psr7\ServerRequest;
+use Psr\Http\Message\ResponseInterface;
 oemCheck(method_exists(BrandChannelGateway::class,'verifyWechatNotification'),'Callback explicit signature validation missing');
 class SignedNotificationFixture extends BrandChannelGateway {
  public Application $application;public string $trustedCertificate;
@@ -31,6 +32,11 @@ Db::startTrans();try {
   $gate->application->setRequest(new ServerRequest('POST','https://fixture/notify',$headers,$body));$response=$controller->notifyWechat();oemCheck($response->getCode()===500,$variant.' callback was accepted');oemCheck(Db::name('tenant_brand_payment')->where('order_id',$id)->count()===0,$variant.' callback wrote money');oemCheck((int)Db::name('tenant_brand_order')->where('id',$id)->value('pay_status')===0,$variant.' callback changed order');
  }
  $timestamp=(string)time();openssl_sign($timestamp."\ntest-nonce\n".$body."\n",$signature,$key,OPENSSL_ALGO_SHA256);$gate->application->setRequest(new ServerRequest('POST','https://fixture/notify',['Wechatpay-Timestamp'=>$timestamp,'Wechatpay-Nonce'=>'test-nonce','Wechatpay-Serial'=>$serial,'Wechatpay-Signature'=>base64_encode($signature)],$body));
- $response=$controller->notifyWechat();oemCheck($response->getStatusCode()===200,'Trusted signed callback rejected');oemCheck(Db::name('tenant_brand_payment')->where('order_id',$id)->count()===1,'Signed callback records one payment');oemCheck(Db::name('tenant_brand_order')->where('id',$id)->value('workflow_state')==='tenant_review','Signed callback never provisions');
- echo "PASS actual callback controller rejects missing/wrong/stale/future/merchant-key/untrusted signatures before money; valid signed encrypted callback pays once\n";
+ request()->withGet([])->withRoute(['intent_id'=>$intent['id']]);
+ $response=$controller->notifyWechat();oemCheck($response instanceof ResponseInterface && $response->getStatusCode()===200,'Trusted signed callback rejected');oemCheck(Db::name('tenant_brand_payment')->where('order_id',$id)->count()===1,'Signed callback records one payment');oemCheck(Db::name('tenant_brand_order')->where('id',$id)->value('workflow_state')==='tenant_review','Signed callback never provisions');
+ request()->withRoute([])->withGet(['intent_id'=>$intent['id']]);
+ $response=$controller->notifyWechat();
+ oemCheck($response instanceof ResponseInterface && $response->getStatusCode()===200,'Historical callback URL was rejected');
+ oemCheck(Db::name('tenant_brand_payment')->where('order_id',$id)->count()===1,'Duplicate notifications must not record another payment');
+ echo "PASS actual callback controller protects new and historical paths and records a signed payment only once\n";
 }finally{Db::rollback();}

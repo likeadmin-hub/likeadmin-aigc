@@ -78,8 +78,9 @@ class LikeAdminAllowMiddleware
         // tenant-domain 404 before the relay route can run.
         $normalizedPath = trim($request->pathinfo(), '/');
         // OEM money callbacks remain receivable when the seller closes new applications.
-        // These two endpoints verify the original merchant signature before recording money.
-        if (preg_match('#^api/brand\.payment/(notifyWechat|notifyAli)$#iD',$normalizedPath)) {
+        // These endpoints verify the original merchant signature before recording money.
+        if (preg_match('#^api/brand\.payment/(notifyWechat|notifyAli)$#iD',$normalizedPath)
+            || ($request->isPost() && preg_match('#^api/brand/payment/notify/wechat/[1-9][0-9]*$#D',$normalizedPath))) {
             return $next($request);
         }
         // Proof has no user data or mutations; it matches the requested host and a random challenge.
