@@ -20,6 +20,22 @@ requireEqual([25.0,28.0], Billing::amounts($pricing, ['input_count'=>3], 2));
 requireEqual(3, Billing::inputCount($contract, ['image_urls'=>['a','b','a']]));
 requireEqual([20.0,20.0], Billing::amounts($pricing, ['input_count'=>1], 2));
 
+foreach (['1k'=>7.128, '2k'=>7.128, '4k'=>21.78] as $tier => $outputRate) {
+    $h3 = [
+        'sku_key'=>$tier, 'price'=>['points'=>$outputRate], 'meter_summary'=>'按次',
+        'charge_base_mode'=>'add', 'charge_items'=>[
+            ['code'=>'input_images','rate'=>'1.98','unit'=>'input_image','included_count'=>0],
+        ],
+    ];
+    $h3Contract = Billing::declaration($h3, 'minimax-h3-image-edit');
+    requireEqual(Billing::declaration($h3, 'official-33-7b77ec425b57b520cd'), $h3Contract);
+    $h3Pricing = Billing::prices(['id'=>8, 'product_id'=>4, 'source_payload'=>['image_item_billing'=>$h3Contract]], 0, [], []);
+    $facts = Billing::facts($h3Pricing, ['image_urls'=>['first', 'second'], 'style_image'=>'irrelevant']);
+    requireEqual(['input_count'=>2], $facts);
+    $total = round($outputRate + 2 * 1.98, 6);
+    requireEqual([$total, $total], Billing::amounts($h3Pricing, $facts, 1));
+}
+
 $changed = $image;
 $changed['charge_items'][0]['rate'] = '4';
 $sku['source_payload']['image_item_billing'] = Billing::declaration($changed, 'official-33-7b77ec425b57b520cd');
