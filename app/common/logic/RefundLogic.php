@@ -137,27 +137,43 @@ class RefundLogic extends BaseLogic
         $result = (array)$result;
 
         if ($result['code'] == '10000' && $result['msg'] == 'Success' && $result['fundChange'] == 'Y') {
-            // 更新日志
-            RefundLog::update([
-                'refund_status' => RefundEnum::REFUND_SUCCESS,
-                'refund_msg'    => json_encode($result, JSON_UNESCAPED_UNICODE),
-            ], ['id'=>self::$refundLog['id']]);
-
-            // 更新记录
-            RefundRecord::update([
-                'refund_status' =>  RefundEnum::REFUND_SUCCESS,
-            ], ['id'=>$refundRecordId]);
-
-            // 更新订单信息
-            if ($refundRecord['order_type'] == 'recharge') {
-                RechargeOrder::update([
-                    'refund_transaction_id' => $result['tradeNo'] ?? '',
-                ], ['id' => $refundRecord['order_id']]);
-                DistributionService::reverseRechargeByOrderId((int)$refundRecord['order_id']);
-            } elseif ((string)$refundRecord['order_type'] === 'membership') {
-                DistributionService::reverseMembershipByOrderId((int)$refundRecord['order_id']);
-            }
+            self::markSuccess((int)self::$refundLog['id'], (int)$refundRecordId, [
+                'refund_msg' => json_encode($result, JSON_UNESCAPED_UNICODE),
+                'refund_transaction_id' => (string)($result['tradeNo'] ?? ''),
+            ]);
         }
+    }
+
+
+    /** A provider-confirmed refund and its commission reversal commit together. */
+    public static function markSuccess(int $logId, int $recordId, array $metadata = []): void
+    {
+        \think\facade\Db::transaction(function () use ($logId, $recordId, $metadata) {
+            $record = RefundRecord::where('id', $recordId)->lock(true)->findOrEmpty();
+            if ($record->isEmpty()) {
+                throw new \RuntimeException('退款记录不存在');
+            }
+            $log = RefundLog::where(['id' => $logId, 'record_id' => $recordId])->lock(true)->findOrEmpty();
+            if ($log->isEmpty()) {
+                throw new \RuntimeException('退款流水不存在');
+            }
+            if ((int)$record->refund_status !== RefundEnum::REFUND_SUCCESS) {
+                if ((string)$record->order_type === RefundEnum::ORDER_TYPE_RECHARGE) {
+                    DistributionService::reverseRechargeByOrderId((int)$record->order_id);
+                    if (isset($metadata['refund_transaction_id'])) {
+                        RechargeOrder::update(['refund_transaction_id' => $metadata['refund_transaction_id']], ['id' => $record->order_id]);
+                    }
+                } elseif ((string)$record->order_type === 'membership') {
+                    DistributionService::reverseMembershipByOrderId((int)$record->order_id);
+                }
+                RefundRecord::update(['refund_status' => RefundEnum::REFUND_SUCCESS], ['id' => $recordId]);
+            }
+            $fields = ['refund_status' => RefundEnum::REFUND_SUCCESS];
+            if (isset($metadata['refund_msg'])) {
+                $fields['refund_msg'] = $metadata['refund_msg'];
+            }
+            RefundLog::update($fields, ['id' => $logId]);
+        });
     }
 
 

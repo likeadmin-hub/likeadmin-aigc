@@ -248,27 +248,22 @@ class DistributionService
         if ($inviteCode === '') {
             return self::isEnabled($tenantId) ? self::ensurePromoter($tenantId, $userId) : [];
         }
-        self::assertEnabled($tenantId);
-        $relation = self::ensurePromoter($tenantId, $userId);
-        if ((int)$relation['bind_time'] > 0) {
-            return $relation;
+        if (!preg_match('/^[A-Z0-9]{4,32}$/D', $inviteCode)) {
+            throw new RuntimeException('推广码须为4–32位字母或数字');
         }
-        $parent = self::table('relation')->where(['tenant_id' => $tenantId, 'invite_code' => $inviteCode])->lock(true)->find();
-        if (!$parent) {
-            throw new RuntimeException('推广码不存在或不属于当前租户');
-        }
-        if ((int)$parent['user_id'] === $userId) {
-            throw new RuntimeException('不能绑定自己的推广码');
-        }
-        $chain = [(int)$parent['user_id'], (int)$parent['level1_user_id']];
-        if (in_array($userId, $chain, true)) {
-            throw new RuntimeException('推广关系不能形成循环');
-        }
-        self::table('relation')->where('id', $relation['id'])->update([
-            'level1_user_id' => $chain[0], 'level2_user_id' => $chain[1], 'level3_user_id' => 0,
-            'bind_time' => time(), 'bind_source' => $source, 'update_time' => time(),
-        ]);
-        return self::table('relation')->where('id', $relation['id'])->find();
+        return Db::transaction(function () use ($tenantId, $userId, $inviteCode, $source) {
+            self::lockRelationChanges($tenantId);
+            self::assertEnabled($tenantId);
+            $relation = self::ensurePromoter($tenantId, $userId);
+            if ((int)$relation['bind_time'] > 0) {
+                return $relation;
+            }
+            $parentId = (int)self::table('relation')->where(['tenant_id' => $tenantId, 'invite_code' => $inviteCode])->value('user_id');
+            if (!$parentId || !\app\common\model\user\User::where(['tenant_id' => $tenantId, 'id' => $parentId, 'is_disable' => 0])->count()) {
+                throw new RuntimeException('推广码无效或不属于当前租户');
+            }
+            return self::setParent($relation, $parentId, $source);
+        });
     }
 
     public static function adjustRelation(int $tenantId, int $userId, int $parentUserId, int $operatorId, string $reason): array
@@ -277,25 +272,86 @@ class DistributionService
             throw new RuntimeException('请填写调整原因');
         }
         return Db::transaction(function () use ($tenantId, $userId, $parentUserId, $operatorId, $reason) {
+            self::lockRelationChanges($tenantId);
             $relation = self::ensurePromoter($tenantId, $userId);
-            $before = self::chain($relation);
-            $parent = $parentUserId > 0 ? self::ensurePromoter($tenantId, $parentUserId) : null;
-            if ($parent && ($parentUserId === $userId || in_array($userId, self::chain($parent), true))) {
-                throw new RuntimeException('调整后的关系形成循环');
+            if ($parentUserId > 0) {
+                self::ensurePromoter($tenantId, $parentUserId);
             }
-            $after = $parent ? [(int)$parent['user_id'], (int)$parent['level1_user_id']] : [0, 0];
-            self::table('relation')->where('id', $relation['id'])->update([
-                'level1_user_id' => $after[0], 'level2_user_id' => $after[1], 'level3_user_id' => 0,
-                'bind_time' => $after[0] ? time() : 0, 'bind_source' => 'admin', 'update_time' => time(),
-            ]);
-            self::table('relation_log')->insert([
-                'tenant_id' => $tenantId, 'user_id' => $userId, 'operator_id' => $operatorId,
-                'before_chain' => json_encode($before, JSON_UNESCAPED_UNICODE),
-                'after_chain' => json_encode($after, JSON_UNESCAPED_UNICODE),
-                'reason' => trim($reason), 'create_time' => time(),
-            ]);
-            return self::table('relation')->where('id', $relation['id'])->find();
+            $updated = self::setParent($relation, $parentUserId, 'admin');
+            self::logRelationChange($relation, $updated, $operatorId, trim($reason));
+            return $updated;
         });
+    }
+
+    /** Both user rows are already locked by the verified identity merge. */
+    public static function mergeRegistrationInvite(int $tenantId, int $shadowId, int $targetId): void
+    {
+        self::lockRelationChanges($tenantId);
+        $shadow = self::table('relation')->where(['tenant_id' => $tenantId, 'user_id' => $shadowId])->lock(true)->find();
+        if (!$shadow) {
+            return;
+        }
+        if (self::table('relation')->where(['tenant_id' => $tenantId, 'level1_user_id' => $shadowId])->count()
+            || self::table('commission')->where('tenant_id', $tenantId)->where('beneficiary_user_id|order_user_id', $shadowId)->count()
+            || self::table('withdrawal')->where(['tenant_id' => $tenantId, 'user_id' => $shadowId])->count()) {
+            throw new RuntimeException('当前微信账号已有分销业务记录，请联系客服合并');
+        }
+        $parentId = (int)$shadow['level1_user_id'];
+        if (!$parentId) {
+            return;
+        }
+        $target = self::ensurePromoter($tenantId, $targetId);
+        if (!(int)$target['bind_time'] && !(int)$target['level1_user_id'] && $parentId !== $targetId) {
+            $updated = self::setParent($target, $parentId, 'wechat_merge', (int)$shadow['bind_time']);
+            self::logRelationChange($target, $updated, 0, '微信账号合并，迁入原注册推广关系');
+        }
+        $detached = self::setParent($shadow, 0, 'wechat_merge');
+        self::logRelationChange($shadow, $detached, 0, '微信账号合并，解除原账号的推广归属');
+    }
+
+    private static function lockRelationChanges(int $tenantId): void
+    {
+        if (!Db::name('tenant')->where('id', $tenantId)->lock(true)->find()) {
+            throw new RuntimeException('租户不存在');
+        }
+    }
+
+    private static function setParent(array $relation, int $parentId, string $source, int $bindTime = 0): array
+    {
+        $tenantId = (int)$relation['tenant_id'];
+        $userId = (int)$relation['user_id'];
+        $visited = [$userId => true];
+        $grandparentId = 0;
+        for ($ancestor = $parentId; $ancestor > 0; $ancestor = $next) {
+            if (isset($visited[$ancestor])) {
+                throw new RuntimeException('推广关系不能形成循环');
+            }
+            $visited[$ancestor] = true;
+            $ancestorRow = self::table('relation')->where(['tenant_id' => $tenantId, 'user_id' => $ancestor])->lock(true)->find();
+            $next = (int)($ancestorRow['level1_user_id'] ?? 0);
+            if ($ancestor === $parentId) {
+                $grandparentId = $next;
+            }
+        }
+        $now = time();
+        $fields = [
+            'level1_user_id' => $parentId, 'level2_user_id' => $grandparentId, 'level3_user_id' => 0,
+            'bind_time' => $parentId ? ($bindTime ?: $now) : 0, 'bind_source' => $source, 'update_time' => $now,
+        ];
+        self::table('relation')->where('id', $relation['id'])->update($fields);
+        self::table('relation')->where(['tenant_id' => $tenantId, 'level1_user_id' => $userId])
+            ->update(['level2_user_id' => $parentId, 'level3_user_id' => 0, 'update_time' => $now]);
+        return array_replace($relation, $fields);
+    }
+
+    private static function logRelationChange(array $before, array $after, int $operatorId, string $reason): void
+    {
+        self::table('relation_log')->insert([
+            'tenant_id' => (int)$before['tenant_id'], 'user_id' => (int)$before['user_id'], 'operator_id' => $operatorId,
+            'before_chain' => json_encode(self::chain($before), JSON_UNESCAPED_UNICODE),
+            'after_chain' => json_encode(self::chain($after), JSON_UNESCAPED_UNICODE),
+            'reason' => $reason, 'create_time' => time(),
+        ]);
     }
 
     /** Resolve an ID/account/mobile/invite code within the current tenant only. */
@@ -370,7 +426,7 @@ class DistributionService
             for ($level = 1; $level <= (int)$rule['level_count']; $level++) {
                 $beneficiaryId = (int)($relation['level' . $level . '_user_id'] ?? 0);
                 $rate = (float)($rule['rates'][$level] ?? 0);
-                if ($beneficiaryId <= 0 || $rate <= 0) {
+                if ($beneficiaryId <= 0 || $beneficiaryId === $userId || $rate <= 0) {
                     continue;
                 }
                 $frozen = self::table('relation')->where(['tenant_id' => $tenantId, 'user_id' => $beneficiaryId])->value('is_frozen');
@@ -494,29 +550,34 @@ class DistributionService
         if (!in_array($bucket, ['pending', 'available', 'frozen', 'negative', 'withdrawn'], true)) {
             throw new RuntimeException('佣金账户类型错误');
         }
-        $existing = self::table('account_log')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'change_type' => $type, 'source_sn' => $source])->find();
-        if ($existing) {
+        $account = self::account($tenantId, $userId, true);
+        if (self::table('account_log')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'change_type' => $type, 'source_sn' => $source])->find()) {
             return;
         }
-        $account = self::account($tenantId, $userId, true);
         $column = $bucket === 'withdrawn' ? 'total_withdrawn' : $bucket . '_amount';
         $after = round((float)$account[$column] + $delta, 2);
-        if ($bucket !== 'negative' && $after < -0.0001) {
+        if ($after < 0) {
             throw new RuntimeException('佣金账户余额不足');
         }
-        // New income first repays historical refund debt.
-        if ($bucket === 'available' && $delta > 0 && (float)$account['negative_amount'] > 0) {
+        $fields = ['update_time' => time()];
+        if ($bucket === 'available' && $delta > 0) {
+            if (in_array($type, ['commission_available', 'commission_settle_in'], true)) {
+                $fields['total_income'] = self::amount((float)$account['total_income'] + $delta);
+            }
             $offset = min($delta, (float)$account['negative_amount']);
-            self::table('account')->where('id', $account['id'])->dec('negative_amount', $offset)->inc('total_income', $delta)->update(['update_time' => time()]);
-            self::table('account_log')->insert([
-                'tenant_id' => $tenantId, 'user_id' => $userId, 'change_type' => $type, 'bucket' => 'negative',
-                'change_amount' => self::amount(-$offset), 'balance_after' => self::amount((float)$account['negative_amount'] - $offset),
-                'source_sn' => $source, 'remark' => '抵扣退款负佣金', 'create_time' => time(),
-            ]);
-            $delta -= $offset;
-            $after = round((float)$account['available_amount'] + $delta, 2);
+            if ($offset > 0) {
+                $fields['negative_amount'] = self::amount((float)$account['negative_amount'] - $offset);
+                self::table('account_log')->insert([
+                    'tenant_id' => $tenantId, 'user_id' => $userId, 'change_type' => $type . '_debt_offset', 'bucket' => 'negative',
+                    'change_amount' => self::amount(-$offset), 'balance_after' => $fields['negative_amount'],
+                    'source_sn' => $source, 'remark' => '抵扣退款负佣金', 'create_time' => time(),
+                ]);
+                $delta = round($delta - $offset, 2);
+                $after = round((float)$account['available_amount'] + $delta, 2);
+            }
         }
-        self::table('account')->where('id', $account['id'])->update([$column => self::amount($after), 'total_income' => $bucket === 'available' && $delta > 0 ? self::amount((float)$account['total_income'] + $delta) : $account['total_income'], 'update_time' => time()]);
+        $fields[$column] = self::amount($after);
+        self::table('account')->where('id', $account['id'])->update($fields);
         self::table('account_log')->insert([
             'tenant_id' => $tenantId, 'user_id' => $userId, 'change_type' => $type, 'bucket' => $bucket,
             'change_amount' => self::amount($delta), 'balance_after' => self::amount($after),
@@ -600,11 +661,12 @@ class DistributionService
             if ($amount <= 0 || $amount < (float)$config['min_withdraw_amount']) {
                 throw new RuntimeException('提现金额未达到最低提现金额');
             }
-            $pending = self::table('withdrawal')->where(['tenant_id' => $tenantId, 'user_id' => $userId])->whereIn('status', [self::WITHDRAW_PENDING, self::WITHDRAW_APPROVED])->find();
+            $account = self::account($tenantId, $userId, true);
+            $pending = self::table('withdrawal')->where(['tenant_id' => $tenantId, 'user_id' => $userId])
+                ->whereIn('status', [self::WITHDRAW_PENDING, self::WITHDRAW_APPROVED])->lock(true)->find();
             if ($pending) {
                 throw new RuntimeException('存在未处理的提现申请');
             }
-            $account = self::account($tenantId, $userId, true);
             if ((float)$account['available_amount'] < $amount) {
                 throw new RuntimeException('可提现佣金不足');
             }
@@ -626,8 +688,22 @@ class DistributionService
         if (!in_array($action, ['approve', 'reject', 'paid', 'failed'], true)) {
             throw new RuntimeException('提现操作不正确');
         }
-        return Db::transaction(function () use ($tenantId, $withdrawalId, $operatorId, $action, $reason, $payment) {
-            $row = self::table('withdrawal')->where(['tenant_id' => $tenantId, 'id' => $withdrawalId])->lock(true)->find();
+        $reason = trim($reason);
+        if (in_array($action, ['reject', 'failed'], true) && $reason === '') {
+            throw new RuntimeException('请填写处理原因');
+        }
+        $paymentSn = trim((string)($payment['payment_sn'] ?? ''));
+        if ($action === 'paid' && ($paymentSn === '' || mb_strlen($paymentSn) > 128)) {
+            throw new RuntimeException('请输入有效的打款流水号');
+        }
+        return Db::transaction(function () use ($tenantId, $withdrawalId, $operatorId, $action, $reason, $payment, $paymentSn) {
+            $scope = ['tenant_id' => $tenantId, 'id' => $withdrawalId];
+            $userId = (int)self::table('withdrawal')->where($scope)->value('user_id');
+            if (!$userId) {
+                throw new RuntimeException('提现申请不存在');
+            }
+            self::account($tenantId, $userId, true);
+            $row = self::table('withdrawal')->where($scope)->lock(true)->find();
             if (!$row) {
                 throw new RuntimeException('提现申请不存在');
             }
@@ -641,7 +717,7 @@ class DistributionService
             } elseif ($action === 'paid' && $row['status'] === self::WITHDRAW_APPROVED) {
                 self::table('withdrawal')->where('id', $row['id'])->update([
                     'status' => self::WITHDRAW_PAID, 'pay_admin_id' => $operatorId, 'pay_time' => time(),
-                    'payment_sn' => trim((string)($payment['payment_sn'] ?? '')), 'payment_proof' => trim((string)($payment['payment_proof'] ?? '')),
+                    'payment_sn' => $paymentSn, 'payment_proof' => trim((string)($payment['payment_proof'] ?? '')),
                     'pay_remark' => $reason, 'update_time' => time(),
                 ]);
                 self::changeAccount($tenantId, (int)$row['user_id'], 'frozen', -$amount, 'withdraw_paid_out', (string)$row['sn'], '人工打款完成');
@@ -672,7 +748,7 @@ class DistributionService
         $account = $userId > 0 ? self::account($tenantId, $userId) : [];
         return [
             'order_count' => (clone $commission)->count(),
-            'commission_total' => (string)((clone $commission)->sum('commission_amount') ?: '0.00'),
+            'commission_total' => (string)((clone $commission)->where('status', '<>', self::COMMISSION_REVERSED)->sum('commission_amount') ?: '0.00'),
             'pending_commission' => (string)((clone $commission)->where('status', self::COMMISSION_PENDING)->sum('commission_amount') ?: '0.00'),
             'available_commission' => (string)((clone $commission)->where('status', self::COMMISSION_AVAILABLE)->sum('commission_amount') ?: '0.00'),
             'account' => $account,

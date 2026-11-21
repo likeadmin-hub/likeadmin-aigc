@@ -18,9 +18,8 @@ use app\common\enum\PayEnum;
 use app\common\enum\RefundEnum;
 use app\common\model\recharge\RechargeOrder;
 use app\common\model\refund\RefundLog;
-use app\common\model\refund\RefundRecord;
 use app\common\service\pay\WeChatPayService;
-use app\common\service\distribution\DistributionService;
+use app\common\logic\RefundLogic;
 use think\console\Command;
 use think\console\Input;
 use think\console\Output;
@@ -198,20 +197,7 @@ class QueryRefund extends Command
      */
     public function updateRefundSuccess($logId, $recordId)
     {
-        // 更新日志
-        RefundLog::update([
-            'refund_status' => RefundEnum::REFUND_SUCCESS,
-        ], ['id' => $logId]);
-        // 更新记录
-        RefundRecord::update([
-            'refund_status' => RefundEnum::REFUND_SUCCESS,
-        ], ['id' => $recordId]);
-        $record = RefundRecord::where('id', $recordId)->findOrEmpty();
-        if (!$record->isEmpty() && (string)$record['order_type'] === RefundEnum::ORDER_TYPE_RECHARGE) {
-            DistributionService::reverseRechargeByOrderId((int)$record['order_id']);
-        } elseif (!$record->isEmpty() && (string)$record['order_type'] === 'membership') {
-            DistributionService::reverseMembershipByOrderId((int)$record['order_id']);
-        }
+        RefundLogic::markSuccess((int)$logId, (int)$recordId);
     }
 
 
