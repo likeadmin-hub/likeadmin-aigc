@@ -77,7 +77,7 @@ class LoginLogic extends BaseLogic
                 RegisterBonusService::grantIfEnabled((int)$user['id']);
                 MembershipService::grantDefaultFreeMembership((int)$user['tenant_id'], (int)$user['id']);
                 $inviteCode = trim((string)($params['invite_code'] ?? ''));
-                if ($inviteCode !== '' && DistributionService::isEnabled((int)$user['tenant_id'])) {
+                if ($inviteCode !== '') {
                     DistributionService::bindInviteCode((int)$user['tenant_id'], (int)$user['id'], $inviteCode, 'register');
                 }
             });

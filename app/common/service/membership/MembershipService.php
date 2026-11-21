@@ -279,6 +279,7 @@ class MembershipService
                 'pay_time' => time(),
                 'update_time' => time(),
             ]);
+            \app\common\service\distribution\DistributionService::onMembershipPaid($orderSn);
         });
     }
 
