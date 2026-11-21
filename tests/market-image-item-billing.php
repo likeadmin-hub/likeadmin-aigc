@@ -36,6 +36,22 @@ foreach (['1k'=>7.128, '2k'=>7.128, '4k'=>21.78] as $tier => $outputRate) {
     requireEqual([$total, $total], Billing::amounts($h3Pricing, $facts, 1));
 }
 
+$seedreamEdit = ['price'=>['points'=>14.256], 'meter_contract'=>['basis'=>'image'], 'charge_base_mode'=>'add', 'charge_items'=>[
+    ['code'=>'input_images','rate'=>'5.702400','unit'=>'input_image','included_count'=>0],
+]];
+$seedreamContract = Billing::declaration($seedreamEdit, 'seedream-5-5-image-to-image', 'official');
+requireEqual(['image_urls'], $seedreamContract['bindings']);
+$seedreamPricing = Billing::prices(['id'=>8, 'product_id'=>4, 'source_payload'=>['image_item_billing'=>$seedreamContract]], 0, [], []);
+$seedreamFacts = Billing::facts($seedreamPricing, ['image_urls'=>['reference.png'], 'image_url'=>'unrelated.png']);
+requireEqual(['input_count'=>1], $seedreamFacts);
+requireEqual([19.9584, 19.9584], Billing::amounts($seedreamPricing, $seedreamFacts, 1));
+try {
+    Billing::declaration($seedreamEdit, 'seedream-5-5-image-to-image', 'third-party');
+    throw new RuntimeException('An unrelated channel inherited the official Seedream binding');
+} catch (InvalidArgumentException $error) {
+    requireEqual('该规格缺少已核验的输入图片字段', $error->getMessage());
+}
+
 $changed = $image;
 $changed['charge_items'][0]['rate'] = '4';
 $sku['source_payload']['image_item_billing'] = Billing::declaration($changed, 'official-33-7b77ec425b57b520cd');

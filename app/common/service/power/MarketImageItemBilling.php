@@ -40,6 +40,7 @@ final class MarketImageItemBilling
                 throw new InvalidArgumentException('生图输入张数计费规则无效');
             }
             $keys = $sku['input_image_bindings'] ?? match ($model) {
+                'seedream-5-5-image-to-image' => $channel === 'official' ? ['image_urls'] : [],
                 'official-33-7b77ec425b57b520cd' => ['image_urls'],
                 'official-33-f9a445be9ef6a7f58d' => ['image_urls', 'elements.name'],
                 'official-33-42b1deb0efa8cdf52d' => self::klingLongImageBindings($sku),
