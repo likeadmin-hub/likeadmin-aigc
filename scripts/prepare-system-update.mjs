@@ -139,6 +139,15 @@ try {
         }
     }
     if(!bridge){
+        // The archive verifier requires a complete canonical entrypoint even
+        // when some of its dependencies are unchanged from the predecessor.
+        if(compareVersion(version)>=compareVersion('1.0.403') && changed.includes('runtime-loader.php')){
+            for(const relative of ['direct-runtime-loader.php','app/common/service/update/DirectSiteUpdateService.php','app/common/service/update/LegacyRuntimeCleanupService.php','scripts/runtime-cleanup.php']){
+                if(coverage.some(row=>row.path===relative && row.delivery==='files/'+relative))continue
+                copy(relative,'files/'+relative)
+                coverage.push({path:relative,delivery:'required-runtime-dependency'})
+            }
+        }
         // This completion hook runs even when the app is unchanged since the
         // predecessor. Ship its complete runtime, seed data and contracts.
         const updater='app/common/service/update/SystemPackageUpdateService.php'

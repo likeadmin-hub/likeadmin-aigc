@@ -59,6 +59,29 @@ test('dependency changes cannot silently ship without standalone runtime', () =>
         assert.match(result.stderr,/Composer runtime changes require --composer-runtime/)
     } finally { fs.rmSync(f.dir,{recursive:true,force:true}) }
 })
+test('canonical loader updates include all of their unchanged deployment companions', () => {
+    const f = fixture(), out = path.join(f.dir, 'canonical-stage')
+    const git = (...args) => execFileSync('git', args, { cwd: f.repo, encoding: 'utf8', stdio: 'pipe' })
+    const companions = ['direct-runtime-loader.php', 'app/common/service/update/DirectSiteUpdateService.php',
+        'app/common/service/update/LegacyRuntimeCleanupService.php', 'scripts/runtime-cleanup.php']
+    try {
+        f.write('config/project.php', "<?php return ['version'=>'1.0.444'];")
+        f.write('runtime-loader.php', '<?php // old entry')
+        for (const file of companions) f.write(file, '<?php // unchanged dependency')
+        git('add', 'config/project.php', 'runtime-loader.php', ...companions); git('commit', '-m', 'canonical baseline')
+        const base = git('rev-parse', 'HEAD').trim()
+        f.write('runtime-loader.php', '<?php // new entry')
+        git('add', 'runtime-loader.php'); git('commit', '-m', 'change entry only')
+        const result = spawnSync(process.execPath, [script.pathname, '--repo', f.repo, '--base-ref', base,
+            '--base-version', '1.0.444', '--version', '1.0.445', '--out-dir', out], { encoding: 'utf8' })
+        assert.equal(result.status, 0, result.stderr)
+        const coverage = JSON.parse(fs.readFileSync(path.join(out, 'release-change-manifest.json')))
+        for (const file of companions) {
+            assert.equal(fs.readFileSync(path.join(out, 'files', file), 'utf8'), '<?php // unchanged dependency')
+            assert.ok(coverage.paths.some(entry => entry.path === file && entry.delivery === 'required-runtime-dependency'))
+        }
+    } finally { fs.rmSync(f.dir, { recursive: true, force: true }) }
+})
 test('retired app keeps immutable historical SQL without reinstalling or replaying it', () => {
     const f=fixture(),out=path.join(f.dir,'retired-stage')
     const git=(...args)=>execFileSync('git',args,{cwd:f.repo,encoding:'utf8',stdio:'pipe'})
