@@ -106,18 +106,16 @@ class MarketImageModelRuntimeService
                 ? ($meta['upstream_metadata']['model_code'] ?? $product['upstream_model_code']) : '';
             foreach ($catalogueSkus[(int)$product['id']]['available'] ?? [] as $market) {
                 $sku = $market['sku'];
-                $imagePricing = MarketImageItemBilling::prices($sku, $tenantId);
-                $reason = $imagePricing !== null && !$imagePricing['valid']
-                    ? ($imagePricing['error'] ?? '生图分项售价低于进货价')
-                    : self::unavailableMeterReason($sku);
-                if ($reason !== '') {
-                    $meterReason = $reason;
+                try {
+                    [$imagePricing, $meter] = self::pricingContracts($sku, $tenantId);
+                } catch (\InvalidArgumentException $error) {
+                    $meterReason = $meterReason ?: $error->getMessage();
                     continue;
                 }
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
                 $quality = self::skuQuality($sku, $locked, $meta);
                 $skus[] = [
-                    ...MarketGenerationMeter::priceDisplayFields($sku),
+                    ...MarketGenerationMeter::priceDisplayFields($sku + ['billing_meter' => $meter ?: null]),
                     'market_sku_id' => (int)$sku['id'],
                     'sku_key' => (string)$sku['sku_key'],
                     'title' => (string)$sku['title'],
@@ -246,9 +244,8 @@ class MarketImageModelRuntimeService
 
     private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false, int $tenantId = 0, ?int $quantity = null): array
     {
-        $itemPricing = MarketImageItemBilling::prices($market['sku'], $tenantId);
+        [$itemPricing, $meter] = self::pricingContracts($market['sku'], $tenantId);
         if ($itemPricing !== null) {
-            if (!$itemPricing['valid']) throw new Exception($itemPricing['error'] ?? '生图分项售价低于对应进货价，请调整售价');
             $market['image_item_pricing'] = $itemPricing;
             $prepared = self::prepareRequest(self::snapshot($market), $selection, $tenantId, $deferMissingPrompt);
             $market['image_item_facts'] = MarketImageItemBilling::facts($itemPricing, $prepared->nativeInput);
@@ -258,13 +255,6 @@ class MarketImageModelRuntimeService
             }
             return $market;
         }
-        $meter = MarketUsageSettlementService::isActualUsageSku($market['sku'])
-            ? MarketGenerationMeter::tokenContract($market['sku']) : MarketGenerationMeter::contract($market['sku']);
-        if ($meter['basis'] === 'megapixel') {
-            if (!MarketGenerationPixelMeter::applies($meter)) throw new \InvalidArgumentException('该规格尚无可核验的像素报价');
-            MarketGenerationPixelMeter::assertUnitSize($market['sku']['usage_unit_size'] ?? null);
-        }
-        if (!in_array($meter['basis'], ['call', 'image', 'megapixel','token'], true)) throw new Exception('该图片模型计费数量规则尚未适配');
         // Legacy image channels priced each requested image even when their unit was per_call.
         // Only an explicit supplier meter may change that established contract.
         if (MarketGenerationMeter::isExplicit($meter)) $market['billing_meter'] = $meter;
@@ -357,22 +347,27 @@ class MarketImageModelRuntimeService
         };
     }
 
-    private static function unavailableMeterReason(array $sku): string
+    /**
+     * Use the same price validation for the picker, automatic SKU selection and admission.
+     * @return array{0: ?array, 1: array}
+     */
+    private static function pricingContracts(array $sku, int $tenantId): array
     {
-        $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
-        $declaration = $source['meter_contract'] ?? $sku['meter_contract'] ?? [];
-        $summary = $source['meter_summary'] ?? $sku['meter_summary'] ?? '';
-        if (($declaration['basis'] ?? '') !== 'megapixel' && !str_starts_with(trim((string)$summary), '百万像素')) return '';
-        try {
-            $meter = MarketGenerationMeter::contract($sku);
-            if ($meter['basis'] === 'megapixel') {
-                if (!MarketGenerationPixelMeter::applies($meter)) return '该规格尚无可核验的像素报价';
-                MarketGenerationPixelMeter::assertUnitSize($sku['usage_unit_size'] ?? null);
-            }
-        } catch (\InvalidArgumentException $error) {
-            return $error->getMessage();
+        $itemPricing = MarketImageItemBilling::prices($sku, $tenantId);
+        if ($itemPricing !== null) {
+            if (!$itemPricing['valid']) throw new \InvalidArgumentException($itemPricing['error'] ?? '生图分项售价低于对应进货价，请调整售价');
+            return [$itemPricing, []];
         }
-        return '';
+        $meter = MarketUsageSettlementService::isActualUsageSku($sku)
+            ? MarketGenerationMeter::tokenContract($sku) : MarketGenerationMeter::contract($sku);
+        if ($meter['basis'] === 'megapixel') {
+            if (!MarketGenerationPixelMeter::applies($meter)) throw new \InvalidArgumentException('该规格尚无可核验的像素报价');
+            MarketGenerationPixelMeter::assertUnitSize($sku['usage_unit_size'] ?? null);
+        }
+        if (!in_array($meter['basis'], ['call', 'image', 'megapixel', 'token'], true)) {
+            throw new \InvalidArgumentException('该图片模型计费数量规则尚未适配');
+        }
+        return [null, $meter];
     }
 
     private static function quoteMarket(array $market, int $quantity, array $billingOverride): array
@@ -1140,10 +1135,14 @@ class MarketImageModelRuntimeService
     {
         $frozen = \app\common\service\open_platform\OpenImagePricing::market($tenantId, $selection, 'model');
         if ($frozen !== null) return $frozen;
+        $productId = self::productId($selection);
         $skuId = self::skuId($selection);
         if ($skuId > 0) {
             $sku = PowerMarketSku::where(['id' => $skuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty();
             if ($sku->isEmpty()) throw new Exception('所选图片模型规格已下架');
+            if ($productId > 0 && $productId !== (int)$sku['product_id']) {
+                throw new Exception('所选图片规格与当前模型不一致，请重新选择规格');
+            }
             $product = PowerMarketProduct::where(['id' => (int)$sku['product_id'], 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
             if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
             $productData = $product->toArray();
@@ -1162,7 +1161,6 @@ class MarketImageModelRuntimeService
             return $market;
         }
 
-        $productId = self::productId($selection);
         if ($productId <= 0) throw new Exception('请选择算力市场图片模型');
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
         if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
@@ -1172,30 +1170,37 @@ class MarketImageModelRuntimeService
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
     private static function resolveProduct(int $tenantId, array $product, array $selection): array
     {
-        $selection=MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest(self::metadata($product),$selection);
+        return MarketCatalogReadScope::run(static fn(): array => self::selectProductSku($tenantId, $product, $selection));
+    }
+
+    private static function selectProductSku(int $tenantId, array $product, array $selection): array
+    {
+        $metadata = self::metadata($product);
+        $selection = MarketOwnedPlatformFlatSourceRules::normalizeMetadataRequest($metadata, $selection);
         $quality = self::selectionQuality($selection);
         $ratio = self::normalizedRatio(self::firstValue($selection, ['ratio', 'aspect_ratio', 'size']));
-        $matches = [];
-        foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
+        $productId = (int)$product['id'];
+        $skus = MarketCatalogSkuReader::forProducts($tenantId, [$productId])[$productId]['available'] ?? [];
+        $nativeMode = $skus === [] ? '' : (MarketGenerationMaterials::select($metadata, $selection)['native_mode'] ?? '');
+        $pricingError = null;
+        foreach ($skus as $market) {
             $sku = (array)$market['sku'];
-            if (self::unavailableMeterReason($sku) !== '') continue;
             $locked = self::arrayValue($sku['locked_params'] ?? []);
-            $lockedQuality = self::skuQuality($sku, $locked, self::metadata($product));
-            $choices = self::skuQualityChoices($sku, self::metadata($product), $product);
-            $nativeMode = MarketGenerationMaterials::select(self::metadata($product), $selection)['native_mode'] ?? '';
             if (!empty($locked['generation_type']) && $nativeMode !== '' && $locked['generation_type'] !== $nativeMode) continue;
             if (!self::pricedParametersMatch($locked, $selection)) continue;
-            if ($quality === '' || $choices === [] || in_array(strtolower($quality), $choices, true)) {
-                $supportedRatios = self::ratioOptions($locked, self::metadata($product), (string)($product['upstream_model_code'] ?? ''));
-                if ($ratio === '' || $supportedRatios === [] || in_array($ratio, $supportedRatios, true)) {
-                    $matches[] = $market;
-                }
+            $choices = self::skuQualityChoices($sku, $metadata, $product);
+            if ($quality !== '' && $choices !== [] && !in_array(strtolower($quality), $choices, true)) continue;
+            $supportedRatios = self::ratioOptions($locked, $metadata, (string)($product['upstream_model_code'] ?? ''));
+            if ($ratio !== '' && $supportedRatios !== [] && !in_array($ratio, $supportedRatios, true)) continue;
+            try {
+                self::pricingContracts($sku, $tenantId);
+            } catch (\InvalidArgumentException $error) {
+                $pricingError ??= $error;
+                continue;
             }
+            return self::marketRow($tenantId, $product, $sku);
         }
-        if ($matches === []) {
-            throw new Exception($quality === '' ? '所选图片模型暂无可用规格' : '所选图片模型不支持 ' . $quality . ' 分辨率');
-        }
-        return self::marketRow($tenantId, $product, (array)$matches[0]['sku']);
+        throw $pricingError ?? new Exception($quality === '' ? '所选图片模型暂无可用规格' : '所选图片模型不支持 ' . $quality . ' 分辨率');
     }
 
     private static function itemizedOutputOptions(array $metadata, array $skus): array
@@ -1229,15 +1234,6 @@ class MarketImageModelRuntimeService
         if ($singleImage) {
             throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');
         }
-    }
-
-    /** @return array<int,array{sku:array<string,mixed>,tenant_price:float}> */
-    private static function availableSkus(int $tenantId, int $productId): array
-    {
-        $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->select()->toArray(); $result = [];
-        foreach ($rows as $sku) { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue; $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)]; }
-        return $result;
     }
 
     /** @param array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} $market */
@@ -1990,7 +1986,22 @@ class MarketImageModelRuntimeService
     private static function marketRow(int $tenantId, array $product, array $sku): array { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该图片模型规格'); return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant), 'reference_limit' => self::referenceLimit(self::metadata($product))]; }
     private static function skuId(array $selection): int { $value = $selection['market_sku_id'] ?? $selection['sku_id'] ?? $selection['model_id'] ?? $selection['channel'] ?? $selection['image_model_id'] ?? ''; if (is_string($value) && str_starts_with($value, 'market_image_model:')) return 0; return (int)(is_string($value) ? preg_replace('/^market_sku:/', '', $value) : $value); }
     private static function modelId(int $productId): string { return 'market_image_model:' . $productId; }
-    private static function productId(array $selection): int { $value = $selection['market_product_id'] ?? ''; if ((int)$value > 0) return (int)$value; $nested = self::arrayValue($selection['params'] ?? []); foreach ([$selection['model_id'] ?? '', $selection['image_model_id'] ?? '', $selection['channel'] ?? '', $selection['channel_code'] ?? '', $nested['model_id'] ?? ''] as $candidate) { if (is_string($candidate) && preg_match('/^market_image_model:(\\d+)$/', $candidate, $match)) return (int)$match[1]; } return 0; }
+    private static function productId(array $selection): int
+    {
+        $productId = max(0, (int)($selection['market_product_id'] ?? 0));
+        $nested = self::arrayValue($selection['params'] ?? []);
+        foreach ([$selection['model_id'] ?? '', $selection['image_model_id'] ?? '', $selection['channel'] ?? '',
+            $selection['channel_code'] ?? '', $nested['model_id'] ?? ''] as $candidate) {
+            if (!is_string($candidate) || !preg_match('/^market_image_model:([0-9]+)$/D', $candidate, $match)) continue;
+            $candidateId = (int)$match[1];
+            if ($candidateId === 0) continue;
+            if ($productId > 0 && $productId !== $candidateId) {
+                throw new Exception('图片模型选择不一致，请重新选择模型');
+            }
+            $productId = $candidateId;
+        }
+        return $productId;
+    }
     private static function selectionQuality(array $selection): string { $nested = self::arrayValue($selection['params'] ?? []); foreach (['quality', 'resolution', 'image_size', 'size'] as $key) { $value = trim((string)($selection[$key] ?? $nested[$key] ?? '')); if ($value !== '') return self::qualityFromText($value) ?: $value; } return ''; }
     private static function qualityLabel(string $quality): string { return preg_replace_callback('/(\\d+)k\\b/i', static fn(array $match): string => $match[1] . 'K', $quality) ?: $quality; }
     /** @return array<int,string> */

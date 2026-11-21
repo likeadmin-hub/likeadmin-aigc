@@ -59,9 +59,53 @@ try {
     } catch (InvalidArgumentException $error) {
         imageAssert($error->getMessage()==='该规格尚无可核验的像素报价','direct SKU estimate rejects unbounded pixel billing');
     }
-    $sync->invoke(null,$product,$decl,['resource'=>['type_code'=>'image','model_code'=>'billing-'.$nonce]]);
-    $row = \app\common\model\power\PowerMarketSku::where('product_id',$product)->find()->toArray();
+    $fixtureResource = ['resource'=>['type_code'=>'image','model_code'=>'billing-'.$nonce]];
+    $bad = array_replace($decl, ['sku_key'=>'bad-items','input_image_bindings'=>[]]);
+    $sync->invoke(null,$product,$bad,$fixtureResource);
+    $sync->invoke(null,$product,$decl,$fixtureResource);
+    $row = \app\common\model\power\PowerMarketSku::where('product_id',$product)->where('sku_key','fixture')->find()->toArray();
     $sku = (int)$row['id'];
+    $selection = ['market_product_id'=>$product,'prompt'=>'A local image quote'];
+    $quote = Runtime::quote($tenant,$selection);
+    imageAssert($quote['market_sku_id']===$sku,'automatic selection skips the invalid item contract ahead of a valid matching SKU');
+    $badId = (int)\app\common\model\power\PowerMarketSku::where('product_id',$product)->where('sku_key','bad-items')->value('id');
+    try {
+        Runtime::quote($tenant,$selection + ['market_sku_id'=>$badId]);
+        throw new RuntimeException('An explicitly selected invalid SKU was silently replaced');
+    } catch (Exception $error) {
+        imageAssert($error->getMessage()==='该规格缺少已核验的输入图片字段','explicit invalid SKU reports its original pricing error');
+    }
+    \app\common\model\power\PowerMarketSku::destroy($badId);
+
+    $pixelProduct = Db::name('power_market_product')->insertGetId(['product_code'=>'pixel-'.$nonce,'name'=>'Pixel fixture',
+        'resource_type'=>'model','model_type'=>'image','upstream_model_code'=>'pixel-'.$nonce,
+        'upstream_resource_key'=>'pixel-'.$nonce,'status'=>1]);
+    $pixel = ['sku_key'=>'unbounded','price'=>['points'=>16],'usage_unit'=>'business_unit',
+        'meter_summary'=>'百万像素，总点数向上取整'];
+    $sync->invoke(null,$pixelProduct,$pixel,$fixtureResource);
+    $sync->invoke(null,$pixelProduct,array_replace($pixel,['sku_key'=>'unknown-meter','meter_summary'=>'未识别的计费规则']),$fixtureResource);
+    $pixelSelection = array_replace($selection,['market_product_id'=>$pixelProduct]);
+    try {
+        Runtime::quote($tenant,$pixelSelection + ['market_sku_id'=>$sku]);
+        throw new RuntimeException('A SKU from a different model was accepted');
+    } catch (Exception $error) {
+        imageAssert($error->getMessage()==='所选图片规格与当前模型不一致，请重新选择规格','explicit SKU cannot switch the selected model');
+    }
+    try {
+        Runtime::quote($tenant,$selection + ['market_sku_id'=>$sku,'channel'=>'market_image_model:'.$pixelProduct]);
+        throw new RuntimeException('A stale product ID shadowed the selected model channel');
+    } catch (Exception $error) {
+        imageAssert($error->getMessage()==='图片模型选择不一致，请重新选择模型','conflicting model identifiers require a refreshed selection');
+    }
+    try {
+        Runtime::quote($tenant,$pixelSelection);
+        throw new RuntimeException('An unavailable meter was quoted');
+    } catch (Exception $error) {
+        imageAssert($error->getMessage()==='该规格尚无可核验的像素报价','automatic selection preserves the billing error when no SKU can be quoted');
+    }
+    $option = array_column(Runtime::options($tenant),null,'market_product_id')[$pixelProduct];
+    imageAssert(!$option['available'] && $option['skus']===[],'unknown scalar contracts do not appear as selectable image SKUs');
+
     $platform = Billing::display(Billing::prices($row, 0),0);
     PowerMarketService::savePrices($product,[['sku_id'=>$sku,'state_only'=>true,'sale_status'=>0]]);
     PowerMarketService::savePrices($product,[['sku_id'=>$sku,'items_only'=>true,
