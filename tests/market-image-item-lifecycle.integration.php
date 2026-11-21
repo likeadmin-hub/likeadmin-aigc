@@ -3,6 +3,8 @@ require dirname(__DIR__).'/runtime-loader.php';
 (new AigcRuntimeApp(dirname(__DIR__)))->initialize();
 
 use app\common\model\ai\{AiConsumptionLog, AiAppTask};
+use app\common\model\app\aigc_image\AigcImageTask;
+use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\point\PointService;
 use app\common\service\power\{MarketImageItemBilling as Billing, MarketImageModelRuntimeService as Runtime, MarketPriceRuleService as Rules, PowerMarketService, TenantPowerMarketService};
 use think\facade\Db;
@@ -202,6 +204,45 @@ try {
         }
         imageAssert(wallets($tenant,$user)===$after,"duplicate $case is idempotent");
     }
+
+    $initial = wallets($tenant,$user);
+    $number = 'LAYER'.$nonce;
+    $appTask = AiAppTask::create(['tenant_id'=>$tenant,'user_id'=>$user,'task_no'=>$number,'app_code'=>'aigc_image',
+        'action_code'=>'generate','status'=>'running','idempotency_key'=>$number,'create_time'=>time(),'update_time'=>time()]);
+    $imageTask = AigcImageTask::create(['app_task_id'=>$appTask['id'],'tenant_id'=>$tenant,'user_id'=>$user,
+        'prompt'=>'Single input with two outputs','quantity'=>1,'provider'=>'power_market','status'=>'running','delete_time'=>0]);
+    $layerSku = ['price'=>['points'=>14.256],'meter_summary'=>'生成张数','charge_base_mode'=>'add','charge_items'=>[
+        ['code'=>'input_images','rate'=>'5.702400','unit'=>'input_image','included_count'=>0],
+    ]];
+    $layerPrice = Billing::prices(['id'=>0,'product_id'=>0,'source_payload'=>[
+        'image_item_billing'=>Billing::declaration($layerSku,'seedream-5-5-layer-decomposition','official'),
+    ]],$tenant,[],[]);
+    $layerConsumption = AiConsumptionLog::create(['tenant_id'=>$tenant,'user_id'=>$user,'app_task_id'=>$appTask['id'],
+        'consume_no'=>$number,'app_code'=>'aigc_image','action_code'=>'generate','resource_type'=>'model','provider'=>'power_market',
+        'billing_status'=>'reserved','run_status'=>'reserved','reserved_tenant_cost'=>62.73,'reserved_user_price'=>62.73,
+        'price_snapshot'=>['image_item_pricing'=>$layerPrice,'image_item_facts'=>['input_count'=>1,'output_limit'=>4],
+            'requested_image_quantity'=>1,'usage_unit'=>'image'], 'quantity'=>1,'usage_unit'=>'image','create_time'=>time(),'update_time'=>time()]);
+    PointService::reserveBusinessAmountsInCurrentTransaction($tenant,$user,62.73,62.73,$number.'-reserve','local layer billing fixture');
+    $layerImages = [['image_uri'=>'fixtures/base.png'],['image_uri'=>'fixtures/layer.png']];
+    $settle->invoke(null,(int)$layerConsumption['id'],$layerImages,'','mock-layer-task',[]);
+    $after = wallets($tenant,$user);
+    imageAssert(round($initial[0]-$after[0],2)===34.21 && round($initial[1]-$after[1],2)===34.21,
+        'layer task returns the unused reservation and charges only the actual output count');
+
+    $resultQuery = static fn() => Db::name('aigc_image_result')->where('task_id',$imageTask['id']);
+    $baseId = $resultQuery()->insertGetId(['task_id'=>$imageTask['id'],'tenant_id'=>$tenant,'user_id'=>$user,
+        'image_uri'=>'fixtures/base.png','tenant_cost_points'=>17.11,'user_charge_points'=>17.11,'delete_time'=>0]);
+    $imageTask->save(['status'=>'success','user_charge_points'=>17.11]);
+    AigcImageService::syncMarketTaskResult($tenant,(int)$imageTask['id'],$user);
+    imageAssert($resultQuery()->order('id')->column('image_uri')===['fixtures/base.png','fixtures/layer.png'],
+        'settled layer result backfill completes a partial result from the frozen receipt');
+    imageAssert(round((float)$resultQuery()->sum('user_charge_points'),2)===34.21
+        && (float)AigcImageTask::find($imageTask['id'])['user_charge_points']===34.21,
+        'per-result prices and task total agree at cent precision');
+    $resultQuery()->where('id',$baseId)->update(['delete_time'=>time()]);
+    AigcImageService::syncMarketTaskResult($tenant,(int)$imageTask['id'],$user);
+    imageAssert($resultQuery()->count()===2 && $resultQuery()->where('delete_time',0)->count()===1 && wallets($tenant,$user)===$after,
+        'repeated layer backfill neither charges again nor recreates a deleted result');
 } finally {
     Db::rollback();
 }

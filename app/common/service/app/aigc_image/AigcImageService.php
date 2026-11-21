@@ -706,6 +706,7 @@ class AigcImageService
             'storage_scope'=>$image['storage_scope']??null,'storage_engine'=>$image['storage_engine']??null,'storage_domain'=>$image['storage_domain']??null,
         ], array_filter((array)($summary['images'] ?? []), 'is_array'));
         if ($images === []) return;
+        $outputLimit = $consumption['price_snapshot']['image_item_facts']['output_limit'] ?? null;
         $count = max(1, count($images));
         self::finishTaskWithImages($task, [
             'channel' => ['code' => (string)$task['channel']],
@@ -713,7 +714,7 @@ class AigcImageService
         ], [
             'platform_unit_cost' => (float)$consumption['actual_tenant_cost'] / $count,
             'tenant_unit_price' => (float)$consumption['actual_user_price'] / $count,
-        ], $images, true, (int)$consumption['id']);
+        ], $images, true, (int)$consumption['id'], $outputLimit);
     }
 
     public static function retryTask(int $tenantId, int $taskId): array
@@ -1458,7 +1459,8 @@ class AigcImageService
         array $estimate,
         array $images,
         bool $marketAlreadySettled = false,
-        int $marketConsumptionId = 0
+        int $marketConsumptionId = 0,
+        ?int $maximumResultCount = null
     ): array
     {
         $rows = [];
@@ -1474,7 +1476,7 @@ class AigcImageService
                 throw new Exception('任务不存在');
             }
             $existingRows = self::existingResultRows($tenantId, $userId, (int)$task['id']);
-            if ((string)$task['status'] === 'success' || !empty($existingRows)) {
+            if ($maximumResultCount === null && ((string)$task['status'] === 'success' || $existingRows !== [])) {
                 if ((string)$task['status'] !== 'success' || (string)$task['error'] !== '') {
                     $task->status = 'success';
                     $task->error = '';
@@ -1485,10 +1487,27 @@ class AigcImageService
                 Db::commit();
                 return $existingRows;
             }
-            $images = self::uniqueImages($images, max(1, (int)$task['quantity']));
+            $images = self::uniqueImages($images, $maximumResultCount ?? max(1, (int)$task['quantity']));
+            $costPoints = count($images);
+            if ($maximumResultCount !== null) {
+                // Include deleted results so retries can fill missing outputs without reviving them.
+                $storedUris = AigcImageResult::where(['tenant_id'=>$tenantId,'user_id'=>$userId,'task_id'=>(int)$task['id']])->column('image_uri');
+                $images = array_filter($images, static fn(array $image): bool => !in_array($image['uri'], $storedUris, true));
+                if ($images === []) {
+                    Db::commit();
+                    return $existingRows;
+                }
+            }
             $storage = StorageConfigService::getEffectiveConfig($tenantId);
             $isUnifiedTask = (int)($task['app_task_id'] ?? 0) > 0;
             foreach ($images as $index => $image) {
+                $platformUnitCost = $estimate['platform_unit_cost'];
+                $tenantUnitPrice = $estimate['tenant_unit_price'];
+                if ($maximumResultCount !== null) {
+                    // Allocate the rounded total across outputs in their original order, including replays.
+                    $platformUnitCost = round($platformUnitCost * ($index + 1), 2) - round($platformUnitCost * $index, 2);
+                    $tenantUnitPrice = round($tenantUnitPrice * ($index + 1), 2) - round($tenantUnitPrice * $index, 2);
+                }
                 $row = AigcImageResult::create([
                     'tenant_id' => $tenantId,
                     'task_id' => (int)$task['id'],
@@ -1502,8 +1521,8 @@ class AigcImageService
                     'storage_domain' => $image['storage_domain']??StorageConfigService::getEffectiveDomain($tenantId),
                     'width' => $image['width'] ?? 0,
                     'height' => $image['height'] ?? 0,
-                    'tenant_cost_points' => $estimate['platform_unit_cost'],
-                    'user_charge_points' => $estimate['tenant_unit_price'],
+                    'tenant_cost_points' => $platformUnitCost,
+                    'user_charge_points' => $tenantUnitPrice,
                     'provider_task_id' => $image['provider_task_id'] ?? $task['provider_task_id'],
                     'delete_time' => 0,
                     'create_time' => time(),
@@ -1528,10 +1547,10 @@ class AigcImageService
                     'quality' => $selection['spec']['quality'],
                     'ratio' => $selection['spec']['ratio'],
                     'quantity' => 1,
-                    'platform_unit_cost' => $estimate['platform_unit_cost'],
-                    'tenant_unit_price' => $estimate['tenant_unit_price'],
-                    'tenant_cost_points' => $estimate['platform_unit_cost'],
-                    'user_charge_points' => $estimate['tenant_unit_price'],
+                    'platform_unit_cost' => $platformUnitCost,
+                    'tenant_unit_price' => $tenantUnitPrice,
+                    'tenant_cost_points' => $platformUnitCost,
+                    'user_charge_points' => $tenantUnitPrice,
                     'consumption_id' => $marketAlreadySettled ? $marketConsumptionId : 0,
                     'billing_status' => $marketAlreadySettled ? 'deducted' : ($isUnifiedTask ? 'reserved' : 'deducted'),
                     'tenant_point_sn' => $marketAlreadySettled ? '' : ($isUnifiedTask ? '' : $sourceSn),
@@ -1549,7 +1568,6 @@ class AigcImageService
                 $rows[] = $item;
             }
 
-            $costPoints = count($rows);
             $settlement = $isUnifiedTask && !$marketAlreadySettled ? AiUsageService::settleImageTaskInCurrentTransaction((int)$task['id'], $costPoints, [
                 'result_count' => $costPoints,
                 'provider_task_id' => (string)($images[0]['provider_task_id'] ?? $task['provider_task_id']),
@@ -1564,7 +1582,7 @@ class AigcImageService
                     'update_time' => time(),
                 ]);
             }
-            self::consumeQuota($tenantId, $userId, $costPoints);
+            self::consumeQuota($tenantId, $userId, count($rows));
             $task->status = $settlement['status'] ?? 'success';
             $task->tenant_cost_points = number_format((float)($settlement['actual_tenant_cost'] ?? ((float)$estimate['platform_unit_cost'] * $costPoints)), 2, '.', '');
             $task->user_charge_points = number_format((float)($settlement['actual_user_price'] ?? ((float)$estimate['tenant_unit_price'] * $costPoints)), 2, '.', '');
@@ -1587,7 +1605,7 @@ class AigcImageService
             }
             throw $e;
         }
-        return $rows;
+        return array_merge($existingRows, $rows);
     }
 
     private static function uniqueImages(array $images, int $limit = 1): array
