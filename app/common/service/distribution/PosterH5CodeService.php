@@ -35,7 +35,7 @@ final class PosterH5CodeService
         }
         // Replace any existing query, including TenantUrlService's ID-mode query.
         $destination=explode('?',$mobile,2)[0].'?'.http_build_query(
-            ['tenant_id'=>$tenantId,'invite_code'=>$invite],'','&',PHP_QUERY_RFC3986
+            ['invite_code'=>$invite],'','&',PHP_QUERY_RFC3986
         );
         return [
             'channel'=>'h5', 'destination'=>$destination,

@@ -21,6 +21,7 @@ use app\common\service\JsonService;
 use app\common\service\tenant\TenantContractService;
 use app\common\service\tenant\TenantDomainAliasService;
 use app\common\service\tenant\TenantUrlService;
+use app\common\service\tenant\PublicTenantEntry;
 use Closure;
 
 /**
@@ -114,7 +115,8 @@ class LikeAdminAllowMiddleware
 
         // Explicit tenant links on the platform host still open the tenant PC.
         if ($normalizedPath === '' && in_array(strtoupper($request->method()), ['GET', 'HEAD'], true)
-            && !$this->extractExplicitTenantId($request) && $this->isAllowedPlatformHost($platformHost)) {
+            && !$this->extractExplicitTenantId($request) && !PublicTenantEntry::hasContext($request)
+            && $this->isAllowedPlatformHost($platformHost)) {
             return redirect('/platform/');
         }
 
@@ -181,7 +183,7 @@ class LikeAdminAllowMiddleware
             $request->tenantId = $tenant->id;
             $request->tenantSn = $tenant->sn;
             $request->tenantResolveMode = 'domain_alias';
-            return $next($request);
+            return PublicTenantEntry::respond($request, $next);
         } elseif (!$tenant->isEmpty()) {
             return $this->tenantDisabledResponse($isPage);
         }
@@ -197,14 +199,14 @@ class LikeAdminAllowMiddleware
                 $request->tenantId = $tenant->id;
                 $request->tenantSn = $tenant->sn;
                 $request->tenantResolveMode = 'subdomain';
-                return $next($request);
+                return PublicTenantEntry::respond($request, $next);
             } else {
                 return $this->tenantDisabledResponse($isPage);
             }
         }
 
         // 通过 /t/{tenant_id}/... 或请求参数/请求头访问租户
-        $tenantId = $this->extractExplicitTenantId($request);
+        $tenantId = $this->extractExplicitTenantId($request) ?: PublicTenantEntry::tenantId($request);
         if ($tenantId) {
             $tenant = $tenantModel->where(['id' => $tenantId])->findOrEmpty();
             if (!$tenant->isEmpty() && TenantContractService::enforceTenantActive($tenant)) {
@@ -212,9 +214,10 @@ class LikeAdminAllowMiddleware
                 $request->tenantSn = $tenant->sn;
                 $request->tenantResolveMode = $this->extractTenantIdFromPath($request) ? 'path_id' : 'param_id';
                 if ($isPage && ($entry = $this->tenantPathFrontendEntry($request))) {
-                    return response(app()->getRootPath() . 'public/' . $entry . '/index.html', 200, [], 'file');
+                    return PublicTenantEntry::respond($request, static fn () =>
+                        response(app()->getRootPath() . 'public/' . $entry . '/index.html', 200, [], 'file'));
                 }
-                return $next($request);
+                return PublicTenantEntry::respond($request, $next);
             } elseif (!$tenant->isEmpty()) {
                 return $this->tenantDisabledResponse($isPage);
             }
