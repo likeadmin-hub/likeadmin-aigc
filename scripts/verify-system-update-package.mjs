@@ -8,6 +8,7 @@ import path from 'node:path'
 
 import { assertSnapshotMigrationCoverage, snapshotCoreSql, assertHistoryIndexMigrationCoverage, historyIndexCoreSql } from './snapshot-migration-coverage.mjs'
 import { assertCopywritingDependencies } from './system-update-app-dependencies.mjs'
+import { verifyMiniProgramArtifact } from './verify-mini-program-artifact.mjs'
 
 const target = process.argv[2]
 const delegated = process.argv.includes('--bootstrap-inner')
@@ -140,6 +141,7 @@ if(normalized.has('files/runtime-loader.php') && (releaseMajor>1 || (releaseMajo
 }
 verifyUpdaterBridge(updateManifest, normalized)
 verifyIncrementalManifest(updateManifest, normalized)
+verifyPackagedMiniProgram(updateManifest)
 verifyIncrementalComposerRuntime(updateManifest, normalized)
 verifyIncrementalSqlSafety(absoluteTarget, stat.isDirectory(), updateManifest, normalized)
 verifyCumulativeUpgradeSql(updateManifest, normalized)
@@ -187,6 +189,22 @@ console.log(JSON.stringify({
     entries: normalized.size,
     signature_files: signatureFiles.length
 }, null, 2))
+
+function verifyPackagedMiniProgram(manifest) {
+    if (!manifest.full_replace_dirs?.includes('public/mp-weixin')) return
+    const directory = 'files/public/mp-weixin'
+    if (stat.isDirectory()) {
+        verifyMiniProgramArtifact(path.join(absoluteTarget, directory), manifest.version)
+        return
+    }
+    const temporary = mkdtempSync(path.join(os.tmpdir(), 'aigc-mp-verify-'))
+    try {
+        execFileSync('unzip', ['-oq', absoluteTarget, directory + '/*', '-d', temporary])
+        verifyMiniProgramArtifact(path.join(temporary, directory), manifest.version)
+    } finally {
+        rmSync(temporary, { recursive: true, force: true })
+    }
+}
 
 function listZipEntries(zipPath) {
     try {

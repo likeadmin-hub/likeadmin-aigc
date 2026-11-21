@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { decorationPresetAssets } from './decoration-preset-assets.mjs'
 import { assertSnapshotMigrationCoverage, snapshotCoreSql, assertHistoryIndexMigrationCoverage, historyIndexCoreSql } from './snapshot-migration-coverage.mjs'
 import { requiresCopywriting, copywritingDependencyFiles } from './system-update-app-dependencies.mjs'
+import { verifyMiniProgramArtifact } from './verify-mini-program-artifact.mjs'
 const args=process.argv.slice(2)
 const option=(key,fallback='')=>{const i=args.indexOf(key);return i<0?fallback:args[i+1]}
 const repo=path.resolve(option('--repo',path.join(path.dirname(fileURLToPath(import.meta.url)),'..')))
@@ -216,7 +217,12 @@ try {
         const projectPath=path.join(out,'files/config/project.php')
         fs.writeFileSync(projectPath,fs.readFileSync(projectPath,'utf8').replace(/(['"]version['"]\s*=>\s*['"])[^'"]+(['"])/,`$1${version}$2`))
     }
-    else for(const dir of fullDirs){if(fs.existsSync(path.join(repo,dir))){copy(dir,'files/'+dir);replaced.push(dir)}}
+    else for (const dir of fullDirs) {
+        if (!fs.existsSync(path.join(repo, dir))) continue
+        copy(dir, 'files/' + dir)
+        if (dir === 'public/mp-weixin') verifyMiniProgramArtifact(path.join(out, 'files', dir), version)
+        replaced.push(dir)
+    }
     if(delegated)for(const relative of ['runtime-loader.php','think','public/index.php','scripts/composer-runtime-runner.php','scripts/verify-composer-runtime.php','app/common/service/update/ComposerRuntimeUpdateService.php','app/common/service/update/SystemRuntimeBootstrapService.php','app/common/service/update/UpdateCustomerMessage.php','app/common/service/update/ProjectUpdateProcessGate.php','app/common/service/update/SystemPackageUpdateService.php','app/common/service/update/AppPackageUpdateService.php','app/common/service/database/PcWechatMigration.php','app/common/service/app/AppRegistryService.php','app/common/service/app/AppMenuService.php','app/common/service/app/DefaultAppService.php','app/common/service/billing/PackageProvisionService.php','app/common/service/database/RuntimeMigrationPlan.php','app/common/service/database/RuntimeMetadataTransactionGate.php']){copy(relative,'files/'+relative);if(!coverage.some(entry=>entry.path===relative))coverage.push({path:relative,delivery:'bootstrap-required-runtime-file'})}
     if(delegated && fs.existsSync(path.join(repo,'direct-runtime-loader.php')))for(const relative of ['direct-runtime-loader.php','app/common/service/update/DirectSiteUpdateService.php','app/common/service/update/LegacyRuntimeCleanupService.php']){copy(relative,'files/'+relative);if(!coverage.some(entry=>entry.path===relative))coverage.push({path:relative,delivery:'bootstrap-required-runtime-file'})}
     // Retention is optional for historical bootstrap sources, but a source that

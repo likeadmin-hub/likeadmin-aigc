@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { createHash } from 'node:crypto'
 import { execFileSync, spawnSync } from 'node:child_process'
 const script = new URL('../../scripts/prepare-system-update.mjs', import.meta.url)
 function fixture() {
@@ -58,6 +59,36 @@ test('dependency changes cannot silently ship without standalone runtime', () =>
         assert.notEqual(result.status,0)
         assert.match(result.stderr,/Composer runtime changes require --composer-runtime/)
     } finally { fs.rmSync(f.dir,{recursive:true,force:true}) }
+})
+test('system staging requires the formal mini-program artifact and its target-version checksums', () => {
+    const f = fixture()
+    const dir = 'public/mp-weixin'
+    const content = {
+        'app.json': '{}',
+        'config/runtime.js': '["__TENANT_API_BASE_URL__", "__TENANT_ID__"]',
+        'project.config.json': '{}'
+    }
+    const sha256 = value => createHash('sha256').update(value).digest('hex')
+    const files = Object.fromEntries(Object.entries(content).map(([name, bytes]) => [name, sha256(bytes)]))
+    const metadata = {
+        version: '1.0.392', source_sha: 'a'.repeat(40), built_at: '2026-11-21T00:00:00.000Z',
+        files, file_count: Object.keys(files).length, sha256: sha256(JSON.stringify(files))
+    }
+    const run = stage => spawnSync(process.execPath, [script.pathname, '--repo', f.repo,
+        '--base-ref', f.base, '--base-version', '1.0.391', '--version', '1.0.392',
+        '--out-dir', path.join(f.dir, stage), '--composer-runtime'], { encoding: 'utf8' })
+    try {
+        for (const [file, bytes] of Object.entries(content)) f.write(`${dir}/${file}`, bytes)
+        assert.match(run('missing').stderr, /缺少产物元数据/)
+        f.write(`${dir}/.artifact.meta.json`, JSON.stringify({ ...metadata, version: '1.0.391' }))
+        assert.match(run('old').stderr, /版本元数据不匹配/)
+        f.write(`${dir}/.artifact.meta.json`, JSON.stringify(metadata))
+        const result = run('valid')
+        assert.equal(result.status, 0, result.stderr)
+        assert.deepEqual(JSON.parse(fs.readFileSync(path.join(f.dir, 'valid/files', dir, '.artifact.meta.json'))), metadata)
+        f.write(`${dir}/app.json`, '{"changed":true}')
+        assert.match(run('changed').stderr, /文件清单校验失败/)
+    } finally { fs.rmSync(f.dir, { recursive: true, force: true }) }
 })
 test('canonical loader updates include all of their unchanged deployment companions', () => {
     const f = fixture(), out = path.join(f.dir, 'canonical-stage')
