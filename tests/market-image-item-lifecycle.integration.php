@@ -32,6 +32,33 @@ try {
             ['code'=>'input_images','rate'=>'1','unit'=>'input_image','included_count'=>0],
     ]];
     $sync = new ReflectionMethod(PowerMarketService::class,'upsertSku');
+    $economyResource = ['resource'=>['type_code'=>'image','model_code'=>'gpt-image-2-6-economy','channel_code'=>'official']];
+    $economy = [
+        'sku_key'=>'group_image_to_image_economy-1k', 'locked_params'=>['generation_type'=>'image_to_image'],
+        'price'=>['points'=>20,'unit'=>'per_call'], 'usage_unit'=>'per_call', 'usage_unit_size'=>1,
+        'billing_mode'=>'fixed','meter_summary'=>'按次',
+    ];
+    $sync->invoke(null,$product,$economy + ['charge_items'=>$decl['charge_items']],$economyResource);
+    $economyRow = \app\common\model\power\PowerMarketSku::where('product_id',$product)->where('sku_key',$economy['sku_key'])->find();
+    imageAssert(isset($economyRow['source_payload']['image_item_billing']['error']),'older Economy declaration reproduces the cached item error');
+    $economyRow->save(['sale_status'=>0]);
+    $incomplete = array_replace($economy, ['meter_summary'=>'']);
+    $sync->invoke(null,$product,$incomplete,$economyResource);
+    imageAssert(isset(\app\common\model\power\PowerMarketSku::find($economyRow['id'])['source_payload']['image_item_billing']['error']),
+        'an incomplete Economy response cannot clear a cached billing error');
+    $sync->invoke(null,$product,$economy,$economyResource);
+    $economyRow = \app\common\model\power\PowerMarketSku::find($economyRow['id']);
+    imageAssert(!isset($economyRow['source_payload']['image_item_billing']) && (int)$economyRow['sale_status']===0,
+        'authoritative Economy fixed pricing clears stale item error and preserves manual shelf state');
+    $economyRow->delete();
+
+    $meter = new ReflectionMethod(Runtime::class,'meterMarket');
+    try {
+        $meter->invoke(null,['sku'=>['usage_unit'=>'business_unit','source_payload'=>['meter_summary'=>'百万像素，总点数向上取整']]],[]);
+        throw new RuntimeException('A direct SKU estimate accepted legacy pixel billing');
+    } catch (InvalidArgumentException $error) {
+        imageAssert($error->getMessage()==='该规格尚无可核验的像素报价','direct SKU estimate rejects unbounded pixel billing');
+    }
     $sync->invoke(null,$product,$decl,['resource'=>['type_code'=>'image','model_code'=>'billing-'.$nonce]]);
     $row = \app\common\model\power\PowerMarketSku::where('product_id',$product)->find()->toArray();
     $sku = (int)$row['id'];

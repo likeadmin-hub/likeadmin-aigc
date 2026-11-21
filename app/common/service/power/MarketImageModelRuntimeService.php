@@ -260,7 +260,10 @@ class MarketImageModelRuntimeService
         }
         $meter = MarketUsageSettlementService::isActualUsageSku($market['sku'])
             ? MarketGenerationMeter::tokenContract($market['sku']) : MarketGenerationMeter::contract($market['sku']);
-        if (MarketGenerationPixelMeter::applies($meter)) MarketGenerationPixelMeter::assertUnitSize($market['sku']['usage_unit_size']??null);
+        if ($meter['basis'] === 'megapixel') {
+            if (!MarketGenerationPixelMeter::applies($meter)) throw new \InvalidArgumentException('该规格尚无可核验的像素报价');
+            MarketGenerationPixelMeter::assertUnitSize($market['sku']['usage_unit_size'] ?? null);
+        }
         if (!in_array($meter['basis'], ['call', 'image', 'megapixel','token'], true)) throw new Exception('该图片模型计费数量规则尚未适配');
         // Legacy image channels priced each requested image even when their unit was per_call.
         // Only an explicit supplier meter may change that established contract.

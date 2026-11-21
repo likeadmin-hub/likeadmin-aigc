@@ -1456,11 +1456,13 @@ class PowerMarketService
         if (($resource['type_code'] ?? '') === 'image' || ($item['market_metadata']['catalog_model_type'] ?? '') === 'image'
             || ($item['market_metadata']['model_type'] ?? '') === 'image') {
             $oldContract = $row->isEmpty() ? null : (self::arrayValue($row['source_payload'])['image_item_billing'] ?? null);
+            $modelCode = trim((string)($resource['model_code'] ?? ''));
+            $channelCode = trim((string)($resource['channel_code'] ?? ''));
             try {
-                $contract = MarketImageItemBilling::declaration($sku, (string)($resource['model_code'] ?? ''));
+                $contract = MarketImageItemBilling::declaration($sku, $modelCode, $channelCode);
                 if ($contract !== null) {
                     $source['image_item_billing'] = $contract;
-                } elseif ($oldContract !== null) {
+                } elseif ($oldContract !== null && !MarketImageItemBilling::isEconomyFixedRate($sku, $modelCode, $channelCode)) {
                     $source['image_item_billing'] = ['error'=>'上游未返回生图分项费率，请核对后重新同步'] + $oldContract;
                 }
             } catch (\InvalidArgumentException $exception) {

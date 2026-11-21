@@ -1,4 +1,5 @@
 <?php
+require dirname(__DIR__).'/vendor/autoload.php';
 require dirname(__DIR__).'/app/common/service/power/MarketGenerationSchema.php';
 require dirname(__DIR__).'/app/common/service/power/MarketGenerationMeter.php';
 require dirname(__DIR__).'/app/common/service/power/MarketGenerationMediaInputs.php';
@@ -27,6 +28,10 @@ eq(M::businessUnitLabel(M::priceDisplayFields(['usage_unit'=>'business_unit']+$s
 eq(M::businessUnitLabel([]),'计费用量','legacy missing meters have a readable unit without a guessed formula');
 eq(M::price(52,5,snapshot('生成秒数 + 参考视频秒数 + 超过5的参考图片张数×4/13','business_unit',['reference_images'=>7,'reference_video_seconds'=>2])),396.0,'MiniMax video and image terms');
 eq(M::price(16,2,snapshot('按次','pack')),16.0,'pack output count must not double charge one call');
+$decimalCall = M::contract(['usage_unit'=>'per_call','source_payload'=>['meter_summary'=>'按次']]);
+eq(M::isExplicit($decimalCall),true,'supplier decimal per-call rule is frozen with the task');
+eq(M::price(7.128,2,['billing_meter'=>$decimalCall,'usage_unit_size'=>1]),7.128,'decimal per-call keeps supplier precision');
+try{M::contract(['usage_unit'=>'business_unit','meter_summary'=>'按次']);throw new RuntimeException('unverified unit admitted');}catch(InvalidArgumentException $e){$checks++;}
 eq(M::price(26,3,snapshot('生成张数','image')),78.0,'image quantity');
 eq(M::price(1.1,1.1,snapshot('生成秒数','output_second')),2.0,'supplier whole-point rounding');
 eq(M::price(1.1,1.1,['usage_unit_size'=>1]),1.21,'historical price snapshot keeps old rounding');

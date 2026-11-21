@@ -18,6 +18,11 @@ final class MarketGenerationMeter
         }
         $contract = ['version'=>1, 'summary'=>$summary, 'unit'=>$unit, 'round_up'=>false, 'basis'=>'',
             'source'=>$summary === '' ? 'legacy_unit' : 'legacy_summary'];
+        // The supplier omits the rounding suffix for decimal per-call meters.
+        if ($summary === '按次' && in_array($unit, ['per_call', 'count', 'pack'], true)) {
+            $contract['basis'] = 'call';
+            return $contract;
+        }
         $suffix = '，总点数向上取整';
         if ($summary !== '') {
             if (!str_ends_with($summary, $suffix)) throw new InvalidArgumentException('模型计费规则尚未适配，请同步并核验模型价格');

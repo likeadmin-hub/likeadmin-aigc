@@ -27,7 +27,7 @@ foreach (['1k'=>7.128, '2k'=>7.128, '4k'=>21.78] as $tier => $outputRate) {
             ['code'=>'input_images','rate'=>'1.98','unit'=>'input_image','included_count'=>0],
         ],
     ];
-    $h3Contract = Billing::declaration($h3, 'minimax-h3-image-edit');
+    $h3Contract = Billing::declaration($h3, 'minimax-h3-image-edit', 'official');
     requireEqual(Billing::declaration($h3, 'official-33-7b77ec425b57b520cd'), $h3Contract);
     $h3Pricing = Billing::prices(['id'=>8, 'product_id'=>4, 'source_payload'=>['image_item_billing'=>$h3Contract]], 0, [], []);
     $facts = Billing::facts($h3Pricing, ['image_urls'=>['first', 'second'], 'style_image'=>'irrelevant']);
@@ -58,15 +58,36 @@ requireEqual(null, Billing::receipt($pricing, ['token_billing'=>['status'=>'reco
 requireEqual(null, Billing::receipt($pricing, ['token_billing'=>['status'=>'settled','actual_points'=>'1','items'=>[]]], []));
 $long = $image + ['sku_key'=>'webpage-1k'];
 $longContract = Billing::declaration($long, 'official-33-42b1deb0efa8cdf52d');
+requireEqual($longContract, Billing::declaration($long, 'kling-4-0-long-image', 'official'));
+requireEqual(['image_urls'], Billing::declaration($image + [
+    'sku_key'=>'ecommerce-long-2k', 'locked_params'=>['skill'=>'ecommerce'],
+], 'kling-4-0-long-image', 'official')['bindings']);
 requireEqual(2, Billing::inputCount($longContract, ['style_image'=>'style','subject_image'=>'subject','image_urls'=>['extra']]));
 $kling = $image;
 $kling['meter_summary'] = '生成张数';
 $klingContract = Billing::declaration($kling,'official-33-f9a445be9ef6a7f58d');
+requireEqual($klingContract, Billing::declaration($kling, 'kling-4-0-image', 'official'));
+try {
+    Billing::declaration($kling, 'kling-4-0-image', 'third-party');
+    throw new RuntimeException('An unrelated channel inherited the official image binding');
+} catch (InvalidArgumentException $error) {
+    requireEqual('该规格缺少已核验的输入图片字段', $error->getMessage());
+}
 requireEqual(3, Billing::inputCount($klingContract, ['image_urls'=>['asset'],'elements'=>[['name'=>'a'],['name'=>'b']]]));
 $klingPricing = Billing::prices(['product_id'=>4,'id'=>8,'source_payload'=>['image_item_billing'=>$klingContract]],9,[],[]);
 requireEqual([36.0,36.0], Billing::amounts($klingPricing, ['input_count'=>3], 2));
 requireEqual([20.0,20.0], Billing::amounts($klingPricing, ['input_count'=>3], 1));
 $sku['source_payload']['image_item_billing']['cap'] = '0.999999';
 requireEqual(null,Billing::receipt($sku['source_payload']['image_item_billing'],$receipt,[]));
+
+$credit = $token;
+unset($credit['reserve_upper_points']);
+foreach (['3564', '891', '5702.4', '1425.6', '21384'] as $i => $rate) $credit['charge_items'][$i]['rate'] = $rate;
+foreach (['gpt-image-2-6-flare', 'gpt-image-2-6-sunburst'] as $model) {
+    $creditContract = Billing::declaration($credit, $model, 'official');
+    requireEqual('1188.000000', $creditContract['cap']);
+    $sku['source_payload']['image_item_billing'] = $creditContract;
+    requireEqual([1188.0, 1188.0], Billing::amounts(Billing::prices($sku, 0, [], []), [], 1));
+}
 
 echo "PASS image item preview, tier pricing, preserved manual price, immutable snapshot and Token receipts\n";

@@ -8,17 +8,25 @@ use InvalidArgumentException;
 final class MarketImageItemBilling
 {
     private const CREDIT_MODELS = ['gpt-image-2-6/flare', 'gpt-image-2-6/sunburst', 'official-33-68384aba89044628f9', 'official-33-58e7520095e065af0c'];
+    private const OFFICIAL_MODEL_ALIASES = [
+        'minimax-h3-image-edit' => 'official-33-7b77ec425b57b520cd',
+        'kling-4-0-image' => 'official-33-f9a445be9ef6a7f58d',
+        'kling-4-0-long-image' => 'official-33-42b1deb0efa8cdf52d',
+        'gpt-image-2-6-flare' => 'gpt-image-2-6/flare',
+        'gpt-image-2-6-sunburst' => 'gpt-image-2-6/sunburst',
+    ];
     private const TOKEN_CODES = [
         'text_input_uncached', 'text_input_cached', 'image_input_uncached', 'image_input_cached', 'image_output',
     ];
     private const SVG_AUTHORS = ['gpt-5.6-luna', 'gpt-6-sol', 'gpt-5.6-terra'];
 
     /** Ingest supplier rates only. Editable downstream rates live in price rules. */
-    public static function declaration(array $sku, string $model): ?array
+    public static function declaration(array $sku, string $model, string $channel = ''): ?array
     {
         $items = $sku['charge_items'] ?? [];
         if ($items === []) return null;
         if (!is_array($items) || !array_is_list($items)) throw new InvalidArgumentException('生图分项计费规则无效');
+        if ($channel === 'official') $model = self::OFFICIAL_MODEL_ALIASES[$model] ?? $model;
         $input = array_values(array_filter($items, static fn($row) => ($row['code'] ?? '') === 'input_images'));
         $basis = match ($sku['meter_contract']['basis'] ?? ($sku['meter_summary'] ?? '')) {
             'call', '按次', '按次，总点数向上取整' => 'call',
@@ -32,10 +40,9 @@ final class MarketImageItemBilling
                 throw new InvalidArgumentException('生图输入张数计费规则无效');
             }
             $keys = $sku['input_image_bindings'] ?? match ($model) {
-                'minimax-h3-image-edit', 'official-33-7b77ec425b57b520cd' => ['image_urls'],
+                'official-33-7b77ec425b57b520cd' => ['image_urls'],
                 'official-33-f9a445be9ef6a7f58d' => ['image_urls', 'elements.name'],
-                'official-33-42b1deb0efa8cdf52d' => str_contains((string)($sku['sku_key'] ?? ''), 'webpage-')
-                    ? ['style_image', 'subject_image'] : ['image_urls'],
+                'official-33-42b1deb0efa8cdf52d' => self::klingLongImageBindings($sku),
                 default => [],
             };
             if (!is_array($keys) || !$keys || array_diff($keys, ['image_urls','elements.name','style_image','subject_image'])) {
@@ -74,6 +81,42 @@ final class MarketImageItemBilling
             throw new InvalidArgumentException('该生图规格缺少完整费率或提交预占上限');
         }
         return ['mode'=>'token_items','cap'=>MarketPricePolicy::amount($cap),'items'=>$rates];
+    }
+
+    private static function klingLongImageBindings(array $sku): array
+    {
+        $skill = $sku['locked_params']['skill'] ?? null;
+        if ($skill === null) {
+            $key = (string)($sku['sku_key'] ?? '');
+            if (str_starts_with($key, 'webpage-')) $skill = 'webpage';
+            if (str_starts_with($key, 'ecommerce-')) $skill = 'ecommerce';
+        }
+        return match ($skill) {
+            'webpage' => ['style_image', 'subject_image'],
+            'ecommerce' => ['image_urls'],
+            default => [],
+        };
+    }
+
+    /** Economy's published 1K SKUs replaced any previously cached item declaration. */
+    public static function isEconomyFixedRate(array $sku, string $model, string $channel): bool
+    {
+        $points = $sku['price']['points'] ?? null;
+        if ($channel !== 'official' || $model !== 'gpt-image-2-6-economy'
+            || (array_key_exists('charge_items', $sku) && $sku['charge_items'] !== [])
+            || array_key_exists('charge_base_mode', $sku) || array_key_exists('meter_contract', $sku)
+            || ($sku['billing_mode'] ?? '') !== 'fixed' || ($sku['meter_summary'] ?? '') !== '按次'
+            || ($sku['usage_unit'] ?? '') !== 'per_call' || ($sku['price']['unit'] ?? '') !== 'per_call'
+            || (float)($sku['usage_unit_size'] ?? 0) !== 1.0
+            || !is_numeric($points) || !is_finite((float)$points) || (float)$points <= 0) {
+            return false;
+        }
+        $mode = match ($sku['sku_key'] ?? '') {
+            'economy-1k' => 'text_to_image',
+            'group_image_to_image_economy-1k' => 'image_to_image',
+            default => null,
+        };
+        return $mode !== null && ($sku['locked_params']['generation_type'] ?? null) === $mode;
     }
 
     public static function scope(string $key): string
