@@ -7,6 +7,7 @@ use InvalidArgumentException;
 
 final class MarketImageItemBilling
 {
+    private const SEEDREAM_LAYER_MODEL = 'seedream-5-5-layer-decomposition';
     private const CREDIT_MODELS = ['gpt-image-2-6/flare', 'gpt-image-2-6/sunburst', 'official-33-68384aba89044628f9', 'official-33-58e7520095e065af0c'];
     private const OFFICIAL_MODEL_ALIASES = [
         'minimax-h3-image-edit' => 'official-33-7b77ec425b57b520cd',
@@ -23,7 +24,9 @@ final class MarketImageItemBilling
     /** Ingest supplier rates only. Editable downstream rates live in price rules. */
     public static function declaration(array $sku, string $model, string $channel = ''): ?array
     {
+        $layerDecomposition = $channel === 'official' && $model === self::SEEDREAM_LAYER_MODEL;
         $items = $sku['charge_items'] ?? [];
+        if ($layerDecomposition && $items === []) throw new InvalidArgumentException('图层拆分规格缺少输入图费率');
         if ($items === []) return null;
         if (!is_array($items) || !array_is_list($items)) throw new InvalidArgumentException('生图分项计费规则无效');
         if ($channel === 'official') $model = self::OFFICIAL_MODEL_ALIASES[$model] ?? $model;
@@ -33,6 +36,10 @@ final class MarketImageItemBilling
             'image', '生成张数', '生成张数，总点数向上取整' => 'image',
             default => '',
         };
+        if ($layerDecomposition && ($basis !== 'image' || count($items) !== 1 || count($input) !== 1
+            || ($sku['charge_base_mode'] ?? 'add') !== 'add')) {
+            throw new InvalidArgumentException('图层拆分规格须按实际输出张数和输入图计费');
+        }
         if (count($items) === 1 && count($input) === 1 && ($sku['charge_base_mode'] ?? 'add') === 'add') {
             $item = $input[0];
             $included = filter_var($item['included_count'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
@@ -41,12 +48,14 @@ final class MarketImageItemBilling
             }
             $keys = $sku['input_image_bindings'] ?? match ($model) {
                 'seedream-5-5-image-to-image' => $channel === 'official' ? ['image_urls'] : [],
+                self::SEEDREAM_LAYER_MODEL => $layerDecomposition ? ['image_url'] : [],
                 'official-33-7b77ec425b57b520cd' => ['image_urls'],
                 'official-33-f9a445be9ef6a7f58d' => ['image_urls', 'elements.name'],
                 'official-33-42b1deb0efa8cdf52d' => self::klingLongImageBindings($sku),
                 default => [],
             };
-            if (!is_array($keys) || !$keys || array_diff($keys, ['image_urls','elements.name','style_image','subject_image'])) {
+            if (!is_array($keys) || !$keys || array_diff($keys, ['image_url','image_urls','elements.name','style_image','subject_image'])
+                || ($layerDecomposition && $keys !== ['image_url'])) {
                 throw new InvalidArgumentException('该规格缺少已核验的输入图片字段');
             }
             return ['mode'=>'image_count', 'basis'=>$basis, 'included'=>$included, 'bindings'=>array_values(array_unique($keys)),
@@ -54,7 +63,7 @@ final class MarketImageItemBilling
                     'base'=>['label'=>$basis==='call'?'基础费':'输出图片', 'unit'=>$basis==='call'?'次':'张输出图',
                         'rate'=>MarketPricePolicy::amount($sku['price']['points'] ?? null)],
                     'input_images'=>['label'=>'输入图片','unit'=>'张输入图','rate'=>MarketPricePolicy::amount($item['rate'] ?? null)],
-                ]];
+                ]] + ($layerDecomposition ? ['output_limit_field'=>'max_images'] : []);
         }
         if (($sku['charge_base_mode'] ?? '') !== 'replace') throw new InvalidArgumentException('该生图分项暂缺可执行的计量契约');
         $rates = [];
@@ -181,13 +190,27 @@ final class MarketImageItemBilling
 
     public static function facts(array $pricing, array $payload): array
     {
-        if ($pricing['mode'] === 'image_count') return ['input_count'=>self::inputCount($pricing, $payload)];
+        if ($pricing['mode'] === 'image_count') {
+            $inputCount = self::inputCount($pricing, $payload);
+            $limit = self::outputLimit($pricing, $payload);
+            if ($limit !== null && $inputCount !== 1) throw new InvalidArgumentException('图层拆分需要 1 张输入图');
+            return ['input_count'=>$inputCount] + ($limit === null ? [] : ['output_limit'=>$limit]);
+        }
         if (($payload['output_format'] ?? '') !== 'svg') return [];
         $author = (string)($payload['svg']['model'] ?? 'gpt-5.6-luna');
         if (!isset($pricing['items']['svg_author_input:'.$author],$pricing['items']['svg_author_output:'.$author])) {
             throw new InvalidArgumentException('该 SVG 作者模型缺少完整计费规则');
         }
         return ['author'=>$author];
+    }
+
+    public static function outputLimit(array $pricing, array $payload): ?int
+    {
+        if (($pricing['output_limit_field'] ?? '') !== 'max_images') return null;
+        $value = $payload['max_images'] ?? 30;
+        $limit = filter_var($value, FILTER_VALIDATE_INT, ['options'=>['min_range'=>2,'max_range'=>100]]);
+        if ($limit === false) throw new InvalidArgumentException('最大输出张数须为 2 至 100 的整数');
+        return $limit;
     }
 
     public static function inputCount(array $contract, array $payload): int

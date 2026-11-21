@@ -249,6 +249,9 @@ class MarketImageModelRuntimeService
             $market['image_item_pricing'] = $itemPricing;
             $prepared = self::prepareRequest(self::snapshot($market), $selection, $tenantId, $deferMissingPrompt);
             $market['image_item_facts'] = MarketImageItemBilling::facts($itemPricing, $prepared->nativeInput);
+            if (isset($market['image_item_facts']['output_limit']) && $quantity !== null && $quantity !== 1) {
+                throw new Exception('图层拆分每次任务只处理 1 张输入图');
+            }
             $quantityField = $prepared->nativeInput['count'] ?? $prepared->nativeInput['n'] ?? $prepared->nativeInput['num_images'] ?? 1;
             if (($itemPricing['basis'] ?? '') === 'image' && $quantity !== null && (int)$quantityField !== $quantity) {
                 throw new Exception('请求的出图数量与模型计费数量不一致');
@@ -311,6 +314,8 @@ class MarketImageModelRuntimeService
     private static function applyImageConstraints(array $snapshot, array $payload): array
     {
         if (($snapshot['channel_code'] ?? '') !== 'official') return $payload;
+        $outputLimit = MarketImageItemBilling::outputLimit($snapshot['image_item_pricing'] ?? [], $payload);
+        if ($outputLimit !== null) $payload['max_images'] = $outputLimit;
         $model = $snapshot['market_metadata']['upstream_metadata']['model_code'] ?? $snapshot['model_code'] ?? '';
         $resolution = $payload['params']['resolution'] ?? $payload['resolution'] ?? $snapshot['locked_params']['resolution'] ?? '';
         $excluded = self::excludedRatios($model, $resolution);
@@ -394,15 +399,17 @@ class MarketImageModelRuntimeService
         $pricing = $market['image_item_pricing'] ?? null;
         if ($pricing !== null) {
             $facts = $market['image_item_facts'];
-            $pricing = self::imageUserRates($pricing, $facts, $billingOverride, $quantity, !empty($market['_tenant_admin_consumption']));
-            [$cost, $user] = MarketImageItemBilling::amounts($pricing, $facts, $quantity);
+            $reservedOutput = $facts['output_limit'] ?? $quantity;
+            $pricing = self::imageUserRates($pricing, $facts, $billingOverride, $reservedOutput, !empty($market['_tenant_admin_consumption']));
+            [$cost, $user] = MarketImageItemBilling::amounts($pricing, $facts, $reservedOutput);
             $quote['quantity'] = $quantity;
             $quote['tenant_cost_points'] = $cost;
             $quote['user_charge_points'] = $user;
             $quote['tenant_unit_points'] = (float)($pricing['items']['base']['platform'] ?? 0);
             $quote['user_unit_points'] = (float)($pricing['items']['base']['tenant'] ?? 0);
             $quote['settlement_mode'] = $pricing['mode'] === 'token_items' ? 'actual_usage' : 'reserved';
-            $quote['billing_details'] = MarketImageItemBilling::details($pricing, $facts, $quantity);
+            $quote['billing_details'] = MarketImageItemBilling::details($pricing, $facts, $reservedOutput);
+            if (isset($facts['output_limit'])) $quote['billing_details']['output_limit'] = $reservedOutput;
             return $quote;
         }
         $quote = self::applyBillingOverride($quote, $billingOverride);
@@ -475,7 +482,8 @@ class MarketImageModelRuntimeService
         $bounded=MarketGenerationMeter::boundedToken((array)($market['billing_meter']??[]));
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku'])&&!$bounded;
         if (isset($market['image_item_pricing'], $billingOverride['tenant_cost_points'])) {
-            [$expectedCost] = MarketImageItemBilling::amounts($market['image_item_pricing'], $market['image_item_facts'], $quantity);
+            $facts = $market['image_item_facts'];
+            [$expectedCost] = MarketImageItemBilling::amounts($market['image_item_pricing'], $facts, $facts['output_limit'] ?? $quantity);
             if (abs((float)$billingOverride['tenant_cost_points'] - $expectedCost) > 0.000001) throw new Exception('应用报价已更新，请重新报价');
         }
         if (($deferredUsage||$bounded) && $billingOverride !== []) {
@@ -1098,7 +1106,7 @@ class MarketImageModelRuntimeService
             $billedQuantity = $pixels ? MarketGenerationPixelMeter::measured($pixelMeter,$images,(int)($snapshot['reserved_image_quantity']??0)) : (($deferredUsage||$bounded) ? $actualUsage : $quantity);
             $details = [];
             if ($itemPricing !== null) {
-                $reservedOutput = (int)($snapshot['requested_image_quantity'] ?? $quantity);
+                $reservedOutput = (int)($itemFacts['output_limit'] ?? $snapshot['requested_image_quantity'] ?? $quantity);
                 if (($itemPricing['basis'] ?? '') === 'image' && $quantity > $reservedOutput) {
                     throw new Exception('实际出图数量超过已预占的计费数量');
                 }
@@ -1931,8 +1939,13 @@ class MarketImageModelRuntimeService
             self::collectImageUrls($rows, $urls);
         }
         $result = [];
-        foreach (array_values(array_unique($urls)) as $url) {
-            $stored = AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId);
+        $urls = array_values(array_unique($urls));
+        $outputLimit = $snapshot['image_item_facts']['output_limit'] ?? null;
+        if ($outputLimit !== null && count($urls) > $outputLimit) {
+            throw new Exception('实际出图数量超过已预占的计费数量');
+        }
+        foreach ($urls as $url) {
+            $stored = AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId, $outputLimit !== null);
             $result[] = [
                 'image_uri' => (string)$stored['uri'],
                 'width' => (int)($stored['width'] ?? 0),

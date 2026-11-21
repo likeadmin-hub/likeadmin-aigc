@@ -2,6 +2,7 @@
 require dirname(__DIR__).'/vendor/autoload.php';
 
 use app\common\service\power\MarketImageItemBilling as Billing;
+use app\common\service\power\MarketImageModelRuntimeService as Runtime;
 
 function requireEqual(mixed $expected, mixed $actual): void
 {
@@ -51,6 +52,37 @@ try {
 } catch (InvalidArgumentException $error) {
     requireEqual('该规格缺少已核验的输入图片字段', $error->getMessage());
 }
+
+$seedreamLayers = Billing::declaration($seedreamEdit, 'seedream-5-5-layer-decomposition', 'official');
+requireEqual(['image_url'], $seedreamLayers['bindings']);
+$layerPricing = Billing::prices(['id'=>8, 'product_id'=>4, 'source_payload'=>['image_item_billing'=>$seedreamLayers]], 0, [], []);
+$layerPayload = ['image_url'=>'https://example.test/base.png','max_images'=>4];
+$layerFacts = Billing::facts($layerPricing, $layerPayload);
+requireEqual(['input_count'=>1,'output_limit'=>4], $layerFacts);
+requireEqual(['input_count'=>1,'output_limit'=>30], Billing::facts($layerPricing, ['image_url'=>$layerPayload['image_url']]));
+foreach ([1, 101, 2.5] as $invalid) {
+    try {
+        Billing::facts($layerPricing, array_replace($layerPayload, ['max_images'=>$invalid]));
+        throw new RuntimeException('Invalid Seedream layer limit accepted');
+    } catch (InvalidArgumentException $error) {
+        requireEqual('最大输出张数须为 2 至 100 的整数', $error->getMessage());
+    }
+}
+try {
+    Billing::facts($layerPricing, ['image_urls'=>[$layerPayload['image_url']], 'max_images'=>4]);
+    throw new RuntimeException('A different image field was counted as the layer source');
+} catch (InvalidArgumentException $error) {
+    requireEqual('图层拆分需要 1 张输入图', $error->getMessage());
+}
+$quoteMarket = new ReflectionMethod(Runtime::class, 'quoteMarket');
+$layerQuote = $quoteMarket->invoke(null, ['tenant_price'=>14.256, 'image_item_pricing'=>$layerPricing, 'image_item_facts'=>$layerFacts,
+    'product'=>['id'=>4,'upstream_model_code'=>'seedream-5-5-layer-decomposition','upstream_channel_code'=>'official'],
+    'sku'=>['id'=>8,'usage_unit'=>'image','usage_unit_size'=>1,'upstream_price'=>14.256,'sale_points'=>14.256,'sku_key'=>'seedream55-1k'], 'reference_limit'=>1], 1, []);
+requireEqual(1, $layerQuote['quantity']);
+requireEqual(4, $layerQuote['billing_details']['output_limit']);
+requireEqual(62.7264, $layerQuote['tenant_cost_points']);
+requireEqual(62.7264, $layerQuote['user_charge_points']);
+requireEqual([34.2144,34.2144], Billing::amounts($layerPricing, $layerFacts, 2));
 
 $changed = $image;
 $changed['charge_items'][0]['rate'] = '4';
