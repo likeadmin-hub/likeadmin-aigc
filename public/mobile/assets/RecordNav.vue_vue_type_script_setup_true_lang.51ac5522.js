@@ -1,0 +1,1 @@
+import{d as e,a as t,e as a}from"./index-3698ebfc.js";import{W as s}from"./WorkbenchHeader.a02f702d.js";const o=e({__name:"RecordNav",props:{title:null},emits:["back"],setup:e=>(o,i)=>(t(),a(s,{title:e.title,onBack:i[0]||(i[0]=e=>o.$emit("back"))},null,8,["title"]))});export{o as _};

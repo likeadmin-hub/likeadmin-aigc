@@ -1,1 +1,0 @@
-import{u as s}from"./useModelPrice.cfff7b70.js";import{g as t,o as _,c as n,t as a,m as r,v as c,_ as p}from"./entry.38aec6fe.js";const m={key:0,class:"model-price"},d=t({__name:"ModelPrice",props:{model:{},kind:{}},setup(i){const o=s();return(e,l)=>e.model?(_(),n("span",m,a(r(o)(e.model,e.kind)),1)):c("",!0)}});const k=p(d,[["__scopeId","data-v-3a2f4484"]]);export{k as _};
