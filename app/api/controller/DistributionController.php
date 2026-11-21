@@ -7,7 +7,13 @@ use Exception;
 
 class DistributionController extends BaseApiController
 {
-    public array $notNeedLogin = ['availability'];
+    public array $notNeedLogin = ['availability', 'entry'];
+
+    public function entry()
+    {
+        return $this->success('', ['tenant_id' => (int)$this->request->tenantId])
+            ->header(['Cache-Control' => 'no-store']);
+    }
 
     public function availability()
     {
@@ -26,7 +32,7 @@ class DistributionController extends BaseApiController
             $account = $overview['dashboard']['account'];
             return $this->success('获取成功', [
                 'invite_code' => (string)$relation['invite_code'],
-                'invite_url' => self::inviteUrl($tenantId, (string)$relation['invite_code']),
+                'invite_url' => self::inviteUrl((string)$relation['invite_code']),
                 'team_counts' => $overview['team'],
                 'account' => [
                     'pending_amount' => (string)($account['pending_amount'] ?? '0.00'),
@@ -146,8 +152,8 @@ class DistributionController extends BaseApiController
         }
     }
 
-    private static function inviteUrl(int $tenantId, string $inviteCode): string
+    private static function inviteUrl(string $inviteCode): string
     {
-        return rtrim((string)request()->domain(), '/') . '/?tenant_id=' . $tenantId . '&invite_code=' . rawurlencode($inviteCode);
+        return rtrim((string)request()->domain(), '/') . '/?invite_code=' . rawurlencode($inviteCode);
     }
 }

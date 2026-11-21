@@ -118,7 +118,7 @@ Route::get('t/:tenant_id/wechat/callback', function () use ($tenantFrontendRedir
 })->pattern(['tenant_id' => '\d+'])->completeMatch();
 
 // Shared root and tenant-prefix PC routes; API/admin/callback routes stay separate.
-$pcFrontendPath = '(ai|app|account|user|page|policy|products|scenes|cases|pricing|official|join-opc|docs)(/.*)?';
+$pcFrontendPath = '(ai|app|account|user|page|policy|products|scenes|cases|pricing|official|join-opc|docs|login|register)(/.*)?';
 
 // PC端默认访问站点根路径，平台端固定保留 /platform/
 Route::get('/', function () {
