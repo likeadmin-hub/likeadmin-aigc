@@ -1925,8 +1925,12 @@ class MarketVideoRuntimeService
             $assets
         );
         if (Q4VideoContract::matches($product) && empty($request['generation_method']) && empty($request['generationMethod'])) $generationMethod = 'image_to_video';
-        if ($generationMethod !== '' && !in_array($generationMethod, self::generationModes($product, $metadata), true)) {
-            throw new Exception('selected video model does not support this generation method');
+        $supportedMethods = self::generationModes($product, $metadata);
+        if ($generationMethod !== '' && !in_array($generationMethod, $supportedMethods, true)) {
+            if ($supportedMethods === ['image_reference'] && $assets['image'] === []) {
+                throw new Exception('请添加参考图片');
+            }
+            throw new Exception('当前模型不支持所选生成方式');
         }
         $assetCount = count($assets['image']) + count($assets['video']) + count($assets['audio']);
         if (str_starts_with(strtolower((string)($product['upstream_model_code'] ?? '')), 'veo3.1-')) {
@@ -1963,8 +1967,11 @@ class MarketVideoRuntimeService
             }
         }
         if ($generationMethod === 'image_reference') {
-            if (count($assets['image']) < 1 || $assets['video'] !== [] || $assets['audio'] !== []) {
-                throw new Exception('image reference generation requires one or more reference images only');
+            if ($assets['image'] === []) {
+                throw new Exception('请添加参考图片');
+            }
+            if ($assets['video'] !== [] || $assets['audio'] !== []) {
+                throw new Exception('当前生成方式只支持参考图片');
             }
         }
         if ($generationMethod === 'video_edit' && $assets['video'] === []) {
@@ -2358,8 +2365,31 @@ class MarketVideoRuntimeService
         return MarketCatalogReadScope::derive('video_schema_capabilities', $meta, static fn(): array => self::buildSchemaVideoCapabilities($meta));
     }
 
+    /**
+     * A flat contract with a required image list and no alternative media or
+     * mode fields accepts references, even though it also declares a prompt.
+     */
+    private static function requiresFlatImageReferences(array $meta): bool
+    {
+        $schema = self::arrayValue($meta['params_schema'] ?? []);
+        if (!empty($meta['content_schema']) || array_intersect_key($schema, array_flip(['oneOf', 'anyOf', 'allOf', 'if']))) {
+            return false;
+        }
+        $properties = MarketGenerationSchema::properties($schema);
+        $images = $properties['image_urls'] ?? [];
+        return ($images['type'] ?? null) === 'array'
+            && (MarketGenerationSchema::required($images) || in_array('image_urls', (array)($schema['required'] ?? []), true))
+            && array_diff(array_keys($properties), [
+                'prompt', 'content', 'duration', 'seconds', 'video_duration',
+                'aspect_ratio', 'ratio', 'resolution', 'quality', 'image_urls',
+            ]) === [];
+    }
+
     private static function buildSchemaVideoCapabilities(array $meta): array
     {
+        if (self::requiresFlatImageReferences($meta)) {
+            return ['asset_types'=>['image'], 'generation_modes'=>['image_reference']];
+        }
         $schema = self::arrayValue($meta['params_schema'] ?? []);
         $rawTypes = [];
         $rawRoles = [];
@@ -2611,6 +2641,10 @@ class MarketVideoRuntimeService
             return '';
         }
         $modes = self::generationModes($product, $meta);
+        // Older clients used the inferred first-frame mode for the same image list.
+        if ($method === 'image_to_video' && $modes === ['image_reference'] && self::requiresFlatImageReferences($meta)) {
+            return 'image_reference';
+        }
         if (in_array('omni_reference', $modes, true) && in_array($method, ['video_edit', 'audio_reference'], true)) {
             return 'omni_reference';
         }

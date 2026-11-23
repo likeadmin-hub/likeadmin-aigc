@@ -179,7 +179,7 @@ final class MarketGenerationSchema
             'quality'=>'画质', 'size'=>'尺寸', 'image_size'=>'图片尺寸',
             'width'=>'宽度', 'height'=>'高度', 'n'=>'生成数量', 'num_images'=>'图片数量',
             'quantity'=>'生成数量', 'seed'=>'随机种子', 'model'=>'模型', 'model_id'=>'模型',
-            'reference_images'=>'参考图片', 'images'=>'图片', 'image'=>'图片', 'image_url'=>'图片',
+            'reference_images'=>'参考图片', 'image_urls'=>'参考图片', 'images'=>'图片', 'image'=>'图片', 'image_url'=>'图片',
             'first_frame'=>'首帧图片', 'last_frame'=>'尾帧图片', 'start_image'=>'首帧图片', 'end_image'=>'尾帧图片',
             'video'=>'视频', 'video_url'=>'视频', 'audio'=>'音频', 'audio_url'=>'音频',
             'generation_type'=>'生成方式', 'generation_mode'=>'生成方式', 'mode'=>'生成方式',
