@@ -209,6 +209,12 @@ class MarketVideoRuntimeService
                 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
                 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $metadata),
                 'generation_modes' => $sellableModes,
+                'min_reference_images_by_method' => MarketGenerationApplicationProtocol::referenceImageMinimums([
+                    'resource_type' => $resourceType,
+                    'app_code' => $product['upstream_app_code'],
+                    'api_code' => $product['upstream_api_code'],
+                    'market_metadata' => $metadata,
+                ]),
                 'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
                 'skus' => $validSkus,
                 'default_resolution' => (string)($resolutions[0] ?? ''),

@@ -6,6 +6,8 @@ use Exception;
 /** Registered application codecs. Transport, media uploads, quotes and wallets stay with the runtime. */
 final class MarketGenerationApplicationProtocol
 {
+    private const HAPPY_HORSE_REFERENCE_IMAGE_MINIMUM = 2;
+
     private const SEEDANCE_MODELS = [
         'seedance-2-text-2-video', 'seedance-2-video-2-video',
         'seedance-2-fast-text-2-video', 'seedance-2-fast-video-2-video',
@@ -165,6 +167,15 @@ final class MarketGenerationApplicationProtocol
         return $model;
     }
 
+    public static function referenceImageMinimums(array $snapshot): array
+    {
+        if (!self::hasBoundHappyHorseDashScopeRoute($snapshot)) return [];
+        return [
+            'image_reference' => self::HAPPY_HORSE_REFERENCE_IMAGE_MINIMUM,
+            'omni_reference' => self::HAPPY_HORSE_REFERENCE_IMAGE_MINIMUM,
+        ];
+    }
+
     /** Source driver constraints apply to the final encoded request, before reservation or asset uploads. */
     public static function assertPreparedVideo(array $snapshot, array $payload): void
     {
@@ -173,7 +184,7 @@ final class MarketGenerationApplicationProtocol
         if ($profile === 'happy_horse_submit_dashscope_20261101') {
             if (($payload['channel'] ?? null) !== 'dashscope') throw new Exception('Happy Horse 渠道与冻结的 submit 声明不一致');
             $images = array_filter((array)($payload['media'] ?? []), static fn($item): bool => is_array($item) && ($item['type'] ?? '') === 'image');
-            if (($payload['model'] ?? '') === 'happyhorse-1.1-r2v' && count($images) < 2) {
+            if (($payload['model'] ?? '') === 'happyhorse-1.1-r2v' && count($images) < self::HAPPY_HORSE_REFERENCE_IMAGE_MINIMUM) {
                 throw new Exception('Happy Horse DashScope 多参考图生成至少需要两张图片');
             }
         }
