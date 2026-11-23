@@ -278,6 +278,15 @@ class MarketApplicationSourceContractTest extends TestCase
         self::assertSame($before,$snapshot);
     }
 
+    public function testHappyHorseMinimumIsExposedOnlyForTheReviewedRoute(): void
+    {
+        $entry = self::entry('happy_horse');
+        $snapshot = self::snapshot($entry, $entry['skus'][0]);
+        self::assertSame(['image_reference'=>2, 'omni_reference'=>2], Protocol::referenceImageMinimums($snapshot));
+        $snapshot['api_code'] = 'create';
+        self::assertSame([], Protocol::referenceImageMinimums($snapshot));
+    }
+
     public function testSingleReferenceImageCannotEnterBoundDashScopeR2v(): void
     {
         $entry=self::entry('happy_horse');$snapshot=self::snapshot($entry,$entry['skus'][0]);
