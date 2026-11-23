@@ -8,6 +8,40 @@ use ReflectionMethod;
 
 class MarketVideoModelPayloadContractTest extends TestCase
 {
+    public function testFlatVideoContractWithRequiredImageUrlsUsesReferenceMode(): void
+    {
+        $product = ['resource_type'=>'model', 'upstream_model_code'=>'muse-video', 'upstream_channel_code'=>'xAIQ'];
+        $metadata = ['params_schema'=>[
+            'prompt'=>['type'=>'string', 'required'=>true],
+            'duration'=>['type'=>'integer', 'enum'=>[10], 'default'=>10, 'required'=>true],
+            'image_urls'=>['type'=>'array', 'minItems'=>1, 'maxItems'=>8, 'required'=>true],
+            'aspect_ratio'=>['type'=>'string', 'enum'=>['16:9', '9:16'], 'required'=>true],
+        ]];
+        $modes = new ReflectionMethod(MarketVideoRuntimeService::class, 'sellableGenerationModes');
+        $sku = ['input_mode'=>'text_to_video', 'locked_params'=>['duration'=>10]];
+        self::assertSame(['image_reference'], $modes->invoke(null, $product, $metadata, [$sku]));
+
+        $canonical = new ReflectionMethod(MarketVideoRuntimeService::class, 'canonicalGenerationMethod');
+        self::assertSame('image_reference', $canonical->invoke(null, $product, $metadata, 'image_to_video'));
+        $admission = new ReflectionMethod(MarketVideoRuntimeService::class, 'assertAssets');
+        $this->expectExceptionMessage('请添加参考图片');
+        $admission->invoke(null, ['product'=>$product, 'sku'=>$sku], ['generation_method'=>'text_to_video'], $metadata);
+    }
+
+    public function testOptionalImageUrlsAndExplicitModesKeepTextToVideo(): void
+    {
+        $product = ['resource_type'=>'model', 'upstream_model_code'=>'fixture-video'];
+        $metadata = ['params_schema'=>[
+            'prompt'=>['type'=>'string', 'required'=>true],
+            'image_urls'=>['type'=>'array', 'minItems'=>1, 'required'=>false],
+        ]];
+        $modes = new ReflectionMethod(MarketVideoRuntimeService::class, 'generationModes');
+        self::assertContains('text_to_video', $modes->invoke(null, $product, $metadata));
+        $metadata['params_schema']['image_urls']['required'] = true;
+        $metadata['generation_modes'] = ['text_to_video', 'image_reference'];
+        self::assertSame(['text_to_video','image_reference'], $modes->invoke(null, $product, $metadata));
+    }
+
     public function testDeclaredGenerationOptionsPreserveFalseAndSkuLocks(): void
     {
         $payload = $this->invokeModelPayload([
