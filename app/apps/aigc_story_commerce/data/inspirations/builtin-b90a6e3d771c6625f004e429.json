@@ -2,7 +2,7 @@
     "schema_version": 1,
     "app_code": "aigc_story_commerce",
     "key": "builtin-b90a6e3d771c6625f004e429",
-    "version": 1,
+    "version": 2,
     "title": "贵妃嫌弃粗水泡坏茶叶，太监呈上现代黑色细嘴壶，贵妃用其细水慢冲后化解不满。",
     "status": 1,
     "sort": 0,
@@ -18,8 +18,8 @@
             {
                 "uri": "uploads/images/20261110/20261110142626cf46e8237.png",
                 "storage_scope": "platform",
-                "storage_engine": "aliyun",
-                "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+                "storage_engine": "qcloud",
+                "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
                 "name": "b109742d54904ab08c1dbda064a37b07.png",
                 "role": "",
                 "reference_slot_id": "sc_2cd432b2-47d2-4cc9-a5a4-4711be4937e2",
@@ -140,8 +140,8 @@
     "media": {
         "uri": "uploads/aigc_video/20261111/20261111124812aba024742.mp4",
         "storage_scope": "platform",
-        "storage_engine": "aliyun",
-        "storage_domain": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com",
+        "storage_engine": "qcloud",
+        "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
         "width": 496,
         "height": 864,
         "duration": 15.104,
@@ -172,6 +172,29 @@
             "type": "video",
             "mime_type": "video/mp4",
             "file_size": 5246184
+        },
+        {
+            "uri": "uploads/aigc_video/20261111/20261111124812aba024742.mp4",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "width": 496,
+            "height": 864,
+            "duration": 15.104,
+            "type": "video",
+            "mime_type": "video/mp4",
+            "file_size": 5246184
+        },
+        {
+            "uri": "uploads/images/20261110/20261110142626cf46e8237.png",
+            "storage_scope": "platform",
+            "storage_engine": "qcloud",
+            "storage_domain": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com",
+            "name": "b109742d54904ab08c1dbda064a37b07.png",
+            "role": "",
+            "reference_slot_id": "sc_2cd432b2-47d2-4cc9-a5a4-4711be4937e2",
+            "mention_name": "图片1",
+            "type": "image"
         }
     ]
 }
