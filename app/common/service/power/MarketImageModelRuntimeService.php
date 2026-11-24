@@ -1941,6 +1941,15 @@ class MarketImageModelRuntimeService
         ] as $rows) {
             self::collectImageUrls($rows, $urls);
         }
+        if ($urls === [] && ($snapshot['model_code'] ?? '') === MarketLayerDecomposition::MODEL) {
+            // Accept the supplier's resultUrls envelope when the gateway has not normalized it.
+            foreach ([$data, $data['data'] ?? [], $data['result'] ?? []] as $envelope) {
+                if (!is_array($envelope)) continue;
+                $encoded = $envelope['resultJson'] ?? null;
+                $decoded = is_string($encoded) ? json_decode($encoded, true) : null;
+                self::collectImageUrls($envelope['resultUrls'] ?? $decoded['resultUrls'] ?? [], $urls);
+            }
+        }
         $result = [];
         $urls = array_values(array_unique($urls));
         $outputLimit = $snapshot['image_item_facts']['output_limit'] ?? null;

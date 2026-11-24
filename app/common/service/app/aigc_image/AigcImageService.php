@@ -18,6 +18,7 @@ use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketImageModelRuntimeService;
+use app\common\service\power\MarketLayerDecomposition;
 use app\common\service\storage\StorageConfigService;
 use app\common\model\ai\AiConsumptionLog;
 use Exception;
@@ -110,7 +111,7 @@ class AigcImageService
     public static function estimateMarketModel(int $tenantId, array $params, array $billingOverride = [], string $appCode = ''): array
     {
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
-        $quote = $appCode === \app\common\service\power\MarketLayerDecomposition::APP
+        $quote = $appCode === MarketLayerDecomposition::APP
             ? MarketImageModelRuntimeService::quote($tenantId, $params, $quantity, $billingOverride, false, $appCode)
             : MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride);
         return [
@@ -180,10 +181,9 @@ class AigcImageService
         $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? []), $tenantId, $userId);
         self::checkSensitiveWords($tenantId, $prompt);
         $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride, $appCode);
-        if ($prompt === '') {
-            $snapshot = $appCode === \app\common\service\power\MarketLayerDecomposition::APP
-                ? MarketImageModelRuntimeService::selectionSnapshot($tenantId, $params, $appCode)
-                : (array)MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride)['market_snapshot'];
+        // Graphical decomposition allows an empty description in its validated native request.
+        if ($prompt === '' && $appCode !== MarketLayerDecomposition::APP) {
+            $snapshot = (array)MarketGenerationRuntime::selection('image', $params)->quote($tenantId, $quantity, $billingOverride)['market_snapshot'];
             if (!\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt($snapshot, $params)) throw new Exception('请输入提示词');
         }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
@@ -224,7 +224,7 @@ class AigcImageService
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], ?callable $onTaskCreated = null): array
     {
-        if (($params['style'] ?? '') === \app\common\service\power\MarketLayerDecomposition::STYLE) {
+        if (($params['style'] ?? '') === MarketLayerDecomposition::STYLE) {
             throw new Exception('请在图层分离工具中提交');
         }
         $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'image');
