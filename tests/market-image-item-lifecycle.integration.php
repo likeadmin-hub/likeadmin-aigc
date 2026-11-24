@@ -194,6 +194,8 @@ try {
             imageAssert(AiConsumptionLog::find($id)['billing_status']==='reserved','pending receipt retains both reservations');
             $settle->invoke(null,$id,$images,'','mock-task',$receipt);
             $after=wallets($tenant,$user);
+            $billed = Db::name('ai_consumption_log')->where('id',$id)->find();
+            imageAssert(\app\common\service\workbench\PlatformTaskCost::points($billed)===1.,'platform report reads the reconciled supplier receipt');
             imageAssert(round($initial[0]-$after[0],2)===1.0 && round($initial[1]-$after[1],2)===1.0,'settled receipt charges both wallets once and returns excess');
             $settle->invoke(null,$id,$images,'','mock-task',$receipt);
         } else {

@@ -161,6 +161,8 @@ final class OpenNativeImageItems
         }
         [$tenant,$user] = Billing::amounts($pricing,$facts,(int)$outputs,$billBody);
         $details = Billing::details($pricing,$facts,(int)$outputs,$receipt) + ['output_count'=>(int)$outputs];
-        return ['tenant'=>$tenant,'user'=>$user,'usage'=>['units'=>$outputs,'billing_details'=>$details]];
+        $charge = ['tenant'=>$tenant,'user'=>$user,'usage'=>['units'=>$outputs,'billing_details'=>$details]];
+        if ($receipt !== null) $charge['settled_supplier_points'] = (float)$billBody['token_billing']['actual_points'];
+        return $charge;
     }
 }

@@ -210,6 +210,8 @@ try {
             && $balanceDelta()===$settled,'Settled amount or task outcome did not follow frozen price');
         OpenVerification::assertLedger($done);
         if ($case==='token_items') {
+            $billed = Db::name('ai_consumption_log')->where('consume_no',$rid)->find();
+            itemAssert(\app\common\service\workbench\PlatformTaskCost::points($billed)===1.,'Platform report lost the supplier receipt');
             $retailBody = Store::json(Response::project(Store::encode($query),Response::amounts($done)));
             itemAssert($retailBody['data']['token_billing']['actual_points']==='1.35'
                 && $retailBody['data']['task_id']===$query['data']['task_id']

@@ -106,7 +106,9 @@ final class MarketPriceRuleService
                 || (($context['user_id'] ?? null) !== 0 && MarketPricePolicy::amount($snapshot['cached_tenant_price']) !== $rates['sale']['cached_input'])) {
                 throw new RuntimeException('模型分项费率已变化，请刷新报价后重新提交');
             }
-            $snapshot['pricing_rules'] = ['token_rates' => $rates, 'standard_rates' => MarketFileQaTokenPricing::display($sku, 0)['sale']];
+            $platformRates = MarketFileQaTokenPricing::display($sku, 0);
+            $snapshot['pricing_rules'] = ['token_rates' => $rates, 'standard_rates' => $platformRates['sale'],
+                'upstream_rates' => $platformRates['cost']];
             return $snapshot;
         }
         // A legacy file SKU can obtain its declaration from the current upstream
@@ -147,7 +149,9 @@ final class MarketPriceRuleService
         }
         $snapshot['pricing_rules'] = ['platform' => $quote['platform'], 'tenant' => $quote['tenant']];
         if (($snapshot['basis'] ?? '') === 'file_qa_tokens') {
-            $snapshot['pricing_rules']['standard_rates'] = MarketFileQaTokenPricing::display($sku, 0)['sale'];
+            $platformRates = MarketFileQaTokenPricing::display($sku, 0);
+            $snapshot['pricing_rules']['standard_rates'] = $platformRates['sale'];
+            $snapshot['token_pricing']['upstream'] = $platformRates['cost'];
         }
         return $snapshot;
     }

@@ -1113,6 +1113,10 @@ class MarketImageModelRuntimeService
                 $itemPricing = self::imageUserRates($itemPricing, $itemFacts, $snapshot['image_item_override'] ?? [], $reservedOutput, !empty($snapshot['image_item_admin']));
                 [$tenant, $user] = MarketImageItemBilling::amounts($itemPricing, $itemFacts, $quantity, $itemToken?$response:null);
                 $details = MarketImageItemBilling::details($itemPricing, $itemFacts, $quantity, $itemReceipt);
+                if ($itemReceipt !== null) {
+                    $snapshot['settled_supplier_points'] = (float)$response['token_billing']['actual_points'];
+                    $c->setAttr('price_snapshot', $snapshot);
+                }
             } else {
                 [$tenant, $user] = self::settlementAmounts($snapshot, $quantity, $billedQuantity, $deferredUsage);
             }

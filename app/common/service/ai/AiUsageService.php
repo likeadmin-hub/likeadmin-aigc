@@ -671,7 +671,8 @@ class AiUsageService
     private static function tenantBillSnapshot(array $snapshot): array
     {
         unset($snapshot['supply_markup'], $snapshot['standard_price'], $snapshot['standard_rates'],
-            $snapshot['pricing_rules'], $snapshot['upstream_price'], $snapshot['upstream_unit_cost']);
+            $snapshot['pricing_rules'], $snapshot['upstream_price'], $snapshot['upstream_unit_cost'],
+            $snapshot['settled_supplier_points']);
         if (isset($snapshot['token_pricing']) && is_array($snapshot['token_pricing'])) {
             unset($snapshot['token_pricing']['rules'], $snapshot['token_pricing']['upstream']);
         }

@@ -7,6 +7,24 @@ use app\common\service\ai\AiTaskOperationService;
 
 class AiConsumptionController extends BaseAdminController
 {
+    /**
+     * @notes 平台任务数据统计
+     */
+    public function statistics()
+    {
+        if ((int)($this->adminInfo['root'] ?? 0) !== 1) {
+            $uris = (new \app\common\cache\AdminAuthCache($this->adminId))->getAdminUri();
+            if (!in_array('ai_consumption/statistics', array_map('strtolower', $uris), true)) {
+                return $this->fail('没有数据统计权限');
+            }
+        }
+        try {
+            return $this->data(\app\common\service\workbench\PlatformTaskStatistics::report($this->request->get()));
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function lists()
     {
         $data = AiUsageService::consumptionLists($this->request->get());

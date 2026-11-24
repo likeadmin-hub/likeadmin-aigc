@@ -77,6 +77,10 @@ final class OpenMarketBilling
                 if ($rule['basis'] === OpenNativeImageItems::BASIS) {
                     $charge = OpenNativeImageItems::settle($snapshot['native_media'],$result,$failed);
                     if ($charge !== null) {
+                        if (isset($charge['settled_supplier_points'])) {
+                            $snapshot['native_media']['market_snapshot']['settled_supplier_points'] = $charge['settled_supplier_points'];
+                            $c->setAttr('price_snapshot', $snapshot);
+                        }
                         $tenant += $charge['tenant'];
                         $user += $charge['user'];
                         $usage[] = ['sku_id'=>$rule['sku_id']] + $charge['usage'];
