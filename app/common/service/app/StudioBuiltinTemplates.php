@@ -6,9 +6,8 @@ use app\common\model\app\AppCase;
 use app\common\service\ai\StudioMediaService as Media;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\SubmitLockService;
-use app\common\service\app\aigc_motion_sync\{MotionSyncService as Motion,MotionSyncTemplates as MotionTemplates,MotionSyncJobs};
+use app\common\service\app\aigc_motion_sync\MotionSyncService as Motion;
 use app\common\service\app\aigc_story_commerce\{StoryCommerceService as Story,StoryCommercePolicy as Policy,StoryCommerceTemplates as StoryTemplates,StoryCommerceCatalog as StoryCatalog,StoryCommerceJobs};
-use app\common\service\power\MarketMotionSyncRuntimeService;
 use app\common\service\power\MarketCatalogReadScope;
 use InvalidArgumentException;
 use think\facade\Db;
@@ -22,7 +21,7 @@ final class StudioBuiltinTemplates
     private static function catalog(string $app): string {return $app==='aigc_store_visit'?\app\common\service\app\aigc_store_visit\StoreVisitCatalog::class:StoryCatalog::class;}
     public static function writing(): bool {return self::$writing;}
     public static function table(){return Db::name('app_builtin_inspiration');}
-    public static function service(string $app): string {StudioBuiltinCatalog::assertApp($app);return match($app){'aigc_motion_sync'=>MotionTemplates::class,'aigc_store_visit'=>\app\common\service\app\aigc_store_visit\StoreVisitTemplates::class,default=>StoryTemplates::class};}
+    public static function service(string $app): string {StudioBuiltinCatalog::assertApp($app);return match($app){'aigc_store_visit'=>\app\common\service\app\aigc_store_visit\StoreVisitTemplates::class,default=>StoryTemplates::class};}
     public static function info(string $app,int $id): ?array {StudioBuiltinCatalog::assertApp($app);return self::table()->where(['app_code'=>$app,'case_id'=>$id])->find()?:null;}
     public static function definition(string $app,int $id): ?array {$link=self::info($app,$id);return $link?(StudioBuiltinCatalog::all($app)[$link['builtin_key']]??null):null;}
     public static function ids(string $app): array {return array_map('intval',self::table()->where('app_code',$app)->whereNotNull('case_id')->column('case_id'));}
@@ -30,11 +29,11 @@ final class StudioBuiltinTemplates
     public static function media(string $app,array $row): array {return (array)($row['config_json']['generation_request']['advanced_params'][substr($app,5).'_media']??[]);}
     public static function portableBody(string $app,array $input): array
     {
-        StudioBuiltinCatalog::assertApp($app);
         if($app===Motion::APP){
             $b=Motion::body($input);$b['image']=StudioBuiltinCatalog::publicAsset(array_replace((array)$b['image'],['type'=>'image']));$b['video']=StudioBuiltinCatalog::publicAsset(array_replace((array)$b['video'],['type'=>'video']));
             \app\common\service\app\aigc_motion_sync\MotionSyncMedia::assertFacts($b);return $b;
         }
+        StudioBuiltinCatalog::assertApp($app);
         if($app==='aigc_store_visit'&&!empty($input['reference_audio']))throw new InvalidArgumentException('发布内置模板前请移除个人参考音色，使用模板时可另行上传');
         $b=(self::policy($app))::body($input);$b['images']=array_map(static fn($a)=>StudioBuiltinCatalog::publicAsset(array_replace($a,['type'=>'image'])),$b['images']);
         if($app==='aigc_store_visit')\app\common\service\app\aigc_store_visit\StoreVisitPolicy::assertMaterials($b['images']);
@@ -47,28 +46,23 @@ final class StudioBuiltinTemplates
         if(empty($b['genre_snapshot']['instruction']))throw new InvalidArgumentException('内置模板缺少编剧规则快照');
         $b['script']=(self::policy($app))::scriptValue($b['script'],(int)($b['video_selection']['duration']??0),$b);$b['script_input_key']=(self::policy($app))::inputKey($b);return $b;
     }
-    private static function product(string $app,array $identity): ?array
+    private static function product(array $identity): ?array
     {
-        $where=['model_type'=>$app===Motion::APP?'other':'video'];
+        $where=['model_type'=>'video'];
         foreach(['source_code','upstream_resource_key','resource_type','upstream_app_code'] as $key)if(isset($identity[$key]))$where[$key]=$identity[$key];
         return Db::name('power_market_product')->where($where)->find()?:null;
     }
-    private static function identity(string $app,array $body,int $owner): array
+    private static function identity(array $body): array
     {
-        if($app===Motion::APP){[$m]=Motion::model($owner,$body);$id=(int)$m['market_product_id'];}
-        else {if(!preg_match('/:(\d+)$/D',(string)($body['video_selection']['model_id']??''),$match))throw new InvalidArgumentException('请选择算力市场模型');$id=(int)$match[1];}
-        $p=Db::name('power_market_product')->where('id',$id)->find();
-        if(!$p||($p['model_type']??'')!==($app===Motion::APP?'other':'video'))throw new InvalidArgumentException('模板模型尚未同步到算力市场');
+        if(!preg_match('/:(\d+)$/D',(string)($body['video_selection']['model_id']??''),$match))throw new InvalidArgumentException('请选择算力市场模型');
+        $p=Db::name('power_market_product')->where('id',(int)$match[1])->find();
+        if(!$p||($p['model_type']??'')!=='video')throw new InvalidArgumentException('模板模型尚未同步到算力市场');
         return array_intersect_key($p,array_flip(['source_code','upstream_resource_key','resource_type','upstream_app_code']));
     }
     public static function bodyFor(string $app,int $tenant,array $entry,bool $strict=true): array
     {
-        $b=$entry['configuration'];$p=self::product($app,$entry['model_identity']);
-        if($app===Motion::APP){
-            if($strict){$found=false;foreach(MarketMotionSyncRuntimeService::options($tenant) as $m)if($p&&(int)$m['market_product_id']===(int)$p['id']&&$m['model_key']===$b['model_key']){$found=true;break;}
-                if(!$found)throw new InvalidArgumentException('内置模板的动作模型尚未同步或上架，不会替换为其他模型');Motion::request($tenant,$b);}
-            return $b;
-        }
+        StudioBuiltinCatalog::assertApp($app);
+        $b=$entry['configuration'];$p=self::product($entry['model_identity']);
         $b['video_selection']['model_id']=$p?($p['resource_type']==='model'?'market_video_model:'.$p['id']:'market_video_app:'.$p['upstream_app_code'].':'.$p['id']):'';
         $b['script_input_key']=(self::policy($app))::inputKey($b);
         if($strict){if(!$p)throw new InvalidArgumentException('内置模板的视频模型尚未同步，请同步并上架后再使用');(self::catalog($app))::selection($tenant,$b);}
@@ -86,48 +80,9 @@ final class StudioBuiltinTemplates
         }
         return [$body, $notice, $confirmed];
     }
-    public static function motionDraft(int $tenant, array $entry): array
-    {
-        $body = self::bodyFor(Motion::APP, $tenant, $entry, false);
-        $product = self::product(Motion::APP, $entry['model_identity']);
-        $default = (string)Motion::settings($tenant)['default_model_key'];
-        $models = array_filter(MarketMotionSyncRuntimeService::options($tenant), static fn($row) =>
-            !empty($row['available']) && !empty($row['specs']) && !empty($row['material_modes'])
-        );
-        $original = '';
-        foreach ($models as $model) {
-            if ($product && (int)$model['market_product_id'] === (int)$product['id'] && $model['model_key'] === $body['model_key']) {
-                $original = (string)$model['id'];
-                break;
-            }
-        }
-        $defaultModel = array_column($models, 'id', 'model_key')[$default] ?? '';
-        $models = array_column($models, null, 'id');
-        [$model, $source] = StudioTemplateModel::pick(
-            $original,
-            (string)$defaultModel,
-            static fn(string $id) => $models[$id] ?? null,
-            static fn() => array_map('strval', array_keys($models)),
-            static fn(array $candidate) => in_array($body['quality'], array_column($candidate['specs'], 'quality'), true)
-        );
-        $body['model_key'] = $model['model_key'] ?? '';
-        if (!$model) {
-            return [$body, '模板已填入。当前没有可用的模板模型或应用默认模型，请选择动作模型。'];
-        }
-        $notice = match ($source) {
-            'compatible' => '已选用兼容动作模型。',
-            'default' => '已选用当前应用的默认动作模型。',
-            default => '',
-        };
-        $qualities = array_column($model['specs'], 'quality');
-        if (!in_array($body['quality'], $qualities, true)) {
-            $body['quality'] = in_array($model['default_quality'], $qualities, true) ? $model['default_quality'] : $qualities[0];
-            $notice .= '已调整清晰度，请检查参数。';
-        }
-        return [$body, $notice];
-    }
     public static function sync(string $app,bool $force=false): void
     {
+        StudioBuiltinCatalog::assertApp($app);
         $all=StudioBuiltinCatalog::all($app);if(self::$writing||!$all)return;
         $cacheKey='studio_builtin:'.hash('sha256',StudioBuiltinCatalog::directory($app).'|'.config('database.connections.mysql.database').'|'.config('database.connections.mysql.prefix'));
         $sourceHash=Policy::hash($all);if(!$force&&Cache::get($cacheKey)===$sourceHash)return;
@@ -138,9 +93,9 @@ final class StudioBuiltinTemplates
             if((int)$link['version']>$entry['version'])throw new InvalidArgumentException('内置模板源版本较旧，请先合并已保存的内置配置');
             $b=self::bodyFor($app,0,$entry,false);$hash=Policy::hash([$entry,$b]);$current=$link['case_id']?AppCase::where('id',$link['case_id'])->find():null;
             if($link['source_hash']===$hash&&$current)return;
-            $key=substr($app,5);$image=$app===Motion::APP?$b['image']:$b['images'][0];$images=$app===Motion::APP?[$b['image']]:$b['images'];
+            $key=substr($app,5);$image=$b['images'][0];$images=$b['images'];
             if($current)AppCase::where(['id'=>$link['case_id'],'tenant_id'=>0,'app_code'=>$app])->update(['delete_time'=>0]);
-            $saved=AppCaseService::save(0,$app,['id'=>$current?(int)$link['case_id']:0,'title'=>$entry['title'],'prompt'=>$app===Motion::APP?$b['prompt']:(self::policy($app))::prompt($b),
+            $saved=AppCaseService::save(0,$app,['id'=>$current?(int)$link['case_id']:0,'title'=>$entry['title'],'prompt'=>(self::policy($app))::prompt($b),
                 'media_type'=>'video','cover_uri'=>$image['uri'],'media_uri'=>$entry['media']['uri'],'reference_images'=>array_column($images,'uri'),
                 'config_json'=>['generation_request'=>['advanced_params'=>[$key=>$b,$key.'_media'=>$entry['media']]]],
                 'status'=>$entry['deleted']?0:$entry['status'],'sort'=>$entry['sort'],'source_task_id'=>0,'source_result_id'=>0]);
@@ -166,11 +121,10 @@ final class StudioBuiltinTemplates
             $link=self::table()->where(['app_code'=>$app,'source_case_id'=>$id])->find();$prior=$link?(StudioBuiltinCatalog::all($app)[$link['builtin_key']]??null):null;
             if((int)($params['expected_version']??0)!==(int)($prior['version']??0))throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
             $b=self::stored($app,$source);$owner=(int)$source['tenant_id'];$media=self::media($app,$source);
-            foreach($app===Motion::APP?[$b['image'],$b['video']]:$b['images'] as $a)Media::verify($owner,$a,($a===($b['video']??null))?20:10);Media::verify($owner,$media,20);
-            if($app===Motion::APP)Motion::request($owner,$b);else {(self::catalog($app))::selection($owner,$b);(self::policy($app))::prompt($b);}
-            $identity=self::identity($app,$b,$owner);
-            if($app===Motion::APP){$b['image']=self::shared($owner,$b['image']);$b['video']=self::shared($owner,$b['video']);}
-            else $b['images']=array_map(static fn($a)=>self::shared($owner,$a),$b['images']);
+            foreach($b['images'] as $a)Media::verify($owner,$a,10);Media::verify($owner,$media,20);
+            (self::catalog($app))::selection($owner,$b);(self::policy($app))::prompt($b);
+            $identity=self::identity($b);
+            $b['images']=array_map(static fn($a)=>self::shared($owner,$a),$b['images']);
             $entry=StudioBuiltinCatalog::write($app,['schema_version'=>1,'app_code'=>$app,'key'=>$prior['key']??'builtin-'.bin2hex(random_bytes(12)),'version'=>(int)($prior['version']??0)+1,
                 'title'=>$source['title'],'status'=>(int)$source['status'],'sort'=>(int)$source['sort'],'deleted'=>false,'model_identity'=>$identity,'configuration'=>$b,'media'=>self::shared($owner,$media)]);
             self::sync($app);self::table()->where(['app_code'=>$app,'builtin_key'=>$entry['key']])->update(['source_case_id'=>$id,'source_tenant_id'=>$owner]);
@@ -180,8 +134,8 @@ final class StudioBuiltinTemplates
     public static function fromJob(string $app,int $id,array $params,int $scope=0): array
     {
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认素材可作为跨站点公开共享素材');
-        $service=self::service($app);$job=$app===Motion::APP?MotionSyncJobs::owned($scope,0,$id,true):($app==='aigc_store_visit'?\app\common\service\app\aigc_store_visit\StoreVisitJobs::owned($scope,0,$id,true):StoryCommerceJobs::owned($scope,0,$id,true));
-        if($job['status']!=='success'||($app!==Motion::APP&&$job['action']!=='video'))throw new InvalidArgumentException('仅已完成视频可以设为内置模板');
+        $service=self::service($app);$job=($app==='aigc_store_visit'?\app\common\service\app\aigc_store_visit\StoreVisitJobs::owned($scope,0,$id,true):StoryCommerceJobs::owned($scope,0,$id,true));
+        if($job['status']!=='success'||$job['action']!=='video')throw new InvalidArgumentException('仅已完成视频可以设为内置模板');
         $lock=SubmitLockService::acquire($app.'_builtin_job_'.$id);
         try{return Db::transaction(static function()use($app,$id,$params,$service,$job,$scope){
             $link=self::table()->where(['app_code'=>$app,'source_job_id'=>$id,'source_tenant_id'=>(int)$job['tenant_id']])->find();

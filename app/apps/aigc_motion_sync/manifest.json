@@ -1,10 +1,10 @@
 {
   "code": "aigc_motion_sync",
   "name": "动作同步",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "require_core": ">=1.0.442",
-  "description": "将动作视频同步到角色图片，支持朝向控制、清晰度选择和灵感同款。",
-  "changelog": "1. 修复历史视频与参考素材访问异常。",
+  "description": "让角色图片跟随参考视频中的动作，支持选择动作模型、人物朝向和清晰度。",
+  "changelog": "1. 动作同步改为展示工具介绍和创作步骤。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "resource/image/apps/aigc_motion_sync/cover-v3.gif",

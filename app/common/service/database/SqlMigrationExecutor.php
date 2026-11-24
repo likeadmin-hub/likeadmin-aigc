@@ -26,6 +26,10 @@ class SqlMigrationExecutor
             \app\common\service\app\RetiredAppService::apply($prefix, $connection);
             return;
         }
+        if (preg_match('/^-- likeadmin:retire-motion-sync-templates-v1\s*$/m', $content)) {
+            \app\common\service\app\aigc_motion_sync\MotionSyncTemplateRetirement::apply($prefix, $connection);
+            return;
+        }
         if (preg_match('/^-- likeadmin:seed-builtin-distribution-posters-v1\s*$/m', $content)) {
             \app\common\service\distribution\BuiltinPosterService::migrate($prefix, $connection);
             return;

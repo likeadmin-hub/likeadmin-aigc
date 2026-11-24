@@ -3,7 +3,7 @@
 require dirname(__DIR__).'/vendor/autoload.php';(new think\App())->initialize();request()->withServer(['HTTP_HOST'=>'motion-fixture.example','HTTPS'=>'on','SERVER_PORT'=>443]);
 set_exception_handler(static function(Throwable $e){fwrite(STDERR,'FAIL '.get_class($e).': '.$e->getMessage().' at '.basename($e->getFile()).':'.$e->getLine().PHP_EOL);exit(1);});
 use think\facade\Db;
-use app\common\service\app\aigc_motion_sync\{MotionSyncService as S,MotionSyncJobs as J,MotionSyncTemplates as T};
+use app\common\service\app\aigc_motion_sync\{MotionSyncService as S,MotionSyncJobs as J};
 use app\common\service\power\{MarketMotionSyncRuntimeService as M,MarketVideoRuntimeService as V};
 use app\common\service\ai\MarketVideoSubmissionService as Admission;
 use app\common\model\power\PowerMarketProduct;
@@ -59,18 +59,6 @@ try{
     msCheck(in_array((int)$row['id'],array_column($admin['lists'],'id'),true),'Platform record filters failed');
     foreach(['id','app_task_id'] as $identity){$search=J::lists(1,0,['keyword'=>(string)$row[$identity]],true);msCheck(in_array((int)$row['id'],array_column($search['lists'],'id'),true),'Admin task identity search failed');}
     $foreign=J::lists(2,0,['keyword'=>(string)$row['id']],true);msCheck(!in_array((int)$row['id'],array_column($foreign['lists'],'id'),true),'Tenant admin record search crossed its scope');
-    // Admin manual templates, complete remix, source-task snapshot, soft deletion.
-    $uploads=[];foreach([[10,$image],[20,$video]] as [$type,$uri])$uploads[$type]=Db::name('tenant_file')->insertGetId(['tenant_id'=>1,'source_id'=>0,'source'=>0,'type'=>$type,'name'=>'Admin motion fixture','uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
-    $config=array_replace($body,['image'=>['file_id'=>$uploads[10]],'video'=>['file_id'=>$uploads[20]]]);
-    $template=T::save(1,['title'=>'本地动作灵感','configuration'=>$config,'preview'=>['file_id'=>$uploads[20]],'sort'=>9]);
-    $remix=T::remix(1,1,$template['id']);msCheck($remix['id']!==$project['id']&&$remix['body']['prompt']===$body['prompt']&&$remix['body']['orientation']==='video','Full independent remix failed');
-    T::status(1,$template['id'],0);msReject(fn()=>T::remix(1,1,$template['id']),'Disabled template remixed');msReject(fn()=>T::detail(2,$template['id']),'Cross-tenant template accepted');T::delete(1,$template['id']);msCheck(is_file($dir.'/motion.mp4'),'Soft-delete removed shared bytes');
-    // Tenant administrators can inspect published platform templates, but cannot mutate their source.
-    $platform=[];foreach([[10,$image],[20,$video]] as [$type,$uri])$platform[$type]=Db::name('file')->insertGetId(['source_id'=>0,'source'=>0,'type'=>$type,'name'=>'Shared motion fixture','uri'=>$uri,'storage_scope'=>'platform','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
-    $shared=T::save(0,['title'=>'平台共享联调','configuration'=>array_replace($body,['image'=>['file_id'=>$platform[10]],'video'=>['file_id'=>$platform[20]]]),'preview'=>['file_id'=>$platform[20]]]);
-    $visible=T::lists(1,['keyword'=>'平台共享联调']);msCheck(in_array($shared['id'],array_column($visible['lists'],'id'),true)&&T::detail(1,$shared['id'])['readonly'],'Published platform template is not visible as read-only');
-    msReject(fn()=>T::save(1,['id'=>$shared['id'],'title'=>'非法修改']),'Tenant changed a platform template');msReject(fn()=>T::status(1,$shared['id'],0),'Tenant disabled a platform template');msReject(fn()=>T::delete(1,$shared['id']),'Tenant deleted a platform template');
-    T::status(0,$shared['id'],0);msReject(fn()=>T::detail(1,$shared['id']),'Unpublished platform template exposed to tenant admin');
     $display=\app\common\service\app\AppDisplayConfigService::detail(1,S::APP);
     msReject(fn()=>S::setup(1,['status'=>1,'default_model_key'=>'missing-model','display_config'=>['title'=>'不应保存']]),'Invalid model configuration was accepted');
     msCheck(\app\common\service\app\AppDisplayConfigService::detail(1,S::APP)['title']===$display['title'],'Rejected settings partially saved display metadata');
@@ -87,7 +75,8 @@ try{
     $page=\app\common\service\WorkspaceMediaPickerService::page(1,1,['tab'=>'assets','types'=>'video','search'=>'保持角色外观']);
     msCheck(in_array($ref,array_column($page['lists'],'id'),true),'Completed result missing from shared asset picker');
     S::save(1,1,['id'=>$project['id'],'revision'=>$project['revision'],'body'=>array_replace($body,['prompt'=>'后来修改的草稿'])]);
-    $published=T::fromJob(1,(int)$success['id'],['title'=>'完成记录转模板']);msCheck($published['configuration']['prompt']===$body['prompt'],'Template used the mutable draft instead of the submitted snapshot');
-    J::delete(1,1,(int)$success['id']);msCheck(T::detail(1,$published['id'])['id']===$published['id']&&is_file($dir.'/motion.mp4'),'History deletion damaged a published template');
-    echo "PASS measured media, native model scope, drafts, quote/idempotency, durable queue, freeze/refund, unknown retention, tenant isolation, templates, complete remix, settled success, shared assets and submitted snapshots (no provider calls)\n";
+    $restored=S::fromJob(1,1,(int)$success['id']);
+    msCheck($restored['id']!==$project['id']&&$restored['body']['prompt']===$body['prompt'],'History editing must use the submitted snapshot');
+    J::delete(1,1,(int)$success['id']);msCheck(is_file($dir.'/motion.mp4'),'History deletion damaged the reference video');
+    echo "PASS measured media, native model scope, drafts, quote/idempotency, durable queue, freeze/refund, unknown retention, tenant isolation, history editing, settled success, shared assets and submitted snapshots (no provider calls)\n";
 }finally{Db::rollback();foreach(glob($dir.'/*') as $file)unlink($file);rmdir($dir);}
