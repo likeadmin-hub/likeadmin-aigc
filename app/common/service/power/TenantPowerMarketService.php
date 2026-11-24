@@ -272,6 +272,10 @@ class TenantPowerMarketService
         }
         $rows = $data['apis'];
         self::attachProductStats($tenantId, $rows);
+        $available = array_filter($rows, static fn(array $row): bool => $row['sku_count'] > 0);
+        $data['min_price'] = $available ? min(array_column($available, 'min_price')) : 0;
+        $data['sku_count'] = array_sum(array_column($rows, 'sku_count'));
+        $data['api_count'] = count($rows);
         $data['status'] = max(array_column($rows, 'status'));
         $data['status_text'] = (int)$data['status'] === 1 ? '上架' : '下架';
         $first = $data['apis'][0] ?? [];
@@ -342,6 +346,9 @@ class TenantPowerMarketService
                     MarketPriceWriteInput::assertExpected($price, (float)$current['tenant']['price']);
                     if ($sale < (float)$current['platform']['price']) throw new Exception('租户售价不能低于平台成本价');
                     MarketPriceRuleService::manual($tenantId, $productId, $skuId, $sale);
+                }
+                if ((int)($price['sale_status'] ?? 1) === 1) {
+                    self::assertShelfPrices($tenantId, $sku);
                 }
                 $data = ['tenant_id' => $tenantId, 'sku_id' => $skuId,
                     'sale_status' => (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0, 'update_time' => time()];
@@ -425,6 +432,7 @@ class TenantPowerMarketService
                 if (!self::isPlatformAvailableSku($sku)) throw new Exception('平台商品状态已更新，请刷新后重试');
                 $skuId = (int)$sku['id'];
                 $configured = $configuredBySku[$skuId] ?? null;
+                if ($saleStatus === 1) self::assertShelfPrices($tenantId, $sku);
                 if ($configured !== null) {
                     TenantPowerMarketSkuPrice::where('id', (int)$configured['id'])->update([
                         'sale_status' => $saleStatus,
@@ -435,7 +443,7 @@ class TenantPowerMarketService
                 TenantPowerMarketSkuPrice::create([
                     'tenant_id' => $tenantId,
                     'sku_id' => $skuId,
-                    'sale_points' => max(0, (float)($sku['sale_points'] ?? 0)),
+                    'sale_points' => MarketPriceRuleService::tenant($tenantId, $sku)['tenant']['price'],
                     'sale_status' => $saleStatus,
                     'create_time' => $now,
                     'update_time' => $now,
@@ -444,6 +452,16 @@ class TenantPowerMarketService
         });
 
         return ['products' => count($productIds), 'skus' => count($skus)];
+    }
+
+    private static function assertShelfPrices(int $tenantId, array $sku): void
+    {
+        $scalar = MarketPriceRuleService::tenant($tenantId, $sku);
+        $tokens = MarketFileQaTokenPricing::display($sku, $tenantId);
+        $image = MarketImageItemBilling::prices($sku, $tenantId);
+        if (!$scalar['valid'] || !($tokens['valid'] ?? true) || !($image['valid'] ?? true)) {
+            throw new Exception('规格「'.($sku['title'] ?: $sku['sku_key']).'」价格无效，请检查各项售价和进货价后再上架');
+        }
     }
 
     /**
@@ -474,10 +492,12 @@ class TenantPowerMarketService
                 if (!$tenantEnabled) {
                     continue;
                 }
-                $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
                 $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $tenantPrice);
                 $imageRates = MarketImageItemBilling::prices($sku, $tenantId);
+                $tokenRates = MarketFileQaTokenPricing::display($sku, $tenantId);
+                if (!$resolved['valid'] || !($imageRates['valid'] ?? true) || !($tokenRates['valid'] ?? true)) continue;
+                $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 if (($imageRates['mode'] ?? '') === 'token_items') $stats[$id]['has_token_rates'] = true;
                 $input = $imageRates['items']['input_images']['tenant'] ?? null;
                 if ($input !== null) $stats[$id]['min_input_points'] = min($stats[$id]['min_input_points'] ?? (float)$input,(float)$input);
@@ -514,9 +534,9 @@ class TenantPowerMarketService
         }
         foreach ($skus as &$sku) {
             $price = $bySku[(int)$sku['id']] ?? null;
-            $platformSale = max(0, (float)($sku['sale_points'] ?? 0));
             $platformEnabled = self::isPlatformAvailableSku($sku);
             $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $price);
+            $platformSale = (float)$resolved['platform']['price'];
             $tenantSale = (float)$resolved['tenant']['price'];
             $sku['tenant_price_rule'] = $resolved['tenant'];
             $rates = MarketFileQaTokenPricing::display($sku, $tenantId);

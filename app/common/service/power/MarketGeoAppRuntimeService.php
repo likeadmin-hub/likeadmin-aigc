@@ -40,7 +40,8 @@ class MarketGeoAppRuntimeService
                 if (!$tenantPrice->isEmpty() && (int)$tenantPrice['sale_status'] !== 1) {
                     continue;
                 }
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenantPrice)) continue;
+                $market = MarketCatalogSkuReader::priced($tenantId, $sku, $tenantPrice->toArray());
+                if ($market === null) continue;
                 $options[] = [
                     ...MarketModelSource::product($product),
                     'id' => self::selectionId((int)$product['id'], (int)$sku['id']),
@@ -58,8 +59,8 @@ class MarketGeoAppRuntimeService
                     'display_icon' => (string)($product['display_icon'] ?? ''),
                     'params_schema' => self::arrayValue($metadata['params_schema'] ?? []),
                     'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
-                    'platform_unit_cost' => self::points((float)$sku['sale_points']),
-                    'tenant_unit_price' => self::points(\app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenantPrice)),
+                    'platform_unit_cost' => $market['sku']['sale_points'],
+                    'tenant_unit_price' => self::points($market['tenant_price']),
                     'usage_unit' => (string)($sku['usage_unit'] ?? 'per_call'),
                     'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                     'settlement_mode' => MarketUsageSettlementService::isActualUsageSku($sku) ? 'actual_usage' : 'reserved',
@@ -154,7 +155,7 @@ class MarketGeoAppRuntimeService
         if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
             throw new Exception('所选 GEO 算力超市规格暂不可用');
         }
-        return ['product' => $product->toArray(), 'sku' => $sku->toArray(), 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
+        return ['product' => $product->toArray(), ...MarketCatalogSkuReader::requirePriced($tenantId, $sku->toArray(), $tenant->toArray())];
     }
 
     private static function selectionId(int $productId, int $skuId): string

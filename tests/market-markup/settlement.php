@@ -39,7 +39,8 @@ try {
  $bad=false;try{S::captureSnapshot($t,['rules'=>[['sku_id'=>$id,'prices'=>['tenant'=>1,'user'=>1]]]],['user_id'=>$u]);}catch(RuntimeException $e){$bad=true;}check($bad,'stale Open API charged prices rejected');
  $bad=false;try{S::captureSnapshot($t,['sku_id'=>$id,'platform_price'=>1,'tenant_price'=>1,'pricing_rules'=>['old'=>true]],['user_id'=>$u]);}catch(RuntimeException $e){$bad=true;}check($bad,'existing provenance never skips validation at new reservation');
  $method=new ReflectionMethod(app\common\service\power\MarketNanoBananaAppRuntimeService::class,'applyRetailBinding');$method->setAccessible(true);
- $market=['sku'=>['sale_points'=>12,'usage_unit'=>'image'],'tenant_price'=>15];
+ $market=['product'=>['id'=>$p,'upstream_app_code'=>'nano_banana','upstream_api_code'=>'generate'],
+  'sku'=>$sku,'model'=>'fixture','reference_limit'=>0,'tenant_price'=>15];
  $customMarket=$method->invoke(null,$market,['user_unit_price'=>99],1,$t);check($customMarket['tenant_price']===99.0&&$customMarket['market_tenant_price']===15,'legacy application override retains canonical price');
  Db::name('power_market_price_rule')->where(['owner_id'=>$t,'scope_type'=>'global','scope_id'=>0])->update(['follow_apps'=>1]);
  $unified=$method->invoke(null,$market,['user_unit_price'=>99],1,$t);check($unified['tenant_price']===15,'NanoBanana adopts unified market price');

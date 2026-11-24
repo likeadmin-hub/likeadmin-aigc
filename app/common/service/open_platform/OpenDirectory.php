@@ -36,12 +36,12 @@ final class OpenDirectory
         $out=[];foreach($items as $item){if(!is_array($item))continue;
             if($path==='/api/v1/models'){
                 foreach($products as $product)if((string)($product['upstream_model_code']??'')===(string)($item['model_code']??$item['id']??'')&&(string)($product['upstream_channel_code']??'')===(string)($item['channel_code']??'')){
-                    if(isset($item['pricing']))$item['pricing']=self::prices($product);$out[]=$item;break;
+                    $out[]=self::retailApi($item,$product);break;
                 }
             }else{
                 $allowed=[];foreach($products as $product)if(($product['upstream_app_code']??'')===($item['code']??''))$allowed[(string)$product['upstream_api_code']]=$product;
                 $apis=[];foreach($item['apis']??[] as $api)if(isset($allowed[$api['code']??'']))$apis[]=self::retailApi($api,$allowed[$api['code']]);
-                if($apis){$item['apis']=$apis;$out[]=$item;}
+                if($apis){unset($item['apis']);$item=\app\common\service\power\MarketCustomerPricing::project($item);$item['apis']=$apis;$out[]=$item;}
             }
         }return array_values($out);
     }
@@ -72,12 +72,15 @@ final class OpenDirectory
     public static function filterDetail(string $path,array $data,array $products): array
     {
         if($path==='/api/v1/models/detail'){$items=self::filter('/api/v1/models',[$data],$products);if(!$items)throw new OpenException('not_found','模型不可访问',404);return $items[0];}
-        $app=(array)($data['app']??[]);$app['apis']=(array)($data['apis']??[]);$items=self::filter('/api/v1/apps',[$app],$products);if(!$items)throw new OpenException('not_found','应用不可访问',404);$item=$items[0];$apis=$item['apis'];unset($item['apis']);return array_replace($data,['app'=>$item,'apis'=>$apis]);
+        $app=(array)($data['app']??[]);$app['apis']=(array)($data['apis']??[]);$items=self::filter('/api/v1/apps',[$app],$products);if(!$items)throw new OpenException('not_found','应用不可访问',404);$item=$items[0];$apis=$item['apis'];unset($item['apis']);unset($data['app'],$data['apis']);return \app\common\service\power\MarketCustomerPricing::project($data)+['app'=>$item,'apis'=>$apis];
     }
     private static function retailApi(array $api,array $product): array
     {
+        $hasRules = array_key_exists('pricing_rules', $api);
+        $api = \app\common\service\power\MarketCustomerPricing::project($api);
         if(empty($product['skus']))return $api;
         $price=self::prices($product);
+        if ($hasRules) $api['pricing_rules'] = $price['pricing_matrix'] ?? [];
         // Upstream detail includes its account's commercial fields. Keep their
         // names while binding values to the effective local retail SKUs.
         $values=['tenant_billing_type'=>$price['billing_type'],'tenant_fixed_points'=>$price['fixed_points']??0,'tenant_points_per_1k_input'=>$price['per_1k_input']??null,'tenant_points_per_1k_output'=>$price['per_1k_output']??null,'billing_type'=>$price['billing_type'],'input_price'=>$price['per_1k_input']??0,'output_price'=>$price['per_1k_output']??0,'fixed_price'=>$price['fixed_points']??0,'pricing_matrix'=>$price['pricing_matrix']??[],'pricing_rules'=>$price['pricing_matrix']??[],'model_rates'=>[]];

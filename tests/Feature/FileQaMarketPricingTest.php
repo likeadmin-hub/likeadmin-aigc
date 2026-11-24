@@ -14,7 +14,7 @@ final class FileQaMarketPricingTest extends TestCase
     {
         $sku = ['id' => 123, 'product_id' => 234, 'sku_key' => 'token', 'source_payload' => self::DECLARATION];
         $markup = [['scope_type' => 'global', 'scope_id' => 0, 'mode' => 'percent', 'value' => '10']];
-        $sku['token_rates'] = MarketFileQaTokenPricing::display($sku, 1, [], $markup);
+        $sku['token_rates'] = MarketFileQaTokenPricing::display($sku, 1, [], $markup, ['rate_percent' => '0']);
         $rule = ['basis' => 'usage', 'max_units' => 11000, 'usage_path' => 'usage.total_tokens'];
         $quote = OpenFileQaPricing::quote($rule, $sku);
         self::assertSame(143., $quote['tenant']);

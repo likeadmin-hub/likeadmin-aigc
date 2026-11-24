@@ -54,9 +54,10 @@ class MarketPicLipsyncAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
+                $market = MarketCatalogSkuReader::priced($tenantId, $sku, $tenant->toArray());
+                if ($market === null) continue;
                 if (!static::acceptsSku(self::arrayValue($sku['locked_params'] ?? []))) continue;
-                $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
+                $tenantPrice = $market['tenant_price'];
                 $options[] = [
                     ...MarketModelSource::product($product),
                     'id' => static::selectionId((int)$product['id'], (int)$sku['id']),
@@ -84,7 +85,7 @@ class MarketPicLipsyncAppRuntimeService
                     'default_params' => self::arrayValue($metadata['default_params'] ?? []),
                     'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
                     'query_api_code' => self::QUERY_API_CODE,
-                    'platform_unit_cost' => self::points((float)$sku['sale_points']),
+                    'platform_unit_cost' => $market['sku']['sale_points'],
                     'tenant_unit_price' => self::points($tenantPrice),
                     'usage_unit' => (string)$sku['usage_unit'],
                     'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)),
@@ -534,8 +535,7 @@ class MarketPicLipsyncAppRuntimeService
         }
         return [
             'product' => $product->toArray(),
-            'sku' => $sku->toArray(),
-            'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant),
+            ...MarketCatalogSkuReader::requirePriced($tenantId, $sku->toArray(), $tenant->toArray()),
         ];
     }
 

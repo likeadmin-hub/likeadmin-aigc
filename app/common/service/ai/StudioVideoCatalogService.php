@@ -19,8 +19,9 @@ final class StudioVideoCatalogService
     private static function buildModels(int $tenant,bool $legacy,string $mode,?array $allowedIds,bool $summary): array
     {
         $subset='';if($allowedIds!==null){$allowedIds=array_values(array_unique(array_map('strval',$allowedIds)));if(!$allowedIds)return [];sort($allowedIds);$subset=':'.hash('sha256',json_encode($allowedIds,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));}
-        $cacheKey=$tenant.':'.(int)$legacy.':'.$mode.$subset.($summary?':summary':'');if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
-        $sharedKey='studio_callable_video_models_v3:'.$tenant.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
+        $revision = \app\common\service\power\TenantSupplyMarkup::settings($tenant)['revision'];
+        $cacheKey=$tenant.':'.$revision.':'.(int)$legacy.':'.$mode.$subset.($summary?':summary':'');if(isset(self::$cache[$cacheKey]))return self::$cache[$cacheKey];
+        $sharedKey='studio_callable_video_models_v3:'.$tenant.':'.$revision.':'.$mode.$subset.($summary?':summary':'');if(!$legacy){try{$cached=Cache::get($sharedKey);if(is_array($cached))return self::$cache[$cacheKey]=$cached;}catch(\Throwable){}}
         $result=[];$options=AigcVideoService::marketOptions($tenant);
         foreach($options['channels']??[] as $model){
             if($allowedIds!==null&&!in_array((string)$model['id'],$allowedIds,true))continue;

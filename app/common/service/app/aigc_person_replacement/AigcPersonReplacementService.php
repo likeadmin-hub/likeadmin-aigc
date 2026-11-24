@@ -70,6 +70,7 @@ class AigcPersonReplacementService
         self::assertAvailable($tenantId, $userId);
         $prepared = self::preparePayload($tenantId, $params, true);
         $estimate = self::buildEstimate($tenantId, $prepared);
+        $estimate['pricing_snapshot'] = \app\common\service\power\MarketPriceRuleService::captureSnapshot($tenantId, $estimate['pricing_snapshot']);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $task = AigcPersonReplacementTask::create([
@@ -322,8 +323,7 @@ class AigcPersonReplacementService
 
     private static function buildEstimate(int $tenantId, array $prepared): array
     {
-        $marketQuote = MarketAppCostPricingService::quote(self::UPSTREAM_APP_CODE, [
-            'tenant_id' => $tenantId,
+        $marketQuote = MarketAppCostPricingService::quote($tenantId, self::UPSTREAM_APP_CODE, [
             'api_code' => 'submit',
             'mode' => $prepared['mode'],
             'face_count' => $prepared['face_count'],
@@ -355,7 +355,10 @@ class AigcPersonReplacementService
             'price_source' => (string)$marketQuote['price_source'],
             'market_product_id' => (int)$marketQuote['market_product_id'],
             'market_sku_id' => (int)$marketQuote['market_sku_id'],
-            'pricing_snapshot' => $marketQuote['market_snapshot'],
+            'pricing_snapshot' => $marketQuote['market_snapshot'] + [
+                'user_charge_points' => $userPoints,
+                'user_unit_price' => $unitPrice,
+            ],
         ];
     }
 

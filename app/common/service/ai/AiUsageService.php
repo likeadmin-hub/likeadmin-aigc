@@ -624,6 +624,12 @@ class AiUsageService
         $rows = $query->order(['c.create_time' => 'desc', 'c.id' => 'desc'])
             ->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
         $rows = self::formatConsumptions($rows);
+        if ($tenantId > 0) {
+            foreach ($rows as &$row) {
+                $row['price_snapshot'] = self::tenantBillSnapshot(self::arrayValue($row['price_snapshot'] ?? []));
+            }
+            unset($row);
+        }
         return compact('rows', 'count', 'pageNo', 'pageSize');
     }
 
@@ -655,7 +661,30 @@ class AiUsageService
         $data['request_summary'] = AiUsageSupportService::diagnosticSummary($data['request_summary'] ?? []);
         $data['response_summary'] = AiUsageSupportService::diagnosticSummary($data['response_summary'] ?? []);
         $data['events'] = $events;
+        if ($tenantId > 0) {
+            $data['price_snapshot'] = self::tenantBillSnapshot(self::arrayValue($data['price_snapshot'] ?? []));
+        }
         return $data;
+    }
+
+    /** Keep the billed supply and retail rates, with platform-only price provenance removed. */
+    private static function tenantBillSnapshot(array $snapshot): array
+    {
+        unset($snapshot['supply_markup'], $snapshot['standard_price'], $snapshot['standard_rates'],
+            $snapshot['pricing_rules'], $snapshot['upstream_price'], $snapshot['upstream_unit_cost']);
+        if (isset($snapshot['token_pricing']) && is_array($snapshot['token_pricing'])) {
+            unset($snapshot['token_pricing']['rules'], $snapshot['token_pricing']['upstream']);
+        }
+        if (is_array($snapshot['image_item_pricing']['items'] ?? null)) {
+            foreach ($snapshot['image_item_pricing']['items'] as &$item) {
+                if (is_array($item)) unset($item['rate']);
+            }
+            unset($item);
+        }
+        foreach ($snapshot as $key => $value) {
+            if (is_array($value)) $snapshot[$key] = self::tenantBillSnapshot($value);
+        }
+        return $snapshot;
     }
 
     public static function purgeExpiredPayloads(int $days = 30): int
@@ -718,14 +747,15 @@ class AiUsageService
             if (!$tenantPrice->isEmpty() && (int)$tenantPrice['sale_status'] !== 1) {
                 return [];
             }
+            $market = \app\common\service\power\MarketCatalogSkuReader::requirePriced($tenantId, $sku->toArray(), $tenantPrice->toArray());
             return [
                 'product_id' => (int)$product['id'],
                 'sku_id' => (int)$sku['id'],
                 'sku_key' => (string)$sku['sku_key'],
                 'usage_unit' => (string)$sku['usage_unit'],
                 'upstream_price' => (float)$sku['upstream_price'],
-                'platform_price' => (float)$sku['sale_points'],
-                'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenantPrice),
+                'platform_price' => $market['sku']['sale_points'],
+                'tenant_price' => $market['tenant_price'],
             ];
         }
         $product = PowerMarketProduct::where(['resource_type' => 'model', 'model_type' => 'image', 'status' => 1])
@@ -742,14 +772,15 @@ class AiUsageService
             if (!$tenantPrice->isEmpty() && (int)$tenantPrice['sale_status'] !== 1) {
                 continue;
             }
+            $market = \app\common\service\power\MarketCatalogSkuReader::requirePriced($tenantId, $sku, $tenantPrice->toArray());
             return [
                 'product_id' => (int)$product['id'],
                 'sku_id' => (int)$sku['id'],
                 'sku_key' => (string)$sku['sku_key'],
                 'usage_unit' => (string)$sku['usage_unit'],
                 'upstream_price' => (float)$sku['upstream_price'],
-                'platform_price' => (float)$sku['sale_points'],
-                'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenantPrice),
+                'platform_price' => $market['sku']['sale_points'],
+                'tenant_price' => $market['tenant_price'],
             ];
         }
         return [];

@@ -1131,7 +1131,7 @@ class MarketVideoRuntimeService
     {
         $tenant = self::tenantSkuPrice($tenantId, (int)$sku['id']);
         if ($tenant !== [] && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该视频规格');
-        return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
+        return ['product' => $product] + MarketCatalogSkuReader::requirePriced($tenantId, $sku, $tenant);
     }
 
     private static function availableSkus(int $tenantId, int $productId): array
@@ -1141,10 +1141,7 @@ class MarketVideoRuntimeService
 
     private static function readAvailableSkus(int $tenantId, int $productId): array
     {
-        $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(); $result = [];
-        foreach ($rows as $sku) { $tenant = self::tenantSkuPrice($tenantId, (int)$sku['id']); if ($tenant !== [] && (int)$tenant['sale_status'] !== 1) continue;
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue; $result[] = ['sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)]; }
-        return $result;
+        return MarketCatalogSkuReader::forProducts($tenantId, [$productId], ['sort' => 'desc', 'id' => 'asc'])[$productId]['available'] ?? [];
     }
 
     private static function quoteMarket(array $market, float $quantity): array

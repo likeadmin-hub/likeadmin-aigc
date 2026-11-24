@@ -10,7 +10,7 @@ class MarketController extends BaseAdminController
 {
     public function models()
     {
-        return $this->success('获取成功', TenantPowerMarketService::models(
+        return $this->catalogResponse(TenantPowerMarketService::models(
             (int)$this->adminInfo['tenant_id'],
             (string)$this->request->get('keyword', ''),
             $this->request->get('status', ''),
@@ -23,7 +23,7 @@ class MarketController extends BaseAdminController
 
     public function apps()
     {
-        return $this->success('获取成功', TenantPowerMarketService::apps(
+        return $this->catalogResponse(TenantPowerMarketService::apps(
             (int)$this->adminInfo['tenant_id'],
             (string)$this->request->get('keyword', ''),
             $this->request->get('status', ''),
@@ -35,7 +35,7 @@ class MarketController extends BaseAdminController
 
     public function detail()
     {
-        return $this->success('获取成功', TenantPowerMarketService::detail(
+        return $this->catalogResponse(TenantPowerMarketService::detail(
             (int)$this->adminInfo['tenant_id'],
             (int)$this->request->get('id', 0)
         ));
@@ -43,10 +43,27 @@ class MarketController extends BaseAdminController
 
     public function appDetail()
     {
-        return $this->success('获取成功', TenantPowerMarketService::appDetail(
+        return $this->catalogResponse(TenantPowerMarketService::appDetail(
             (int)$this->adminInfo['tenant_id'],
             (string)$this->request->get('app_code', '')
         ));
+    }
+
+    private function catalogResponse(array $data)
+    {
+        return $this->success('获取成功', $this->tenantCatalogFields($data));
+    }
+
+    private function tenantCatalogFields(array $row): array
+    {
+        // Supplier payloads carry the complete upstream declarations and standard price rules.
+        unset($row['source_payload'], $row['upstream_price'], $row['configured_sale_points'], $row['price_rule']);
+        foreach (['lists', 'apis', 'skus'] as $collection) {
+            if (isset($row[$collection])) {
+                $row[$collection] = array_map([$this, 'tenantCatalogFields'], $row[$collection]);
+            }
+        }
+        return $row;
     }
 
     public function pricingRules()

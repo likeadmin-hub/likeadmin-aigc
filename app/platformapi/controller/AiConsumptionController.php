@@ -23,6 +23,10 @@ class AiConsumptionController extends BaseAdminController
     {
         $detail = AiUsageService::consumptionDetail((int)$this->request->get('id', 0));
         if (!$detail) return $this->fail('消耗日志不存在');
+        $markup = $detail['price_snapshot']['supply_markup'] ?? null;
+        if (is_array($markup)) {
+            $detail['supply_markup'] = array_intersect_key($markup, array_flip(['rate_percent', 'revision']));
+        }
         $detail['operation_tracks'] = AiTaskOperationService::operationListsForTask((int)($detail['app_task_id'] ?? 0), (int)$detail['id']);
         return $this->success('获取成功', $detail);
     }

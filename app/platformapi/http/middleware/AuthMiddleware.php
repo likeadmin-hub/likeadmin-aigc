@@ -17,6 +17,7 @@ declare (strict_types=1);
 namespace app\platformapi\http\middleware;
 
 use app\common\service\JsonService;
+use app\platformapi\service\TenantSupplyMarkupAdmin;
 use app\common\{
     cache\AdminAuthCache
 };
@@ -53,10 +54,12 @@ class AuthMiddleware
             return $next($request);
         }
 
-        $adminAuthCache = new AdminAuthCache($request->adminInfo['admin_id']);
-
-        // 当前访问路径
         $accessUri = strtolower($request->controller() . '/' . $request->action());
+        if (in_array($accessUri, ['tenant.tenant/supplymarkup', 'tenant.tenant/previewsupplymarkup', 'tenant.tenant/applysupplymarkup'], true)) {
+            return TenantSupplyMarkupAdmin::allowed($request->adminInfo, $accessUri !== 'tenant.tenant/supplymarkup')
+                ? $next($request) : JsonService::fail('权限不足，无法访问或操作');
+        }
+        $adminAuthCache = new AdminAuthCache($request->adminInfo['admin_id']);
         $marketPricingAction = in_array($accessUri, ['power.market/pricingrules', 'power.market/previewpricing', 'power.market/applypricing'], true);
         if ($marketPricingAction) $accessUri = 'power.market/saveprices';
         // 全部路由

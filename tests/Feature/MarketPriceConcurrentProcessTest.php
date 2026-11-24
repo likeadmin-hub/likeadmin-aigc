@@ -47,7 +47,7 @@ if(($argv[1]??'')==='child'){
     echo json_encode(['writer'=>$kind,'attempted'=>12,'honest_preview_conflicts'=>$conflicts])."\n";exit;
 }
 $database='codex_price_'.bin2hex(random_bytes(6));$active=$config['database'];$prefix=$config['prefix'];
-$tables=['power_market_product','power_market_sku','tenant_power_market_sku_price','power_market_price_rule'];
+$tables=['power_market_product','power_market_sku','tenant_power_supply_markup','tenant_power_market_sku_price','power_market_price_rule'];
 $product=Db::name('power_market_product')->where(['resource_type'=>'model','status'=>1])->find();
 $sku=Db::name('power_market_sku')->where(['status'=>1,'sale_status'=>1])->find();
 priceConcurrentCheck($product&&$sku,'Local catalogue fixture required');

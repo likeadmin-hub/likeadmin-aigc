@@ -25,17 +25,17 @@ final class MarketFileQaTokenPricing
     }
 
     /** Project only the cost and sale tiers visible to this market owner. */
-    public static function display(array $sku, int $owner, ?array $platformRules = null, ?array $tenantRules = null): ?array
+    public static function display(array $sku, int $owner, ?array $platformRules = null, ?array $tenantRules = null, ?array $markup = null): ?array
     {
         $source = MarketGenerationSchema::array($sku['source_payload'] ?? []);
         if (!array_key_exists('effective_rate_config', $source)) return null;
         $pricing = self::snapshot($sku, $source, $platformRules ?? MarketPriceRuleService::rules(0),
-            $owner === 0 ? [] : ($tenantRules ?? MarketPriceRuleService::rules($owner)), false);
+            $owner === 0 ? [] : ($tenantRules ?? MarketPriceRuleService::rules($owner)), false, $markup ?? TenantSupplyMarkup::settings($owner));
         return ['cost' => $pricing[$owner === 0 ? 'upstream' : 'platform'], 'sale' => $pricing[$owner === 0 ? 'platform' : 'tenant'],
             'usage_unit_size' => $pricing['usage_unit_size'], 'valid' => $pricing['valid']];
     }
 
-    public static function snapshot(array $sku, array $declaration, array $platformRules, array $tenantRules, bool $strict = true): ?array
+    public static function snapshot(array $sku, array $declaration, array $platformRules, array $tenantRules, bool $strict = true, array $markup = ['rate_percent' => '0.00']): ?array
     {
         if (!array_key_exists('effective_rate_config', $declaration)) return null;
         $declaration += ['usage_unit_size' => $sku['usage_unit_size'] ?? null];
@@ -45,13 +45,14 @@ final class MarketFileQaTokenPricing
         foreach (['input', 'cached_input', 'output'] as $key) {
             $base = $rates[$key];
             $platform = MarketPricePolicy::resolve($base, $base, $platformRules, (int)$sku['product_id'], (int)$sku['id']);
-            $tenant = MarketPricePolicy::resolve($platform['price'], $platform['price'], $tenantRules, (int)$sku['product_id'], (int)$sku['id']);
+            $supply = TenantSupplyMarkup::apply($platform['price'], $markup);
+            $tenant = MarketPricePolicy::resolve($supply, $supply, $tenantRules, (int)$sku['product_id'], (int)$sku['id']);
             if (!$platform['valid'] || !$tenant['valid']) {
                 if ($strict) throw new InvalidArgumentException('文件应用分项售价低于进货价，请先调整价格');
                 $snapshot['valid'] = false;
             }
             $snapshot['upstream'][$key] = $base;
-            $snapshot['platform'][$key] = $platform['price'];
+            $snapshot['platform'][$key] = $supply;
             $snapshot['tenant'][$key] = $tenant['price'];
             $snapshot['rules'][$key] = ['platform' => $platform, 'tenant' => $tenant];
         }

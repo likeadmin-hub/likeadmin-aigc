@@ -31,7 +31,18 @@ class AppAccessMiddleware
                 return $response;
             }
         }
-        return $next($request);
+        $response = $next($request);
+        // Internal gateway estimates invoke controllers directly and retain the cost side of the quote.
+        if ($appCode && $response instanceof \think\response\Json
+            && (preg_match('/\.(config|catalog|model|channel)$/i', $request->controller())
+                || preg_match('/estimate|options|models|channels|pricing/i', $request->action()))) {
+            $payload = $response->getData();
+            if (isset($payload['data']) && is_array($payload['data'])) {
+                $payload['data'] = \app\common\service\power\MarketCustomerPricing::project($payload['data']);
+                $response->data($payload);
+            }
+        }
+        return $response;
     }
 
     /** Existing tasks must remain readable while new generation is closed. */
