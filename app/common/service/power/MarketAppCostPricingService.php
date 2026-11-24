@@ -13,7 +13,7 @@ class MarketAppCostPricingService
      * The platform SKU is the sole source of the tenant's cost. Tenant-side
      * application pricing is deliberately not read here.
      */
-    public static function quote(string $upstreamAppCode, array $selection): array
+    public static function quote(int $tenantId, string $upstreamAppCode, array $selection): array
     {
         $appCode = trim($upstreamAppCode);
         $products = PowerMarketProduct::where([
@@ -37,7 +37,7 @@ class MarketAppCostPricingService
                 'status' => 1,
                 'sale_status' => 1,
             ])->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
-            $quote = self::quoteFromCatalog($product, $skus, $selection);
+            $quote = self::quoteFromCatalog($product, $skus, $selection, $tenantId);
             if ($quote !== null) {
                 return $quote;
             }
@@ -51,7 +51,7 @@ class MarketAppCostPricingService
      * tests. `sale_points` is the platform-to-tenant price, never the C-end
      * tenant sale price.
      */
-    public static function quoteFromCatalog(array $product, array $skus, array $selection): ?array
+    public static function quoteFromCatalog(array $product, array $skus, array $selection, int $tenantId = 0): ?array
     {
         $candidates = [];
         foreach ($skus as $sku) {
@@ -79,10 +79,14 @@ class MarketAppCostPricingService
         $sku = $candidates[0]['sku'];
         $unitSize = max(1, (float)($sku['usage_unit_size'] ?? 1));
         $quantity = self::quantity($sku, $selection);
-        $platformUnitCost = self::points((float)($sku['sale_points'] ?? 0));
-        $tenantId = (int)($selection['tenant_id'] ?? 0);
         $followMarket = $tenantId > 0 && MarketPriceRuleService::followsApps($tenantId);
-        $retail = $followMarket ? MarketPriceRuleService::tenantPrice($tenantId, $sku, null) : $platformUnitCost;
+        if ($tenantId > 0) {
+            $market = MarketCatalogSkuReader::requirePriced($tenantId, $sku);
+            $platformUnitCost = $market['sku']['sale_points'];
+            $retail = $market['tenant_price'];
+        } else {
+            $platformUnitCost = $retail = (float)($sku['sale_points'] ?? 0);
+        }
 
         return [
             'follow_market_prices' => $followMarket,

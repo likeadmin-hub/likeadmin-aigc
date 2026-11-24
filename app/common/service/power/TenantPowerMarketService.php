@@ -13,23 +13,25 @@ use think\facade\Db;
 
 class TenantPowerMarketService
 {
-    public static function models(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = '', bool $agentOnly = false): array
+    public static function models(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = '', bool $agentOnly = false, array $filters = []): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => self::readModels($tenantId, $keyword, $status, $pageNo, $pageSize, $modelType, $agentOnly));
+        return MarketCatalogReadScope::run(static fn(): array => self::readModels($tenantId, $keyword, $status, $pageNo, $pageSize, $modelType, $agentOnly, $filters));
     }
 
-    private static function readModels(int $tenantId, string $keyword, $status, int $pageNo, int $pageSize, string $modelType, bool $agentOnly): array
+    private static function readModels(int $tenantId, string $keyword, $status, int $pageNo, int $pageSize, string $modelType, bool $agentOnly, array $filters): array
     {
         $query = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'status' => 1]);
         $keyword = trim($keyword);
         $modelType = trim($modelType);
-        if (in_array($modelType, ['text', 'image', 'video'], true)) {
+        if (in_array($modelType, ['text', 'image', 'video', 'other'], true)) {
             $query->where('model_type', $modelType);
         }
+        MarketModelFilter::applyApiStatus($query, $tenantId, $filters['api_status'] ?? '');
         self::applyModelKeyword($query, $tenantId, $keyword);
         $rows = $query->order(['update_time' => 'desc', 'id' => 'desc'])
             ->select()
             ->toArray();
+        $rows = MarketModelFilter::products($rows, $filters);
         if ($agentOnly || in_array('text', array_column($rows, 'model_type'), true)) {
             $agentModels = array_column(AgentComposerSettings::textOptions($tenantId)['models'], null, 'market_product_id');
             if ($agentOnly) $rows = array_values(array_filter($rows, static fn($row) => isset($agentModels[(int)$row['id']])));
@@ -66,17 +68,19 @@ class TenantPowerMarketService
         });
     }
 
-    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
+    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => self::readApps($tenantId, $keyword, $status, $pageNo, $pageSize, $categoryCode));
+        return MarketCatalogReadScope::run(static fn(): array => self::readApps($tenantId, $keyword, $status, $pageNo, $pageSize, $categoryCode, $apiStatus));
     }
 
-    private static function readApps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
+    private static function readApps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
     {
-        $products = PowerMarketProduct::where([
+        $query = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
             'status' => 1,
-        ])->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
+        ]);
+        MarketModelFilter::applyApiStatus($query, $tenantId, $apiStatus);
+        $products = $query->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         self::attachProductStats($tenantId, $products);
         self::applyProductDisplays($tenantId, $products);
 
@@ -272,6 +276,10 @@ class TenantPowerMarketService
         }
         $rows = $data['apis'];
         self::attachProductStats($tenantId, $rows);
+        $available = array_filter($rows, static fn(array $row): bool => $row['sku_count'] > 0);
+        $data['min_price'] = $available ? min(array_column($available, 'min_price')) : 0;
+        $data['sku_count'] = array_sum(array_column($rows, 'sku_count'));
+        $data['api_count'] = count($rows);
         $data['status'] = max(array_column($rows, 'status'));
         $data['status_text'] = (int)$data['status'] === 1 ? '上架' : '下架';
         $first = $data['apis'][0] ?? [];
@@ -343,6 +351,9 @@ class TenantPowerMarketService
                     if ($sale < (float)$current['platform']['price']) throw new Exception('租户售价不能低于平台成本价');
                     MarketPriceRuleService::manual($tenantId, $productId, $skuId, $sale);
                 }
+                if ((int)($price['sale_status'] ?? 1) === 1) {
+                    self::assertShelfPrices($tenantId, $sku);
+                }
                 $data = ['tenant_id' => $tenantId, 'sku_id' => $skuId,
                     'sale_status' => (int)($price['sale_status'] ?? 1) === 1 ? 1 : 0, 'update_time' => time()];
                 // A shelf switch must never write a stale price or turn inheritance into manual pricing.
@@ -369,21 +380,27 @@ class TenantPowerMarketService
         bool $all = false,
         string $keyword = '',
         string $modelType = '',
-        $status = ''
+        $status = '',
+        array $filters = []
     ): array {
         if ($tenantId <= 0) {
             throw new Exception('租户信息无效');
         }
 
+        if ($all && (!in_array($modelType, ['', 'text', 'image', 'video', 'other'], true)
+            || !in_array($filters['agent_only'] ?? 0, [0, '0', false], true))) {
+            throw new Exception('当前模型筛选不支持批量上下架');
+        }
         $query = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_MODEL,
             'status' => 1,
         ]);
         $modelType = trim($modelType);
-        if (in_array($modelType, ['text', 'image', 'video'], true)) {
+        if (in_array($modelType, ['text', 'image', 'video', 'other'], true)) {
             $query->where('model_type', $modelType);
         }
         $keyword = trim($keyword);
+        MarketModelFilter::applyApiStatus($query, $tenantId, $filters['api_status'] ?? '');
         self::applyModelKeyword($query, $tenantId, $keyword);
         if (!$all) {
             $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
@@ -393,7 +410,7 @@ class TenantPowerMarketService
             $query->whereIn('id', $productIds);
         }
 
-        $products = $query->select()->toArray();
+        $products = MarketModelFilter::products($query->select()->toArray(), $filters);
         self::attachProductStats($tenantId, $products);
         $products = array_values(array_filter($products, static function (array $product) use ($all, $status): bool {
             if ((int)($product['platform_status'] ?? 0) !== 1) {
@@ -425,6 +442,7 @@ class TenantPowerMarketService
                 if (!self::isPlatformAvailableSku($sku)) throw new Exception('平台商品状态已更新，请刷新后重试');
                 $skuId = (int)$sku['id'];
                 $configured = $configuredBySku[$skuId] ?? null;
+                if ($saleStatus === 1) self::assertShelfPrices($tenantId, $sku);
                 if ($configured !== null) {
                     TenantPowerMarketSkuPrice::where('id', (int)$configured['id'])->update([
                         'sale_status' => $saleStatus,
@@ -435,7 +453,7 @@ class TenantPowerMarketService
                 TenantPowerMarketSkuPrice::create([
                     'tenant_id' => $tenantId,
                     'sku_id' => $skuId,
-                    'sale_points' => max(0, (float)($sku['sale_points'] ?? 0)),
+                    'sale_points' => MarketPriceRuleService::tenant($tenantId, $sku)['tenant']['price'],
                     'sale_status' => $saleStatus,
                     'create_time' => $now,
                     'update_time' => $now,
@@ -444,6 +462,16 @@ class TenantPowerMarketService
         });
 
         return ['products' => count($productIds), 'skus' => count($skus)];
+    }
+
+    private static function assertShelfPrices(int $tenantId, array $sku): void
+    {
+        $scalar = MarketPriceRuleService::tenant($tenantId, $sku);
+        $tokens = MarketFileQaTokenPricing::display($sku, $tenantId);
+        $image = MarketImageItemBilling::prices($sku, $tenantId);
+        if (!$scalar['valid'] || !($tokens['valid'] ?? true) || !($image['valid'] ?? true)) {
+            throw new Exception('规格「'.($sku['title'] ?: $sku['sku_key']).'」价格无效，请检查各项售价和进货价后再上架');
+        }
     }
 
     /**
@@ -474,10 +502,12 @@ class TenantPowerMarketService
                 if (!$tenantEnabled) {
                     continue;
                 }
-                $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 if (isset($sku['source_payload']['effective_rate_config'])) $stats[$id]['has_token_rates'] = true;
                 $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $tenantPrice);
                 $imageRates = MarketImageItemBilling::prices($sku, $tenantId);
+                $tokenRates = MarketFileQaTokenPricing::display($sku, $tenantId);
+                if (!$resolved['valid'] || !($imageRates['valid'] ?? true) || !($tokenRates['valid'] ?? true)) continue;
+                $stats[$id]['sku_count'] = (int)($stats[$id]['sku_count'] ?? 0) + 1;
                 if (($imageRates['mode'] ?? '') === 'token_items') $stats[$id]['has_token_rates'] = true;
                 $input = $imageRates['items']['input_images']['tenant'] ?? null;
                 if ($input !== null) $stats[$id]['min_input_points'] = min($stats[$id]['min_input_points'] ?? (float)$input,(float)$input);
@@ -514,9 +544,9 @@ class TenantPowerMarketService
         }
         foreach ($skus as &$sku) {
             $price = $bySku[(int)$sku['id']] ?? null;
-            $platformSale = max(0, (float)($sku['sale_points'] ?? 0));
             $platformEnabled = self::isPlatformAvailableSku($sku);
             $resolved = MarketPriceRuleService::tenant($tenantId, $sku, $price);
+            $platformSale = (float)$resolved['platform']['price'];
             $tenantSale = (float)$resolved['tenant']['price'];
             $sku['tenant_price_rule'] = $resolved['tenant'];
             $rates = MarketFileQaTokenPricing::display($sku, $tenantId);

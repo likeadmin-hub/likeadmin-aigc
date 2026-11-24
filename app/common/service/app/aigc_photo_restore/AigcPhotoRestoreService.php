@@ -849,6 +849,8 @@ class AigcPhotoRestoreService
             $channels[] = [
                 'code' => (string)$channel['code'],
                 'name' => (string)$channel['name'],
+                'channel_source' => $channel['channel_source'] ?? 'unknown',
+                'marketing_tags' => $channel['marketing_tags'] ?? [],
                 'qualities' => $qualities,
             ];
         }

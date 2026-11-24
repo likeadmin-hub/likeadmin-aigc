@@ -571,6 +571,8 @@ class AigcProductPromoVideoService
             $channels[] = [
                 'code' => $channelCode,
                 'name' => (string)($option['name'] ?? $channelCode),
+                'channel_source' => $option['channel_source'] ?? 'unknown',
+                'marketing_tags' => $option['marketing_tags'] ?? [],
                 'qualities' => array_values($qualities),
                 'resource_type' => (string)($option['resource_type'] ?? ''),
                 'market_product_id' => (int)($option['market_product_id'] ?? 0),
@@ -1176,7 +1178,11 @@ class AigcProductPromoVideoService
                     'ratios' => $ratios,
                 ];
             }
-            $channels[] = ['code' => (string)($channel['code'] ?? ''), 'name' => (string)($channel['name'] ?? ''), 'qualities' => $qualities];
+            $channels[] = [
+                'code' => (string)($channel['code'] ?? ''), 'name' => (string)($channel['name'] ?? ''), 'qualities' => $qualities,
+                'channel_source' => $channel['channel_source'] ?? 'unknown',
+                'marketing_tags' => $channel['marketing_tags'] ?? [],
+            ];
         }
         return $channels;
     }

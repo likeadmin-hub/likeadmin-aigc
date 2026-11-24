@@ -1,1 +1,1 @@
-{"component":true,"usingComponents":{"studio-icon":"./StudioIcon","studio-close":"./StudioClose"}}
+{"component":true,"usingComponents":{"studio-icon":"./StudioIcon","studio-close":"./StudioClose","model-filters":"./ModelFilters","model-source-badge":"../model-source-badge/model-source-badge"}}

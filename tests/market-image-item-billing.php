@@ -16,7 +16,7 @@ $contract = Billing::declaration($image, 'official-33-7b77ec425b57b520cd');
 $sku = ['id'=>8, 'product_id'=>4, 'source_payload'=>['image_item_billing'=>$contract]];
 $platform = [['scope_type'=>'global','scope_id'=>0,'mode'=>'percent','value'=>'25']];
 $tenant = [['scope_type'=>Billing::scope('input_images'),'scope_id'=>8,'mode'=>'manual','value'=>'4']];
-$pricing = Billing::prices($sku, 9, $platform, $tenant);
+$pricing = Billing::prices($sku, 9, $platform, $tenant, ['rate_percent' => '0']);
 requireEqual([25.0,28.0], Billing::amounts($pricing, ['input_count'=>3], 2));
 requireEqual(3, Billing::inputCount($contract, ['image_urls'=>['a','b','a']]));
 requireEqual([20.0,20.0], Billing::amounts($pricing, ['input_count'=>1], 2));
@@ -87,7 +87,7 @@ requireEqual([34.2144,34.2144], Billing::amounts($layerPricing, $layerFacts, 2))
 $changed = $image;
 $changed['charge_items'][0]['rate'] = '4';
 $sku['source_payload']['image_item_billing'] = Billing::declaration($changed, 'official-33-7b77ec425b57b520cd');
-requireEqual(false, Billing::prices($sku, 9, $platform, $tenant)['valid']);
+requireEqual(false, Billing::prices($sku, 9, $platform, $tenant, ['rate_percent' => '0'])['valid']);
 requireEqual([25.0,28.0], Billing::amounts($pricing, ['input_count'=>3], 2));
 
 $token = ['price'=>['points'=>0], 'charge_base_mode'=>'replace', 'reserve_upper_points'=>'12', 'charge_items'=>[]];
@@ -95,7 +95,7 @@ foreach (['text_input_uncached','text_input_cached','image_input_uncached','imag
     $token['charge_items'][]=['code'=>$code,'rate'=>'1000','unit'=>'token','unit_size'=>1000000];
 }
 $sku['source_payload']['image_item_billing']=Billing::declaration($token, 'test-model');
-$pricing = Billing::prices($sku, 9, $platform, []);
+$pricing = Billing::prices($sku, 9, $platform, [], ['rate_percent' => '0']);
 requireEqual([15.0, 15.0], Billing::amounts($pricing, [], 1));
 $receipt = ['token_billing'=>['status'=>'settled','actual_points'=>'1','items'=>array_map(static fn($item)=>[
     'code'=>$item['code'],'tokens'=>$item['code']==='image_output'?1000:0,
@@ -122,7 +122,7 @@ try {
     requireEqual('该规格缺少已核验的输入图片字段', $error->getMessage());
 }
 requireEqual(3, Billing::inputCount($klingContract, ['image_urls'=>['asset'],'elements'=>[['name'=>'a'],['name'=>'b']]]));
-$klingPricing = Billing::prices(['product_id'=>4,'id'=>8,'source_payload'=>['image_item_billing'=>$klingContract]],9,[],[]);
+$klingPricing = Billing::prices(['product_id'=>4,'id'=>8,'source_payload'=>['image_item_billing'=>$klingContract]],9,[],[],['rate_percent'=>'0']);
 requireEqual([36.0,36.0], Billing::amounts($klingPricing, ['input_count'=>3], 2));
 requireEqual([20.0,20.0], Billing::amounts($klingPricing, ['input_count'=>3], 1));
 $sku['source_payload']['image_item_billing']['cap'] = '0.999999';

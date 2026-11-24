@@ -94,8 +94,9 @@ class MarketMusicAppRuntimeService
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) {
                     continue;
                 }
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
-                $tenantPrice = \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant);
+                $market = MarketCatalogSkuReader::priced($tenantId, $sku, $tenant->toArray());
+                if ($market === null) continue;
+                $tenantPrice = $market['tenant_price'];
                 $duration = (int)($locked['duration'] ?? $locked['seconds'] ?? 0);
 
                 $options[] = [
@@ -126,7 +127,7 @@ class MarketMusicAppRuntimeService
                     'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
                     'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
                     'api_doc' => (string)($metadata['api_doc'] ?? ''),
-                    'platform_unit_cost' => self::points((float)$sku['sale_points']),
+                    'platform_unit_cost' => $market['sku']['sale_points'],
                     'tenant_unit_price' => self::points($tenantPrice),
                     'usage_unit' => (string)$sku['usage_unit'],
                     'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
@@ -438,8 +439,8 @@ class MarketMusicAppRuntimeService
                 if (!empty($selection['market_product_id']) && (int)$selection['market_product_id'] !== (int)$product['id']) continue;
                 $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty();
                 if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue;
-                if (!MarketPriceRuleService::available($tenantId, $sku, $tenant)) continue;
-                return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant)];
+                $market = MarketCatalogSkuReader::priced($tenantId, $sku, $tenant->toArray());
+                if ($market !== null) return ['product' => $product] + $market;
             }
         }
         throw new Exception('暂无租户已上架的音乐生成应用 API');

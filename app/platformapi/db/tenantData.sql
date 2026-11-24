@@ -1307,3 +1307,6 @@ CREATE TABLE IF NOT EXISTS `la_distribution_poster_version` (
  `admin_id` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL,
  PRIMARY KEY (`id`), UNIQUE KEY `uk_template_revision` (`template_id`,`revision`), KEY `idx_tenant` (`tenant_id`,`template_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+VALUES ({tenantId},@core_tenant_task_log_id,'C','数据统计','el-icon-TrendCharts',110,'ai_consumption/statistics','statistics','consumer/task/statistics','','',0,1,0,'','core','core_task_statistics_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());

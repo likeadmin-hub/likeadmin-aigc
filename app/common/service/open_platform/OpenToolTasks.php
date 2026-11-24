@@ -17,7 +17,7 @@ final class OpenToolTasks
             $collection=isset($data['results'])?'results':(($op['route']??'')==='GET results'&&isset($data['lists'])?'lists':null);
             if($collection!==null)foreach($data[$collection] as &$result)if(is_array($result)){$file=OpenAssets::registerResult((int)request()->tenantId,(int)request()->userId,$app,$result);if($file!==null)$result['file_id']=$file;}unset($result);
         }
-        return OpenPolicy::publicData($data);
+        return OpenPolicy::publicData(\app\common\service\power\MarketCustomerPricing::project($data));
     }
     public static function billing(array $row): string
     {

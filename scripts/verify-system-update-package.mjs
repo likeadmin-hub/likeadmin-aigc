@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync, statSync, lstatSync, mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
@@ -420,6 +420,7 @@ function verifyIncrementalComposerRuntime(manifest, entries) {
 function verifyIncrementalSqlSafety(targetPath, isDirectory, manifest, entries) {
     if ((manifest.package_mode || '') !== 'incremental') return
     const declaredSql = new Set((manifest.sql_order || []).map((item) => normalizeEntry(item)))
+    const plans = {}
     for (const entry of entries) {
         if (!entry.endsWith('.sql') || (!entry.startsWith('sql/data/') && !entry.startsWith('sql/structure/'))) {
             continue
@@ -431,7 +432,22 @@ function verifyIncrementalSqlSafety(targetPath, isDirectory, manifest, entries) 
         if (!declaredSql.has(entry)) {
             fail(`incremental package SQL file is missing from sql_order: ${entry}`)
         }
-        assertIncrementalSqlContentSafe(entry, readPackageText(targetPath, isDirectory, entry))
+        const sql = readPackageText(targetPath, isDirectory, entry)
+        assertIncrementalSqlContentSafe(entry, sql)
+        plans[entry] = sql
+    }
+    // The transactional system planner applies from 1.0.440. Use the same
+    // implementation as the site, so static checks cannot accept an unplannable ZIP.
+    if (Object.keys(plans).length && manifest.version.localeCompare('1.0.440', 'en', { numeric: true }) >= 0) {
+        const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+        const script = 'scripts/verify-system-sql-plans.php'
+        const options = { cwd: repo, input: JSON.stringify(plans), encoding: 'utf8' }
+        let result = spawnSync(process.env.PHP_BINARY || 'php', [script], options)
+        if (result.error?.code === 'ENOENT' && !process.env.PHP_BINARY) {
+            result = spawnSync('docker', ['run', '--rm', '-i', '--network', 'none', '--pull=never',
+                '-v', repo + ':/repo:ro', '-w', '/repo', 'php:8.2-cli-bookworm', 'php', script], options)
+        }
+        if (result.status !== 0) fail('System migration validation failed: ' + (result.stderr || result.error?.message || result.status))
     }
 }
 

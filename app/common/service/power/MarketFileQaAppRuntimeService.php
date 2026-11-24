@@ -248,8 +248,12 @@ class MarketFileQaAppRuntimeService
             }
             if (!array_key_exists('effective_rate_config', $declaration)) throw new Exception('剧本解析计费费率不完整，请同步算力市场价格');
         }
-        $tokenPricing = MarketFileQaTokenPricing::snapshot($skuData, $declaration, MarketPriceRuleService::rules(0), MarketPriceRuleService::rules($tenantId));
-        return ['product' => $product->toArray(), 'sku' => $skuData, 'tenant_price' => MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant), 'token_pricing' => $tokenPricing];
+        $markup = TenantSupplyMarkup::settings($tenantId);
+        $tokenPricing = MarketFileQaTokenPricing::snapshot($skuData, $declaration, MarketPriceRuleService::rules(0), MarketPriceRuleService::rules($tenantId), true, $markup);
+        $quote = MarketPriceRuleService::tenant($tenantId, $skuData, $tenant->toArray(), null, null, $markup);
+        if (!$quote['valid']) throw new Exception('当前手动售价低于进货价，请先调整价格或恢复价格');
+        $skuData['sale_points'] = $quote['platform']['price'];
+        return ['product' => $product->toArray(), 'sku' => $skuData, 'tenant_price' => (float)$quote['tenant']['price'], 'token_pricing' => $tokenPricing];
     }
 
     private static function snapshot(array $market): array { $p = $market['product']; $s = $market['sku']; return ['product_id' => (int)$p['id'], 'sku_id' => (int)$s['id'], 'app_code' => self::UPSTREAM_APP_CODE, 'api_code' => self::PARSE_API_CODE, 'runtime_adapter' => 'file_qa', 'query_path' => '/api/v1/tasks/{task_id}', 'usage_unit' => (string)$s['usage_unit'], 'usage_unit_size' => $market['token_pricing']['usage_unit_size'] ?? MarketUsageSettlementService::unitSize($s), 'platform_price' => (float)$s['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'token_pricing' => $market['token_pricing'] ?? null]; }

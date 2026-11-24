@@ -1,1 +1,1 @@
-<view class="agreement-page data-vvgFiyw"><u-parse wx:if="{{a}}" class="data-vvgFiyw" u-i="be0162cb-0" bind:__l="__l" u-p="{{a}}"></u-parse></view>
+<view class="agreement-page vsvgFiyw"><u-parse wx:if="{{a}}" class="vsvgFiyw" u-i="be0162cb-0" bind:__l="__l" u-p="{{a}}"></u-parse></view>

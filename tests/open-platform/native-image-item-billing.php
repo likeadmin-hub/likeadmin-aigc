@@ -28,7 +28,7 @@ itemAssert($binding['mode']==='image_count' && $binding['basis']==='image','Revi
 $itemFacts=Items::facts($input,$raw,[]);
 itemAssert($itemFacts===['input_count'=>3,'quantity'=>2],'Count follows the wire and preserves duplicate slots');
 itemAssert(Items::facts($input,['count'=>10],[])['quantity']===10,'Valid supplier batch sizes are not capped by the quote adapter');
-$price=Billing::prices(['id'=>1,'product_id'=>1,'source_payload'=>['image_item_billing'=>$input]],1,[],[]);
+$price=Billing::prices(['id'=>1,'product_id'=>1,'source_payload'=>['image_item_billing'=>$input]],1,[],[],['rate_percent'=>'0']);
 $native=['kind'=>'image','submitted_images'=>2,'market_snapshot'=>['image_item_pricing'=>$price,'image_item_facts'=>['input_count'=>3]]];
 $completed=['data'=>['result'=>['results'=>[['type'=>'image','url'=>'https://fixtures.invalid/a.png','transfer_status'=>'success']]]]];
 $charge=Items::settle($native,$completed,false);
@@ -68,7 +68,7 @@ try {
     }
     $svg = Billing::declaration($svgDeclaration,'native-fixture');
     $svgFacts = Items::facts($svg,['output_format'=>'svg'],[]);
-    $svgPrice = Billing::prices(['id'=>0,'product_id'=>0,'source_payload'=>['image_item_billing'=>$svg]],1,[],[]);
+    $svgPrice = Billing::prices(['id'=>0,'product_id'=>0,'source_payload'=>['image_item_billing'=>$svg]],1,[],[],['rate_percent'=>'0']);
     $svgNative = ['kind'=>'image','submitted_images'=>1,'market_snapshot'=>[
         'image_item_pricing'=>$svgPrice,'image_item_facts'=>$svgFacts,
     ]];
@@ -210,6 +210,8 @@ try {
             && $balanceDelta()===$settled,'Settled amount or task outcome did not follow frozen price');
         OpenVerification::assertLedger($done);
         if ($case==='token_items') {
+            $billed = Db::name('ai_consumption_log')->where('consume_no',$rid)->find();
+            itemAssert(\app\common\service\workbench\PlatformTaskCost::points($billed)===1.,'Platform report lost the supplier receipt');
             $retailBody = Store::json(Response::project(Store::encode($query),Response::amounts($done)));
             itemAssert($retailBody['data']['token_billing']['actual_points']==='1.35'
                 && $retailBody['data']['task_id']===$query['data']['task_id']

@@ -1203,6 +1203,8 @@ class AigcFittingService
                 $channels[] = [
                     'code' => $modelId,
                     'name' => (string)($model['name'] ?? $modelId),
+                    'channel_source' => $model['channel_source'] ?? 'unknown',
+                    'marketing_tags' => $model['marketing_tags'] ?? [],
                     'qualities' => array_values($qualities),
                 ];
             }

@@ -1,1 +1,1 @@
-<view class="data-v9FrpdQ"><view class="{{['detail-prompt','data-v9FrpdQ',b&&'is-collapsed']}}"><view class="prompt-text data-v9FrpdQ">{{a}}</view></view><button wx:if="{{c}}" class="prompt-toggle data-v9FrpdQ" aria-expanded="{{e}}" bindtap="{{f}}">{{d}}</button></view>
+<view class="vs9FrpdQ"><view class="{{['detail-prompt','vs9FrpdQ',b&&'is-collapsed']}}"><view class="prompt-text vs9FrpdQ">{{a}}</view></view><button wx:if="{{c}}" class="prompt-toggle vs9FrpdQ" aria-expanded="{{e}}" bindtap="{{f}}">{{d}}</button></view>

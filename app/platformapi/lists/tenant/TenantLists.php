@@ -17,6 +17,7 @@ use app\tenantapi\lists\BaseAdminDataLists;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\lists\ListsExcelInterface;
 use app\common\model\tenant\Tenant;
+use app\platformapi\service\TenantSupplyMarkupAdmin;
 use app\common\service\tenant\TenantContractService;
 use app\common\service\tenant\TenantDomainAliasService;
 use app\common\service\tenant\TenantUrlService;
@@ -63,6 +64,9 @@ class TenantLists extends BaseAdminDataLists implements ListsExcelInterface
             ->order('id desc')
             ->select()->toArray();
 
+        if (TenantSupplyMarkupAdmin::allowed($this->adminInfo, false)) {
+            TenantSupplyMarkupAdmin::attachSummaries($lists);
+        }
         $apiSettings = \think\facade\Db::name('open_platform_setting')->whereIn('tenant_id', array_column($lists, 'id'))->column('enabled', 'tenant_id');
         $domain = TenantUrlService::tenantRootDomain(request()->domain());
 

@@ -1128,6 +1128,10 @@ class MarketImageModelRuntimeService
                 $itemPricing = self::imageUserRates($itemPricing, $itemFacts, $snapshot['image_item_override'] ?? [], $reservedOutput, !empty($snapshot['image_item_admin']));
                 [$tenant, $user] = MarketImageItemBilling::amounts($itemPricing, $itemFacts, $quantity, $itemToken?$response:null);
                 $details = MarketImageItemBilling::details($itemPricing, $itemFacts, $quantity, $itemReceipt);
+                if ($itemReceipt !== null) {
+                    $snapshot['settled_supplier_points'] = (float)$response['token_billing']['actual_points'];
+                    $c->setAttr('price_snapshot', $snapshot);
+                }
             } else {
                 [$tenant, $user] = self::settlementAmounts($snapshot, $quantity, $billedQuantity, $deferredUsage);
             }
@@ -2024,7 +2028,7 @@ class MarketImageModelRuntimeService
     }
     private static function marketContext(array $snapshot): array { $skuKey = trim((string)($snapshot['sku_key'] ?? '')); $skuId = (int)($snapshot['sku_id'] ?? 0); return ['market_product_id' => (int)($snapshot['product_id'] ?? 0), 'market_sku_id' => $skuId, 'sku_id' => $skuId, 'market_sku_key' => $skuKey, 'sku_key' => $skuKey, 'pricing_sku_key' => $skuKey, 'price_source' => 'power_market_sku']; }
     private static function friendlyError(string $message): string { $message = trim($message); if ($message !== '' && str_contains($message, 'SKU') && str_contains($message, '定价') && str_contains($message, '未配置')) return '算力市场图片模型 SKU 定价未配置，请先同步/上架该 SKU 并确认上游价格后再生成'; return mb_substr($message !== '' ? $message : '图片模型调用失败', 0, 1000); }
-    private static function marketRow(int $tenantId, array $product, array $sku): array { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该图片模型规格'); return ['product' => $product, 'sku' => $sku, 'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant), 'reference_limit' => self::referenceLimit(self::metadata($product))]; }
+    private static function marketRow(int $tenantId, array $product, array $sku): array { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) throw new Exception('租户未上架该图片模型规格'); return ['product' => $product, 'reference_limit' => self::referenceLimit(self::metadata($product))] + MarketCatalogSkuReader::requirePriced($tenantId, $sku, $tenant->toArray()); }
     private static function skuId(array $selection): int { $value = $selection['market_sku_id'] ?? $selection['sku_id'] ?? $selection['model_id'] ?? $selection['channel'] ?? $selection['image_model_id'] ?? ''; if (is_string($value) && str_starts_with($value, 'market_image_model:')) return 0; return (int)(is_string($value) ? preg_replace('/^market_sku:/', '', $value) : $value); }
     private static function modelId(int $productId): string { return 'market_image_model:' . $productId; }
     private static function productId(array $selection): int

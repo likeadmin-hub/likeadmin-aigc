@@ -7,6 +7,24 @@ use app\common\service\ai\AiTaskOperationService;
 
 class AiConsumptionController extends BaseAdminController
 {
+    /**
+     * @notes 平台任务数据统计
+     */
+    public function statistics()
+    {
+        if ((int)($this->adminInfo['root'] ?? 0) !== 1) {
+            $uris = (new \app\common\cache\AdminAuthCache($this->adminId))->getAdminUri();
+            if (!in_array('ai_consumption/statistics', array_map('strtolower', $uris), true)) {
+                return $this->fail('没有数据统计权限');
+            }
+        }
+        try {
+            return $this->data(\app\common\service\workbench\PlatformTaskStatistics::report($this->request->get()));
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function lists()
     {
         $data = AiUsageService::consumptionLists($this->request->get());
@@ -23,6 +41,10 @@ class AiConsumptionController extends BaseAdminController
     {
         $detail = AiUsageService::consumptionDetail((int)$this->request->get('id', 0));
         if (!$detail) return $this->fail('消耗日志不存在');
+        $markup = $detail['price_snapshot']['supply_markup'] ?? null;
+        if (is_array($markup)) {
+            $detail['supply_markup'] = array_intersect_key($markup, array_flip(['rate_percent', 'revision']));
+        }
         $detail['operation_tracks'] = AiTaskOperationService::operationListsForTask((int)($detail['app_task_id'] ?? 0), (int)$detail['id']);
         return $this->success('获取成功', $detail);
     }

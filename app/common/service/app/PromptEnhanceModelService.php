@@ -13,7 +13,9 @@ class PromptEnhanceModelService
     {
         return array_map(static function (array $model): array {
             return ['id' => (string)$model['id'], 'name' => (string)$model['name'],
-                'model_code' => (string)$model['model_code']];
+                'model_code' => (string)$model['model_code'],
+                'channel_source' => $model['channel_source'] ?? 'unknown',
+                'marketing_tags' => $model['marketing_tags'] ?? []];
         }, MarketTextModelRuntimeService::textOptions($tenantId));
     }
 

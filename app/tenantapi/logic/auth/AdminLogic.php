@@ -220,10 +220,11 @@ class AdminLogic extends BaseLogic
      */
     public static function detail($params, $action = 'detail'): array
     {
-        $admin = TenantAdmin::field([
-            'id', 'account', 'name', 'disable', 'root',
-            'multipoint_login', 'avatar',
-        ])->findOrEmpty($params['id'])->toArray();
+        $fields = ['id', 'account', 'name', 'disable', 'root', 'multipoint_login', 'avatar'];
+        if ($action === 'auth') {
+            $fields[] = 'tenant_id';
+        }
+        $admin = TenantAdmin::field($fields)->findOrEmpty($params['id'])->toArray();
 
         if ($action == 'detail') {
             return $admin;

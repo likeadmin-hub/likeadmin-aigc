@@ -2,6 +2,7 @@
 
 namespace app\tenantapi\controller\power;
 
+use app\common\service\power\MarketModelFilter;
 use app\common\service\power\TenantPowerMarketService;
 use app\tenantapi\controller\BaseAdminController;
 use Exception;
@@ -10,32 +11,34 @@ class MarketController extends BaseAdminController
 {
     public function models()
     {
-        return $this->success('获取成功', TenantPowerMarketService::models(
+        return $this->catalogResponse(TenantPowerMarketService::models(
             (int)$this->adminInfo['tenant_id'],
             (string)$this->request->get('keyword', ''),
             $this->request->get('status', ''),
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
             (string)$this->request->get('model_type', ''),
-            (int)$this->request->get('agent_only', 0) === 1
+            (int)$this->request->get('agent_only', 0) === 1,
+            $this->request->get()
         ));
     }
 
     public function apps()
     {
-        return $this->success('获取成功', TenantPowerMarketService::apps(
+        return $this->catalogResponse(TenantPowerMarketService::apps(
             (int)$this->adminInfo['tenant_id'],
             (string)$this->request->get('keyword', ''),
             $this->request->get('status', ''),
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
-            (string)$this->request->get('category_code', '')
+            (string)$this->request->get('category_code', ''),
+            $this->request->get('api_status', '')
         ));
     }
 
     public function detail()
     {
-        return $this->success('获取成功', TenantPowerMarketService::detail(
+        return $this->catalogResponse(TenantPowerMarketService::detail(
             (int)$this->adminInfo['tenant_id'],
             (int)$this->request->get('id', 0)
         ));
@@ -43,10 +46,27 @@ class MarketController extends BaseAdminController
 
     public function appDetail()
     {
-        return $this->success('获取成功', TenantPowerMarketService::appDetail(
+        return $this->catalogResponse(TenantPowerMarketService::appDetail(
             (int)$this->adminInfo['tenant_id'],
             (string)$this->request->get('app_code', '')
         ));
+    }
+
+    private function catalogResponse(array $data)
+    {
+        return $this->success('获取成功', $this->tenantCatalogFields($data));
+    }
+
+    private function tenantCatalogFields(array $row): array
+    {
+        // Supplier payloads carry the complete upstream declarations and standard price rules.
+        unset($row['source_payload'], $row['upstream_price'], $row['configured_sale_points'], $row['price_rule']);
+        foreach (['lists', 'apis', 'skus'] as $collection) {
+            if (isset($row[$collection])) {
+                $row[$collection] = array_map([$this, 'tenantCatalogFields'], $row[$collection]);
+            }
+        }
+        return $row;
     }
 
     public function pricingRules()
@@ -106,10 +126,11 @@ class MarketController extends BaseAdminController
                 (int)$this->adminInfo['tenant_id'],
                 (array)$this->request->post('product_ids', []),
                 (int)$this->request->post('sale_status', 0),
-                (bool)$this->request->post('all', false),
+                MarketModelFilter::isBulkRequest($this->request->post()),
                 (string)$this->request->post('keyword', ''),
                 (string)$this->request->post('model_type', ''),
-                $this->request->post('status', '')
+                $this->request->post('status', ''),
+                $this->request->post()
             );
             return $this->success('设置成功', $result, 1, 1);
         } catch (Exception $e) {

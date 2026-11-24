@@ -543,6 +543,10 @@ class SystemPackageUpdateService
         if (PHP_SAPI !== 'cli' || empty($GLOBALS['AIGC_RUNTIME_GENERATION_OVERRIDE'])) throw new RuntimeException('自举迁移预检必须在隔离进程执行');
         $manifest=$this->readUpdateManifest($extractPath);
         if (($binding['runtime_metadata_unchanged']??false)===true) return [];
+        // Validate the system plan before the writer marks transactional SQL as running.
+        if (version_compare((string)$manifest['version'], '1.0.440', '>=')) {
+            $this->transactionalSystemSqlPlans($extractPath, $manifest, $this->runtimeAppSqlOwners($extractPath, $manifest));
+        }
         $checked=[];
         foreach ($this->packagedBuiltinAppCodes($extractPath) as $code) {
             AppRegistryService::assertRuntimeMigrationsReady($code);
@@ -1313,6 +1317,41 @@ class SystemPackageUpdateService
         return $owners;
     }
 
+    // The signed 448->449 archive is immutable. Resolve only its four original byte
+    // sequences to reviewed static SQL, then use the ordinary planner and executor.
+    private const RELEASE_449_SQL = [
+        'sql/structure/20261124_power_market_recommendation.sql' => [
+            '2094bca0f2783c248a24ee6ebe538c05138ade6ef893d3ce1f5b3bffd28f2f28',
+            '5924fae9ffd705e864361d1919f0669c17ab30735b9ae8efba18f9438db25771',
+        ],
+        'sql/structure/20261124_tenant_supply_markup.sql' => [
+            '382c84995c0515a682f16fefb75220a7b56e54445234d026c930345f1a617b91',
+            'cae43995f595f119134baddd857b3280fad5be429798b9c9129a078c9f275cb9',
+        ],
+        'sql/structure/20261124_platform_task_statistics.sql' => [
+            '8d680b5675fbdd72b438001368ab8ab35326478a40c5d9a615d6a1f58abed8d2',
+            'bb116d59137a37c5f11c9ffec08085cede44b780e94148d304a9ac15125f59f4',
+        ],
+        'sql/structure/20261124_tenant_task_statistics.sql' => [
+            'def39ea510b056a7d104be039f90a13f80bcbb764baa8a4bb8734efc02c481cc',
+            '474f915f49e9ea5aa930819649423b7aaec45554425f0120b0022fec3c69cc78',
+        ],
+    ];
+
+    private function planSystemSql(string $relative, string $sql, array $manifest): array
+    {
+        $hashes = self::RELEASE_449_SQL[$relative] ?? null;
+        if ($hashes && ($manifest['base_version'] ?? '') === '1.0.448'
+            && ($manifest['target_version'] ?? '') === '1.0.449' && hash('sha256', $sql) === $hashes[0]) {
+            $file = __DIR__ . '/system449/' . basename($relative);
+            $sql = file_get_contents($file);
+            if ($sql === false || !hash_equals($hashes[1], hash('sha256', $sql))) {
+                throw new RuntimeException('1.0.449 静态迁移兼容文件不完整: ' . $relative);
+            }
+        }
+        return \app\common\service\database\RuntimeMigrationPlan::build($sql);
+    }
+
     /** From 440, system SQL follows the same DDL/DML boundary as app SQL.
      * Parse the entire signed plan before executing anything; durable additive
      * DDL may survive failure, while registry/menu/retirement writes must roll
@@ -1329,7 +1368,7 @@ class SystemPackageUpdateService
             if(isset($appSqlOwners[$relative])||$this->isReadmeSql($relative))continue;
             $path=rtrim($extractPath,'/').'/'.$relative;
             if(!is_file($path))throw new RuntimeException('增量系统包 SQL 文件不存在: '.$relative);
-            $plans[$relative]=\app\common\service\database\RuntimeMigrationPlan::build((string)file_get_contents($path));
+            $plans[$relative]=$this->planSystemSql($relative, (string)file_get_contents($path), $manifest);
         }
         return $plans;
     }

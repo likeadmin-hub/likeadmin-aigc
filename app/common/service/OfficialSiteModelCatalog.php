@@ -14,7 +14,7 @@ class OfficialSiteModelCatalog
     {
         if ($tenantId <= 0) return [];
         try {
-            return Cache::remember('official_site_models_v4_' . $tenantId, static function () use ($tenantId) {
+            return Cache::remember('official_site_models_v5_' . $tenantId . '_' . \app\common\service\power\TenantSupplyMarkup::settings($tenantId)['revision'], static function () use ($tenantId) {
                 return array_merge(
                     self::present(MarketImageModelRuntimeService::options($tenantId), 'image'),
                     self::present(MarketVideoRuntimeService::options($tenantId, PowerMarketService::TYPE_MODEL), 'video')
@@ -36,6 +36,8 @@ class OfficialSiteModelCatalog
             $icon = (string)($option['display_icon'] ?? '');
             $result[] = [
                 'id' => $id, 'type' => $type,
+                'channel_source' => $option['channel_source'] ?? 'unknown',
+                'marketing_tags' => $option['marketing_tags'] ?? [],
                 'title' => (string)($option['name'] ?? ''),
                 'description' => mb_substr(strip_tags((string)($option['description'] ?? '')), 0, 300),
                 'icon_url' => $icon === '' ? '' : FileService::getFileUrl($icon),

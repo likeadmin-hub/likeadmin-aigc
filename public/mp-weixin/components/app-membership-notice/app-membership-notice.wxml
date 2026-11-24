@@ -1,1 +1,1 @@
-<view wx:if="{{a}}" class="membership-notice data-vY_1fTQ" role="status"><text class="data-vY_1fTQ">{{b}}</text><button wx:if="{{c}}" class="data-vY_1fTQ w0" bindtap="{{d}}">重试</button><button wx:elif="{{e}}" class="data-vY_1fTQ w0" bindtap="{{f}}">查看会员套餐</button></view>
+<view wx:if="{{a}}" class="membership-notice vsY_1fTQ" role="status"><text class="vsY_1fTQ">{{b}}</text><button wx:if="{{c}}" class="vsY_1fTQ w0" bindtap="{{d}}">重试</button><button wx:elif="{{e}}" class="vsY_1fTQ w0" bindtap="{{f}}">查看会员套餐</button></view>

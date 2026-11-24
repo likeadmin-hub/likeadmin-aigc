@@ -1,1 +1,1 @@
-<view wx:if="{{a}}" class="u-empty data-vYWbWvQ" style="{{'margin-top:' + c}}"><u-icon wx:if="{{b}}" class="data-vYWbWvQ" u-i="6166d6bd-0" bind:__l="__l" u-p="{{b}}"></u-icon><view class="u-slot-wrap data-vYWbWvQ"><slot name="bottom"></slot></view></view>
+<view wx:if="{{a}}" class="u-empty vsYWbWvQ" style="{{'margin-top:' + c}}"><u-icon wx:if="{{b}}" class="vsYWbWvQ" u-i="6166d6bd-0" bind:__l="__l" u-p="{{b}}"></u-icon><view class="u-slot-wrap vsYWbWvQ"><slot name="bottom"></slot></view></view>

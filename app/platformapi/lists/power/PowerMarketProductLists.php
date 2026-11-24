@@ -8,6 +8,7 @@ use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\service\power\PowerMarketService;
 use app\common\service\power\MarketModelSource;
+use app\common\service\power\MarketModelFilter;
 use app\common\service\power\MarketFileQaTokenPricing;
 use app\common\service\power\MarketOtherModelCategory;
 use app\common\service\power\MarketPriceRuleService;
@@ -25,12 +26,7 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
 
     public function lists(): array
     {
-        $query = PowerMarketProduct::where($this->searchWhere);
-        $this->applyStatusFilter($query);
-        $keyword = trim((string)$this->request->get('keyword', ''));
-        if ($keyword !== '') {
-            $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code|upstream_app_code|upstream_api_code', '%' . $keyword . '%');
-        }
+        $query = $this->filteredQuery();
         $rows = $query
             ->orderRaw(MarketModelSource::officialFirstOrder())
             ->order(['status' => 'desc', 'update_time' => 'desc', 'id' => 'desc'])
@@ -80,21 +76,52 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
 
     public function count(): int
     {
+        return $this->filteredQuery()->count();
+    }
+
+    private ?array $matchingIds = null;
+
+    private function filteredQuery()
+    {
         $query = PowerMarketProduct::where($this->searchWhere);
-        $this->applyStatusFilter($query);
-        $keyword = trim((string)$this->request->get('keyword', ''));
+        $params = $this->request->get();
+        self::applyCatalogFilters($query, $params);
+        if (MarketModelFilter::active($params)) {
+            $this->matchingIds ??= self::matchingProductIds($query, $params);
+            $query->whereIn('id', $this->matchingIds);
+        }
+        return $query;
+    }
+
+    private static function matchingProductIds($query, array $params): array
+    {
+        if (!MarketModelFilter::active($params)) return $query->column('id');
+        $rows = (clone $query)->field('id,resource_type,is_recommended,upstream_channel_code,source_payload')->select()->toArray();
+        return array_column(MarketModelFilter::products($rows, $params), 'id');
+    }
+
+    public static function shelfProductIds(array $params): array
+    {
+        $catalog = $params['catalog_type'] ?? '';
+        if (!in_array($catalog, ['model', 'series', 'other'], true)) throw new \InvalidArgumentException('请选择有效的模型分类');
+        $params['resource_type'] = PowerMarketService::TYPE_MODEL;
+        $query = PowerMarketProduct::where('resource_type', PowerMarketService::TYPE_MODEL);
+        if (($params['model_type'] ?? '') !== '') $query->where('model_type', $params['model_type']);
+        self::applyCatalogFilters($query, $params);
+        return self::matchingProductIds($query, $params);
+    }
+
+    private static function applyCatalogFilters($query, array $params): void
+    {
+        MarketModelFilter::applyApiStatus($query, 0, $params['api_status'] ?? '');
+        $keyword = trim((string)($params['keyword'] ?? ''));
         if ($keyword !== '') {
             $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code|upstream_app_code|upstream_api_code', '%' . $keyword . '%');
         }
-        return $query->count();
-    }
-
-    private function applyStatusFilter($query): void
-    {
-        $catalog = (string)$this->request->get('catalog_type', '');
+        $catalog = (string)($params['catalog_type'] ?? '');
         if ($catalog === 'other') {
             $query->where('resource_type', PowerMarketService::TYPE_MODEL)->where('model_type', 'other');
-            $category = trim((string)$this->request->get('other_category_code', ''));
+            $category = trim((string)($params['other_category_code'] ?? ''));
             if ($category !== '') {
                 $query->whereRaw("COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(source_payload, '$.market_metadata.other_category.code')), ''), 'uncategorized') = ?", [$category]);
             }
@@ -105,8 +132,8 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
             // Agent uses factory text models too. Keep them discoverable in the ordinary model catalogue.
             $query->whereRaw($catalog === 'series' ? $factory : "(model_type = 'text' OR NOT $factory)");
         }
-        $resourceType = (string)$this->request->get('resource_type', '');
-        $status = $this->request->get('status', '');
+        $resourceType = (string)($params['resource_type'] ?? '');
+        $status = $params['status'] ?? '';
         if ($resourceType !== PowerMarketService::TYPE_MODEL) {
             if ($status !== '' && $status !== null) {
                 $query->where('status', (int)$status === 1 ? 1 : 0);

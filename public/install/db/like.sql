@@ -1227,6 +1227,7 @@ VALUES
 (@core_power_market_id, 'A', '应用列表', '', 0, 'power.market/apps', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_apps', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '应用详情', '', 0, 'power.market/appDetail', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_app_detail', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '保存售价', '', 0, 'power.market/savePrices', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_save_prices', 1, 1782604800, 1782604800),
+(@core_power_market_id, 'A', '设置推荐', '', 0, 'power.market/setRecommendation', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_recommendation', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '批量上架', '', 0, 'power.market/batchShelf', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_batch_shelf', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '保存展示', '', 0, 'power.market/saveDisplay', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_save_display', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '商品类型', '', 0, 'power.market/types', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_types', 1, 1782604800, 1782604800),
@@ -2730,6 +2731,7 @@ CREATE TABLE IF NOT EXISTS `la_power_market_product` (
   `upstream_model_code` varchar(120) NOT NULL DEFAULT '' COMMENT '上游模型编码',
   `upstream_channel_code` varchar(120) NOT NULL DEFAULT '' COMMENT '上游渠道编码',
   `model_type` varchar(20) NOT NULL DEFAULT '' COMMENT '模型类型:text/image/video',
+  `is_recommended` tinyint unsigned NOT NULL DEFAULT 0,
   `source_payload` longtext COMMENT '上游同步快照',
   `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态:0下架 1上架',
   `create_time` int unsigned NOT NULL DEFAULT 0,
@@ -14605,3 +14607,54 @@ INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_
 INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_layer_decomposition','app.aigc_layer_decomposition.task/lists','GET','aigc_layer_decomposition:task:lists','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_layer_decomposition','app.aigc_layer_decomposition.task/detail','GET','aigc_layer_decomposition:task:detail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 -- END aigc_layer_decomposition bootstrap
+
+INSERT INTO `la_system_menu` (pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT id,'A','清空系统日志','',0,'setting.system.log/clear','','','','',0,0,0,'','core','core_system_log_clear',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_system_menu` WHERE perms='setting.system.log/lists' AND type='C'
+AND NOT EXISTS (SELECT 1 FROM `la_system_menu` WHERE perms='setting.system.log/clear')
+ORDER BY id LIMIT 1;
+CREATE TABLE IF NOT EXISTS `la_tenant_power_supply_markup` (
+  `tenant_id` int unsigned NOT NULL,
+  `rate_percent` decimal(9,2) unsigned NOT NULL DEFAULT 0.00,
+  `revision` int unsigned NOT NULL DEFAULT 0,
+  `updated_by` int unsigned NOT NULL,
+  `update_time` int unsigned NOT NULL,
+  PRIMARY KEY (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台指定的租户算力供货溢价';
+
+CREATE TABLE IF NOT EXISTS `la_tenant_power_supply_markup_log` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `admin_id` int unsigned NOT NULL,
+  `request_id` char(64) CHARACTER SET ascii NOT NULL,
+  `before_rate_percent` decimal(9,2) unsigned NOT NULL,
+  `after_rate_percent` decimal(9,2) unsigned NOT NULL,
+  `before_revision` int unsigned NOT NULL,
+  `after_revision` int unsigned NOT NULL,
+  `result_json` text NOT NULL,
+  `create_time` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_request` (`request_id`),
+  KEY `idx_tenant_revision` (`tenant_id`,`after_revision`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户算力溢价操作记录';
+
+INSERT INTO `la_system_menu` (pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT parent.id,'A',permission.name,'',0,permission.perms,'','','','',0,1,0,'','core',permission.menu_key,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT id FROM `la_system_menu` WHERE component='tenant/lists/index' AND type='C' ORDER BY id LIMIT 1) parent
+CROSS JOIN (
+  SELECT '查看算力溢价' AS name,'tenant.tenant/supplyMarkup' AS perms,'core_tenant_supply_markup_read' AS menu_key
+  UNION ALL SELECT '设置算力溢价','tenant.tenant/applySupplyMarkup','core_tenant_supply_markup_edit'
+) permission
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` existing WHERE existing.perms=permission.perms);
+
+INSERT INTO `la_tenant_system_menu` (tenant_id,pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT p.tenant_id,p.id,'C','数据统计','el-icon-TrendCharts',110,'ai_consumption/statistics','statistics','consumer/task/statistics','','',0,1,0,'','core','core_task_statistics_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM la_tenant_system_menu p
+WHERE p.source_menu_key='core_task_log_tenant'
+  AND NOT EXISTS (SELECT 1 FROM la_tenant_system_menu m WHERE m.tenant_id=p.tenant_id AND m.source_menu_key='core_task_statistics_tenant');
+
+INSERT INTO `la_system_menu` (pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT p.id,'C','数据统计','el-icon-TrendCharts',110,'ai_consumption/statistics','statistics','tenant/task/statistics','','',0,1,0,'','core','core_task_statistics_platform',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM la_system_menu p
+WHERE p.source_menu_key='core_task_log_platform'
+  AND NOT EXISTS (SELECT 1 FROM la_system_menu m WHERE m.source_menu_key='core_task_statistics_platform');

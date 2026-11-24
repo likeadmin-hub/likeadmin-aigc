@@ -646,6 +646,8 @@ class AigcModelWearService
                 $channels[] = [
                     'code' => $modelId,
                     'name' => (string)($model['name'] ?? $modelId),
+                    'channel_source' => $model['channel_source'] ?? 'unknown',
+                    'marketing_tags' => $model['marketing_tags'] ?? [],
                     'qualities' => array_values($qualities),
                 ];
             }
@@ -861,6 +863,8 @@ class AigcModelWearService
             $channels[] = [
                 'code' => (string)$channel['code'],
                 'name' => (string)$channel['name'],
+                'channel_source' => $channel['channel_source'] ?? 'unknown',
+                'marketing_tags' => $channel['marketing_tags'] ?? [],
                 'qualities' => $qualities,
             ];
         }

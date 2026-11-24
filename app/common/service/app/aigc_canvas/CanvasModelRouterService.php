@@ -270,8 +270,7 @@ class CanvasModelRouterService
         }
         return [
             'product' => $product,
-            'sku' => $sku,
-            'tenant_price' => \app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenant),
+            ...\app\common\service\power\MarketCatalogSkuReader::requirePriced($tenantId, $sku, $tenant->toArray()),
         ];
     }
 

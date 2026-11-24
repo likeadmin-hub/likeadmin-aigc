@@ -3,6 +3,7 @@
 namespace app\platformapi\controller\power;
 
 use app\common\service\app\UpstreamPricingService;
+use app\common\service\power\MarketModelFilter;
 use app\common\service\power\PowerMarketService;
 use app\platformapi\controller\BaseAdminController;
 use app\platformapi\lists\power\PowerMarketProductLists;
@@ -36,7 +37,8 @@ class MarketController extends BaseAdminController
             $this->request->get('status', ''),
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
-            (string)$this->request->get('category_code', '')
+            (string)$this->request->get('category_code', ''),
+            $this->request->get('api_status', '')
         ));
     }
 
@@ -79,11 +81,28 @@ class MarketController extends BaseAdminController
         }
     }
 
+    public function setRecommendation()
+    {
+        $value = $this->request->post('recommended');
+        if (!$this->request->isPost() || !in_array($value, [0, 1, '0', '1'], true)) {
+            return $this->fail('推荐状态无效');
+        }
+        $product = \app\common\model\power\PowerMarketProduct::where([
+            'id' => (int)$this->request->post('product_id', 0),
+            'resource_type' => PowerMarketService::TYPE_MODEL,
+        ])->findOrEmpty();
+        if ($product->isEmpty()) return $this->fail('模型不存在');
+        $product->save(['is_recommended' => (int)$value]);
+        return $this->success('推荐状态已保存');
+    }
+
     public function batchShelf()
     {
         try {
             $updated = PowerMarketService::batchShelf(
-                (array)$this->request->post('product_ids', []),
+                MarketModelFilter::isBulkRequest($this->request->post())
+                    ? PowerMarketProductLists::shelfProductIds($this->request->post())
+                    : (array)$this->request->post('product_ids', []),
                 (int)$this->request->post('sale_status', 0)
             );
             return $this->success('设置成功', ['updated' => $updated], 1, 1);

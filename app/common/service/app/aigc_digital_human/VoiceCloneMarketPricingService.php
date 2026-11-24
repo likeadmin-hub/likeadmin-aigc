@@ -49,14 +49,13 @@ final class VoiceCloneMarketPricingService
         if ($sku['usage_unit'] !== 'per_call' || (float)$sku['usage_unit_size'] !== 1.0 || !empty($sku['locked_params'])) {
             throw new Exception('音色克隆接口需要按次固定价规格');
         }
-        $cost = self::amount($sku['sale_points']);
-        $default = $cost;
         $tenantPrice = $tenantId > 0 ? TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $sku['id']])->findOrEmpty() : null;
         if ($tenantPrice && !$tenantPrice->isEmpty()) {
             if ((int)$tenantPrice['sale_status'] !== 1) throw new Exception('当前租户已下架音色克隆接口');
-            $default = self::amount(max((float)$cost, (float)self::amount($tenantPrice['sale_points'])));
         }
-        $default = self::amount(\app\common\service\power\MarketPriceRuleService::tenantPrice($tenantId, $sku, $tenantPrice));
+        $market = \app\common\service\power\MarketCatalogSkuReader::requirePriced($tenantId, $sku, $tenantPrice?->toArray());
+        $cost = self::amount($market['sku']['sale_points']);
+        $default = self::amount($market['tenant_price']);
         $price = $default;
         $source = 'market_default';
         if ($tenantId > 0 && !\app\common\service\power\MarketPriceRuleService::followsApps($tenantId)) {

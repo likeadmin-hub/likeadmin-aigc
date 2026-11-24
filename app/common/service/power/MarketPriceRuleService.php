@@ -28,9 +28,12 @@ final class MarketPriceRuleService
             $rules, (int)$sku['product_id'], (int)$sku['id']);
     }
 
-    public static function tenant(int $owner, array $sku, ?array $configured = null, ?array $rules = null, ?array $platformRules = null): array
+    public static function tenant(int $owner, array $sku, ?array $configured = null, ?array $rules = null, ?array $platformRules = null, ?array $markup = null): array
     {
         $platform = self::platform($sku, $platformRules);
+        $markup ??= TenantSupplyMarkup::settings($owner);
+        $platform['standard_price'] = $platform['price'];
+        $platform['price'] = TenantSupplyMarkup::apply($platform['standard_price'], $markup);
         $rules = $owner <= 0 || self::freeLifecycle($sku) ? [] : ($rules ?? self::rules($owner));
         $tenant = MarketPricePolicy::resolve($platform['price'], $platform['price'],
             $rules, (int)$sku['product_id'], (int)$sku['id']);
@@ -62,20 +65,39 @@ final class MarketPriceRuleService
     /** Capture provenance once, before a new consumption can cross the supplier boundary. */
     public static function captureSnapshot(int $owner, array $snapshot, array $context = []): array
     {
-        foreach ($snapshot as $key => $value) if (is_array($value) && !in_array($key, ['pricing_rules', 'contract', 'market_metadata', 'pricing_attributes'], true)) $snapshot[$key] = self::captureSnapshot($owner, $value, $context);
+        $markup = null;
+        $snapshot = self::captureSkuPrices($owner, $snapshot, $context, $markup);
+        if ($markup !== null) {
+            $source = ['tenant_id' => $owner, 'revision' => (int)$markup['revision'], 'rate_percent' => $markup['rate_percent']];
+            if (isset($snapshot['supply_markup']) && $snapshot['supply_markup'] != $source) {
+                throw new RuntimeException('租户供货溢价已变化，请重新报价');
+            }
+            $snapshot['supply_markup'] = $source;
+        }
+        return $snapshot;
+    }
+
+    private static function captureSkuPrices(int $owner, array $snapshot, array $context, ?array &$markup): array
+    {
+        foreach ($snapshot as $key => $value) {
+            if (is_array($value) && !in_array($key, ['pricing_rules', 'contract', 'market_metadata', 'pricing_attributes', 'supply_markup'], true)) {
+                $snapshot[$key] = self::captureSkuPrices($owner, $value, $context, $markup);
+            }
+        }
         $id = (int)($snapshot['sku_id'] ?? $snapshot['market_sku_id'] ?? 0);
         if ($id <= 0) return $snapshot;
         $sku = Db::name('power_market_sku')->where('id', $id)->find();
         if (!$sku) throw new RuntimeException('计费规格不存在');
+        $markup ??= TenantSupplyMarkup::settings($owner);
         if (isset($snapshot['image_item_pricing'])) {
-            $fresh = MarketImageItemBilling::prices($sku, $owner);
+            $fresh = MarketImageItemBilling::prices($sku, $owner, null, null, $markup);
             if (!$fresh || !$fresh['valid'] || $fresh !== $snapshot['image_item_pricing']) {
                 throw new RuntimeException('生图分项费率已更新，请重新报价');
             }
         }
         if (isset($snapshot['token_rate_side'])) {
             $side = $snapshot['token_rate_side'];
-            $rates = MarketFileQaTokenPricing::display($sku, $owner);
+            $rates = MarketFileQaTokenPricing::display($sku, $owner, null, null, $markup);
             if (!in_array($side, ['input','output'], true) || !$rates || !$rates['valid']
                 || (float)$snapshot['usage_unit_size'] !== (float)$rates['usage_unit_size']
                 || MarketPricePolicy::amount($snapshot['platform_price']) !== $rates['cost'][$side]
@@ -84,20 +106,38 @@ final class MarketPriceRuleService
                 || (($context['user_id'] ?? null) !== 0 && MarketPricePolicy::amount($snapshot['cached_tenant_price']) !== $rates['sale']['cached_input'])) {
                 throw new RuntimeException('模型分项费率已变化，请刷新报价后重新提交');
             }
-            $snapshot['pricing_rules'] = ['token_rates'=>$rates];
+            $platformRates = MarketFileQaTokenPricing::display($sku, 0);
+            $snapshot['pricing_rules'] = ['token_rates' => $rates, 'standard_rates' => $platformRates['sale'],
+                'upstream_rates' => $platformRates['cost']];
             return $snapshot;
         }
-        if (($snapshot['basis'] ?? '') === 'file_qa_tokens') {
-            $rates = MarketFileQaTokenPricing::display($sku, $owner);
+        // A legacy file SKU can obtain its declaration from the current upstream
+        // catalogue before admission; check that snapshot against the same rules.
+        if (isset($snapshot['token_pricing']['upstream']) && !isset(MarketGenerationSchema::array($sku['source_payload'] ?? [])['effective_rate_config'])) {
             $frozen = $snapshot['token_pricing'];
-            if (!$rates || !$rates['valid'] || $rates['usage_unit_size'] !== $frozen['usage_unit_size']
+            $fresh = MarketFileQaTokenPricing::snapshot($sku, [
+                'effective_rate_config' => $frozen['upstream'], 'usage_unit_size' => $frozen['usage_unit_size'],
+            ], self::rules(0), self::rules($owner), true, $markup);
+            if ($fresh['platform'] !== $frozen['platform'] || $fresh['tenant'] !== $frozen['tenant']) {
+                throw new RuntimeException('文件应用费率已更新，请重新报价');
+            }
+        } elseif (($snapshot['basis'] ?? '') === 'file_qa_tokens' || isset($snapshot['token_pricing']['rules'])) {
+            $rates = MarketFileQaTokenPricing::display($sku, $owner, null, null, $markup);
+            $frozen = $snapshot['token_pricing'];
+            if (!$rates || !$rates['valid'] || (float)$rates['usage_unit_size'] !== (float)$frozen['usage_unit_size']
                 || $rates['cost'] !== $frozen['platform'] || $rates['sale'] !== $frozen['tenant']) {
                 throw new RuntimeException('文件应用费率已更新，请刷新报价后重新提交');
             }
         }
         $configured = Db::name('tenant_power_market_sku_price')->where(['tenant_id' => $owner, 'sku_id' => $id])->find();
-        $quote = self::tenant($owner, $sku, $configured ?: null);
+        $quote = self::tenant($owner, $sku, $configured ?: null, null, null, $markup);
         if (!$quote['valid']) throw new RuntimeException('当前手动售价低于进货价，请先调整价格或恢复价格');
+        if (($snapshot['pricing_source'] ?? '') === 'power_market'
+            && isset($snapshot['platform_unit_cost'], $snapshot['tenant_unit_price'])
+            && (MarketPricePolicy::amount($snapshot['platform_unit_cost']) !== $quote['platform']['price']
+                || MarketPricePolicy::amount($snapshot['tenant_unit_price']) !== $quote['tenant']['price'])) {
+            throw new RuntimeException('图像模型价格已更新，请刷新报价后重新提交');
+        }
         foreach (['platform_price' => 'platform', 'tenant_price' => 'tenant'] as $field => $level) {
             if (!array_key_exists($field, $snapshot)) continue;
             if ($level === 'tenant' && array_key_exists('user_id', $context) && $context['user_id'] === 0) continue;
@@ -108,13 +148,18 @@ final class MarketPriceRuleService
             if (isset($snapshot['prices'][$field]) && MarketPricePolicy::amount($snapshot['prices'][$field]) !== $quote[$level]['price']) throw new RuntimeException('价格已更新，请刷新报价后重新提交');
         }
         $snapshot['pricing_rules'] = ['platform' => $quote['platform'], 'tenant' => $quote['tenant']];
+        if (($snapshot['basis'] ?? '') === 'file_qa_tokens') {
+            $platformRates = MarketFileQaTokenPricing::display($sku, 0);
+            $snapshot['pricing_rules']['standard_rates'] = $platformRates['sale'];
+            $snapshot['token_pricing']['upstream'] = $platformRates['cost'];
+        }
         return $snapshot;
     }
 
     /** Return only independent-price counts, never application config or provider secrets. */
-    private static function applicationOverrides(int $owner): array
+    public static function applicationOverrides(int $owner): array
     {
-        $apps = ['action_transfer'=>'动作迁移', 'person_replacement'=>'人物替换', 'product_image'=>'商品图', 'background_removal'=>'背景移除', 'photo_restore'=>'照片修复', 'model_wear'=>'模特试衣', 'image_translate'=>'图片翻译', 'one_click_cleanup'=>'一键消除', 'local_redraw'=>'局部重绘', 'style_transfer'=>'风格转换', 'outpaint'=>'图片扩展', 'fitting'=>'AI试衣', 'fashion_lookbook'=>'穿搭写真', 'product_multi_angle'=>'商品多角度', 'product_suite'=>'商品套图'];
+        $apps = ['action_transfer'=>'动作迁移', 'person_replacement'=>'人物替换', 'product_image'=>'商品图', 'hairstyle'=>'换发型', 'background_removal'=>'背景移除', 'photo_restore'=>'照片修复', 'model_wear'=>'模特试衣', 'image_translate'=>'图片翻译', 'one_click_cleanup'=>'一键消除', 'local_redraw'=>'局部重绘', 'style_transfer'=>'风格转换', 'outpaint'=>'图片扩展', 'fitting'=>'AI试衣', 'fashion_lookbook'=>'穿搭写真', 'product_multi_angle'=>'商品多角度', 'product_suite'=>'商品套图'];
         $tables = array_column(Db::query('SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()'), 'name');
         $result = [];
         foreach ($apps as $app => $label) {
@@ -129,10 +174,13 @@ final class MarketPriceRuleService
                 foreach ($value as $key => $item) {
                     if (($matrix || in_array($key, ['unit_price', 'tenant_unit_price', 'sale_points'], true)) && is_numeric($item) && (float)$item >= 0) {
                         $count++; if ((float)$item === 0.0) $free++;
-                    } elseif (is_array($item) || is_string($item)) $walk($item, $key === 'price_matrix');
+                    } elseif (is_array($item) || is_string($item)) $walk($item, $matrix || in_array($key, ['price_matrix', 'operation_prices', 'mode_prices'], true));
                 }
             };
-            foreach (['price_matrix', 'price_config', 'config_json'] as $field) if (array_key_exists($field, $row)) $walk($row[$field], $field === 'price_matrix');
+            if (array_key_exists('unit_price', $row)) $walk(['unit_price' => $row['unit_price']]);
+            foreach (['price_matrix', 'price_config', 'config_json'] as $field) {
+                if (array_key_exists($field, $row)) $walk($row[$field], $field === 'price_matrix');
+            }
             if ($count) $result[] = ['app_code' => 'aigc_'.$app, 'name' => $label, 'count' => $count, 'free_count' => $free];
         }
         return $result;
@@ -251,23 +299,24 @@ final class MarketPriceRuleService
         $platformRules = self::rules(0); $ownRules = $owner === 0 ? $platformRules : self::rules($owner);
         $tenantPrices = $owner === 0 ? [] : Db::name('tenant_power_market_sku_price')->where('tenant_id', $owner)->whereIn('sku_id', array_column($rows, 'id'))->select()->toArray();
         $bySku = array_column($tenantPrices, null, 'sku_id');
+        $markup = TenantSupplyMarkup::settings($owner);
         $newRules = self::changedRules($ownRules, $params, $rows);
         $preview = []; $changed = 0; $invalid = 0;
         foreach ($rows as $sku) {
-            $before = $owner === 0 ? self::platform($sku, $ownRules) : self::tenant($owner, $sku, $bySku[$sku['id']] ?? null, $ownRules, $platformRules)['tenant'];
-            $after = $owner === 0 ? self::platform($sku, $newRules) : self::tenant($owner, $sku, $bySku[$sku['id']] ?? null, $newRules, $platformRules)['tenant'];
-            $tokenRates = MarketFileQaTokenPricing::display($sku, $owner, $platformRules, $ownRules);
+            $before = $owner === 0 ? self::platform($sku, $ownRules) : self::tenant($owner, $sku, $bySku[$sku['id']] ?? null, $ownRules, $platformRules, $markup)['tenant'];
+            $after = $owner === 0 ? self::platform($sku, $newRules) : self::tenant($owner, $sku, $bySku[$sku['id']] ?? null, $newRules, $platformRules, $markup)['tenant'];
+            $tokenRates = MarketFileQaTokenPricing::display($sku, $owner, $platformRules, $ownRules, $markup);
             $extra = [];
-            $imageBefore = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $owner, $platformRules, $ownRules), $owner);
+            $imageBefore = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $owner, $platformRules, $ownRules, $markup), $owner);
             if ($imageBefore !== null) {
                 $imageAfter = MarketImageItemBilling::display(MarketImageItemBilling::prices($sku, $owner,
-                    $owner === 0 ? $newRules : $platformRules, $newRules), $owner);
+                    $owner === 0 ? $newRules : $platformRules, $newRules, $markup), $owner);
                 $oldItems = array_column($imageBefore['items'], null, 'code');
                 $extra['image_billing_items'] = array_map(static fn($item) => $item + ['before'=>$oldItems[$item['code']]['sale']], $imageAfter['items']);
                 $after['valid'] = $imageAfter['valid'];
                 if (array_column($imageBefore['items'], 'sale') !== array_column($imageAfter['items'], 'sale')) $changed++;
             } elseif ($tokenRates !== null) {
-                $next = MarketFileQaTokenPricing::display($sku, $owner, $owner === 0 ? $newRules : $platformRules, $newRules);
+                $next = MarketFileQaTokenPricing::display($sku, $owner, $owner === 0 ? $newRules : $platformRules, $newRules, $markup);
                 $extra['token_rates'] = ['cost' => $next['cost'], 'before' => $tokenRates['sale'], 'after' => $next['sale']];
                 $after['valid'] = $next['valid'];
                 if ($tokenRates['sale'] !== $next['sale']) $changed++;
@@ -279,7 +328,7 @@ final class MarketPriceRuleService
         }
         $newByKey = []; foreach ($newRules as $rule) $newByKey[$rule['scope_type'].':'.$rule['scope_id']] = $rule;
         $overrides = 0; foreach ($ownRules as $rule) { $new = $newByKey[$rule['scope_type'].':'.$rule['scope_id']] ?? null; if ($rule['scope_type'] !== 'global' && (!$new || $new['mode'] !== $rule['mode'] || (string)$new['value'] !== (string)$rule['value'])) $overrides++; }
-        return ['replaced_overrides' => $overrides, 'fingerprint' => hash('sha256', json_encode([$rows, $platformRules, $ownRules, $tenantPrices])),
+        return ['replaced_overrides' => $overrides, 'fingerprint' => hash('sha256', json_encode([$rows, $platformRules, $ownRules, $tenantPrices, $markup])),
             'rows' => $preview, 'total' => count($rows), 'changed' => $changed, 'invalid' => $invalid,
             'next_rules' => $newRules, 'follow_apps' => $params['follow_apps']];
     }

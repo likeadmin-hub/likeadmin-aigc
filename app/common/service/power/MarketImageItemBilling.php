@@ -134,7 +134,7 @@ final class MarketImageItemBilling
         return 'i'.substr(hash('sha256', $key), 0, 11);
     }
 
-    public static function prices(array $sku, int $owner, ?array $platformRules = null, ?array $tenantRules = null): ?array
+    public static function prices(array $sku, int $owner, ?array $platformRules = null, ?array $tenantRules = null, ?array $markup = null): ?array
     {
         $source = $sku['source_payload'] ?? [];
         if (is_string($source)) $source = json_decode($source, true);
@@ -143,11 +143,13 @@ final class MarketImageItemBilling
         if (isset($contract['error'])) return $contract + ['valid'=>false,'items'=>[]];
         $platformRules ??= MarketPriceRuleService::rules(0);
         $tenantRules ??= $owner > 0 ? MarketPriceRuleService::rules($owner) : [];
+        $markup ??= TenantSupplyMarkup::settings($owner);
         $contract['valid'] = true;
         foreach ($contract['items'] as $key => &$item) {
             $platform = self::rate($key, $item['rate'], $sku, $platformRules);
-            $tenant = self::rate($key, $platform['price'], $sku, $tenantRules);
-            $item += ['platform'=>$platform['price'],'tenant'=>$tenant['price'],
+            $supply = TenantSupplyMarkup::apply($platform['price'], $markup);
+            $tenant = self::rate($key, $supply, $sku, $tenantRules);
+            $item += ['standard_price'=>$platform['price'],'platform'=>$supply,'tenant'=>$tenant['price'],
                 'platform_manual'=>($platform['rule']['mode'] ?? '')==='manual',
                 'tenant_manual'=>($tenant['rule']['mode'] ?? '')==='manual','valid'=>$platform['valid'] && $tenant['valid']];
             $contract['valid'] = $contract['valid'] && $item['valid'];

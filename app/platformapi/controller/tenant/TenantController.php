@@ -21,6 +21,7 @@ use app\platformapi\logic\setting\pay\PayWayLogic;
 use app\platformapi\logic\tenant\TenantAdminLogic;
 use app\platformapi\logic\tenant\TenantLogic;
 use app\platformapi\logic\tenant\TenantSystemMenuLogic;
+use app\platformapi\service\TenantSupplyMarkupAdmin;
 use app\platformapi\service\TenantCreatService;
 use app\platformapi\validate\tenant\TenantValidate;
 use app\common\service\point\TenantPointService;
@@ -159,6 +160,58 @@ class TenantController extends BaseAdminController
             return $this->success('删除成功', [], 1, 1);
         }
         return $this->fail(TenantLogic::getError());
+    }
+
+    public function supplyMarkup()
+    {
+        if (!$this->request->isGet()) return $this->fail('请使用 GET 读取价格');
+        try {
+            $tenant = $this->markupTenantId($this->request->get('tenant_id'), false);
+            return $this->data(TenantSupplyMarkupAdmin::read($tenant));
+        } catch (\Throwable $e) {
+            return $this->markupFailure($e);
+        }
+    }
+
+    public function previewSupplyMarkup()
+    {
+        if (!$this->request->isPost()) return $this->fail('请使用 POST 预览价格');
+        try {
+            $params = $this->request->post();
+            $tenant = $this->markupTenantId($params['tenant_id'] ?? null, true);
+            return $this->data(TenantSupplyMarkupAdmin::preview($tenant, $this->adminId, $params));
+        } catch (\Throwable $e) {
+            return $this->markupFailure($e);
+        }
+    }
+
+    public function applySupplyMarkup()
+    {
+        if (!$this->request->isPost()) return $this->fail('请使用 POST 保存价格');
+        try {
+            $tenant = $this->markupTenantId($this->request->post('tenant_id'), true);
+            $result = TenantSupplyMarkupAdmin::apply($tenant, $this->adminId, $this->request->post('preview_token'));
+            return $this->success('算力溢价已保存', $result, 1, 1);
+        } catch (\Throwable $e) {
+            return $this->markupFailure($e);
+        }
+    }
+
+    private function markupFailure(\Throwable $error)
+    {
+        if ($error instanceof \InvalidArgumentException || get_class($error) === \RuntimeException::class) {
+            return $this->fail($error->getMessage());
+        }
+        \think\facade\Log::error('租户供货调价失败：'.$error->getMessage());
+        return $this->fail('价格操作暂时无法完成，请稍后重试');
+    }
+
+    private function markupTenantId(mixed $value, bool $edit): int
+    {
+        if (!TenantSupplyMarkupAdmin::allowed($this->adminInfo, $edit)) throw new \RuntimeException('权限不足，无法访问或操作');
+        $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 4294967295]]);
+        if ($id === false) throw new \InvalidArgumentException('请选择有效的租户');
+        return $id;
     }
 
     public function rechargePoints()
