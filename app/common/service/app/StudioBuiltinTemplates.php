@@ -9,6 +9,7 @@ use app\common\service\SubmitLockService;
 use app\common\service\app\aigc_motion_sync\{MotionSyncService as Motion,MotionSyncTemplates as MotionTemplates,MotionSyncJobs};
 use app\common\service\app\aigc_story_commerce\{StoryCommerceService as Story,StoryCommercePolicy as Policy,StoryCommerceTemplates as StoryTemplates,StoryCommerceCatalog as StoryCatalog,StoryCommerceJobs};
 use app\common\service\power\MarketMotionSyncRuntimeService;
+use app\common\service\power\MarketCatalogReadScope;
 use InvalidArgumentException;
 use think\facade\Db;
 use think\facade\Cache;
@@ -70,6 +71,58 @@ final class StudioBuiltinTemplates
         $b['script_input_key']=(self::policy($app))::inputKey($b);
         if($strict){if(!$p)throw new InvalidArgumentException('内置模板的视频模型尚未同步，请同步并上架后再使用');(self::catalog($app))::selection($tenant,$b);}
         return $b;
+    }
+    public static function videoDraft(string $app, int $tenant, array $entry, string $default): array
+    {
+        $catalog = self::catalog($app);
+        $body = self::bodyFor($app, $tenant, $entry, false);
+        [$body, $notice, $confirmed] = MarketCatalogReadScope::run(static fn() =>
+            StudioTemplateModel::video($tenant, $body, $default, $catalog, [$catalog, 'selectionForModel'])
+        );
+        if (!$confirmed) {
+            $body['script_input_key'] = '';
+        }
+        return [$body, $notice, $confirmed];
+    }
+    public static function motionDraft(int $tenant, array $entry): array
+    {
+        $body = self::bodyFor(Motion::APP, $tenant, $entry, false);
+        $product = self::product(Motion::APP, $entry['model_identity']);
+        $default = (string)Motion::settings($tenant)['default_model_key'];
+        $models = array_filter(MarketMotionSyncRuntimeService::options($tenant), static fn($row) =>
+            !empty($row['available']) && !empty($row['specs']) && !empty($row['material_modes'])
+        );
+        $original = '';
+        foreach ($models as $model) {
+            if ($product && (int)$model['market_product_id'] === (int)$product['id'] && $model['model_key'] === $body['model_key']) {
+                $original = (string)$model['id'];
+                break;
+            }
+        }
+        $defaultModel = array_column($models, 'id', 'model_key')[$default] ?? '';
+        $models = array_column($models, null, 'id');
+        [$model, $source] = StudioTemplateModel::pick(
+            $original,
+            (string)$defaultModel,
+            static fn(string $id) => $models[$id] ?? null,
+            static fn() => array_map('strval', array_keys($models)),
+            static fn(array $candidate) => in_array($body['quality'], array_column($candidate['specs'], 'quality'), true)
+        );
+        $body['model_key'] = $model['model_key'] ?? '';
+        if (!$model) {
+            return [$body, '模板已填入。当前没有可用的模板模型或应用默认模型，请选择动作模型。'];
+        }
+        $notice = match ($source) {
+            'compatible' => '已选用兼容动作模型。',
+            'default' => '已选用当前应用的默认动作模型。',
+            default => '',
+        };
+        $qualities = array_column($model['specs'], 'quality');
+        if (!in_array($body['quality'], $qualities, true)) {
+            $body['quality'] = in_array($model['default_quality'], $qualities, true) ? $model['default_quality'] : $qualities[0];
+            $notice .= '已调整清晰度，请检查参数。';
+        }
+        return [$body, $notice];
     }
     public static function sync(string $app,bool $force=false): void
     {

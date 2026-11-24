@@ -53,10 +53,16 @@ final class StoryCommerceTemplates
         }finally{SubmitLockService::release($lock);}
     }
     public static function remix(int $t,int $u,int $id): array {
-        StoryCommerceService::available($t,$u);$r=self::row($t,$id,true);$entry=Builtins::definition(StoryCommercePolicy::APP,$id);$b=$entry?Builtins::bodyFor(StoryCommercePolicy::APP,$t,$entry):self::stored($r);$owner=(int)$r['tenant_id'];
+        StoryCommerceService::available($t,$u);
+        $r=self::row($t,$id,true);
+        $entry=Builtins::definition(StoryCommercePolicy::APP,$id);
+        [$b,$notice,$confirmed]=$entry
+            ? Builtins::videoDraft(StoryCommercePolicy::APP,$t,$entry,(string)StoryCommerceService::settings($t)['default_video_model_id'])
+            : [self::stored($r),'',true];
+        $owner=(int)$r['tenant_id'];
         foreach($b['images'] as &$image)$image=Media::grant($t,$u,$owner,$image,10);unset($image);
         $b=StoryCommerceService::historicalBody($t,$b);
-        return StoryCommerceService::save($t,$u,['body'=>$b,'confirm_script'=>true]);
+        return StoryCommerceService::save($t,$u,['body'=>$b,'confirm_script'=>$confirmed])+['template_notice'=>$notice];
     }
     public static function status(int $s,int $id,int $v,array $p=[]): void {if(Builtins::info(StoryCommercePolicy::APP,$id)){Builtins::change(StoryCommercePolicy::APP,$s,$id,$p+['status'=>$v],'status');return;}$r=self::row($s,$id);self::writable($s,$r);AppCaseService::setStatus((int)$r['tenant_id'],StoryCommercePolicy::APP,$id,$v===1?1:0);}
     public static function delete(int $s,int $id,array $p=[]): void {if(Builtins::info(StoryCommercePolicy::APP,$id)){Builtins::change(StoryCommercePolicy::APP,$s,$id,$p,'delete');return;}$r=self::row($s,$id);self::writable($s,$r);AppCaseService::delete((int)$r['tenant_id'],StoryCommercePolicy::APP,$id);}

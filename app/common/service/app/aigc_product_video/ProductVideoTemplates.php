@@ -180,10 +180,14 @@ final class ProductVideoTemplates
 
     public static function remix(int $tenant,int $user,int $id): array
     {
-        ProductVideoService::available($tenant,$user);$row=self::row($tenant,$id,true);$definition=ProductVideoBuiltins::definition($id);$body=$definition?ProductVideoBuiltins::bodyFor($tenant,$definition):self::body($row);
-        $model=ProductVideoCatalog::model($tenant,$body);self::validate($model,$body);
+        ProductVideoService::available($tenant,$user);
+        $row=self::row($tenant,$id,true);
+        $definition=ProductVideoBuiltins::definition($id);
+        [$body,$notice]=$definition ? ProductVideoBuiltins::draftFor($tenant,$definition) : [self::body($row),''];
+        if($definition)ProductVideoMaterials::assertMentions($body,$body['images']);
+        else self::validate(ProductVideoCatalog::model($tenant,$body),$body);
         $lock=SubmitLockService::acquire('product_video_remix_'.$id,$tenant,$user);
-        try{return Db::transaction(static function()use($tenant,$user,$row,$body){
+        try{return Db::transaction(static function()use($tenant,$user,$row,$body,$notice){
             $fresh=self::row($tenant,(int)$row['id'],true);
             if($fresh['config_json']!==$row['config_json'])throw new InvalidArgumentException('模板已更新，请刷新后重试');
             foreach($body['images'] as $image){
@@ -197,7 +201,7 @@ final class ProductVideoTemplates
                 $owned=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'uri'=>$image['uri'],'source'=>1,'source_id'=>$user,'type'=>10,'storage_scope'=>$file['storage_scope'],'storage_engine'=>$file['storage_engine'],'storage_domain'=>$file['storage_domain']])->whereRaw('(delete_time IS NULL OR delete_time = 0)')->find();
                 if(!$owned)Db::name('tenant_file')->insert(['tenant_id'=>$tenant,'uri'=>$file['uri'],'type'=>10,'source'=>1,'source_id'=>$user,'name'=>$file['name'],'storage_scope'=>$file['storage_scope'],'storage_engine'=>$file['storage_engine'],'storage_domain'=>$file['storage_domain'],'create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
             }
-            return ProductVideoService::save($tenant,$user,['title'=>mb_substr($row['title'],0,90).' · 同款','body'=>$body]);
+            return ProductVideoService::save($tenant,$user,['title'=>mb_substr($row['title'],0,90).' · 同款','body'=>$body])+['template_notice'=>$notice];
         });}finally{SubmitLockService::release($lock);}
     }
 

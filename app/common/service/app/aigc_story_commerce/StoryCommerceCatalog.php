@@ -47,6 +47,11 @@ final class StoryCommerceCatalog
     public static function selection(int $tenant,array $b): array {
         $s=$b['video_selection'];$model=null;foreach(self::models($tenant,(string)($s['model_id']??'')) as $m)if((string)$m['id']===(string)($s['model_id']??''))$model=$m;
         if(!$model)throw new InvalidArgumentException('所选视频模型不可用，不会自动替换');
+        return self::selectionForModel($model,$b);
+    }
+    public static function selectionForModel(array $model,array $b): array
+    {
+        $s=$b['video_selection'];
         $spec=StudioVideoCatalogService::spec($model,(string)($s['quality']??''),(string)($s['ratio']??''),(int)($s['duration']??0),'reference');
         $n=count($b['images']);if(!$n||$n>(int)$model['max_reference_images'])throw new InvalidArgumentException('商品图片数量超出当前模型支持范围');
         if(!empty($model['material_modes'])){

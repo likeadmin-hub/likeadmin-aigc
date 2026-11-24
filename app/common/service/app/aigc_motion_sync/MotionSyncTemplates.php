@@ -94,9 +94,15 @@ final class MotionSyncTemplates
     public static function remix(int $tenant,int $user,int $id): array
     {
         MotionSyncService::available($tenant,$user);
-        return Db::transaction(static function()use($tenant,$user,$id){$r=self::row($tenant,$id,true);$entry=Builtins::definition(MotionSyncService::APP,$id);$body=$entry?Builtins::bodyFor(MotionSyncService::APP,$tenant,$entry):MotionSyncService::body(self::storedBody($r));MotionSyncService::request($tenant,$body);
+        return Db::transaction(static function()use($tenant,$user,$id){
+            $r=self::row($tenant,$id,true);
+            $entry=Builtins::definition(MotionSyncService::APP,$id);
+            [$body,$notice]=$entry
+                ? Builtins::motionDraft($tenant,$entry)
+                : [MotionSyncService::body(self::storedBody($r)),''];
+            if(!$entry)MotionSyncService::request($tenant,$body);
             foreach(['image'=>10,'video'=>20] as $key=>$type)$body[$key]=Media::grant($tenant,$user,(int)$r['tenant_id'],$body[$key],$type);
-            return MotionSyncService::save($tenant,$user,['body'=>$body]);
+            return MotionSyncService::save($tenant,$user,['body'=>$body])+['template_notice'=>$notice];
         });
     }
 }
