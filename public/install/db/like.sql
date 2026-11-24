@@ -14658,3 +14658,43 @@ SELECT p.id,'C','数据统计','el-icon-TrendCharts',110,'ai_consumption/statist
 FROM la_system_menu p
 WHERE p.source_menu_key='core_task_log_platform'
   AND NOT EXISTS (SELECT 1 FROM la_system_menu m WHERE m.source_menu_key='core_task_statistics_platform');
+
+CREATE TABLE IF NOT EXISTS `la_aigc_animate_replace_task` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `batch_key` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `app_task_id` bigint unsigned NOT NULL DEFAULT 0,
+  `consumption_id` bigint unsigned NOT NULL DEFAULT 0,
+  `input_json` text NOT NULL,
+  `request_json` mediumtext NOT NULL,
+  `duration` decimal(9,3) unsigned NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'pending',
+  `create_time` int unsigned NOT NULL,
+  `update_time` int unsigned NOT NULL,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_request_owner` (`tenant_id`,`user_id`,`batch_key`),
+  KEY `idx_user_history` (`tenant_id`,`user_id`,`delete_time`,`id`),
+  KEY `idx_tenant_history` (`tenant_id`,`delete_time`,`id`),
+  KEY `idx_consumption` (`consumption_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='动画替换任务及素材快照';
+
+-- BEGIN aigc_animate_replace bootstrap
+INSERT IGNORE INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`) VALUES ('aigc_animate_replace','动画替换','resource/image/common/menu_generator.png','用一张角色图片替换原视频中的角色，保留原视频的动作和场景。','aigc','','tenant,pc,uniapp',1,851,'1.0.0','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`) VALUES ('aigc_animate_replace','1.0.0','>=1.0.449','local','{"code":"aigc_animate_replace","name":"动画替换","version":"1.0.0","require_core":">=1.0.449","description":"用一张角色图片替换原视频中的角色，保留原视频的动作和场景。","changelog":"1. 新增动画替换工具。","icon":"resource/image/common/menu_generator.png","category":"aigc","is_builtin":1,"expire_policy":"allow","sort":851,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_animate_replace","menus":"menus/tenant.json","permissions":"permissions/tenant.json","billing":{"provider":"power_market","actions":["generate"],"currency":"points"},"frontend_entries":[{"terminal":"pc","entry_key":"aigc_animate_replace","name":"动画替换","path":"/ai/tools/aigc_animate_replace","icon":"resource/image/common/menu_generator.png","sort":851,"status":1},{"terminal":"tenant","entry_key":"aigc_animate_replace_admin","name":"动画替换","path":"/apps/aigc_animate_replace/config","icon":"resource/image/common/menu_generator.png","sort":851,"status":1},{"terminal":"uniapp","entry_key":"aigc_animate_replace","name":"动画替换","path":"/apps/aigc_animate_replace/pages/creator/index","meta":{"pages":[{"name":"动画替换","path":"/apps/aigc_animate_replace/pages/creator/index"},{"name":"历史创作","path":"/apps/aigc_animate_replace/pages/tasks/index"}]},"icon":"resource/image/common/menu_generator.png","sort":851,"status":1}]}','1. 新增动画替换工具。',1,UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','pc','aigc_animate_replace','动画替换','/ai/tools/aigc_animate_replace','resource/image/common/menu_generator.png',851,1,'{}',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','tenant','aigc_animate_replace_admin','动画替换','/apps/aigc_animate_replace/config','resource/image/common/menu_generator.png',851,1,'{}',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','uniapp','aigc_animate_replace','动画替换','/apps/aigc_animate_replace/pages/creator/index','resource/image/common/menu_generator.png',851,1,'{"pages":[{"name":"动画替换","path":"/apps/aigc_animate_replace/pages/creator/index"},{"name":"历史创作","path":"/apps/aigc_animate_replace/pages/tasks/index"}]}',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.config/detail','GET','aigc_animate_replace:config:detail:user','user',0,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.generate/estimate','POST','aigc_animate_replace:generate:estimate:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.generate/index','POST','aigc_animate_replace:generate:index:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.task/lists','GET','aigc_animate_replace:task:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.task/detail','GET','aigc_animate_replace:task:detail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.task/delete','POST','aigc_animate_replace:task:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.config/detail','GET','aigc_animate_replace:config:detail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.config/setup','POST','aigc_animate_replace:config:setup','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.task/lists','GET','aigc_animate_replace:task:lists','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_animate_replace','app.aigc_animate_replace.task/detail','GET','aigc_animate_replace:task:detail','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+-- END aigc_animate_replace bootstrap

@@ -1,0 +1,69 @@
+{
+  "code": "aigc_animate_replace",
+  "name": "动画替换",
+  "version": "1.0.0",
+  "require_core": ">=1.0.449",
+  "description": "用一张角色图片替换原视频中的角色，保留原视频的动作和场景。",
+  "changelog": "1. 新增动画替换工具。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 851,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_animate_replace",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "generate"
+    ],
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_animate_replace",
+      "name": "动画替换",
+      "path": "/ai/tools/aigc_animate_replace",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 851,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_animate_replace_admin",
+      "name": "动画替换",
+      "path": "/apps/aigc_animate_replace/config",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 851,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_animate_replace",
+      "name": "动画替换",
+      "path": "/apps/aigc_animate_replace/pages/creator/index",
+      "meta": {
+        "pages": [
+          {
+            "name": "动画替换",
+            "path": "/apps/aigc_animate_replace/pages/creator/index"
+          },
+          {
+            "name": "历史创作",
+            "path": "/apps/aigc_animate_replace/pages/tasks/index"
+          }
+        ]
+      },
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 851,
+      "status": 1
+    }
+  ]
+}

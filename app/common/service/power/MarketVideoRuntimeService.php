@@ -1007,6 +1007,7 @@ class MarketVideoRuntimeService
         $type = (string)$product['resource_type'];
         if ($wanted !== '' && $type !== $wanted) return false;
         if ($appCode === 'aigc_motion_sync') return MarketMotionSyncRuntimeService::supportsProduct($product);
+        if ($appCode === MarketAnimateReplace::APP) return MarketAnimateReplace::supportsProduct($product);
         if ($type === PowerMarketService::TYPE_MODEL) return (string)$product['model_type'] === 'video';
         return $type === PowerMarketService::TYPE_APP_API && self::isSupportedAppProduct($product);
     }
@@ -3921,7 +3922,7 @@ class MarketVideoRuntimeService
      */
     private static function requiresDurableResultStorage(string $appCode): bool
     {
-        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video', 'aigc_product_video', 'aigc_motion_sync', 'aigc_story_commerce', 'aigc_store_visit'], true);
+        return in_array($appCode, ['aigc_short_drama', 'aigc_product_promo_video', 'aigc_product_video', 'aigc_motion_sync', 'aigc_story_commerce', 'aigc_store_visit', MarketAnimateReplace::APP], true);
     }
 
     private static function videos(array $data, int $tenantId, int $userId, bool $forceTransfer = false): array

@@ -21,6 +21,7 @@ class AiTaskBusinessResultService
         'aigc_music_cover_task'=>'music_cover','aigc_digital_human_task'=>'digital_human','aigc_watermark_removal_task'=>'watermark',
         'aigc_micro_video_segment'=>'micro_segment','aigc_micro_video_frame'=>'micro_frame',
         'aigc_store_visit_job'=>'store_visit', 'aigc_story_commerce_job'=>'story_commerce', 'aigc_product_video_job'=>'product_video', 'aigc_motion_sync_task'=>'motion_sync',
+        'aigc_animate_replace_task'=>'animate_replace',
     ];
 
     public static function businessTables(): array { return array_keys(self::ADAPTERS); }
@@ -95,6 +96,7 @@ class AiTaskBusinessResultService
             'digital_human' => AigcDigitalHumanService::syncMarketConsumption($consumptionId, $businessId),
             'watermark' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             'motion_sync' => \app\common\service\app\aigc_motion_sync\MotionSyncJobs::syncConsumption($consumption, $businessId),
+            'animate_replace' => \app\common\service\app\aigc_animate_replace\AnimateReplaceTasks::sync($consumption, $businessId),
             'store_visit' => \app\common\service\app\aigc_store_visit\StoreVisitWorker::wake($consumption,$businessId),
             'story_commerce' => \app\common\service\app\aigc_story_commerce\StoryCommerceWorker::wake($consumption,$businessId),
             'product_video' => \app\common\service\app\aigc_product_video\ProductVideoWorker::wake($consumption,$businessId),

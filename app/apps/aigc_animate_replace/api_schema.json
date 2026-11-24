@@ -1,0 +1,85 @@
+{
+  "app_code": "aigc_animate_replace",
+  "apis": [
+    {
+      "api_path": "app.aigc_animate_replace.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_animate_replace:config:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_animate_replace.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_animate_replace:generate:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_animate_replace.generate/index",
+      "api_method": "POST",
+      "permission_key": "aigc_animate_replace:generate:index:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_animate_replace.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_animate_replace:task:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_animate_replace.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_animate_replace:task:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_animate_replace.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_animate_replace:task:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_animate_replace.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_animate_replace:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_animate_replace.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_animate_replace:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_animate_replace.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_animate_replace:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_animate_replace.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_animate_replace:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}
