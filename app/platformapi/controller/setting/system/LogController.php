@@ -15,6 +15,7 @@
 namespace app\platformapi\controller\setting\system;
 
 
+use app\common\model\OperationLog;
 use app\platformapi\controller\BaseAdminController;
 use app\platformapi\lists\setting\system\LogLists;
 
@@ -34,5 +35,17 @@ class LogController extends BaseAdminController
     public function lists()
     {
         return $this->dataLists(new LogLists());
+    }
+
+    /**
+     * @notes 清空系统日志
+     */
+    public function clear()
+    {
+        if (!$this->request->isPost()) {
+            return $this->fail('请使用 POST 请求清空系统日志');
+        }
+        $deleted = OperationLog::query()->delete(true);
+        return $this->success('系统日志已清空', ['deleted' => $deleted]);
     }
 }

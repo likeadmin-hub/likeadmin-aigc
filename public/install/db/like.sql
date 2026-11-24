@@ -14624,3 +14624,9 @@ ALTER TABLE `la_aigc_watermark_removal_task` ADD INDEX `idx_owner_history_page` 
 INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
 SELECT '分销佣金结算',1,1,'结算已到期的分销佣金','distribution:settle','',1,'* * * * *','',0,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
 WHERE NOT EXISTS (SELECT 1 FROM `la_dev_crontab` WHERE `command`='distribution:settle' AND (`delete_time` IS NULL OR `delete_time`=0));
+
+INSERT INTO `la_system_menu` (pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT id,'A','清空系统日志','',0,'setting.system.log/clear','','','','',0,0,0,'','core','core_system_log_clear',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_system_menu` WHERE perms='setting.system.log/lists' AND type='C'
+AND NOT EXISTS (SELECT 1 FROM `la_system_menu` WHERE perms='setting.system.log/clear')
+ORDER BY id LIMIT 1;
