@@ -1,1 +1,1 @@
-<view class="{{['decoration-app-page','data-vNHUv6w',b&&'is-tab-page']}}" style="{{c}}"><slot/><tabbar wx:if="{{a}}" class="data-vNHUv6w" u-i="34752feb-0" bind:__l="__l"/></view>
+<view class="{{['decoration-app-page','vsNHUv6w',b&&'is-tab-page']}}" style="{{c}}"><slot/><tabbar wx:if="{{a}}" class="vsNHUv6w" u-i="34752feb-0" bind:__l="__l"/></view>

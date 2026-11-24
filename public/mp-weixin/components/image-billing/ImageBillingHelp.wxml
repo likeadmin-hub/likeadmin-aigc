@@ -1,1 +1,1 @@
-<button wx:if="{{a}}" class="billing-help data-vnIcIZQ" aria-label="查看计费规则" catchtap="{{b}}">?</button>
+<button wx:if="{{a}}" class="billing-help vsnIcIZQ" aria-label="查看计费规则" catchtap="{{b}}">?</button>

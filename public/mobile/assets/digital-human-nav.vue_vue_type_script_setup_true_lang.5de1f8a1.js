@@ -1,1 +1,0 @@
-import{d as t,a,e}from"./index-7b4aeaa8.js";import{W as i}from"./WorkbenchHeader.2c1d6290.js";const s=t({__name:"digital-human-nav",props:{title:{default:"数字人创作"}},emits:["back"],setup:t=>(s,o)=>(a(),e(i,{title:t.title,onBack:o[0]||(o[0]=t=>s.$emit("back"))},null,8,["title"]))});export{s as _};

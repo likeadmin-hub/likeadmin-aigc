@@ -1,1 +1,1 @@
-<view class="as-us flex flex-1 flex-col items-center data-vMZ_RSQ"><image src="{{a}}" mode="" class="img data-vMZ_RSQ"></image><view class="text-content mt-_bl_20rpx_br_ data-vMZ_RSQ">当前版本{{b}}</view></view>
+<view class="as-us flex flex-1 flex-col items-center vsMZ_RSQ"><image src="{{a}}" mode="" class="img vsMZ_RSQ"></image><view class="text-content mt-_bl_20rpx_br_ vsMZ_RSQ">当前版本{{b}}</view></view>

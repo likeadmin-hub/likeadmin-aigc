@@ -1,1 +1,1 @@
-<view class="{{['generation-state','data-vuD2mhw',e]}}" role="status" aria-label="{{f}}"><view class="generation-surface data-vuD2mhw"><text wx:if="{{a}}" class="generation-label data-vuD2mhw">{{b}}</text></view><text wx:if="{{c}}" class="generation-caption data-vuD2mhw">{{d}}</text></view>
+<view class="{{['generation-state','vsuD2mhw',e]}}" role="status" aria-label="{{f}}"><view class="generation-surface vsuD2mhw"><text wx:if="{{a}}" class="generation-label vsuD2mhw">{{b}}</text></view><text wx:if="{{c}}" class="generation-caption vsuD2mhw">{{d}}</text></view>
