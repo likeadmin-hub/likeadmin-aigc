@@ -161,6 +161,10 @@ final class WorkspaceMediaPickerService
                 if (in_array('video',$types,true)) $sources[$stream]=WorkspaceProductVideoAssetService::pickerSource(!$available);
                 continue;
             }
+            if ($source === 'animate_replace') {
+                if (in_array('video', $types, true)) $sources[$stream] = WorkspaceAnimateReplaceAssetService::pickerSource(!$available);
+                continue;
+            }
             if ($source === 'canvas' || $source === 'short_drama') {
                 $type = "CASE WHEN r.asset_type LIKE '%video%' THEN 'video' WHEN r.asset_type LIKE '%audio%' THEN 'audio' WHEN r.asset_type LIKE '%text%' OR r.asset_type LIKE '%document%' THEN 'document' ELSE 'image' END";
                 $where = "r.status NOT IN ('deleted','failed','fail','error')";

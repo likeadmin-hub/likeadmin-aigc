@@ -41,6 +41,29 @@ final class WorkspaceAnimateReplaceAssetService
         return $row ? self::view($tenant, $row) : null;
     }
 
+    public static function pickerSource(bool $saved): array
+    {
+        $task = Db::name(AnimateReplaceTasks::TABLE)->getTable();
+        $meta = "IF(JSON_VALID(r.storage_meta),r.storage_meta,'{}')";
+        return [
+            'table'=>'ai_task_result_asset',
+            'type'=>"'video'",
+            'name'=>"'动画替换'",
+            'uri'=>'r.local_uri',
+            'duration'=>"JSON_UNQUOTE(JSON_EXTRACT($meta,'$.duration'))",
+            'width'=>"JSON_UNQUOTE(JSON_EXTRACT($meta,'$.width'))",
+            'height'=>"JSON_UNQUOTE(JSON_EXTRACT($meta,'$.height'))",
+            'mime'=>"JSON_UNQUOTE(JSON_EXTRACT($meta,'$.mime_type'))",
+            'size'=>"JSON_UNQUOTE(JSON_EXTRACT($meta,'$.file_size'))",
+            'where'=>"r.asset_type='video' AND r.transfer_status='stored' AND r.storage_scope<>'' AND r.storage_engine<>''
+                AND EXISTS (SELECT 1 FROM $task task WHERE task.consumption_id=r.consumption_id
+                    AND task.app_task_id=r.app_task_id AND task.tenant_id=r.tenant_id AND task.user_id=r.user_id
+                    AND task.status='success' AND task.delete_time=0)",
+            'deleted'=>false,
+            'saved'=>$saved,
+        ];
+    }
+
     private static function view(int $tenant, array $row): array
     {
         $id = (int)$row['id'];

@@ -8,6 +8,8 @@ use app\common\service\app\aigc_animate_replace\AnimateReplaceService;
 
 class ConfigController extends BaseApiController
 {
+    public array $notNeedLogin = ['detail'];
+
     public function detail()
     {
         return $this->success('获取成功', AnimateReplaceService::config((int)$this->request->tenantId));
