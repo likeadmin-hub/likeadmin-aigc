@@ -1,10 +1,10 @@
 {
   "code": "aigc_story_commerce",
   "name": "剧情带货",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "require_core": ">=1.0.442",
-  "description": "选择剧情类型与画风，分析商品并创作可编辑的剧情带货脚本和视频。",
-  "changelog": "1. 优化移动端分辨率、画面比例和时长选择。\n2. 修复历史视频与参考素材访问异常。",
+  "description": "选择剧情类型，分析商品并创作可编辑的剧情带货脚本和视频。",
+  "changelog": "1. 剧情类型支持搜索和封面卡片选择。\n2. 移除画面风格配置。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "resource/image/apps/aigc_story_commerce/cover-v3.gif",

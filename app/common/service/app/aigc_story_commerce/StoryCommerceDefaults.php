@@ -23,9 +23,4 @@ final class StoryCommerceDefaults
         }
         return (string)($models[0]['id'] ?? '');
     }
-
-    public static function style(string $configured): string
-    {
-        return $configured !== '' ? $configured : StoryCommercePolicy::NO_STYLE;
-    }
 }

@@ -2,7 +2,7 @@
     "schema_version": 1,
     "app_code": "aigc_story_commerce",
     "key": "builtin-b90a6e3d771c6625f004e429",
-    "version": 2,
+    "version": 3,
     "title": "贵妃嫌弃粗水泡坏茶叶，太监呈上现代黑色细嘴壶，贵妃用其细水慢冲后化解不满。",
     "status": 1,
     "sort": 0,
@@ -31,8 +31,6 @@
         "requirements": "",
         "story_type": "palace",
         "custom_story": "",
-        "style_id": "__none__",
-        "custom_style": "",
         "language": "中文",
         "market_region": "",
         "audio": null,
@@ -121,7 +119,7 @@
             ],
             "ending": "贵妃享受细水慢冲的茶饮，黑色细嘴壶在宫廷背景下成为化解矛盾的雅致创意道具。"
         },
-        "script_input_key": "a9aa7ad11ec44a81eec598ef89505a932dedc17a88f9caf42a8d05cd13569674",
+        "script_input_key": "f262bfb9ffde8166ceb618c9b8f88d595ac717fe0cf77287381fd8c55233757f",
         "genre_snapshot": {
             "code": "palace",
             "name": "宫廷斗争",
@@ -129,12 +127,6 @@
             "version": "a4c96143f33b752592993a4b78f09005a7d7ac988539f1e3894796e1ed76242e",
             "status": 1,
             "sort": 138
-        },
-        "style_snapshot": {
-            "id": "__none__",
-            "name": "无风格",
-            "prompt": "",
-            "mode": "auto"
         }
     },
     "media": {

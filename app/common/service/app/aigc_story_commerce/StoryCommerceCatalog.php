@@ -3,20 +3,10 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_story_commerce;
 use app\common\service\ai\StudioVideoCatalogService;
 use app\common\service\app\aigc_video\AigcVideoService;
-use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\power\{MarketCatalogReadScope,MarketVideoRuntimeService};
 use InvalidArgumentException;
 final class StoryCommerceCatalog
 {
-    public static function styles(int $tenant): array {return array_merge([
-        ['id'=>StoryCommercePolicy::NO_STYLE,'name'=>'无风格','description'=>'','image'=>''],
-    ],AigcShortDramaService::configuredVisualStyles($tenant));}
-    public static function style(int $tenant,array $b): array {
-        if($b['style_id']===StoryCommercePolicy::NO_STYLE)return ['id'=>StoryCommercePolicy::NO_STYLE,'name'=>'无风格','prompt'=>'','mode'=>'auto'];
-        if($b['style_id']===''){if($b['custom_style']==='')throw new InvalidArgumentException('请选择画面风格或填写自定义画面风格');return ['id'=>'','name'=>'自定义','prompt'=>$b['custom_style']];}
-        foreach(self::styles($tenant) as $row)if((string)$row['id']===$b['style_id'])return ['id'=>(string)$row['id'],'name'=>$row['name'],'prompt'=>$row['description']];
-        throw new InvalidArgumentException('所选画面风格已停用或不可用，请重新选择');
-    }
     /** Image-only creation may use a multi-reference mode even when single-image discovery chose a first frame. */
     public static function imageLimit(array $model): int {
         $modes=$model['material_modes']??[];

@@ -41,7 +41,9 @@ final class StudioBuiltinTemplates
         if(!$b['images'])throw new InvalidArgumentException('内置模板缺少商品图片');
         $b['video_selection']=array_intersect_key($b['video_selection'],array_flip(['quality','ratio','duration']));$b['video_selection']['model_id']='';
         $b['genre_snapshot']=array_intersect_key($b['genre_snapshot'],array_flip(['code','name','instruction','version','status','sort']));
-        $b['style_snapshot']=array_intersect_key($b['style_snapshot'],array_flip(['id','name','prompt','mode']));
+        if ($app === 'aigc_store_visit') {
+            $b['style_snapshot']=array_intersect_key($b['style_snapshot'],array_flip(['id','name','prompt','mode']));
+        }
         if(empty($b['genre_snapshot']['instruction']))throw new InvalidArgumentException('内置模板缺少编剧规则快照');
         $b['script']=(self::policy($app))::scriptValue($b['script'],(int)($b['video_selection']['duration']??0),$b);$b['script_input_key']=(self::policy($app))::inputKey($b);return $b;
     }
