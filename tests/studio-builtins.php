@@ -26,7 +26,7 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
     $receipts=[];foreach([[$image,10],[$video,20],[$preview,20]] as [$asset,$type])$receipts[$asset['uri']]=Db::name('tenant_file')->insertGetId(['tenant_id'=>1,'source'=>1,'source_id'=>1,'type'=>$type,'name'=>'reviewed fixture','uri'=>$asset['uri'],'create_time'=>$now,'update_time'=>$now,'delete_time'=>0]+$coords);
     $model=SC::models(1)[0];$model=SC::models(1,(string)$model['id'])[0];$spec=$model['specs'][0];
     $longRule=str_repeat('保持剧情因果。',180);$genres=S::settings(1)['genres'];foreach($genres as &$g)if($g['code']==='comedy')$g['instruction']=$longRule;unset($g);S::setup(1,['genres'=>$genres]);
-    $body=P::body(['images'=>[$image],'style_id'=>P::NO_STYLE,'product_info'=>'已确认的商品','requirements'=>'胶片质感','script'=>'胶片风格，围绕 @图片1 讲述一个小误会。','video_selection'=>['model_id'=>$model['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$spec['duration']]]);
+    $body=P::body(['images'=>[$image],'product_info'=>'已确认的商品','requirements'=>'胶片质感','script'=>'胶片风格，围绕 @图片1 讲述一个小误会。','video_selection'=>['model_id'=>$model['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$spec['duration']]]);
     $project=S::save(1,1,['body'=>$body,'confirm_script'=>true]);$body=P::json(S::owned(1,1,$project['id'])['body_json']);
     $storyJob=S::table('job')->insertGetId(['tenant_id'=>1,'user_id'=>1,'project_id'=>$project['id'],'project_revision'=>1,'action'=>'video','status'=>'success','idempotency_key'=>'story_builtin_'.bin2hex(random_bytes(10)),'input_hash'=>str_repeat('a',64),'request_json'=>P::encode(['snapshot'=>$body]),'receipt_json'=>'{}','result_json'=>P::encode(['videos'=>[$preview+['video_uri'=>$preview['uri']]]]),'create_time'=>$now,'update_time'=>$now]);
     // Cache already measured source media, just as an existing completed motion job does.
@@ -73,13 +73,16 @@ try{C::withDirectory(M::APP,$root.'/motion',static function()use($root,&$cacheKe
         $templates::status(0,$id,0,['builtin_version'=>2]);rejects(fn()=>$templates::detail($target,$id,true),'Disabled builtin is not publicly reusable');
         $templates::status(0,$id,1,['builtin_version'=>3]);
         // Replay only the authored JSON into a clean mapping: source upload IDs are absent.
-        $latest=array_values(C::all($app))[0];$site=$root.'/site-b';$file=$site.'/'.$latest['key'].'.json';file_put_contents($file,json_encode($latest));
+        $latest=array_values(C::all($app))[0];$site=$root.'/site-b';$file=$site.'/'.$latest['key'].'.json';
+        if($app===S::APP)$latest['configuration']+=['style_id'=>'old-preset','custom_style'=>'','style_snapshot'=>['name'=>'旧画风','prompt'=>'旧画风提示']];
+        file_put_contents($file,json_encode($latest));
         AppCase::where('id',$id)->delete();B::table()->where(['app_code'=>$app,'case_id'=>$id])->delete();
         C::withDirectory($app,$site,static function()use($app,$templates,$target,$user,$image,$video,$preview,$latest,$id,$engine,$domain){
             B::sync($app,true);$link=B::table()->where(['app_code'=>$app,'builtin_key'=>$latest['key']])->find();$newId=(int)$link['case_id'];check($newId!==$id,'Independent installation creates its own case ID');
             B::sync($app,true);check(B::table()->where(['app_code'=>$app,'builtin_key'=>$latest['key']])->count()===1,'Repeat installation does not duplicate definitions');
             Db::name('tenant_file')->where('tenant_id',1)->whereIn('uri',[$image['uri'],$video['uri'],$preview['uri']])->update(['delete_time'=>time()]);
             $restored=$templates::remix($target,$user,$newId);check($restored['id']>0,'Imported source remains reusable after original upload records disappear');
+            if($app===S::APP)check(!array_intersect_key($restored['body'],array_flip(['style_id','custom_style','style_snapshot']))&&$restored['body']['script']===$latest['configuration']['script'],'Imported legacy source keeps its approved script without the retired preset');
             $bad=$latest;$bad['model_identity']['upstream_resource_key']='missing-reviewed-model';rejects(fn()=>B::bodyFor($app,$target,$bad),'Missing model never silently falls back');
             $templates::delete(0,$newId,['builtin_version'=>4]);rejects(fn()=>$templates::detail($target,$newId,true),'Delete tombstone removes public reuse');
             check(SharedInspirationMedia::url($image['uri'],$engine,$domain)===$domain.'/'.$image['uri'],'Deleted definitions keep shared object protection');
