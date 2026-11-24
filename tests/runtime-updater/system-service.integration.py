@@ -109,6 +109,8 @@ try:
         if not (payload / 'vendor/services.php').is_file():
             raise RuntimeError('Complete production Composer payload is required')
         cases += [('legacy402-' if args.legacy402 else ('canonical-' if args.canonical else '')) + value for value in ['success', 'dependency-failure', 'finalize-failure', 'metadata-failure', 'commit-reply-failure', 'precommit-exit'] + ([] if args.legacy402 else ['confirm-failure','recovery412'])]
+    if args.updater and args.canonical and args.archive and args.cases and 'recovery449' in args.cases:
+        cases.append('canonical-recovery449')
     companions = ['tests/system-update/integration.php','tests/license/cache.integration.php',
         'tests/release-306-migration.integration.php','tests/short-drama-styles.integration.php',
         'tests/short-drama-skill.integration.php','tests/user-tool-pins.integration.php',

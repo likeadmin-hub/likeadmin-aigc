@@ -24,10 +24,15 @@ CREATE TABLE IF NOT EXISTS `la_tenant_power_supply_markup_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户算力溢价操作记录';
 
 INSERT INTO `la_system_menu` (pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
-SELECT parent.id,'A',permission.name,'',0,permission.perms,'','','','',0,1,0,'','core',permission.menu_key,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-FROM (SELECT id FROM `la_system_menu` WHERE component='tenant/lists/index' AND type='C' ORDER BY id LIMIT 1) parent
-CROSS JOIN (
-  SELECT '查看算力溢价' AS name,'tenant.tenant/supplyMarkup' AS perms,'core_tenant_supply_markup_read' AS menu_key
-  UNION ALL SELECT '设置算力溢价','tenant.tenant/applySupplyMarkup','core_tenant_supply_markup_edit'
-) permission
-WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` existing WHERE existing.perms=permission.perms);
+SELECT p.id,'A','查看算力溢价','',0,'tenant.tenant/supplyMarkup','','','','',0,1,0,'','core','core_tenant_supply_markup_read',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_system_menu` p
+WHERE p.component='tenant/lists/index' AND p.type='C'
+  AND NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.perms='tenant.tenant/supplyMarkup')
+ORDER BY p.id LIMIT 1;
+
+INSERT INTO `la_system_menu` (pid,type,name,icon,sort,perms,paths,component,selected,params,is_cache,is_show,is_disable,app_code,source,source_menu_key,is_core,create_time,update_time)
+SELECT p.id,'A','设置算力溢价','',0,'tenant.tenant/applySupplyMarkup','','','','',0,1,0,'','core','core_tenant_supply_markup_edit',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_system_menu` p
+WHERE p.component='tenant/lists/index' AND p.type='C'
+  AND NOT EXISTS (SELECT 1 FROM `la_system_menu` m WHERE m.perms='tenant.tenant/applySupplyMarkup')
+ORDER BY p.id LIMIT 1;

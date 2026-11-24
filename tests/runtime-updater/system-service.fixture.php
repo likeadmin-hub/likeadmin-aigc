@@ -54,7 +54,7 @@ if (($argv[1] ?? '') !== '--run') {
     verify(getenv('SYSTEM_SERVICE_DISPOSABLE') === '1', 'Only disposable database execution is allowed');
     $case = $argv[1] ?? '';
     $plainCase=preg_replace('/^(?:canonical|legacy402)-/','',$case);
-    verify(in_array($plainCase, ['success','dependency-failure','finalize-failure','metadata-failure','commit-reply-failure','precommit-exit','confirm-failure','recovery412'], true), 'Unknown fixture case');
+    verify(in_array($plainCase, ['success','dependency-failure','finalize-failure','metadata-failure','commit-reply-failure','precommit-exit','confirm-failure','recovery412','recovery449'], true), 'Unknown fixture case');
     $site = sys_get_temp_dir() . '/system-service-' . bin2hex(random_bytes(6));
     $baseline=($migration || (str_starts_with($case,'canonical-') && is_file('/baseline/config/project.php')))?'/baseline':'/repo';
     foreach (['app','config','extend','route','scripts'] as $dir) copyFixture($baseline.'/' . $dir, $site . '/' . $dir);
@@ -302,6 +302,39 @@ if($canonical && $case==='success'){
 try { $result = $service->apply($id);if(is_resource($liveWorker))verify(proc_get_status($liveWorker)['running'],'Update terminated live worker'); } catch (Throwable $e) { $failure = $e; }
 finally{if(is_resource($liveWorker)){file_put_contents($site.'/idle-worker-exit','1');foreach($workerPipes as $pipe)fclose($pipe);proc_close($liveWorker);}}
 if(getenv('FIXTURE_OFFICIAL_ARCHIVE')&&in_array($case,['precommit-exit','commit-reply-failure'],true))verify(is_file($site.'/runtime/fixture-'.$case.'-reached'),'Official payload fault was never reached');
+if ($case==='recovery449') {
+    verify($canonical && $from==='1.0.448' && $to==='1.0.449','Requires the original 448->449 archive');
+    verify($failure && str_contains($failure->getMessage(),'新迁移不支持会话变量或动态 SQL'),'Original failure not reproduced: '.($failure?->getMessage()??''));
+    $cmd=escapeshellarg(PHP_BINARY).' /repo/scripts/repair-system-449.php --site='.escapeshellarg($site).' --archive=/official.zip';
+    $receipts=glob($site.'/runtime/update_receipts/*.json');
+    verify(count($receipts)===1,'Expected a single failed package receipt');
+    $receipt=$receipts[0]; $bytes=file_get_contents($receipt); $first=json_decode($bytes,true);
+    verify($first['status']==='rolled_back' && $first['sql_state']==='running','Unexpected original migration state');
+    $foreign=$first; $foreign['binding']['task_id']=0;
+    file_put_contents($receipt,json_encode($foreign));
+    exec($cmd.' --apply 2>&1',$rejected,$denied);
+    verify($denied!==0 && json_decode(file_get_contents($receipt),true)===$foreign,'Unbound retry was accepted');
+    file_put_contents($receipt,$bytes);
+    foreach (['',' --apply',' --apply'] as $option) {
+        passthru($cmd.$option,$exit);
+        verify($exit===0,'449 operator repair failed');
+        if ($option==='') verify(file_get_contents($receipt)===$bytes,'Preview changed failure evidence');
+    }
+    $service->apply($id);
+    verify((json_decode(file_get_contents($site.'/upgrade/version.json'),true)['version']??'')===$to,'Version marker not completed');
+    verify((bool)Db::query("SHOW COLUMNS FROM la_power_market_product LIKE 'is_recommended'"),'Missing recommendation column');
+    verify((bool)Db::query("SHOW TABLES LIKE 'la_tenant_power_supply_markup_log'"),'Missing markup history');
+    foreach (['tenant.tenant/supplyMarkup','tenant.tenant/applySupplyMarkup','ai_consumption/statistics','setting.system.log/clear'] as $perm)
+        verify(Db::name('system_menu')->where('perms',$perm)->count()===1,'Invalid number of platform menu entries: '.$perm);
+    $productRoots=Db::name('system_menu')->where('source_menu_key','core_power_market')->count();
+    verify(Db::name('system_menu')->where('perms','power.market/setRecommendation')->count()===$productRoots,'Missing recommendation permission');
+    $tenantRoots=Db::name('tenant_system_menu')->where('source_menu_key','core_task_log_tenant')->count();
+    verify($tenantRoots>0 && Db::name('tenant_system_menu')->where('source_menu_key','core_task_statistics_tenant')->count()===$tenantRoots,'Missing tenant statistics pages');
+    verify(Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply','status'=>'success'])->count()===1,'Expected one completed apply task');
+    verify(Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply','status'=>'failed'])->count()===1,'Original failed task missing');
+    echo "PASS real SystemPackageUpdateService canonical-recovery449: original 448->449 failure, preview, repeated repair, signed apply and final 449 marker\n";
+    exit(0);
+}
 if ($case==='recovery412') {
     verify($failure && str_contains($failure->getMessage(),'新迁移不支持会话变量或动态 SQL'),'Original release did not reproduce OPC failure: '.($failure?->getMessage()??''));
     $failed=Db::name('update_task')->where(['package_id'=>$id,'action'=>'apply','status'=>'failed'])->order('id','desc')->find();
