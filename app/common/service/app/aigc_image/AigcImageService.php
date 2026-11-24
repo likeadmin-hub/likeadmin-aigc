@@ -175,6 +175,9 @@ class AigcImageService
             return self::buildDuplicateGenerateResponse($existing, $tenantId, $userId);
         }
         $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
+        if ($appCode === MarketLayerDecomposition::APP && isset($params['layer_model_code'])) {
+            $batchMetadata['_layer_model_code'] = $params['layer_model_code'];
+        }
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
@@ -220,6 +223,12 @@ class AigcImageService
             $task->save(['status' => 'failed', 'error' => $e->getMessage(), 'finish_time' => time(), 'update_time' => time()]);
             throw $e;
         }
+    }
+
+    public static function existingMarketSubmission(int $tenantId, int $userId, array $params, string $appCode): ?array
+    {
+        $task = AigcImageSubmission::find($tenantId, $userId, AigcImageSubmission::key($params, $appCode));
+        return $task ? self::buildDuplicateGenerateResponse($task, $tenantId, $userId) : null;
     }
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], ?callable $onTaskCreated = null): array

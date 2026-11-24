@@ -326,9 +326,9 @@ class AppDisplayConfigService
 
     public static function save(int $tenantId, string $appCode, array $params): array
     {
-        if (self::normalizeAppCode($appCode) === 'aigc_canvas') {
+        if (in_array(self::normalizeAppCode($appCode), ['aigc_canvas', \app\common\service\power\MarketLayerDecomposition::APP], true)) {
             return \think\facade\Db::transaction(function () use ($tenantId, $appCode, $params) {
-                TenantAppConfig::where(['tenant_id'=>$tenantId,'app_code'=>'aigc_canvas'])->lock(true)->find();
+                TenantAppConfig::where(['tenant_id'=>$tenantId,'app_code'=>self::normalizeAppCode($appCode)])->lock(true)->find();
                 return self::saveDisplay($tenantId, $appCode, $params);
             });
         }
@@ -421,13 +421,15 @@ class AppDisplayConfigService
         $extra = is_array($params['extra'] ?? null)
             ? $params['extra']
             : (array)($current['extra'] ?? []);
-        // Display forms may stay open while the separate skills editor saves.
-        // Only the dedicated canvas skill service can write this private configuration.
-        if (($current['app_code'] ?? '') === 'aigc_canvas') {
-            foreach (['agent_skills','agent_skills_version'] as $key) {
-                if (array_key_exists($key, (array)($current['extra'] ?? []))) $extra[$key] = $current['extra'][$key];
-                else unset($extra[$key]);
-            }
+        // Only dedicated settings services can write these app settings.
+        $privateKeys = match ($current['app_code'] ?? '') {
+            'aigc_canvas' => ['agent_skills', 'agent_skills_version'],
+            \app\common\service\power\MarketLayerDecomposition::APP => [\app\common\service\power\MarketLayerDecomposition::MODEL_SETTING],
+            default => [],
+        };
+        foreach ($privateKeys as $key) {
+            if (array_key_exists($key, (array)($current['extra'] ?? []))) $extra[$key] = $current['extra'][$key];
+            else unset($extra[$key]);
         }
         $currentRecommendation = self::recommendationValue(
             $current,

@@ -5,11 +5,13 @@ namespace app\common\service\ai;
 
 use app\common\enum\FileEnum;
 use app\common\service\FileService;
+use app\common\service\open_platform\OpenCallContext;
 use app\common\service\open_platform\OpenSafeHttp;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\storage\StorageSignedUrlService;
 use InvalidArgumentException;
 use RuntimeException;
+use think\facade\Cache;
 use think\facade\Db;
 
 /** Media input authority comes from owned upload receipts, never browser storage fields. */
@@ -18,7 +20,7 @@ final class StudioMediaInputService
     private const MAX_IMAGE_BYTES = 10485760;
     private const MAX_VIDEO_BYTES = 268435456;
 
-    public static function validateImages(int $tenant, int $user, array $images, int $max): array
+    public static function validateImages(int $tenant, int $user, array $images, int $max, ?array $limits = null): array
     {
         if ($tenant <= 0 || $user <= 0 || $max < 1 || count($images) > $max) {
             throw new RuntimeException('参考图片数量或用户身份无效');
@@ -37,7 +39,12 @@ final class StudioMediaInputService
                 && !($storage['storage_engine'] === 'local' && self::sameObjectUrl($input, FileService::format($storage['storage_domain'], $uri)))) {
                 throw new RuntimeException('参考图片地址与所属素材不匹配');
             }
-            if ($storage['storage_engine'] === 'local') self::imageData(self::localPath($uri));
+            if ($limits !== null) {
+                $path = $storage['storage_engine'] === 'local' ? self::localPath($uri) : null;
+                self::validateImageLimits($path, $url, [$tenant, $user, $file['id'], $uri, $file['update_time'] ?? 0, $storage], $limits);
+            } elseif ($storage['storage_engine'] === 'local') {
+                self::imageData(self::localPath($uri));
+            }
             $result[] = [
                 'uri' => $uri, 'url' => $url,
                 'name' => mb_substr((string)($image['name'] ?? $file['name'] ?? basename($uri)), 0, 200),
@@ -49,6 +56,43 @@ final class StudioMediaInputService
             ] + $storage;
         }
         return $result;
+    }
+
+    private static function validateImageLimits(?string $path, string $url, array $identity, array $limits): void
+    {
+        $maxBytes = $limits['max_mb'] * 1024 * 1024;
+        $key = 'studio_image_probe_v1:' . hash('sha256', json_encode([$identity, $maxBytes], JSON_THROW_ON_ERROR));
+        if ($path !== null) {
+            $bytes = filesize($path);
+            $info = @getimagesize($path);
+        } else {
+            try { $facts = Cache::get($key); } catch (\Throwable) { $facts = null; }
+            if (!is_array($facts)) {
+                try {
+                    $body = OpenSafeHttp::get($url, $maxBytes, 20)['body'];
+                } catch (\RuntimeException $error) {
+                    OpenCallContext::rethrowLostAuthority($error);
+                    throw new InvalidArgumentException('参考图片读取失败或超过 '.$limits['max_mb'].' MB，请重新选择', 0, $error);
+                }
+                $facts = [strlen($body), @getimagesizefromstring($body)];
+                try { Cache::set($key, $facts, 120); } catch (\Throwable) {}
+            }
+            [$bytes, $info] = $facts;
+        }
+        if ($bytes <= 0 || $bytes > $maxBytes) {
+            throw new InvalidArgumentException('参考图片不可用或超过 '.$limits['max_mb'].' MB');
+        }
+        if (!$info || !in_array($info['mime'] ?? '', $limits['mimes'], true)) {
+            throw new InvalidArgumentException('该模型仅支持有效的 JPEG 或 PNG 图片');
+        }
+        [$width, $height] = $info;
+        $pixels = $width * $height;
+        if ($pixels < $limits['min_pixels'] || $pixels > $limits['max_pixels']) {
+            throw new InvalidArgumentException('图片总像素须在 262,144 至 36,000,000 之间');
+        }
+        if (max($width, $height) > $limits['max_ratio'] * min($width, $height)) {
+            throw new InvalidArgumentException('图片长边与短边的比值不能超过 '.$limits['max_ratio'].':1');
+        }
     }
 
     /** Optional display-only artwork for a custom creative genre. */
