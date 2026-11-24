@@ -17,6 +17,16 @@ try{
  $userInfo="  商品名：用户确认的样本™\n卖点：便于收纳；编号 A-01，保留原文。  \n";
  $b=P::body(['images'=>[['uri'=>$uri,'reference_slot_id'=>'product_slot']],'product_info'=>$userInfo,'requirements'=>'一次暖心误会','story_type'=>'comedy','language'=>'中文','market_region'=>'中国','video_selection'=>['model_id'=>(string)$m['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$seconds]]);
  $project=S::save(1,1,['body'=>$b]);scAssert($project['revision']===1,'Independent draft');scAssert($project['body']['product_info']===$userInfo,'User name, selling points and whitespace survive saving verbatim');
+ $coverUri=$folder.'/cover.png';copy($dir.'/product.png',$dir.'/cover.png');
+ $coverFile=['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>10,'name'=>'story-cover','uri'=>$coverUri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0];
+ $coverId=Db::name('tenant_file')->insertGetId($coverFile);
+ $coverBody=$project['body'];$coverBody['story_type']='custom';$coverBody['custom_story']='办公室的暖心误会';$coverBody['custom_story_cover']=['uri'=>$coverUri,'url'=>'https://fixture.invalid/incorrect.png'];$coverBody['script']='展示 @图片1 后自然收尾';
+ $withCover=S::save(1,1,['body'=>$coverBody,'confirm_script'=>true]);
+ $restoredCover=$withCover['body']['custom_story_cover'];scAssert($restoredCover['uri']===$coverUri&&str_ends_with($restoredCover['url'],$coverUri)&&!isset($restoredCover['file_id']),'Draft exposes the authorized cover URL without receipt identities');
+ $preparedCover=J::prepare(1,1,['project_id'=>$withCover['id'],'revision'=>$withCover['revision'],'action'=>'video'])['request'];scAssert($preparedCover['reference_images']===[$uri]&&!str_contains($preparedCover['prompt'],$coverUri),'Custom cover is display metadata, not an upstream reference');
+ Db::name('tenant_file')->where('id',$coverId)->update(['source_id'=>999999]);scFails(fn()=>S::save(1,1,['body'=>$coverBody]),'Foreign user cover rejected');Db::name('tenant_file')->where('id',$coverId)->update(['source_id'=>1]);
+ $withoutCover=$withCover['body'];$withoutCover['custom_story_cover']=null;
+ $updatedCoverDraft=S::save(1,1,['id'=>$withCover['id'],'revision'=>$withCover['revision'],'body'=>$withoutCover]);scAssert($updatedCoverDraft['script_fresh']&&!isset($updatedCoverDraft['body']['custom_story_cover']),'Removing a cover keeps the confirmed script');
  $legacyBody=$b;unset($legacyBody['product_observations']);scAssert(P::inputKey($legacyBody)===P::inputKey($b),'Empty supplement keeps legacy script freshness keys');
  scFails(fn()=>P::body(['product_info'=>str_repeat(' ',3001)]),'Raw product text length must be bounded');scFails(fn()=>S::owned(2,1,$project['id']),'Tenant ownership');scFails(fn()=>S::owned(1,999999,$project['id']),'User ownership');scFails(fn()=>S::save(1,1,['id'=>$project['id'],'revision'=>0,'body'=>$b]),'Stale write');
  $oldClient=$b+['style_id'=>'disabled-legacy-style','custom_style'=>'旧风格'];$oldClientDraft=S::save(1,1,['body'=>$oldClient]);scAssert(!array_key_exists('style_id',$oldClientDraft['body']),'Old clients can save without validating the retired selection');
@@ -89,4 +99,4 @@ $queue=Db::name('ai_task_job')->where('idempotency_key','story_commerce:'.$vj['i
  scAssert(str_contains($currentVideo['request']['prompt'],$legacyVisual['script'])&&!str_contains($currentVideo['request']['prompt'],'强制使用旧画风'),'Old draft can generate with the approved script and without its legacy preset');
  S::setup(1,['default_style_id'=>'disabled-legacy-style']);scAssert(!array_key_exists('default_style_id',S::config(1)),'Saving legacy admin input no longer configures any visual style');
  echo "PASS transactional draft ownership, native model quote, genre context, idempotency, queue dispatch, double-payer freeze/refund, legacy drafts, historical template remix and asset integration; no provider called\n";
-}catch(Throwable $error){$fixtureFailure=$error;throw $error;}finally{try{Db::rollback();}catch(Throwable $rollbackError){if(!isset($fixtureFailure))throw $rollbackError;}foreach(['product.png','product2.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
+}catch(Throwable $error){$fixtureFailure=$error;throw $error;}finally{try{Db::rollback();}catch(Throwable $rollbackError){if(!isset($fixtureFailure))throw $rollbackError;}foreach(['product.png','product2.png','preview.mp4','cover.png'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}

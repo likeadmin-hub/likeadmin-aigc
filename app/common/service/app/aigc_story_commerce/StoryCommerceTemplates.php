@@ -27,6 +27,7 @@ final class StoryCommerceTemplates
     }
     private static function persist(int $owner,?array $old,array $b,array $media,int $job,array $p): array {
         $b=StoryCommercePolicy::withoutLegacyStyle($b);
+        unset($b['custom_story_cover']);
         $title=StoryCommercePolicy::text($p['title']??$old['title']??'剧情带货灵感',100);if($title==='')throw new InvalidArgumentException('请填写模板名称');
         $clean=static function($v)use(&$clean){if(!is_array($v))return $v;unset($v['url']);foreach($v as $k=>$x)if(is_array($x))$v[$k]=$clean($x);return $v;};$b=$clean($b);$media=$clean($media);
         $r=AppCaseService::save($owner,StoryCommercePolicy::APP,['id'=>$old['id']??0,'title'=>$title,'prompt'=>StoryCommercePolicy::prompt($b),'media_type'=>'video','cover_uri'=>$b['images'][0]['uri'],'media_uri'=>$media['uri']??$media['video_uri'],'reference_images'=>array_column($b['images'],'uri'),'config_json'=>['generation_request'=>['advanced_params'=>['story_commerce'=>$b,'story_commerce_media'=>$media]]],'source_task_id'=>$job,'source_result_id'=>0,'status'=>(int)($p['status']??$old['status']??1)===1?1:0,'sort'=>max(0,min(9999,(int)($p['sort']??$old['sort']??0)))]);return self::detail($owner,(int)$r['id']);
