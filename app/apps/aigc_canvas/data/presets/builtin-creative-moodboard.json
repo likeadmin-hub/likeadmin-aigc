@@ -1,13 +1,13 @@
 {
     "schema_version": 1,
     "id": "builtin-creative-moodboard",
-    "version": 3,
+    "version": 4,
     "title": "产品宣传",
     "category": "电商广告",
     "description": "使用示例产品图、宣传视频和背景音乐制作产品宣传内容，支持替换为自己的素材。",
     "media_type": "video",
-    "preview": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
-    "cover": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+    "preview": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
+    "cover": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
     "graph": {
         "nodes": [
             {
@@ -38,7 +38,7 @@
                         {
                             "id": "media-image_1792261829600_bbwxmjl9",
                             "type": "image",
-                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                            "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
                             "mediaSource": "upload",
                             "width": 3840,
                             "height": 2160,
@@ -48,10 +48,10 @@
                         }
                     ],
                     "activeMediaId": "media-image_1792261829600_bbwxmjl9",
-                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                    "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
                     "mediaSource": "upload",
                     "source": "upload",
-                    "image": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                    "image": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
                     "mentions": []
                 }
             },
@@ -83,7 +83,7 @@
                         {
                             "id": "result-image-1mqgjmb",
                             "type": "image",
-                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                            "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
                             "mediaSource": "generated",
                             "width": 2752,
                             "height": 1536,
@@ -115,7 +115,7 @@
                                 ],
                                 "references": [
                                     {
-                                        "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
+                                        "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/d2e32c59241dfe68760e1046a25d718639efe32047e087853f48be6bd9e8afb3.jpg",
                                         "type": "image",
                                         "title": ""
                                     }
@@ -124,10 +124,10 @@
                         }
                     ],
                     "activeMediaId": "result-image-1mqgjmb",
-                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                    "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
                     "mediaSource": "generated",
                     "source": "generated",
-                    "image": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                    "image": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
                     "mentions": []
                 }
             },
@@ -162,7 +162,7 @@
                         {
                             "id": "result-video-yry7p6",
                             "type": "video",
-                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
+                            "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
                             "mediaSource": "generated",
                             "width": 1280,
                             "height": 720,
@@ -198,7 +198,7 @@
                                 ],
                                 "references": [
                                     {
-                                        "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                                        "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
                                         "type": "image",
                                         "title": "图片"
                                     }
@@ -207,12 +207,12 @@
                         }
                     ],
                     "activeMediaId": "result-video-yry7p6",
-                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
+                    "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/1f2e88199304518180a6a60ef6e42238e1a1ac2ad47d951b399390ec12e58366.mp4",
                     "mediaSource": "generated",
                     "source": "generated",
                     "referenceImages": [
                         {
-                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
+                            "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/13f229b32b05adb453d570ce02aedfb8f8d935f3896522450f403bcb7b135389.png",
                             "name": "图片",
                             "role": "first_frame_image"
                         }
@@ -247,7 +247,7 @@
                         {
                             "id": "media-audio_1792262270282_122a4hlg",
                             "type": "audio",
-                            "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/20d983e96f842a50f0c1ae93c34fcaf15662aee21eb8ec4941b7a1cf2cdc9b5d.mp3",
+                            "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/20d983e96f842a50f0c1ae93c34fcaf15662aee21eb8ec4941b7a1cf2cdc9b5d.mp3",
                             "mediaSource": "upload",
                             "fileSize": 160959,
                             "mimeType": "audio/mpeg",
@@ -255,7 +255,7 @@
                         }
                     ],
                     "activeMediaId": "media-audio_1792262270282_122a4hlg",
-                    "url": "https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/20d983e96f842a50f0c1ae93c34fcaf15662aee21eb8ec4941b7a1cf2cdc9b5d.mp3",
+                    "url": "https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/aigc_canvas/builtin/builtin-creative-moodboard/20d983e96f842a50f0c1ae93c34fcaf15662aee21eb8ec4941b7a1cf2cdc9b5d.mp3",
                     "mediaSource": "upload",
                     "source": "upload",
                     "mentions": []

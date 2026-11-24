@@ -21,7 +21,7 @@ final class ShortDramaBuiltinSkillCatalog
             'invocation_rule' => '适用于新品发布、商品种草、功能演示、电商详情页、品牌社媒投放等需要突出产品外观、核心卖点、使用场景和行动引导的短片需求。',
             'category_names' => ['商业广告', '产品展示'],
             // The public cover URL is intentionally detached from any tenant-file ID.
-            'cover_url' => 'https://opcaigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20260916/2026091610500831cfc7189.mp4',
+            'cover_url' => 'https://aigclikeadmin-1304073946.cos.ap-guangzhou.myqcloud.com/uploads/video/20260916/2026091610500831cfc7189.mp4',
             'cover_type' => 'video',
             'definition' => [
                 'stages' => [
