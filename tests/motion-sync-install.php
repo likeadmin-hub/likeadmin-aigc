@@ -33,8 +33,9 @@ try{
     $migration=file_get_contents($root.'/app/apps/'.$code.'/migrations/20261124_retire_motion_sync_templates.sql');
     Db::name('app_api')->insert(['app_code'=>$code,'api_path'=>$route,'api_method'=>'GET','scene'=>'user']);
     $case=Db::name('app_case')->insertGetId(['app_code'=>$code,'title'=>'Retired fixture','status'=>1]);
-    foreach (['system_menu','tenant_system_menu','tenant_system_menu_msf_600802'] as $menu) {
+    foreach (['system_menu'=>null,'tenant_system_menu'=>600801,'tenant_system_menu_msf_600802'=>600802] as $menu=>$tenant) {
         $row=['app_code'=>$code,'perms'=>$route,'name'=>'Retired fixture','source'=>'app'];
+        if ($tenant!==null) $row['tenant_id']=$tenant;
         Db::name($menu)->insert($row);
         Db::name($menu)->insert(array_replace($row,['source'=>'tenant']));
     }
