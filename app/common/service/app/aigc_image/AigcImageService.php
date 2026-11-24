@@ -107,10 +107,12 @@ class AigcImageService
         return MarketImageModelRuntimeService::options($tenantId);
     }
 
-    public static function estimateMarketModel(int $tenantId, array $params, array $billingOverride = []): array
+    public static function estimateMarketModel(int $tenantId, array $params, array $billingOverride = [], string $appCode = ''): array
     {
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
-        $quote = MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride);
+        $quote = $appCode === \app\common\service\power\MarketLayerDecomposition::APP
+            ? MarketImageModelRuntimeService::quote($tenantId, $params, $quantity, $billingOverride, false, $appCode)
+            : MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride);
         return [
             'quantity' => $quantity,
             'platform_unit_cost' => (float)$quote['tenant_unit_points'],
@@ -177,8 +179,13 @@ class AigcImageService
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? []), $tenantId, $userId);
         self::checkSensitiveWords($tenantId, $prompt);
-        $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
-        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride)['market_snapshot'],$params)) throw new Exception('请输入提示词');
+        $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride, $appCode);
+        if ($prompt === '') {
+            $snapshot = $appCode === \app\common\service\power\MarketLayerDecomposition::APP
+                ? MarketImageModelRuntimeService::selectionSnapshot($tenantId, $params, $appCode)
+                : (array)MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride)['market_snapshot'];
+            if (!\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt($snapshot, $params)) throw new Exception('请输入提示词');
+        }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $claim = AigcImageSubmission::claim([
@@ -217,6 +224,9 @@ class AigcImageService
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], ?callable $onTaskCreated = null): array
     {
+        if (($params['style'] ?? '') === \app\common\service\power\MarketLayerDecomposition::STYLE) {
+            throw new Exception('请在图层分离工具中提交');
+        }
         $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'image');
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));

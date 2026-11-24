@@ -16,7 +16,7 @@ class AppAccessService
     public const SHELFABLE_DEFAULT_APP_CODES = [
         'smart_clip', 'image_human', 'aigc_short_drama',
         'aigc_background_removal', 'aigc_fashion_lookbook', 'aigc_fitting',
-        'aigc_hairstyle', 'aigc_image_translate', 'aigc_local_redraw',
+        'aigc_hairstyle', 'aigc_image_translate', 'aigc_local_redraw', 'aigc_layer_decomposition',
         'aigc_model_wear', 'aigc_one_click_cleanup', 'aigc_outpaint',
         'aigc_photo_restore', 'aigc_product_image', 'aigc_product_multi_angle',
         'aigc_product_promo_video', 'aigc_product_video', 'aigc_story_commerce', 'aigc_store_visit', 'aigc_motion_sync', 'aigc_product_suite', 'aigc_style_transfer',

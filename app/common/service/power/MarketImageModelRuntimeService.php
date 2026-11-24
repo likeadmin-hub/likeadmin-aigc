@@ -207,9 +207,9 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = [], bool $tenantAdminConsumption = false): array
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = [], bool $tenantAdminConsumption = false, string $appCode = ''): array
     {
-        return self::quoteInternal($tenantId, $selection, $quantity, $billingOverride, $tenantAdminConsumption, false);
+        return self::quoteInternal($tenantId, $selection, $quantity, $billingOverride, $tenantAdminConsumption, false, $appCode);
     }
 
     /** For preliminary estimates before the business has created a prompt. Never use for admission. */
@@ -219,15 +219,15 @@ class MarketImageModelRuntimeService
     }
 
     /** Resolve the model contract before assembling the same references used at submission. */
-    public static function selectionSnapshot(int $tenantId, array $selection): array
+    public static function selectionSnapshot(int $tenantId, array $selection, string $appCode = ''): array
     {
-        return self::snapshot(self::resolve($tenantId, $selection));
+        return self::snapshot(self::resolve($tenantId, $selection, $appCode));
     }
 
-    private static function quoteInternal(int $tenantId, array $selection, int $quantity, array $billingOverride, bool $tenantAdminConsumption, bool $deferMissingPrompt): array
+    private static function quoteInternal(int $tenantId, array $selection, int $quantity, array $billingOverride, bool $tenantAdminConsumption, bool $deferMissingPrompt, string $appCode = ''): array
     {
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
-        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, 0, $tenantAdminConsumption);
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection, $appCode), $tenantId, 0, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
         $market = self::meterMarket($market, $selection, $deferMissingPrompt, $tenantId, $quantity);
@@ -472,7 +472,7 @@ class MarketImageModelRuntimeService
         $materialSelection = array_replace($selection, array_intersect_key($request, array_flip([
             'reference_assets', 'reference_images', 'generation_method', 'generation_type', 'material_mode',
         ])));
-        $market = self::tenantAdminMarket(self::resolve($tenantId, $materialSelection), $tenantId, $userId, $tenantAdminConsumption);
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $materialSelection, $appCode), $tenantId, $userId, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
         $quantity = max(1, $quantity);
@@ -1139,10 +1139,13 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
-    private static function resolve(int $tenantId, array $selection): array
+    private static function resolve(int $tenantId, array $selection, string $appCode = ''): array
     {
         $frozen = \app\common\service\open_platform\OpenImagePricing::market($tenantId, $selection, 'model');
         if ($frozen !== null) return $frozen;
+        $products = $appCode === MarketLayerDecomposition::APP
+            ? MarketLayerDecomposition::products()
+            : PowerMarketProduct::where(['resource_type' => 'model', 'model_type' => 'image', 'status' => 1]);
         $productId = self::productId($selection);
         $skuId = self::skuId($selection);
         if ($skuId > 0) {
@@ -1151,7 +1154,7 @@ class MarketImageModelRuntimeService
             if ($productId > 0 && $productId !== (int)$sku['product_id']) {
                 throw new Exception('所选图片规格与当前模型不一致，请重新选择规格');
             }
-            $product = PowerMarketProduct::where(['id' => (int)$sku['product_id'], 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
+            $product = $products->where('id', (int)$sku['product_id'])->findOrEmpty();
             if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
             $productData = $product->toArray();
             $market = self::marketRow($tenantId, $productData, $sku->toArray());
@@ -1170,7 +1173,7 @@ class MarketImageModelRuntimeService
         }
 
         if ($productId <= 0) throw new Exception('请选择算力市场图片模型');
-        $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
+        $product = $products->where('id', $productId)->findOrEmpty();
         if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
         return self::resolveProduct($tenantId, $product->toArray(), $selection);
     }

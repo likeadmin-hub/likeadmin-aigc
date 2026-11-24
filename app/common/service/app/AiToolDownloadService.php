@@ -63,6 +63,7 @@ class AiToolDownloadService
         'aigc_local_redraw' => 'local-redraw',
         'aigc_fitting' => 'aigc-fitting',
         'aigc_hairstyle' => 'hairstyle',
+        'aigc_layer_decomposition' => 'layers',
     ];
 
     private const OWN_RESULT_APPS = [
@@ -160,6 +161,10 @@ class AiToolDownloadService
         'aigc_hairstyle' => [
             'task_model' => AigcImageTask::class,
             'style' => 'hairstyle',
+        ],
+        'aigc_layer_decomposition' => [
+            'task_model' => AigcImageTask::class,
+            'style' => 'layer_decomposition',
         ],
     ];
 

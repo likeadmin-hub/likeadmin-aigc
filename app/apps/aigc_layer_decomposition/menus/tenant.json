@@ -1,0 +1,64 @@
+[
+  {
+    "source_menu_key": "aigc_layer_decomposition",
+    "app_code": "aigc_layer_decomposition",
+    "source": "app",
+    "name": "图层分离",
+    "type": "M",
+    "sort": 854,
+    "paths": "aigc-layer-decomposition",
+    "component": "",
+    "perms": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_layer_decomposition_config",
+        "app_code": "aigc_layer_decomposition",
+        "source": "app",
+        "name": "创作配置",
+        "type": "C",
+        "sort": 20,
+        "paths": "config",
+        "component": "apps/aigc_layer_decomposition/config",
+        "perms": "app.aigc_layer_decomposition.config/detail",
+        "children": [
+          {
+            "source_menu_key": "aigc_layer_decomposition_config_setup",
+            "app_code": "aigc_layer_decomposition",
+            "source": "app",
+            "name": "保存配置",
+            "type": "A",
+            "sort": 0,
+            "paths": "",
+            "component": "",
+            "perms": "app.aigc_layer_decomposition.config/setup"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_layer_decomposition_task",
+        "app_code": "aigc_layer_decomposition",
+        "source": "app",
+        "name": "创作记录",
+        "type": "C",
+        "sort": 10,
+        "paths": "task",
+        "component": "apps/aigc_layer_decomposition/task",
+        "perms": "app.aigc_layer_decomposition.task/lists",
+        "children": [
+          {
+            "source_menu_key": "aigc_layer_decomposition_task_detail",
+            "app_code": "aigc_layer_decomposition",
+            "source": "app",
+            "name": "查看详情",
+            "type": "A",
+            "sort": 0,
+            "paths": "",
+            "component": "",
+            "perms": "app.aigc_layer_decomposition.task/detail"
+          }
+        ]
+      }
+    ],
+    "icon": "el-icon-Picture"
+  }
+]

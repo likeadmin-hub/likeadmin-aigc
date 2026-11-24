@@ -1,0 +1,34 @@
+[
+  {
+    "api_path": "app.aigc_layer_decomposition.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_layer_decomposition:config:detail",
+    "scene": "tenant_admin",
+    "need_login": 1,
+    "need_role_permission": 1
+  },
+  {
+    "api_path": "app.aigc_layer_decomposition.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_layer_decomposition:config:setup",
+    "scene": "tenant_admin",
+    "need_login": 1,
+    "need_role_permission": 1
+  },
+  {
+    "api_path": "app.aigc_layer_decomposition.task/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_layer_decomposition:task:lists",
+    "scene": "tenant_admin",
+    "need_login": 1,
+    "need_role_permission": 1
+  },
+  {
+    "api_path": "app.aigc_layer_decomposition.task/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_layer_decomposition:task:detail",
+    "scene": "tenant_admin",
+    "need_login": 1,
+    "need_role_permission": 1
+  }
+]
