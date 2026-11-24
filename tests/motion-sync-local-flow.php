@@ -17,7 +17,9 @@ try{
     file_put_contents($dir.'/character.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='));
     $image='uploads/'.basename($dir).'/character.png';$video='uploads/'.basename($dir).'/motion.mp4';
     foreach([[10,$image],[20,$video]] as [$type,$uri])Db::name('tenant_file')->insert(['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>$type,'name'=>'Motion fixture','uri'=>$uri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
-    $ids=[];foreach(PowerMarketProduct::where('model_type','other')->select()->toArray() as $product)if(M::supportsProduct($product))$ids[]=$product['id'];msCheck(count($ids)===2,'Both synchronized model families required');
+    $products=array_filter(PowerMarketProduct::where('model_type','other')->select()->toArray(),[M::class,'supportsProduct']);
+    msCheck(!array_diff(M::MODELS,array_map([M::class,'modelKey'],$products)),'Both synchronized model families required');
+    $ids=array_column($products,'id');
     Db::name('power_market_sku')->whereIn('product_id',$ids)->update(['sale_status'=>1,'status'=>1,'sale_points'=>0.1]);
     $skuIds=Db::name('power_market_sku')->whereIn('product_id',$ids)->column('id');Db::name('tenant_power_market_sku_price')->where('tenant_id',1)->whereIn('sku_id',$skuIds)->delete();
     $models=M::options(1);$model=$models[0];msCheck($model['available']&&count($model['specs'])===2,'Published specifications required');
