@@ -185,6 +185,16 @@ class MenuLogic extends BaseLogic
             $coreMenus = [
                 [
                     'type' => 'C',
+                    'name' => '数据统计',
+                    'icon' => 'el-icon-TrendCharts',
+                    'sort' => 110,
+                    'perms' => 'ai_consumption/statistics',
+                    'paths' => 'statistics',
+                    'component' => 'consumer/task/statistics',
+                    'source_menu_key' => 'core_task_statistics_tenant',
+                ],
+                [
+                    'type' => 'C',
                     'name' => '应用日志',
                     'icon' => 'el-icon-List',
                     'sort' => 100,
