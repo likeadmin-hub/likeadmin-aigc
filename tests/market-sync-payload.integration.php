@@ -46,6 +46,20 @@ try {
         || (float)$updatedSku['configured_sale_points'] !== 25.0 || (int)$updatedSku['sale_status'] !== 0) {
         throw new RuntimeException('Repeat sync lost metadata or changed manual sale settings');
     }
+    $resource['model_id'] = 7100;
+    $item['market_metadata']['upstream_metadata'] = ['marketing_tags'=>['new']];
+    $item['resource'] = $resource + ['marketing_tags'=>['special_offer']];
+    $saved = $productMethod->invoke(null, 'model', $item['resource'], $item, true);
+    $tags = static fn ($row) => \app\common\service\power\MarketModelSource::product($row->toArray())['marketing_tags'];
+    if ($tags($saved) !== ['special_offer']) throw new RuntimeException('Pricing resource did not override the public catalog');
+    unset($item['market_metadata']['upstream_metadata']);
+    $item['resource'] = $resource;
+    $saved = $productMethod->invoke(null, 'model', $resource, $item, true);
+    if ($tags($saved) !== ['special_offer']) throw new RuntimeException('Missing metadata erased last successful tags');
+    $item['resource'] = $resource + ['marketing_tags'=>[]];
+    $saved = $productMethod->invoke(null, 'model', $item['resource'], $item, true);
+    if ($tags($saved) !== []) throw new RuntimeException('Authenticated empty declaration failed to clear tags');
+    echo 'PASS authoritative pricing tags, skipped metadata and explicit clear' . PHP_EOL;
     echo 'PASS large product/SKU insert, update, and manual price/shelf preservation' . PHP_EOL;
 } catch (Throwable $e) {
     $failures[] = $e->getMessage();

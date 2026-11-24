@@ -16125,11 +16125,7 @@ class AigcShortDramaService
                     $group['options'] = array_map(static fn(array $option): array =>
                         \app\common\service\power\MarketCreationParameters::describe($option, $key), $group['options']);
                 }
-                $group['options'] = \app\common\service\power\MarketModelSource::officialFirst(array_map(static function (array $option): array {
-                    $option['channel_source'] = ($option['channel_source'] ?? '') === 'official' ? 'official' : 'third_party';
-                    $option['channel_source_label'] = $option['channel_source'] === 'official' ? '官方渠道' : '三方渠道';
-                    return $option;
-                }, $group['options']));
+                $group['options'] = \app\common\service\power\MarketModelSource::officialFirst($group['options']);
                 $visibleGroups[] = $group;
             }
         }
@@ -16151,8 +16147,9 @@ class AigcShortDramaService
             'sku_id' => (int)($model['sku_id'] ?? $model['market_sku_id'] ?? 0),
             'model_code' => (string)($model['model_code'] ?? ''),
             'channel_code' => (string)($model['channel_code'] ?? ''),
-            'channel_source' => ($model['channel_source'] ?? '') === 'official' ? 'official' : 'third_party',
-            'channel_source_label' => ($model['channel_source'] ?? '') === 'official' ? '官方渠道' : '三方渠道',
+            'marketing_tags' => $model['marketing_tags'] ?? [],
+            'channel_source' => $model['channel_source'] ?? 'unknown',
+            'channel_source_label' => $model['channel_source_label'] ?? '其他渠道',
             'name' => (string)($model['display_name'] ?? $model['name'] ?? $id),
             'description' => (string)($model['description'] ?? ''),
             'tenant_input_unit_price' => $model['tenant_input_unit_price'] ?? null,
@@ -16280,8 +16277,9 @@ class AigcShortDramaService
             'name' => (string)($model['name'] ?? $model['label'] ?? ''),
             'model_code' => (string)($model['model_code'] ?? ''),
             'channel_code' => (string)($model['channel_code'] ?? ''),
+            'marketing_tags' => $model['marketing_tags'] ?? [],
             'channel_source' => (string)($model['channel_source'] ?? 'unknown'),
-            'channel_source_label' => (string)($model['channel_source_label'] ?? '渠道未标注'),
+            'channel_source_label' => (string)($model['channel_source_label'] ?? '其他渠道'),
             'resource_type' => (string)($model['resource_type'] ?? ''),
             'market_product_id' => (int)($model['market_product_id'] ?? $model['product_id'] ?? 0),
             'market_sku_id' => (int)($model['market_sku_id'] ?? $model['sku_id'] ?? 0),
@@ -16380,8 +16378,9 @@ class AigcShortDramaService
             'name' => (string)($model['name'] ?? ''),
             'model_code' => (string)($model['model_code'] ?? ''),
             'channel_code' => (string)($model['channel_code'] ?? ''),
+            'marketing_tags' => $model['marketing_tags'] ?? [],
             'channel_source' => (string)($model['channel_source'] ?? 'unknown'),
-            'channel_source_label' => (string)($model['channel_source_label'] ?? '渠道未标注'),
+            'channel_source_label' => (string)($model['channel_source_label'] ?? '其他渠道'),
             'protocol' => (string)($model['protocol'] ?? ''),
             'supports_vision' => !empty($model['supports_vision']),
         ];
@@ -17292,7 +17291,7 @@ class AigcShortDramaService
             foreach (['name', 'model_code', 'channel_code'] as $field) {
                 if (isset($model[$field]) && is_string($model[$field])) $item[$field] = $model[$field];
             }
-            $item['channel_source'] = ($model['channel_source'] ?? '') === 'official' ? 'official' : 'third_party';
+            $item['channel_source'] = in_array($model['channel_source'] ?? null, ['official', 'third_party'], true) ? $model['channel_source'] : 'unknown';
             $result[$key] = $item;
         }
         return $result;
@@ -17309,8 +17308,9 @@ class AigcShortDramaService
                 'name' => (string)($model['name'] ?? ''),
                 'model_code' => (string)($model['model_code'] ?? ''),
                 'channel_code' => (string)($model['channel_code'] ?? ''),
+            'marketing_tags' => $model['marketing_tags'] ?? [],
             'channel_source' => (string)($model['channel_source'] ?? 'unknown'),
-            'channel_source_label' => (string)($model['channel_source_label'] ?? '渠道未标注'),
+            'channel_source_label' => (string)($model['channel_source_label'] ?? '其他渠道'),
                 'provider_model' => (string)($model['provider_model'] ?? ''),
                 'platform_unit_cost' => (string)($model['platform_unit_cost'] ?? ''),
                 'tenant_unit_price' => (string)($model['tenant_unit_price'] ?? ''),

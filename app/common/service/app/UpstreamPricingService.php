@@ -4,6 +4,7 @@ namespace app\common\service\app;
 
 use app\common\service\update\UpdateSourceClient;
 use Exception;
+use app\common\service\power\MarketCatalogBadges;
 
 class UpstreamPricingService
 {
@@ -95,7 +96,9 @@ class UpstreamPricingService
         }
         $response = self::request('GET', '/api/v1/models', $params, $timeout);
         $rows = $response['data'] ?? $response['items'] ?? $response['models'] ?? $response;
-        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+        $models = is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+        if (!$detail || !$models) return $models;
+        return MarketCatalogBadges::models($models, self::publicBadgeRows('modelListPublic', ['type_code' => $type], $timeout));
     }
 
     /**
@@ -105,7 +108,30 @@ class UpstreamPricingService
     {
         $response = self::request('GET', '/api/v1/apps', [], $timeout);
         $rows = $response['data'] ?? $response['items'] ?? $response['apps'] ?? $response;
-        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+        $apps = is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+        return $apps ? MarketCatalogBadges::applications($apps, self::publicBadgeRows('appListPublic', [], $timeout)) : [];
+    }
+
+    /** Older pricing catalogs publish their badges only on the same origin's public market. */
+    private static function publicBadgeRows(string $action, array $params, int $timeout): array
+    {
+        $rows = [];
+        try {
+            for ($page = 1; ; $page++) {
+                $data = self::request('GET', '/api/user_center/' . $action, $params + [
+                    'terminal' => 4, 'page_no' => $page, 'page_size' => 500,
+                ], min(8, $timeout));
+                $batch = $data['lists'] ?? [];
+                if (!is_array($batch) || !$batch) break;
+                array_push($rows, ...array_filter($batch, 'is_array'));
+                if ($action === 'appListPublic' || count($rows) >= (int)($data['count'] ?? 0)) break;
+                if ((int)($data['page_no'] ?? 0) !== $page) break;
+            }
+        } catch (\Exception $error) {
+            // The display catalog is optional; keep successful pricing reads usable.
+            \think\facade\Log::warning('上游公开标签目录读取失败：' . $action);
+        }
+        return $rows;
     }
 
     /** Read published API request metadata; never executes an application. */

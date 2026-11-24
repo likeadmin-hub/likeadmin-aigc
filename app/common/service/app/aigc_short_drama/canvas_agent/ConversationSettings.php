@@ -64,7 +64,7 @@ final class ConversationSettings
                 'market_product_id'=>(int)($selected['market_product_id']??$selected['product_id']??0),
                 'market_sku_id'=>(int)($selected['market_sku_id']??$selected['sku_id']??0),
                 'model_code'=>(string)($selected['model_code']??''),
-                'channel_source'=>($selected['channel_source']??'')==='official'?'official':'third_party',
+                'channel_source'=>$selected['channel_source']??'unknown',
             ];
         }
         return $result;

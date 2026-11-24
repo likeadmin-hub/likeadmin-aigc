@@ -125,10 +125,11 @@ class PowerMarketService
      *
      * @return array{lists: array<int, array<string, mixed>>, count: int}
      */
-    public static function apps(string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
+    public static function apps(string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
     {
-        $products = PowerMarketProduct::where('resource_type', self::TYPE_APP_API)
-            ->order(['status' => 'desc', 'update_time' => 'desc', 'id' => 'desc'])
+        $query = PowerMarketProduct::where('resource_type', self::TYPE_APP_API);
+        MarketModelFilter::applyApiStatus($query, 0, $apiStatus);
+        $products = $query->order(['status' => 'desc', 'update_time' => 'desc', 'id' => 'desc'])
             ->select()
             ->toArray();
         $groups = self::groupApps($products);
@@ -870,7 +871,7 @@ class PowerMarketService
             'category_name', 'category_code', 'call_type', 'method',
             'supports_vision', 'supports_reasoning', 'max_reference_images',
             'max_reference_audios', 'max_reference_videos', 'capabilities',
-            'developer_doc_slug',
+            'developer_doc_slug', 'marketing_tags', 'channel_source', 'is_official_channel', 'new_until',
         ]));
     }
 
@@ -1203,7 +1204,7 @@ class PowerMarketService
 
     public static function formatProduct(array $product): array
     {
-        if (($product['resource_type'] ?? '') === self::TYPE_MODEL) $product = array_merge($product, MarketModelSource::product($product));
+        $product = array_merge($product, MarketModelSource::product($product));
         $product['type_text'] = self::productTypes()[$product['resource_type'] ?? ''] ?? '';
         $product['status_text'] = (int)($product['status'] ?? 0) === 1 ? '上架' : '下架';
         if (($product['resource_type'] ?? '') === self::TYPE_APP_API) {
@@ -1400,6 +1401,17 @@ class PowerMarketService
             'status' => $available ? 1 : 0,
             'update_time' => time(),
         ];
+        // Batch pricing can carry newer presentation fields than its catalog. Absent fields
+        // on a partial read keep the last declaration for this exact resource; [] clears tags.
+        $catalog = $metadata[$isModel ? 'upstream_metadata' : 'upstream_api_metadata'] ?? [];
+        $badges = MarketCatalogBadges::fields($resource) + MarketCatalogBadges::fields($item['raw'] ?? []) + MarketCatalogBadges::fields($catalog);
+        $previousSnapshot = self::arrayValue($row['source_payload'] ?? []);
+        $identityField = $isModel ? 'model_id' : 'api_id';
+        $oldId = (int)($previousSnapshot['resource'][$identityField] ?? 0);
+        $newId = (int)($resource[$identityField] ?? 0);
+        $previousBadges = $oldId && $newId && $oldId !== $newId ? [] : ($previousSnapshot['market_metadata']['catalog_badges'] ?? []);
+        if (array_key_exists('marketing_tags', $badges)) unset($previousBadges['new_until']);
+        $data['source_payload']['market_metadata']['catalog_badges'] = $badges + $previousBadges;
         if ($row->isEmpty()) {
             $data['create_time'] = time();
             return PowerMarketProduct::create($data);

@@ -13,23 +13,25 @@ use think\facade\Db;
 
 class TenantPowerMarketService
 {
-    public static function models(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = '', bool $agentOnly = false): array
+    public static function models(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $modelType = '', bool $agentOnly = false, array $filters = []): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => self::readModels($tenantId, $keyword, $status, $pageNo, $pageSize, $modelType, $agentOnly));
+        return MarketCatalogReadScope::run(static fn(): array => self::readModels($tenantId, $keyword, $status, $pageNo, $pageSize, $modelType, $agentOnly, $filters));
     }
 
-    private static function readModels(int $tenantId, string $keyword, $status, int $pageNo, int $pageSize, string $modelType, bool $agentOnly): array
+    private static function readModels(int $tenantId, string $keyword, $status, int $pageNo, int $pageSize, string $modelType, bool $agentOnly, array $filters): array
     {
         $query = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'status' => 1]);
         $keyword = trim($keyword);
         $modelType = trim($modelType);
-        if (in_array($modelType, ['text', 'image', 'video'], true)) {
+        if (in_array($modelType, ['text', 'image', 'video', 'other'], true)) {
             $query->where('model_type', $modelType);
         }
+        MarketModelFilter::applyApiStatus($query, $tenantId, $filters['api_status'] ?? '');
         self::applyModelKeyword($query, $tenantId, $keyword);
         $rows = $query->order(['update_time' => 'desc', 'id' => 'desc'])
             ->select()
             ->toArray();
+        $rows = MarketModelFilter::products($rows, $filters);
         if ($agentOnly || in_array('text', array_column($rows, 'model_type'), true)) {
             $agentModels = array_column(AgentComposerSettings::textOptions($tenantId)['models'], null, 'market_product_id');
             if ($agentOnly) $rows = array_values(array_filter($rows, static fn($row) => isset($agentModels[(int)$row['id']])));
@@ -66,17 +68,19 @@ class TenantPowerMarketService
         });
     }
 
-    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
+    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
     {
-        return MarketCatalogReadScope::run(static fn(): array => self::readApps($tenantId, $keyword, $status, $pageNo, $pageSize, $categoryCode));
+        return MarketCatalogReadScope::run(static fn(): array => self::readApps($tenantId, $keyword, $status, $pageNo, $pageSize, $categoryCode, $apiStatus));
     }
 
-    private static function readApps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
+    private static function readApps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = '', $apiStatus = ''): array
     {
-        $products = PowerMarketProduct::where([
+        $query = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
             'status' => 1,
-        ])->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
+        ]);
+        MarketModelFilter::applyApiStatus($query, $tenantId, $apiStatus);
+        $products = $query->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         self::attachProductStats($tenantId, $products);
         self::applyProductDisplays($tenantId, $products);
 
@@ -376,21 +380,27 @@ class TenantPowerMarketService
         bool $all = false,
         string $keyword = '',
         string $modelType = '',
-        $status = ''
+        $status = '',
+        array $filters = []
     ): array {
         if ($tenantId <= 0) {
             throw new Exception('租户信息无效');
         }
 
+        if ($all && (!in_array($modelType, ['', 'text', 'image', 'video', 'other'], true)
+            || !in_array($filters['agent_only'] ?? 0, [0, '0', false], true))) {
+            throw new Exception('当前模型筛选不支持批量上下架');
+        }
         $query = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_MODEL,
             'status' => 1,
         ]);
         $modelType = trim($modelType);
-        if (in_array($modelType, ['text', 'image', 'video'], true)) {
+        if (in_array($modelType, ['text', 'image', 'video', 'other'], true)) {
             $query->where('model_type', $modelType);
         }
         $keyword = trim($keyword);
+        MarketModelFilter::applyApiStatus($query, $tenantId, $filters['api_status'] ?? '');
         self::applyModelKeyword($query, $tenantId, $keyword);
         if (!$all) {
             $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
@@ -400,7 +410,7 @@ class TenantPowerMarketService
             $query->whereIn('id', $productIds);
         }
 
-        $products = $query->select()->toArray();
+        $products = MarketModelFilter::products($query->select()->toArray(), $filters);
         self::attachProductStats($tenantId, $products);
         $products = array_values(array_filter($products, static function (array $product) use ($all, $status): bool {
             if ((int)($product['platform_status'] ?? 0) !== 1) {

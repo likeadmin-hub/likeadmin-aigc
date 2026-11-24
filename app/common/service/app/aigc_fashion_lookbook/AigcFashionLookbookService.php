@@ -786,7 +786,11 @@ class AigcFashionLookbookService
                     ], $quality['ratios'] ?? []),
                 ];
             }
-            $channels[] = ['code' => (string)$channel['code'], 'name' => (string)$channel['name'], 'qualities' => $qualities];
+            $channels[] = [
+                'code' => (string)$channel['code'], 'name' => (string)$channel['name'], 'qualities' => $qualities,
+                'channel_source' => $channel['channel_source'] ?? 'unknown',
+                'marketing_tags' => $channel['marketing_tags'] ?? [],
+            ];
         }
         return $channels;
     }

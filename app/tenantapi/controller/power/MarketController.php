@@ -2,6 +2,7 @@
 
 namespace app\tenantapi\controller\power;
 
+use app\common\service\power\MarketModelFilter;
 use app\common\service\power\TenantPowerMarketService;
 use app\tenantapi\controller\BaseAdminController;
 use Exception;
@@ -17,7 +18,8 @@ class MarketController extends BaseAdminController
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
             (string)$this->request->get('model_type', ''),
-            (int)$this->request->get('agent_only', 0) === 1
+            (int)$this->request->get('agent_only', 0) === 1,
+            $this->request->get()
         ));
     }
 
@@ -29,7 +31,8 @@ class MarketController extends BaseAdminController
             $this->request->get('status', ''),
             (int)$this->request->get('page_no', 1),
             (int)$this->request->get('page_size', 15),
-            (string)$this->request->get('category_code', '')
+            (string)$this->request->get('category_code', ''),
+            $this->request->get('api_status', '')
         ));
     }
 
@@ -123,10 +126,11 @@ class MarketController extends BaseAdminController
                 (int)$this->adminInfo['tenant_id'],
                 (array)$this->request->post('product_ids', []),
                 (int)$this->request->post('sale_status', 0),
-                (bool)$this->request->post('all', false),
+                MarketModelFilter::isBulkRequest($this->request->post()),
                 (string)$this->request->post('keyword', ''),
                 (string)$this->request->post('model_type', ''),
-                $this->request->post('status', '')
+                $this->request->post('status', ''),
+                $this->request->post()
             );
             return $this->success('设置成功', $result, 1, 1);
         } catch (Exception $e) {
