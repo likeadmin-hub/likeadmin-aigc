@@ -8,6 +8,7 @@ use app\common\service\FileService;
 use app\common\service\open_platform\OpenSafeHttp;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\storage\StorageSignedUrlService;
+use InvalidArgumentException;
 use RuntimeException;
 use think\facade\Db;
 
@@ -48,6 +49,20 @@ final class StudioMediaInputService
             ] + $storage;
         }
         return $result;
+    }
+
+    /** Optional display-only artwork for a custom creative genre. */
+    public static function validateGenreCover(int $tenant, int $user, mixed $cover): ?array
+    {
+        if ($cover === null) return null;
+        if (!is_array($cover) || !is_string($cover['uri'] ?? null) || $cover['uri'] === '') {
+            throw new InvalidArgumentException('封面无效，请重新上传');
+        }
+        try {
+            return self::validateImages($tenant, $user, [['uri' => $cover['uri']]], 1)[0];
+        } catch (RuntimeException $e) {
+            throw new InvalidArgumentException('封面已不可用，请重新上传或移除', 0, $e);
+        }
     }
 
     public static function visionInputs(array $canonicalImages): array

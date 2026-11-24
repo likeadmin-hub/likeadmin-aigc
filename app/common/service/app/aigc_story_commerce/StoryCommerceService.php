@@ -47,19 +47,10 @@ final class StoryCommerceService
     }
     public static function models(int $t,string $kind,string $id=''): array {return ['models'=>$kind==='planning'?MarketTextModelRuntimeService::mediaOptions($t,false):StoryCommerceCatalog::models($t,$id)];}
     public static function normalize(int $t,int $u,array $b): array {
-        $cover = $b['custom_story_cover'] ?? null;
+        $cover = StudioMediaInputService::validateGenreCover($t, $u, $b['custom_story_cover'] ?? null);
         $b=StoryCommercePolicy::body($b);$b['images']=StudioMediaInputService::validateImages($t,$u,$b['images'],15);$used=[];
         foreach($b['images'] as $i=>&$img){$slot=ReferenceMaterialSlot::id($img)?:'sc_'.substr(hash('sha256',$img['uri'].'|'.$i),0,24);if(isset($used[$slot]))throw new InvalidArgumentException('商品素材槽位重复');$used[$slot]=true;$img['reference_slot_id']=$slot;$img['mention_name']='图片'.($i+1);}unset($img);
-        if ($cover !== null) {
-            if (!is_array($cover) || !is_string($cover['uri'] ?? null) || $cover['uri'] === '') {
-                throw new InvalidArgumentException('剧情封面无效，请重新上传');
-            }
-            try {
-                $b['custom_story_cover'] = StudioMediaInputService::validateImages($t, $u, [['uri' => $cover['uri']]], 1)[0];
-            } catch (\RuntimeException $e) {
-                throw new InvalidArgumentException('剧情封面已不可用，请重新上传或移除', 0, $e);
-            }
-        }
+        if ($cover !== null) $b['custom_story_cover'] = $cover;
         $b['genre_snapshot']=self::genre($t,$b);return $b;
     }
     public static function genre(int $t,array $b): array {

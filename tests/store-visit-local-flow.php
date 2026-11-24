@@ -18,6 +18,19 @@ try{
  $userInfo="  商品名：用户确认的样本™\n卖点：便于收纳；编号 A-01，保留原文。  \n";
  $b=P::body(['images'=>[['uri'=>$uri,'role'=>'store','reference_slot_id'=>'product_slot'],['uri'=>$uri,'role'=>'person','reference_slot_id'=>'person_slot']],'product_info'=>$userInfo,'requirements'=>'一次暖心误会','story_type'=>'comedy','style_id'=>'legacy-style','language'=>'中文','market_region'=>'中国','video_selection'=>['model_id'=>(string)$m['id'],'quality'=>$spec['quality'],'ratio'=>$spec['ratio'],'duration'=>$seconds]]);
  $project=S::save(1,1,['body'=>$b]);scAssert($project['revision']===1,'Independent draft');scAssert($project['body']['product_info']===$userInfo,'User name, selling points and whitespace survive saving verbatim');
+ $coverUri=$folder.'/cover.png';copy($dir.'/product.png',$dir.'/cover.png');
+ $coverRow=['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>10,'name'=>'visit-type-cover','uri'=>$coverUri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0];
+ $coverId=Db::name('tenant_file')->insertGetId($coverRow);
+ $withCover=$b;$withCover['story_type']='custom';$withCover['custom_story']='进店介绍招牌商品';$withCover['script']='进店后展示 @图片1 和 @图片2';$withCover['custom_story_cover']=['uri'=>$coverUri,'url'=>'https://fixture.invalid/forged.png'];
+ $coverDraft=S::save(1,1,['body'=>$withCover,'confirm_script'=>true]);
+ $cover=S::projectDto(S::owned(1,1,$coverDraft['id']))['body']['custom_story_cover'];
+ scAssert($cover['uri']===$coverUri&&str_ends_with($cover['url'],$coverUri)&&!isset($cover['file_id']),'Draft restores an authorized cover with a managed URL');
+ $coverRequest=J::prepare(1,1,['project_id'=>$coverDraft['id'],'revision'=>$coverDraft['revision'],'action'=>'video'])['request'];
+ scAssert(!in_array($coverUri,array_column($coverRequest['reference_assets'],'uri'),true)&&!str_contains($coverRequest['prompt'],$coverUri),'Cover never reaches model references or prompts');
+ Db::name('tenant_file')->where('id',$coverId)->update(['source_id'=>999999]);scFails(fn()=>S::save(1,1,['body'=>$withCover]),'Foreign user cover rejected');Db::name('tenant_file')->where('id',$coverId)->update(['source_id'=>1]);
+ $withoutCover=$coverDraft['body'];$withoutCover['custom_story_cover']=null;
+ $removed=S::save(1,1,['id'=>$coverDraft['id'],'revision'=>$coverDraft['revision'],'body'=>$withoutCover]);
+ scAssert($removed['script_fresh']&&!isset($removed['body']['custom_story_cover']),'Removing a cover keeps the approved script');
  $legacyBody=$b;unset($legacyBody['product_observations']);scAssert(P::inputKey($legacyBody)===P::inputKey($b),'Empty supplement keeps legacy script freshness keys');
  scFails(fn()=>P::body(['product_info'=>str_repeat(' ',3001)]),'Raw product text length must be bounded');scFails(fn()=>S::owned(2,1,$project['id']),'Tenant ownership');scFails(fn()=>S::owned(1,999999,$project['id']),'User ownership');scFails(fn()=>S::save(1,1,['id'=>$project['id'],'revision'=>0,'body'=>$b]),'Stale write');
  $bad=$b;$bad['style_id']='99999999999';$clean=S::save(1,1,['body'=>$bad]);scAssert($clean['body']['style_id']===P::NO_STYLE&&$clean['body']['style_snapshot']['prompt']==='','Legacy preset styles are discarded');
@@ -70,7 +83,10 @@ $queue=Db::name('ai_task_job')->where('idempotency_key','store_visit:'.$vj['id']
  $emptyAdopted=S::adopt(1,1,['job_id'=>$emptyJobId,'revision'=>1]);scAssert($emptyAdopted['body']['product_info']===''&&$emptyAdopted['body']['product_observations']===$observations&&$emptyAdopted['script_fresh'],'Image-only analysis keeps the optional user input empty and supplies observations/script');
  $videoUri=$folder.'/preview.mp4';copy(dirname(__DIR__,2).'/web/pc/public/media/aigc-preview.mp4',$dir.'/preview.mp4');Db::name('tenant_file')->insert(['tenant_id'=>1,'source_id'=>1,'source'=>1,'type'=>20,'name'=>'store-visit-test-video','uri'=>$videoUri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','create_time'=>time(),'update_time'=>time(),'delete_time'=>0]);
  $video=['video_uri'=>$videoUri,'uri'=>$videoUri,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','width'=>640,'height'=>480,'duration'=>1];J::table()->where('id',$vj['id'])->update(['status'=>'success','billing_status'=>'settled','result_json'=>P::encode(['videos'=>[$video]])]);
+ $templateRequest=P::json(J::owned(1,1,$vj['id'])['request_json']);$templateRequest['snapshot']['custom_story_cover']=$cover;
+ J::table()->where('id',$vj['id'])->update(['request_json'=>P::encode($templateRequest)]);
  $template=T::fromJob(1,$vj['id'],['title'=>'本地剧情模板','status'=>1]);scAssert(T::fromJob(1,$vj['id'],['title'=>'本地剧情模板'])['id']===$template['id'],'Template creation idempotency');$remix=T::remix(1,1,$template['id']);scAssert($remix['id']!==$project['id']&&$remix['script_fresh']&&$remix['body']['product_info']===$userInfo&&$remix['body']['product_observations']===$observations,'Template restores complete script and creates a distinct draft');
+ scAssert(!isset($template['configuration']['custom_story_cover'])&&!isset($remix['body']['custom_story_cover']),'Shareable templates keep the original work cover separate from private genre artwork');
  $assets=app\common\service\WorkspaceStoreVisitAssetService::lists(1,1,1);scAssert(in_array('store_visit:task:'.$vj['id'].':1',array_column($assets['lists'],'ref'),true),'Unified asset adapter');scFails(fn()=>T::detail(2,$template['id'],true),'Tenant template isolation');
  $metadata=T::save(0,['id'=>$template['id'],'title'=>'平台修改名称','sort'=>5]);scAssert($metadata['title']==='平台修改名称','Platform can maintain tenant template metadata without foreign upload receipts');
  $settings=S::settings(1);foreach($settings['genres'] as &$g)if($g['code']==='comedy')$g['instruction']='替换后的新规则';unset($g);S::setup(1,['genres'=>$settings['genres']]);
@@ -89,4 +105,4 @@ $queue=Db::name('ai_task_job')->where('idempotency_key','store_visit:'.$vj['id']
  T::save(1,['id'=>$template['id'],'configuration'=>$noneBody]);$noneRemix=T::remix(1,1,$template['id']);scAssert($noneRemix['script_fresh']&&$noneRemix['body']['style_id']===P::NO_STYLE&&$noneRemix['body']['custom_style']===''&&$noneRemix['body']['script']===$none['script'],'Templates preserve no style through historical copy and remix');
  S::setup(1,['default_style_id'=>P::NO_STYLE]);scAssert(S::config(1)['default_style_id']===P::NO_STYLE,'Tenant can explicitly default to no style');
  echo "PASS transactional draft ownership, native model quote, genre and documentary context, idempotency, queue dispatch, double-payer freeze/refund, stale adoption, historical template remix and asset integration; no provider called\n";
-}catch(Throwable $error){$fixtureFailure=$error;throw $error;}finally{try{Db::rollback();}catch(Throwable $rollbackError){if(!isset($fixtureFailure))throw $rollbackError;}foreach(['product.png','product2.png','preview.mp4'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}
+}catch(Throwable $error){$fixtureFailure=$error;throw $error;}finally{try{Db::rollback();}catch(Throwable $rollbackError){if(!isset($fixtureFailure))throw $rollbackError;}foreach(['product.png','product2.png','preview.mp4','cover.png'] as $name)if(is_file($dir.'/'.$name))unlink($dir.'/'.$name);rmdir($dir);}

@@ -39,6 +39,7 @@ final class StoreVisitTemplates
         return self::persist($owner,$old,$b,$media,(int)($old['source_task_id']??0),$p);
     }
     private static function persist(int $owner,?array $old,array $b,array $media,int $job,array $p): array {
+        unset($b['custom_story_cover']);
         $title=StoreVisitPolicy::text($p['title']??$old['title']??'探店视频灵感',100);if($title==='')throw new InvalidArgumentException('请填写模板名称');
         $clean=static function($v)use(&$clean){if(!is_array($v))return $v;unset($v['url']);foreach($v as $k=>$x)if(is_array($x))$v[$k]=$clean($x);return $v;};$b=$clean($b);$media=$clean($media);
         $r=AppCaseService::save($owner,StoreVisitPolicy::APP,['id'=>$old['id']??0,'title'=>$title,'prompt'=>StoreVisitPolicy::prompt($b),'media_type'=>'video','cover_uri'=>$b['images'][0]['uri'],'media_uri'=>$media['uri']??$media['video_uri'],'reference_images'=>array_column($b['images'],'uri'),'config_json'=>['generation_request'=>['advanced_params'=>['store_visit'=>$b,'store_visit_media'=>$media]]],'source_task_id'=>$job,'source_result_id'=>0,'status'=>(int)($p['status']??$old['status']??1)===1?1:0,'sort'=>max(0,min(9999,(int)($p['sort']??$old['sort']??0)))]);return self::detail($owner,(int)$r['id']);

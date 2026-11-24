@@ -50,8 +50,10 @@ final class StoreVisitService
     }
     public static function models(int $t,string $kind,string $id=''): array {return ['models'=>$kind==='planning'?MarketTextModelRuntimeService::mediaOptions($t,false):StoreVisitCatalog::models($t,$id)];}
     public static function normalize(int $t,int $u,array $b): array {
+        $cover = StudioMediaInputService::validateGenreCover($t, $u, $b['custom_story_cover'] ?? null);
         $b=StoreVisitPolicy::body($b);$b['reference_audio']=StoreVisitVoiceReference::normalize($t,$u,$b['reference_audio']);if($b['reference_audio']&&$b['audio']===false)throw new InvalidArgumentException('使用参考音色时不能关闭声音');foreach($b['images'] as $img)if(!in_array($img['role']??'',['store','person'],true))throw new InvalidArgumentException('素材类型不正确');$b['images']=StudioMediaInputService::validateImages($t,$u,$b['images'],15);$used=[];
         foreach($b['images'] as $i=>&$img){$slot=ReferenceMaterialSlot::id($img)?:'sc_'.substr(hash('sha256',$img['uri'].'|'.$i),0,24);if(isset($used[$slot]))throw new InvalidArgumentException('门店素材槽位重复');$used[$slot]=true;$img['reference_slot_id']=$slot;$img['mention_name']='图片'.($i+1);}unset($img);
+        if ($cover !== null) $b['custom_story_cover'] = $cover;
         $b['genre_snapshot']=self::genre($t,$b);$b['style_snapshot']=StoreVisitCatalog::style($t,$b);return $b;
     }
     public static function genre(int $t,array $b): array {
