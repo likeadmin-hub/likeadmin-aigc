@@ -353,6 +353,8 @@ class DecorateDataSourceService
                 'title' => $display['title'] ?? $appCode,
                 'description' => $display['description'] ?? '',
                 'cover' => $display['cover_url'] ?: '',
+                'cover_preview_type' => $display['cover_preview_type'],
+                'cover_preview_url' => $display['cover_preview_url'],
                 'virtual_use_count' => $display['virtual_use_count'] ?? '',
                 'sort' => (int)($display['sort'] ?? 0),
                 'is_recommend' => 1,

@@ -2,8 +2,10 @@
 
 namespace app\common\service\app;
 
+use app\common\enum\FileEnum;
 use app\common\model\app\App;
 use app\common\model\app\TenantAppConfig;
+use app\common\model\file\TenantFile;
 use app\common\service\FileService;
 use Throwable;
 
@@ -341,6 +343,16 @@ class AppDisplayConfigService
         $current = self::detail($tenantId, $appCode);
         $cover = FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? $params['cover'] ?? $current['cover_uri'] ?? ''));
         $extra = self::normalizeDisplayExtra($params, $current);
+        // Only a selected tenant material ID may change the dynamic cover.
+        $previewId = (int)($current['extra']['cover_preview_id'] ?? 0);
+        if (array_key_exists('cover_preview_id', $params)) {
+            $previewId = filter_var($params['cover_preview_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+            if ($previewId === false || ($previewId && !self::previewFile($tenantId, $previewId))) {
+                throw new \InvalidArgumentException('请选择本租户素材中心的视频、GIF 或 WebP 动图');
+            }
+        }
+        unset($extra['cover_preview_id']);
+        if ($previewId) $extra['cover_preview_id'] = $previewId;
         $data = [
             'tenant_id' => $tenantId,
             'app_code' => $appCode,
@@ -485,6 +497,15 @@ class AppDisplayConfigService
             $data['cover_uri']='resource/image/apps/'.$app.'/cover-v3.gif';
 
         $data['cover_url'] = !empty($data['cover_uri']) ? FileService::getFileUrl((string)$data['cover_uri']) : '';
+        $tenantId = (int)($data['tenant_id'] ?? 0);
+        $previewId = (int)($data['extra']['cover_preview_id'] ?? 0);
+        $file = $previewId && $tenantId ? self::previewFile($tenantId, $previewId) : null;
+        $data['cover_preview_id'] = $file ? $previewId : 0;
+        $data['cover_preview_type'] = $file ? ((int)$file['type'] === FileEnum::VIDEO_TYPE ? 'video' : 'image') : '';
+        $data['cover_preview_uri'] = $file['uri'] ?? '';
+        $data['cover_preview_url'] = $file ? FileService::getFileUrlByStorage(
+            $file['uri'], $file['storage_scope'], $file['storage_engine'], $file['storage_domain'], $tenantId
+        ) : '';
         foreach (['skill_preview_images'=>'skill_preview_image_urls','skill_preview_videos'=>'skill_preview_video_urls'] as $field=>$urls) {
             try{$items=self::normalizeSkillMedia($data['extra'][$field]??[],str_ends_with($field,'images')?5:3);}catch(\InvalidArgumentException){$items=[];}
             $data[$field]=$items;
@@ -492,6 +513,19 @@ class AppDisplayConfigService
         }
         $data['icon_url'] = !empty($data['icon_uri']) ? FileService::getFileUrl((string)$data['icon_uri']) : '';
         return $data;
+    }
+
+    private static function previewFile(int $tenantId, int $id): ?array
+    {
+        $file = TenantFile::where(['tenant_id' => $tenantId, 'id' => $id, 'source' => FileEnum::SOURCE_ADMIN])
+            ->field('type,uri,storage_scope,storage_engine,storage_domain')->find();
+        if (!$file) return null;
+        $type = (int)$file['type'];
+        if ($type === FileEnum::VIDEO_TYPE || ($type === FileEnum::IMAGE_TYPE &&
+            preg_match('/\.(gif|webp)$/i', (string)parse_url($file['uri'], PHP_URL_PATH)))) {
+            return $file->toArray();
+        }
+        return null;
     }
 
     private static function normalizeAppCode(string $appCode): string
