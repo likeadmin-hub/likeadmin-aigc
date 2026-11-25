@@ -39,6 +39,7 @@ final class StoreVisitTemplates
         return self::persist($owner,$old,$b,$media,(int)($old['source_task_id']??0),$p);
     }
     private static function persist(int $owner,?array $old,array $b,array $media,int $job,array $p): array {
+        unset($b['custom_story_cover']);
         $title=StoreVisitPolicy::text($p['title']??$old['title']??'探店视频灵感',100);if($title==='')throw new InvalidArgumentException('请填写模板名称');
         $clean=static function($v)use(&$clean){if(!is_array($v))return $v;unset($v['url']);foreach($v as $k=>$x)if(is_array($x))$v[$k]=$clean($x);return $v;};$b=$clean($b);$media=$clean($media);
         $r=AppCaseService::save($owner,StoreVisitPolicy::APP,['id'=>$old['id']??0,'title'=>$title,'prompt'=>StoreVisitPolicy::prompt($b),'media_type'=>'video','cover_uri'=>$b['images'][0]['uri'],'media_uri'=>$media['uri']??$media['video_uri'],'reference_images'=>array_column($b['images'],'uri'),'config_json'=>['generation_request'=>['advanced_params'=>['store_visit'=>$b,'store_visit_media'=>$media]]],'source_task_id'=>$job,'source_result_id'=>0,'status'=>(int)($p['status']??$old['status']??1)===1?1:0,'sort'=>max(0,min(9999,(int)($p['sort']??$old['sort']??0)))]);return self::detail($owner,(int)$r['id']);
@@ -66,11 +67,18 @@ final class StoreVisitTemplates
         }finally{SubmitLockService::release($lock);}
     }
     public static function remix(int $t,int $u,int $id): array {
-        StoreVisitService::available($t,$u);if($preset=StoreVisitStarterCatalog::find($id))return StoreVisitStarterCatalog::dto($preset);$r=self::row($t,$id,true);$entry=Builtins::definition(StoreVisitPolicy::APP,$id);$b=$entry?Builtins::bodyFor(StoreVisitPolicy::APP,$t,$entry):self::stored($r);$owner=(int)$r['tenant_id'];
+        StoreVisitService::available($t,$u);
+        if($preset=StoreVisitStarterCatalog::find($id))return StoreVisitStarterCatalog::dto($preset);
+        $r=self::row($t,$id,true);
+        $entry=Builtins::definition(StoreVisitPolicy::APP,$id);
+        [$b,$notice,$confirmed]=$entry
+            ? Builtins::videoDraft(StoreVisitPolicy::APP,$t,$entry,(string)StoreVisitService::settings($t)['default_video_model_id'])
+            : [self::stored($r),'',true];
+        $owner=(int)$r['tenant_id'];
         foreach($b['images'] as &$image)$image=Media::grant($t,$u,$owner,$image,10);unset($image);
         if(!empty($b['reference_audio']))$b['reference_audio']=Media::grant($t,$u,$owner,$b['reference_audio'],30);
         $b=StoreVisitService::historicalBody($t,$b);
-        return StoreVisitService::save($t,$u,['body'=>$b,'confirm_script'=>true]);
+        return StoreVisitService::save($t,$u,['body'=>$b,'confirm_script'=>$confirmed])+['template_notice'=>$notice];
     }
     public static function status(int $s,int $id,int $v,array $p=[]): void {if(StoreVisitStarterCatalog::find($id))throw new InvalidArgumentException('内置脚本灵感由系统维护');if(Builtins::info(StoreVisitPolicy::APP,$id)){Builtins::change(StoreVisitPolicy::APP,$s,$id,$p+['status'=>$v],'status');return;}$r=self::row($s,$id);self::writable($s,$r);AppCaseService::setStatus((int)$r['tenant_id'],StoreVisitPolicy::APP,$id,$v===1?1:0);}
     public static function delete(int $s,int $id,array $p=[]): void {if(StoreVisitStarterCatalog::find($id))throw new InvalidArgumentException('内置脚本灵感由系统维护');if(Builtins::info(StoreVisitPolicy::APP,$id)){Builtins::change(StoreVisitPolicy::APP,$s,$id,$p,'delete');return;}$r=self::row($s,$id);self::writable($s,$r);AppCaseService::delete((int)$r['tenant_id'],StoreVisitPolicy::APP,$id);}

@@ -8,11 +8,13 @@ use InvalidArgumentException;
 /** Portable, reviewed source definitions. No credentials, local upload IDs or media binaries. */
 final class StudioBuiltinCatalog
 {
-    public const APPS=['aigc_motion_sync','aigc_story_commerce','aigc_store_visit'];
+    public const APPS=['aigc_story_commerce','aigc_store_visit'];
+    // Old motion-sync drafts can still reference media pinned by these definitions.
+    private const LEGACY_MEDIA_APP = 'aigc_motion_sync';
     private static array $directories=[];
     private static array $memo=[];
     public static function assertApp(string $app): void {if(!in_array($app,self::APPS,true))throw new InvalidArgumentException('应用不支持此内置模板入口');}
-    public static function directory(string $app): string {self::assertApp($app);return self::$directories[$app]??dirname(__DIR__,3).'/apps/'.$app.'/data/inspirations';}
+    public static function directory(string $app): string {if($app!==self::LEGACY_MEDIA_APP)self::assertApp($app);return self::$directories[$app]??dirname(__DIR__,3).'/apps/'.$app.'/data/inspirations';}
     public static function withDirectory(string $app,string $dir,callable $call): mixed
     {
         self::assertApp($app);if(PHP_SAPI!=='cli')throw new InvalidArgumentException('目录仅允许在控制台测试中指定');
@@ -29,7 +31,7 @@ final class StudioBuiltinCatalog
     }
     public static function validate(string $app,array $data): array
     {
-        self::assertApp($app);
+        if($app!==self::LEGACY_MEDIA_APP)self::assertApp($app);
         if(($data['schema_version']??0)!==1||($data['app_code']??'')!==$app||(int)($data['version']??0)<1)throw new InvalidArgumentException('内置模板定义不匹配');
         $identity=array_intersect_key((array)($data['model_identity']??[]),array_flip(['source_code','upstream_resource_key','resource_type','upstream_app_code']));
         if(empty($identity['source_code'])||empty($identity['upstream_resource_key']))throw new InvalidArgumentException('内置模板缺少稳定模型标识');
@@ -53,12 +55,12 @@ final class StudioBuiltinCatalog
     }
     public static function assets(string $app,array $entry): array
     {
-        $b=$entry['configuration'];return array_merge($app==='aigc_motion_sync'?[$b['image'],$b['video']]:$b['images'],[$entry['media']],$entry['retained_media']??[]);
+        $b=$entry['configuration'];return array_merge($app===self::LEGACY_MEDIA_APP?[$b['image'],$b['video']]:$b['images'],[$entry['media']],$entry['retained_media']??[]);
     }
     public static function asset(string $uri,string $engine,string $domain): ?array
     {
         if(!in_array($engine,['aliyun','qcloud','qiniu'],true)||$domain==='')return null;
-        foreach(self::APPS as $app)foreach(self::all($app) as $entry)foreach(self::assets($app,$entry) as $a)
+        foreach([...self::APPS,self::LEGACY_MEDIA_APP] as $app)foreach(self::all($app) as $entry)foreach(self::assets($app,$entry) as $a)
             if($a['uri']===ltrim($uri,'/')&&$a['storage_engine']===$engine&&$a['storage_domain']===rtrim($domain,'/'))return $a;
         return null;
     }
@@ -66,6 +68,7 @@ final class StudioBuiltinCatalog
     { $a=self::asset($uri,$engine,$domain);return $a?$a['storage_domain'].'/'.$a['uri']:null; }
     public static function write(string $app,array $data): array
     {
+        self::assertApp($app);
         $data=self::validate($app,$data);$dir=self::directory($app);
         if(!is_dir($dir)||is_link($dir)||!is_writable($dir))throw new InvalidArgumentException('内置模板目录不可写，请联系维护人员');
         $old=self::all($app)[$data['key']]??[];$pins=[];

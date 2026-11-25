@@ -207,9 +207,9 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = [], bool $tenantAdminConsumption = false): array
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = [], bool $tenantAdminConsumption = false, string $appCode = ''): array
     {
-        return self::quoteInternal($tenantId, $selection, $quantity, $billingOverride, $tenantAdminConsumption, false);
+        return self::quoteInternal($tenantId, $selection, $quantity, $billingOverride, $tenantAdminConsumption, false, $appCode);
     }
 
     /** For preliminary estimates before the business has created a prompt. Never use for admission. */
@@ -219,18 +219,18 @@ class MarketImageModelRuntimeService
     }
 
     /** Resolve the model contract before assembling the same references used at submission. */
-    public static function selectionSnapshot(int $tenantId, array $selection): array
+    public static function selectionSnapshot(int $tenantId, array $selection, string $appCode = ''): array
     {
-        return self::snapshot(self::resolve($tenantId, $selection));
+        return self::snapshot(self::resolve($tenantId, $selection, $appCode));
     }
 
-    private static function quoteInternal(int $tenantId, array $selection, int $quantity, array $billingOverride, bool $tenantAdminConsumption, bool $deferMissingPrompt): array
+    private static function quoteInternal(int $tenantId, array $selection, int $quantity, array $billingOverride, bool $tenantAdminConsumption, bool $deferMissingPrompt, string $appCode = ''): array
     {
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
-        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection), $tenantId, 0, $tenantAdminConsumption);
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $selection, $appCode), $tenantId, 0, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
-        $market = self::meterMarket($market, $selection, $deferMissingPrompt, $tenantId, $quantity);
+        $market = self::meterMarket($market, $selection, $deferMissingPrompt, $tenantId, $quantity, $appCode);
         return self::quoteMarket($market, $quantity, $billingOverride) + ['follow_market_prices' => MarketPriceRuleService::followsApps($tenantId)];
     }
 
@@ -242,9 +242,18 @@ class MarketImageModelRuntimeService
         return ['market' => $market, 'quote' => self::quoteMarket($market, $quantity, [])];
     }
 
-    private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false, int $tenantId = 0, ?int $quantity = null): array
+    private static function meterMarket(array $market, array $selection, bool $deferMissingPrompt = false, int $tenantId = 0, ?int $quantity = null, string $appCode = ''): array
     {
         [$itemPricing, $meter] = self::pricingContracts($market['sku'], $tenantId);
+        $fixedLayerLimit = $appCode === MarketLayerDecomposition::APP ? MarketLayerDecomposition::fixedOutputLimit($market['product']) : null;
+        if ($fixedLayerLimit !== null) {
+            if (!MarketLayerDecomposition::supportsFixedOutputBilling($market['sku'])
+                || (float)$market['sku']['sale_points'] <= 0 || (float)$market['tenant_price'] <= 0) {
+                throw new \InvalidArgumentException('该图层分离规格暂无有效的输出张数计费');
+            }
+            if ($quantity !== null && $quantity !== 1) throw new \InvalidArgumentException('图层拆分每次任务只处理 1 张输入图');
+            $market['image_item_facts'] = ['output_limit' => $fixedLayerLimit];
+        }
         if ($itemPricing !== null) {
             $market['image_item_pricing'] = $itemPricing;
             $prepared = self::prepareRequest(self::snapshot($market), $selection, $tenantId, $deferMissingPrompt);
@@ -379,6 +388,9 @@ class MarketImageModelRuntimeService
     {
         $quantity = max(1, $quantity);
         self::assertImageQuantity($market, $quantity);
+        $pricing = $market['image_item_pricing'] ?? null;
+        $outputLimit = $market['image_item_facts']['output_limit'] ?? null;
+        $billableQuantity = $pricing === null ? ($outputLimit ?? $quantity) : $quantity;
         $bounded=MarketGenerationMeter::boundedToken((array)($market['billing_meter']??[]));
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku'])&&!$bounded;
         $quote = [
@@ -387,8 +399,8 @@ class MarketImageModelRuntimeService
             'quantity' => $deferredUsage ? 0 : $quantity,
             'tenant_unit_points' => self::points((float)$market['sku']['sale_points']),
             'user_unit_points' => self::points((float)$market['tenant_price']),
-            'tenant_cost_points' => $deferredUsage ? 0 : MarketGenerationImageBilling::price((float)$market['sku']['sale_points'], $quantity, self::snapshot($market)),
-            'user_charge_points' => $deferredUsage ? 0 : MarketGenerationImageBilling::price((float)$market['tenant_price'], $quantity, self::snapshot($market)),
+            'tenant_cost_points' => $deferredUsage ? 0 : MarketGenerationImageBilling::price((float)$market['sku']['sale_points'], $billableQuantity, self::snapshot($market)),
+            'user_charge_points' => $deferredUsage ? 0 : MarketGenerationImageBilling::price((float)$market['tenant_price'], $billableQuantity, self::snapshot($market)),
             'settlement_mode' => $deferredUsage || self::requiresMeterReceipt(self::snapshot($market)) ? 'actual_usage' : 'reserved',
             'price_source' => 'power_market_sku',
             'market_product_id' => (int)$market['product']['id'],
@@ -396,7 +408,6 @@ class MarketImageModelRuntimeService
             'market_snapshot' => self::snapshot($market),
         ] + MarketGenerationMeter::priceDisplayFields($market['sku']);
         if($bounded)$quote['billing_quantity']=$market['billing_meter']['maximum_quantity'];
-        $pricing = $market['image_item_pricing'] ?? null;
         if ($pricing !== null) {
             $facts = $market['image_item_facts'];
             $reservedOutput = $facts['output_limit'] ?? $quantity;
@@ -419,8 +430,8 @@ class MarketImageModelRuntimeService
             $rate = (float)$quote['user_unit_points'];
             $inputCount = (int)($context['reference_images'] ?? 0);
             $free = (int)($meter['free_images'] ?? 0);
-            $items = [['code'=>'output_images','label'=>'输出图片','unit'=>'张输出图','quantity'=>$quantity,
-                'unit_points'=>$rate, 'points'=>round($quantity*$rate/$quote['billing_unit_size'],6)]];
+            $items = [['code'=>'output_images','label'=>'输出图片','unit'=>'张输出图','quantity'=>$billableQuantity,
+                'unit_points'=>$rate, 'points'=>round($billableQuantity*$rate/$quote['billing_unit_size'],6)]];
             if (!empty($meter['image_denominator'])) {
                 $inputRate = $rate * $meter['image_numerator'] / $meter['image_denominator'] / $quote['billing_unit_size'];
                 $paid = max(0,$inputCount-$free);
@@ -428,6 +439,7 @@ class MarketImageModelRuntimeService
             }
             $quote['billing_details'] = ['mode'=>'image_count','input_count'=>$inputCount,'included'=>$free,'items'=>$items,
                 'round_up'=>!empty($meter['round_up']) && $billingOverride===[]];
+            if ($outputLimit !== null) $quote['billing_details']['output_limit'] = $outputLimit;
         }
         return $quote;
     }
@@ -472,13 +484,13 @@ class MarketImageModelRuntimeService
         $materialSelection = array_replace($selection, array_intersect_key($request, array_flip([
             'reference_assets', 'reference_images', 'generation_method', 'generation_type', 'material_mode',
         ])));
-        $market = self::tenantAdminMarket(self::resolve($tenantId, $materialSelection), $tenantId, $userId, $tenantAdminConsumption);
+        $market = self::tenantAdminMarket(self::resolve($tenantId, $materialSelection, $appCode), $tenantId, $userId, $tenantAdminConsumption);
         if ($tenantAdminConsumption && $billingOverride !== []) throw new Exception('租户后台调用不能覆盖用户售价');
         if (MarketPriceRuleService::followsApps($tenantId)) unset($billingOverride['user_unit_price'], $billingOverride['user_charge_points']);
         $quantity = max(1, $quantity);
         \app\common\service\open_platform\OpenImagePricing::assertQuantity($tenantId, $quantity);
         self::assertImageQuantity($market, $quantity);
-        $market = self::meterMarket($market, $request, false, $tenantId, $quantity);
+        $market = self::meterMarket($market, $request, false, $tenantId, $quantity, $appCode);
         $bounded=MarketGenerationMeter::boundedToken((array)($market['billing_meter']??[]));
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku'])&&!$bounded;
         if (isset($market['image_item_pricing'], $billingOverride['tenant_cost_points'])) {
@@ -1086,6 +1098,9 @@ class MarketImageModelRuntimeService
             $actualUsage = $bounded?MarketUsageSettlementService::boundedTokenUsage($response,$snapshot['billing_meter']):MarketUsageSettlementService::tokenUsage($response);
             $itemPricing = $snapshot['image_item_pricing'] ?? null;
             $itemFacts = $snapshot['image_item_facts'] ?? [];
+            if (isset($itemFacts['output_limit']) && $quantity > $itemFacts['output_limit']) {
+                throw new Exception('实际出图数量超过已预占的计费数量');
+            }
             $itemToken = MarketImageItemBilling::isToken($snapshot);
             $itemReceipt = $itemToken ? MarketImageItemBilling::receipt($itemPricing, $response, $itemFacts) : null;
             if(($bounded&&$actualUsage<=0)||($itemToken&&$itemReceipt===null)){
@@ -1143,10 +1158,13 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
-    private static function resolve(int $tenantId, array $selection): array
+    private static function resolve(int $tenantId, array $selection, string $appCode = ''): array
     {
         $frozen = \app\common\service\open_platform\OpenImagePricing::market($tenantId, $selection, 'model');
         if ($frozen !== null) return $frozen;
+        $products = $appCode === MarketLayerDecomposition::APP
+            ? MarketLayerDecomposition::products()
+            : PowerMarketProduct::where(['resource_type' => 'model', 'model_type' => 'image', 'status' => 1]);
         $productId = self::productId($selection);
         $skuId = self::skuId($selection);
         if ($skuId > 0) {
@@ -1155,7 +1173,7 @@ class MarketImageModelRuntimeService
             if ($productId > 0 && $productId !== (int)$sku['product_id']) {
                 throw new Exception('所选图片规格与当前模型不一致，请重新选择规格');
             }
-            $product = PowerMarketProduct::where(['id' => (int)$sku['product_id'], 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
+            $product = $products->where('id', (int)$sku['product_id'])->findOrEmpty();
             if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
             $productData = $product->toArray();
             $market = self::marketRow($tenantId, $productData, $sku->toArray());
@@ -1174,7 +1192,7 @@ class MarketImageModelRuntimeService
         }
 
         if ($productId <= 0) throw new Exception('请选择算力市场图片模型');
-        $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
+        $product = $products->where('id', $productId)->findOrEmpty();
         if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
         return self::resolveProduct($tenantId, $product->toArray(), $selection);
     }
@@ -1941,6 +1959,16 @@ class MarketImageModelRuntimeService
             $data['output']['results'] ?? [],
         ] as $rows) {
             self::collectImageUrls($rows, $urls);
+        }
+        if ($urls === [] && ($snapshot['channel_code'] ?? '') === 'official'
+            && MarketLayerDecomposition::profile((string)($snapshot['model_code'] ?? '')) !== null) {
+            // Accept the supplier's resultUrls envelope when the gateway has not normalized it.
+            foreach ([$data, $data['data'] ?? [], $data['result'] ?? []] as $envelope) {
+                if (!is_array($envelope)) continue;
+                $encoded = $envelope['resultJson'] ?? null;
+                $decoded = is_string($encoded) ? json_decode($encoded, true) : null;
+                self::collectImageUrls($envelope['resultUrls'] ?? $decoded['resultUrls'] ?? [], $urls);
+            }
         }
         $result = [];
         $urls = array_values(array_unique($urls));

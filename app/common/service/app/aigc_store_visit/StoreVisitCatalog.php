@@ -45,6 +45,11 @@ final class StoreVisitCatalog
     public static function selection(int $tenant,array $b): array {
         $s=$b['video_selection'];$model=null;foreach(self::models($tenant,(string)($s['model_id']??'')) as $m)if((string)$m['id']===(string)($s['model_id']??''))$model=$m;
         if(!$model)throw new InvalidArgumentException('所选视频模型不可用，不会自动替换');
+        return self::selectionForModel($model,$b);
+    }
+    public static function selectionForModel(array $model,array $b): array
+    {
+        $s=$b['video_selection'];
         $spec=StudioVideoCatalogService::spec($model,(string)($s['quality']??''),(string)($s['ratio']??''),(int)($s['duration']??0),'reference');
         $hasVoice=!empty($b['reference_audio']);if($hasVoice&&empty($model['supports_reference_audio']))throw new InvalidArgumentException('当前模型不支持参考音色，请选择支持参考音频的模型');
         $n=count($b['images']);if(!$n||$n>(int)$model['max_reference_images'])throw new InvalidArgumentException('门店图片数量超出当前模型支持范围');

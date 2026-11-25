@@ -12,7 +12,7 @@ final class StoryCommerceJobs
     public static function table(){return StoryCommerceService::table('job');}
     public static function owned(int $t,int $u,int $id,bool $admin=false): array {$q=self::table()->where(['id'=>$id,'delete_time'=>0]);if(!$admin||$t>0)$q->where('tenant_id',$t);if(!$admin)$q->where('user_id',$u);$r=$q->find();if(!$r)throw new InvalidArgumentException('任务不存在或无权访问');return $r;}
     public static function dto(array $r,bool $admin=false): array {
-        $req=StoryCommercePolicy::json($r['request_json']);$t=(int)$r['tenant_id'];$b=$req['snapshot']??[];
+        $req=StoryCommercePolicy::json($r['request_json']);$t=(int)$r['tenant_id'];$b=StoryCommercePolicy::withoutLegacyStyle($req['snapshot']??[]);
         $v=['id'=>(int)$r['id'],'project_id'=>(int)$r['project_id'],'project_revision'=>(int)$r['project_revision'],'action'=>$r['action'],'status'=>$r['status'],'billing_status'=>$r['billing_status'],'user_charge_points'=>(float)$r['user_charge_points'],
             'estimated_user_charge_points'=>isset($req['quote']['user_charge_points'])?(float)$req['quote']['user_charge_points']:null,
             'configuration'=>StoryCommerceService::publicBody($b,$t),'result'=>StoryCommerceService::publicBody(StoryCommercePolicy::json($r['result_json']),$t),
@@ -40,7 +40,7 @@ final class StoryCommerceJobs
         }else{
             $id=(string)StoryCommerceService::settings($t)['planning_model_id'];$options=Text::mediaOptions($t,false);$id=StoryCommerceDefaults::planning($id,$options);if(!$id||!in_array($id,array_column($options,'id'),true))throw new InvalidArgumentException('暂无已上架的图像理解模型，请联系管理员');
             $m=Text::resolveModel($t,$id,true);$r+=['selection'=>['model_id'=>$id],'model_fingerprint'=>TextModelExecutionPolicy::fingerprint($m),'system'=>StoryCommercePrompts::system(),
-                'content'=>StoryCommercePolicy::encode(['product_info'=>$b['product_info'],'requirements'=>$b['requirements'],'existing_script'=>$b['script'],'genre'=>$b['genre_snapshot'],'visual_style'=>$b['style_snapshot'],'duration'=>(int)$selection['duration'],'ratio'=>$selection['ratio'],'language'=>$b['language'],'market_region'=>$b['market_region'],'audio'=>$b['audio'],'image_slots'=>array_column($b['images'],'reference_slot_id')])];
+                'content'=>StoryCommercePolicy::encode(['product_info'=>$b['product_info'],'requirements'=>$b['requirements'],'existing_script'=>$b['script'],'genre'=>$b['genre_snapshot'],'duration'=>(int)$selection['duration'],'ratio'=>$selection['ratio'],'language'=>$b['language'],'market_region'=>$b['market_region'],'audio'=>$b['audio'],'image_slots'=>array_column($b['images'],'reference_slot_id')])];
             $quote=['approximate'=>true,'user_charge_points'=>null,'tenant_cost_points'=>0,'model_name'=>$m['name'],'input'=>$m['input'],'output'=>$m['output'],'precheck_tenant_points'=>max((float)$m['input']['platform_price'],(float)$m['output']['platform_price'])>0?0.01:0,'precheck_user_points'=>max((float)$m['input']['tenant_price'],(float)$m['output']['tenant_price'])>0?0.01:0,'notice'=>'剧情分析按实际输入和输出用量结算'];
         }
         $r['quote']=$quote;$stable=$r;unset($stable['images']);$clean=static function($x)use(&$clean){if(!is_array($x))return $x;unset($x['url'],$x['video_url'],$x['image_url']);foreach($x as $k=>$v)if(is_array($v))$x[$k]=$clean($v);return $x;};

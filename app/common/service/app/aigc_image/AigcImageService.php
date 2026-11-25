@@ -18,6 +18,7 @@ use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketImageModelRuntimeService;
+use app\common\service\power\MarketLayerDecomposition;
 use app\common\service\storage\StorageConfigService;
 use app\common\model\ai\AiConsumptionLog;
 use Exception;
@@ -107,10 +108,12 @@ class AigcImageService
         return MarketImageModelRuntimeService::options($tenantId);
     }
 
-    public static function estimateMarketModel(int $tenantId, array $params, array $billingOverride = []): array
+    public static function estimateMarketModel(int $tenantId, array $params, array $billingOverride = [], string $appCode = ''): array
     {
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
-        $quote = MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride);
+        $quote = $appCode === MarketLayerDecomposition::APP
+            ? MarketImageModelRuntimeService::quote($tenantId, $params, $quantity, $billingOverride, false, $appCode)
+            : MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride);
         return [
             'quantity' => $quantity,
             'platform_unit_cost' => (float)$quote['tenant_unit_points'],
@@ -172,13 +175,20 @@ class AigcImageService
             return self::buildDuplicateGenerateResponse($existing, $tenantId, $userId);
         }
         $batchMetadata = AigcImageCreationBatch::takeFromRequest($params);
+        if ($appCode === MarketLayerDecomposition::APP && isset($params['layer_model_code'])) {
+            $batchMetadata['_layer_model_code'] = $params['layer_model_code'];
+        }
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
         $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? []), $tenantId, $userId);
         self::checkSensitiveWords($tenantId, $prompt);
-        $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride);
-        if ($prompt === '' && !\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt((array)MarketGenerationRuntime::selection('image',$params)->quote($tenantId,$quantity,$billingOverride)['market_snapshot'],$params)) throw new Exception('请输入提示词');
+        $estimate = self::estimateMarketModel($tenantId, $params, $billingOverride, $appCode);
+        // Graphical decomposition allows an empty description in its validated native request.
+        if ($prompt === '' && $appCode !== MarketLayerDecomposition::APP) {
+            $snapshot = (array)MarketGenerationRuntime::selection('image', $params)->quote($tenantId, $quantity, $billingOverride)['market_snapshot'];
+            if (!\app\common\service\power\MarketGenerationRequest::allowsEmptyPrompt($snapshot, $params)) throw new Exception('请输入提示词');
+        }
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $claim = AigcImageSubmission::claim([
@@ -215,8 +225,17 @@ class AigcImageService
         }
     }
 
+    public static function existingMarketSubmission(int $tenantId, int $userId, array $params, string $appCode): ?array
+    {
+        $task = AigcImageSubmission::find($tenantId, $userId, AigcImageSubmission::key($params, $appCode));
+        return $task ? self::buildDuplicateGenerateResponse($task, $tenantId, $userId) : null;
+    }
+
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], ?callable $onTaskCreated = null): array
     {
+        if (($params['style'] ?? '') === MarketLayerDecomposition::STYLE) {
+            throw new Exception('请在图层分离工具中提交');
+        }
         $params = \app\common\service\power\MarketCreationParameters::apply($tenantId, $params, 'image');
         $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));

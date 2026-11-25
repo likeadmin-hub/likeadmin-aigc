@@ -20,6 +20,7 @@ final class WorkspaceAssetService
         'product_image' => 'aigc_product_image', 'product_suite' => 'aigc_product_suite',
         'product_multi_angle' => 'aigc_product_multi_angle', 'product_promo_video' => 'aigc_product_promo_video',
         'store_visit' => 'aigc_store_visit', 'story_commerce' => 'aigc_story_commerce', 'product_video' => 'aigc_product_video', 'motion_sync' => 'aigc_motion_sync',
+        'animate_replace' => 'aigc_animate_replace',
         'fashion_lookbook' => 'aigc_fashion_lookbook', 'model_wear' => 'aigc_model_wear',
         'local_redraw' => 'aigc_local_redraw', 'outpaint' => 'aigc_outpaint',
         'photo_restore' => 'aigc_photo_restore', 'image_translate' => 'aigc_image_translate',
@@ -123,6 +124,7 @@ final class WorkspaceAssetService
         if ($source==='store_visit') return WorkspaceStoreVisitAssetService::lists($tenant,$user,$page);
         if ($source==='story_commerce') return WorkspaceStoryCommerceAssetService::lists($tenant,$user,$page);
         if ($source==='product_video') return WorkspaceProductVideoAssetService::lists($tenant,$user,$page);
+        if ($source === 'animate_replace') return WorkspaceAnimateReplaceAssetService::lists($tenant, $user, $page);
         if (!isset(self::TASK_OUTPUTS[$source])) throw new InvalidArgumentException('资产来源无效');
         $rows = self::taskOutputQuery($tenant, $user, $source)->order('id', 'desc')
             ->limit((max(1, $page) - 1) * 30, 31)->select()->toArray();
@@ -211,7 +213,7 @@ final class WorkspaceAssetService
         if (!$stamp) return;
         [$source, $kind, $id] = explode(':', $ref);
         if ($source === 'canvas' && $kind === 'task') return;
-        if (in_array($source,['product_video','story_commerce','store_visit'],true)) return; // Per-output library state; never delete the job or a physical video.
+        if (in_array($source,['product_video','story_commerce','store_visit','animate_replace'],true)) return; // Per-output library state; never delete the job or a physical video.
         // Agent-only documents/speech have no generation task to delete. Library state is authoritative.
         if ($source === 'agent') return;
         if (isset(self::TASK_OUTPUTS[$source])) {
@@ -274,6 +276,7 @@ final class WorkspaceAssetService
         if ($source === 'store_visit') return WorkspaceStoreVisitAssetService::owned($tenant,$user,$ref);
         if ($source === 'story_commerce') return WorkspaceStoryCommerceAssetService::owned($tenant,$user,$ref);
         if ($source === 'product_video') return WorkspaceProductVideoAssetService::owned($tenant,$user,$ref);
+        if ($source === 'animate_replace') return WorkspaceAnimateReplaceAssetService::owned($tenant, $user, $kind, (int)$id);
         if (isset(self::TASK_OUTPUTS[$source])) {
             $row = self::taskOutputQuery($tenant, $user, $source, $includeDeleted)->where('id', (int)$id)->find();
             return $row ? self::presentTaskOutput($source, $row) : null;

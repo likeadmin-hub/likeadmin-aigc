@@ -1,0 +1,69 @@
+{
+  "code": "aigc_layer_decomposition",
+  "name": "图层分离",
+  "version": "1.0.0",
+  "require_core": ">=1.0.442",
+  "description": "将一张图片拆分为底图与多个独立图层。",
+  "changelog": "1. 新增图层分离工具。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 854,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_layer_decomposition",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "generate"
+    ],
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_layer_decomposition",
+      "name": "图层分离",
+      "path": "/ai/tools/aigc_layer_decomposition",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 854,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_layer_decomposition_admin",
+      "name": "图层分离",
+      "path": "/apps/aigc_layer_decomposition/config",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 854,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_layer_decomposition",
+      "name": "图层分离",
+      "path": "/apps/aigc_layer_decomposition/pages/creator/index",
+      "meta": {
+        "pages": [
+          {
+            "name": "图层分离",
+            "path": "/apps/aigc_layer_decomposition/pages/creator/index"
+          },
+          {
+            "name": "历史创作",
+            "path": "/apps/aigc_layer_decomposition/pages/tasks/index"
+          }
+        ]
+      },
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 854,
+      "status": 1
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `la_aigc_animate_replace_task` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `batch_key` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `app_task_id` bigint unsigned NOT NULL DEFAULT 0,
+  `consumption_id` bigint unsigned NOT NULL DEFAULT 0,
+  `input_json` text NOT NULL,
+  `request_json` mediumtext NOT NULL,
+  `duration` decimal(9,3) unsigned NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'pending',
+  `create_time` int unsigned NOT NULL,
+  `update_time` int unsigned NOT NULL,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_request_owner` (`tenant_id`,`user_id`,`batch_key`),
+  KEY `idx_user_history` (`tenant_id`,`user_id`,`delete_time`,`id`),
+  KEY `idx_tenant_history` (`tenant_id`,`delete_time`,`id`),
+  KEY `idx_consumption` (`consumption_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='动画替换任务及素材快照';

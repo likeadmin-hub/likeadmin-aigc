@@ -77,7 +77,7 @@ final class GenerationWorkSourceService
             });
         }
         if ($app === 'aigc_image') {
-            $styles = array_merge(self::IMAGE_TOOLS,['hairstyle']);
+            $styles = array_merge(self::IMAGE_TOOLS,['hairstyle', 'layer_decomposition']);
             $query->whereNotIn(($alias !== '' ? $alias.'.' : '').'style',$styles);
         }
     }
@@ -112,7 +112,7 @@ final class GenerationWorkSourceService
         }
         foreach ($rows as &$row) {
             $owner = (int)$row['tenant_id'].':'.(int)$row['user_id'];
-            $row['creation_source'] = $mapped[$owner][(int)$row['id']] ?? ['app_code'=>$app === 'aigc_image' && in_array($row['style'] ?? '',array_merge(self::IMAGE_TOOLS,['hairstyle']),true) ? 'aigc_'.$row['style'] : $app,'task_id'=>(string)$row['id']];
+            $row['creation_source'] = $mapped[$owner][(int)$row['id']] ?? ['app_code'=>$app === 'aigc_image' && in_array($row['style'] ?? '',array_merge(self::IMAGE_TOOLS,['hairstyle', 'layer_decomposition']),true) ? 'aigc_'.$row['style'] : $app,'task_id'=>(string)$row['id']];
         }
         unset($row);
         return $rows;

@@ -4,6 +4,8 @@ namespace app\common\service\app\aigc_product_video;
 
 use app\common\model\app\AppCase;
 use app\common\service\app\AppCaseService;
+use app\common\service\app\StudioTemplateModel;
+use app\common\service\power\MarketCatalogReadScope;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\SubmitLockService;
 use InvalidArgumentException;
@@ -68,6 +70,28 @@ final class ProductVideoBuiltins
         try{$body['video_selection']['model_id']=self::modelId($entry['model_identity']);if($strict){$m=ProductVideoCatalog::model($tenant,$body);ProductVideoCatalog::spec($m,$body);}}
         catch(InvalidArgumentException $e){if($strict)throw $e;$body['video_selection']['model_id']='';}
         if($fresh)$body['plan']['input_key']=ProductVideoPolicy::planKey($body);return $body;
+    }
+    public static function draftFor(int $tenant, array $entry): array
+    {
+        $body = self::bodyFor($tenant, $entry, false);
+        $fresh = !empty($body['plan']) && ($body['plan']['input_key'] ?? '') === ProductVideoPolicy::planKey($body);
+        $default = (string)ProductVideoService::settings($tenant)['default_video_model_id'];
+        [$body, $notice, $compatible] = MarketCatalogReadScope::run(static fn() => StudioTemplateModel::video(
+            $tenant,
+            $body,
+            $default,
+            ProductVideoCatalog::class,
+            static function (array $model, array $draft): void {
+                ProductVideoCatalog::spec($model, $draft);
+                if ($draft['audio'] !== null && empty($model['supports_generate_audio'])) {
+                    throw new InvalidArgumentException('所选模型不支持模板的声音设置');
+                }
+            }
+        ));
+        if ($fresh && $compatible) {
+            $body['plan']['input_key'] = ProductVideoPolicy::planKey($body);
+        }
+        return [$body, $notice];
     }
     public static function definition(int $caseId): ?array
     {$link=self::info($caseId);return $link?(ProductVideoBuiltinCatalog::all()[$link['builtin_key']]??null):null;}

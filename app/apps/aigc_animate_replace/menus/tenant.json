@@ -1,0 +1,64 @@
+[
+  {
+    "source_menu_key": "aigc_animate_replace",
+    "app_code": "aigc_animate_replace",
+    "source": "app",
+    "name": "动画替换",
+    "type": "M",
+    "sort": 851,
+    "paths": "aigc-animate-replace",
+    "component": "",
+    "perms": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_animate_replace_config",
+        "app_code": "aigc_animate_replace",
+        "source": "app",
+        "name": "创作配置",
+        "type": "C",
+        "sort": 20,
+        "paths": "config",
+        "component": "apps/aigc_animate_replace/config",
+        "perms": "app.aigc_animate_replace.config/detail",
+        "children": [
+          {
+            "source_menu_key": "aigc_animate_replace_config_setup",
+            "app_code": "aigc_animate_replace",
+            "source": "app",
+            "name": "保存配置",
+            "type": "A",
+            "sort": 0,
+            "paths": "",
+            "component": "",
+            "perms": "app.aigc_animate_replace.config/setup"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_animate_replace_task",
+        "app_code": "aigc_animate_replace",
+        "source": "app",
+        "name": "创作记录",
+        "type": "C",
+        "sort": 10,
+        "paths": "task",
+        "component": "apps/aigc_animate_replace/task",
+        "perms": "app.aigc_animate_replace.task/lists",
+        "children": [
+          {
+            "source_menu_key": "aigc_animate_replace_task_detail",
+            "app_code": "aigc_animate_replace",
+            "source": "app",
+            "name": "查看详情",
+            "type": "A",
+            "sort": 0,
+            "paths": "",
+            "component": "",
+            "perms": "app.aigc_animate_replace.task/detail"
+          }
+        ]
+      }
+    ],
+    "icon": "el-icon-VideoCamera"
+  }
+]

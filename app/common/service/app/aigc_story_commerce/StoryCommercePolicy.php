@@ -5,20 +5,20 @@ use InvalidArgumentException;
 final class StoryCommercePolicy
 {
     public const APP='aigc_story_commerce';
-    public const NO_STYLE='__none__';
+    private const LEGACY_STYLE_KEYS = ['style_id' => true, 'custom_style' => true, 'style_snapshot' => true];
     public static function json($v): array { return is_array($v)?$v:(json_decode((string)$v,true)?:[]); }
     public static function encode(array $v): string {return json_encode($v,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
     public static function text($v,int $max=2000): string {if(!is_string($v)&&!is_numeric($v))throw new InvalidArgumentException('文字格式不正确');$v=trim((string)$v);if(mb_strlen($v)>$max)throw new InvalidArgumentException('文字超过长度限制');return $v;}
     public static function hash(array $v): string { $sort=static function($x)use(&$sort){if(!is_array($x))return $x;if(!array_is_list($x))ksort($x);return array_map($sort,$x);};return hash('sha256',self::encode($sort($v))); }
     public static function body(array $p): array {
         $images=$p['images']??[];if(!is_array($images)||count($images)>15)throw new InvalidArgumentException('商品图片数量不正确');
+        $p=self::withoutLegacyStyle($p);
         return ['images'=>$images,'product_info'=>self::productInfo($p['product_info']??''),'product_observations'=>self::text($p['product_observations']??'',3000),'requirements'=>self::text($p['requirements']??'',2000),
             'story_type'=>self::text($p['story_type']??'comedy',80),'custom_story'=>self::text($p['custom_story']??'',3000),
-            'style_id'=>self::text($p['style_id']??'',80),'custom_style'=>($p['style_id']??'')===self::NO_STYLE?'':self::text($p['custom_style']??'',500),
             'language'=>self::text($p['language']??'中文',60),'market_region'=>self::text($p['market_region']??'',100),
             'audio'=>isset($p['audio'])?filter_var($p['audio'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE):null,
             'video_selection'=>(array)($p['video_selection']??[]),'script'=>is_string($p['script']??null)?self::text($p['script'],6000):(array)($p['script']??[]),
-            'script_input_key'=>self::text($p['script_input_key']??'',64),'genre_snapshot'=>(array)($p['genre_snapshot']??[]),'style_snapshot'=>(array)($p['style_snapshot']??[])];
+            'script_input_key'=>self::text($p['script_input_key']??'',64),'genre_snapshot'=>(array)($p['genre_snapshot']??[])];
     }
     /** User-confirmed wording is retained verbatim, including line breaks and surrounding whitespace. */
     private static function productInfo($value): string
@@ -35,9 +35,26 @@ final class StoryCommercePolicy
         throw new InvalidArgumentException('分析未返回商品识别补充');
     }
     public static function inputKey(array $b): string {
-        $v=array_intersect_key($b,array_flip(['product_info','requirements','story_type','custom_story','style_id','custom_style','genre_snapshot','style_snapshot','language','market_region','audio','video_selection']));
+        return self::hash(self::scriptInputs($b));
+    }
+    private static function scriptInputs(array $b): array
+    {
+        $v=array_intersect_key($b,array_flip(['product_info','requirements','story_type','custom_story','genre_snapshot','language','market_region','audio','video_selection']));
         if(($b['product_observations']??'')!=='')$v['product_observations']=$b['product_observations'];
-        $v['images']=array_map(static fn($i)=>array_intersect_key($i,array_flip(['uri','reference_slot_id','role'])), $b['images']);return self::hash($v);
+        $v['images']=array_map(static fn($i)=>array_intersect_key($i,array_flip(['uri','reference_slot_id','role'])), $b['images']??[]);
+        return $v;
+    }
+    /** Preserve script confirmation only when the previous input hash still matches. */
+    public static function withoutLegacyStyle(array $body): array
+    {
+        $legacy = array_intersect_key($body, self::LEGACY_STYLE_KEYS);
+        if (!$legacy) return $body;
+
+        $clean = array_diff_key($body, self::LEGACY_STYLE_KEYS);
+        if (!empty($body['script_input_key']) && $body['script_input_key'] === self::hash(self::scriptInputs($body) + $legacy)) {
+            $clean['script_input_key'] = self::inputKey($clean);
+        }
+        return $clean;
     }
     public static function script(array $p,int $duration,array $body): array {
         $shots=$p['shots']??[];if(!$shots||count($shots)>24)throw new InvalidArgumentException('请添加有效的剧情镜头');
@@ -80,9 +97,6 @@ final class StoryCommercePolicy
         $lines=['根据已确认商品素材创作剧情带货短片。商品外观、结构、配色、标识、用途与已确认事实保持一致；不编造功效、价格、认证和未展示的结构。',
             '用户填写的商品名称和已确认卖点（优先采用，保持原意）：'.$b['product_info'],
             'AI 图片识别补充（仅作图片可见特征参考，不替代用户确认信息；冲突时采用用户确认信息，不扩展未知功效）：'.($b['product_observations']??''),'剧情类型：'.($b['genre_snapshot']['name']??''),'剧情规则：'.($b['genre_snapshot']['instruction']??''),
-            ($b['style_id']??'')===self::NO_STYLE
-                ?'画面风格：未指定预设。遵循已确认脚本和用户补充要求中的风格描述；未描述时，根据剧情与商品自行设计连贯一致的视觉风格。'
-                :'统一画面风格：'.($b['style_snapshot']['name']??'').'；'.($b['style_snapshot']['prompt']??''),
             '用户补充要求：'.$b['requirements'],'语言：'.$b['language'].'；地区：'.$b['market_region'],
             '总时长：'.($b['video_selection']['duration']??'').'秒；比例：'.($b['video_selection']['ratio']??''),'剧情：'.(is_string($s)?$s:$s['summary'])];
         foreach(is_array($s)?$s['characters']:[] as $c)$lines[]=$c['name'].'：'.$c['appearance'];
