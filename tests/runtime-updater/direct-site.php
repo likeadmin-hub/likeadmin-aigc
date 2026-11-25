@@ -43,6 +43,39 @@ $lost=$work.'/lost';package($lost,['files/app/value.php'=>'committed']);
 $d->apply($lost,['version'=>'1.0.406'],['complete'=>fn()=>throw new RuntimeException('lost reply'),'confirm'=>fn()=>['version'=>'1.0.406']]);
 check(file_get_contents($site.'/app/value.php')==='committed','Committed lost reply rolled back real success');
 
+$restored = $work.'/restored';
+$restoredSite = $restored.'/site';
+$restoredPackage = $restored.'/package';
+$restoredUpdater = new Direct($restoredSite);
+$restoredManifest = ['base_version'=>'1.0.448','version'=>'1.0.449'];
+$oldConfig = "<?php return ['version'=>'1.0.448'];";
+$oldMarker = '{"version":"1.0.448"}';
+put($restoredSite.'/config/project.php', $oldConfig);
+put($restoredSite.'/upgrade/version.json', $oldMarker);
+package($restoredPackage, ['files/app/value.php'=>'updated']);
+$restoredUpdater->apply($restoredPackage, $restoredManifest, ['complete'=>function () use ($restoredSite) {
+    put($restoredSite.'/config/project.php', "<?php return ['version'=>'1.0.449'];");
+    put($restoredSite.'/upgrade/version.json', '{"version":"1.0.449"}');
+    return ['version'=>'1.0.449'];
+}]);
+$receipt = glob($restoredSite.'/runtime/update_receipts/*.json')[0];
+$originalReceipt = file_get_contents($receipt);
+put($restoredSite.'/config/project.php', $oldConfig);
+put($restoredSite.'/upgrade/version.json', $oldMarker);
+put($restoredSite.'/app/value.php', 'restored');
+$sqlReplayed = false;
+$rejected = false;
+try {
+    $restoredUpdater->apply($restoredPackage, $restoredManifest, ['sql'=>function () use (&$sqlReplayed) {
+        $sqlReplayed = true;
+    }]);
+} catch (RuntimeException $e) {
+    $rejected = str_contains($e->getMessage(), '已有成功回执');
+}
+check($rejected, 'Old receipt reported success for a new system update after a site restore');
+check(!$sqlReplayed && file_get_contents($receipt) === $originalReceipt, 'Retry replayed SQL or changed the old receipt');
+check(file_get_contents($restoredSite.'/upgrade/version.json') === $oldMarker && file_get_contents($restoredSite.'/app/value.php') === 'restored', 'Rejected retry changed the restored site');
+
 $unknown=$work.'/unknown';package($unknown,['files/app/value.php'=>'pending sql']);$count=0;
 for($i=0;$i<2;$i++){try{$d->apply($unknown,['version'=>'1.0.407'],['sql'=>function()use(&$count){$count++;throw new RuntimeException('SQL interruption');}]);}catch(Throwable $e){}}
 check($count===1,'Indeterminate SQL was automatically replayed');

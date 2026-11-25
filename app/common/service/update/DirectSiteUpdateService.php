@@ -112,7 +112,11 @@ class DirectSiteUpdateService
             if (is_file($receipt)) {
                 $previous = $this->json($receipt);
                 $this->assertPackageRetryable($extract, $version);
-                if (($previous['status'] ?? '') === 'committed' && empty($callbacks['repeatable'])) return ['completion' => $previous['completion'], 'recovered' => true];
+                if (($previous['status'] ?? '') === 'committed' && empty($callbacks['repeatable'])) {
+                    // A retained receipt can outlive a restore of the site files or database.
+                    // It cannot complete the new apply task or authorize replaying SQL.
+                    throw new RuntimeException('该系统更新包已有成功回执，请核对当前版本和更新记录后再试');
+                }
             }
             if (isset($manifest['base_version'])) {
                 preg_match("/['\"]version['\"]\s*=>\s*['\"]([^'\"]+)['\"]/",(string)file_get_contents($this->root.'/config/project.php'),$currentVersion);
