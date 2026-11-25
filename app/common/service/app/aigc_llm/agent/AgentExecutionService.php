@@ -45,7 +45,9 @@ final class AgentExecutionService
         foreach($subjectIds as $id)$assets[]=AgentSubjectReferences::resolve($tenant,$user,$id);
         foreach($projectReferences as $reference){$asset=\app\common\service\app\aigc_canvas\CanvasProjectReferenceService::resolve($tenant,$user,$reference);$asset['name']=$asset['reference_name'];$assets[]=$asset;}
         $vision=count(array_filter($assets,static fn($asset)=>str_starts_with($asset['mime']??'','image/')))>0;
-        $preferences['models']['text']=AgentComposerSettings::textModel($tenant,$vision,(string)($preferences['models']['text']??''));
+        $preferences['models']['text']=AgentComposerSettings::textModel(
+            $tenant,$vision,(string)($preferences['models']['text']??''),!isset($params['preferences'])
+        );
         if(($preferences['generation']['mode']??'')==='auto'){
             $catalog=AgentCapabilityCatalog::models($tenant);
             foreach(['image','video'] as $type)$preferences['models'][$type]=(string)($catalog[$type]['defaults']['channel']??$catalog[$type]['defaults']['model']??'');

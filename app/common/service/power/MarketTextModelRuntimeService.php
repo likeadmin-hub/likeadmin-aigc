@@ -813,7 +813,21 @@ class MarketTextModelRuntimeService
                 PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points']);
                 PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], self::billingRemark((string)$c['app_code'], 'settled'), self::extra($task, $c, 'settled'));
             }
-            $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')] + (isset($result['protocol_evidence']) ? ['protocol_evidence'=>$result['protocol_evidence']] : []), 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
+            $c->save([
+                'upstream_request_id' => (string)($result['provider_request_id'] ?? ''),
+                'upstream_task_id' => (string)($result['upstream_task_id'] ?? $c['upstream_task_id']),
+                'run_status' => 'success',
+                'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage',
+                'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'],
+                'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')]
+                    + (isset($result['protocol_evidence']) ? ['protocol_evidence' => $result['protocol_evidence']] : []),
+                'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0,
+                'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0,
+                'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '',
+                'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '',
+                'finish_time' => $now,
+                'update_time' => $now,
+            ]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => (float)$task['actual_tenant_cost'] + ($hasActualUsage ? (float)$actual['tenant_cost_points'] : 0), 'actual_user_price' => (float)$task['actual_user_price'] + ($hasActualUsage ? (float)$actual['user_charge_points'] : 0), 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], $hasActualUsage ? 'settle' : 'await_usage', $hasActualUsage ? 'success' : 'pending', $usage, $elapsed);
         });
@@ -848,6 +862,7 @@ class MarketTextModelRuntimeService
             $now=time();
             $c->save(['run_status'=>$incomplete?'failed':'success','billing_status'=>'settlement_failed','usage_snapshot'=>$usage+['settlement_basis'=>$incomplete?'awaiting_provider_receipt':'awaiting_settlement'],
                 'upstream_request_id'=>(string)($result['provider_request_id']??$c['upstream_request_id']),
+                'upstream_task_id'=>(string)($result['upstream_task_id']??$c['upstream_task_id']),
                 'response_summary'=>['output_length'=>mb_strlen((string)($result['content']??''),'UTF-8')] + (isset($result['protocol_evidence']) ? ['protocol_evidence'=>$result['protocol_evidence']] : []),
                 'error_code'=>$incomplete?'provider_stream_incomplete':'settlement_failed','error_message'=>$incomplete?'回复未完整结束，费用待核对':'结果已确认，费用结算待核对','finish_time'=>$now,'update_time'=>$now]);
             AiAppTask::where('id',$c['app_task_id'])->update(['status'=>$incomplete?'failed':'success','progress'=>100,'finish_time'=>$now,'update_time'=>$now]);
@@ -1416,6 +1431,14 @@ class MarketTextModelRuntimeService
             CURLOPT_TIMEOUT => $requestTimeout,
             CURLOPT_SSL_VERIFYPEER => $sslVerify,
             CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+            CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$state): int {
+                if (str_starts_with($line, 'HTTP/')) {
+                    $state['upstream_task_id'] = '';
+                } elseif (preg_match('/^X-Task-Id:\h*(task_[a-f0-9]{24})\h*$/iD', rtrim($line, "\r\n"), $match)) {
+                    $state['upstream_task_id'] = $match[1];
+                }
+                return strlen($line);
+            },
             CURLOPT_NOPROGRESS => false,
             CURLOPT_PROGRESSFUNCTION => static function ($curl, $downloadTotal, $downloadNow, $uploadTotal, $uploadNow) use ($onEvent, $startedAt, &$lastHeartbeatAt): int {
                 $now = microtime(true);
@@ -1509,6 +1532,7 @@ class MarketTextModelRuntimeService
             'content_source' => $contentSource,
             'usage' => $state['usage'],
             'provider_request_id' => $state['request_id'],
+            'upstream_task_id' => $state['upstream_task_id'] ?? '',
             'tool_calls' => $state['tool_calls'],
             'stream_mode' => $receivedSseEvent ? 'sse' : 'buffered_response',
             'stream_delta_count' => (int)$state['delta_count'],
@@ -1964,6 +1988,7 @@ class MarketTextModelRuntimeService
             'content_source' => (string)($state['content_source']??'content'),
             'protocol_evidence' => self::protocolEvidence($state),
             'provider_request_id' => (string)($state['request_id'] ?? ''),
+            'upstream_task_id' => (string)($state['upstream_task_id'] ?? ''),
             'usage' => (array)($state['usage'] ?? []),
             // Never hand partial calls to Neuron or a delayed continuation.
             'tool_calls' => [],

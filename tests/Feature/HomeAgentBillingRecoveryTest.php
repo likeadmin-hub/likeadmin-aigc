@@ -13,6 +13,11 @@ namespace app\common\service\power {
  function curl_exec($handle){
   BillingTransportFixture::$calls++;
   if(BillingTransportFixture::$beforeResponse)(BillingTransportFixture::$beforeResponse)();
+  if (isset($handle->options[CURLOPT_HEADERFUNCTION])) {
+   $headers = $handle->options[CURLOPT_HEADERFUNCTION];
+   $headers($handle, "HTTP/1.1 200 OK\r\n");
+   $headers($handle, "x-task-id: task_0123456789abcdef01234567\r\n");
+  }
   $write=$handle->options[CURLOPT_WRITEFUNCTION];
   if(BillingTransportFixture::$mode==='reject'){$write($handle,json_encode(['error'=>['message'=>'fixture rejected']]));return true;}
   if(BillingTransportFixture::$mode==='timeout')return false;
@@ -51,7 +56,7 @@ namespace app\common\service\power {
  }
  function curl_errno($handle){return in_array(BillingTransportFixture::$mode,['timeout','native_timeout'],true)?28:0;}
  function curl_error($handle){return in_array(BillingTransportFixture::$mode,['timeout','native_timeout'],true)?'Operation timed out':'';}
- function curl_getinfo($handle,$option){return BillingTransportFixture::$mode==='reject'?400:200;}
+ function curl_getinfo($handle,$option=0){$status=BillingTransportFixture::$mode==='reject'?400:200;return $option===0 ? ['http_code'=>$status] : $status;}
  function curl_close($handle){}
 }
 namespace app\common\service\app\aigc_llm\agent {
@@ -74,7 +79,6 @@ namespace {
  function issueCodes(int $id){return array_column((new \ReflectionMethod(Audit::class,'issues'))->invoke(null,AiConsumptionLog::findOrEmpty($id)->toArray()),'code');}
  function fixture(callable $test){$files=glob(runtime_path().'home-agent-text-receipts/*')?:[];$before=balance();Db::startTrans();try{F::$calls=0;F::$mode='success';F::$beforeResponse=null;$test();}finally{Db::rollback();F::$beforeResponse=null;\app\common\service\app\aigc_llm\agent\TextReceiptFault::$failWrite=false;foreach(array_diff(glob(runtime_path().'home-agent-text-receipts/*')?:[],$files) as $file)unlink($file);}check(balance()===$before,'Fixture changed real balance');}
  $db=config('database.connections.mysql');check(PHP_SAPI==='cli'&&$db['hostname']==='127.0.0.1'&&in_array($db['database'],['x_cn','z_cn'],true),'Local rollback test only');
- check(S::table('run')->whereIn('status',['queued','running','waiting_tasks'])->count()===0,'Do not run alongside active Agent jobs');
  $request=request();$request->tenantId=1;$request->userId=1;$request->userInfo=['tenant_id'=>1,'user_id'=>1];
  $selection=HomeAgentFixture::textSelection();$model=R::resolveAgentModel(1,$selection);
  $expected=invoke('quote',$model,10000,10000);check($expected['user_charge_points']>0&&$expected['user_charge_points']<balance(),'Fixture needs a priced model within local wallet');
@@ -91,6 +95,14 @@ namespace {
   foreach([[2,1],[1,2]] as [$tenant,$user]){try{\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read($tenant,$user,$cid);throw new \LogicException('Foreign receipt read');}catch(\InvalidArgumentException){}}
   check(issueCodes($cid)===[],'Settled text call missing a payer log');$settled=balance();
   $c=AiConsumptionLog::findOrEmpty($cid);$ctx=['consumption'=>$c];
+  $gatewayTask='task_0123456789abcdef01234567';
+  check($c['upstream_task_id']===$gatewayTask && $c['upstream_request_id']!=='', 'Gateway task ID must be retained separately from the provider response ID');
+  $tasks=\app\common\service\ai\AiUsageService::appTaskLists(['keyword'=>$gatewayTask],1);
+  check((int)$tasks['count']===1 && (int)$tasks['rows'][0]['id']===(int)$c['app_task_id'], 'Lookup by gateway task ID missed the local task');
+  check((int)\app\common\service\ai\AiUsageService::appTaskLists(['keyword'=>$gatewayTask],2)['count']===0, 'Gateway task search crossed tenants');
+  $detail=\app\common\service\ai\AiUsageService::appTaskDetail((int)$c['app_task_id'],1);
+  check($detail['upstream_task_id']===$gatewayTask && $detail['provider_task_id']===$c['upstream_request_id'], 'Task detail did not separate the two identifiers');
+  check($detail['user_charge_points']===$expected['user_charge_points'] && $detail['tenant_cost_points']===$expected['tenant_cost_points'], 'Task detail mixed user charge and tenant deduction');
   check(($c['response_summary']['protocol_evidence']??null)===$result['protocol_evidence'],'Future parser protocol observations were not persisted with the successful receipt');
   invoke('settle',$ctx,$expected,$result['usage'],$result,1);invoke('fail',$ctx,'late callback','fixture');R::failAppTask((int)$c['app_task_id'],'late timeout');
   check(balance()===$settled&&F::$calls===1,'Duplicate settlement, late failure or timeout changed the charge');
@@ -109,6 +121,8 @@ namespace {
   F::$mode='no_usage';$before=balance();$result=R::generate(1,1,$params,static function(){});
   check(\app\common\service\app\aigc_llm\agent\AgentWorkerHealth::report()['text_review']['pending_usage']>0,'Health missed unsettled text');
   check(balance()===$before&&in_array('text_usage_pending',issueCodes($result['consumption_id']),true),'Missing actual usage charged or escaped audit');
+  $detail=\app\common\service\ai\AiUsageService::appTaskDetail((int)$result['app_task_id'],1);
+  check($detail['user_charge_points']===0.0 && $detail['tenant_cost_points']===0.0, 'Pending estimates must not be shown as actual deductions');
   check($result['protocol_evidence']['usage_event_count']===0&&$result['protocol_evidence']['usage_sources']===[],'Missing usage evidence was replaced by an estimated provider usage source');
   $report=Audit::audit(1,'aigc_llm',500,'aigc_llm_agent_run',999999);check($report['checked']===0,'Audit crossed user filter');
  });
@@ -150,13 +164,14 @@ namespace {
   }
  });
  fixture(function()use($selection){
-  S::preferences(1,1,['mode'=>'ask','models'=>['text'=>$selection]]);
-  $view=E::submit(1,1,['request_id'=>'billing-fixture-'.bin2hex(random_bytes(10)),'content'=>'你好']);
+  $view=E::submit(1,1,['request_id'=>'billing-fixture-'.bin2hex(random_bytes(10)),'content'=>'你好',
+   'preferences'=>['mode'=>'ask','models'=>['text'=>$selection]]]);
+  $id=(int)$view['id'];
   F::$beforeResponse=static fn()=>UserPointService::consume(1,balance(),'fixture-worker-depletion','Rollback-only fixture');
-  E::tick();$view=E::detail(1,1,(int)$view['id']);
+  E::tick(1,$id);$view=E::detail(1,1,$id);
   check($view['status']==='needs_review'&&$view['reply']==='可信正文，已保留。','Agent lost the known reply or offered an unsafe retry');
   check(str_contains($view['error'],'费用结算待核对'),'Agent review reason missing');
-  check(E::tick()===0&&F::$calls===1,'Worker replayed pending billing');
+  check(E::tick(1,$id)===0&&F::$calls===1,'Worker replayed pending billing');
  });
  foreach(['tenant','user'] as $side)fixture(function()use($params,$side){
   Db::name($side)->where('id',1)->update([$side==='tenant'?'point_balance':'user_money'=>0]);$before=AiConsumptionLog::count();
@@ -189,7 +204,7 @@ namespace {
    \app\common\service\app\aigc_llm\agent\AgentLongReadService::work($run);
    $c=AiConsumptionLog::order('id','desc')->find();$receipt=\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,(int)$c['id']);
    check($c['billing_status']==='settled'&&$receipt['reading_source']['file_id']===$file&&$receipt['reading_source']['offset']===0,'Reading receipt cannot identify paid source segment');
-   check(S::run(1,1,$id)['status']==='needs_review'&&E::tick()===0&&F::$calls===1,'Invalid summary automatically repeated paid reading');
+   check(S::run(1,1,$id)['status']==='needs_review'&&E::tick(1,$id)===0&&F::$calls===1,'Invalid summary automatically repeated paid reading');
    \app\common\service\open_platform\OpenStore::table('file')->where('file_id',$file)->delete();
    try{\app\common\service\app\aigc_llm\agent\AgentTextReceipt::read(1,1,(int)$c['id']);throw new \LogicException('Deleted material readable through receipt');}catch(\InvalidArgumentException|\app\common\service\open_platform\OpenException){}
   }finally{unlink($path);rmdir($dir);}

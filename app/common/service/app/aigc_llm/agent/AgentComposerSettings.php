@@ -27,13 +27,17 @@ final class AgentComposerSettings
         // Empty legacy configuration follows the first eligible backend catalogue default.
         $codes=array_column($options['models'],'code');
         $default=(string)($options['defaults']['model']??'');
+        $options['defaults']['configured_model']=$configured;
         $options['defaults']['model']=$configured!==''?$configured:(in_array($default,$codes,true)?$default:(string)($codes[0]??''));
         return $options;
     }
-    public static function textModel(int $tenant,bool $vision=false,string $selection=''): string
+    public static function textModel(int $tenant,bool $vision=false,string $selection='',bool $storedPreference=false): string
     {
         $model=trim($selection);
-        if($model==='')$model=(string)(self::textOptions($tenant)['defaults']['model']??'');
+        if($model==='' || $storedPreference){
+            $defaults=self::textOptions($tenant)['defaults'];
+            $model=$defaults['configured_model'] ?: ($model ?: $defaults['model']);
+        }
         if($model==='')throw new \InvalidArgumentException('后台尚未配置可用的 Agent 文本模型');
         try{MarketTextModelRuntimeService::resolveAgentModel($tenant,$model,$vision);}catch(\Exception $e){throw new \InvalidArgumentException('所选 Agent 文本模型不可用：'.$e->getMessage());}
         return $model;

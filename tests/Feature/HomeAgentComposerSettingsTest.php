@@ -33,6 +33,11 @@ Db::startTrans();try{
  $videoRun=$run;$videoRun['preferences']=S::encode($videoPrefs);$videoQuote=C::prepare($videoRun,'aigc_video',['prompt'=>'缓慢移动的风景镜头','duration'=>60]);
  check((int)$videoQuote['params']['duration']===$duration,'User video duration not applied before pricing');
  $beforeConfig=AigcLlmService::config(1);AigcLlmService::saveConfig(1,['config_json'=>['agent_text_model'=>$configured]]);check(AigcLlmService::config(1)['config_json']['agent_text_model']===$configured,'Admin model setting not persisted');
+ check(Settings::textOptions(1)['defaults']['configured_model']===$configured,'Composer API lost the explicit tenant default');
+ S::preferences(1,1,$prefs);
+ $implicit=E::submit(1,1,['content'=>'租户默认模型离线回归','request_id'=>'default-model-'.bin2hex(random_bytes(12))]);
+ $implicitRun=S::json(S::run(1,1,(int)$implicit['id'])['preferences']);
+ check($implicitRun['models']['text']===$configured,'Stored user preference overrode the tenant default on a new request');
  check(AigcLlmService::config(1)['config_json']['system_prompt']===$beforeConfig['config_json']['system_prompt'],'Admin model setting reset other configuration');
  rejected(fn()=>AigcLlmService::saveConfig(1,['config_json'=>['agent_text_model'=>'injected-invalid-model']]));
  $config=Db::name('aigc_llm_config')->where('tenant_id',1)->find();$json=S::json($config['config_json']);$json['agent_text_model']='unavailable-backend-model';Db::name('aigc_llm_config')->where('tenant_id',1)->update(['config_json'=>S::encode($json)]);

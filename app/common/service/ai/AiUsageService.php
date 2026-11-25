@@ -328,6 +328,15 @@ class AiUsageService
         if ($keyword = trim((string)($params['keyword'] ?? ''))) {
             $query->where(function ($query) use ($keyword) {
                 $query->whereLike('t.task_no|t.app_code|t.action_code|u.nickname|u.account|u.mobile', '%' . $keyword . '%');
+                if (preg_match('/^task_[a-f0-9]{24}$/iD', $keyword)) {
+                    $query->whereExists(static function ($lookup) use ($keyword) {
+                        $lookup->table(Db::name('ai_consumption_log')->getTable())->alias('c')->fieldRaw('1')
+                            ->whereColumn('c.app_task_id', '=', 't.id')
+                            ->whereColumn('c.tenant_id', '=', 't.tenant_id')
+                            ->whereColumn('c.user_id', '=', 't.user_id')
+                            ->where('c.upstream_task_id', $keyword);
+                    }, 'OR');
+                }
             });
         }
         self::applyConsumptionFilters($query, $params, $tenantId);
@@ -560,7 +569,8 @@ class AiUsageService
         $data['support_detail'] = $support;
         $data['prompt'] = $support['prompt'];
         $data['error'] = (string)($firstConsumption['error_message'] ?? '');
-        $data['provider_task_id'] = (string)($firstConsumption['upstream_task_id'] ?? $firstConsumption['upstream_request_id'] ?? '');
+        $data['upstream_task_id'] = (string)($firstConsumption['upstream_task_id'] ?? '');
+        $data['provider_task_id'] = (string)($firstConsumption['upstream_request_id'] ?? '') ?: $data['upstream_task_id'];
         $data['request_params'] = $support['inputs'];
         $data['response_info'] = [
             'status' => (string)$data['status'],
@@ -859,8 +869,8 @@ class AiUsageService
         $row['task_sn'] = (string)$row['task_no'];
         $row['source_app_code'] = (string)$row['app_code'];
         $row['source_task_id'] = (int)$row['business_id'];
-        $row['user_charge_points'] = (float)($row['actual_user_price'] ?: $row['estimated_user_price']);
-        $row['tenant_cost_points'] = (float)($row['actual_tenant_cost'] ?: $row['estimated_tenant_cost']);
+        $row['user_charge_points'] = (float)($row['actual_user_price'] ?? 0);
+        $row['tenant_cost_points'] = (float)($row['actual_tenant_cost'] ?? 0);
         $row['create_time_text'] = self::timeText($row['create_time'] ?? 0);
         $row['finish_time_text'] = self::timeText($row['finish_time'] ?? 0);
         return $row;
