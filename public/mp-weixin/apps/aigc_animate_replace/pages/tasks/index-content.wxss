@@ -1,0 +1,1 @@
+.animate-history.vsUn1ilw{height:100vh;display:flex;flex-direction:column;background:var(--tool-page-bg);color:var(--tool-text)}.animate-list.vsUn1ilw{flex:1;min-height:0}.animate-grid.vsUn1ilw{display:grid;grid-template-columns:1fr 1fr;gap:20rpx;padding:24rpx}.animate-empty.vsUn1ilw{text-align:center;padding:60rpx 20rpx;color:var(--tool-text-muted)}

@@ -1,0 +1,1 @@
+<view class="genre-cover vs3R9Uyg"><image wx:if="{{a}}" class="vs3R9Uyg w1" src="{{b}}" mode="aspectFill" aria-label="{{c}}"/><button class="vs3R9Uyg w0 {{e?'wd':''}}" disabled="{{e}}" bindtap="{{f}}">{{d}}</button><button wx:if="{{g}}" class="vs3R9Uyg w0 {{h?'wd':''}}" disabled="{{h}}" bindtap="{{i}}">移除封面</button></view>

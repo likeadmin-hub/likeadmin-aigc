@@ -1,1 +1,0 @@
-import{k as e,p as r,B as t}from"./index-bd549111.js";function a(a){const s=e();return r((()=>{const e=String(a.value.cover_url||a.value.cover_uri||"");return/^https?:\/\//i.test(e)?e:/^\/?uploads\/tool-materials\//.test(e)?String(t.baseUrl||"").replace(/\/$/,"")+"/"+e.replace(/^\//,""):s.getImageUrl(e)}))}export{a as u};

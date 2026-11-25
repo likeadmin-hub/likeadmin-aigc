@@ -1,0 +1,1 @@
+const i="aigc_animate_replace",o="动画替换";function e(i,o,e){return{image_uri:i,video_uri:o,resolution:e}}function n(i,o){return Boolean(i.image_uri&&i.video_uri&&(null==o?void 0:o.resolutions.some((o=>o===i.resolution))))}export{i as A,o as a,n as b,e as c};

@@ -1,0 +1,1 @@
+import{B as o,gh as a,r,aF as n,aT as s,M as c,j as l}from"./entry.9fef1732.js";function v(){const t=o(),u=a(t.currentRoute.value.fullPath),e=r(!0);return n(()=>{e.value=!0}),s(()=>{e.value=!1}),c(()=>{e.value=!1}),l(()=>e.value&&a(t.currentRoute.value.fullPath)===u)}export{v as u};

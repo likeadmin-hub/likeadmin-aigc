@@ -1,0 +1,1 @@
+import{v as n}from"./vendor-_vue_reactivity-Bs5YV79N.js";function c(t){const e=n(!1);return{isLock:e,lockFn:async(...a)=>{if(!e.value){e.value=!0;try{const r=await t(...a);return e.value=!1,r}catch(r){throw e.value=!1,r}}}}}export{c as u};

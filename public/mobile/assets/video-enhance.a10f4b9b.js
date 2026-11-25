@@ -1,0 +1,1 @@
+const e="aigc_video_enhance",a="视频变清晰",c=[{value:6,label:"节省体积"},{value:10,label:"标准"},{value:16,label:"保留更多细节"}],l=e=>({running:"处理中",success:"已完成",failed:"处理失败",canceled:"已取消",pending_confirmation:"提交待核对"}[e]||"等待处理"),n=e=>["success","failed","canceled"].includes(e);export{a,l as b,n as c,c as e,e as v};

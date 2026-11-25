@@ -1,0 +1,1 @@
+.layer-history.vsR0Bugg{height:100vh;display:flex;flex-direction:column;background:var(--tool-page-bg);color:var(--tool-text)}.layer-list.vsR0Bugg{flex:1;min-height:0}.layer-grid.vsR0Bugg{display:grid;grid-template-columns:1fr 1fr;gap:20rpx;padding:24rpx}.layer-empty.vsR0Bugg{text-align:center;padding:60rpx 20rpx;color:var(--tool-text-muted)}
