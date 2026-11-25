@@ -37,7 +37,7 @@ class AppPackageUpdateService
             $row['disk_version']=$manifest['version'];$row['effective_version']=BundledAppPackageService::versionFloor((string)$row['current_version'],(string)$manifest['version']);$row['local_install_available']=$available;
             $byCode[$code]=$row;
         }
-        $artwork = AppCatalogArtwork::byCode();
+        $artwork = AppCatalogArtwork::byCode(false);
         foreach ($byCode as $code => &$row) {
             $row['catalog_cover_url'] = $artwork[$code] ?? '';
         }
@@ -77,17 +77,19 @@ class AppPackageUpdateService
         if(!$app->isEmpty()&&$app['status']!==AppRegistryService::STATUS_REMOVED&&$registered!==''&&version_compare((string)$manifest['version'],$registered,'<=')&&$source!=='local')throw new RuntimeException('应用包版本必须大于当前版本');
     }
 
-    public function cloudLists(array $params = []): array
+    public function cloudLists(array $params = [], int $timeout = 15): array
     {
-        $result = (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/lists'), $params);
-        $filter = static function (array $rows) use ($params): array {
+        $cacheKey = $params === [] ? AppCatalogArtwork::cacheKey() : '';
+        $sourceUrl = (string)UpdateSourceClient::appSource()['active_base_url'];
+        $result = (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/lists'), $params, $timeout);
+        $artwork = [];
+        $filter = static function (array $rows) use (&$artwork, $sourceUrl): array {
             $visible = [];
-            $artwork = [];
             foreach ($rows as $row) {
                 if (is_array($row)) {
                     $code = (string)($row['app_code'] ?? $row['code'] ?? '');
                     if (RetiredAppService::contains($code)) continue;
-                    $cover = AppCatalogArtwork::fromCloud($row);
+                    $cover = AppCatalogArtwork::fromCloud($row, $sourceUrl);
                     unset($row['catalog_cover_url']);
                     if (preg_match('/^[a-z][a-z0-9_]{0,79}$/D', $code) && $cover !== '') {
                         $row['catalog_cover_url'] = $cover;
@@ -96,12 +98,27 @@ class AppPackageUpdateService
                 }
                 $visible[] = $row;
             }
-            if ($params === []) AppCatalogArtwork::rememberCloudCatalog($artwork);
             return $visible;
         };
-        if (array_is_list($result)) return $filter($result);
-        foreach (['lists', 'apps'] as $key) if (isset($result[$key]) && is_array($result[$key])) $result[$key] = $filter($result[$key]);
-        if (isset($result['data']['lists']) && is_array($result['data']['lists'])) $result['data']['lists'] = $filter($result['data']['lists']);
+        if (array_is_list($result)) {
+            $result = $filter($result);
+        } else {
+            $hasList = false;
+            foreach (['lists', 'apps'] as $field) {
+                if (is_array($result[$field] ?? null)) {
+                    $result[$field] = $filter($result[$field]);
+                    $hasList = true;
+                }
+            }
+            if (is_array($result['data']['lists'] ?? null)) {
+                $result['data']['lists'] = $filter($result['data']['lists']);
+                $hasList = true;
+            }
+            if (!$hasList) {
+                throw new UpdateProtocolException('SYSTEM_RESPONSE_INVALID', '应用目录数据格式错误');
+            }
+        }
+        AppCatalogArtwork::rememberCloudCatalog($cacheKey, $artwork);
         return $result;
     }
 

@@ -95,56 +95,66 @@ class UpdateSourceClient
         return $after;
     }
 
-    public function request(string $path, array $payload = []): array
+    public static function appSource(): array
     {
         $source = self::getSource();
-        if (empty($source['active_base_url'])) {
-            throw new RuntimeException('未配置接口渠道');
+        if (strtolower(trim((string)env('app_catalog.source', ''))) === 'development') {
+            $source['active_base_url'] = $source['base_url'];
+            $source['active_api_key'] = $source['license_key'];
         }
-        $license = new UpdateLicenseService();
-        $context = $license->requestContext();
-        $payload = array_merge([
+        return $source;
+    }
+
+    public function request(string $path, array $payload = [], int $timeout = self::API_REQUEST_TIMEOUT): array
+    {
+        $source = self::appSource();
+        if (empty($source['active_base_url']) || empty($source['active_api_key']) || empty($source['public_key'])) {
+            throw new UpdateProtocolException('LICENSE_SOURCE_MISSING', '请配置应用更新源、API Key 和验签公钥');
+        }
+        $context = (new UpdateLicenseService())->verifiedSiteContext();
+        if (empty($context['verified']) || $context['status'] !== 'active') {
+            throw new UpdateProtocolException($context['error_code'] ?? 'LICENSE_INVALID', '请核对应用更新源与本站授权证书');
+        }
+        $payload = array_merge($payload, [
             'product_code' => self::PRODUCT_CODE,
             'core_version' => self::currentCoreVersion(),
             'domain' => $context['domain'],
-            'license_key' => $source['active_api_key'] ?? '',
+            'license_key' => $source['active_api_key'],
             'machine_fingerprint_hash' => $context['machine_fingerprint_hash'],
             'timestamp' => time(),
-            'nonce' => bin2hex(random_bytes(8)),
-            'license' => $context['license'],
-        ], $payload);
+            'nonce' => bin2hex(random_bytes(16)),
+            'license' => $context['raw_certificate'],
+            'ip' => $context['ip'],
+        ]);
+        if ($payload['ip'] === '') unset($payload['ip']);
         $url = self::buildUrl((string)$source['active_base_url'], $path);
         $headers = [
             'Content-Type' => 'application/json',
             'X-AIGC-Domain' => (string)$payload['domain'],
             'X-AIGC-Machine-Fingerprint' => (string)$payload['machine_fingerprint_hash'],
         ];
-        $apiKey = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
-        if ($apiKey !== '') {
-            $headers['Authorization'] = 'Bearer ' . $apiKey;
+        $headers['Authorization'] = 'Bearer ' . $source['active_api_key'];
+        try {
+            $response = Requests::post($url, $headers, \app\common\service\license\SignedLicenseProtocol::json($payload), [
+                'timeout' => $timeout,
+                'connect_timeout' => $timeout,
+                'follow_redirects' => false,
+                'verify' => self::sslVerify($source),
+            ]);
+        } catch (\WpOrg\Requests\Exception $e) {
+            throw new UpdateProtocolException('LICENSE_NETWORK_UNAVAILABLE', '应用更新源连接失败，请稍后重试');
         }
-        $response = Requests::post($url, $headers, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), [
-            'timeout' => self::API_REQUEST_TIMEOUT,
-            'verify' => self::sslVerify($source),
-        ]);
-        $body = json_decode($response->body, true);
-        if (!is_array($body)) {
-            $contentType = strtolower((string)($response->headers['content-type'] ?? ''));
-            $preview = mb_substr(trim(strip_tags((string)$response->body)), 0, 120);
-            if (str_contains($contentType, 'text/html') || str_contains((string)$response->body, '<html')) {
-                throw new RuntimeException('更新源响应格式错误：接口渠道返回了 HTML 页面，请确认填写的是服务端接口域名，不是 PC 前端页面域名');
-            }
-            throw new RuntimeException('更新源响应格式错误' . ($preview !== '' ? '：' . $preview : ''));
+        if (in_array($response->status_code, [502, 503, 504], true) && !str_contains($response->body, '"signature"')) {
+            throw new UpdateProtocolException('LICENSE_NETWORK_UNAVAILABLE', '应用更新源暂时不可用');
         }
-        if (!empty($source['public_key']) && !self::verifyResponse($body, (string)$source['public_key'])) {
-            throw new RuntimeException('更新源响应签名校验失败');
+        $body = SystemUpdateProtocol::envelope($response->body, $source['public_key'], time());
+        if (($body['code'] ?? null) !== 1) {
+            throw new UpdateProtocolException(
+                (string)($body['data']['error_code'] ?? 'APP_UPDATE_FAILED'),
+                (string)($body['msg'] ?? '应用更新源拒绝请求')
+            );
         }
-        if ((int)($body['code'] ?? 0) !== 1) {
-            $errorCode = (string)($body['data']['error_code'] ?? '');
-            $message = (string)($body['msg'] ?? '更新源请求失败');
-            throw new RuntimeException($errorCode !== '' ? $message . ' (' . $errorCode . ')' : $message);
-        }
-        return $body['data'] ?? [];
+        return $body['data'];
     }
 
     public static function path(string $endpoint): string
@@ -286,26 +296,6 @@ class UpdateSourceClient
         $local = function_exists('local_version') ? local_version() : [];
         $version = is_array($local) ? (string)($local['version'] ?? '') : '';
         return $version !== '' ? $version : (string)config('project.version');
-    }
-
-    public static function verifyResponse(array $body, string $publicKey): bool
-    {
-        if (empty($body['signature'])) {
-            return false;
-        }
-        $payload = [
-            'code' => $body['code'] ?? null,
-            'msg' => $body['msg'] ?? '',
-            'data' => $body['data'] ?? [],
-            'request_id' => $body['request_id'] ?? '',
-            'server_time' => $body['server_time'] ?? 0,
-        ];
-        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $key = openssl_pkey_get_public($publicKey);
-        if (!$key) {
-            return false;
-        }
-        return openssl_verify($json, base64_decode((string)$body['signature']), $key, OPENSSL_ALGO_SHA256) === 1;
     }
 
     public static function download(string $url, string $sha256 = '', string $format = 'zip'): array

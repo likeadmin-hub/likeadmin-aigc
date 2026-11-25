@@ -1,5 +1,6 @@
 <?php
 require dirname(__DIR__,2).'/vendor/autoload.php';
+use app\common\service\app\AppCatalogArtwork;
 use app\common\service\license\SignedLicenseProtocol as P;
 use app\common\service\update\SystemUpdateProtocol as U;
 use app\common\service\update\UpdateProtocolException;
@@ -11,6 +12,19 @@ $hash=hash('sha256','fixture archive');
 $data=['product_code'=>'likeadmin_aigc_saas','version'=>'1.0.386','target_version'=>'1.0.386','sha256'=>$hash,'format'=>'zip',
     'site_grant'=>['license_no'=>'LIC-fixture','license_version'=>3,'domains'=>['platform.fixture'],'machine_fingerprint_hash'=>'machine','version_id'=>100,'issued_at'=>$now,'expires_at'=>$now+3600]];
 $sign=static function($data,$time=null)use($now,$key){$o=(object)['code'=>1,'msg'=>'fixture','data'=>$data,'request_id'=>'fixture','server_time'=>$time??$now,'extra'=>(object)[]];openssl_sign(P::json($o),$sig,$key,OPENSSL_ALGO_SHA256);$o->signature=base64_encode($sig);return P::json($o);};
+$icon = 'https://assets.fixture/official-icon.webp';
+$catalog = $sign(['lists' => [(object)[
+    'app_code' => 'fixture_app', 'manifest' => (object)[],
+    'latest_version_info' => (object)['manifest' => (object)['cover' => '/uploads/official-cover.webp']],
+    'icon' => $icon,
+]]]);
+$row = U::envelope($catalog, $public, $now)['data']['lists'][0];
+$assert(AppCatalogArtwork::fromCloud($row, 'https://source.fixture') === 'https://source.fixture/uploads/official-cover.webp', 'verified app manifest cover precedes icon');
+$assert(AppCatalogArtwork::fromCloud(['icon' => $icon]) === $icon, 'same-app official icon when cover is empty');
+$assert(AppCatalogArtwork::fromCloud(['cover' => 'https://user@assets.fixture/example.webp', 'icon' => '/resource/image/common/menu_generator.png'], 'https://source.fixture') === '', 'credentials and generic placeholder are rejected');
+$reject(fn()=>U::envelope(str_replace('official-cover.webp','tampered.webp',$catalog),$public,$now),'tampered catalog cover','LICENSE_SIGNATURE_INVALID');
+$reject(fn()=>U::envelope(str_replace('"manifest":{}','"manifest":[]',$catalog),$public,$now),'catalog object changed to list','LICENSE_SIGNATURE_INVALID');
+$reject(fn()=>U::envelope($catalog,$public,$now+301),'stale catalog envelope','SYSTEM_RESPONSE_INVALID');
 $raw=$sign($data);$assert(U::package($raw,$public,$context,'1.0.386',$hash,'zip',$now)['site_grant']['version_id']===100,'signed original envelope');
 $reject(fn()=>U::package(str_replace('1.0.386','1.0.387',$raw),$public,$context,'1.0.387'),'tampered target');
 $reject(fn()=>U::package($raw,$public,$context,'1.0.386',$hash,'zip',$now+3600),'exclusive one hour boundary','SYSTEM_PACKAGE_GRANT_EXPIRED');

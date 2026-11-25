@@ -4,6 +4,10 @@
 $origin = 'https://platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com';
 
 return [
+    // Same-app artwork also used by the official platform application center.
+    'aigc_copywriting' => '/resource/image/copywriting/smart_write.webp',
+    'aigc_short_drama' => '/resource/image/apps/aigc_short_drama/style-covers/historical.webp',
+
     'aigc_action_transfer' => $origin . '/uploads/images/20260815/20260815153030457af2937.gif',
     'aigc_background_removal' => $origin . '/uploads/images/20260815/20260815163759d84999135.webp',
     'aigc_canvas' => $origin . '/uploads/images/20260815/20260815153047158c41487.jpg',

@@ -39,8 +39,8 @@ class AppController extends BaseAdminController
             $app['cover_url'] = self::firstImageUrl(
                 $display['cover_url'] ?? '',
                 $display['cover_uri'] ?? '',
-                $app['cover'] ?? '',
-                $app['catalog_cover_url']
+                $app['catalog_cover_url'],
+                $app['cover'] ?? ''
             );
             $app['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $isBuiltin = DefaultAppService::isDefaultApp((string)$app['code']);
