@@ -1,8 +1,8 @@
 {
   "code": "aigc_animate_replace",
   "name": "动画替换",
-  "version": "1.0.0",
-  "require_core": ">=1.0.449",
+  "version": "1.0.1",
+  "require_core": ">=1.0.450",
   "description": "用一张角色图片替换原视频中的角色，保留原视频的动作和场景。",
   "changelog": "1. 新增动画替换工具。",
   "icon": "resource/image/common/menu_generator.png",

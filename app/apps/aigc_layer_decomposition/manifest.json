@@ -1,8 +1,8 @@
 {
   "code": "aigc_layer_decomposition",
   "name": "图层分离",
-  "version": "1.0.0",
-  "require_core": ">=1.0.442",
+  "version": "1.0.1",
+  "require_core": ">=1.0.450",
   "description": "将一张图片拆分为底图与多个独立图层。",
   "changelog": "1. 新增图层分离工具。",
   "icon": "resource/image/common/menu_generator.png",
