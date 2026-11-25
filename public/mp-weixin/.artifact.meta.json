@@ -1,7 +1,7 @@
 {
-  "version": "1.0.451",
-  "source_sha": "1c789226170235e4db96610135590caba840cdab",
-  "built_at": "2026-11-25T08:31:45.306Z",
+  "version": "1.0.452",
+  "source_sha": "e95b1f8cca9f50c7de8b3aeaaa78fca0d999d929",
+  "built_at": "2026-11-25T09:16:44.179Z",
   "file_count": 1728,
   "files": {
     "api/account.js": "26f02b81ddc8cb81ff319cb06b3383496692ebaf6b9a32f30406a1aa2aa9d2cd",
@@ -747,7 +747,7 @@
     "apps/aigc_video_enhance/pages/tasks/index.json": "f79cc7300045b7b718b83469624b459f2e8cb845463580df6dda27c65bf58c19",
     "apps/aigc_video_enhance/pages/tasks/index.wxml": "27634d41a5ff24ff8720f925ebafb5195d80efd2f52ac147ef407bb194cdfab9",
     "apps/aigc_video_enhance/pages/tasks/index.wxss": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "apps/aigc_video_enhance/workbench.js": "29b1d39ed6c52e24c080262febc294d677a38ad266ff36ff61321e5e0b28f165",
+    "apps/aigc_video_enhance/workbench.js": "fa2937dc7f2dcbb8375a1aa6e5311b953ec4badcea2c4e958e69defa17438b5f",
     "apps/aigc_watermark_removal/pages/creator/index-content.js": "5a0e59080c5ae1b345a04f3f5e35a43a6e8d3189652be1d2e69429e91678762c",
     "apps/aigc_watermark_removal/pages/creator/index-content.json": "8a60930c3510c5284237100cd7b20a62c6ba60f5ff3082787f7ba8d37316b94f",
     "apps/aigc_watermark_removal/pages/creator/index-content.wxml": "921291ff36ea307d98617760d768e82e7a32c1eae850bedd3c39093304a17049",
@@ -970,10 +970,10 @@
     "components/creation-studio/StudioVideoUpload.json": "818bf643d4d224a0ae3e49e8d3e5e180595f4294655663889a06a99f9512c900",
     "components/creation-studio/StudioVideoUpload.wxml": "89b0e204dadde851f6566c4892d52b70116fdfec7a9edc2121c7d412e9b3794e",
     "components/creation-studio/StudioVideoUpload.wxss": "b8b663db16b13aa1ed720dd6a7120767cd85cf145cebcc6eac1b998ce94cff51",
-    "components/creation-studio/ToolWorkbench.js": "e8a95acb25aabd62966ffbe20b8c87000ebd4b746e6763af83e3b04fba793c67",
+    "components/creation-studio/ToolWorkbench.js": "ea73f837c578af09a738bd524570cbdc81cdc44d1bdeab5c481bd7bc38a770fe",
     "components/creation-studio/ToolWorkbench.json": "47e2be50e163cfb130ea644a4dded05f66cbb0ba4cac64eccd3d7bf2f616b543",
-    "components/creation-studio/ToolWorkbench.wxml": "1030055b3763eef85f16e681aa7dd425a91495e377a92dd2be5aa01fdae0a960",
-    "components/creation-studio/ToolWorkbench.wxss": "ed5dac7d2307c7a74b0728fc98c3284504655aafaabccbdf79f3baa185e44633",
+    "components/creation-studio/ToolWorkbench.wxml": "dcadb30658310b34d0c925f017a583b5e1ee7db6c27e2783ae173462312ac0f7",
+    "components/creation-studio/ToolWorkbench.wxss": "6464c379de792ca4ba5534b41a6e166a96b24804b6bf990c4b26d7e31a2eff74",
     "components/creation-studio/WorkCard.js": "e0980b43cda38f1babf5a96b2b2d34eb5db6d42db322f00016ac235f88dcd3c4",
     "components/creation-studio/WorkCard.json": "33a9f94c2381287d1247e9d161afbc325b341ef59bb420301587a525ca57d6d3",
     "components/creation-studio/WorkCard.wxml": "7bedd1e09521a002315497379937430fa03e0665bcdd97ef573682d10be24bce",
@@ -997,7 +997,7 @@
     "components/creation-studio/native-field.js": "4372ed9429a8a6804070f3036f5834746460cabc491d56282d774aca76823a0f",
     "components/creation-studio/save-work.js": "e4f62d52412ed0898f69d4a89583c7f21b048323565c004e477001a426722b47",
     "components/creation-studio/select-menu.js": "05a800d57cec941bd9207dff140eb4c66dedeadad5c2f4d7adeb8865f492cc2f",
-    "components/creation-studio/useCreationWorkbench.js": "15e0ca6aff65b64c256f85d5d79d345fbf5669054f59810be885407981438288",
+    "components/creation-studio/useCreationWorkbench.js": "715e5cca433bf6d047a1d7b4ef78d297e5efb32558fcbf28b09756c04a1c0424",
     "components/creation-studio/useRecentGenerations.js": "c0a4161ffef4083c6bcc9d8f63f57b55fd18fb10f5ff8f4c67ad5ea621124c9c",
     "components/creation-studio/useToolCover.js": "ffe681f6b0bd301e624a172713cc6ebc787f9581d14b7df4293e7b1e8690848f",
     "components/creation-studio/useWorkDeletion.js": "38c0c140cd60c0be26fd60b2517b98b516f6acabd72b259ec55879db63c9fe1a",
@@ -1733,5 +1733,5 @@
     "utils/video-references.js": "77f5eec38c5ef075e11892244ccf9e249d82937e07401398df98319568775a17",
     "utils/workspace-asset-library.js": "e3d4ee9de3526a89688f752898e0a979e13229fa97d155b7dbe91e18a2b9594a"
   },
-  "sha256": "229557d3ee6b4d50339b961cb3306a2563811d03bcac271bc564272fcad49964"
+  "sha256": "644bb281c632d7dac0d1ea99f69d9fe2a6010aaf5d3d331b22c60073d0d57ff8"
 }

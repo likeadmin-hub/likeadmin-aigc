@@ -1,0 +1,1 @@
+import{r}from"./index-DjeLA491.js";const i={get(e,t){return r.get({url:`/app.aigc_video_enhance.${e}`,params:t},{silent:!0})},post(e,t){return r.post({url:`/app.aigc_video_enhance.${e}`,params:t,timeout:12e4},{silent:!0,isOpenRetry:!1})}};export{i as v};
