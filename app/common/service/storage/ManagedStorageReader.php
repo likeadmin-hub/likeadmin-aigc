@@ -32,11 +32,52 @@ final class ManagedStorageReader
             $length=$meta['content-length']??$meta['Content-Length']??null;
             if(!is_numeric($length)||(int)$length<=0||(int)$length>$maxBytes)throw new RuntimeException('素材大小超出读取限制');
             $bytes=$client->getObject((string)$storage['bucket'],$key,[\OSS\OssClient::OSS_RANGE=>'0-'.$maxBytes]);
+        }elseif($engine==='qcloud'){
+            $bytes=self::readCos($storage,$key,$maxBytes,$timeout);
         }else{
             $signed=StorageSignedUrlService::resolve($key,$scope,$engine,(string)$receipt['storage_domain'],$tenant);
             $bytes=OpenSafeHttp::get($signed?:FileService::format((string)$receipt['storage_domain'],$key),$maxBytes,$timeout)['body'];
         }
         if(!is_string($bytes)||$bytes===''||strlen($bytes)>$maxBytes)throw new RuntimeException('素材读取失败或超出限制');
         return $bytes;
+    }
+
+    private static function readCos(array $storage, string $key, int $maxBytes, int $timeout): string
+    {
+        $bucket = (string)($storage['bucket'] ?? '');
+        $region = (string)($storage['region'] ?? '');
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{0,61}-[1-9][0-9]{4,19}$/D', $bucket)
+            || !preg_match('/^[a-z]{2}(?:-[a-z0-9]+){1,4}$/D', $region)
+            || empty($storage['access_key']) || empty($storage['secret_key'])) {
+            throw new RuntimeException('素材原存储配置已变化，请重新上传');
+        }
+        // Read the owned key from the configured COS bucket, independently of its preview CDN.
+        $client = new \Qcloud\Cos\Client(StorageOperationTimeout::cos(['operation_timeout' => $timeout]) + [
+            'region' => $region,
+            'scheme' => 'https',
+            'credentials' => ['secretId' => $storage['access_key'], 'secretKey' => $storage['secret_key']],
+        ]);
+        $result = $client->getObject([
+            'Bucket' => $bucket,
+            'Key' => $key,
+            'Range' => 'bytes=0-' . $maxBytes,
+            '@http' => [
+                'allow_redirects' => false,
+                'verify' => true,
+                'on_headers' => static function ($response) use ($maxBytes): void {
+                    $length = $response->getHeaderLine('Content-Length');
+                    $range = $response->getHeaderLine('Content-Range');
+                    if (($length !== '' && (!ctype_digit($length) || (int)$length > $maxBytes))
+                        || ($range !== '' && (!preg_match('~^bytes 0-[0-9]+/([0-9]+)$~D', $range, $match)
+                            || (int)$match[1] > $maxBytes))) {
+                        throw new RuntimeException('素材大小超出读取限制');
+                    }
+                },
+                'progress' => static function ($total, $downloaded) use ($maxBytes): void {
+                    if ($total > $maxBytes || $downloaded > $maxBytes) throw new RuntimeException('素材大小超出读取限制');
+                },
+            ],
+        ]);
+        return (string)($result['Body'] ?? '');
     }
 }

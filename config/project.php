@@ -1,7 +1,7 @@
 <?php
 return [
     // 系统版本号
-    'version' => '1.0.451',
+    'version' => '1.0.452',
     // 由发布代码声明，清理 runtime 时不会丢失。
     'deployment_mode' => 'canonical',
     'project_name' => 'Likeadmin-SaaS版',

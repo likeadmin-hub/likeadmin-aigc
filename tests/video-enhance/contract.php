@@ -5,6 +5,10 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 use app\common\service\ai\GenerationSubmission;
+use app\common\service\app\aigc_video_enhance\VideoEnhanceConfig;
+use app\common\service\app\aigc_video_enhance\VideoEnhanceService;
+use app\common\service\open_platform\OpenException;
+use app\common\service\open_platform\OpenSafeHttp;
 use app\common\service\power\MarketGenerationAdapterRegistry;
 use app\common\service\power\MarketGenericImageAppRuntimeService as Runtime;
 
@@ -34,4 +38,20 @@ check(fixture('payload', ['app_code'=>'watermark_removal'], $input) === ['url'=>
 check(fixture('status', ['code'=>1,'data'=>['result'=>['status'=>'completed']]], false) === 'success', 'Completed query wrapper must be recognised');
 check(fixture('status', ['code'=>0,'msg'=>'temporary read error'], false) === 'running', 'An error response alone cannot refund a task');
 check(fixture('status', ['code'=>1,'data'=>['status'=>'failed']], false) === 'failed', 'Explicit terminal failure remains refundable');
+
+check(VideoEnhanceConfig::validate(['max_seconds'=>12, 'allow_link'=>0], true, 25) === ['max_seconds'=>12, 'allow_link'=>0], 'Missing tenant overrides must inherit');
+try {
+    VideoEnhanceConfig::validate(['max_seconds'=>26], true, 25);
+    throw new RuntimeException('Tenant duration exceeded platform limit');
+} catch (InvalidArgumentException $expected) {}
+check(VideoEnhanceConfig::selected(['sku_id'=>30], [['market_sku_id'=>31]]) === null, 'Unavailable explicit SKU must not fall back to a different price');
+check(VideoEnhanceConfig::selected(['sku_id'=>0], [['market_sku_id'=>31]])['market_sku_id'] === 31, 'Existing installations use the first available SKU by default');
+
+$delivery = new ReflectionMethod(VideoEnhanceService::class, 'deliveryBlock');
+check($delivery->invoke(null, ['storage_engine'=>'qcloud']) === '', 'Owned COS media must not require a DNS probe to calculate its rate');
+check($delivery->invoke(null, ['storage_engine'=>'local', 'source_url'=>'http://127.0.0.1/uploads/fixture.mp4']) !== '', 'An estimate must flag local media the upstream cannot read');
+try {
+    OpenSafeHttp::resolve('http://127.0.0.1/uploads/fixture.mp4', false);
+    throw new RuntimeException('An external input link must not access an internal address');
+} catch (OpenException $expected) {}
 echo "video enhancement contract PASS\n";

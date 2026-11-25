@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_video_enhance;
 
 use app\common\model\ai\AiConsumptionLog;
+use app\common\model\ai\AiConsumptionEvent;
+use app\common\model\ai\AiAppTask;
 use app\common\model\app\aigc_video_enhance\VideoEnhanceTask;
 use app\common\service\ai\StudioMediaInputService;
 use app\common\service\app\AppAccessService;
@@ -23,16 +25,17 @@ final class VideoEnhanceService
 {
     public const APP = 'aigc_video_enhance';
     private const TABLE = 'aigc_video_enhance_task';
-    private const MAX_SECONDS = 30;
     private const MAX_VIDEO_BYTES = 268435456;
 
     public static function config(int $tenant): array
     {
-        $option = self::option($tenant);
+        $settings = VideoEnhanceConfig::settings($tenant);
+        $option = VideoEnhanceConfig::selected($settings, VideoEnhanceConfig::options($tenant));
         return AppDisplayConfigService::appendToConfig($tenant, self::APP, [
-            'status' => $option && AppAccessService::tenantCanUse($tenant, self::APP) ? 1 : 0,
-            'max_seconds' => self::MAX_SECONDS,
-            'default_bit_rate' => 10,
+            'status' => $settings['enabled'] && $option && AppAccessService::tenantCanUse($tenant, self::APP) ? 1 : 0,
+            'max_seconds' => $settings['max_seconds'],
+            'default_bit_rate' => $settings['default_bit_rate'],
+            'allow_link' => $settings['allow_link'],
         ]);
     }
 
@@ -43,21 +46,53 @@ final class VideoEnhanceService
             'duration' => $source['duration'], 'width' => $source['width'], 'height' => $source['height'],
             'user_charge_points' => $quote['user_charge_points'], 'display_points' => $quote['user_charge_points'],
             'billing_unit' => $quote['billing_unit'], 'market_sku_id' => $quote['market_sku_id'],
+            'submit_block_reason' => self::deliveryBlock($source),
         ];
     }
 
-    public static function submit(int $tenant, int $user, array $params): array
+    public static function diagnoseUpload(int $tenant, int $user, string $uri): array
+    {
+        $facts = self::videoFacts($tenant, $user, $uri, '', VideoEnhanceConfig::MAX_SECONDS);
+        return [
+            'duration' => (float)$facts['duration'],
+            'storage_engine' => $facts['storage_engine'],
+            'submit_block_reason' => self::deliveryBlock(['storage_engine' => $facts['storage_engine'], 'source_url' => $facts['url']]),
+        ];
+    }
+
+    public static function submit(int $tenant, int $user, array $params, ?array $retry = null): array
     {
         [$source, $selection, $quote] = self::prepare($tenant, $user, $params);
+        $blocked = self::deliveryBlock($source);
+        if ($blocked !== '') throw new \InvalidArgumentException($blocked);
+        if ($retry && (!is_numeric($retry['points']) || (float)$retry['points'] !== (float)$quote['user_charge_points'])) {
+            throw new \InvalidArgumentException('预计点数已变化，请重新估价后确认');
+        }
         $runtime = MarketGenerationRuntime::selection('application', $selection);
         PointService::assertCanConsumeAmounts($tenant, $user, (float)$quote['tenant_cost_points'], (float)$quote['user_charge_points']);
         $request = ['url' => $source['source_url'], 'duration' => $source['duration'], 'bit_rate' => $source['bit_rate']];
-        $task = Db::transaction(static function () use ($tenant, $user, $source, $request, $runtime) {
+        $task = Db::transaction(static function () use ($tenant, $user, $source, $request, $runtime, $retry) {
+            if ($retry) {
+                $parent = self::owned($tenant, $user)->where('id', $retry['id'])->lock(true)->find();
+                if (!$parent || (int)$parent['app_task_id'] !== $retry['parent'] || $retry['parent'] < 1) {
+                    throw new \InvalidArgumentException('原任务记录已变化，请重新查看');
+                }
+                if (AiAppTask::where(['parent_task_id' => $retry['parent'], 'tenant_id' => $tenant, 'app_code' => self::APP])->count()) {
+                    throw new \InvalidArgumentException('原任务已有重新提交的记录，请查看创作记录');
+                }
+            }
             $now = time();
             $task = VideoEnhanceTask::create($source + ['tenant_id' => $tenant, 'user_id' => $user, 'create_time' => $now, 'update_time' => $now]);
             $receipt = $runtime->reserve($tenant, $user, self::APP, 'enhance', self::TABLE, (string)$task['id'], $request, $source['duration']);
             $runtime->bind((int)$receipt['app_task_id'], (int)$task['id'], $tenant, $user);
             $task->save(['app_task_id' => $receipt['app_task_id'], 'consumption_id' => $receipt['consumption_id']]);
+            if ($retry) {
+                $reserved = AiConsumptionLog::where('id', $receipt['consumption_id'])->value('reserved_user_price');
+                if ((float)$reserved !== (float)$retry['points']) throw new \InvalidArgumentException('预计点数已变化，请重新估价后确认');
+                AiAppTask::where('id', $receipt['app_task_id'])->update(['parent_task_id' => $retry['parent']]);
+                AiConsumptionEvent::create(['consumption_id' => $receipt['consumption_id'], 'event_type' => 'video_enhance_retry',
+                    'event_status' => 'created', 'payload_summary' => ['source_task_id' => $retry['id'], 'admin_id' => $retry['admin']], 'create_time' => $now]);
+            }
             return $task;
         });
         $consumption = (int)$task['consumption_id'];
@@ -103,15 +138,19 @@ final class VideoEnhanceService
         if ($user < 1) throw new \InvalidArgumentException('请先登录');
         $blocked = AppAccessService::assertTenantCanUse($tenant, self::APP, $user);
         if ($blocked) throw new \InvalidArgumentException((string)$blocked->getData()['msg']);
-        $option = self::option($tenant);
+        $settings = VideoEnhanceConfig::settings($tenant);
+        if (!$settings['enabled']) throw new \InvalidArgumentException('视频变清晰暂不可用');
+        $option = VideoEnhanceConfig::selected($settings, VideoEnhanceConfig::options($tenant));
         if (!$option) throw new \InvalidArgumentException('当前暂无可用的视频处理通道');
         $uri = is_string($params['video_uri'] ?? null) ? trim($params['video_uri']) : '';
         $url = is_string($params['video_url'] ?? null) ? trim($params['video_url']) : '';
         if (($uri === '') === ($url === '')) throw new \InvalidArgumentException('请选择一个视频或提供一个视频直链');
-        $bitRate = filter_var($params['bit_rate'] ?? 10, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
+        if ($url !== '' && !$settings['allow_link']) throw new \InvalidArgumentException('当前站点已关闭视频直链，请上传视频');
+        $bitRate = filter_var($params['bit_rate'] ?? $settings['default_bit_rate'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
         if ($bitRate === false) throw new \InvalidArgumentException('输出码率须为 1 到 20 的整数');
-        $facts = self::videoFacts($tenant, $user, $uri, $url);
-        if ((float)$facts['duration'] > self::MAX_SECONDS) throw new \InvalidArgumentException('请选择不超过 30 秒的视频');
+        $maxSeconds = (int)$settings['max_seconds'];
+        $facts = self::videoFacts($tenant, $user, $uri, $url, $maxSeconds);
+        if ((float)$facts['duration'] > $maxSeconds) throw new \InvalidArgumentException('请选择不超过 '.$maxSeconds.' 秒的视频');
         $duration = round((float)$facts['duration'], 4);
         $selection = [
             'upstream_app_code' => Runtime::ENHANCE_APP,
@@ -126,7 +165,7 @@ final class VideoEnhanceService
         return [$source, $selection, Runtime::quote($tenant, $selection, $duration)];
     }
 
-    private static function videoFacts(int $tenant, int $user, string $uri, string $url): array
+    private static function videoFacts(int $tenant, int $user, string $uri, string $url, int $maxSeconds): array
     {
         if ($uri === '') {
             try {
@@ -137,27 +176,27 @@ final class VideoEnhanceService
             }
         }
 
-        $facts = StudioMediaInputService::validateVideo($tenant, $user, $uri, self::MAX_SECONDS,
-            static fn(array $file, array $storage): string => ManagedStorageReader::read(
-                array_replace($file, $storage), $tenant, self::MAX_VIDEO_BYTES, 120
-            )
-        );
-        if ($facts['storage_engine'] === 'local') {
-            try {
-                OpenSafeHttp::resolve($facts['url'], false);
-            } catch (OpenException $error) {
-                throw new \InvalidArgumentException('本地视频无法从公网访问，请改用公网视频直链，或在配置云存储后重新上传', 0, $error);
+        return StudioMediaInputService::validateVideo($tenant, $user, $uri, $maxSeconds,
+            static function (array $file, array $storage) use ($tenant): string {
+                try {
+                    return ManagedStorageReader::read(array_replace($file, $storage), $tenant, self::MAX_VIDEO_BYTES, 60);
+                } catch (\Exception $error) {
+                    throw new \InvalidArgumentException('上传的视频暂时无法读取，请重新选择或联系管理员检查存储配置', 0, $error);
+                }
             }
-        }
-        return $facts;
+        );
     }
 
-    private static function option(int $tenant): ?array
+    private static function deliveryBlock(array $source): string
     {
-        foreach (Runtime::options($tenant, Runtime::ENHANCE_APP) as $option) {
-            if ($option['usage_unit'] === 'input_second') return $option;
+        if ($source['storage_engine'] === 'local') {
+            try {
+                OpenSafeHttp::resolve($source['source_url'], false);
+            } catch (OpenException) {
+                return '处理服务无法读取本站的本地视频，请使用公网视频直链或在启用云存储后重新上传';
+            }
         }
-        return null;
+        return '';
     }
 
     private static function owned(int $tenant, int $user): \think\db\Query

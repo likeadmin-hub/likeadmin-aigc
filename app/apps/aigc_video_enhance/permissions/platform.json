@@ -1,0 +1,44 @@
+[
+  {
+    "permission_key": "aigc_video_enhance:platform:config:detail",
+    "name": "查看配置",
+    "api_path": "app.aigc_video_enhance.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video_enhance:platform:config:setup",
+    "name": "保存配置",
+    "api_path": "app.aigc_video_enhance.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video_enhance:platform:admin_task:lists",
+    "name": "查看任务",
+    "api_path": "app.aigc_video_enhance.admin_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video_enhance:platform:admin_task:detail",
+    "name": "查看详情",
+    "api_path": "app.aigc_video_enhance.admin_task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video_enhance:platform:admin_task:media",
+    "name": "查看视频素材",
+    "api_path": "app.aigc_video_enhance.admin_task/media",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video_enhance:platform:admin_task:diagnose",
+    "name": "检查上传视频",
+    "api_path": "app.aigc_video_enhance.admin_task/diagnose",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video_enhance:platform:admin_task:operate",
+    "name": "处理任务异常",
+    "api_path": "app.aigc_video_enhance.admin_task/operate",
+    "api_method": "POST"
+  }
+]

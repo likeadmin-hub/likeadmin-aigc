@@ -1,1 +1,73 @@
-{"algorithm":"sha256","sha256":{"api_schema.json":"46006274ae99aa1d76cde99ceac9a400f551c4b88ddacea1538eb25ce3f3702b","assets/cover.jpg":"5975a9026187a31a1b0bbd684a402bb0de48fbb3b22e1ef5b9deee81788fe10d","bootstrap.sql":"10c71ce7a63e43f40fd3d6693c08bad4531567d8d56c8dcb45aa569140752536","frontend/README.md":"d8a15a02c0f460b99951270e8d1905dc02b5c279c7e882670fa024a35c1f5c1e","manifest.json":"f327881b046e002fc6e91ddde0393242798bc968019f6a65d5e66b769dfd1274","menus/platform.json":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570","menus/tenant.json":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570","migrations/install.sql":"630483a7a68438dfd4546f326467b07584a89186e795358dab62d2d106e429ce","permissions/tenant.json":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"},"files":[{"path":"api_schema.json","sha256":"46006274ae99aa1d76cde99ceac9a400f551c4b88ddacea1538eb25ce3f3702b","size":1464},{"path":"assets/cover.jpg","sha256":"5975a9026187a31a1b0bbd684a402bb0de48fbb3b22e1ef5b9deee81788fe10d","size":17427},{"path":"bootstrap.sql","sha256":"10c71ce7a63e43f40fd3d6693c08bad4531567d8d56c8dcb45aa569140752536","size":6340},{"path":"frontend/README.md","sha256":"d8a15a02c0f460b99951270e8d1905dc02b5c279c7e882670fa024a35c1f5c1e","size":83},{"path":"manifest.json","sha256":"f327881b046e002fc6e91ddde0393242798bc968019f6a65d5e66b769dfd1274","size":1765},{"path":"menus/platform.json","sha256":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570","size":3},{"path":"menus/tenant.json","sha256":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570","size":3},{"path":"migrations/install.sql","sha256":"630483a7a68438dfd4546f326467b07584a89186e795358dab62d2d106e429ce","size":966},{"path":"permissions/tenant.json","sha256":"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570","size":3}]}
+{
+  "algorithm": "sha256",
+  "sha256": {
+    "api_schema.json": "8b45d009f91c8f429bfdc6579656d566adff6b963122c85d7a4e450d4d66ec8d",
+    "assets/cover.jpg": "5975a9026187a31a1b0bbd684a402bb0de48fbb3b22e1ef5b9deee81788fe10d",
+    "bootstrap.sql": "2e1e611e929f9e3e0557abece7ab5481856742f303c537c1afed162fe50a1b28",
+    "frontend/README.md": "c72ddf4250467bedbdb8405b9e0290c1e830b47643d328d595de1c5ca3f78cda",
+    "manifest.json": "178a2d768ea21a245eb4c02a7841df4ab21aabab76042a0c48e4a59d55e05d10",
+    "menus/platform.json": "71b9c1dcd259a04ccad580a287495e2d46159a09b849d7bc98e811f2cff55558",
+    "menus/tenant.json": "d1f5c1e8483cb31bfae05970eeb96fecec587ff16a0d7097a3b516428cc98f85",
+    "migrations/20261125_admin_config.sql": "e06d2c30b71a6245e26b6eeea8b6d724b4ff4ffbe28433d21d7ce8c80965a788",
+    "migrations/install.sql": "630483a7a68438dfd4546f326467b07584a89186e795358dab62d2d106e429ce",
+    "permissions/platform.json": "e30ca199bf4b1faea8c0517acf573425e19c6afcb51354d2427c44239141cc7f",
+    "permissions/tenant.json": "2686891a942387ded63129c943c04480daf217c19084d2ee00df63eeb71b6712"
+  },
+  "files": [
+    {
+      "path": "api_schema.json",
+      "sha256": "8b45d009f91c8f429bfdc6579656d566adff6b963122c85d7a4e450d4d66ec8d",
+      "size": 5622
+    },
+    {
+      "path": "assets/cover.jpg",
+      "sha256": "5975a9026187a31a1b0bbd684a402bb0de48fbb3b22e1ef5b9deee81788fe10d",
+      "size": 17427
+    },
+    {
+      "path": "bootstrap.sql",
+      "sha256": "2e1e611e929f9e3e0557abece7ab5481856742f303c537c1afed162fe50a1b28",
+      "size": 29087
+    },
+    {
+      "path": "frontend/README.md",
+      "sha256": "c72ddf4250467bedbdb8405b9e0290c1e830b47643d328d595de1c5ca3f78cda",
+      "size": 123
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "178a2d768ea21a245eb4c02a7841df4ab21aabab76042a0c48e4a59d55e05d10",
+      "size": 1836
+    },
+    {
+      "path": "menus/platform.json",
+      "sha256": "71b9c1dcd259a04ccad580a287495e2d46159a09b849d7bc98e811f2cff55558",
+      "size": 2543
+    },
+    {
+      "path": "menus/tenant.json",
+      "sha256": "d1f5c1e8483cb31bfae05970eeb96fecec587ff16a0d7097a3b516428cc98f85",
+      "size": 3135
+    },
+    {
+      "path": "migrations/20261125_admin_config.sql",
+      "sha256": "e06d2c30b71a6245e26b6eeea8b6d724b4ff4ffbe28433d21d7ce8c80965a788",
+      "size": 291
+    },
+    {
+      "path": "migrations/install.sql",
+      "sha256": "630483a7a68438dfd4546f326467b07584a89186e795358dab62d2d106e429ce",
+      "size": 966
+    },
+    {
+      "path": "permissions/platform.json",
+      "sha256": "e30ca199bf4b1faea8c0517acf573425e19c6afcb51354d2427c44239141cc7f",
+      "size": 1351
+    },
+    {
+      "path": "permissions/tenant.json",
+      "sha256": "2686891a942387ded63129c943c04480daf217c19084d2ee00df63eeb71b6712",
+      "size": 1731
+    }
+  ]
+}

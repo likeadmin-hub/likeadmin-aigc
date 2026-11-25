@@ -1,1 +1,82 @@
-[]
+[
+  {
+    "source_menu_key": "aigc_video_enhance",
+    "app_code": "aigc_video_enhance",
+    "source": "app",
+    "name": "视频变清晰",
+    "type": "M",
+    "sort": 846,
+    "paths": "aigc-video-enhance",
+    "icon": "el-icon-VideoCamera",
+    "component": "",
+    "perms": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_video_enhance_config",
+        "app_code": "aigc_video_enhance",
+        "source": "app",
+        "name": "创作配置",
+        "type": "C",
+        "sort": 20,
+        "paths": "config",
+        "component": "apps/aigc_video_enhance/config",
+        "perms": "app.aigc_video_enhance.config/detail",
+        "children": [
+          {
+            "source_menu_key": "aigc_video_enhance_config_setup",
+            "app_code": "aigc_video_enhance",
+            "source": "app",
+            "name": "保存配置",
+            "type": "A",
+            "perms": "app.aigc_video_enhance.config/setup"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_video_enhance_task",
+        "app_code": "aigc_video_enhance",
+        "source": "app",
+        "name": "创作记录",
+        "type": "C",
+        "sort": 10,
+        "paths": "task",
+        "component": "apps/aigc_video_enhance/task",
+        "perms": "app.aigc_video_enhance.admin_task/lists",
+        "children": [
+          {
+            "source_menu_key": "aigc_video_enhance_task_detail",
+            "app_code": "aigc_video_enhance",
+            "source": "app",
+            "name": "查看详情",
+            "type": "A",
+            "perms": "app.aigc_video_enhance.admin_task/detail"
+          },
+          {
+            "source_menu_key": "aigc_video_enhance_task_media",
+            "app_code": "aigc_video_enhance",
+            "source": "app",
+            "name": "查看视频素材",
+            "type": "A",
+            "perms": "app.aigc_video_enhance.admin_task/media"
+          },
+          {
+            "source_menu_key": "aigc_video_enhance_task_diagnose",
+            "app_code": "aigc_video_enhance",
+            "source": "app",
+            "name": "检查上传视频",
+            "type": "A",
+            "perms": "app.aigc_video_enhance.admin_task/diagnose"
+          },
+          {
+            "source_menu_key": "aigc_video_enhance_task_operate",
+            "app_code": "aigc_video_enhance",
+            "source": "app",
+            "name": "处理任务异常",
+            "type": "A",
+            "perms": "app.aigc_video_enhance.admin_task/operate"
+          }
+        ]
+      }
+    ]
+  }
+]

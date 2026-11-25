@@ -1,10 +1,10 @@
 {
   "code": "aigc_video_enhance",
   "name": "视频变清晰",
-  "version": "1.0.1",
-  "require_core": ">=1.0.450",
+  "version": "1.0.2",
+  "require_core": ">=1.0.452",
   "description": "通过视频超分提升画面分辨率，适合短视频画质修复。",
-  "changelog": "1. 新增视频变清晰工具，支持上传短视频并预览、下载处理结果。",
+  "changelog": "1. 新增平台和租户后台的创作配置、任务记录和异常处理。\n2. 修复已上传视频估价失败的问题。",
   "icon": "resource/image/common/menu_generator.png",
   "cover": "resource/image/apps/aigc_video_enhance/cover.jpg",
   "category": "aigc",
@@ -12,6 +12,8 @@
   "expire_policy": "allow",
   "sort": 846,
   "frontends": [
+    "platform",
+    "tenant",
     "pc",
     "uniapp"
   ],
