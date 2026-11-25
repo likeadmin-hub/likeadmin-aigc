@@ -104,7 +104,11 @@ final class ProductVideoService
         if(in_array($job['action'],['analysis','plan'],true)){
             $productInfo=ProductVideoPolicy::text($result['product_info']??'',3000);
             if($productInfo!==''&&($job['action']==='analysis'||empty($body['product_info'])))$body['product_info']=$productInfo;
-            $plan=ProductVideoPolicy::plan($result,(int)$body['video_selection']['duration']);
+            $duration = (int)$body['video_selection']['duration'];
+            if (ProductVideoPolicy::replicating()) {
+                $duration = ProductVideoPolicy::json($job['request_json'])['duration'] ?? $duration;
+            }
+            $plan=ProductVideoPolicy::plan($result,$duration);
             $plan['video_prompt']=ProductVideoPolicy::planDescription($plan);
             $body['prompt']=$plan['video_prompt'];
             $body['prompt_review_images']=array_column($body['images'],'uri');

@@ -57,7 +57,9 @@ try {
         check($direct && $imageOnly, 'Fixture needs both video-reference and script-only models');
         $mini = array_values(array_filter($direct, fn($m) => stripos($m['label'], 'Seedance 2.0 Mini') !== false));
         $id = ($mini[0] ?? $direct[0])['id'];
-        $spec = Projects::models(1,'video',$id)['models'][0]['specs'][0];
+        $specs = Projects::models(1,'video',$id)['models'][0]['specs'];
+        $spec = array_values(array_filter($specs, static fn($s) => (int)$s['duration'] === 10))[0] ?? null;
+        check($spec !== null, 'Fixture needs a ten-second render option');
         $body = ['video_selection'=>['model_id'=>$id]+$spec, 'reference_video'=>['uri'=>$seed.'sample.mp4'],
             'clip'=>['start'=>2,'end'=>7],'images'=>[['uri'=>$seed.'product.png']]];
         rejects(fn()=>Projects::save(1,1,['body'=>array_replace($body,['clip'=>['start'=>7,'end'=>12]])]));
@@ -76,6 +78,10 @@ try {
         check(Jobs::create(1,1,$input)['id']===$job['id'],'Retry created a duplicate job');
         $root=Jobs::owned(1,1,$job['id']);
         $request=Policy::json($root['request_json']);
+        $planRequest = $request['script_request'];
+        $content = Policy::json($planRequest['content']);
+        check($planRequest['duration'] === 5 && $content['duration'] === 5 && $content['actual_duration'] === 5, 'Automatic analysis must use the selected five seconds');
+        check((int)$request['selection']['duration'] === 10, 'Analysis changed the selected render duration');
         $asset=$request['script_request']['video'];
         $clip=StudioMediaInputService::videoClipInput($asset);
         file_put_contents($dir.'/clip.mp4',base64_decode(explode(',',$clip,2)[1],true));
@@ -98,17 +104,24 @@ try {
         Workflow::advance($root,$request);
         $children=Projects::table('job_stage')->where('root_job_id',$root['id'])->column('child_job_id');
         check(count($children)===1,'Duplicate analysis child');
-        $duration = (int)$spec['duration'];
-        $script = Policy::plan(['summary'=>'测试脚本','shots'=>[
-            ['start'=>0,'end'=>$duration/2,'description'=>'商品全景'],
-            ['start'=>$duration/2,'end'=>$duration,'description'=>'演示细节']
-        ]], $duration);
+        $reply = ['summary'=>'测试脚本','shots'=>[
+            ['start'=>0,'end'=>2.5,'description'=>'商品全景'],
+            ['start'=>2.5,'end'=>5,'description'=>'演示细节']
+        ]];
+        $child = Jobs::owned(1,1,$children[0]);
+        $script = Worker::parse($child, ['content'=>Policy::encode($reply)]);
+        $wrong = $reply;
+        $wrong['shots'][1]['end'] = 10;
+        rejects(fn()=>Worker::parse($child, ['content'=>Policy::encode($wrong)]));
+        // A previously issued ten-second analysis still validates against its own saved request.
+        $legacy = array_replace($child, ['request_json'=>Policy::encode(array_replace($planRequest, ['duration'=>10]))]);
+        check(Worker::parse($legacy,['content'=>Policy::encode($wrong)])['duration'] === 10, 'Legacy plan timing changed');
         Jobs::table()->where('id',$children[0])->update(['status'=>'success','billing_status'=>'settled','user_charge_points'=>2,
             'result_json'=>Policy::encode($script)]);
         Workflow::advance($root,$request);
         $staged=Policy::json(Jobs::owned(1,1,$job['id'])['request_json']);
         check(!isset($staged['script_request']) && str_contains($staged['prompt'],'演示细节') && str_contains($staged['prompt'],'参考视频')
-            && $staged['reference_assets'][1]['uri'] === $render['uri'],'Generated script or original crop did not reach the render job');
+            && str_contains($staged['prompt'],'10 秒成片') && $staged['reference_assets'][1]['uri'] === $render['uri'],'Generated script, render duration or original crop did not reach the render job');
         $staged['runtime'] = LocalReplicationVideoRuntime::class;
         Worker::write($job['id'], ['request_json'=>Policy::encode($staged)]);
         Worker::tick($job['id']);
@@ -135,6 +148,19 @@ try {
         $manual=Jobs::prepare(1,1,['project_id'=>$edited['id'],'revision'=>$edited['revision'],'action'=>'video']);
         check(!isset($manual['request']['script_request']) && str_contains($manual['request']['prompt'],$body['prompt']),'Edited script triggered a second analysis');
         check(str_contains($manual['request']['prompt'],$body['requirements']),'Custom direction missing from the render prompt');
+        // A manual analysis of a fractional interval must round-trip into the editable draft.
+        $fraction = Projects::save(1,1,['body'=>array_replace($body,['clip'=>['start'=>2,'end'=>7.5]])]);
+        $planParams = ['project_id'=>$fraction['id'],'revision'=>$fraction['revision'],'action'=>'plan'];
+        $planQuote = Jobs::estimate(1,1,$planParams);
+        $planJob = Jobs::create(1,1,$planParams+['quote_token'=>$planQuote['quote_token'],'idempotency_key'=>bin2hex(random_bytes(16))]);
+        $planRow = Jobs::owned(1,1,$planJob['id']);
+        $manualRequest = Policy::json($planRow['request_json']);
+        check(Policy::json($manualRequest['content'])['duration'] === 5.5, 'Manual analysis truncated the clip duration');
+        $reply['shots'][1]['end'] = 5.5;
+        $fractionScript = Worker::parse($planRow,['content'=>Policy::encode($reply)]);
+        Jobs::table()->where('id',$planJob['id'])->update(['status'=>'success','result_json'=>Policy::encode($fractionScript)]);
+        $adopted = Projects::adopt(1,1,['job_id'=>$planJob['id'],'revision'=>$fraction['revision']])['body'];
+        check(str_contains($adopted['prompt'],'2.5-5.5秒') && (int)$adopted['video_selection']['duration'] === 10, 'Applying analysis changed or rejected fractional timing');
         // Save the successful render as a template, then grant an editable copy of its original inputs.
         $snapshot = Policy::json(Projects::owned(1,1,$edited['id'])['body_json']);
         $previewFile = Db::name('tenant_file')->where(['tenant_id'=>1,'uri'=>$seed.'sample.mp4'])->findOrFail();

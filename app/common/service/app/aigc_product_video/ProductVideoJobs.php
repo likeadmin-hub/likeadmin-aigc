@@ -99,9 +99,10 @@ final class ProductVideoJobs
             }
         }
         if($action==='video'){
-            $prompt=ProductVideoPolicy::prompt($body);if($body['mode']==='normal'&&($body['normal_source']??'prompt')==='prompt'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
+            if($body['mode']==='normal'&&($body['normal_source']??'prompt')==='prompt'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
             $wanted=(array)$body['video_selection'];$model=ProductVideoCatalog::model($tenant,$body);
             $renderWithClip = $replication && !empty($model['replication_reference_modes']);
+            $prompt = $replication ? VideoReplicationWorkflow::renderPrompt($body, $renderWithClip) : ProductVideoPolicy::prompt($body);
             $spec = $renderWithClip ? VideoReplicationWorkflow::renderSpec($model, $body) : ProductVideoCatalog::spec($model,$body);
             if(($body['reference_mode']??'reference')!=='start_end'&&count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
             if($body['mode']==='normal'&&$body['reference_mode']==='start_end')$images=ProductVideoPolicy::frames($images);
@@ -110,9 +111,8 @@ final class ProductVideoJobs
             if ($renderWithClip) {
                 // The advisory preview only prices the verified interval. Paid jobs always use the cut file.
                 $assets[] = $preview
-                    ? ['type'=>'video', 'role'=>'reference_video', 'duration'=>round($body['clip']['end'] - $body['clip']['start'], 3)] + $body['reference_video']
+                    ? ['type'=>'video', 'role'=>'reference_video', 'duration'=>VideoReplicationWorkflow::clipDuration($body['clip'])] + $body['reference_video']
                     : VideoReplicationWorkflow::renderAsset($tenant, $user, $project);
-                $prompt = VideoReplicationWorkflow::renderPrompt($body);
             }
             ProductVideoMaterials::assertMentions($body,$assets);
             if(($body['audio']??null)!==null){if(empty($model['supports_generate_audio']))throw new InvalidArgumentException('所选模型不支持声音开关，请使用自动声音设置');$spec['generate_audio']=(bool)$body['audio'];}
@@ -150,7 +150,7 @@ final class ProductVideoJobs
                 $v=$body['video_selection'];$model=ProductVideoCatalog::model($tenant,$body);
                 ProductVideoCatalog::spec($model,$body);
                 if(count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
-                $request['duration']=(int)$v['duration'];
+                $request['duration'] = $replication ? VideoReplicationWorkflow::clipDuration($body['clip']) : (int)$v['duration'];
             }
             if(in_array($action,['write','optimize'],true))$request['duration']=(int)($body['video_selection']['duration']??0);
             $id=(string)($video?($body['analysis_model_id']?:$settings['analysis_model_id']):($body['planning_model_id']?:$settings['planning_model_id']));$options=Text::mediaOptions($tenant,(bool)$video);
@@ -168,7 +168,7 @@ final class ProductVideoJobs
             $request['content']=ProductVideoPolicy::encode($content);
             $request['video']=$video;$request['system']=ProductVideoPrompts::system($action);
             if ($replication) {
-                $content['actual_duration'] = $body['clip']['end'] - $body['clip']['start'];
+                $content['actual_duration'] = $request['duration'];
                 $content['requirements'] = $body['requirements'];
                 $request['content'] = ProductVideoPolicy::encode($content);
                 $request['system'] = VideoReplicationWorkflow::SCRIPT_PROMPT;

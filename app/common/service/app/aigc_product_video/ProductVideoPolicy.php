@@ -80,7 +80,7 @@ final class ProductVideoPolicy
         $stable=static function($v)use(&$stable){if(!is_array($v))return $v;foreach(['url','video_url','image_url'] as $k)unset($v[$k]);foreach($v as $k=>$x)if(is_array($x))$v[$k]=$stable($x);return $v;};
         return self::hash($stable($request));
     }
-    public static function plan(array $plan,int $duration,array $context=[]): array
+    public static function plan(array $plan,int|float $duration,array $context=[]): array
     {
         $shots=$plan['shots']??null;if(!is_array($shots)||count($shots)<2||count($shots)>16)throw new InvalidArgumentException('分镜需要 2～16 个镜头');
         $end=0.;$out=[];

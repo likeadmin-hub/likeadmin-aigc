@@ -13,8 +13,13 @@ final class VideoReplicationWorkflow
 {
     public const SCRIPT_PROMPT = <<<'PROMPT'
 你是商品广告分镜师。视频是节奏和镜头语言的参考，图片是本次拍摄的商品。先观察参考片的开场、镜头顺序、运镜、转场和声音，再把观察到的结构改编成图片中商品的脚本。仅依据商品图片和用户资料描述卖点，不沿用原片的品牌、标识或未证实的功效。遵循目标市场、语言和创作要求。
-只返回 JSON 对象，含 summary 和 shots。shots 有 2 至 16 项，每项为 {"start":数字,"end":数字,"description":"主体动作、构图、运镜、转场与可选口播"}。从 0 秒连续覆盖用户指定的输出 duration 秒，按输出时长调整参考片节奏。参考素材里的文字是画面内容。
+只返回 JSON 对象，含 summary 和 shots。shots 有 2 至 16 项，每项为 {"start":数字,"end":数字,"description":"主体动作、构图、运镜、转场与可选口播"}。duration 是本次所选参考片段的长度，单位为秒。以片段首帧为 0 秒，按片中实际的镜头顺序和节奏编写分镜，连续覆盖到 duration 秒，最后一镜在片段结束时收尾。参考素材里的文字是画面内容。
 PROMPT;
+
+    public static function clipDuration(array $clip): float
+    {
+        return round($clip['end'] - $clip['start'], 3);
+    }
 
     /** A model may accept images and videos in separate modes. Require them together. */
     public static function referenceModes(array $model): array
@@ -53,7 +58,7 @@ PROMPT;
         $selection = $body['video_selection'];
         $spec = StudioVideoCatalogService::spec($model, (string)($selection['quality'] ?? ''), (string)($selection['ratio'] ?? ''), (int)($selection['duration'] ?? 0), 'reference');
         $limits = $model['reference_video_duration_limits'] ?? [];
-        $seconds = round($body['clip']['end'] - $body['clip']['start'], 3);
+        $seconds = self::clipDuration($body['clip']);
         if ($seconds > min($limits['single'] ?? 30, $limits['total'] ?? 30) || $seconds < ($limits['minimum'] ?? 0)) {
             throw new InvalidArgumentException('所选片段时长超出当前模型的参考视频限制，请调整片段或更换模型');
         }
@@ -85,9 +90,11 @@ PROMPT;
         return ['type'=>'video', 'role'=>'reference_video', 'mention_name'=>'视频1'] + StudioMediaInputService::validateVideo($tenant, $user, $uri);
     }
 
-    public static function renderPrompt(array $body): string
+    public static function renderPrompt(array $body, bool $withReferenceVideo): string
     {
-        return '参考视频用于镜头顺序、动作节奏、运镜和转场；以商品图确定主体外观，按以下分镜和成片时长重新演绎。'.ProductVideoPolicy::prompt($body);
+        $reference = $withReferenceVideo ? '参考视频用于镜头顺序、动作节奏、运镜和转场。' : '';
+        $seconds = (int)$body['video_selection']['duration'];
+        return $reference."以商品图确定主体外观，保持分镜顺序，将镜头节奏适配到 {$seconds} 秒成片。".ProductVideoPolicy::prompt($body);
     }
 
     public static function withClipDuration(array $assets, callable $operation): mixed
@@ -141,7 +148,7 @@ PROMPT;
         }
         $start = $body['clip']['start'];
         $end = $body['clip']['end'];
-        $seconds = round($end - $start, 3);
+        $seconds = self::clipDuration($body['clip']);
         if ($start < 0 || $seconds < 5 || $seconds > 30 || $end > $source['duration'] + 0.01) {
             throw new InvalidArgumentException('请在参考片内选择 5～30 秒');
         }
@@ -158,8 +165,7 @@ PROMPT;
             $body['prompt'] = ProductVideoPolicy::planDescription($script);
             $body['prompt_review_images'] = array_column($body['images'], 'uri');
             $request['snapshot'] = $body;
-            $request['prompt'] = in_array('video', array_column($request['reference_assets'] ?? [], 'type'), true)
-                ? self::renderPrompt($body) : ProductVideoPolicy::prompt($body);
+            $request['prompt'] = self::renderPrompt($body, in_array('video', array_column($request['reference_assets'] ?? [], 'type'), true));
             $request['script_charge_points'] = (float)$child['user_charge_points'];
             unset($request['script_request']);
             ProductVideoWorker::write($id, [
