@@ -55,7 +55,7 @@ final class ProductVideoService
     }
     public static function projectDto(array $row): array
     {
-        $body=array_diff_key(ProductVideoPolicy::json($row['body_json']),array_flip(['storyboard','generate_storyboard','image_selection']));
+        $body=array_diff_key(ProductVideoPolicy::json($row['body_json']),array_flip(['storyboard','generate_storyboard','image_selection','render_clip_uri']));
         return ['id'=>(int)$row['id'],'title'=>$row['title'],'revision'=>(int)$row['revision'],'body'=>self::publicBody($body,(int)$row['tenant_id']),
             'plan_fresh'=>($body['plan']['input_key']??'')===ProductVideoPolicy::planKey($body),
             'update_time'=>(int)$row['update_time']];

@@ -82,8 +82,13 @@ final class ProductVideoJobs
         $images=StudioMediaInputService::validateImages($tenant,$user,$body['images'],15);
         if(in_array($action,['product','plan','write','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
         $request['images']=$images;$settings=ProductVideoService::settings($tenant);
-        $automatic = $replication && $action === 'video' && $body['prompt'] === '';
+        $automatic = $replication && !$preview && $action === 'video' && $body['prompt'] === '';
         if ($replication) {
+            if ($preview) {
+                $body['reference_video'] = StudioMediaInputService::validateVideo($tenant, $user, (string)($body['reference_video']['uri'] ?? ''), 3600);
+                $body['prompt'] = '按所选参考片段的分镜展示商品';
+                $body['prompt_review_images'] = array_column($images, 'uri');
+            }
             VideoReplicationWorkflow::checkSegment($body);
             if ($automatic) {
                 $analysis = self::prepare($tenant, $user, array_replace($p, ['action'=>'plan']));
@@ -96,16 +101,25 @@ final class ProductVideoJobs
         if($action==='video'){
             $prompt=ProductVideoPolicy::prompt($body);if($body['mode']==='normal'&&($body['normal_source']??'prompt')==='prompt'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
             $wanted=(array)$body['video_selection'];$model=ProductVideoCatalog::model($tenant,$body);
-            $spec=ProductVideoCatalog::spec($model,$body);
+            $renderWithClip = $replication && !empty($model['replication_reference_modes']);
+            $spec = $renderWithClip ? VideoReplicationWorkflow::renderSpec($model, $body) : ProductVideoCatalog::spec($model,$body);
             if(($body['reference_mode']??'reference')!=='start_end'&&count($images)>(int)$model['max_reference_images'])throw new InvalidArgumentException('当前视频模型不支持这么多商品图片，请减少图片或更换模型');
             if($body['mode']==='normal'&&$body['reference_mode']==='start_end')$images=ProductVideoPolicy::frames($images);
             $assets=[];foreach($images as $index=>$image)$assets[]=['type'=>'image','uri'=>$image['uri'],'role'=>$spec['generation_method']==='start_end'?($index===0?'first_frame_image':'last_frame_image'):($spec['generation_method']==='image_to_video'?'first_frame_image':'reference_image')]+$image;
             foreach($body['generation_assets'] as $asset)$assets[]=$asset;
+            if ($renderWithClip) {
+                // The advisory preview only prices the verified interval. Paid jobs always use the cut file.
+                $assets[] = $preview
+                    ? ['type'=>'video', 'role'=>'reference_video', 'duration'=>$body['clip']['end'] - $body['clip']['start']] + $body['reference_video']
+                    : VideoReplicationWorkflow::renderAsset($tenant, $user, $project);
+                $prompt = VideoReplicationWorkflow::renderPrompt($body);
+            }
             ProductVideoMaterials::assertMentions($body,$assets);
             if(($body['audio']??null)!==null){if(empty($model['supports_generate_audio']))throw new InvalidArgumentException('所选模型不支持声音开关，请使用自动声音设置');$spec['generate_audio']=(bool)$body['audio'];}
             $selection=$spec+['model_id'=>$model['id'],'channel'=>$model['id'],'resolution'=>$spec['quality']];
-            $request+=['selection'=>$selection,'prompt'=>$prompt,'reference_images'=>array_column($assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>$body['selected_mentions']];
-            $quote=StudioVideoCatalogService::runtime($spec)::quote($tenant,$selection+['prompt'=>$prompt,'reference_images'=>$request['reference_images'],'reference_assets'=>$assets]);
+            $request+=['selection'=>$selection,'prompt'=>$prompt,'reference_images'=>array_column($renderWithClip ? $images : $assets,'uri'),'reference_assets'=>$assets,'selected_mentions'=>$body['selected_mentions']];
+            $getQuote = static fn() => StudioVideoCatalogService::runtime($spec)::quote($tenant,$selection+['prompt'=>$prompt,'reference_images'=>$request['reference_images'],'reference_assets'=>$assets]);
+            $quote = $renderWithClip ? VideoReplicationWorkflow::withClipDuration($assets, $getQuote) : $getQuote();
             $request['selection']['market_sku_id']=(int)$quote['market_sku_id'];
             $request['runtime']=StudioVideoCatalogService::runtime($spec);$quote['approximate']=false;
             if(!empty($body['analyze_chapters'])){
@@ -173,7 +187,6 @@ final class ProductVideoJobs
     }
     public static function estimate(int $tenant,int $user,array $p): array
     {
-        if(ProductVideoPolicy::replicating() && !empty($p['preview'])) throw new InvalidArgumentException('请保存复刻草稿后报价');
         if(!empty($p['preview'])){if(($p['action']??'')!=='video')throw new InvalidArgumentException('仅支持视频预览报价');$q=self::prepare($tenant,$user,$p,true)['quote'];return ['user_charge_points'=>(float)$q['user_charge_points'],'notice'=>!empty($q['market_snapshot']['requires_actual_duration'])?'按实际成片时长结算':''];}
         $i=self::prepare($tenant,$user,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;
         ProductVideoService::table('quote')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$i['project']['id'],'token'=>$token,'input_hash'=>$i['hash'],'request_json'=>ProductVideoPolicy::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);

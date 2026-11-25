@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\common\service\ai;
 
 use app\common\enum\FileEnum;
+use app\common\service\app\aigc_video\AigcVideoAssetService;
 use app\common\service\FileService;
 use app\common\service\open_platform\OpenCallContext;
 use app\common\service\open_platform\OpenSafeHttp;
@@ -207,6 +208,42 @@ final class StudioMediaInputService
             self::materialize($fresh['uri'], $path, $tenant, $user);
             return self::localVideoInput($path, $start, $length);
         } finally { self::cleanup($workspace); }
+    }
+
+    /** Store a seek-accurate render input at source quality, independently of the small analysis proxy. */
+    public static function storeVideoSegment(int $tenant, int $user, string $uri, float $start, float $end): string
+    {
+        $source = self::validateVideo($tenant, $user, $uri, 3600);
+        $length = $end - $start;
+        if (!is_finite($start) || !is_finite($length) || $start < 0 || $length < 5 || $length > 30
+            || $end > $source['duration'] + 0.01 || $source['file_size'] > 104857600) {
+            throw new InvalidArgumentException('请选择有效的 5～30 秒视频片段');
+        }
+        if ($start === 0.0 && $end === (float)$source['duration'] && strtolower(pathinfo($uri, PATHINFO_EXTENSION)) === 'mp4') {
+            return $uri;
+        }
+        $workspace = self::workspace();
+        try {
+            if ($source['storage_engine'] === 'local') {
+                $input = self::localPath($uri);
+            } else {
+                $input = $workspace.'/source.mp4';
+                self::materialize($uri, $input, $tenant, $user);
+            }
+            $output = $workspace.'/segment.mp4';
+            self::run([self::binary('ffmpeg'), '-v', 'error', '-protocol_whitelist', 'file,pipe',
+                '-ss', (string)$start, '-i', $input, '-t', (string)$length, '-map', '0:v:0', '-map', '0:a:0?',
+                '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+                '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', '-movflags', '+faststart', $output], 120);
+            $facts = self::probe($output);
+            if (abs($facts['duration'] - $length) > 0.25 || ($source['has_audio'] && !$facts['has_audio'])) {
+                throw new RuntimeException('参考片段裁剪失败，请重新选择片段');
+            }
+            $storage = StorageConfigService::getStoredFileConfig($tenant, $source['storage_scope'], $source['storage_engine']);
+            return AigcVideoAssetService::persistGeneratedVideoFile($output, $tenant, $user, $storage)['uri'];
+        } finally {
+            self::cleanup($workspace);
+        }
     }
 
     /** Keep local uploads inside the video-understanding API's encoded 10 MB limit. */
