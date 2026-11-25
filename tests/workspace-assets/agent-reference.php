@@ -3,7 +3,11 @@ namespace app\common\service\power {
  // Admission only: no model request is allowed in this rollback-only test.
  final class MarketTextModelRuntimeService {
   public static array $visionRequests=[];
+  public static bool $insufficientPoints=false;
   public static function resolveAgentModel(int $tenant,string $model,bool $vision=false): array { self::$visionRequests[]=$vision;return []; }
+  public static function assertCanStartTextGeneration(int $tenant,int $user,array $model): void {
+   if(self::$insufficientPoints)throw new \InvalidArgumentException('算力不足，请充值');
+  }
   public static function modelGroups(int $tenant): array { return []; }
  }
 }
@@ -47,6 +51,15 @@ Db::startTrans();try{
  $run=\app\common\service\app\aigc_llm\agent\AgentExecutionService::submit($tenant,$user,$params);
  check($run['attachments'][0]['file_id']===$file['file_id']&&$run['attachments'][0]['name']==='stored.png','Agent submission lost the registered reference');
  check($run['status']==='queued'&&Db::name('tenant_file')->count()===$count,'Admission uploaded or generated media');
+ \app\common\service\power\MarketTextModelRuntimeService::$insufficientPoints=true;
+ $replay=\app\common\service\app\aigc_llm\agent\AgentExecutionService::submit($tenant,$user,$params);
+ check($replay['id']===$run['id'],'A balance change prevented replay of an accepted request');
+ $shortageId='stored_shortage_'.bin2hex(random_bytes(12));
+ $shortage='';
+ try{\app\common\service\app\aigc_llm\agent\AgentExecutionService::submit($tenant,$user,array_replace($params,['request_id'=>$shortageId]));}
+ catch(InvalidArgumentException $e){$shortage=$e->getMessage();}
+ check($shortage==='算力不足，请充值' && !Db::name('aigc_llm_agent_run')->where($owner+['request_id'=>$shortageId])->find(),'Low balance did not reject before queuing a run');
+ \app\common\service\power\MarketTextModelRuntimeService::$insufficientPoints=false;
  $svg=Db::name('tenant_file')->insertGetId(['tenant_id'=>$tenant,'source_id'=>$user,'source'=>1,'type'=>10,'upload_origin'=>'local','name'=>'stored.svg','uri'=>'uploads/agent-stored.svg','create_time'=>time()]+$storage);
  $svgFile=OpenAssets::referenceWorkspaceMedia($tenant,$user,'upload:result:'.$svg);
  check(str_starts_with($svgFile['mime'],'image/'),'Authorized SVG lost image MIME routing');

@@ -48,6 +48,8 @@ final class AgentExecutionService
         $preferences['models']['text']=AgentComposerSettings::textModel(
             $tenant,$vision,(string)($preferences['models']['text']??''),!isset($params['preferences'])
         );
+        $textModel = MarketTextModelRuntimeService::resolveAgentModel($tenant, $preferences['models']['text'], $vision);
+        MarketTextModelRuntimeService::assertCanStartTextGeneration($tenant, $user, $textModel);
         if(($preferences['generation']['mode']??'')==='auto'){
             $catalog=AgentCapabilityCatalog::models($tenant);
             foreach(['image','video'] as $type)$preferences['models'][$type]=(string)($catalog[$type]['defaults']['channel']??$catalog[$type]['defaults']['model']??'');

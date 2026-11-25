@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace app\common\service\app\aigc_copywriting;
 use think\facade\Db;
+use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\power\TextModelExecutionPolicy;
 final class CopywritingTaskService
 {
@@ -25,6 +26,7 @@ final class CopywritingTaskService
         if($source){$original=self::owned($tenantId,$userId,$source);if((int)$original['tool_id']!==(int)$tool['id'])throw new \InvalidArgumentException('原任务不属于当前功能');if(in_array($original['status'],['pending','running'],true))throw new \InvalidArgumentException('请先等待或停止当前生成');}
         $prompt=CopywritingPromptService::render($document,(array)($input['values']??[]));
         $model=CopywritingModelService::resolve($tenantId,$document,$input['model_selection']??'');
+        MarketTextModelRuntimeService::assertCanStartTextGeneration($tenantId,$userId,$model);
         $data=$where+['tool_id'=>$tool['id'],'version_id'=>$version['id'],'source_task_id'=>$source,'request_hash'=>$hash,'input_snapshot'=>CopywritingStore::json($prompt['normalized_values']),'prompt_snapshot'=>CopywritingStore::json($prompt),'model_snapshot'=>CopywritingStore::json($model),'execution_fingerprint'=>TextModelExecutionPolicy::fingerprint($model),'result_text'=>''];
         try{$id=CopywritingStore::insert('task',$data);}catch(\Throwable $e){$old=CopywritingStore::table('task')->where($where)->find();if($old)return self::sameRequest($old,$hash);throw $e;}
         return self::detail($tenantId,$userId,$id);

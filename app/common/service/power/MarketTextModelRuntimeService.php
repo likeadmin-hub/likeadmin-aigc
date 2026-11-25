@@ -234,7 +234,7 @@ class MarketTextModelRuntimeService
         $homeAgent = in_array($appCode, ['aigc_llm', 'aigc_canvas'], true) && $businessTable === 'aigc_llm_agent_run';
         // Check both payers for every text entry before creating a task or calling upstream.
         // Actual token quantities still come only from the provider receipt.
-        self::assertAgentBalance($tenantId, $userId, $model);
+        self::assertCanStartTextGeneration($tenantId, $userId, $model);
         if ($homeAgent) {
             \app\common\service\app\aigc_llm\agent\AgentTextReceipt::prepare();
         }
@@ -748,7 +748,7 @@ class MarketTextModelRuntimeService
         return !empty(PowerMarketService::capability($product)['supports_vision']);
     }
 
-    private static function assertAgentBalance(int $tenantId,int $userId,array $model): void
+    public static function assertCanStartTextGeneration(int $tenantId, int $userId, array $model): void
     {
         try {
             PointService::assertCanConsumeAmounts($tenantId,$userId,
