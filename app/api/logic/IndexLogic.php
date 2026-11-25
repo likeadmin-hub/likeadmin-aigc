@@ -52,7 +52,14 @@ class IndexLogic extends BaseLogic
         if (!in_array($channel, ['h5', 'mp_weixin'], true)) {
             $channel = 'h5';
         }
-        $decoratePage = DecorateTemplateService::activePublishedPage((int)request()->tenantId, DecorateTemplateService::TERMINAL_MOBILE, 'home', 1, $channel);
+        $request = request();
+        $tenantId = (int)$request->tenantId;
+        $userId = $tenantId > 0 && (int)($request->userInfo['tenant_id'] ?? 0) === $tenantId
+            ? (int)$request->userId
+            : 0;
+        $decoratePage = DecorateTemplateService::activePublishedPage(
+            $tenantId, DecorateTemplateService::TERMINAL_MOBILE, 'home', 1, $channel, context: ['user_id' => $userId]
+        );
 
         // 首页文章
         $field = [

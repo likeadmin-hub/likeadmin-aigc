@@ -43,7 +43,7 @@ class IndexController extends BaseApiController
     public function index()
     {
         $result = IndexLogic::getIndexData();
-        return $this->data($result);
+        return $this->data($result)->header(['Cache-Control' => 'private, no-store']);
     }
 
 
