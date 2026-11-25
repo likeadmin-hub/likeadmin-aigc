@@ -1,0 +1,65 @@
+{
+  "code": "aigc_video_enhance",
+  "name": "视频变清晰",
+  "version": "1.0.0",
+  "require_core": ">=1.0.449",
+  "description": "通过视频超分提升画面分辨率，适合短视频画质修复。",
+  "changelog": "1. 新增视频变清晰工具，支持上传短视频并预览、下载处理结果。",
+  "icon": "resource/image/common/menu_generator.png",
+  "cover": "resource/image/apps/aigc_video_enhance/cover.jpg",
+  "category": "aigc",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 846,
+  "frontends": [
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_video_enhance",
+  "migrations": "migrations",
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "enhance"
+    ],
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_video_enhance",
+      "name": "视频变清晰",
+      "path": "/ai/tools/aigc_video_enhance",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 846,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_video_enhance",
+      "name": "视频变清晰",
+      "path": "/apps/aigc_video_enhance/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 846,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "视频变清晰",
+            "path": "/apps/aigc_video_enhance/pages/creator/index"
+          },
+          {
+            "name": "清晰化记录",
+            "path": "/apps/aigc_video_enhance/pages/tasks/index"
+          }
+        ]
+      }
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/cover.jpg",
+      "target": "public/resource/image/apps/aigc_video_enhance/cover.jpg"
+    }
+  ]
+}

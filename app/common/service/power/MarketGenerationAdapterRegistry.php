@@ -28,6 +28,7 @@ final class MarketGenerationAdapterRegistry
         MarketSeedSvcAppRuntimeService::UPSTREAM_APP_CODE => MarketSeedSvcAppRuntimeService::class,
         MarketGeoAppRuntimeService::UPSTREAM_APP_CODE => MarketGeoAppRuntimeService::class,
         MarketGenericImageAppRuntimeService::UPSTREAM_APP_CODE => MarketGenericImageAppRuntimeService::class,
+        MarketGenericImageAppRuntimeService::ENHANCE_APP => MarketGenericImageAppRuntimeService::class,
     ];
 
     private const MODEL_PROTOCOLS = [

@@ -19,6 +19,7 @@ class AiTaskBusinessResultService
         'aigc_short_drama_generation_task'=>'short_drama','aigc_canvas_run'=>'canvas',
         'decorate_agent_image_slot'=>'decoration_worker','aigc_music_task'=>'music','aigc_pic_lipsync_task'=>'pic_lipsync',
         'aigc_music_cover_task'=>'music_cover','aigc_digital_human_task'=>'digital_human','aigc_watermark_removal_task'=>'watermark',
+        'aigc_video_enhance_task' => 'managed_video',
         'aigc_micro_video_segment'=>'micro_segment','aigc_micro_video_frame'=>'micro_frame',
         'aigc_store_visit_job'=>'store_visit', 'aigc_story_commerce_job'=>'story_commerce', 'aigc_product_video_job'=>'product_video', 'aigc_motion_sync_task'=>'motion_sync',
     ];
@@ -89,6 +90,8 @@ class AiTaskBusinessResultService
             'canvas' => \app\common\service\app\aigc_canvas\AigcCanvasService::syncManagedConsumption($consumption, $businessId),
             // The decoration worker owns slot hydration after managed assets settle.
             'decoration_worker' => null,
+            // The tool reads its settled result directly from the shared consumption receipt.
+            'managed_video' => null,
             'music' => self::syncMusicTask($consumption, $businessId),
             'pic_lipsync' => AigcPicLipsyncService::syncConsumption($businessId, (int)$consumption['user_id']),
             'music_cover' => \app\common\service\app\aigc_music_cover\AigcMusicCoverService::syncConsumption($businessId,(int)$consumption['user_id'],(int)$consumption['id']),

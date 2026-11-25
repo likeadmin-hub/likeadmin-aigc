@@ -14,7 +14,7 @@ final class GenerationSubmission
     {
         // ThinkPHP resolves voice_clone to VoiceClone before route middleware executes.
         $operation = strtolower(preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', '_', $controller) . '/' . $action);
-        if (preg_match('~^app\.(aigc_(?:image|video|music|music_cover|product_image|product_suite|style_transfer|photo_restore|model_wear|background_removal|image_translate|one_click_cleanup|product_multi_angle|fashion_lookbook|outpaint|local_redraw|fitting|hairstyle|product_promo_video|digital_human|pic_lipsync|watermark_removal|action_transfer|person_replacement)|smart_clip)\.generate/index$~D', $operation)) return $operation;
+        if (preg_match('~^app\.(aigc_(?:image|video|music|music_cover|product_image|product_suite|style_transfer|photo_restore|model_wear|background_removal|image_translate|one_click_cleanup|product_multi_angle|fashion_lookbook|outpaint|local_redraw|fitting|hairstyle|product_promo_video|digital_human|pic_lipsync|watermark_removal|video_enhance|action_transfer|person_replacement)|smart_clip)\.generate/index$~D', $operation)) return $operation;
         $routes = [
             'app.aigc_canvas.generate/image', 'app.aigc_canvas.generate/video', 'app.aigc_canvas.generate/music',
             'app.aigc_short_drama.canvas/run',

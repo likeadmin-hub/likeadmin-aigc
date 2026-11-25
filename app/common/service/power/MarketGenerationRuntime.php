@@ -87,7 +87,10 @@ final class MarketGenerationRuntime
             if ($quantity != 1) throw new InvalidArgumentException('该生成能力每次仅支持一个任务');
             return $adapter::quote($tenantId, $this->selection);
         }
-        if (is_a($adapter,MarketPicLipsyncAppRuntimeService::class,true)) return $adapter::quote($tenantId,$this->selection,$quantity);
+        if (is_a($adapter,MarketPicLipsyncAppRuntimeService::class,true)
+            || ($adapter === MarketGenericImageAppRuntimeService::class && ($this->selection['upstream_app_code'] ?? '') === MarketGenericImageAppRuntimeService::ENHANCE_APP)) {
+            return $adapter::quote($tenantId, $this->selection, $quantity);
+        }
         return MarketApplicationApiRuntimeService::quote($tenantId, $this->selection, self::wholeQuantity($quantity));
     }
 
@@ -110,7 +113,10 @@ final class MarketGenerationRuntime
             return $adapter::reserve($tenantId,$userId,$businessId,$this->selection,$request,$appCode,$action,$businessTable,$acceptedSnapshot?:null);
         }
         if ($acceptedSnapshot!==[]) throw new InvalidArgumentException('该适配器不接受预先确认的应用快照');
-        if (is_a($adapter,MarketPicLipsyncAppRuntimeService::class,true)) return $adapter::reserve($tenantId,$userId,$action,$businessId,$this->selection,$request,$quantity,$appCode,$businessTable);
+        if (is_a($adapter,MarketPicLipsyncAppRuntimeService::class,true)
+            || ($adapter === MarketGenericImageAppRuntimeService::class && ($this->selection['upstream_app_code'] ?? '') === MarketGenericImageAppRuntimeService::ENHANCE_APP)) {
+            return $adapter::reserve($tenantId, $userId, $action, $businessId, $this->selection, $request, $quantity, $appCode, $businessTable);
+        }
         return MarketApplicationApiRuntimeService::reserve($tenantId, $userId, $action, $businessId, $this->selection,
             $request, self::wholeQuantity($quantity), $appCode, $businessTable);
     }

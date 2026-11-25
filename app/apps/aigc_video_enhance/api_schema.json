@@ -1,0 +1,53 @@
+{
+  "app_code": "aigc_video_enhance",
+  "apis": [
+    {
+      "api_path": "app.aigc_video_enhance.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_enhance:config:detail",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_enhance.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_video_enhance:generate:estimate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_enhance.generate/index",
+      "api_method": "POST",
+      "permission_key": "aigc_video_enhance:generate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_enhance.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_video_enhance:task:lists",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_enhance.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_enhance:task:detail",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_enhance.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_video_enhance:task:delete",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `la_aigc_video_enhance_task` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `video_uri` varchar(1000) NOT NULL DEFAULT '',
+  `source_url` text NOT NULL,
+  `storage_scope` varchar(20) NOT NULL DEFAULT '',
+  `storage_engine` varchar(32) NOT NULL DEFAULT '',
+  `storage_domain` varchar(512) NOT NULL DEFAULT '',
+  `duration` decimal(10,4) NOT NULL,
+  `width` int unsigned NOT NULL DEFAULT 0,
+  `height` int unsigned NOT NULL DEFAULT 0,
+  `bit_rate` tinyint unsigned NOT NULL,
+  `create_time` int unsigned NOT NULL,
+  `update_time` int unsigned NOT NULL,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_owner_history` (`tenant_id`,`user_id`,`delete_time`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='视频变清晰任务';
