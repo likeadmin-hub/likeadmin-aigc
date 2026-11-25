@@ -1,0 +1,1 @@
+import{r as s}from"./index-BnGhg6qH.js";const e="/app.aigc_layer_decomposition",i={config:()=>s.get({url:`${e}.config/detail`}),setup:t=>s.post({url:`${e}.config/setup`,params:t}),tasks:t=>s.get({url:`${e}.task/lists`,params:t}),detail:t=>s.get({url:`${e}.task/detail`,params:{id:t}})};export{i as l};

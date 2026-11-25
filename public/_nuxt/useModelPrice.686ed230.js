@@ -1,0 +1,1 @@
+import{aR as s,F as i,V as n}from"./entry.9a3f588d.js";import{m as u}from"./model-pricing.6ece064e.js";function m(){const{formatPointWithSuffix:t}=s(),{locale:e}=i();return(o,a)=>u(o,a,t,r=>n(r,e.value))}export{m as u};

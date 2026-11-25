@@ -1,0 +1,1 @@
+import{r as o}from"./index-B_46e-bQ.js";const m={get(r,e,t){return o.get({url:`/app.aigc_story_commerce.${r}/${e}`,params:t})},post(r,e,t){return o.post({url:`/app.aigc_story_commerce.${r}/${e}`,params:t})}};export{m as s};

@@ -1,0 +1,1 @@
+import{r as t}from"./index-BnGhg6qH.js";const s="aigc_animate_replace",e="/app."+s+".",p={config:()=>t.get({url:e+"config/detail"}),setup:a=>t.post({url:e+"config/setup",params:{display_config:a}}),tasks:a=>t.get({url:e+"task/lists",params:{page_no:a,page_size:20}}),detail:a=>t.get({url:e+"task/detail",params:{id:a}})};export{p as a};
