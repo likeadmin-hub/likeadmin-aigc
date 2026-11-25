@@ -10,10 +10,13 @@ use app\common\service\ai\StudioMediaInputService;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
+use app\common\service\open_platform\OpenException;
+use app\common\service\open_platform\OpenSafeHttp;
 use app\common\service\point\PointService;
 use app\common\service\power\MarketGenerationMedia;
 use app\common\service\power\MarketGenerationRuntime;
 use app\common\service\power\MarketGenericImageAppRuntimeService as Runtime;
+use app\common\service\storage\ManagedStorageReader;
 use think\facade\Db;
 
 final class VideoEnhanceService
@@ -21,6 +24,7 @@ final class VideoEnhanceService
     public const APP = 'aigc_video_enhance';
     private const TABLE = 'aigc_video_enhance_task';
     private const MAX_SECONDS = 30;
+    private const MAX_VIDEO_BYTES = 268435456;
 
     public static function config(int $tenant): array
     {
@@ -106,9 +110,7 @@ final class VideoEnhanceService
         if (($uri === '') === ($url === '')) throw new \InvalidArgumentException('请选择一个视频或提供一个视频直链');
         $bitRate = filter_var($params['bit_rate'] ?? 10, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 20]]);
         if ($bitRate === false) throw new \InvalidArgumentException('输出码率须为 1 到 20 的整数');
-        $facts = $uri !== ''
-            ? StudioMediaInputService::validateVideo($tenant, $user, $uri, self::MAX_SECONDS)
-            : MarketGenerationMedia::videoFacts($url);
+        $facts = self::videoFacts($tenant, $user, $uri, $url);
         if ((float)$facts['duration'] > self::MAX_SECONDS) throw new \InvalidArgumentException('请选择不超过 30 秒的视频');
         $duration = round((float)$facts['duration'], 4);
         $selection = [
@@ -122,6 +124,32 @@ final class VideoEnhanceService
             'storage_domain' => $facts['storage_domain'] ?? '',
         ];
         return [$source, $selection, Runtime::quote($tenant, $selection, $duration)];
+    }
+
+    private static function videoFacts(int $tenant, int $user, string $uri, string $url): array
+    {
+        if ($uri === '') {
+            try {
+                return MarketGenerationMedia::videoFacts($url);
+            } catch (OpenException $error) {
+                if ($error->errorType !== 'invalid_url') throw $error;
+                throw new \InvalidArgumentException('请输入可从公网直接访问的视频链接', 0, $error);
+            }
+        }
+
+        $facts = StudioMediaInputService::validateVideo($tenant, $user, $uri, self::MAX_SECONDS,
+            static fn(array $file, array $storage): string => ManagedStorageReader::read(
+                array_replace($file, $storage), $tenant, self::MAX_VIDEO_BYTES, 120
+            )
+        );
+        if ($facts['storage_engine'] === 'local') {
+            try {
+                OpenSafeHttp::resolve($facts['url'], false);
+            } catch (OpenException $error) {
+                throw new \InvalidArgumentException('本地视频无法从公网访问，请改用公网视频直链，或在配置云存储后重新上传', 0, $error);
+            }
+        }
+        return $facts;
     }
 
     private static function option(int $tenant): ?array
