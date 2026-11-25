@@ -10,6 +10,7 @@ use app\common\model\update\UpdatePackage;
 use app\common\model\update\UpdateTask;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppAccessStateService;
+use app\common\service\app\AppCatalogArtwork;
 use app\common\service\app\DefaultAppService;
 use app\common\service\app\RetiredAppService;
 use app\common\service\database\SqlMigrationExecutor;
@@ -36,6 +37,11 @@ class AppPackageUpdateService
             $row['disk_version']=$manifest['version'];$row['effective_version']=BundledAppPackageService::versionFloor((string)$row['current_version'],(string)$manifest['version']);$row['local_install_available']=$available;
             $byCode[$code]=$row;
         }
+        $artwork = AppCatalogArtwork::byCode();
+        foreach ($byCode as $code => &$row) {
+            $row['catalog_cover_url'] = $artwork[$code] ?? '';
+        }
+        unset($row);
         return array_values($byCode);
     }
 
@@ -74,8 +80,25 @@ class AppPackageUpdateService
     public function cloudLists(array $params = []): array
     {
         $result = (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/lists'), $params);
-        $filter = static fn(array $rows): array => array_values(array_filter($rows, static fn($row) =>
-            !is_array($row) || !RetiredAppService::contains((string)($row['app_code'] ?? $row['code'] ?? ''))));
+        $filter = static function (array $rows) use ($params): array {
+            $visible = [];
+            $artwork = [];
+            foreach ($rows as $row) {
+                if (is_array($row)) {
+                    $code = (string)($row['app_code'] ?? $row['code'] ?? '');
+                    if (RetiredAppService::contains($code)) continue;
+                    $cover = AppCatalogArtwork::fromCloud($row);
+                    unset($row['catalog_cover_url']);
+                    if (preg_match('/^[a-z][a-z0-9_]{0,79}$/D', $code) && $cover !== '') {
+                        $row['catalog_cover_url'] = $cover;
+                        $artwork[$code] = $cover;
+                    }
+                }
+                $visible[] = $row;
+            }
+            if ($params === []) AppCatalogArtwork::rememberCloudCatalog($artwork);
+            return $visible;
+        };
         if (array_is_list($result)) return $filter($result);
         foreach (['lists', 'apps'] as $key) if (isset($result[$key]) && is_array($result[$key])) $result[$key] = $filter($result[$key]);
         if (isset($result['data']['lists']) && is_array($result['data']['lists'])) $result['data']['lists'] = $filter($result['data']['lists']);

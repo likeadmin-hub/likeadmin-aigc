@@ -7,6 +7,7 @@ use app\common\model\app\TenantApp;
 use app\common\model\app\TenantAppOrder;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppAccessStateService;
+use app\common\service\app\AppCatalogArtwork;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppFrontendManifestService;
@@ -27,16 +28,19 @@ class AppController extends BaseAdminController
         $tenantApps = TenantApp::where('tenant_id', $this->tenantId)->column('*', 'app_code');
         $paidOrderExpires = self::paidOrderExpireMap($this->tenantId);
         $displayMap = AppDisplayConfigService::map($this->tenantId, array_column($apps, 'code') ?: []);
+        $artwork = AppCatalogArtwork::byCode();
         $rows = [];
         foreach ($apps as &$app) {
             $tenantApp = $tenantApps[$app['code']] ?? [];
             $display = $displayMap[$app['code']] ?? [];
             $app['display_config'] = $display;
             $app['market_profile'] = AppDisplayConfigService::marketProfile((string)$app['code']);
+            $app['catalog_cover_url'] = $artwork[$app['code']] ?? '';
             $app['cover_url'] = self::firstImageUrl(
                 $display['cover_url'] ?? '',
                 $display['cover_uri'] ?? '',
-                $app['cover'] ?? ''
+                $app['cover'] ?? '',
+                $app['catalog_cover_url']
             );
             $app['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $isBuiltin = DefaultAppService::isDefaultApp((string)$app['code']);
@@ -73,6 +77,8 @@ class AppController extends BaseAdminController
                 continue;
             }
             $app = $this->displayManagedApp($appCode);
+            $app['catalog_cover_url'] = $artwork[$appCode] ?? '';
+            if ($app['cover_url'] === '') $app['cover_url'] = $app['catalog_cover_url'];
             if ($name !== '') {
                 $keyword = mb_strtolower($name);
                 $appName = mb_strtolower((string)($app['name'] ?? ''));
