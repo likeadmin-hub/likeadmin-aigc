@@ -222,6 +222,7 @@ final class StudioMediaInputService
         if ($start === 0.0 && $end === (float)$source['duration'] && strtolower(pathinfo($uri, PATHINFO_EXTENSION)) === 'mp4') {
             return $uri;
         }
+        $ffmpeg = self::binary('ffmpeg');
         $workspace = self::workspace();
         try {
             if ($source['storage_engine'] === 'local') {
@@ -233,7 +234,7 @@ final class StudioMediaInputService
             $output = $workspace.'/segment.mp4';
             // Fit whole frames to the selected duration (e.g. 29.97 fps would encode 15 s as 15.015 s).
             $filters = "fps=max(1\\,round(source_fps*$length))/$length,pad=ceil(iw/2)*2:ceil(ih/2)*2";
-            self::run([self::binary('ffmpeg'), '-v', 'error', '-protocol_whitelist', 'file,pipe',
+            self::run([$ffmpeg, '-v', 'error', '-protocol_whitelist', 'file,pipe',
                 '-ss', (string)$start, '-i', $input, '-t', (string)$length, '-map', '0:v:0', '-map', '0:a:0?',
                 '-vf', $filters, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
                 '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', '-movflags', '+faststart', $output], 120);
@@ -444,7 +445,7 @@ final class StudioMediaInputService
         $configured = getenv('STUDIO_MEDIA_' . strtoupper($name)) ?: getenv('MICRO_VIDEO_' . strtoupper($name));
         $binary = \app\common\service\MediaBinaryService::resolve($name, $configured ? [$configured] : []);
         if ($binary !== '') return $binary;
-        throw new RuntimeException('未找到视频处理程序：' . $name);
+        throw new MediaToolUnavailable($name);
     }
 
     private static function run(array $command, int $timeout): string
