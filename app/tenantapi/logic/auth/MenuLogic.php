@@ -82,7 +82,8 @@ class MenuLogic extends BaseLogic
         $menu = \app\common\service\auth\TenantFeatureMenuService::filter(
             $menu, \app\common\service\auth\TenantFeatureMenuService::capabilities($tenantId)
         );
-        return self::sortTopLevelTailMenus(linear_to_tree($menu, 'children'));
+        $tree = linear_to_tree($menu, 'children');
+        return self::sortTopLevelTailMenus(\app\common\service\auth\AdminMenuOrder::marketFirst($tree));
     }
 
     private static function ensurePackageMenus(int $tenantId): void

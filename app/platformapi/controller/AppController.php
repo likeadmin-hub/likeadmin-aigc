@@ -3,6 +3,7 @@
 namespace app\platformapi\controller;
 
 use app\common\model\app\App;
+use app\common\service\app\AppCatalogUsage;
 use app\common\service\app\AppPlanService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\DefaultAppService;
@@ -35,7 +36,8 @@ class AppController extends BaseAdminController
             $item['expire_policy'] = AppPlanService::EXPIRE_ALLOW;
 
         }
-        return $this->success('获取成功', $lists);
+        unset($item);
+        return $this->success('获取成功', AppCatalogUsage::withCounts($lists));
     }
 
     public function plans(): Json

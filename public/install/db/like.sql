@@ -1219,7 +1219,7 @@ VALUES
 (@core_power_package_id, 'A', '订单记录', '', 0, 'power.package/orders', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_orders', 1, 1782604800, 1782604800),
 (@core_power_package_id, 'A', '套餐类型', '', 0, 'power.package/types', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_types', 1, 1782604800, 1782604800);
 INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
-VALUES (@core_power_mall_id, 'C', '算力市场', 'el-icon-Connection', 95, 'power.market/lists', 'market', 'power_mall/market', '', '', 0, 1, 0, '', 'core', 'core_power_market', 1, 1782604800, 1782604800);
+VALUES (@core_power_mall_id, 'C', '算力市场', 'el-icon-Connection', 110, 'power.market/lists', 'market', 'power_mall/market', '', '', 0, 1, 0, '', 'core', 'core_power_market', 1, 1782604800, 1782604800);
 SET @core_power_market_id := LAST_INSERT_ID();
 INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES
@@ -2207,7 +2207,7 @@ VALUES
 (0, @core_tenant_power_mall_id, 'C', '购买算力', 'el-icon-Coin', 100, 'power.mall/packages', 'buy', 'power_mall/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_buy', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_mall_id, 'C', '购买记录', 'el-icon-Document', 90, 'power.mall/orders', 'records', 'power_mall/records', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_records', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_mall_id, 'C', '点数流水', 'el-icon-Notebook', 80, 'power.mall/consumeLogs', 'consume-logs', 'power_mall/consume_logs', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_consume_logs', 1, 1782604800, 1782604800),
-(0, @core_tenant_power_mall_id, 'C', '算力市场', 'el-icon-Connection', 95, 'power.market/models', 'market', 'power_mall/market', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_market', 1, 1782604800, 1782604800);
+(0, @core_tenant_power_mall_id, 'C', '算力市场', 'el-icon-Connection', 110, 'power.market/models', 'market', 'power_mall/market', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_market', 1, 1782604800, 1782604800);
 SET @core_tenant_power_market_id := (
   SELECT `id` FROM `la_tenant_system_menu`
   WHERE `tenant_id` = 0 AND `source_menu_key` = 'core_tenant_power_market'

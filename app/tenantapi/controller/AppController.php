@@ -8,6 +8,7 @@ use app\common\model\app\TenantAppOrder;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppAccessStateService;
 use app\common\service\app\AppCatalogArtwork;
+use app\common\service\app\AppCatalogUsage;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppFrontendManifestService;
@@ -92,7 +93,7 @@ class AppController extends BaseAdminController
             }
             $rows[] = $app;
         }
-        return $this->success('获取成功', $rows);
+        return $this->success('获取成功', AppCatalogUsage::withCounts($rows, (int)$this->tenantId));
     }
 
     public function my()

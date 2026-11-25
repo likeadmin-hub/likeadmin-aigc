@@ -62,7 +62,8 @@ class MenuLogic extends BaseLogic
             ->select()
             ->toArray();
 
-        return self::sortTopLevelTailMenus(linear_to_tree(self::filterSystemServiceMenus($menu), 'children'));
+        $tree = linear_to_tree(self::filterSystemServiceMenus($menu), 'children');
+        return self::sortTopLevelTailMenus(\app\common\service\auth\AdminMenuOrder::marketFirst($tree));
     }
 
     private static function removeTutorialMenu(): void
