@@ -1,6 +1,6 @@
 <?php
 // Local market/worker integration. No upstream generation or debit. All fixture rows roll back.
-use app\common\service\app\aigc_product_video\{ProductVideoPolicy as Policy,ProductVideoService as Projects,ProductVideoJobs as Jobs,VideoReplicationWorkflow as Workflow};
+use app\common\service\app\aigc_product_video\{ProductVideoPolicy as Policy,ProductVideoService as Projects,ProductVideoJobs as Jobs,ProductVideoWorker as Worker,VideoReplicationWorkflow as Workflow};
 use app\common\service\ai\StudioMediaInputService;
 use app\common\service\MediaBinaryService;
 use app\common\service\power\{MarketGenerationMediaInputs,MarketVideoRuntimeService};
@@ -15,6 +15,17 @@ set_exception_handler(static function(Throwable $error): void {
 });
 if (getenv('REPLICATION_LOCAL_DB') !== 'x_cn' || config('database.connections.mysql.database') !== 'x_cn') {
     throw new RuntimeException('Local test database required');
+}
+// Exercise the real quote, reservation and worker recovery, stopping at the provider boundary.
+final class LocalReplicationVideoRuntime extends \app\common\service\power\MarketVideoModelRuntimeService
+{
+    public static int $submissions = 0;
+
+    public static function submit(int $consumptionId, array $request): array
+    {
+        self::$submissions++;
+        return ['status' => 'running'];
+    }
 }
 function check(bool $condition, string $message): void { if (!$condition) throw new RuntimeException($message); }
 function rejects(callable $action): void {
@@ -95,6 +106,25 @@ try {
         $staged=Policy::json(Jobs::owned(1,1,$job['id'])['request_json']);
         check(!isset($staged['script_request']) && str_contains($staged['prompt'],'演示细节') && str_contains($staged['prompt'],'参考视频')
             && $staged['reference_assets'][1]['uri'] === $render['uri'],'Generated script or original crop did not reach the render job');
+        $staged['runtime'] = LocalReplicationVideoRuntime::class;
+        Worker::write($job['id'], ['request_json'=>Policy::encode($staged)]);
+        Worker::tick($job['id']);
+        $renderJob = Jobs::owned(1,1,$job['id']);
+        check(LocalReplicationVideoRuntime::$submissions === 1, 'Quoted render was blocked before provider submission: '.$renderJob['error']);
+        $consumptionId = (int)$renderJob['consumption_id'];
+        $reservation = Db::name('ai_consumption_log')->where('id',$consumptionId)->findOrFail();
+        check((int)$reservation['sku_id'] === (int)$staged['quote']['market_sku_id'], 'Reservation lost the video-input SKU');
+        check((float)$reservation['reserved_user_price'] === (float)$staged['quote']['user_charge_points'], 'Frozen amount differs from the render quote');
+
+        // A pre-existing mismatched reservation must be released before the worker retries submission.
+        Db::name('ai_consumption_log')->where('id',$consumptionId)->update(['sku_id'=>(int)$reservation['sku_id']+1]);
+        Worker::write($job['id'], ['next_run_at'=>time()]);
+        Worker::tick($job['id']);
+        Worker::tick($job['id']);
+        $failed = Db::name('ai_consumption_log')->where('id',$consumptionId)->findOrFail();
+        check($failed['billing_status'] === 'refunded' && $failed['error_code'] === 'reservation_sku_mismatch', 'Recovered mismatched SKU was not refunded');
+        check(LocalReplicationVideoRuntime::$submissions === 1, 'Mismatched reservation reached the provider');
+        check(Db::name('ai_consumption_event')->where(['consumption_id'=>$consumptionId,'event_type'=>'refund'])->count() === 1, 'Recovery did not refund exactly once');
         $body['prompt']='自己编辑的分镜';$body['prompt_review_images']=[$seed.'product.png'];
         $body['requirements']='保留产品颜色';
         $edited=Projects::save(1,1,['body'=>$body]);

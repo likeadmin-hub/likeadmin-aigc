@@ -127,21 +127,39 @@ final class ProductVideoWorker
             }
         }
         $submit = static function () use ($reservedId, $runtime, $payload, $id, $tenant, $user, $r) {
-            if ($reservedId) return $runtime::submit($reservedId, $payload);
-            $fresh = $runtime::quote($tenant, $r['selection'] + $payload);
-            foreach (['tenant_cost_points','user_charge_points','market_sku_id'] as $field) {
-                if ((string)($fresh[$field] ?? '') !== (string)($r['quote'][$field] ?? '')) throw new RuntimeException('模型报价已变化，请重新确认');
+            $consumptionId = $reservedId ?: self::reserveMedia($id, $tenant, $user, $r, $payload);
+            $quotedSku = (int)($r['quote']['market_sku_id'] ?? $r['selection']['market_sku_id'] ?? 0);
+            if ($quotedSku > 0) {
+                $mismatch = Db::transaction(static function () use ($consumptionId, $tenant, $user, $quotedSku, $runtime) {
+                    $reservation = Db::name('ai_consumption_log')->where([
+                        'id' => $consumptionId, 'tenant_id' => $tenant, 'user_id' => $user, 'app_code' => ProductVideoPolicy::app(),
+                    ])->field('sku_id,run_status')->lock(true)->findOrFail();
+                    if ($reservation['run_status'] !== 'reserved' || (int)$reservation['sku_id'] === $quotedSku) return false;
+                    $runtime::fail($consumptionId, '冻结的计费规格与报价不一致，请重新生成', 'reservation_sku_mismatch');
+                    return true;
+                });
+                if ($mismatch) throw new RuntimeException('冻结的计费规格与报价不一致，请重新生成');
             }
-            $consumptionId = Db::transaction(static function () use ($id, $tenant, $user, $r, $payload, $runtime) {
-                $job = ProductVideoJobs::table()->where('id', $id)->lock(true)->find();
-                if ($job['consumption_id']) return (int)$job['consumption_id'];
-                $value = $runtime::reserve($tenant,$user,ProductVideoPolicy::app(),'video',ProductVideoPolicy::app().'_job',(string)$id,$r['selection'],$payload);
-                self::write($id, ['consumption_id'=>$value['consumption_id'], 'app_task_id'=>$value['app_task_id']]);
-                return (int)$value['consumption_id'];
-            });
             return $runtime::submit($consumptionId, $payload);
         };
         return $withClip ? VideoReplicationWorkflow::withClipDuration($payload['reference_assets'], $submit) : $submit();
+    }
+
+    private static function reserveMedia(int $id, int $tenant, int $user, array $request, array $payload): int
+    {
+        $runtime = $request['runtime'];
+        $fresh = $runtime::quote($tenant, $payload);
+        foreach (['tenant_cost_points','user_charge_points','market_sku_id'] as $field) {
+            if ((string)($fresh[$field] ?? '') !== (string)($request['quote'][$field] ?? '')) throw new RuntimeException('模型报价已变化，请重新确认');
+        }
+        return Db::transaction(static function () use ($id, $tenant, $user, $payload, $runtime) {
+            $job = ProductVideoJobs::table()->where('id', $id)->lock(true)->find();
+            if ($job['consumption_id']) return (int)$job['consumption_id'];
+            // Reference media determines the billing SKU as well as the provider input.
+            $value = $runtime::reserve($tenant, $user, ProductVideoPolicy::app(), 'video', ProductVideoPolicy::app().'_job', (string)$id, $payload, $payload);
+            self::write($id, ['consumption_id'=>$value['consumption_id'], 'app_task_id'=>$value['app_task_id']]);
+            return (int)$value['consumption_id'];
+        });
     }
     private static function mediaResult(array $row,array $result): void
     {
