@@ -25,17 +25,18 @@ final class ProductVideoJobs
         $presentation=['mode'=>$snapshot['mode']??'normal','selection'=>array_intersect_key((array)($snapshot['video_selection']??[]),array_flip(['model_id','quality','ratio','duration'])),
             'prompt'=>$displayPrompt,
             'references'=>ProductVideoService::publicBody(array_slice((array)($snapshot['images']??[]),0,3),(int)$row['tenant_id'])];
+        $scriptCost = (float)($request['script_charge_points'] ?? 0);
         return ['id'=>(int)$row['id'],'presentation'=>$presentation,'project_id'=>(int)$row['project_id'],'project_revision'=>(int)$row['project_revision'],'action'=>$row['action'],
             'status'=>$row['status'],'result'=>$result,
             'error'=>$row['error']===''?'':($row['status']==='unknown'?'模型受理或费用待核对，请保留此任务，勿重复提交':'创作未完成，请检查素材、模型或余额后重试'),
             'estimated_user_charge_points'=>isset($request['quote']['user_charge_points'])?(float)$request['quote']['user_charge_points']:null,
-            'user_charge_points'=>(float)$row['user_charge_points'],'billing_status'=>$row['billing_status'],
+            'user_charge_points'=>(float)$row['user_charge_points']+$scriptCost,'billing_status'=>$row['billing_status'],
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
     public static function adminDto(array $row): array
     {
         $dto=self::dto($row);$request=ProductVideoPolicy::json($row['request_json']);$snapshot=(array)($request['snapshot']??[]);
-        $trace=!empty($row['consumption_id'])?Db::name('ai_consumption_log')->where(['id'=>$row['consumption_id'],'tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::APP])->field('app_task_id,upstream_task_id,upstream_request_id,model_code')->find():null;
+        $trace=!empty($row['consumption_id'])?Db::name('ai_consumption_log')->where(['id'=>$row['consumption_id'],'tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::app()])->field('app_task_id,upstream_task_id,upstream_request_id,model_code')->find():null;
         return $dto+['tenant_id'=>(int)$row['tenant_id'],'user_id'=>(int)$row['user_id'],'app_task_id'=>(int)($trace['app_task_id']??$row['app_task_id']),
             'upstream_task_id'=>(string)($trace['upstream_task_id']??''),'upstream_request_id'=>(string)($trace['upstream_request_id']??''),
             'model_name'=>(string)($request['quote']['model_name']??$trace['model_code']??''),
@@ -43,14 +44,14 @@ final class ProductVideoJobs
     }
     public static function adminDelete(int $scope,int $id): void
     {
-        $row=self::owned($scope,0,$id,true);if($row['action']!=='video')throw new InvalidArgumentException('创作记录仅允许管理视频任务');
+        $row=self::owned($scope,0,$id,true);if(!ProductVideoPolicy::replicating() && $row['action']!=='video')throw new InvalidArgumentException('创作记录仅允许管理视频任务');
         self::delete((int)$row['tenant_id'],(int)$row['user_id'],$id);
     }
 
     public static function lists(int $tenant,int $user,array $p,bool $admin=false): array
     {
-        $q=self::table()->where('delete_time',0)->whereNotIn('id',function($q){$q->name(ProductVideoPolicy::APP.'_job_stage')->field('child_job_id');});if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);
-        $group=$admin?'video':(string)($p['group']??'all');if(!in_array($group,['all','video','helper'],true))throw new InvalidArgumentException('任务分类无效');if($group==='video')$q->where('action','video');elseif($group==='helper')$q->where('action','<>','video');
+        $q=self::table()->where('delete_time',0)->whereNotIn('id',function($q){$q->name(ProductVideoPolicy::app().'_job_stage')->field('child_job_id');});if(!$admin||$tenant>0)$q->where('tenant_id',$tenant);if(!$admin)$q->where('user_id',$user);
+        $group=$admin?(ProductVideoPolicy::replicating()?'all':'video'):(string)($p['group']??'all');if(!in_array($group,['all','video','helper'],true))throw new InvalidArgumentException('任务分类无效');if($group==='video')$q->where('action','video');elseif($group==='helper')$q->where('action','<>','video');
         if($admin){
             if(!empty($p['user_id']))$q->where('user_id',(int)$p['user_id']);
             if(($p['status']??'')!==''){if(!in_array($p['status'],['queued','running','unknown','success','partial','failed','canceled'],true))throw new InvalidArgumentException('任务状态无效');$q->where('status',$p['status']);}
@@ -58,7 +59,7 @@ final class ProductVideoJobs
             foreach(['start_time'=>'>=','end_time'=>'<='] as $key=>$op)if(!empty($p[$key]))$q->where('create_time',$op,(int)$p[$key]);
             $keyword=trim((string)($p['keyword']??''));
             if($keyword!==''){
-                $keyword=ProductVideoPolicy::text($keyword,160);$trace=Db::name('ai_consumption_log')->where('app_code',ProductVideoPolicy::APP)->where(static function($c)use($keyword){$c->where('upstream_task_id',$keyword)->whereOr('upstream_request_id',$keyword);});if($tenant>0)$trace->where('tenant_id',$tenant);
+                $keyword=ProductVideoPolicy::text($keyword,160);$trace=Db::name('ai_consumption_log')->where('app_code',ProductVideoPolicy::app())->where(static function($c)use($keyword){$c->where('upstream_task_id',$keyword)->whereOr('upstream_request_id',$keyword);});if($tenant>0)$trace->where('tenant_id',$tenant);
                 $ids=$trace->column('id');$q->where(static function($match)use($keyword,$ids){$match->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(request_json,'$.snapshot.prompt')) LIKE ?",['%'.addcslashes($keyword,'\\%_').'%']);if(ctype_digit($keyword))$match->whereOr('id',(int)$keyword)->whereOr('app_task_id',(int)$keyword);if($ids)$match->whereOr('consumption_id','in',$ids);});
             }
         }
@@ -69,6 +70,8 @@ final class ProductVideoJobs
     }
     public static function prepare(int $tenant,int $user,array $p,bool $preview=false): array
     {
+        $replication = ProductVideoPolicy::replicating();
+        if ($replication && !in_array($p['action'] ?? '', ['plan','video'], true)) throw new InvalidArgumentException('不支持该复刻操作');
         if(($p['action']??'')==='analysis')return ProductVideoPipeline::prepare($tenant,$user,$p);
         ProductVideoService::available($tenant,$user);
         if($preview){if(($p['action']??'')!=='video')throw new InvalidArgumentException('仅支持视频预览报价');$project=['revision'=>0,'body_json'=>ProductVideoPolicy::encode(ProductVideoPolicy::body((array)($p['body']??[])))];}
@@ -79,6 +82,17 @@ final class ProductVideoJobs
         $images=StudioMediaInputService::validateImages($tenant,$user,$body['images'],15);
         if(in_array($action,['product','plan','write','video'],true)&&!$images)throw new InvalidArgumentException('请先添加商品图片');
         $request['images']=$images;$settings=ProductVideoService::settings($tenant);
+        $automatic = $replication && $action === 'video' && $body['prompt'] === '';
+        if ($replication) {
+            VideoReplicationWorkflow::checkSegment($body);
+            if ($automatic) {
+                $analysis = self::prepare($tenant, $user, array_replace($p, ['action'=>'plan']));
+                $request['script_request'] = $analysis['request'];
+                // Provisional text is used solely for SKU quotation. The worker replaces it before reservation.
+                $body['prompt'] = '按所选参考片段的分镜展示商品';
+                $body['prompt_review_images'] = array_column($images, 'uri');
+            }
+        }
         if($action==='video'){
             $prompt=ProductVideoPolicy::prompt($body);if($body['mode']==='normal'&&($body['normal_source']??'prompt')==='prompt'&&$body['prompt']==='')throw new InvalidArgumentException('请填写视频描述');
             $wanted=(array)$body['video_selection'];$model=ProductVideoCatalog::model($tenant,$body);
@@ -103,6 +117,10 @@ final class ProductVideoJobs
             }
         }else{
             $video=null;
+            if ($replication && $action === 'plan') {
+                $video = $body['reference_video'];
+                $video['clip'] = $body['clip'];
+            }
             if($action==='reference'){
                 if(!$body['reference_video'])throw new InvalidArgumentException('请先添加参考视频');
                 $video=StudioMediaInputService::validateVideo($tenant,$user,(string)$body['reference_video']['uri']);
@@ -135,15 +153,27 @@ final class ProductVideoJobs
             if(in_array($action,['write','optimize'],true))$content['prompt']=$body['mode']==='advanced'?($body['plan']['data']['video_prompt']??$body['prompt']):$body['prompt'];
             $request['content']=ProductVideoPolicy::encode($content);
             $request['video']=$video;$request['system']=ProductVideoPrompts::system($action);
+            if ($replication) {
+                $content['actual_duration'] = $body['clip']['end'] - $body['clip']['start'];
+                $content['requirements'] = $body['requirements'];
+                $request['content'] = ProductVideoPolicy::encode($content);
+                $request['system'] = VideoReplicationWorkflow::SCRIPT_PROMPT;
+            }
             // Media token counts are supplier measured. A fictitious scalar quote would mislead users.
             $quote=['approximate'=>true,'user_charge_points'=>null,'tenant_cost_points'=>0,'model_name'=>$model['name'],
                 'input'=>$model['input'],'output'=>$model['output'],'notice'=>'按模型实际输入和输出用量结算'];
         }
         if($action==='optimize'&&trim((string)($body['mode']==='advanced'?($body['plan']['data']['video_prompt']??$body['prompt']):$body['prompt']))==='')throw new InvalidArgumentException('请先填写需要优化的视频描述');
+        if ($automatic) {
+            $quote['notice'] = '视频按当前规格计费，AI 脚本分析按模型实际用量另计。';
+            $quote['phased_costs'] = [['action'=>'plan','model_name'=>$analysis['quote']['model_name'],'approximate'=>true,'user_charge_points'=>null],
+                ['action'=>'video','model_name'=>$model['label'],'approximate'=>false,'user_charge_points'=>$quote['user_charge_points']]];
+        }
         $request['quote']=$quote;return ['project'=>$project,'request'=>$request,'quote'=>$quote,'hash'=>ProductVideoPolicy::requestKey($request)];
     }
     public static function estimate(int $tenant,int $user,array $p): array
     {
+        if(ProductVideoPolicy::replicating() && !empty($p['preview'])) throw new InvalidArgumentException('请保存复刻草稿后报价');
         if(!empty($p['preview'])){if(($p['action']??'')!=='video')throw new InvalidArgumentException('仅支持视频预览报价');$q=self::prepare($tenant,$user,$p,true)['quote'];return ['user_charge_points'=>(float)$q['user_charge_points'],'notice'=>!empty($q['market_snapshot']['requires_actual_duration'])?'按实际成片时长结算':''];}
         $i=self::prepare($tenant,$user,$p);$token=bin2hex(random_bytes(24));$expires=time()+600;
         ProductVideoService::table('quote')->insert(['tenant_id'=>$tenant,'user_id'=>$user,'project_id'=>$i['project']['id'],'token'=>$token,'input_hash'=>$i['hash'],'request_json'=>ProductVideoPolicy::encode($i['request']),'expires_at'=>$expires,'create_time'=>time()]);
@@ -179,7 +209,7 @@ final class ProductVideoJobs
     {
         Db::transaction(static function()use($tenant,$user,$id){
             self::owned($tenant,$user,$id);$row=self::table()->where('id',$id)->lock(true)->find();
-            if($row['action']==='video'&&self::table()->whereIn('id',function($q)use($id){$q->name(ProductVideoPolicy::APP.'_job_stage')->where('root_job_id',$id)->field('child_job_id');})->whereIn('status',['queued','running','unknown'])->count())throw new InvalidArgumentException('成片章节仍在处理，请保留记录');
+            if($row['action']==='video'&&self::table()->whereIn('id',function($q)use($id){$q->name(ProductVideoPolicy::app().'_job_stage')->where('root_job_id',$id)->field('child_job_id');})->whereIn('status',['queued','running','unknown'])->count())throw new InvalidArgumentException('成片章节仍在处理，请保留记录');
             if(!in_array($row['status'],['success','partial','failed','canceled'],true))throw new InvalidArgumentException('任务尚未结束，请保留进度');
             self::table()->where('id',$id)->update(['delete_time'=>time(),'update_time'=>time()]);
         });

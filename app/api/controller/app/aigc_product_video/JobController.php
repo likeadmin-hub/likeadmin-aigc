@@ -6,7 +6,7 @@ use app\common\service\app\aigc_product_video\ProductVideoJobs as J;
 use app\common\service\app\aigc_product_video\ProductVideoMedia as M;
 class JobController extends BaseApiController
 {
-    private function respond(callable $call) {try{return $this->success('操作成功',$call());}catch(\InvalidArgumentException $e){return $this->fail($e->getMessage());}catch(\Throwable $e){\think\facade\Log::warning('Product video API: '.get_class($e));return $this->fail('操作暂未完成，请稍后重试');}}
+    protected function respond(callable $call) {try{return $this->success('操作成功',$call());}catch(\InvalidArgumentException $e){return $this->fail($e->getMessage());}catch(\Throwable $e){\think\facade\Log::warning('Product video API: '.get_class($e));return $this->fail('操作暂未完成，请稍后重试');}}
     public function estimate(){return $this->respond(fn()=>J::estimate((int)$this->request->tenantId,$this->userId,$this->request->post()));}
     public function create(){return $this->respond(fn()=>J::create((int)$this->request->tenantId,$this->userId,$this->request->post()));}
     public function detail(){return $this->respond(fn()=>J::dto(J::owned((int)$this->request->tenantId,$this->userId,(int)$this->request->get('id',0))));}

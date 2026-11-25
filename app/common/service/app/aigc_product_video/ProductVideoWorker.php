@@ -13,7 +13,7 @@ final class ProductVideoWorker
     {
         $row=ProductVideoJobs::table()->where('id',$id)->find();
         if(!$row||$row['delete_time'])return true;
-        if(($consumption['app_code']??'')!==ProductVideoPolicy::APP||(int)$row['tenant_id']!==(int)$consumption['tenant_id']||(int)$row['user_id']!==(int)$consumption['user_id'])throw new RuntimeException('商品视频任务归属不一致');
+        if(($consumption['app_code']??'')!==ProductVideoPolicy::app()||(int)$row['tenant_id']!==(int)$consumption['tenant_id']||(int)$row['user_id']!==(int)$consumption['user_id'])throw new RuntimeException('商品视频任务归属不一致');
         if((int)$row['consumption_id']!==(int)$consumption['id'])return false;
         if(in_array($row['status'],['queued','running','unknown'],true))ProductVideoJobs::table()->where(['id'=>$id,'consumption_id'=>$consumption['id'],'status'=>$row['status']])->update(['next_run_at'=>time(),'update_time'=>time()]);
         return true;
@@ -22,7 +22,7 @@ final class ProductVideoWorker
     {
         $q=ProductVideoJobs::table()->whereIn('status',['queued','running','unknown'])->where('delete_time',0)->where('next_run_at','<=',time())->where('lease_until','<',time());if($id)$q->where('id',$id);
         foreach($q->order('id')->limit(10)->select()->toArray() as $row){
-            $lock=fopen(runtime_path().'product_video_'.$row['id'].'.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB)){if($lock)fclose($lock);continue;}
+            $lock=fopen(runtime_path().substr(ProductVideoPolicy::app(),5).'_'.$row['id'].'.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB)){if($lock)fclose($lock);continue;}
             $lease=bin2hex(random_bytes(16));
             try{if(!ProductVideoJobs::table()->where('id',$row['id'])->where('lease_until','<',time())->update(['lease_until'=>time()+600,'lease_token'=>$lease]))continue;
                 self::run(ProductVideoJobs::table()->where('id',$row['id'])->find());return 1;
@@ -33,14 +33,14 @@ final class ProductVideoWorker
     {ProductVideoJobs::table()->where('id',$id)->update($data+['update_time'=>time()]);}
     public static function reconcile(array $row): void
     {
-        $lock=fopen(runtime_path().'product_video_'.$row['id'].'.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB)){if($lock)fclose($lock);return;}
+        $lock=fopen(runtime_path().substr(ProductVideoPolicy::app(),5).'_'.$row['id'].'.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB)){if($lock)fclose($lock);return;}
         try{if($row['status']==='queued'&&!(int)$row['consumption_id'])return;self::run($row,true);}finally{flock($lock,LOCK_UN);fclose($lock);}
     }
     private static function consumption(array $row): ?array
     {
-        $q=Db::name('ai_consumption_log')->where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::APP]);
+        $q=Db::name('ai_consumption_log')->where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::app()]);
         if((int)$row['consumption_id'])return $q->where('id',$row['consumption_id'])->find();
-        $task=Db::name('ai_app_task')->where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::APP,'business_table'=>'aigc_product_video_job','business_id'=>$row['id']])->order('id','desc')->find();
+        $task=Db::name('ai_app_task')->where(['tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::app(),'business_table'=>ProductVideoPolicy::app().'_job','business_id'=>$row['id']])->order('id','desc')->find();
         if(!$task)return null;$c=$q->where('app_task_id',$task['id'])->order('id','desc')->find();if($c)self::write((int)$row['id'],['app_task_id'=>$task['id'],'consumption_id'=>$c['id']]);return $c;
     }
     private static function run(array $row,bool $reconcile=false): void
@@ -49,6 +49,10 @@ final class ProductVideoWorker
         $id=(int)$row['id'];$tenant=(int)$row['tenant_id'];$user=(int)$row['user_id'];$r=ProductVideoPolicy::json($row['request_json']);$action=$row['action'];
         $media=$action==='video';$runtime=$r['runtime']??'';
         try{
+            if (ProductVideoPolicy::replicating() && isset($r['script_request'])) {
+                VideoReplicationWorkflow::advance($row, $r);
+                return;
+            }
             if($action==='storyboard'){self::retiredImage($row);return;}
             if($action==='analysis'){ProductVideoPipeline::run($row);return;}
             $c=self::consumption($row);$receipt=ProductVideoPolicy::json($row['receipt_json']);
@@ -70,7 +74,7 @@ final class ProductVideoWorker
                 foreach(['tenant_cost_points','user_charge_points','market_sku_id'] as $field)if((string)($fresh[$field]??'')!==(string)($r['quote'][$field]??''))throw new RuntimeException('模型报价已变化，请重新确认');
                 $reserve=Db::transaction(static function()use($id,$tenant,$user,$r,$action,$payload,$runtime){
                     $job=ProductVideoJobs::table()->where('id',$id)->lock(true)->find();if($job['consumption_id'])return ['consumption_id'=>(int)$job['consumption_id']];
-                    $value=$runtime::reserve($tenant,$user,ProductVideoPolicy::APP,'video','aigc_product_video_job',(string)$id,$r['selection'],$payload);
+                    $value=$runtime::reserve($tenant,$user,ProductVideoPolicy::app(),'video',ProductVideoPolicy::app().'_job',(string)$id,$r['selection'],$payload);
                     self::write($id,['consumption_id'=>$value['consumption_id'],'app_task_id'=>$value['app_task_id']]);return $value;
                 });
                 self::mediaResult($row,$runtime::submit((int)$reserve['consumption_id'],$payload));return;
@@ -79,9 +83,9 @@ final class ProductVideoWorker
             if(!hash_equals($r['model_fingerprint'],TextModelExecutionPolicy::fingerprint($model)))throw new RuntimeException('分析模型或费率已变化，请重新确认');
             $content=[['type'=>'text','text'=>$r['content']]];
             foreach(StudioMediaInputService::visionInputs($r['images']) as $url)$content[]=['type'=>'image_url','image_url'=>['url'=>$url]];
-            if($r['video'])$content[]=['type'=>'video_url','video_url'=>['url'=>StudioMediaInputService::videoInput($r['video'])]];
+            if($r['video'])$content[]=['type'=>'video_url','video_url'=>['url'=>(!empty($r['video']['clip']) ? StudioMediaInputService::videoClipInput($r['video']) : StudioMediaInputService::videoInput($r['video']))]];
             $result=Text::generate($tenant,$user,['content'=>$r['content'],'messages'=>[['role'=>'user','content'=>$content]],'system_prompt'=>$r['system'],
-                'model_id'=>$r['selection']['model_id'],'requires_vision'=>true,'source_app_code'=>ProductVideoPolicy::APP,'business_table'=>'aigc_product_video_job','business_id'=>$id,
+                'model_id'=>$r['selection']['model_id'],'requires_vision'=>true,'source_app_code'=>ProductVideoPolicy::app(),'business_table'=>ProductVideoPolicy::app().'_job','business_id'=>$id,
                 'action_code'=>$action,'_disable_model_fallback'=>true,'_disable_transient_retry'=>true,'_disable_compatibility_retry'=>true,'_require_final_content'=>true,
                 '_product_video_preserve_uncertain'=>true,'request_timeout_seconds'=>180,'model_config'=>['max_tokens'=>6000,'reasoning_effort'=>'low'],
                 '_result_validator'=>static function(array $value)use($id){self::write($id,['receipt_json'=>ProductVideoPolicy::encode($value)]);}],
@@ -103,7 +107,7 @@ final class ProductVideoWorker
         $id=(int)$row['id'];$c=self::consumption($row);
         if(!$c){self::write($id,['status'=>'canceled','billing_status'=>'none','user_charge_points'=>0,'error'=>'该功能已移除']);return;}
         Db::transaction(static function()use($row,$c){
-            $locked=Db::name('ai_consumption_log')->where(['id'=>$c['id'],'tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::APP])->lock(true)->find();
+            $locked=Db::name('ai_consumption_log')->where(['id'=>$c['id'],'tenant_id'=>$row['tenant_id'],'user_id'=>$row['user_id'],'app_code'=>ProductVideoPolicy::app()])->lock(true)->find();
             if(!$locked||!empty($locked['upstream_task_id'])||!empty($locked['upstream_request_id']))return;
             if($locked['run_status']==='reserved')LegacyImageRuntime::cancel((int)$locked['id']);
             elseif($locked['run_status']==='retrying_submit')LegacyImageRuntime::fail((int)$locked['id'],'该功能已移除，未提交的任务已退回','feature_removed');

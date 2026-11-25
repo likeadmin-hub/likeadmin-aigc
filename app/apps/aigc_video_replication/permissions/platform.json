@@ -1,0 +1,32 @@
+[
+  {
+    "api_path": "app.aigc_video_replication.config/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:config:detail"
+  },
+  {
+    "api_path": "app.aigc_video_replication.config/setup",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:config:setup"
+  },
+  {
+    "api_path": "app.aigc_video_replication.config/models",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:config:models"
+  },
+  {
+    "api_path": "app.aigc_video_replication.job/lists",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:job:lists"
+  },
+  {
+    "api_path": "app.aigc_video_replication.job/detail",
+    "api_method": "GET",
+    "permission_key": "aigc_video_replication:job:detail"
+  },
+  {
+    "api_path": "app.aigc_video_replication.job/delete",
+    "api_method": "POST",
+    "permission_key": "aigc_video_replication:job:delete"
+  }
+]

@@ -8,12 +8,16 @@ use InvalidArgumentException;
 use think\facade\Db;
 
 /** Project existing final videos without duplicating files, tasks or model charges. */
-final class WorkspaceProductVideoAssetService
+class WorkspaceProductVideoAssetService
 {
+    protected const SOURCE = 'product_video';
+    protected const APP = 'aigc_product_video';
+    protected const TITLE = '商品视频';
+
     private static function query(int $tenant,int $user)
     {
         if($tenant<1||$user<1)throw new InvalidArgumentException('请先登录');
-        return Db::name('aigc_product_video_job')->where(['tenant_id'=>$tenant,'user_id'=>$user,'action'=>'video','delete_time'=>0])
+        return Db::name(static::APP.'_job')->where(['tenant_id'=>$tenant,'user_id'=>$user,'action'=>'video','delete_time'=>0])
             ->whereIn('status',['success','partial']);
     }
 
@@ -25,7 +29,7 @@ final class WorkspaceProductVideoAssetService
 
     public static function owned(int $tenant,int $user,string $ref): ?array
     {
-        if(!preg_match('/^product_video:task:([1-9][0-9]{0,10}):([1-9][0-9]{0,4})$/D',$ref,$parts))return null;
+        if(!preg_match('/^'.static::SOURCE.':task:([1-9][0-9]{0,10}):([1-9][0-9]{0,4})$/D',$ref,$parts))return null;
         $row=self::query($tenant,$user)->where('id',(int)$parts[1])->find();
         if(!$row)return null;
         foreach(self::rows($tenant,$user,[$row]) as $item)if($item['ref']===$ref)return $item;
@@ -60,13 +64,13 @@ final class WorkspaceProductVideoAssetService
                 $meta=array_intersect_key($video,array_flip(['storage_scope','storage_engine','storage_domain','width','height','duration','mime_type','file_size']));
                 $raw=$meta+[
                     'id'=>$row['id'].'_'.($output+1),'task_id'=>(int)$row['id'],'project_id'=>(int)$row['project_id'],
-                    'asset_type'=>'video','status'=>'success','title'=>'商品视频','prompt'=>$prompt,
+                    'asset_type'=>'video','status'=>'success','title'=>static::TITLE,'prompt'=>$prompt,
                     'video_url'=>$url,'url'=>$url,'uri'=>$uri,'cover_url'=>(string)($public['cover_url']??''),
                     'create_time'=>(int)$row['create_time'],'params'=>$selection,
                     'reference_assets'=>$references[$index]??[],
-                    'creation_source'=>['app_code'=>'aigc_product_video','task_id'=>(string)$row['id']],
+                    'creation_source'=>['app_code'=>static::APP,'task_id'=>(string)$row['id']],
                 ];
-                $items[]=['source'=>'product_video','ref'=>'product_video:task:'.$row['id'].':'.($output+1),'raw'=>$raw];
+                $items[]=['source'=>static::SOURCE,'ref'=>static::SOURCE.':task:'.$row['id'].':'.($output+1),'raw'=>$raw];
             }
         }
         return $items;
@@ -74,10 +78,11 @@ final class WorkspaceProductVideoAssetService
 
     public static function pickerSource(bool $saved): array
     {
+        $title = static::TITLE;
         $request="IF(JSON_VALID(r.request_json),r.request_json,'{}')";
         $result="IF(JSON_VALID(r.result_json),r.result_json,'{}')";
-        return ['table'=>'aigc_product_video_job','type'=>"'video'",
-            'name'=>"COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT($request,'$.snapshot.plan.data.video_prompt')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT($request,'$.snapshot.prompt')),''),'商品视频')",
+        return ['table'=>static::APP.'_job','type'=>"'video'",
+            'name'=>"COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT($request,'$.snapshot.plan.data.video_prompt')),''),NULLIF(JSON_UNQUOTE(JSON_EXTRACT($request,'$.snapshot.prompt')),''),'$title')",
             'extra'=>"JSON_OBJECT('request',JSON_EXTRACT($request,'$'),'result',JSON_EXTRACT($result,'$'),'project_id',r.project_id)",
             'where'=>"r.action='video' AND r.status IN ('success','partial') AND JSON_LENGTH(JSON_EXTRACT($result,'$.videos'))>0",
             'stored'=>false,'saved'=>$saved];

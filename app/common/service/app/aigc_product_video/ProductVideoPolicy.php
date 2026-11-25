@@ -6,6 +6,20 @@ use InvalidArgumentException;
 final class ProductVideoPolicy
 {
     public const APP = 'aigc_product_video';
+    public const REPLICATION = 'aigc_video_replication';
+    private static string $app = self::APP;
+
+    public static function app(): string { return self::$app; }
+    public static function replicating(): bool { return self::$app === self::REPLICATION; }
+
+    /** Scope synchronous calls from trusted app controllers, worker and callback adapters. */
+    public static function forReplication(callable $operation): mixed
+    {
+        $previous = self::$app;
+        self::$app = self::REPLICATION;
+        try { return $operation(); } finally { self::$app = $previous; }
+    }
+
     public const ACTIONS = ['product','reference','plan','analysis','write','optimize','video','chapters'];
     public static function json($value): array {return is_array($value)?$value:(json_decode((string)$value,true)?:[]);}
     public static function encode(array $value): string {return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
@@ -34,6 +48,9 @@ final class ProductVideoPolicy
             'language'=>self::text($body['language']??'中文',60),'plan'=>$body['plan']??null,'reference_analysis'=>$body['reference_analysis']??null,
             'analysis_model_id'=>self::text($body['analysis_model_id']??'',100),'planning_model_id'=>self::text($body['planning_model_id']??'',100),
             'video_selection'=>(array)($body['video_selection']??[])];
+        if (self::replicating()) {
+            $out = VideoReplicationWorkflow::normalize($out, $body);
+        }
         if(strlen(self::encode($out))>160000)throw new InvalidArgumentException('创作资料过大');return $out;
     }
     /** Preserve explicit roles: removing a first frame must never promote a tail frame. */

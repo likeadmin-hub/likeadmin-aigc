@@ -1,0 +1,197 @@
+{
+  "app_code": "aigc_video_replication",
+  "apis": [
+    {
+      "api_path": "app.aigc_video_replication.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:config:detail:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:config:models:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.project/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:project:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.project/save",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:project:save:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.project/adopt",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:project:adopt:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:job:estimate:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/create",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:job:create:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:job:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:job:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/recover",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:job:recover:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:job:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:config:models",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:job:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:job:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:config:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:config:setup",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.config/models",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:config:models",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:job:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_video_replication:job:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.project/fromJob",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:project:fromJob:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:job:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_video_replication.job/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_video_replication:job:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}

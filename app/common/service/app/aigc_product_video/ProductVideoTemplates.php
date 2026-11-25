@@ -214,7 +214,12 @@ final class ProductVideoTemplates
 
     public static function adminDetail(int $scope,int $id): array
     {
-        $job=ProductVideoJobs::owned($scope,0,$id,true);if($job['action']!=='video')throw new InvalidArgumentException('创作记录仅展示视频任务');
+        $job=ProductVideoJobs::owned($scope,0,$id,true);
+        if (ProductVideoPolicy::replicating()) {
+            $snapshot = ProductVideoPolicy::json($job['request_json'])['snapshot'] ?? [];
+            return ProductVideoJobs::adminDto($job) + ['configuration'=>ProductVideoService::publicBody($snapshot,(int)$job['tenant_id'])];
+        }
+        if($job['action']!=='video')throw new InvalidArgumentException('创作记录仅展示视频任务');
         return ProductVideoJobs::adminDto($job)+['tenant_id'=>(int)$job['tenant_id'],'user_id'=>(int)$job['user_id'],'configuration'=>ProductVideoService::publicBody(self::configuration($job),(int)$job['tenant_id'])];
     }
 }

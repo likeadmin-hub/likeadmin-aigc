@@ -1,0 +1,64 @@
+{
+  "code": "aigc_video_replication",
+  "name": "视频复刻",
+  "version": "1.0.0",
+  "require_core": ">=1.0.442",
+  "description": "从参考视频分析分镜，为自己的商品编写脚本并生成新视频。",
+  "changelog": "1. 新增参考片段选择、AI 脚本分析、脚本编辑与视频复刻。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "resource/image/apps/aigc_video_replication/cover.webp",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 847,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_video_replication",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "dependencies": [
+    {
+      "app_code": "aigc_video",
+      "name": "视频创作",
+      "required_for": "生成视频复刻"
+    }
+  ],
+  "billing": {
+    "provider": "power_market",
+    "actions": [
+      "plan",
+      "video"
+    ],
+    "currency": "points"
+  },
+  "frontend_entries": [
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_video_replication",
+      "name": "视频复刻",
+      "path": "/ai/tools/aigc_video_replication",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 84,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_video_replication_admin",
+      "name": "视频复刻",
+      "path": "/apps/aigc_video_replication/config",
+      "icon": "el-icon-VideoCamera",
+      "sort": 84,
+      "status": 1
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "assets/local/cover.webp",
+      "target": "public/resource/image/apps/aigc_video_replication/cover.webp"
+    }
+  ]
+}

@@ -189,20 +189,40 @@ final class StudioMediaInputService
         return self::localVideoInput(self::localPath($fresh['uri']));
     }
 
+    public static function videoClipInput(array $asset): string
+    {
+        $tenant = (int)$asset['tenant_id'];
+        $user = (int)$asset['user_id'];
+        $fresh = self::validateVideo($tenant, $user, $asset['uri'], 3600);
+        $start = (float)$asset['clip']['start'];
+        $length = (float)$asset['clip']['end'] - $start;
+        if (!is_finite($start) || !is_finite($length) || $start < 0 || $length < 5 || $length > 30
+            || $start + $length > $fresh['duration'] + 0.01 || $fresh['file_size'] > 104857600) {
+            throw new InvalidArgumentException('请选择有效的 5～30 秒视频片段');
+        }
+        if ($fresh['storage_engine'] === 'local') return self::localVideoInput(self::localPath($fresh['uri']), $start, $length);
+        $workspace = self::workspace();
+        try {
+            $path = $workspace.'/reference.mp4';
+            self::materialize($fresh['uri'], $path, $tenant, $user);
+            return self::localVideoInput($path, $start, $length);
+        } finally { self::cleanup($workspace); }
+    }
+
     /** Keep local uploads inside the video-understanding API's encoded 10 MB limit. */
-    private static function localVideoInput(string $path): string
+    private static function localVideoInput(string $path, float $start = 0, ?float $length = null): string
     {
         $workspace = self::workspace();
         try {
             $source = self::probe($path);
-            if ($source['duration'] > 60.1) throw new RuntimeException('参考视频请控制在 60 秒以内');
+            if ($length === null && $source['duration'] > 60.1) throw new RuntimeException('参考视频请控制在 60 秒以内');
             $output = $workspace.'/analysis.mp4';
-            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file,pipe', '-i', $path,
-                '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=640:640:force_original_aspect_ratio=decrease:force_divisible_by=2',
+            self::run([self::binary('ffmpeg'), '-hide_banner', '-loglevel', 'error', '-y', '-protocol_whitelist', 'file,pipe', ...($length === null ? [] : ['-ss', (string)$start]), '-i', $path,
+                ...($length === null ? [] : ['-t', (string)$length]), '-map', '0:v:0', '-map', '0:a:0?', '-vf', 'scale=640:640:force_original_aspect_ratio=decrease:force_divisible_by=2',
                 '-c:v', 'libx264', '-preset', 'veryfast', '-b:v', '600k', '-maxrate', '650k', '-bufsize', '1300k', '-r', '12',
                 '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-movflags', '+faststart', $output], 120);
             $normalized = self::probe($output);
-            if (abs($normalized['duration']-$source['duration']) > 0.25 || ($source['has_audio'] && !$normalized['has_audio'])) {
+            if (abs($normalized['duration']-($length ?? $source['duration'])) > 0.25 || ($source['has_audio'] && !$normalized['has_audio'])) {
                 throw new RuntimeException('参考视频转码未完成，请重新上传');
             }
             $encoded = base64_encode(file_get_contents($output));
