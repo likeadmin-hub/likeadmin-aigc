@@ -110,7 +110,7 @@ final class ProductVideoJobs
             if ($renderWithClip) {
                 // The advisory preview only prices the verified interval. Paid jobs always use the cut file.
                 $assets[] = $preview
-                    ? ['type'=>'video', 'role'=>'reference_video', 'duration'=>$body['clip']['end'] - $body['clip']['start']] + $body['reference_video']
+                    ? ['type'=>'video', 'role'=>'reference_video', 'duration'=>round($body['clip']['end'] - $body['clip']['start'], 3)] + $body['reference_video']
                     : VideoReplicationWorkflow::renderAsset($tenant, $user, $project);
                 $prompt = VideoReplicationWorkflow::renderPrompt($body);
             }

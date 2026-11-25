@@ -6,6 +6,7 @@ use app\common\service\MediaBinaryService;
 use app\common\service\power\{MarketGenerationMediaInputs,MarketVideoRuntimeService};
 use think\facade\Db;
 
+$_SERVER['HTTP_HOST'] ??= 'localhost';
 require dirname(__DIR__).'/runtime-loader.php';
 (new AigcRuntimeApp(dirname(__DIR__)))->initialize();
 set_exception_handler(static function(Throwable $error): void {
@@ -27,8 +28,8 @@ Db::startTrans();
 try {
     $seed = 'uploads/'.basename($dir).'/';
     file_put_contents($dir.'/product.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='));
-    $proc = proc_open([MediaBinaryService::resolve('ffmpeg'),'-v','error','-f','lavfi','-i','color=red:s=96x64:d=2',
-        '-f','lavfi','-i','color=blue:s=96x64:d=7','-f','lavfi','-i','sine=frequency=440:duration=9',
+    $proc = proc_open([MediaBinaryService::resolve('ffmpeg'),'-v','error','-f','lavfi','-i','color=red:s=96x64:d=2:r=30000/1001',
+        '-f','lavfi','-i','color=blue:s=96x64:d=7:r=30000/1001','-f','lavfi','-i','sine=frequency=440:duration=9',
         '-filter_complex','[0:v][1:v]concat=n=2:v=1:a=0[v]','-map','[v]','-map','2:a','-pix_fmt','yuv420p',$dir.'/sample.mp4'],[], $pipes);
     check(proc_close($proc)===0,'Video fixture creation failed');
     foreach (['product.png'=>10,'sample.mp4'=>20] as $name=>$type) {
@@ -69,7 +70,7 @@ try {
         check(proc_close($probe)===0 && abs($seconds-5)<0.25,'Analysis received the wrong segment');
         check(count($request['script_request']['images']) === 1 && array_column($request['reference_assets'],'type') === ['image','video'], 'Render requires a product image and a video');
         [$image,$render] = Workflow::refreshRenderAssets(1,1,$request['reference_assets']);
-        check($render['uri'] !== $seed.'sample.mp4' && abs($render['duration']-5)<0.1 && $render['has_audio'], 'Render must use the selected segment with its audio');
+        check($render['uri'] !== $seed.'sample.mp4' && abs($render['duration']-5)<0.001 && $render['has_audio'], 'Render must use the selected segment with its audio and exact length');
         check($request['reference_images'] === [$image['uri']], 'Clip leaked into image inputs');
         $decoded = proc_open([MediaBinaryService::resolve('ffmpeg'),'-v','error','-i',public_path().$render['uri'],'-frames:v','1',
             '-vf','scale=1:1','-pix_fmt','rgb24','-f','rawvideo','pipe:1'], [1=>['pipe','w']], $pipes);

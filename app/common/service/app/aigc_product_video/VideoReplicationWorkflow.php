@@ -53,7 +53,7 @@ PROMPT;
         $selection = $body['video_selection'];
         $spec = StudioVideoCatalogService::spec($model, (string)($selection['quality'] ?? ''), (string)($selection['ratio'] ?? ''), (int)($selection['duration'] ?? 0), 'reference');
         $limits = $model['reference_video_duration_limits'] ?? [];
-        $seconds = $body['clip']['end'] - $body['clip']['start'];
+        $seconds = round($body['clip']['end'] - $body['clip']['start'], 3);
         if ($seconds > min($limits['single'] ?? 30, $limits['total'] ?? 30) || $seconds < ($limits['minimum'] ?? 0)) {
             throw new InvalidArgumentException('所选片段时长超出当前模型的参考视频限制，请调整片段或更换模型');
         }
@@ -141,7 +141,8 @@ PROMPT;
         }
         $start = $body['clip']['start'];
         $end = $body['clip']['end'];
-        if ($start < 0 || $end - $start < 5 || $end - $start > 30 || $end > $source['duration'] + 0.01) {
+        $seconds = round($end - $start, 3);
+        if ($start < 0 || $seconds < 5 || $seconds > 30 || $end > $source['duration'] + 0.01) {
             throw new InvalidArgumentException('请在参考片内选择 5～30 秒');
         }
     }

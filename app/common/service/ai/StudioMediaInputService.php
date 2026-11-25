@@ -214,7 +214,7 @@ final class StudioMediaInputService
     public static function storeVideoSegment(int $tenant, int $user, string $uri, float $start, float $end): string
     {
         $source = self::validateVideo($tenant, $user, $uri, 3600);
-        $length = $end - $start;
+        $length = round($end - $start, 3);
         if (!is_finite($start) || !is_finite($length) || $start < 0 || $length < 5 || $length > 30
             || $end > $source['duration'] + 0.01 || $source['file_size'] > 104857600) {
             throw new InvalidArgumentException('请选择有效的 5～30 秒视频片段');
@@ -231,9 +231,11 @@ final class StudioMediaInputService
                 self::materialize($uri, $input, $tenant, $user);
             }
             $output = $workspace.'/segment.mp4';
+            // Fit whole frames to the selected duration (e.g. 29.97 fps would encode 15 s as 15.015 s).
+            $filters = "fps=max(1\\,round(source_fps*$length))/$length,pad=ceil(iw/2)*2:ceil(ih/2)*2";
             self::run([self::binary('ffmpeg'), '-v', 'error', '-protocol_whitelist', 'file,pipe',
                 '-ss', (string)$start, '-i', $input, '-t', (string)$length, '-map', '0:v:0', '-map', '0:a:0?',
-                '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+                '-vf', $filters, '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
                 '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', '-movflags', '+faststart', $output], 120);
             $facts = self::probe($output);
             if (abs($facts['duration'] - $length) > 0.25 || ($source['has_audio'] && !$facts['has_audio'])) {
