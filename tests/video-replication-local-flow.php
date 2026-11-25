@@ -3,6 +3,9 @@
 use app\common\service\app\aigc_product_video\{ProductVideoPolicy as Policy,ProductVideoService as Projects,ProductVideoJobs as Jobs,ProductVideoWorker as Worker,VideoReplicationWorkflow as Workflow};
 use app\common\service\ai\StudioMediaInputService;
 use app\common\service\MediaBinaryService;
+use app\common\service\app\aigc_product_video\VideoReplicationTemplates as Templates;
+use app\common\service\app\{StudioBuiltinTemplates as Builtins, StudioBuiltinCatalog as Catalog};
+use app\common\service\storage\StorageConfigService;
 use app\common\service\power\{MarketGenerationMediaInputs,MarketVideoRuntimeService};
 use think\facade\Db;
 
@@ -132,6 +135,47 @@ try {
         $manual=Jobs::prepare(1,1,['project_id'=>$edited['id'],'revision'=>$edited['revision'],'action'=>'video']);
         check(!isset($manual['request']['script_request']) && str_contains($manual['request']['prompt'],$body['prompt']),'Edited script triggered a second analysis');
         check(str_contains($manual['request']['prompt'],$body['requirements']),'Custom direction missing from the render prompt');
+        // Save the successful render as a template, then grant an editable copy of its original inputs.
+        $snapshot = Policy::json(Projects::owned(1,1,$edited['id'])['body_json']);
+        $previewFile = Db::name('tenant_file')->where(['tenant_id'=>1,'uri'=>$seed.'sample.mp4'])->findOrFail();
+        $previewFile['video_uri'] = $previewFile['uri'];
+        Jobs::table()->where('id',$job['id'])->update(['status'=>'success','request_json'=>Policy::encode(['snapshot'=>$snapshot]),'result_json'=>Policy::encode(['videos'=>[$previewFile]])]);
+        $case = Templates::fromJob(1,$job['id'],[]);
+        check(Templates::fromJob(1,$job['id'],[])['id']===$case['id'],'Repeated job conversion duplicated a template');
+        rejects(fn()=>Templates::fromJob(1,$children[0],[]));
+        rejects(fn()=>Templates::detail(2,$case['id']));
+        $copy = Templates::remix(1,1,$case['id'])['body'];
+        check($copy['reference_video']['uri']===$seed.'sample.mp4' && $copy['clip']===$snapshot['clip'] && $copy['prompt']===$body['prompt'],'Remix lost source clip or script');
+        rejects(fn()=>Builtins::publish(Templates::APP,$case['id'],['confirm_public_media'=>true],1));
+
+        // Use isolated public object receipts to exercise the exact publishing path without an upload.
+        $config=StorageConfigService::getEffectiveConfig(1);$engine=$config['default'];
+        $coords=['storage_engine'=>$engine,'storage_scope'=>$config['scope'],'storage_domain'=>$config['engine'][$engine]['domain']];
+        foreach (['reference_video','images'] as $key) {
+            if ($key==='images') $snapshot[$key][0]=array_replace($snapshot[$key][0],$coords);
+            else $snapshot[$key]=array_replace($snapshot[$key],$coords);
+        }
+        Db::name('tenant_file')->where('tenant_id',1)->whereIn('uri',[$seed.'sample.mp4',$seed.'product.png'])->update($coords);
+        Jobs::table()->where('id',$job['id'])->update(['request_json'=>Policy::encode(['snapshot'=>$snapshot]),'result_json'=>Policy::encode(['videos'=>[array_replace($previewFile,$coords)]])]);
+        Catalog::withDirectory(Templates::APP,$dir,static function() use ($job,$seed,$coords,$snapshot) {
+            $app=Templates::APP;
+            rejects(fn()=>Builtins::fromJob($app,$job['id'],[],1));
+            rejects(fn()=>Builtins::fromJob($app,$job['id'],['confirm_public_media'=>true],2));
+            $published=Builtins::fromJob($app,$job['id'],['confirm_public_media'=>true],1);
+            $id=$published['id'];
+            check($published['is_builtin'] && $published['builtin_version']===1,'Job was not published as a builtin');
+            check(Builtins::fromJob($app,$job['id'],['confirm_public_media'=>true],1)['id']===$id,'Duplicate builtin');
+            $source=(int)Builtins::info($app,$id)['source_case_id'];
+            rejects(fn()=>Builtins::publish($app,$source,['confirm_public_media'=>true,'expected_version'=>0],1));
+            check(Builtins::publish($app,$source,['confirm_public_media'=>true,'expected_version'=>1],1)['builtin_version']===2,'Source template update failed');
+            $definition=Builtins::definition($app,$id);$b=$definition['configuration'];
+            check(!isset($b['requirements'],$b['render_clip_uri'],$b['reference_video']['file_id'],$b['reference_video']['url'],$b['images'][0]['user_id']) && $b['video_selection']['model_id']==='', 'Builtin contains installation-specific data');
+            check($b['clip']===$snapshot['clip'] && $b['reference_video']['uri']===$seed.'sample.mp4','Published the rendered clip instead of the original reference');
+            check(Catalog::mediaUrl($b['reference_video']['uri'],$coords['storage_engine'],$coords['storage_domain'])!==null,'Reference video was not pinned');
+            check(Templates::detail(2,$id)['readonly'],'Other tenants cannot see the shared template');
+            rejects(fn()=>Templates::change(1,['id'=>$id,'status'=>0],'status'));
+        });
+        Db::name('tenant_file')->where('tenant_id',1)->whereIn('uri',[$seed.'sample.mp4',$seed.'product.png'])->update(['storage_engine'=>'local','storage_scope'=>'tenant','storage_domain'=>'']);
         $fallback = Projects::models(1,'video',$imageOnly[0]['id'])['models'][0];
         $body['video_selection'] = ['model_id'=>$fallback['id']]+$fallback['specs'][0];
         $edited = Projects::save(1,1,['body'=>$body]);

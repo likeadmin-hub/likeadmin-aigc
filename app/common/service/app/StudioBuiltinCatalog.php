@@ -8,7 +8,7 @@ use InvalidArgumentException;
 /** Portable, reviewed source definitions. No credentials, local upload IDs or media binaries. */
 final class StudioBuiltinCatalog
 {
-    public const APPS=['aigc_story_commerce','aigc_store_visit'];
+    public const APPS=['aigc_story_commerce','aigc_store_visit','aigc_video_replication'];
     // Old motion-sync drafts can still reference media pinned by these definitions.
     private const LEGACY_MEDIA_APP = 'aigc_motion_sync';
     private static array $directories=[];
@@ -55,7 +55,9 @@ final class StudioBuiltinCatalog
     }
     public static function assets(string $app,array $entry): array
     {
-        $b=$entry['configuration'];return array_merge($app===self::LEGACY_MEDIA_APP?[$b['image'],$b['video']]:$b['images'],[$entry['media']],$entry['retained_media']??[]);
+        $b=$entry['configuration'];
+        if ($app === 'aigc_video_replication') return array_merge($b['images'], [$b['reference_video'], $entry['media']], $entry['retained_media'] ?? []);
+        return array_merge($app===self::LEGACY_MEDIA_APP?[$b['image'],$b['video']]:$b['images'],[$entry['media']],$entry['retained_media']??[]);
     }
     public static function asset(string $uri,string $engine,string $domain): ?array
     {

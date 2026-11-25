@@ -6,6 +6,7 @@ use app\common\model\app\AppCase;
 use app\common\service\ai\StudioMediaService as Media;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\SubmitLockService;
+use app\common\service\app\aigc_product_video\{VideoReplicationTemplates as Replication,ProductVideoCatalog,ProductVideoJobs};
 use app\common\service\app\aigc_motion_sync\MotionSyncService as Motion;
 use app\common\service\app\aigc_story_commerce\{StoryCommerceService as Story,StoryCommercePolicy as Policy,StoryCommerceTemplates as StoryTemplates,StoryCommerceCatalog as StoryCatalog,StoryCommerceJobs};
 use app\common\service\power\MarketCatalogReadScope;
@@ -21,7 +22,7 @@ final class StudioBuiltinTemplates
     private static function catalog(string $app): string {return $app==='aigc_store_visit'?\app\common\service\app\aigc_store_visit\StoreVisitCatalog::class:StoryCatalog::class;}
     public static function writing(): bool {return self::$writing;}
     public static function table(){return Db::name('app_builtin_inspiration');}
-    public static function service(string $app): string {StudioBuiltinCatalog::assertApp($app);return match($app){'aigc_store_visit'=>\app\common\service\app\aigc_store_visit\StoreVisitTemplates::class,default=>StoryTemplates::class};}
+    public static function service(string $app): string {StudioBuiltinCatalog::assertApp($app);return match($app){Replication::APP=>Replication::class,'aigc_store_visit'=>\app\common\service\app\aigc_store_visit\StoreVisitTemplates::class,default=>StoryTemplates::class};}
     public static function info(string $app,int $id): ?array {StudioBuiltinCatalog::assertApp($app);return self::table()->where(['app_code'=>$app,'case_id'=>$id])->find()?:null;}
     public static function definition(string $app,int $id): ?array {$link=self::info($app,$id);return $link?(StudioBuiltinCatalog::all($app)[$link['builtin_key']]??null):null;}
     public static function ids(string $app): array {return array_map('intval',self::table()->where('app_code',$app)->whereNotNull('case_id')->column('case_id'));}
@@ -29,6 +30,7 @@ final class StudioBuiltinTemplates
     public static function media(string $app,array $row): array {return (array)($row['config_json']['generation_request']['advanced_params'][substr($app,5).'_media']??[]);}
     public static function portableBody(string $app,array $input): array
     {
+        if ($app === Replication::APP) return Replication::portableBody($input);
         if($app===Motion::APP){
             $b=Motion::body($input);$b['image']=StudioBuiltinCatalog::publicAsset(array_replace((array)$b['image'],['type'=>'image']));$b['video']=StudioBuiltinCatalog::publicAsset(array_replace((array)$b['video'],['type'=>'video']));
             \app\common\service\app\aigc_motion_sync\MotionSyncMedia::assertFacts($b);return $b;
@@ -64,6 +66,10 @@ final class StudioBuiltinTemplates
         StudioBuiltinCatalog::assertApp($app);
         $b=$entry['configuration'];$p=self::product($entry['model_identity']);
         $b['video_selection']['model_id']=$p?($p['resource_type']==='model'?'market_video_model:'.$p['id']:'market_video_app:'.$p['upstream_app_code'].':'.$p['id']):'';
+        if ($app === Replication::APP) {
+            if ($strict) Replication::validateModel(ProductVideoCatalog::model($tenant, $b), $b);
+            return $b;
+        }
         $b['script_input_key']=(self::policy($app))::inputKey($b);
         if($strict){if(!$p)throw new InvalidArgumentException('内置模板的视频模型尚未同步，请同步并上架后再使用');(self::catalog($app))::selection($tenant,$b);}
         return $b;
@@ -95,7 +101,7 @@ final class StudioBuiltinTemplates
             if($link['source_hash']===$hash&&$current)return;
             $key=substr($app,5);$image=$b['images'][0];$images=$b['images'];
             if($current)AppCase::where(['id'=>$link['case_id'],'tenant_id'=>0,'app_code'=>$app])->update(['delete_time'=>0]);
-            $saved=AppCaseService::save(0,$app,['id'=>$current?(int)$link['case_id']:0,'title'=>$entry['title'],'prompt'=>(self::policy($app))::prompt($b),
+            $saved=AppCaseService::save(0,$app,['id'=>$current?(int)$link['case_id']:0,'title'=>$entry['title'],'prompt'=>$app === Replication::APP ? $b['prompt'] : (self::policy($app))::prompt($b),
                 'media_type'=>'video','cover_uri'=>$image['uri'],'media_uri'=>$entry['media']['uri'],'reference_images'=>array_column($images,'uri'),
                 'config_json'=>['generation_request'=>['advanced_params'=>[$key=>$b,$key.'_media'=>$entry['media']]]],
                 'status'=>$entry['deleted']?0:$entry['status'],'sort'=>$entry['sort'],'source_task_id'=>0,'source_result_id'=>0]);
@@ -122,7 +128,13 @@ final class StudioBuiltinTemplates
             if((int)($params['expected_version']??0)!==(int)($prior['version']??0))throw new InvalidArgumentException('内置模板已更新，请刷新后重试');
             $b=self::stored($app,$source);$owner=(int)$source['tenant_id'];$media=self::media($app,$source);
             foreach($b['images'] as $a)Media::verify($owner,$a,10);Media::verify($owner,$media,20);
-            (self::catalog($app))::selection($owner,$b);(self::policy($app))::prompt($b);
+            if ($app === Replication::APP) {
+                Replication::validateModel(ProductVideoCatalog::model($owner, $b), $b);
+                $video = Media::verify($owner, $b['reference_video'], 20);
+                $b['reference_video'] = self::shared($owner, $video) + ['format'=>$video['format']];
+            } else {
+                (self::catalog($app))::selection($owner,$b);(self::policy($app))::prompt($b);
+            }
             $identity=self::identity($b);
             $b['images']=array_map(static fn($a)=>self::shared($owner,$a),$b['images']);
             $entry=StudioBuiltinCatalog::write($app,['schema_version'=>1,'app_code'=>$app,'key'=>$prior['key']??'builtin-'.bin2hex(random_bytes(12)),'version'=>(int)($prior['version']??0)+1,
@@ -134,7 +146,12 @@ final class StudioBuiltinTemplates
     public static function fromJob(string $app,int $id,array $params,int $scope=0): array
     {
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认素材可作为跨站点公开共享素材');
-        $service=self::service($app);$job=($app==='aigc_store_visit'?\app\common\service\app\aigc_store_visit\StoreVisitJobs::owned($scope,0,$id,true):StoryCommerceJobs::owned($scope,0,$id,true));
+        $service=self::service($app);$jobs = match ($app) {
+            Replication::APP => ProductVideoJobs::class,
+            'aigc_store_visit' => \app\common\service\app\aigc_store_visit\StoreVisitJobs::class,
+            default => StoryCommerceJobs::class,
+        };
+        $job = $jobs::owned($scope,0,$id,true);
         if($job['status']!=='success'||$job['action']!=='video')throw new InvalidArgumentException('仅已完成视频可以设为内置模板');
         $lock=SubmitLockService::acquire($app.'_builtin_job_'.$id);
         try{return Db::transaction(static function()use($app,$id,$params,$service,$job,$scope){

@@ -64,6 +64,61 @@
             "children": []
           }
         ]
+      },
+      {
+        "source_menu_key": "aigc_video_replication_case",
+        "app_code": "aigc_video_replication",
+        "source": "app",
+        "type": "C",
+        "name": "灵感模板",
+        "sort": 20,
+        "perms": "app.aigc_video_replication.case/lists",
+        "paths": "cases",
+        "component": "apps/aigc_video_replication/cases",
+        "children": [
+          {
+            "source_menu_key": "aigc_video_replication_case_detail",
+            "type": "A",
+            "name": "查看详情",
+            "perms": "app.aigc_video_replication.case/detail",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_video_replication_case_save",
+            "type": "A",
+            "name": "编辑模板",
+            "perms": "app.aigc_video_replication.case/save",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_video_replication_case_fromJob",
+            "type": "A",
+            "name": "设为模板",
+            "perms": "app.aigc_video_replication.case/fromJob",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_video_replication_case_status",
+            "type": "A",
+            "name": "上下架模板",
+            "perms": "app.aigc_video_replication.case/status",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_video_replication_case_delete",
+            "type": "A",
+            "name": "删除记录",
+            "perms": "app.aigc_video_replication.case/delete",
+            "children": []
+          },
+          {
+            "source_menu_key": "aigc_video_replication_case_options",
+            "type": "A",
+            "name": "查看模板配置",
+            "perms": "app.aigc_video_replication.case/options",
+            "children": []
+          }
+        ]
       }
     ]
   }

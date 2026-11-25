@@ -72,8 +72,12 @@ class AppCaseService
     {
         $studio=[];
         if($public)foreach(StudioBuiltinCatalog::APPS as $code){
+            if (!in_array($code,$codes,true) || !AppAccessService::tenantCanUse($tenantId,$code,false)) continue;
             $service=$code==='aigc_store_visit'?\app\common\service\app\aigc_store_visit\StoreVisitService::class:\app\common\service\app\aigc_story_commerce\StoryCommerceService::class;
-            if(in_array($code,$codes,true)&&AppAccessService::tenantCanUse($tenantId,$code,false)&&(int)$service::settings($tenantId)['status']===1){StudioBuiltinTemplates::sync($code);$studio[$code]=StudioBuiltinTemplates::ids($code);}
+            $settings = $code === 'aigc_video_replication'
+                ? \app\common\service\app\aigc_product_video\ProductVideoPolicy::forReplication(fn() => ProductVideoService::settings($tenantId))
+                : $service::settings($tenantId);
+            if ((int)$settings['status'] === 1){StudioBuiltinTemplates::sync($code);$studio[$code]=StudioBuiltinTemplates::ids($code);}
         }
         $ids = [];
         if ($public && in_array('aigc_product_video', $codes, true)
@@ -299,6 +303,7 @@ class AppCaseService
         $row['config_fields'] = self::configFields($config, (string)($row['media_type'] ?? self::MEDIA_IMAGE));
         if (($row['app_code'] ?? '') === 'aigc_store_visit' && isset($config['generation_request']['advanced_params']['store_visit'])) return \app\common\service\app\aigc_store_visit\StoreVisitTemplates::galleryRow($row);
         if (($row['app_code'] ?? '') === 'aigc_story_commerce' && isset($config['generation_request']['advanced_params']['story_commerce'])) return \app\common\service\app\aigc_story_commerce\StoryCommerceTemplates::galleryRow($row);
+        if (($row['app_code'] ?? '') === 'aigc_video_replication' && isset($config['generation_request']['advanced_params']['video_replication'])) return \app\common\service\app\aigc_product_video\VideoReplicationTemplates::galleryRow($row);
         if (($row['app_code'] ?? '') === 'aigc_product_video' && isset($config['generation_request']['advanced_params']['product_video'])) return \app\common\service\app\aigc_product_video\ProductVideoTemplates::galleryRow($row);
         return $row;
     }
