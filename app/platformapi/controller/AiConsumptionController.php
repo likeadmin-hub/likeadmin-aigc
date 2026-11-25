@@ -4,6 +4,8 @@ namespace app\platformapi\controller;
 
 use app\common\service\ai\AiUsageService;
 use app\common\service\ai\AiTaskOperationService;
+use app\common\service\workbench\PlatformSupplierCostReview;
+use app\common\service\workbench\PlatformTaskStatistics;
 
 class AiConsumptionController extends BaseAdminController
 {
@@ -12,14 +14,33 @@ class AiConsumptionController extends BaseAdminController
      */
     public function statistics()
     {
-        if ((int)($this->adminInfo['root'] ?? 0) !== 1) {
+        $root = (int)($this->adminInfo['root'] ?? 0) === 1;
+        if (!$root) {
             $uris = (new \app\common\cache\AdminAuthCache($this->adminId))->getAdminUri();
             if (!in_array('ai_consumption/statistics', array_map('strtolower', $uris), true)) {
                 return $this->fail('没有数据统计权限');
             }
         }
         try {
-            return $this->data(\app\common\service\workbench\PlatformTaskStatistics::report($this->request->get()));
+            return $this->data(PlatformTaskStatistics::report($this->request->get(), $root));
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function confirmSupplierCost()
+    {
+        if (!$this->request->isPost() || (int)($this->adminInfo['root'] ?? 0) !== 1) {
+            return $this->fail('仅平台超级管理员可以确认上游成本');
+        }
+        try {
+            PlatformSupplierCostReview::confirm(
+                (int)$this->request->post('id/d', 0),
+                $this->adminId,
+                (string)$this->request->post('supplier_points/s', ''),
+                (string)$this->request->post('reference/s', '')
+            );
+            return $this->success('上游成本已确认', [], 1, 0);
         } catch (\InvalidArgumentException $e) {
             return $this->fail($e->getMessage());
         }

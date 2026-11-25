@@ -658,7 +658,9 @@ class AiUsageService
             return [];
         }
         $data = self::formatConsumptions([$row->toArray()])[0] ?? [];
-        $events = AiConsumptionEvent::where('consumption_id', $id)->order('id', 'asc')->select()->toArray();
+        $query = AiConsumptionEvent::where('consumption_id', $id);
+        if ($tenantId > 0) $query->where('event_type', '<>', AiConsumptionEvent::SUPPLIER_COST_CONFIRMED);
+        $events = $query->order('id', 'asc')->select()->toArray();
         foreach ($events as &$event) {
             $event['payload_summary'] = AiUsageSupportService::diagnosticSummary($event['payload_summary'] ?? []);
             $event['create_time_text'] = self::timeText($event['create_time'] ?? 0);
