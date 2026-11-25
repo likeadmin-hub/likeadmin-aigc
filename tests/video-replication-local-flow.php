@@ -60,15 +60,22 @@ try {
         Workflow::advance($root,$request);
         $children=Projects::table('job_stage')->where('root_job_id',$root['id'])->column('child_job_id');
         check(count($children)===1,'Duplicate analysis child');
+        $duration = (int)$spec['duration'];
+        $script = Policy::plan(['summary'=>'测试脚本','shots'=>[
+            ['start'=>0,'end'=>$duration/2,'description'=>'商品全景'],
+            ['start'=>$duration/2,'end'=>$duration,'description'=>'演示细节']
+        ]], $duration);
         Jobs::table()->where('id',$children[0])->update(['status'=>'success','billing_status'=>'settled','user_charge_points'=>2,
-            'result_json'=>Policy::encode(['summary'=>'测试脚本','shots'=>[['start'=>0,'end'=>2,'description'=>'商品全景'],['start'=>2,'end'=>$spec['duration'],'description'=>'演示细节']]])]);
+            'result_json'=>Policy::encode($script)]);
         Workflow::advance($root,$request);
         $staged=Policy::json(Jobs::owned(1,1,$job['id'])['request_json']);
         check(!isset($staged['script_request']) && str_contains($staged['prompt'],'演示细节'),'Generated script did not reach the render job');
         $body['prompt']='自己编辑的分镜';$body['prompt_review_images']=[$seed.'product.png'];
+        $body['requirements']='保留产品颜色';
         $edited=Projects::save(1,1,['body'=>$body]);
         $manual=Jobs::prepare(1,1,['project_id'=>$edited['id'],'revision'=>$edited['revision'],'action'=>'video']);
         check(!isset($manual['request']['script_request']) && str_contains($manual['request']['prompt'],$body['prompt']),'Edited script triggered a second analysis');
+        check(str_contains($manual['request']['prompt'],$body['requirements']),'Custom direction missing from the render prompt');
     });
     check(Policy::app()===Policy::APP,'Application context was not restored');
     echo "PASS video replication segment, ownership, quote, idempotency, pipeline and edited script\n";

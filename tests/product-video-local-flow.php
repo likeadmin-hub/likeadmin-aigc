@@ -50,7 +50,8 @@ try{
     \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
     \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
     $links=S::table('job_stage')->where('root_job_id',$aj['id'])->select()->toArray();pvAssert(count($links)===1,'Plan stage must never duplicate');
-    $duration=(int)$spec['duration'];$data=['product_info'=>'白色商品','summary'=>'全貌到细节','video_prompt'=>'完整展示后特写','shots'=>[['start'=>0,'end'=>1,'description'=>'全貌'],['start'=>1,'end'=>$duration,'description'=>'细节']]];
+    $duration=(int)$spec['duration'];$midpoint=$duration/2;
+    $data=['product_info'=>'白色商品','summary'=>'全貌到细节','video_prompt'=>'完整展示后特写','shots'=>[['start'=>0,'end'=>$midpoint,'description'=>'全貌'],['start'=>$midpoint,'end'=>$duration,'description'=>'细节']]];
     J::table()->where('id',$links[0]['child_job_id'])->update(['status'=>'success','billing_status'=>'settled','user_charge_points'=>2,'result_json'=>P::encode($data)]);
     \app\common\service\app\aigc_product_video\ProductVideoPipeline::run($root);
     $legacyRoot=$root;$legacyRequest=P::json($root['request_json']);$legacyRequest['image_stage']=['selection'=>['model_id'=>'retired-image'],'quote'=>['user_charge_points'=>999]];$legacyRoot['request_json']=P::encode($legacyRequest);

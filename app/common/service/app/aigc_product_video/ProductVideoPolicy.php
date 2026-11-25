@@ -121,6 +121,9 @@ final class ProductVideoPolicy
     {
         $base='以用户商品图片和已确认资料为准，保持商品轮廓、材质、颜色与标识一致，不添加未确认的价格、功效、认证、字幕或水印。';
         $base.='商品资料：'.$body['product_info'].'。表达语言：'.$body['language'].'。销售地区：'.($body['market_region']??'').'。';
+        if (self::replicating() && !empty($body['requirements'])) {
+            $base .= '创作要求：'.$body['requirements'].'。';
+        }
         if(($body['audio']??null)===false)$base.='无声音，不生成配乐或人声。';
         if($body['mode']==='normal'){
             if(($body['normal_source']??'prompt')==='template'){
