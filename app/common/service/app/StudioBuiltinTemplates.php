@@ -6,7 +6,7 @@ use app\common\model\app\AppCase;
 use app\common\service\ai\StudioMediaService as Media;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\SubmitLockService;
-use app\common\service\app\aigc_product_video\{VideoReplicationTemplates as Replication,ProductVideoCatalog,ProductVideoJobs};
+use app\common\service\app\aigc_product_video\{VideoReplicationTemplates as Replication,ProductVideoCatalog,ProductVideoJobs,ProductVideoPolicy};
 use app\common\service\app\aigc_motion_sync\MotionSyncService as Motion;
 use app\common\service\app\aigc_story_commerce\{StoryCommerceService as Story,StoryCommercePolicy as Policy,StoryCommerceTemplates as StoryTemplates,StoryCommerceCatalog as StoryCatalog,StoryCommerceJobs};
 use app\common\service\power\MarketCatalogReadScope;
@@ -67,7 +67,7 @@ final class StudioBuiltinTemplates
         $b=$entry['configuration'];$p=self::product($entry['model_identity']);
         $b['video_selection']['model_id']=$p?($p['resource_type']==='model'?'market_video_model:'.$p['id']:'market_video_app:'.$p['upstream_app_code'].':'.$p['id']):'';
         if ($app === Replication::APP) {
-            if ($strict) Replication::validateModel(ProductVideoCatalog::model($tenant, $b), $b);
+            if ($strict) ProductVideoPolicy::forReplication(fn() => Replication::validateModel(ProductVideoCatalog::model($tenant, $b), $b));
             return $b;
         }
         $b['script_input_key']=(self::policy($app))::inputKey($b);
@@ -76,6 +76,11 @@ final class StudioBuiltinTemplates
     }
     public static function videoDraft(string $app, int $tenant, array $entry, string $default): array
     {
+        if ($app === Replication::APP) {
+            return ProductVideoPolicy::forReplication(fn() => MarketCatalogReadScope::run(fn() => StudioTemplateModel::video(
+                $tenant, self::bodyFor($app, $tenant, $entry, false), $default, ProductVideoCatalog::class, [Replication::class, 'validateModel']
+            )));
+        }
         $catalog = self::catalog($app);
         $body = self::bodyFor($app, $tenant, $entry, false);
         [$body, $notice, $confirmed] = MarketCatalogReadScope::run(static fn() =>
@@ -118,6 +123,9 @@ final class StudioBuiltinTemplates
     }
     public static function publish(string $app,int $id,array $params,int $scope=0): array
     {
+        if ($app === Replication::APP && !ProductVideoPolicy::replicating()) {
+            return ProductVideoPolicy::forReplication(fn() => self::publish($app, $id, $params, $scope));
+        }
         self::service($app);if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认素材可作为跨站点公开共享素材');
         $lock=SubmitLockService::acquire($app.'_builtin_source');
         try{return Db::transaction(static function()use($app,$id,$params,$scope){
@@ -145,6 +153,9 @@ final class StudioBuiltinTemplates
     }
     public static function fromJob(string $app,int $id,array $params,int $scope=0): array
     {
+        if ($app === Replication::APP && !ProductVideoPolicy::replicating()) {
+            return ProductVideoPolicy::forReplication(fn() => self::fromJob($app, $id, $params, $scope));
+        }
         if(empty($params['confirm_public_media']))throw new InvalidArgumentException('请确认素材可作为跨站点公开共享素材');
         $service=self::service($app);$jobs = match ($app) {
             Replication::APP => ProductVideoJobs::class,

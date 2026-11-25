@@ -170,7 +170,7 @@ try {
             check(Builtins::publish($app,$source,['confirm_public_media'=>true,'expected_version'=>1],1)['builtin_version']===2,'Source template update failed');
             $definition=Builtins::definition($app,$id);$b=$definition['configuration'];
             check(!isset($b['requirements'],$b['render_clip_uri'],$b['reference_video']['file_id'],$b['reference_video']['url'],$b['images'][0]['user_id']) && $b['video_selection']['model_id']==='', 'Builtin contains installation-specific data');
-            check($b['clip']===$snapshot['clip'] && $b['reference_video']['uri']===$seed.'sample.mp4','Published the rendered clip instead of the original reference');
+            check($b['clip']==$snapshot['clip'] && $b['reference_video']['uri']===$seed.'sample.mp4','Published the rendered clip instead of the original reference');
             check(Catalog::mediaUrl($b['reference_video']['uri'],$coords['storage_engine'],$coords['storage_domain'])!==null,'Reference video was not pinned');
             check(Templates::detail(2,$id)['readonly'],'Other tenants cannot see the shared template');
             rejects(fn()=>Templates::change(1,['id'=>$id,'status'=>0],'status'));
@@ -183,7 +183,7 @@ try {
         check(array_column($imageJob['request']['reference_assets'],'type') === ['image'], 'Script-only model received a video');
     });
     check(Policy::app()===Policy::APP,'Application context was not restored');
-    echo "PASS video replication exact clip, native inputs, estimates, retries, analysis and script-only fallback\n";
+    echo "PASS video replication exact clip, native inputs, estimates, retries, analysis, script-only fallback, template publication and remix\n";
 } finally {
     Policy::forReplication(static function () use ($testProjects) {
         foreach ($testProjects as $projectId) {

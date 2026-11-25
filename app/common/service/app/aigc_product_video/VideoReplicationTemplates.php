@@ -189,12 +189,15 @@ final class VideoReplicationTemplates
         return Db::transaction(static function () use ($tenant,$user,$id) {
             $row = self::row($tenant,$id,true);
             $entry = Builtins::definition(self::APP,$id);
-            $body = $entry ? Builtins::bodyFor(self::APP,$tenant,$entry,false) : Builtins::stored(self::APP,$row);
-            [$body,$notice] = StudioTemplateModel::video($tenant,$body,(string)ProductVideoService::settings($tenant)['default_video_model_id'],ProductVideoCatalog::class,[self::class,'validateModel']);
+            $default = (string)ProductVideoService::settings($tenant)['default_video_model_id'];
+            [$body,$notice] = $entry
+                ? Builtins::videoDraft(self::APP, $tenant, $entry, $default)
+                : StudioTemplateModel::video($tenant, Builtins::stored(self::APP, $row), $default, ProductVideoCatalog::class, [self::class,'validateModel']);
             $owner = (int)$row['tenant_id'];
             $body['reference_video'] = Media::grant($tenant,$user,$owner,$body['reference_video'],20);
             foreach ($body['images'] as &$image) $image = Media::grant($tenant,$user,$owner,$image,10);
             unset($image);
+            $body['prompt_review_images'] = array_column($body['images'], 'uri');
             return ProductVideoService::save($tenant,$user,['title'=>mb_substr($row['title'],0,90).' · 同款','body'=>$body]) + ['template_notice'=>$notice];
         });
     }
