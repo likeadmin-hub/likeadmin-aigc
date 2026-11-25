@@ -7,6 +7,10 @@ use think\facade\Db;
 
 require dirname(__DIR__).'/runtime-loader.php';
 (new AigcRuntimeApp(dirname(__DIR__)))->initialize();
+set_exception_handler(static function(Throwable $error): void {
+    fwrite(STDERR, get_class($error).': '.$error->getMessage().PHP_EOL);
+    exit(1);
+});
 if (getenv('REPLICATION_LOCAL_DB') !== 'x_cn' || config('database.connections.mysql.database') !== 'x_cn') {
     throw new RuntimeException('Local test database required');
 }
