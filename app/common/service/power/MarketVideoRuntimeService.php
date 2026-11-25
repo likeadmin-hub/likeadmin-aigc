@@ -2394,6 +2394,12 @@ class MarketVideoRuntimeService
         if (self::requiresFlatImageReferences($meta)) {
             return ['asset_types'=>['image'], 'generation_modes'=>['image_reference']];
         }
+        if (self::hasImageAndAudioReferenceContent($meta)) {
+            return [
+                'asset_types' => ['image', 'audio'],
+                'generation_modes' => ['text_to_video', 'image_reference', 'omni_reference', 'audio_reference'],
+            ];
+        }
         $schema = self::arrayValue($meta['params_schema'] ?? []);
         $rawTypes = [];
         $rawRoles = [];
@@ -2528,6 +2534,19 @@ class MarketVideoRuntimeService
             'generation_modes' => array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $modes, true))),
         ];
     }
+    /** An ordinary reference image has different semantics from an explicit first or last frame. */
+    private static function hasImageAndAudioReferenceContent(array $meta): bool
+    {
+        $schema = MarketGenerationSchema::properties(self::arrayValue($meta['params_schema'] ?? []));
+        $fields = self::arrayValue($schema['content']['items']['properties'] ?? []);
+        if (!is_array($fields['role'] ?? null) || !is_array($fields['type'] ?? null)) return false;
+        $types = MarketGenerationSchema::choices($fields['type'] ?? []);
+        $roles = MarketGenerationSchema::choices($fields['role'] ?? []);
+        sort($types);
+        sort($roles);
+        return $types === ['audio_url', 'image_url', 'text'] && $roles === ['reference_audio', 'reference_image'];
+    }
+
     private static function videoCapabilityDocText(array $meta, array $schema = []): string
     {
         $parts = [
@@ -2755,6 +2774,9 @@ class MarketVideoRuntimeService
         $contractModes = MarketGenerationMaterials::modes($meta);
         if ($contractModes !== []) return array_values(array_unique(array_column($contractModes, 'method')));
         $isH3 = self::isH3Product($product);
+        if ($isH3 && self::hasImageAndAudioReferenceContent($meta)) {
+            return self::schemaVideoCapabilities($meta)['generation_modes'];
+        }
         $supportsStartEndFrames = self::supportsStartEndFrames($product);
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $configured = $meta['generation_modes'] ?? $cap['generation_modes'] ?? [];
