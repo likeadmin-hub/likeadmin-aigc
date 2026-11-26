@@ -1,10 +1,4 @@
-SET @depth_history_ddl = (SELECT IF(COUNT(*) = 0,
-  'ALTER TABLE `la_aigc_depth_replication_job` ADD COLUMN `delete_time` int unsigned NOT NULL DEFAULT 0',
-  'SELECT 1') FROM information_schema.columns
-  WHERE table_schema = DATABASE() AND table_name = 'la_aigc_depth_replication_job' AND column_name = 'delete_time');
-PREPARE depth_history_stmt FROM @depth_history_ddl;
-EXECUTE depth_history_stmt;
-DEALLOCATE PREPARE depth_history_stmt;
+ALTER TABLE `la_aigc_depth_replication_job` ADD COLUMN `delete_time` int unsigned NOT NULL DEFAULT 0;
 
 INSERT IGNORE INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`) VALUES ('aigc_depth_replication','app.aigc_depth_replication.job/delete','POST','aigc_depth_replication:job:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 INSERT IGNORE INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`) VALUES ('aigc_depth_replication','1.0.1','>=1.0.442','local','{"code":"aigc_depth_replication","name":"深度复刻","version":"1.0.1","require_core":">=1.0.442","description":"分析原视频的镜头深度，逐镜头调整白模光影并保留原声导出。","changelog":"1. 支持删除已完成和失败的历史创作记录。2. 删除深度分析记录后，仍可继续调整已有导出作品的灯光。","icon":"resource/image/apps/aigc_depth_replication/cover.webp","cover":"resource/image/apps/aigc_depth_replication/cover.webp","category":"aigc","is_builtin":1,"expire_policy":"allow","sort":846,"frontends":["platform","tenant","pc"],"api_prefix":"/app/aigc_depth_replication","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","dependencies":[],"frontend_entries":[{"terminal":"pc","entry_key":"aigc_depth_replication","name":"深度复刻","path":"/ai/tools/aigc_depth_replication","icon":"resource/image/apps/aigc_depth_replication/cover.webp","sort":84,"status":1},{"terminal":"tenant","entry_key":"aigc_depth_replication_admin","name":"深度复刻","path":"/apps/aigc_depth_replication/config","icon":"el-icon-VideoCamera","sort":84,"status":1}],"public_assets":[{"source":"assets/local/cover.webp","target":"public/resource/image/apps/aigc_depth_replication/cover.webp"}]}','1. 支持删除已完成和失败的历史创作记录。2. 删除深度分析记录后，仍可继续调整已有导出作品的灯光。',1,UNIX_TIMESTAMP());

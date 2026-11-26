@@ -1,1 +1,1 @@
-"use strict";exports.defaultModelFilters=()=>({channel:"all",tags:[]});
+"use strict";const e=require("../../common/vendor.js");exports.defaultModelFilters=()=>({channel:"all",tag:"",family:"",search:""}),exports.matchesCatalog=function(a,t,l=""){return e.matchesModelCatalog(a,t.search,t.family,l)&&e.matchesModelFilters(a,t.channel,t.tag?[t.tag]:[])};

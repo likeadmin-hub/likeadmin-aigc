@@ -16,9 +16,24 @@ namespace app\common\model\auth;
 
 use app\common\model\BaseModel;
 use app\common\model\auth\Admin;
+use think\facade\Db;
 
 class AdminSession extends BaseModel
 {
+    public const TABLE = 'platform_admin_session';
+    public const LEGACY_TABLE = 'admin_session';
+
+    public static function findActive(string $token): ?array
+    {
+        foreach ([self::TABLE, self::LEGACY_TABLE] as $table) {
+            $session = Db::name($table)->where('token', $token)->where('expire_time', '>', time())->find();
+            if ($session) {
+                return $session + ['table' => $table];
+            }
+        }
+        return null;
+    }
+
     /**
      * @notes 关联管理员表
      * @return \think\model\relation\HasOne

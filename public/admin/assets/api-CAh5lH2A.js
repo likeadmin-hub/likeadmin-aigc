@@ -1,0 +1,1 @@
+import{r as t}from"./index-DN_rDmUe.js";const o={get(e,r,s){return t.get({url:`/app.aigc_sale_video.${e}/${r}`,params:s})},post(e,r,s){return t.post({url:`/app.aigc_sale_video.${e}/${r}`,params:s})}};export{o as s};

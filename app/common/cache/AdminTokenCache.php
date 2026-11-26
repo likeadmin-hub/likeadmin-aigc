@@ -38,41 +38,28 @@ class AdminTokenCache extends BaseCache
      */
     public function getAdminInfo($token)
     {
-        //直接从缓存获取
-        $adminInfo = $this->get($this->prefix . $token);
+        if (!is_string($token) || $token === '') {
+            return false;
+        }
+
+        $session = AdminSession::findActive($token);
+        if (!$session) {
+            return false;
+        }
+        $key = $this->prefix . $token;
+        $adminInfo = $this->get($key);
         if ($adminInfo) {
+            $adminInfo['expire_time'] = (int)$session['expire_time'];
+            $adminInfo['login_ip'] = $session['login_ip'] ?? $adminInfo['login_ip'];
             return $adminInfo;
         }
 
-        //从数据获取信息被设置缓存(可能后台清除缓存）
-        $adminInfo = $this->setAdminInfo($token);
-        if ($adminInfo) {
-            return $adminInfo;
-        }
-
-        return false;
-    }
-
-    /**
-     * @notes 通过有效token设置管理信息缓存
-     * @param $token
-     * @return array|false|mixed
-     * @throws \think\db\exception\DataNotFoundException
-     * @throws \think\db\exception\DbException
-     * @throws \think\db\exception\ModelNotFoundException
-     * @author 令狐冲
-     * @date 2021/7/5 12:12
-     */
-    public function setAdminInfo($token)
-    {
-        $adminSession = AdminSession::where([['token', '=', $token], ['expire_time', '>', time()]])
-            ->find();
-        if (empty($adminSession)) {
-            return [];
-        }
-        $admin = Admin::where('id', '=', $adminSession->admin_id)
+        $admin = Admin::where('id', $session['admin_id'])
             ->append(['role_id'])
             ->find();
+        if (!$admin || (int)$admin['disable'] === 1) {
+            return false;
+        }
 
         $roleName = '';
         $roleLists = SystemRole::column('name', 'id');
@@ -94,12 +81,12 @@ class AdminTokenCache extends BaseCache
             'role_name' => $roleName,
             'role_id' => $admin->role_id,
             'token' => $token,
-            'terminal' => $adminSession->terminal,
-            'expire_time' => $adminSession->expire_time,
-            'login_ip' => request()->ip(),
+            'terminal' => $session['terminal'],
+            'expire_time' => (int)$session['expire_time'],
+            'login_ip' => $session['login_ip'] ?? (string)$admin['login_ip'],
         ];
-        $this->set($this->prefix . $token, $adminInfo, new \DateTime(Date('Y-m-d H:i:s', $adminSession->expire_time)));
-        return $this->getAdminInfo($token);
+        $this->set($key, $adminInfo, max(1, $adminInfo['expire_time'] - time()));
+        return $adminInfo;
     }
 
     /**

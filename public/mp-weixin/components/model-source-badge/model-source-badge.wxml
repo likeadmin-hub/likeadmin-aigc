@@ -1,1 +1,1 @@
-<view wx:if="{{a}}" class="model-badges vsHdYscg"><text wx:if="{{b}}" class="model-source-badge vsHdYscg" aria-label="{{d}}">{{c}}</text><text wx:for="{{e}}" wx:for-item="tag" wx:key="b" class="model-source-badge vsHdYscg">{{tag.a}}</text></view>
+<view wx:if="{{a}}" class="model-badges vswA4Otw"><text wx:if="{{b}}" class="model-source-badge vswA4Otw" aria-label="{{d}}">{{c}}</text><text wx:for="{{e}}" wx:for-item="tag" wx:key="b" class="model-source-badge vswA4Otw">{{tag.a}}</text><text wx:if="{{f}}" class="model-source-badge vswA4Otw" aria-label="{{h}}">{{g}}</text></view>

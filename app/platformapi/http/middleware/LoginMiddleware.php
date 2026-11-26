@@ -55,7 +55,7 @@ class LoginMiddleware
         }
 
         //token临近过期，自动续期
-        if ($adminInfo) {
+        if ($adminInfo && $adminInfo['login_ip'] === $request->ip()) {
             //获取临近过期自动续期时长
             $beExpireDuration = Config::get('project.admin_token.be_expire_duration');
             //token续期

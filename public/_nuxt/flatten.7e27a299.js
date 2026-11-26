@@ -1,1 +1,0 @@
-import{fg as t,fm as l,h8 as m,fe as r}from"./entry.c8a98112.js";var b=t?t.isConcatSpreadable:void 0;function x(n){return l(n)||m(n)||!!(b&&n&&n[b])}function g(n,i,o,a,f){var e=-1,h=n.length;for(o||(o=x),f||(f=[]);++e<h;){var s=n[e];i>0&&o(s)?i>1?g(s,i-1,o,a,f):r(f,s):a||(f[f.length]=s)}return f}function F(n){var i=n==null?0:n.length;return i?g(n,1):[]}export{g as b,F as f};

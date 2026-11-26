@@ -1,0 +1,1 @@
+import{r as i}from"./index-Bt21Bsei.js";const p={get(r,t,e){return i.get({url:`/app.aigc_video_replication.${r}/${t}`,params:e})},post(r,t,e){return i.post({url:`/app.aigc_video_replication.${r}/${t}`,params:e})}};export{p as r};

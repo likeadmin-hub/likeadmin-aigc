@@ -11,13 +11,14 @@ $originalCache=config('cache');$runtime=app()->getRuntimePath();
 foreach(['platform','tenant'] as $scene){
  // MultiApp selects a separate file cache directory for each HTTP application.
  if(($originalCache['default']??'')==='file'){$localCache=$originalCache;$localCache['stores']['file']['path']=$runtime.$scene.'api/cache';app()->config->set($localCache,'cache');app()->cache->forgetDriver();}
- $prefix=$scene==='platform'?'':'tenant_';$adminId=random_int(800000000,899999999);$roleId=random_int(800000000,899999999);$token=bin2hex(random_bytes(32));
+ $prefix=$scene==='platform'?'':'tenant_';$adminId=random_int(800000000,899999999);$roleId=random_int(800000000,899999999);$token=bin2hex(random_bytes(16));
  check(!Db::name($prefix.'admin_role')->where('admin_id',$adminId)->find()&&!Db::name($prefix.'system_role_menu')->where('role_id',$roleId)->find(),'Fixture collision');
  $menus=Db::name($prefix.'system_menu')->where(['perms'=>'app.open_platform.management/requests','is_disable'=>0]);if($scene==='tenant')$menus->where('tenant_id',1);$menu=$menus->find();check($menu,'Installed read permission missing');
  $cache=$scene==='platform'?new app\common\cache\AdminTokenCache():new app\common\cache\TenantAdminTokenCache();$auth=$scene==='platform'?new app\common\cache\AdminAuthCache($adminId):new app\common\cache\TenantAdminAuthCache($adminId);
  $key=($scene==='platform'?'token_admin_':'token_tenant_').$token;$authKey=($scene==='platform'?'admin_auth_':'tenant_auth_').'url_'.$adminId;
  try{
   Db::name($prefix.'admin_role')->insert(['admin_id'=>$adminId,'role_id'=>$roleId]);Db::name($prefix.'system_role_menu')->insert(['role_id'=>$roleId,'menu_id'=>$menu['id']]);
+  if($scene==='platform')Db::name('platform_admin_session')->insert(['token'=>$token,'admin_id'=>$adminId,'terminal'=>1,'login_ip'=>'127.0.0.1','expire_time'=>time()+120,'update_time'=>time()]);
   $cache->set($key,['admin_id'=>$adminId,'tenant_id'=>1,'root'=>0,'name'=>'Open permission fixture','account'=>'open_fixture','role_id'=>[$roleId],'expire_time'=>time()+7200,'login_ip'=>'127.0.0.1'],120);
   $call=static function($action,$method='GET',$alias=false)use($scene,$token){$ch=curl_init('http://127.0.0.1:19874/'.$scene.'api/'.($alias?'app/open_platform/':'app.open_platform.management/').$action.'?tenant_id=1');curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>15,CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_HTTPHEADER=>['token: '.$token,'Content-Type: application/json']]);if($method==='POST')curl_setopt($ch,CURLOPT_POSTFIELDS,'{}');$body=curl_exec($ch);$status=curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);check($status===200&&is_string($body),'Local HTTP route unavailable: '.$scene.'/'.$action.' HTTP '.$status.' '.(is_string($body)&&preg_match('/<h1[^>]*>(.*?)<\/h1>/s',$body,$heading)?mb_substr(strip_tags($heading[1]),0,160):''));return json_decode($body,true,64,JSON_THROW_ON_ERROR);};
   foreach([false,true] as $alias){
@@ -27,6 +28,7 @@ foreach(['platform','tenant'] as $scene){
   foreach(array_merge(['requestDetail','recoveryPreview'],$writes) as $action){$reply=$call($action,in_array($action,$writes,true)?'POST':'GET',$alias);check((int)($reply['code']??-1)===0&&str_contains($reply['msg']??'','权限'),$scene.' unauthorized '.$action.' was not rejected by permission guard');$report['scenarios'][]=['scene'=>$scene,'action'=>$action,'alias'=>$alias,'allowed'=>false,'message'=>$reply['msg']];}
   }
  }finally{
+  if($scene==='platform')Db::name('platform_admin_session')->where('token',$token)->delete();
   $cache->delete($key);$auth->delete($authKey);Db::name($prefix.'system_role_menu')->where(['role_id'=>$roleId,'menu_id'=>$menu['id']])->delete();Db::name($prefix.'admin_role')->where(['admin_id'=>$adminId,'role_id'=>$roleId])->delete();
  }
  check(!Db::name($prefix.'admin_role')->where('admin_id',$adminId)->find()&&!Db::name($prefix.'system_role_menu')->where('role_id',$roleId)->find()&&!$cache->get($key),'Fixture not cleaned');

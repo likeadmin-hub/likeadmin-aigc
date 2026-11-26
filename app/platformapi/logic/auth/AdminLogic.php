@@ -21,9 +21,8 @@ use app\common\model\auth\Admin;
 use app\common\model\auth\AdminDept;
 use app\common\model\auth\AdminJobs;
 use app\common\model\auth\AdminRole;
-use app\common\model\auth\AdminSession;
-use app\common\cache\AdminTokenCache;
 use app\common\service\FileService;
+use app\platformapi\service\AdminTokenService;
 use think\facade\Config;
 use think\facade\Db;
 
@@ -88,6 +87,7 @@ class AdminLogic extends BaseLogic
     {
         Db::startTrans();
         try {
+            Admin::where('id', $params['id'])->lock(true)->findOrFail();
             // 基础信息
             $data = [
                 'name' => $params['name'],
@@ -113,10 +113,7 @@ class AdminLogic extends BaseLogic
             }
 
             if ($params['disable'] == 1 || $editRole) {
-                $tokenArr = AdminSession::where('admin_id', $params['id'])->select()->toArray();
-                foreach ($tokenArr as $token) {
-                    self::expireToken($token['token']);
-                }
+                AdminTokenService::expireAdminSessions((int)$params['id']);
             }
 
             Admin::update($data, ['id' => $params['id']]);
@@ -154,17 +151,14 @@ class AdminLogic extends BaseLogic
     {
         Db::startTrans();
         try {
-            $admin = Admin::findOrEmpty($params['id']);
+            $admin = Admin::where('id', $params['id'])->lock(true)->findOrFail();
             if ($admin->root == YesNoEnum::YES) {
                 throw new \Exception("超级管理员不允许被删除");
             }
             Admin::destroy($params['id']);
 
             //设置token过期
-            $tokenArr = AdminSession::where('admin_id', $params['id'])->select()->toArray();
-            foreach ($tokenArr as $token) {
-                self::expireToken($token['token']);
-            }
+            AdminTokenService::expireAdminSessions((int)$params['id']);
             (new AdminAuthCache($params['id']))->clearAuthCache();
 
             // 删除旧的关联信息
@@ -179,35 +173,6 @@ class AdminLogic extends BaseLogic
             self::setError($e->getMessage());
             return false;
         }
-    }
-
-
-    /**
-     * @notes 过期token
-     * @param $token
-     * @return bool
-     * @throws \think\db\exception\DataNotFoundException
-     * @throws \think\db\exception\DbException
-     * @throws \think\db\exception\ModelNotFoundException
-     * @author 段誉
-     * @date 2021/12/29 10:46
-     */
-    public static function expireToken($token): bool
-    {
-        $adminSession = AdminSession::where('token', '=', $token)
-            ->with('admin')
-            ->find();
-
-        if (empty($adminSession)) {
-            return false;
-        }
-
-        $time = time();
-        $adminSession->expire_time = $time;
-        $adminSession->update_time = $time;
-        $adminSession->save();
-
-        return (new AdminTokenCache())->deleteAdminInfo($token);
     }
 
 

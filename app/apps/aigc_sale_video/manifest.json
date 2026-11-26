@@ -2,7 +2,7 @@
   "code": "aigc_sale_video",
   "name": "带货视频",
   "version": "1.0.0",
-  "require_core": ">=1.0.442",
+  "require_core": ">=1.0.453",
   "description": "用商品图片制作出镜口播视频，支持 UGC 种草和自定义脚本。",
   "changelog": "1. 新增带货视频，支持商品链接导入、UGC 种草、口播脚本帮写和灵感同款。",
   "icon": "resource/image/common/menu_generator.png",
