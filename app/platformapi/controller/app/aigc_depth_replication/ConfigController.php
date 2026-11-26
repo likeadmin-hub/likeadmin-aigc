@@ -20,4 +20,3 @@ class ConfigController extends BaseAdminController
     }
 
 }
-

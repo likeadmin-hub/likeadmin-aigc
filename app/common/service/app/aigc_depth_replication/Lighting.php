@@ -64,4 +64,3 @@ final class Lighting
         return base64_encode($result);
     }
 }
-

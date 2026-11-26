@@ -11,4 +11,3 @@ CREATE TABLE IF NOT EXISTS `la_aigc_depth_replication_job` (
  PRIMARY KEY (`id`), UNIQUE KEY `uk_request` (`tenant_id`,`user_id`,`request_id`),
  KEY `idx_queue` (`status`,`id`), KEY `idx_owner` (`tenant_id`,`user_id`,`id`), KEY `idx_analysis` (`analysis_id`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='深度分析及白模导出任务';
-

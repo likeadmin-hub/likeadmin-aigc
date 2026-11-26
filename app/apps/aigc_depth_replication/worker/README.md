@@ -15,4 +15,3 @@ echo '13379300b739e659f076a59d52e9801bd8d38c541a7e71f73bbca4dcfb013609  /opt/lik
 ```
 
 `DEPTH_MODEL_HOME` 可指定包含 `model/`、`small.pth` 和 `venv/` 的目录，`DEPTH_PYTHON` 可单独指定解释器。模型加载时只读取本地权重。安装应用后由项目的 AI worker 入口启动消费者。PHP-FPM 与消费者应共享 `runtime/depth_replication/` 并具有缓存读权限。例如在 Linux 上预建该目录，指定 PHP-FPM 的组，目录模式设为 `2770`。分析缓存保留七天，导出文件由租户素材存储管理。
-

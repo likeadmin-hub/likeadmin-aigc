@@ -18,7 +18,7 @@ def probe(path, frames=False):
     args = [os.getenv('FFPROBE_BINARY', 'ffprobe'), '-v', 'error', '-protocol_whitelist', 'file,pipe', '-show_streams', '-show_format']
     if frames:
         args += ['-select_streams', 'v:0', '-show_frames', '-show_entries',
-                 'stream:stream_side_data:format:frame=best_effort_timestamp,pkt_duration']
+                 'stream:stream_side_data:format:frame=best_effort_timestamp,duration,pkt_duration']
     return json.loads(subprocess.check_output(args + ['-of', 'json', str(path)]))
 
 
@@ -39,7 +39,7 @@ def layout(source):
     if not 1 <= len(pts) <= 900 or any(b <= a for a, b in zip(pts, pts[1:])):
         raise ValueError('视频时间轴无效或超过 900 帧')
     durations = [b-a for a, b in zip(pts, pts[1:])]
-    durations.append(int(index[-1].get('pkt_duration') or (durations[-1] if durations else 1)))
+    durations.append(int(index[-1].get('duration') or index[-1].get('pkt_duration') or (durations[-1] if durations else 1)))
     tb = Fraction(stream['time_base'])
     scale = min(1, 448 / max(w, h))
     audio = [s for s in info['streams'] if s['codec_type'] == 'audio']
@@ -193,4 +193,3 @@ if __name__ == '__main__':
         analyze(args.source,args.cache)
     else:
         print(json.dumps(render(args.source,args.cache,json.loads(args.tables.read_text()),args.output)))
-

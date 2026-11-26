@@ -25,4 +25,3 @@ final class DepthReplicationWorkerCommand extends Command
         return 0;
     }
 }
-

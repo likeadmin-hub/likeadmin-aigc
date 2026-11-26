@@ -116,4 +116,3 @@ final class DepthWorker
         return (string)file_get_contents($dir.'/report');
     }
 }
-

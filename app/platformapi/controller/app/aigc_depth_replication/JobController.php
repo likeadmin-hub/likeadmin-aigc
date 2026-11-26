@@ -14,4 +14,3 @@ class JobController extends BaseAdminController
     }
 
 }
-

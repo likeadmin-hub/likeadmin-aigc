@@ -134,4 +134,3 @@ final class DepthJobs
         return ['lists'=>array_map([self::class,'dto'],array_slice($rows,0,20)), 'more'=>count($rows)>20];
     }
 }
-
